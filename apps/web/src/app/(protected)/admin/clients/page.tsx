@@ -43,6 +43,18 @@ export default function AdminClientsPage() {
       header: 'Actions',
       cell: (row) => (
         <div className="flex min-w-[200px] flex-wrap items-center justify-end gap-2">
+          <Link
+            href={`/admin/clients/${row.id}/subscriptions`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Abonnements
+          </Link>
+          <Link
+            href={`/admin/clients/${row.id}/licenses`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Licences
+          </Link>
           <MigrateClientProcurementS3Dialog client={row} />
           <EditClientDialog client={row} />
         </div>

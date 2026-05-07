@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   auditLogActionWhere,
@@ -54,9 +55,17 @@ export class AuditLogsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(input: CreateAuditLogInput): Promise<void> {
+  /**
+   * Écrit un AuditLog. Si `tx` est fourni (mutation critique transactionnelle),
+   * les erreurs sont propagées pour rollback. Hors transaction, erreurs loguées uniquement.
+   */
+  async create(
+    input: CreateAuditLogInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const db = (tx ?? this.prisma) as any;
     try {
-      await (this.prisma as any).auditLog.create({
+      await db.auditLog.create({
         data: {
           clientId: input.clientId,
           userId: input.userId ?? null,
@@ -71,6 +80,9 @@ export class AuditLogsService {
         },
       });
     } catch (error) {
+      if (tx) {
+        throw error;
+      }
       this.logger.error(
         `Failed to write audit log "${input.action}" for client "${input.clientId}": ${
           (error as Error)?.message ?? error

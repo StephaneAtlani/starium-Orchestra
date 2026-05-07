@@ -378,4 +378,35 @@ describe('AccessControlService', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('filterReadableResourceIds filtre en batch sans N+1', async () => {
+    prisma.accessGroupMember.findMany.mockResolvedValue([{ groupId: 'g-1' }]);
+    prisma.resourceAcl.findMany.mockResolvedValue([
+      {
+        resourceId: RID_PROJECT,
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.READ,
+      },
+      {
+        resourceId: RID_OTHER,
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: 'another-user',
+        permission: ResourceAclPermission.ADMIN,
+      },
+    ]);
+
+    const readable = await service.filterReadableResourceIds({
+      clientId,
+      userId,
+      resourceTypeNormalized: 'PROJECT',
+      resourceIds: [RID_PROJECT, RID_OTHER],
+      operation: 'read',
+    });
+
+    expect(readable).toEqual([RID_PROJECT]);
+    expect(prisma.accessGroupMember.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.resourceAcl.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.resourceAcl.count).not.toHaveBeenCalled();
+  });
 });

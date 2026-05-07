@@ -4,6 +4,10 @@ import {
   ClientUserLicenseType,
   ClientUserStatus,
 } from '@prisma/client';
+import {
+  AUDIT_RESOURCE_TYPE_CLIENT_USER_LICENSE,
+  CLIENT_USER_LICENSE_ACTION,
+} from '../audit-logs/acl-audit-actions';
 import { LicenseService } from './license.service';
 
 describe('LicenseService', () => {
@@ -11,13 +15,24 @@ describe('LicenseService', () => {
   const userId = 'user-1';
   let service: LicenseService;
   let prisma: any;
+  let auditLogs: { create: jest.Mock };
 
   beforeEach(() => {
+    auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     prisma = {
+      $transaction: jest.fn(async (fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          clientUser: {
+            findFirst: (...a: unknown[]) => prisma.clientUser.findFirst(...a),
+            update: (...a: unknown[]) => prisma.clientUser.update(...a),
+          },
+        }),
+      ),
       clientUser: {
         count: jest.fn(),
         groupBy: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
       },
       clientSubscription: {
@@ -25,7 +40,7 @@ describe('LicenseService', () => {
         findUnique: jest.fn(),
       },
     };
-    service = new LicenseService(prisma);
+    service = new LicenseService(prisma, auditLogs as any);
   });
 
   const mockMembership = (overrides: Record<string, unknown> = {}) => ({
@@ -38,12 +53,15 @@ describe('LicenseService', () => {
     subscriptionId: null,
     licenseAssignmentReason: null,
     licenseEndsAt: null,
+    licenseStartsAt: null,
     ...overrides,
   });
 
   it('autorise READ_ONLY + NON_BILLABLE sans motif (compat backfill ACL-001)', async () => {
-    prisma.clientUser.findUnique.mockResolvedValue(mockMembership());
-    prisma.clientUser.update.mockResolvedValue({ id: 'cu-1' });
+    const mem = mockMembership();
+    prisma.clientUser.findUnique.mockResolvedValue(mem);
+    prisma.clientUser.findFirst.mockResolvedValue(mem);
+    prisma.clientUser.update.mockResolvedValue(mem);
 
     await service.assignByPlatform('platform-admin', clientId, userId, {
       licenseType: ClientUserLicenseType.READ_ONLY,
@@ -61,6 +79,65 @@ describe('LicenseService', () => {
         }),
       }),
     );
+    expect(auditLogs.create).toHaveBeenCalledTimes(1);
+    expect(auditLogs.create.mock.calls[0][1]).toBeDefined();
+  });
+
+  it('émèt une seule action canonique et resourceType/resourceId stables', async () => {
+    const beforeMem = mockMembership({
+      licenseType: ClientUserLicenseType.READ_WRITE,
+      licenseBillingMode: ClientUserLicenseBillingMode.CLIENT_BILLABLE,
+      subscriptionId: 'sub-1',
+    });
+    prisma.clientUser.findUnique.mockResolvedValue(beforeMem);
+    prisma.clientUser.findFirst.mockResolvedValue(beforeMem);
+    prisma.clientUser.update.mockResolvedValue({
+      ...beforeMem,
+      licenseBillingMode: ClientUserLicenseBillingMode.EVALUATION,
+      subscriptionId: null,
+      licenseAssignmentReason: 'test produit',
+      licenseEndsAt: new Date(Date.now() + 86_400_000),
+    });
+
+    await service.assignByPlatform('platform-admin', clientId, userId, {
+      licenseType: ClientUserLicenseType.READ_WRITE,
+      licenseBillingMode: ClientUserLicenseBillingMode.EVALUATION,
+      licenseAssignmentReason: 'test produit',
+      licenseEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+
+    expect(auditLogs.create).toHaveBeenCalledTimes(1);
+    const input = auditLogs.create.mock.calls[0][0];
+    expect(input.action).toBe(CLIENT_USER_LICENSE_ACTION.EVALUATION_GRANTED);
+    expect(input.resourceType).toBe(AUDIT_RESOURCE_TYPE_CLIENT_USER_LICENSE);
+    expect(input.resourceId).toBe('cu-1');
+    expect(input.oldValue).toMatchObject({
+      assignment: expect.any(Object),
+      meta: expect.objectContaining({ targetUserId: userId }),
+    });
+    expect(input.newValue).toMatchObject({
+      assignment: expect.any(Object),
+      meta: expect.objectContaining({ targetUserId: userId }),
+    });
+  });
+
+  it('propage l’échec audit (rollback transactionnel côté API)', async () => {
+    const mem = mockMembership();
+    prisma.clientUser.findUnique.mockResolvedValue(mem);
+    prisma.clientUser.findFirst.mockResolvedValue(mem);
+    prisma.clientUser.update.mockResolvedValue(mem);
+    auditLogs.create.mockRejectedValueOnce(new Error('audit indisponible'));
+
+    await expect(
+      service.assignByPlatform('platform-admin', clientId, userId, {
+        licenseType: ClientUserLicenseType.READ_ONLY,
+        licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+        licenseAssignmentReason: null,
+      }),
+    ).rejects.toThrow('audit indisponible');
+
+    expect(prisma.clientUser.update).toHaveBeenCalled();
+    expect(auditLogs.create).toHaveBeenCalled();
   });
 
   it('refuse READ_WRITE + NON_BILLABLE sans motif', async () => {
@@ -72,6 +149,8 @@ describe('LicenseService', () => {
         licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('refuse READ_WRITE + CLIENT_BILLABLE sans subscriptionId', async () => {
@@ -154,8 +233,15 @@ describe('LicenseService', () => {
   });
 
   it('EXTERNAL_BILLABLE ne consomme pas de siège client', async () => {
-    prisma.clientUser.findUnique.mockResolvedValue(mockMembership());
-    prisma.clientUser.update.mockResolvedValue({ id: 'cu-1' });
+    const mem = mockMembership();
+    prisma.clientUser.findUnique.mockResolvedValue(mem);
+    prisma.clientUser.findFirst.mockResolvedValue(mem);
+    prisma.clientUser.update.mockResolvedValue({
+      ...mem,
+      licenseType: ClientUserLicenseType.READ_WRITE,
+      licenseBillingMode: ClientUserLicenseBillingMode.EXTERNAL_BILLABLE,
+      licenseAssignmentReason: 'consultant externe',
+    });
 
     await service.assignByPlatform('platform-admin', clientId, userId, {
       licenseType: ClientUserLicenseType.READ_WRITE,
@@ -169,6 +255,13 @@ describe('LicenseService', () => {
 
   it('conversion CLIENT_BILLABLE -> mode spécial remet subscriptionId à null', async () => {
     prisma.clientUser.findUnique.mockResolvedValue(
+      mockMembership({
+        licenseType: ClientUserLicenseType.READ_WRITE,
+        licenseBillingMode: ClientUserLicenseBillingMode.CLIENT_BILLABLE,
+        subscriptionId: 'sub-1',
+      }),
+    );
+    prisma.clientUser.findFirst.mockResolvedValue(
       mockMembership({
         licenseType: ClientUserLicenseType.READ_WRITE,
         licenseBillingMode: ClientUserLicenseBillingMode.CLIENT_BILLABLE,
@@ -193,8 +286,14 @@ describe('LicenseService', () => {
   });
 
   it('auto-génère licenseEndsAt pour EVALUATION sans date', async () => {
-    prisma.clientUser.findUnique.mockResolvedValue(mockMembership());
-    prisma.clientUser.update.mockResolvedValue({ id: 'cu-1' });
+    const mem = mockMembership();
+    prisma.clientUser.findUnique.mockResolvedValue(mem);
+    prisma.clientUser.findFirst.mockResolvedValue(mem);
+    prisma.clientUser.update.mockImplementation(async (args: any) => ({
+      ...mem,
+      ...args.data,
+      licenseEndsAt: args.data.licenseEndsAt,
+    }));
 
     await service.assignByPlatform('platform-admin', clientId, userId, {
       licenseType: ClientUserLicenseType.READ_WRITE,

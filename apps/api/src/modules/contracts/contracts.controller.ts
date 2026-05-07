@@ -34,8 +34,9 @@ export class ContractsController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListContractsQueryDto,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.contracts.list(clientId!, query);
+    return this.contracts.list(clientId!, query, userId);
   }
 
   /** Fournisseurs du client pour sélecteur contrat (sans exiger procurement.read). */
@@ -62,8 +63,9 @@ export class ContractsController {
   getOne(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.contracts.getById(clientId!, id);
+    return this.contracts.getById(clientId!, id, userId);
   }
 
   @Post()

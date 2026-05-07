@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table';
 import { useAccessGroups } from '@/features/access-groups/hooks/use-access-groups';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { useModuleVisibilityMatrix } from '../hooks/use-module-visibility-matrix';
 import { useRemoveModuleVisibility } from '../hooks/use-remove-module-visibility';
 import { useSetModuleVisibility } from '../hooks/use-set-module-visibility';
@@ -51,6 +52,7 @@ function memberLabel(m: {
 export function ModuleVisibilityAdminPage() {
   const formId = useId();
   const { data: matrix, isLoading, isError, error } = useModuleVisibilityMatrix();
+  const { activeClient } = useActiveClient();
   const { data: groups } = useAccessGroups();
   const { data: members } = useClientMembers();
   const setVis = useSetModuleVisibility();
@@ -62,6 +64,7 @@ export function ModuleVisibilityAdminPage() {
   const [scopeGroupId, setScopeGroupId] = useState<string>('');
   const [scopeUserId, setScopeUserId] = useState<string>('');
   const [visibility, setVisibility] = useState<ModuleVisibilityState>('HIDDEN');
+  const canWrite = activeClient?.role === 'CLIENT_ADMIN';
 
   const activeMembers = useMemo(
     () => (members ?? []).filter((m) => m.status === 'ACTIVE'),
@@ -117,8 +120,13 @@ export function ModuleVisibilityAdminPage() {
         title="Visibilité des modules"
         description="Masquer ou afficher des modules activés par la plateforme, par défaut client, groupe ou utilisateur (RFC-ACL-004)."
       />
+      <p className="mb-3 text-xs text-muted-foreground">
+        Dépendance RBAC : aucun code permission dédié `module-visibility` exposé côté
+        API ; l&apos;UI applique donc un verrouillage en écriture basé sur le rôle
+        `CLIENT_ADMIN`, le backend restant source de vérité.
+      </p>
       <div className="mb-4 flex justify-end">
-        <Button type="button" onClick={openDialog}>
+        <Button type="button" onClick={openDialog} disabled={!canWrite}>
           Ajouter une règle
         </Button>
       </div>
@@ -174,7 +182,7 @@ export function ModuleVisibilityAdminPage() {
                             variant="ghost"
                             size="sm"
                             className="shrink-0 text-destructive"
-                            disabled={removeVis.isPending}
+                            disabled={removeVis.isPending || !canWrite}
                             onClick={() =>
                               removeVis.mutate({
                                 moduleCode: row.moduleCode,
@@ -322,7 +330,7 @@ export function ModuleVisibilityAdminPage() {
             >
               Annuler
             </Button>
-            <Button type="submit" form={formId} disabled={setVis.isPending}>
+            <Button type="submit" form={formId} disabled={setVis.isPending || !canWrite}>
               Enregistrer
             </Button>
           </DialogFooter>

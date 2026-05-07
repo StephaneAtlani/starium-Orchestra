@@ -38,8 +38,9 @@ export class BudgetsController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListBudgetsQueryDto,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.list(clientId!, query);
+    return this.service.list(clientId!, query, userId);
   }
 
   /** RFC-032 — doit rester avant `GET :id` pour ne pas capturer `decision-history` comme id. */
@@ -58,8 +59,9 @@ export class BudgetsController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.getById(clientId!, id);
+    return this.service.getById(clientId!, id, userId);
   }
 
   @Patch('bulk-status')

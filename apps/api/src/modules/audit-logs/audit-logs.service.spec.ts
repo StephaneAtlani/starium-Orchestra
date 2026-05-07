@@ -69,6 +69,51 @@ describe('AuditLogsService', () => {
     );
   });
 
+  it('create avec tx propage l’erreur (rollback transactionnel)', async () => {
+    const auditCreate = jest.fn().mockRejectedValue(new Error('audit fail'));
+    const prisma = {
+      auditLog: {
+        create: auditCreate,
+      },
+    };
+    const service = new AuditLogsService(prisma as any);
+
+    await expect(
+      service.create({ clientId: 'c1', action: 'x', resourceType: 'y' } as any, prisma as any),
+    ).rejects.toThrow('audit fail');
+  });
+
+  it('create sans tx avale l’erreur (pas de throw)', async () => {
+    const auditCreate = jest.fn().mockRejectedValue(new Error('audit fail'));
+    const prisma = {
+      auditLog: {
+        create: auditCreate,
+      },
+    };
+    const service = new AuditLogsService(prisma as any);
+
+    await expect(
+      service.create({ clientId: 'c1', action: 'x', resourceType: 'y' } as any),
+    ).resolves.toBeUndefined();
+  });
+
+  it('listForClient combine licence canonique + legacy (evaluation_granted)', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { auditLog: { findMany } };
+    const service = new AuditLogsService(prisma as any);
+
+    await service.listForClient({
+      clientId: 'c1',
+      query: {
+        action: 'client_user.license.evaluation_granted',
+      } as any,
+    });
+
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.where.action.in).toContain('evaluation_granted');
+    expect(arg.where.action.in).toContain('client_user.license.evaluation_granted');
+  });
+
   it('listForPlatform propage resourceId et alias resourceType', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { auditLog: { findMany } };

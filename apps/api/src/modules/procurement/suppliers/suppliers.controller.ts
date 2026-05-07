@@ -39,8 +39,9 @@ export class SuppliersController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListSuppliersQueryDto,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.suppliers.list(clientId!, query);
+    return this.suppliers.list(clientId!, query, userId);
   }
 
   @Get('dashboard')
@@ -54,8 +55,9 @@ export class SuppliersController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.suppliers.findById(clientId!, id);
+    return this.suppliers.findById(clientId!, id, userId);
   }
 
   @Post()
@@ -97,8 +99,9 @@ export class SuppliersController {
   getLogo(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.suppliers.getLogoFile(clientId!, id);
+    return this.suppliers.getLogoFile(clientId!, id, userId);
   }
 
   @Post(':id/logo')

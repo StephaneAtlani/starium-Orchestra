@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   Injectable,
   NotFoundException,
@@ -21,6 +22,8 @@ import {
   MAX_SUPPLIER_LOGO_BYTES,
 } from './suppliers-logo.constants';
 import { SuppliersLogoStorageService } from './suppliers-logo.storage';
+import { AccessControlService } from '../../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
 
 export interface ProcurementAuditContext {
   actorUserId?: string;
@@ -78,7 +81,46 @@ export class SuppliersService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly logoStorage: SuppliersLogoStorageService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      canAdminResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  private async assertCanReadSupplier(clientId: string, userId: string, supplierId: string) {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+      resourceId: supplierId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanWriteSupplier(clientId: string, userId: string, supplierId: string) {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+      resourceId: supplierId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanAdminSupplier(clientId: string, userId: string, supplierId: string) {
+    const allowed = await this.accessControl.canAdminResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+      resourceId: supplierId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
 
   async getDashboardStats(clientId: string): Promise<SuppliersDashboardStats> {
     const prisma = this.prisma as any;
@@ -114,6 +156,7 @@ export class SuppliersService {
   async list(
     clientId: string,
     query: ListSuppliersQueryDto,
+    userId?: string,
   ): Promise<ListSuppliersResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -130,20 +173,38 @@ export class SuppliersService {
 
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
-    const [items, total] = await Promise.all([
-      supplierRepo.findMany({
-        where,
-        include: {
-          supplierCategory: true,
-        },
-        orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
-        take: limit,
-        skip: offset,
-      }),
-      supplierRepo.count({ where }),
-    ]);
+    const orderedIds = await supplierRepo.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
+      select: { id: true },
+    });
+    const readableIds = userId
+      ? await this.accessControl.filterReadableResourceIds({
+          clientId,
+          userId,
+          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+          resourceIds: orderedIds.map((row: { id: string }) => row.id),
+          operation: 'read',
+        })
+      : orderedIds.map((row: { id: string }) => row.id);
+    const total = readableIds.length;
+    const pagedIds = readableIds.slice(offset, offset + limit);
+    const items =
+      pagedIds.length === 0
+        ? []
+        : await supplierRepo.findMany({
+            where: { clientId, id: { in: pagedIds } },
+            include: { supplierCategory: true },
+          });
+    const byId = new Map(items.map((item: (typeof items)[number]) => [item.id, item]));
+    const orderedItems = pagedIds
+      .map((id: string) => byId.get(id))
+      .filter(
+        (item: (typeof items)[number] | undefined): item is (typeof items)[number] =>
+          Boolean(item),
+      );
 
-    return { items: items.map(toSupplierResponse), total, limit, offset };
+    return { items: orderedItems.map(toSupplierResponse), total, limit, offset };
   }
 
   async create(
@@ -301,6 +362,9 @@ export class SuppliersService {
     if (!existing) {
       throw new NotFoundException('Supplier not found');
     }
+    if (context?.actorUserId) {
+      await this.assertCanWriteSupplier(clientId, context.actorUserId, id);
+    }
     if (existing.status === 'ARCHIVED') {
       throw new BadRequestException('Cannot update an archived supplier');
     }
@@ -427,6 +491,9 @@ export class SuppliersService {
     if (!existing) {
       throw new NotFoundException('Supplier not found');
     }
+    if (context?.actorUserId) {
+      await this.assertCanAdminSupplier(clientId, context.actorUserId, id);
+    }
     if (existing.status === 'ARCHIVED') {
       return toSupplierResponse(existing);
     }
@@ -478,6 +545,9 @@ export class SuppliersService {
     if (!existing) {
       throw new NotFoundException('Supplier not found');
     }
+    if (context?.actorUserId) {
+      await this.assertCanWriteSupplier(clientId, context.actorUserId, supplierId);
+    }
 
     await this.logoStorage.write(clientId, supplierId, file.buffer);
     const logoUrl = `/api/suppliers/${supplierId}/logo`;
@@ -514,6 +584,9 @@ export class SuppliersService {
     if (!existing) {
       throw new NotFoundException('Supplier not found');
     }
+    if (context?.actorUserId) {
+      await this.assertCanAdminSupplier(clientId, context.actorUserId, supplierId);
+    }
 
     await this.logoStorage.remove(clientId, supplierId);
     await supplierRepo.update({
@@ -537,7 +610,14 @@ export class SuppliersService {
     return { success: true };
   }
 
-  async getLogoFile(clientId: string, supplierId: string): Promise<StreamableFile> {
+  async getLogoFile(
+    clientId: string,
+    supplierId: string,
+    userId?: string,
+  ): Promise<StreamableFile> {
+    if (userId) {
+      await this.assertCanReadSupplier(clientId, userId, supplierId);
+    }
     const supplierRepo = this.getSupplierRepo(this.prisma as any);
     const existing = await supplierRepo.findFirst({
       where: { id: supplierId, clientId },
@@ -553,12 +633,15 @@ export class SuppliersService {
     return new StreamableFile(stream, { type: existing.logoMimeType });
   }
 
-  async findById(clientId: string, id: string): Promise<SupplierResponse> {
+  async findById(clientId: string, id: string, userId?: string): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
     const row = await supplierRepo.findFirst({ where: { id, clientId } });
     if (!row) {
       throw new NotFoundException('Supplier not found');
+    }
+    if (userId) {
+      await this.assertCanReadSupplier(clientId, userId, id);
     }
     return toSupplierResponse(row);
   }

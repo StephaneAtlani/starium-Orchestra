@@ -7,6 +7,7 @@ import { BUDGET_PLANNING_AUDIT_ACTION_VARIANTS } from './budget-planning-audit-a
 
 /** resourceType RFC → variantes persistées (snake_case + PascalCase legacy) */
 const RESOURCE_TYPE_VARIANTS: Record<string, string[]> = {
+  client_user_license: ['client_user_license'],
   project: ['project', 'Project'],
   Project: ['project', 'Project'],
   project_task: ['project_task', 'ProjectTask'],
@@ -53,6 +54,32 @@ const ACTION_VARIANTS: Record<string, string[]> = {
   'project_milestone.delete': ['project_milestone.deleted', 'project_milestone.delete'],
 
   ...BUDGET_PLANNING_AUDIT_ACTION_VARIANTS,
+
+  /* RFC-ACL-008 — écriture canonique vs actions courtes historiques (lecture seule) */
+  'client_user.license.evaluation_granted': [
+    'client_user.license.evaluation_granted',
+    'evaluation_granted',
+  ],
+  'evaluation_granted': [
+    'client_user.license.evaluation_granted',
+    'evaluation_granted',
+  ],
+  'client_user.license.support_access_granted': [
+    'client_user.license.support_access_granted',
+    'support_access_granted',
+  ],
+  'support_access_granted': [
+    'client_user.license.support_access_granted',
+    'support_access_granted',
+  ],
+  'client_user.license.billing_mode_changed': [
+    'client_user.license.billing_mode_changed',
+    'billing_mode_changed',
+  ],
+  'billing_mode_changed': [
+    'client_user.license.billing_mode_changed',
+    'billing_mode_changed',
+  ],
 };
 
 export function auditLogResourceTypeWhere(

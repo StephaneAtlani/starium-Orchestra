@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,8 +28,10 @@ export class ProjectDocumentsService {
     private readonly projects: ProjectsService,
   ) {}
 
-  async list(clientId: string, projectId: string) {
+  async list(clientId: string, projectId: string, userId?: string) {
+    if (!userId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanReadProject(clientId, userId, projectId);
     return this.prisma.projectDocument.findMany({
       where: {
         clientId,
@@ -39,8 +42,10 @@ export class ProjectDocumentsService {
     });
   }
 
-  async getOne(clientId: string, projectId: string, documentId: string) {
+  async getOne(clientId: string, projectId: string, documentId: string, userId?: string) {
+    if (!userId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanReadProject(clientId, userId, projectId);
     const doc = await this.prisma.projectDocument.findFirst({
       where: {
         id: documentId,
@@ -59,7 +64,9 @@ export class ProjectDocumentsService {
     dto: CreateProjectDocumentDto,
     context?: AuditContext,
   ) {
+    if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
 
     if (dto.storageType !== 'STARIUM' && dto.storageType !== 'EXTERNAL') {
       throw new BadRequestException('Unsupported storageType for MVP');
@@ -113,7 +120,9 @@ export class ProjectDocumentsService {
     dto: UpdateProjectDocumentDto,
     context?: AuditContext,
   ) {
+    if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: {
         id: documentId,
@@ -167,7 +176,9 @@ export class ProjectDocumentsService {
     documentId: string,
     context?: AuditContext,
   ) {
+    if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanAdminProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: { id: documentId, clientId, projectId, status: { not: 'DELETED' } },
     });
@@ -202,7 +213,9 @@ export class ProjectDocumentsService {
     documentId: string,
     context?: AuditContext,
   ) {
+    if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanAdminProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: { id: documentId, clientId, projectId },
     });

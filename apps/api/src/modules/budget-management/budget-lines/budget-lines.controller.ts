@@ -33,8 +33,9 @@ export class BudgetLinesController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListBudgetLinesQueryDto,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.list(clientId!, query);
+    return this.service.list(clientId!, query, userId);
   }
 
   @Get(':id')
@@ -42,8 +43,9 @@ export class BudgetLinesController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.getById(clientId!, id);
+    return this.service.getById(clientId!, id, userId);
   }
 
   @Patch('bulk-status')

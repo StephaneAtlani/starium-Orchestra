@@ -240,8 +240,9 @@ export class ProjectsController {
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.projectsService.getById(clientId!, id);
+    return this.projectsService.getById(clientId!, id, userId);
   }
 
   @Patch(':id')

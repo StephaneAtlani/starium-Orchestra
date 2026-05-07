@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -41,6 +42,8 @@ import { ProjectTeamService } from './project-team.service';
 import type { ComputedHealth } from './projects.types';
 import { normalizeSearchText } from '../search/search-normalize.util';
 import { buildProjectSearchText } from '../search/search-text-build.util';
+import { AccessControlService } from '../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 
 const projectIncludeList = {
   tasks: true,
@@ -169,7 +172,52 @@ export class ProjectsService {
     private readonly auditLogs: AuditLogsService,
     private readonly pilotage: ProjectsPilotageService,
     private readonly projectTeam: ProjectTeamService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      canAdminResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  async assertCanReadProject(clientId: string, userId: string, projectId: string): Promise<void> {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+      resourceId: projectId,
+    });
+    if (!allowed) {
+      throw new ForbiddenException('Accès refusé par ACL ressource');
+    }
+  }
+
+  async assertCanWriteProject(clientId: string, userId: string, projectId: string): Promise<void> {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+      resourceId: projectId,
+    });
+    if (!allowed) {
+      throw new ForbiddenException('Accès refusé par ACL ressource');
+    }
+  }
+
+  async assertCanAdminProject(clientId: string, userId: string, projectId: string): Promise<void> {
+    const allowed = await this.accessControl.canAdminResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+      resourceId: projectId,
+    });
+    if (!allowed) {
+      throw new ForbiddenException('Accès refusé par ACL ressource');
+    }
+  }
 
   private ownerDisplayName(owner: {
     firstName: string | null;
@@ -644,10 +692,22 @@ export class ProjectsService {
       where.AND = andFilters;
     }
 
-    const rows = await this.prisma.project.findMany({
+    let rows = await this.prisma.project.findMany({
       where,
       include: projectIncludeList,
     });
+
+    if (userId) {
+      const readableProjectIds = await this.accessControl.filterReadableResourceIds({
+        clientId,
+        userId,
+        resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+        resourceIds: rows.map((row) => row.id),
+        operation: 'read',
+      });
+      const readableSet = new Set(readableProjectIds);
+      rows = rows.filter((row) => readableSet.has(row.id));
+    }
 
     const me = userId
       ? await this.prisma.user.findUnique({
@@ -914,6 +974,7 @@ export class ProjectsService {
   async getById(
     clientId: string,
     id: string,
+    userId?: string,
   ): Promise<ProjectDetailDto> {
     const project = await this.prisma.project.findFirst({
       where: { id, clientId },
@@ -921,6 +982,9 @@ export class ProjectsService {
     });
     if (!project) {
       throw new NotFoundException('Project not found');
+    }
+    if (userId) {
+      await this.assertCanReadProject(clientId, userId, id);
     }
     const base = this.toListItem(project as any);
     return {
@@ -1060,7 +1124,7 @@ export class ProjectsService {
       });
     }
 
-    return this.getById(clientId, created.id);
+    return this.getById(clientId, created.id, context?.actorUserId);
   }
 
   async update(
@@ -1075,6 +1139,10 @@ export class ProjectsService {
     if (!existing) {
       throw new NotFoundException('Project not found');
     }
+    if (!context?.actorUserId) {
+      throw new ForbiddenException('Contexte utilisateur manquant');
+    }
+    await this.assertCanWriteProject(clientId, context.actorUserId, id);
 
     if (dto.code !== undefined && dto.code.trim() !== existing.code) {
       const clash = await this.prisma.project.findUnique({
@@ -1240,7 +1308,7 @@ export class ProjectsService {
       );
     }
 
-    return this.getById(clientId, id);
+    return this.getById(clientId, id, context.actorUserId);
   }
 
   async delete(clientId: string, id: string, context?: AuditContext) {
@@ -1250,6 +1318,10 @@ export class ProjectsService {
     if (!existing) {
       throw new NotFoundException('Project not found');
     }
+    if (!context?.actorUserId) {
+      throw new ForbiddenException('Contexte utilisateur manquant');
+    }
+    await this.assertCanAdminProject(clientId, context.actorUserId, id);
 
     await this.prisma.project.delete({ where: { id } });
 

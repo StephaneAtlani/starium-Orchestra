@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -38,6 +39,8 @@ import { normalizeSearchText } from '../../search/search-normalize.util';
 import { buildBudgetSearchText } from '../../search/search-text-build.util';
 import { BudgetEnvelopesService } from '../budget-envelopes/budget-envelopes.service';
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
+import { AccessControlService } from '../../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
 
 @Injectable()
 export class BudgetsService {
@@ -50,11 +53,40 @@ export class BudgetsService {
     private readonly budgetSnapshots: BudgetSnapshotsService,
     private readonly budgetEnvelopes: BudgetEnvelopesService,
     private readonly budgetLines: BudgetLinesService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  private async assertCanReadBudget(clientId: string, userId: string, budgetId: string) {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+      resourceId: budgetId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanWriteBudget(clientId: string, userId: string, budgetId: string) {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+      resourceId: budgetId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
 
   async list(
     clientId: string,
     query: ListBudgetsQueryDto,
+    userId?: string,
   ): Promise<ListResult<BudgetWithNumbers>> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -76,29 +108,49 @@ export class BudgetsService {
       ];
     }
 
-    const [items, total] = await Promise.all([
-      this.prisma.budget.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: offset,
-        take: limit,
-        include: {
-          exercise: { select: { name: true, code: true } },
-          owner: { select: { firstName: true, lastName: true, email: true } },
-        },
-      }),
-      this.prisma.budget.count({ where }),
-    ]);
+    const rows = await this.prisma.budget.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    const readableBudgetIds = userId
+      ? await this.accessControl.filterReadableResourceIds({
+          clientId,
+          userId,
+          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+          resourceIds: rows.map((row) => row.id),
+          operation: 'read',
+        })
+      : rows.map((row) => row.id);
+    const total = readableBudgetIds.length;
+    const pagedIds = readableBudgetIds.slice(offset, offset + limit);
+    const items =
+      pagedIds.length === 0
+        ? []
+        : await this.prisma.budget.findMany({
+            where: { clientId, id: { in: pagedIds } },
+            include: {
+              exercise: { select: { name: true, code: true } },
+              owner: { select: { firstName: true, lastName: true, email: true } },
+            },
+          });
+    const byId = new Map(items.map((item) => [item.id, item]));
+
+    const orderedItems: BudgetWithNumbers[] = [];
+    for (const id of pagedIds) {
+      const item = byId.get(id);
+      if (item) orderedItems.push(toResponse(item));
+    }
 
     return {
-      items: items.map(toResponse),
+      items: orderedItems,
       total,
       limit,
       offset,
     };
   }
 
-  async getById(clientId: string, id: string): Promise<BudgetWithNumbers> {
+  async getById(clientId: string, id: string, userId?: string): Promise<BudgetWithNumbers> {
     const budget = await this.prisma.budget.findFirst({
       where: { id, clientId },
       include: {
@@ -108,6 +160,9 @@ export class BudgetsService {
     });
     if (!budget) {
       throw new NotFoundException('Budget not found');
+    }
+    if (userId) {
+      await this.assertCanReadBudget(clientId, userId, id);
     }
     const [
       draftEnvelopeCount,
@@ -252,6 +307,9 @@ export class BudgetsService {
     });
     if (!existing) {
       throw new NotFoundException('Budget not found');
+    }
+    if (context?.actorUserId) {
+      await this.assertCanWriteBudget(clientId, context.actorUserId, id);
     }
     if (
       existing.status === BudgetStatus.LOCKED ||

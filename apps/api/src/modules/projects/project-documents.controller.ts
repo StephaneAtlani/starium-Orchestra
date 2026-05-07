@@ -31,8 +31,9 @@ export class ProjectDocumentsController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.documents.list(clientId!, projectId);
+    return this.documents.list(clientId!, projectId, userId);
   }
 
   @Get(':documentId')
@@ -41,8 +42,9 @@ export class ProjectDocumentsController {
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('documentId') documentId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.documents.getOne(clientId!, projectId, documentId);
+    return this.documents.getOne(clientId!, projectId, documentId, userId);
   }
 
   @Post()

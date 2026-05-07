@@ -9,9 +9,16 @@ import { ContractsService } from './contracts.service';
 import { ContractAttachmentsController } from './contract-attachments.controller';
 import { ContractAttachmentsService } from './contract-attachments.service';
 import { ContractKindTypesService } from './contract-kind-types.service';
+import { AccessControlModule } from '../access-control/access-control.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, ProcurementModule, PlatformUploadModule],
+  imports: [
+    PrismaModule,
+    AuditLogsModule,
+    ProcurementModule,
+    PlatformUploadModule,
+    AccessControlModule,
+  ],
   controllers: [
     ContractsController,
     ContractKindTypesController,

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -34,6 +35,8 @@ import { UpdateStrategicAxisDto } from './dto/update-strategic-axis.dto';
 import { UpdateStrategicLinkDto } from './dto/update-strategic-link.dto';
 import { UpdateStrategicObjectiveDto } from './dto/update-strategic-objective.dto';
 import { UpdateStrategicVisionDto } from './dto/update-strategic-vision.dto';
+import { AccessControlService } from '../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 
 const SUPPORTED_LINK_TYPES_V1: readonly StrategicLinkType[] = [
   StrategicLinkType.PROJECT,
@@ -90,7 +93,46 @@ export class StrategicVisionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      canAdminResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  private async assertCanReadObjective(clientId: string, userId: string, objectiveId: string) {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+      resourceId: objectiveId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanWriteObjective(clientId: string, userId: string, objectiveId: string) {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+      resourceId: objectiveId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanAdminObjective(clientId: string, userId: string, objectiveId: string) {
+    const allowed = await this.accessControl.canAdminResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+      resourceId: objectiveId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
 
   private async audit(
     clientId: string,
@@ -1238,8 +1280,8 @@ export class StrategicVisionService {
     return updated;
   }
 
-  async listObjectives(clientId: string) {
-    return this.prisma.strategicObjective.findMany({
+  async listObjectives(clientId: string, userId?: string) {
+    const rows = await this.prisma.strategicObjective.findMany({
       where: { clientId },
       include: {
         direction: {
@@ -1254,6 +1296,16 @@ export class StrategicVisionService {
       },
       orderBy: [{ createdAt: 'desc' }],
     });
+    if (!userId) return rows;
+    const readableIds = await this.accessControl.filterReadableResourceIds({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+      resourceIds: rows.map((row) => row.id),
+      operation: 'read',
+    });
+    const readableSet = new Set(readableIds);
+    return rows.filter((row) => readableSet.has(row.id));
   }
 
   async createObjective(
@@ -1353,6 +1405,9 @@ export class StrategicVisionService {
       where: { id: objectiveId, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic objective not found');
+    if (context?.actorUserId) {
+      await this.assertCanWriteObjective(clientId, context.actorUserId, objectiveId);
+    }
 
     if (
       existing.lifecycleStatus === StrategicObjectiveLifecycleStatus.ARCHIVED &&
@@ -1486,6 +1541,9 @@ export class StrategicVisionService {
       where: { id: objectiveId, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic objective not found');
+    if (context?.actorUserId) {
+      await this.assertCanAdminObjective(clientId, context.actorUserId, objectiveId);
+    }
 
     if (existing.lifecycleStatus === StrategicObjectiveLifecycleStatus.ARCHIVED) {
       return this.getObjectiveById(clientId, objectiveId);
@@ -1521,14 +1579,14 @@ export class StrategicVisionService {
     return this.getObjectiveById(clientId, objectiveId);
   }
 
-  async listObjectivesByAxis(clientId: string, axisId: string) {
+  async listObjectivesByAxis(clientId: string, axisId: string, userId?: string) {
     const axis = await this.prisma.strategicAxis.findFirst({
       where: { id: axisId, clientId },
       select: { id: true },
     });
     if (!axis) throw new NotFoundException('Strategic axis not found');
 
-    return this.prisma.strategicObjective.findMany({
+    const rows = await this.prisma.strategicObjective.findMany({
       where: { clientId, axisId },
       include: {
         direction: {
@@ -1543,9 +1601,19 @@ export class StrategicVisionService {
       },
       orderBy: [{ createdAt: 'asc' }],
     });
+    if (!userId) return rows;
+    const readableIds = await this.accessControl.filterReadableResourceIds({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+      resourceIds: rows.map((row) => row.id),
+      operation: 'read',
+    });
+    const readableSet = new Set(readableIds);
+    return rows.filter((row) => readableSet.has(row.id));
   }
 
-  async getObjectiveById(clientId: string, objectiveId: string) {
+  async getObjectiveById(clientId: string, objectiveId: string, userId?: string) {
     const objective = await this.prisma.strategicObjective.findFirst({
       where: { id: objectiveId, clientId },
       include: {
@@ -1561,15 +1629,21 @@ export class StrategicVisionService {
       },
     });
     if (!objective) throw new NotFoundException('Strategic objective not found');
+    if (userId) {
+      await this.assertCanReadObjective(clientId, userId, objectiveId);
+    }
     return objective;
   }
 
-  async listObjectiveLinks(clientId: string, objectiveId: string) {
+  async listObjectiveLinks(clientId: string, objectiveId: string, userId?: string) {
     const objective = await this.prisma.strategicObjective.findFirst({
       where: { id: objectiveId, clientId },
       select: { id: true },
     });
     if (!objective) throw new NotFoundException('Strategic objective not found');
+    if (userId) {
+      await this.assertCanReadObjective(clientId, userId, objectiveId);
+    }
 
     return this.prisma.strategicLink.findMany({
       where: { clientId, objectiveId },
@@ -1588,6 +1662,9 @@ export class StrategicVisionService {
       select: { id: true },
     });
     if (!objective) throw new NotFoundException('Strategic objective not found');
+    if (context?.actorUserId) {
+      await this.assertCanWriteObjective(clientId, context.actorUserId, objectiveId);
+    }
 
     const linkType = this.resolveLinkType(dto);
     this.assertWritableLinkTypeV1(linkType);
@@ -1684,6 +1761,9 @@ export class StrategicVisionService {
       where: { id: linkId, objectiveId, clientId },
     });
     if (!existing) throw new NotFoundException('Strategic link not found');
+    if (context?.actorUserId) {
+      await this.assertCanWriteObjective(clientId, context.actorUserId, objectiveId);
+    }
 
     const data: Prisma.StrategicLinkUncheckedUpdateInput = {};
     if (dto.targetLabelSnapshot !== undefined) {
@@ -1737,6 +1817,9 @@ export class StrategicVisionService {
       where: { id: linkId, objectiveId, clientId },
     });
     if (!link) throw new NotFoundException('Strategic link not found');
+    if (context?.actorUserId) {
+      await this.assertCanAdminObjective(clientId, context.actorUserId, objectiveId);
+    }
 
     await this.prisma.strategicLink.delete({ where: { id: linkId } });
 

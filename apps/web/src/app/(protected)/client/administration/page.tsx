@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Shield, Cloud, RefreshCw, ListTree, Tags, UsersRound, Eye } from 'lucide-react';
+import { Users, Shield, Cloud, RefreshCw, ListTree, Tags, UsersRound, Eye, KeyRound } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
   return (
@@ -42,7 +42,7 @@ export default async function ClientAdministrationPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/client/access-groups">
+        <Link href="/client/administration/access-groups">
           <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 pt-6">
               <div className="rounded-lg bg-primary/10 p-3">
@@ -67,6 +67,21 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Visibilité des modules</h3>
                 <p className="text-sm text-muted-foreground">
                   Masquer des modules activés par client, groupe ou utilisateur
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/licenses">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <KeyRound className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Licences</h3>
+                <p className="text-sm text-muted-foreground">
+                  Gérer les affectations de licences des membres du client
                 </p>
               </div>
             </CardContent>

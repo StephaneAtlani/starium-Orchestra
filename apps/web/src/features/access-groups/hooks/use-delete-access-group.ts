@@ -32,7 +32,7 @@ export function useDeleteAccessGroup(groupIdFromHook?: string) {
         });
       }
       toast.success('Groupe supprimé.');
-      if (groupIdFromHook) router.push('/client/access-groups');
+      if (groupIdFromHook) router.push('/client/administration/access-groups');
     },
     onError: (err: Error) => {
       toast.error(err.message ?? 'Impossible de supprimer le groupe.');

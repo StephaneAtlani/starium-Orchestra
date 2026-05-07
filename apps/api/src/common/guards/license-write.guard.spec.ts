@@ -6,12 +6,14 @@ import {
   ClientUserLicenseType,
   ClientUserStatus,
 } from '@prisma/client';
+import { CLIENT_USER_LICENSE_ACTION } from '../../modules/audit-logs/acl-audit-actions';
 import { LicenseWriteGuard } from './license-write.guard';
 
 describe('LicenseWriteGuard', () => {
   let guard: LicenseWriteGuard;
   let prisma: any;
   let reflector: any;
+  let auditLogs: { create: jest.Mock };
 
   const makeContext = (request: any): ExecutionContext =>
     ({
@@ -21,6 +23,7 @@ describe('LicenseWriteGuard', () => {
     }) as ExecutionContext;
 
   beforeEach(() => {
+    auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     prisma = {
       clientUser: {
         findUnique: jest.fn(),
@@ -29,7 +32,7 @@ describe('LicenseWriteGuard', () => {
     reflector = {
       get: jest.fn(),
     } as unknown as Reflector;
-    guard = new LicenseWriteGuard(prisma, reflector);
+    guard = new LicenseWriteGuard(prisma, reflector, auditLogs as any);
   });
 
   const enableGuardCheck = () => {
@@ -83,9 +86,10 @@ describe('LicenseWriteGuard', () => {
     ).rejects.toThrow('licence expirée');
   });
 
-  it('bloque PLATFORM_INTERNAL expirée', async () => {
+  it('bloque PLATFORM_INTERNAL expirée (support)', async () => {
     enableGuardCheck();
     prisma.clientUser.findUnique.mockResolvedValue({
+      id: 'cu-1',
       status: ClientUserStatus.ACTIVE,
       licenseType: ClientUserLicenseType.READ_WRITE,
       licenseBillingMode: ClientUserLicenseBillingMode.PLATFORM_INTERNAL,
@@ -95,9 +99,25 @@ describe('LicenseWriteGuard', () => {
 
     await expect(
       guard.canActivate(
-        makeContext({ user: { userId: 'u1' }, activeClient: { id: 'c1' } }),
+        makeContext({
+          user: { userId: 'u1' },
+          activeClient: { id: 'c1' },
+          headers: {},
+          ip: '127.0.0.1',
+        }),
       ),
-    ).rejects.toThrow('licence expirée');
+    ).rejects.toThrow('accès support expiré');
+
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: CLIENT_USER_LICENSE_ACTION.WRITE_DENIED,
+        resourceId: 'cu-1',
+        newValue: expect.objectContaining({
+          reasonCode: 'WRITE_DENIED_SUPPORT_ACCESS_EXPIRED',
+          actorUserId: 'u1',
+        }),
+      }),
+    );
   });
 
   it('bloque EXTERNAL_BILLABLE expirée', async () => {
@@ -115,6 +135,30 @@ describe('LicenseWriteGuard', () => {
         makeContext({ user: { userId: 'u1' }, activeClient: { id: 'c1' } }),
       ),
     ).rejects.toThrow('licence expirée');
+  });
+
+  it('journalise READ_ONLY puis 403 même si audit échoue', async () => {
+    enableGuardCheck();
+    auditLogs.create.mockRejectedValueOnce(new Error('audit down'));
+    prisma.clientUser.findUnique.mockResolvedValue({
+      id: 'cu-r',
+      status: ClientUserStatus.ACTIVE,
+      licenseType: ClientUserLicenseType.READ_ONLY,
+      licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+      subscription: null,
+    });
+
+    await expect(
+      guard.canActivate(
+        makeContext({
+          user: { userId: 'u1' },
+          activeClient: { id: 'c1' },
+          headers: { 'x-request-id': 'rid-9' },
+        }),
+      ),
+    ).rejects.toThrow('READ_WRITE');
+
+    expect(auditLogs.create).toHaveBeenCalled();
   });
 
   it('n altère pas la licence expirée', async () => {

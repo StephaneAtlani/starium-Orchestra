@@ -33,8 +33,9 @@ export class ContractAttachmentsController {
   list(
     @ActiveClientId() clientId: string | undefined,
     @Param('contractId') contractId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.attachments.list(clientId!, contractId);
+    return this.attachments.list(clientId!, contractId, userId);
   }
 
   @Post()

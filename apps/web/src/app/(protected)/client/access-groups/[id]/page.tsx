@@ -1,8 +1,10 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { AccessGroupDetailPage } from '@/features/access-groups/components/access-group-detail-page';
-
-/** Route dynamique : `useParams()` dans le composant (évite params async). */
-export default function ClientAccessGroupDetailRoute() {
-  return <AccessGroupDetailPage />;
+export default async function ClientAccessGroupDetailRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  redirect(`/client/administration/access-groups/${id}`);
 }

@@ -1405,6 +1405,13 @@ Même format que `/api/audit-logs`, mais potentiellement sur plusieurs clients.
 
 **Erreurs :** 401, 403 (non Platform Admin).
 
+#### RFC-ACL-008 — licences, abonnements, refus d’écriture
+
+- **Licences** : filtre stable recommandé `resourceType=client_user_license` et `resourceId=<clientUserId>` (PK `ClientUser`, exploitable sans filtre JSON sur le payload).
+- **Abonnements** : `resourceType=client_subscription`, `resourceId=<subscriptionId>`, actions `client_subscription.*`.
+- **Compatibilité lecture** : une requête avec d’anciennes actions courtes (`evaluation_granted`, etc.) est élargie vers les codes canoniques `client_user.license.*`.
+- **Refus d’écriture** (`client_user.license.write_denied`) : `newValue` minimal (`reasonCode`, `actorUserId`, `requestId`), sans données sensibles.
+
 ---
 
 Routes suivantes **réservées au Platform Admin** pour rattacher/détacher des utilisateurs à un client.

@@ -25,18 +25,21 @@ import { useDeleteAccessGroup } from '../hooks/use-delete-access-group';
 import { CreateGroupDialog } from './create-group-dialog';
 import type { AccessGroupListItem } from '../api/access-groups';
 import { Pencil, Trash2 } from 'lucide-react';
+import { useActiveClient } from '@/hooks/use-active-client';
 
 function GroupActions({
   group,
   onDelete,
+  canWrite,
 }: {
   group: AccessGroupListItem;
   onDelete: (id: string) => void;
+  canWrite: boolean;
 }) {
   return (
     <div className="flex items-center justify-end gap-2">
       <Link
-        href={`/client/access-groups/${group.id}`}
+        href={`/client/administration/access-groups/${group.id}`}
         className={buttonVariants({ variant: 'ghost', size: 'sm' })}
       >
         <Pencil className="size-4" />
@@ -48,6 +51,7 @@ function GroupActions({
             <Button
               variant="ghost"
               size="sm"
+              disabled={!canWrite}
               onClick={() => {
                 if (
                   typeof window !== 'undefined' &&
@@ -75,6 +79,8 @@ export function AccessGroupsList() {
   const [createOpen, setCreateOpen] = useState(false);
   const { data: groups = [], isLoading, error, refetch } = useAccessGroups();
   const deleteGroup = useDeleteAccessGroup();
+  const { activeClient } = useActiveClient();
+  const canWrite = activeClient?.role === 'CLIENT_ADMIN';
 
   return (
     <PageContainer>
@@ -82,11 +88,16 @@ export function AccessGroupsList() {
         title="Groupes d'accès"
         description="Regroupez des utilisateurs pour cibler visibilité et ACL (évolutions futures)."
         actions={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
+          <Button type="button" onClick={() => setCreateOpen(true)} disabled={!canWrite}>
             Créer un groupe
           </Button>
         }
       />
+      <p className="mb-3 text-xs text-muted-foreground">
+        Dépendance RBAC : aucun code permission dédié `access-groups` exposé côté API ;
+        l&apos;UI applique donc un verrouillage en écriture basé sur le rôle
+        `CLIENT_ADMIN`, le backend restant source de vérité.
+      </p>
       <CreateGroupDialog open={createOpen} onOpenChange={setCreateOpen} />
       <Card>
         <CardContent className="pt-4">
@@ -124,7 +135,7 @@ export function AccessGroupsList() {
                   <TableRow key={group.id}>
                     <TableCell>
                       <Link
-                        href={`/client/access-groups/${group.id}`}
+                        href={`/client/administration/access-groups/${group.id}`}
                         className="font-medium hover:underline"
                       >
                         {group.name}
@@ -136,6 +147,7 @@ export function AccessGroupsList() {
                     <TableCell className="text-right">
                       <GroupActions
                         group={group}
+                        canWrite={canWrite}
                         onDelete={(id) => deleteGroup.mutate(id)}
                       />
                     </TableCell>

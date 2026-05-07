@@ -10,7 +10,14 @@ import {
   ClientUserLicenseType,
   ClientUserStatus,
 } from '@prisma/client';
+import type { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  AUDIT_RESOURCE_TYPE_CLIENT_USER_LICENSE,
+  clientUserToLicenseAssignmentSnapshot,
+  resolveCanonicalLicenseAction,
+  wrapLicenseAuditPayload,
+} from '../audit-logs/acl-audit-actions';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AssignUserLicenseDto } from './dto/assign-user-license.dto';
 
@@ -29,7 +36,7 @@ type AssignmentInput = Pick<
 export class LicenseService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditLogs?: AuditLogsService,
+    private readonly auditLogs: AuditLogsService,
   ) {}
 
   async getClientUsage(clientId: string) {
@@ -86,6 +93,7 @@ export class LicenseService {
     clientId: string,
     userId: string,
     dto: AssignUserLicenseDto,
+    meta?: RequestMeta,
   ) {
     const membership = await this.getMembership(clientId, userId);
     const assignment = await this.validateLicenseAssignment({
@@ -94,15 +102,14 @@ export class LicenseService {
       targetUserId: userId,
       mode: 'platform',
     });
-    const updated = await this.updateMembershipLicense(membership.id, assignment);
-    await this.auditAssignmentChange({
+    return this.assignLicenseInTransaction({
       actorUserId,
       clientId,
       userId,
-      before: membership,
-      after: updated,
+      membershipId: membership.id,
+      assignment,
+      meta,
     });
-    return updated;
   }
 
   async assignByClientAdmin(
@@ -110,6 +117,7 @@ export class LicenseService {
     clientId: string,
     userId: string,
     dto: AssignUserLicenseDto,
+    meta?: RequestMeta,
   ) {
     await this.getMembership(clientId, actorUserId);
     const membership = await this.getMembership(clientId, userId);
@@ -132,15 +140,14 @@ export class LicenseService {
       mode: 'client_admin',
     });
 
-    const updated = await this.updateMembershipLicense(membership.id, assignment);
-    await this.auditAssignmentChange({
+    return this.assignLicenseInTransaction({
       actorUserId,
       clientId,
       userId,
-      before: membership,
-      after: updated,
+      membershipId: membership.id,
+      assignment,
+      meta,
     });
-    return updated;
   }
 
   async validateWriteAccess(userId: string, clientId: string): Promise<void> {
@@ -374,68 +381,74 @@ export class LicenseService {
     return row;
   }
 
-  private async updateMembershipLicense(clientUserId: string, dto: AssignmentInput) {
-    return this.prisma.clientUser.update({
-      where: { id: clientUserId },
-      data: {
-        licenseType: dto.licenseType,
-        licenseBillingMode: dto.licenseBillingMode,
-        subscriptionId: dto.subscriptionId ?? null,
-        licenseStartsAt: dto.licenseStartsAt ? new Date(dto.licenseStartsAt) : null,
-        licenseEndsAt: dto.licenseEndsAt ? new Date(dto.licenseEndsAt) : null,
-        licenseAssignmentReason: dto.licenseAssignmentReason ?? null,
-      },
-    });
-  }
-
-  private async auditAssignmentChange(params: {
+  private async assignLicenseInTransaction(params: {
     actorUserId?: string;
     clientId: string;
     userId: string;
-    before: any;
-    after: any;
+    membershipId: string;
+    assignment: AssignmentInput;
+    meta?: RequestMeta;
   }) {
-    if (!this.auditLogs) {
-      return;
-    }
-    const { actorUserId, clientId, userId, before, after } = params;
-    const oldMode = `${before.licenseType}:${before.licenseBillingMode}`;
-    const newMode = `${after.licenseType}:${after.licenseBillingMode}`;
-    const basePayload = {
-      actorUserId,
-      targetUserId: userId,
-      oldMode,
-      newMode,
-      licenseEndsAt: after.licenseEndsAt,
-      reason: after.licenseAssignmentReason ?? null,
-    };
+    const { actorUserId, clientId, userId, membershipId, assignment, meta } =
+      params;
 
-    const actions = new Set<string>();
-    if (after.licenseBillingMode === ClientUserLicenseBillingMode.EVALUATION) {
-      actions.add('evaluation_granted');
-    }
-    if (after.licenseBillingMode === ClientUserLicenseBillingMode.PLATFORM_INTERNAL) {
-      actions.add('support_access_granted');
-    }
-    if (before.licenseBillingMode !== after.licenseBillingMode) {
-      actions.add('billing_mode_changed');
-    }
-    for (const action of actions) {
-      await this.auditLogs.create({
-        clientId,
-        userId: actorUserId,
-        action,
-        resourceType: 'client_user_license',
-        resourceId: after.id,
-        oldValue: {
-          licenseType: before.licenseType,
-          licenseBillingMode: before.licenseBillingMode,
-          subscriptionId: before.subscriptionId ?? null,
-          licenseEndsAt: before.licenseEndsAt ?? null,
-          licenseAssignmentReason: before.licenseAssignmentReason ?? null,
-        },
-        newValue: basePayload,
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.clientUser.findFirst({
+        where: { id: membershipId, clientId, userId },
       });
-    }
+      if (!before) {
+        throw new NotFoundException('Utilisateur non rattaché à ce client');
+      }
+
+      const updated = await tx.clientUser.update({
+        where: { id: before.id },
+        data: {
+          licenseType: assignment.licenseType,
+          licenseBillingMode: assignment.licenseBillingMode,
+          subscriptionId: assignment.subscriptionId ?? null,
+          licenseStartsAt: assignment.licenseStartsAt
+            ? new Date(assignment.licenseStartsAt)
+            : null,
+          licenseEndsAt: assignment.licenseEndsAt
+            ? new Date(assignment.licenseEndsAt)
+            : null,
+          licenseAssignmentReason: assignment.licenseAssignmentReason ?? null,
+        },
+      });
+
+      const action = resolveCanonicalLicenseAction(before, updated);
+      const auditMeta = {
+        actorUserId,
+        targetUserId: userId,
+        reason: updated.licenseAssignmentReason ?? null,
+        requestId: meta?.requestId,
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      };
+
+      await this.auditLogs.create(
+        {
+          clientId,
+          userId: actorUserId,
+          action,
+          resourceType: AUDIT_RESOURCE_TYPE_CLIENT_USER_LICENSE,
+          resourceId: updated.id,
+          oldValue: wrapLicenseAuditPayload(
+            clientUserToLicenseAssignmentSnapshot(before),
+            auditMeta,
+          ),
+          newValue: wrapLicenseAuditPayload(
+            clientUserToLicenseAssignmentSnapshot(updated),
+            auditMeta,
+          ),
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+          requestId: meta?.requestId,
+        },
+        tx,
+      );
+
+      return updated;
+    });
   }
 }

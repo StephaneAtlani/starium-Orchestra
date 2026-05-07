@@ -20,9 +20,16 @@ import { AnalyticalLedgerAccountsService } from './analytical-ledger-accounts/an
 import { CostCentersController } from './cost-centers/cost-centers.controller';
 import { CostCentersService } from './cost-centers/cost-centers.service';
 import { BudgetDecisionHistoryService } from './budget-decision-history.service';
+import { AccessControlModule } from '../access-control/access-control.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule, ClientsModule, BudgetSnapshotsModule],
+  imports: [
+    PrismaModule,
+    AuditLogsModule,
+    ClientsModule,
+    BudgetSnapshotsModule,
+    AccessControlModule,
+  ],
   controllers: [
     BudgetExercisesController,
     BudgetsController,

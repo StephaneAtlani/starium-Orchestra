@@ -32,6 +32,7 @@ import { ProcurementAttachmentsService } from './attachments/procurement-attachm
 import { PurchaseOrderAttachmentsController } from './attachments/purchase-order-attachments.controller';
 import { InvoiceAttachmentsController } from './attachments/invoice-attachments.controller';
 import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
+import { AccessControlModule } from '../access-control/access-control.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PlatformUploadModule } from '../platform-upload/platform-upload.module'
     FinancialCoreModule,
     MicrosoftModule,
     PlatformUploadModule,
+    AccessControlModule,
   ],
   controllers: [
     PlatformProcurementS3SettingsController,

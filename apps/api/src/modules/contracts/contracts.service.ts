@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -18,6 +19,8 @@ import { ContractKindTypesService } from './contract-kind-types.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { ListContractsQueryDto } from './dto/list-contracts.query.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
+import { AccessControlService } from '../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 
 export interface ContractsAuditContext {
   actorUserId?: string;
@@ -198,7 +201,46 @@ export class ContractsService {
     private readonly auditLogs: AuditLogsService,
     private readonly suppliers: SuppliersService,
     private readonly contractKindTypes: ContractKindTypesService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      canAdminResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  private async assertCanReadContract(clientId: string, userId: string, contractId: string) {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+      resourceId: contractId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanWriteContract(clientId: string, userId: string, contractId: string) {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+      resourceId: contractId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanAdminContract(clientId: string, userId: string, contractId: string) {
+    const allowed = await this.accessControl.canAdminResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+      resourceId: contractId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
 
   /**
    * Liste fournisseurs du client pour formulaire / filtres contrats.
@@ -230,6 +272,7 @@ export class ContractsService {
   async list(
     clientId: string,
     query: ListContractsQueryDto,
+    userId?: string,
   ): Promise<ListContractsResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -255,16 +298,30 @@ export class ContractsService {
       ];
     }
 
-    const [rows, total] = await Promise.all([
-      this.prisma.supplierContract.findMany({
-        where,
-        include: { supplier: this.supplierInclude() },
-        orderBy: [{ effectiveStart: 'desc' }, { createdAt: 'desc' }],
-        skip: offset,
-        take: limit,
-      }),
-      this.prisma.supplierContract.count({ where }),
-    ]);
+    const orderedIds = await this.prisma.supplierContract.findMany({
+      where,
+      orderBy: [{ effectiveStart: 'desc' }, { createdAt: 'desc' }],
+      select: { id: true },
+    });
+    const readableIds = userId
+      ? await this.accessControl.filterReadableResourceIds({
+          clientId,
+          userId,
+          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+          resourceIds: orderedIds.map((row) => row.id),
+          operation: 'read',
+        })
+      : orderedIds.map((row) => row.id);
+    const total = readableIds.length;
+    const pagedIds = readableIds.slice(offset, offset + limit);
+    const rows =
+      pagedIds.length === 0
+        ? []
+        : await this.prisma.supplierContract.findMany({
+            where: { clientId, id: { in: pagedIds } },
+            include: { supplier: this.supplierInclude() },
+          });
+    const byId = new Map(rows.map((row) => [row.id, row] as const));
 
     const kindLabels = await this.contractKindTypes.resolveKindLabels(
       clientId,
@@ -272,22 +329,26 @@ export class ContractsService {
     );
 
     return {
-      items: rows.map((r) =>
-        toContractResponse(r, kindLabels[r.kind] ?? r.kind),
-      ),
+      items: pagedIds
+        .map((id) => byId.get(id))
+        .filter((row): row is (typeof rows)[number] => Boolean(row))
+        .map((r) => toContractResponse(r, kindLabels[r.kind] ?? r.kind)),
       total,
       limit,
       offset,
     };
   }
 
-  async getById(clientId: string, id: string): Promise<ContractResponse> {
+  async getById(clientId: string, id: string, userId?: string): Promise<ContractResponse> {
     const row = await this.prisma.supplierContract.findFirst({
       where: { id, clientId },
       include: { supplier: this.supplierInclude() },
     });
     if (!row) {
       throw new NotFoundException('Contrat introuvable');
+    }
+    if (userId) {
+      await this.assertCanReadContract(clientId, userId, id);
     }
     const kindLabels = await this.contractKindTypes.resolveKindLabels(
       clientId,
@@ -403,6 +464,9 @@ export class ContractsService {
     });
     if (!existing) {
       throw new NotFoundException('Contrat introuvable');
+    }
+    if (context?.actorUserId) {
+      await this.assertCanWriteContract(clientId, context.actorUserId, id);
     }
 
     if (dto.supplierId && dto.supplierId !== existing.supplierId) {
@@ -557,6 +621,9 @@ export class ContractsService {
     });
     if (!existing) {
       throw new NotFoundException('Contrat introuvable');
+    }
+    if (context?.actorUserId) {
+      await this.assertCanAdminContract(clientId, context.actorUserId, id);
     }
     if (existing.status === SupplierContractStatus.TERMINATED) {
       return this.getById(clientId, id);

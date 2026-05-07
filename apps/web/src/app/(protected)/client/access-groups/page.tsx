@@ -1,5 +1,5 @@
-import { AccessGroupsList } from '@/features/access-groups/components/access-groups-list';
+import { redirect } from 'next/navigation';
 
 export default function ClientAccessGroupsPage() {
-  return <AccessGroupsList />;
+  redirect('/client/administration/access-groups');
 }

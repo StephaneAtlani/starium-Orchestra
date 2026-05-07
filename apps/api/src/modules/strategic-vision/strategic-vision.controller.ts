@@ -115,8 +115,9 @@ export class StrategicVisionController {
   listObjectivesByAxis(
     @ActiveClientId() clientId: string | undefined,
     @Param('axisId') axisId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.listObjectivesByAxis(clientId!, axisId);
+    return this.service.listObjectivesByAxis(clientId!, axisId, userId);
   }
 
   @Post('strategic-vision/axes/:axisId/objectives')
@@ -141,8 +142,9 @@ export class StrategicVisionController {
   listObjectiveLinks(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.listObjectiveLinks(clientId!, objectiveId);
+    return this.service.listObjectiveLinks(clientId!, objectiveId, userId);
   }
 
   @Post('strategic-vision/objectives/:objectiveId/links')
@@ -199,8 +201,9 @@ export class StrategicVisionController {
   getObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
+    @RequestUserId() userId: string | undefined,
   ) {
-    return this.service.getObjectiveById(clientId!, objectiveId);
+    return this.service.getObjectiveById(clientId!, objectiveId, userId);
   }
 
   @Patch('strategic-vision/objectives/:objectiveId')
@@ -433,8 +436,11 @@ export class StrategicVisionController {
 
   @Get('strategic-objectives')
   @RequirePermissions('strategic_vision.read')
-  listObjectives(@ActiveClientId() clientId: string | undefined) {
-    return this.service.listObjectives(clientId!);
+  listObjectives(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.service.listObjectives(clientId!, userId);
   }
 
   @Post('strategic-objectives')

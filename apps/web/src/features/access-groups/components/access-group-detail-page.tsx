@@ -39,6 +39,7 @@ import { useRemoveGroupMember } from '../hooks/use-remove-group-member';
 import { AddGroupMemberDialog } from './add-group-member-dialog';
 import type { AccessGroupMemberRow } from '../api/access-groups';
 import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { useActiveClient } from '@/hooks/use-active-client';
 
 function displayName(m: AccessGroupMemberRow): string {
   const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -57,6 +58,8 @@ export function AccessGroupDetailPage() {
   const updateGroup = useUpdateAccessGroup();
   const deleteGroup = useDeleteAccessGroup(groupId);
   const removeMember = useRemoveGroupMember(groupId);
+  const { activeClient } = useActiveClient();
+  const canWrite = activeClient?.role === 'CLIENT_ADMIN';
 
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -93,7 +96,7 @@ export function AccessGroupDetailPage() {
         <div className="py-8 text-center space-y-2">
           <p className="text-sm text-destructive">Groupe introuvable.</p>
           <Link
-            href="/client/access-groups"
+            href="/client/administration/access-groups"
             className={buttonVariants({ variant: 'outline' })}
           >
             Retour à la liste
@@ -111,12 +114,18 @@ export function AccessGroupDetailPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/client/access-groups"
+              href="/client/administration/access-groups"
               className={buttonVariants({ variant: 'outline' })}
             >
               Retour à la liste
             </Link>
-            <Button type="button" variant="outline" size="sm" onClick={openEdit}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openEdit}
+              disabled={!canWrite}
+            >
               <Pencil className="size-4" />
               Renommer
             </Button>
@@ -126,6 +135,7 @@ export function AccessGroupDetailPage() {
                   <Button
                     variant="destructive"
                     size="sm"
+                    disabled={!canWrite}
                     onClick={() => {
                       if (
                         typeof window !== 'undefined' &&
@@ -179,7 +189,7 @@ export function AccessGroupDetailPage() {
             <Button
               type="submit"
               form={`${formId}-edit`}
-              disabled={updateGroup.isPending}
+              disabled={updateGroup.isPending || !canWrite}
             >
               Enregistrer
             </Button>
@@ -188,10 +198,14 @@ export function AccessGroupDetailPage() {
       </Dialog>
 
       <div className="space-y-6">
+        <p className="text-xs text-muted-foreground">
+          Dépendance RBAC : aucun code permission dédié `access-groups` exposé côté API ;
+          l&apos;UI applique un verrouillage en écriture basé sur `CLIENT_ADMIN`.
+        </p>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Membres</CardTitle>
-            <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
+            <Button type="button" size="sm" onClick={() => setAddOpen(true)} disabled={!canWrite}>
               <UserPlus className="size-4" />
               Ajouter
             </Button>
@@ -235,7 +249,7 @@ export function AccessGroupDetailPage() {
                           size="sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => removeMember.mutate(m.userId)}
-                          disabled={removeMember.isPending}
+                          disabled={removeMember.isPending || !canWrite}
                         >
                           Retirer
                         </Button>

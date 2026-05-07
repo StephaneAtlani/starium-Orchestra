@@ -91,8 +91,8 @@ export function AddGroupMemberDialog({ groupId, open, onOpenChange }: Props) {
           <div className="space-y-2">
             <Label htmlFor={`${formId}-user`}>Utilisateur</Label>
             <Select
-              value={userId || undefined}
-              onValueChange={(v) => setUserId(v ?? '')}
+              value={userId}
+              onValueChange={setUserId}
               disabled={loading || available.length === 0 || addMember.isPending}
             >
               <SelectTrigger id={`${formId}-user`} className="w-full">

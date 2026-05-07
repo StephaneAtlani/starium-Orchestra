@@ -29,6 +29,7 @@ describe('Budget lines routes integration', () => {
 
   const clientId = 'client-1';
   const lineId = 'line-1';
+  const userId = 'user-1';
   const passGuard = { canActivate: () => true };
 
   beforeAll(async () => {
@@ -108,9 +109,9 @@ describe('Budget lines routes integration', () => {
     } as any;
     (budgetLinesService.getById as jest.Mock).mockResolvedValue(expected);
 
-    const result = await budgetManagementController.getById(clientId, lineId);
+    const result = await budgetManagementController.getById(clientId, lineId, userId);
 
-    expect(budgetLinesService.getById).toHaveBeenCalledWith(clientId, lineId);
+    expect(budgetLinesService.getById).toHaveBeenCalledWith(clientId, lineId, userId);
     expect(result).toEqual(expected);
   });
 

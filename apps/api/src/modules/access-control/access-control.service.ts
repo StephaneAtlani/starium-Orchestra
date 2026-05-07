@@ -33,6 +33,12 @@ const PERM_RANK: Record<ResourceAclPermission, number> = {
   [ResourceAclPermission.ADMIN]: 3,
 };
 
+const MIN_PERMISSION_BY_OPERATION: Record<'read' | 'write' | 'admin', ResourceAclPermission> = {
+  read: ResourceAclPermission.READ,
+  write: ResourceAclPermission.WRITE,
+  admin: ResourceAclPermission.ADMIN,
+};
+
 export type ResourceAclEntryRow = {
   id: string;
   subjectType: ResourceAclSubjectType;
@@ -518,6 +524,62 @@ export class AccessControlService {
       maxRank = Math.max(maxRank, PERM_RANK[a.permission]);
     }
     return { unrestricted: false, maxRank };
+  }
+
+  private async loadUserGroupIds(clientId: string, userId: string): Promise<string[]> {
+    const members = await this.prisma.accessGroupMember.findMany({
+      where: { clientId, userId },
+      select: { groupId: true },
+    });
+    return members.map((m) => m.groupId);
+  }
+
+  async filterReadableResourceIds(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceIds: string[];
+    operation?: 'read' | 'write' | 'admin';
+  }): Promise<string[]> {
+    const uniqueIds = Array.from(new Set(params.resourceIds.filter(Boolean)));
+    if (uniqueIds.length === 0) return [];
+
+    const minPermission =
+      MIN_PERMISSION_BY_OPERATION[params.operation ?? 'read'];
+    const minRank = PERM_RANK[minPermission];
+    const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+
+    const rows = await this.prisma.resourceAcl.findMany({
+      where: {
+        clientId: params.clientId,
+        resourceType: params.resourceTypeNormalized,
+        resourceId: { in: uniqueIds },
+      },
+      select: { resourceId: true, subjectType: true, subjectId: true, permission: true },
+    });
+
+    if (rows.length === 0) {
+      return uniqueIds;
+    }
+
+    const restrictedIds = new Set(rows.map((r) => r.resourceId));
+    const groupSet = new Set(groupIds);
+    const maxRankByResource = new Map<string, number>();
+
+    for (const row of rows) {
+      const allowedByUser =
+        row.subjectType === ResourceAclSubjectType.USER && row.subjectId === params.userId;
+      const allowedByGroup =
+        row.subjectType === ResourceAclSubjectType.GROUP && groupSet.has(row.subjectId);
+      if (!allowedByUser && !allowedByGroup) continue;
+      const current = maxRankByResource.get(row.resourceId) ?? 0;
+      maxRankByResource.set(row.resourceId, Math.max(current, PERM_RANK[row.permission]));
+    }
+
+    return uniqueIds.filter((resourceId) => {
+      if (!restrictedIds.has(resourceId)) return true;
+      return (maxRankByResource.get(resourceId) ?? 0) >= minRank;
+    });
   }
 
   async canReadResource(params: {

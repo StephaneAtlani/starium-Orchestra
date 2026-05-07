@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +19,8 @@ import {
 } from '../procurement/attachments/procurement-attachments.constants';
 import type { ContractsAuditContext } from './contracts.service';
 import type { UploadContractAttachmentFieldsDto } from './dto/upload-contract-attachment-fields.dto';
+import { AccessControlService } from '../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 
 export interface ContractAttachmentPublic {
   id: string;
@@ -88,7 +91,54 @@ export class ContractAttachmentsService {
     private readonly storage: ProcurementObjectStorageService,
     private readonly auditLogs: AuditLogsService,
     private readonly platformUpload: PlatformUploadSettingsService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'canAdminResource'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      canAdminResource: async () => true,
+    },
   ) {}
+
+  private async loadParentContractForAcl(
+    clientId: string,
+    supplierContractId: string,
+    userId: string,
+    operation: 'read' | 'write' | 'admin',
+  ): Promise<void> {
+    const parent = await this.prisma.supplierContract.findFirst({
+      where: { id: supplierContractId, clientId },
+      select: { id: true },
+    });
+    if (!parent) {
+      throw new NotFoundException('Contrat introuvable');
+    }
+    const allowed =
+      operation === 'read'
+        ? await this.accessControl.canReadResource({
+            clientId,
+            userId,
+            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+            resourceId: supplierContractId,
+          })
+        : operation === 'write'
+          ? await this.accessControl.canWriteResource({
+              clientId,
+              userId,
+              resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+              resourceId: supplierContractId,
+            })
+          : await this.accessControl.canAdminResource({
+              clientId,
+              userId,
+              resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+              resourceId: supplierContractId,
+            });
+    if (!allowed) {
+      throw new ForbiddenException('Accès refusé par ACL ressource');
+    }
+  }
 
   private assertFile(file: Express.Multer.File | undefined): void {
     if (!file?.buffer?.length) {
@@ -110,13 +160,16 @@ export class ContractAttachmentsService {
   async list(
     clientId: string,
     supplierContractId: string,
+    userId?: string,
   ): Promise<ContractAttachmentPublic[]> {
-    const c = await this.prisma.supplierContract.findFirst({
-      where: { id: supplierContractId, clientId },
-      select: { id: true },
-    });
-    if (!c) {
-      throw new NotFoundException('Contrat introuvable');
+    if (userId) {
+      await this.loadParentContractForAcl(clientId, supplierContractId, userId, 'read');
+    } else {
+      const c = await this.prisma.supplierContract.findFirst({
+        where: { id: supplierContractId, clientId },
+        select: { id: true },
+      });
+      if (!c) throw new NotFoundException('Contrat introuvable');
     }
     const rows = await this.prisma.contractAttachment.findMany({
       where: { clientId, supplierContractId, status: 'ACTIVE' },
@@ -138,12 +191,13 @@ export class ContractAttachmentsService {
     context?: ContractsAuditContext,
   ): Promise<ContractAttachmentPublic> {
     this.assertFile(file);
-    const c = await this.prisma.supplierContract.findFirst({
-      where: { id: supplierContractId, clientId },
-      select: { id: true },
-    });
-    if (!c) {
-      throw new NotFoundException('Contrat introuvable');
+    if (context?.actorUserId) {
+      await this.loadParentContractForAcl(
+        clientId,
+        supplierContractId,
+        context.actorUserId,
+        'write',
+      );
     }
     const mime = file!.mimetype.toLowerCase();
     const ext = MIME_TO_EXT[mime] ?? '.bin';
@@ -205,6 +259,14 @@ export class ContractAttachmentsService {
     attachmentId: string,
     context?: ContractsAuditContext,
   ): Promise<{ stream: Readable; contentType: string; filename: string }> {
+    if (context?.actorUserId) {
+      await this.loadParentContractForAcl(
+        clientId,
+        supplierContractId,
+        context.actorUserId,
+        'read',
+      );
+    }
     const row = await this.prisma.contractAttachment.findFirst({
       where: {
         id: attachmentId,
@@ -261,6 +323,14 @@ export class ContractAttachmentsService {
     attachmentId: string,
     context?: ContractsAuditContext,
   ): Promise<ContractAttachmentPublic> {
+    if (context?.actorUserId) {
+      await this.loadParentContractForAcl(
+        clientId,
+        supplierContractId,
+        context.actorUserId,
+        'admin',
+      );
+    }
     const row = await this.prisma.contractAttachment.findFirst({
       where: {
         id: attachmentId,

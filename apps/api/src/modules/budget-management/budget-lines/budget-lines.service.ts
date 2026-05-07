@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { BudgetLineAllocationScope, BudgetLineStatus, BudgetStatus, BudgetTaxMode } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,6 +31,8 @@ import {
   newValueWithStatusComment,
   normalizeStatusChangeComment,
 } from '../helpers/status-change-comment.helper';
+import { AccessControlService } from '../../access-control/access-control.service';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -94,7 +102,43 @@ export class BudgetLinesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly accessControl: Pick<
+      AccessControlService,
+      'canReadResource' | 'canWriteResource' | 'filterReadableResourceIds'
+    > = {
+      canReadResource: async () => true,
+      canWriteResource: async () => true,
+      filterReadableResourceIds: async (params) => params.resourceIds,
+    },
   ) {}
+
+  private async assertCanReadParentBudget(
+    clientId: string,
+    userId: string,
+    budgetId: string,
+  ): Promise<void> {
+    const allowed = await this.accessControl.canReadResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+      resourceId: budgetId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
+
+  private async assertCanWriteParentBudget(
+    clientId: string,
+    userId: string,
+    budgetId: string,
+  ): Promise<void> {
+    const allowed = await this.accessControl.canWriteResource({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+      resourceId: budgetId,
+    });
+    if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
+  }
 
   private normalizeGeneralLedgerAccountId(
     value: string | null | undefined,
@@ -116,6 +160,7 @@ export class BudgetLinesService {
   async list(
     clientId: string,
     query: ListBudgetLinesQueryDto,
+    userId?: string,
   ): Promise<ListResult<BudgetLineResponse>> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -143,19 +188,42 @@ export class BudgetLinesService {
       ];
     }
 
-    const [items, total] = await Promise.all([
-      this.prisma.budgetLine.findMany({
-        where,
-        include: BUDGET_LINE_INCLUDE,
-        orderBy: { createdAt: 'desc' },
-        skip: offset,
-        take: limit,
-      }),
-      this.prisma.budgetLine.count({ where }),
-    ]);
+    const rows = await this.prisma.budgetLine.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, budgetId: true },
+    });
+    const readableBudgetIds = userId
+      ? await this.accessControl.filterReadableResourceIds({
+          clientId,
+          userId,
+          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+          resourceIds: Array.from(new Set(rows.map((row) => row.budgetId))),
+          operation: 'read',
+        })
+      : Array.from(new Set(rows.map((row) => row.budgetId)));
+    const readableBudgetSet = new Set(readableBudgetIds);
+    const readableLineIds = rows
+      .filter((row) => readableBudgetSet.has(row.budgetId))
+      .map((row) => row.id);
+    const total = readableLineIds.length;
+    const pagedLineIds = readableLineIds.slice(offset, offset + limit);
+    const items =
+      pagedLineIds.length === 0
+        ? []
+        : await this.prisma.budgetLine.findMany({
+            where: { clientId, id: { in: pagedLineIds } },
+            include: BUDGET_LINE_INCLUDE,
+          });
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const orderedItems: BudgetLineResponse[] = [];
+    for (const id of pagedLineIds) {
+      const item = byId.get(id);
+      if (item) orderedItems.push(toResponse(item));
+    }
 
     return {
-      items: items.map(toResponse),
+      items: orderedItems,
       total,
       limit,
       offset,
@@ -165,6 +233,7 @@ export class BudgetLinesService {
   async getById(
     clientId: string,
     id: string,
+    userId?: string,
   ): Promise<BudgetLineResponse> {
     const line = await this.prisma.budgetLine.findFirst({
       where: { id, clientId },
@@ -172,6 +241,9 @@ export class BudgetLinesService {
     });
     if (!line) {
       throw new NotFoundException('Budget line not found');
+    }
+    if (userId) {
+      await this.assertCanReadParentBudget(clientId, userId, line.budgetId);
     }
     return toResponse(line);
   }
@@ -236,6 +308,9 @@ export class BudgetLinesService {
       throw new NotFoundException(
         'Budget not found or does not belong to this client',
       );
+    }
+    if (context?.actorUserId) {
+      await this.assertCanWriteParentBudget(clientId, context.actorUserId, budget.id);
     }
     if (
       budget.status === BudgetStatus.LOCKED ||
@@ -407,6 +482,13 @@ export class BudgetLinesService {
     });
     if (!existing) {
       throw new NotFoundException('Budget line not found');
+    }
+    if (context?.actorUserId) {
+      await this.assertCanWriteParentBudget(
+        clientId,
+        context.actorUserId,
+        existing.budgetId,
+      );
     }
     if (
       existing.budget.status === BudgetStatus.LOCKED ||

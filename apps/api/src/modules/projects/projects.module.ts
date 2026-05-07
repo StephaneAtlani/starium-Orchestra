@@ -42,6 +42,7 @@ import { ActionPlanTasksController } from './action-plan-tasks.controller';
 import { ActionPlansController } from './action-plans.controller';
 import { ActionPlansService } from './action-plans.service';
 import { ProjectScenariosModule } from '../project-scenarios/project-scenarios.module';
+import { AccessControlModule } from '../access-control/access-control.module';
 @Module({
   imports: [
     PrismaModule,
@@ -49,6 +50,7 @@ import { ProjectScenariosModule } from '../project-scenarios/project-scenarios.m
     RiskTaxonomyModule,
     ResourcesModule,
     forwardRef(() => ProjectScenariosModule),
+    AccessControlModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

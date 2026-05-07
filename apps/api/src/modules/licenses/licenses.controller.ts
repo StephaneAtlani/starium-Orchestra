@@ -9,6 +9,10 @@ import {
 } from '@nestjs/common';
 import { ClientSubscriptionStatus } from '@prisma/client';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
+import {
+  RequestMeta,
+  RequestMeta as RequestMetaDecorator,
+} from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
@@ -37,23 +41,32 @@ export class PlatformLicensesController {
 
   @Post('subscriptions')
   createSubscription(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Body() dto: CreateClientSubscriptionDto,
   ) {
-    return this.subscriptions.create(clientId, dto);
+    return this.subscriptions.create(clientId, dto, { actorUserId, meta });
   }
 
   @Patch('subscriptions/:subscriptionId')
   updateSubscription(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Param('subscriptionId') subscriptionId: string,
     @Body() dto: UpdateClientSubscriptionDto,
   ) {
-    return this.subscriptions.update(clientId, subscriptionId, dto);
+    return this.subscriptions.update(clientId, subscriptionId, dto, {
+      actorUserId,
+      meta,
+    });
   }
 
   @Post('subscriptions/:subscriptionId/activate')
   activateSubscription(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Param('subscriptionId') subscriptionId: string,
   ) {
@@ -61,11 +74,14 @@ export class PlatformLicensesController {
       clientId,
       subscriptionId,
       ClientSubscriptionStatus.ACTIVE,
+      { actorUserId, meta },
     );
   }
 
   @Post('subscriptions/:subscriptionId/suspend')
   suspendSubscription(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Param('subscriptionId') subscriptionId: string,
   ) {
@@ -73,11 +89,14 @@ export class PlatformLicensesController {
       clientId,
       subscriptionId,
       ClientSubscriptionStatus.SUSPENDED,
+      { actorUserId, meta },
     );
   }
 
   @Post('subscriptions/:subscriptionId/cancel')
   cancelSubscription(
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Param('subscriptionId') subscriptionId: string,
   ) {
@@ -85,6 +104,7 @@ export class PlatformLicensesController {
       clientId,
       subscriptionId,
       ClientSubscriptionStatus.CANCELED,
+      { actorUserId, meta },
     );
   }
 
@@ -96,11 +116,12 @@ export class PlatformLicensesController {
   @Patch('users/:userId/license')
   patchUserLicenseByPlatform(
     @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @Param('clientId') clientId: string,
     @Param('userId') userId: string,
     @Body() dto: AssignUserLicenseDto,
   ) {
-    return this.licenses.assignByPlatform(actorUserId, clientId, userId, dto);
+    return this.licenses.assignByPlatform(actorUserId, clientId, userId, dto, meta);
   }
 }
 
@@ -129,10 +150,17 @@ export class ClientLicensesController {
   )
   patchUserLicenseByClientAdmin(
     @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
     @ActiveClientId() clientId: string | undefined,
     @Param('userId') userId: string,
     @Body() dto: AssignUserLicenseDto,
   ) {
-    return this.licenses.assignByClientAdmin(actorUserId!, clientId!, userId, dto);
+    return this.licenses.assignByClientAdmin(
+      actorUserId!,
+      clientId!,
+      userId,
+      dto,
+      meta,
+    );
   }
 }
