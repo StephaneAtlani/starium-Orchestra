@@ -517,6 +517,8 @@ Autres domaines
 ├── contracts
 ├── licenses
 ├── access-control (RFC-ACL-005 — `ResourceAcl`, `GET|PUT|POST|DELETE /api/resource-acl/...`, **CLIENT_ADMIN** ; `AccessControlModule` importé dans **`AppModule`** — pas dans `CommonModule`, pour éviter tout couplage / cycle avec le socle global ; les modules métier qui utiliseront `ResourceAclGuard` importeront **`AccessControlModule`** explicitement ; branchement routes métier = RFC-ACL-006)
+├── access-diagnostics (RFC-ACL-011 — diagnostic consolidé 6 couches `license`/`subscription`/`moduleActivation`/`moduleVisibility`/`rbac`/`acl` ; endpoints client `GET /api/access-diagnostics/effective-rights` et plateforme `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights` ; whitelist `resourceType` V1 = `PROJECT`/`BUDGET`/`CONTRACT`/`SUPPLIER`/`STRATEGIC_OBJECTIVE` ; refus générique `DIAGNOSTIC_SCOPE_MISMATCH` hors périmètre — anti-fuite stricte)
+├── license-reporting (RFC-ACL-012 — reporting commercial **plateforme uniquement** ; `JwtAuthGuard` + `PlatformAdminGuard` ; endpoints `GET /api/platform/license-reporting/{overview,clients,monthly}` + exports `*.csv` ; calcul à la volée à partir des dates `licenseStartsAt`/`licenseEndsAt`/`subscription.startsAt`/`endsAt`/`graceEndsAt` — **pas** de table d’agrégats en V1 ; CSV RFC 4180 + BOM UTF-8 ; fenêtre max 24 mois pour `/monthly`)
 ├── applications
 └── ...
 ```

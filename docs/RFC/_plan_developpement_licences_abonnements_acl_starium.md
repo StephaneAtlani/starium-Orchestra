@@ -279,14 +279,13 @@ enum ClientSubscriptionStatus {
   DRAFT
   ACTIVE
   SUSPENDED
+  CANCELED
   EXPIRED
-  CANCELLED
 }
 
 enum SubscriptionBillingPeriod {
   MONTHLY
   YEARLY
-  CUSTOM
 }
 ```
 
@@ -294,32 +293,23 @@ enum SubscriptionBillingPeriod {
 
 ```prisma
 model ClientSubscription {
-  id                  String   @id @default(cuid())
+  id                  String                    @id @default(cuid())
   clientId            String
-
-  name                String
-  status              ClientSubscriptionStatus
-
-  startsAt            DateTime
-  endsAt              DateTime?
-  gracePeriodEndsAt   DateTime?
-
-  durationMonths      Int?
-  gracePeriodDays     Int?
-
+  status              ClientSubscriptionStatus  @default(DRAFT)
+  billingPeriod       SubscriptionBillingPeriod @default(MONTHLY)
   readWriteSeatsLimit Int
-
-  billingPeriod       SubscriptionBillingPeriod?
-  billingReference    String?
-  notes               String?
-
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  startsAt            DateTime?
+  endsAt              DateTime?
+  graceEndsAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 
   @@index([clientId])
   @@index([clientId, status])
 }
 ```
+
+> Note V1 : pas de champ `name`, `durationMonths`, `gracePeriodDays`, `billingReference`, `notes`. La période de grâce est portée par `graceEndsAt` (date absolue calculée à la création / activation), pas par une durée stockée. La règle commerciale §7 reste valide en entrée de calcul, mais elle n’est pas matérialisée dans la table.
 
 ### 8.3 Extension ClientUser
 
@@ -328,8 +318,8 @@ Ajouter sur `ClientUser` :
 ```prisma
 subscriptionId           String?
 
-licenseType              ClientUserLicenseType @default(READ_ONLY)
-licenseBillingMode       ClientUserLicenseBillingMode @default(CLIENT_BILLABLE)
+licenseType              ClientUserLicenseType        @default(READ_ONLY)
+licenseBillingMode       ClientUserLicenseBillingMode @default(NON_BILLABLE)
 
 licenseStartsAt          DateTime?
 licenseEndsAt            DateTime?
@@ -337,6 +327,7 @@ licenseAssignmentReason  String?
 
 @@index([clientId, subscriptionId])
 @@index([clientId, licenseType, licenseBillingMode])
+@@index([clientId, licenseEndsAt])
 ```
 
 ---
@@ -347,20 +338,20 @@ licenseAssignmentReason  String?
 
 ```prisma
 model AccessGroup {
-  id          String   @id @default(cuid())
-  clientId    String
-  name        String
-  description String?
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members AccessGroupMember[]
+  members   AccessGroupMember[]
 
   @@unique([clientId, name])
   @@index([clientId])
 }
 ```
+
+> V1 : pas de `description` ni `isSystem` en base. Le frontend peut afficher un sous-titre dérivé (nb membres, etc.) mais ne s’appuie pas sur ces champs.
 
 ### 9.2 AccessGroupMember
 
@@ -436,23 +427,19 @@ USER override
 
 ```prisma
 model ResourceAcl {
-  id             String @id @default(cuid())
+  id             String                 @id @default(cuid())
   clientId       String
-
+  /// Code normalisé (uppercase), whitelist métier V1 côté application.
   resourceType   String
   resourceId     String
-
   subjectType    ResourceAclSubjectType
   subjectId      String
-
   permission     ResourceAclPermission
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
+  @@unique([clientId, resourceType, resourceId, subjectType, subjectId])
   @@index([clientId, resourceType, resourceId])
-  @@index([clientId, subjectType, subjectId])
-  @@unique([clientId, resourceType, resourceId, subjectType, subjectId, permission])
 }
 
 enum ResourceAclSubjectType {
@@ -466,6 +453,8 @@ enum ResourceAclPermission {
   ADMIN
 }
 ```
+
+> Important V1 : la contrainte d’unicité ne contient **pas** `permission`. Un même sujet (`USER` ou `GROUP`) ne peut donc avoir **qu’une seule** entrée par `(clientId, resourceType, resourceId)`. La hiérarchie `READ < WRITE < ADMIN` étant inclusive, il n’est jamais utile de stocker plusieurs niveaux pour le même sujet : la mise à jour remplace le niveau (PUT/POST côté API). Pas d’index secondaire `[clientId, subjectType, subjectId]` en V1 (les requêtes passent toujours par la clé `(resourceType, resourceId)` ou par filtrage via groupes).
 
 ---
 
@@ -493,70 +482,125 @@ ACL présente
 
 Responsabilités : vérifier licence active, expiration, quota abonnement, sièges consommés, blocage READ_ONLY, conversion EVALUATION, modes facturables et non facturables.
 
-Méthodes :
+Méthodes (réelles) :
 
 ```ts
-getClientLicenseUsage(clientId: string)
-assignClientUserLicense(...)
-assertCanWriteByLicense(...)
-isLicenseActive(...)
-isSubscriptionUsable(...)
+getClientUsage(clientId: string)
+assignByPlatform(actorUserId, clientId, userId, dto, meta?)
+assignByClientAdmin(actorUserId, clientId, userId, dto, meta?)
+validateWriteAccess(userId: string, clientId: string): Promise<void>
 ```
+
+`validateWriteAccess` est la primitive utilisée par `LicenseWriteGuard` (mutations) et levée explicitement par les services métier sensibles. Pas d’API publique `isLicenseActive` / `isSubscriptionUsable` séparée — la logique est encapsulée en interne.
 
 ### 13.2 SubscriptionService
 
 Responsabilités : créer abonnement client, activer/suspendre/annuler abonnement, calculer période de grâce, calculer usage par abonnement, vérifier abonnement actif ou en grâce.
 
+Méthodes (réelles) :
+
+```ts
+listByClient(clientId: string)
+create(actorUserId, clientId, dto, meta?)
+update(actorUserId, clientId, subscriptionId, dto, meta?)
+transition(actorUserId, clientId, subscriptionId, targetStatus, meta?)
+```
+
+`transition` couvre `activate / suspend / cancel` côté contrôleur (les routes POST `/activate|/suspend|/cancel` mappent vers la même primitive avec un statut cible). L’expiration automatique (`EXPIRED`) est déclenchée par le job RFC-ACL-009, pas par cette primitive directement.
+
 ### 13.3 ModuleVisibilityService
 
 Responsabilités : résoudre les modules visibles, appliquer priorité `USER > GROUP > CLIENT`, filtrer navigation frontend, bloquer accès API si module masqué.
+
+Méthodes (réelles) :
+
+```ts
+computeVisibilityForModule(...)                        // pure, applique la priorité
+isVisibleForUser(userId, clientId, moduleCode)
+getVisibilityMap(userId, clientId)                     // tous modules → état effectif
+getVisibleModuleCodesForUser(userId, clientId)         // alimente GET /me/permissions
+listMatrix(clientId): ModuleVisibilityMatrixRow[]      // UI matrice CLIENT_ADMIN
+setOverride(actor, dto, meta?)                         // PATCH /api/module-visibility
+removeOverride(actor, target, meta?)                   // DELETE /api/module-visibility
+```
+
+Consommé par `ModuleAccessGuard` + `EffectivePermissionsService` (pas de guard séparé `ModuleVisibilityGuard`).
 
 ### 13.4 AccessGroupService
 
 Responsabilités : CRUD groupes, gestion membres, vérification cross-client, audit changements.
 
+Méthodes (réelles) :
+
+```ts
+listGroups(clientId)
+getGroupById(clientId, groupId)
+createGroup(actor, clientId, dto, meta?)
+updateGroup(actor, clientId, groupId, dto, meta?)
+deleteGroup(actor, clientId, groupId, meta?)          // transaction : supprime aussi les ResourceAcl GROUP associées (RFC-ACL-005)
+listMembers(clientId, groupId)
+addMember(actor, clientId, groupId, userId, meta?)    // refus si userId hors client
+removeMember(actor, clientId, groupId, userId, meta?)
+```
+
+Tous appels protégés par `ActiveClientGuard` + RBAC `CLIENT_ADMIN` ; isolation stricte par `clientId` du contexte actif.
+
 ### 13.5 AccessControlService
 
 Responsabilités : vérifier ACL ressource, résoudre droits utilisateur + groupes, gérer absence ACL = comportement actuel.
 
-Méthodes :
+Méthodes (réelles, V1) :
 
 ```ts
-canReadResource(userId, clientId, resourceType, resourceId)
-canWriteResource(userId, clientId, resourceType, resourceId)
-canAdminResource(userId, clientId, resourceType, resourceId)
-assertCanReadResource(...)
-assertCanWriteResource(...)
-assertCanAdminResource(...)
+// Validation et parsing route (utilisé par contrôleurs ET ResourceAclGuard)
+resolveResourceAclRoute(...)
+parseResourceTypeFromRoute(raw)
+parseResourceIdFromRoute(raw)
+assertSubjectInClient(clientId, subjectType, subjectId)
+
+// Lecture / mutation des entrées (API /api/resource-acl/...)
+listEntries(clientId, resourceType, resourceId)
+replaceEntries(actor, clientId, resourceType, resourceId, entries, meta?)   // PUT — transactionnel
+addEntry(actor, clientId, resourceType, resourceId, entry, meta?)           // POST entries
+removeEntry(actor, clientId, resourceType, resourceId, entryId, meta?)      // DELETE entries
+
+// Évaluation droits (consommée par ResourceAclGuard et services métier RFC-ACL-006)
+canReadResource({ userId, clientId, resourceType, resourceId })
+canWriteResource({ userId, clientId, resourceType, resourceId })
+canAdminResource({ userId, clientId, resourceType, resourceId })
+filterReadableResourceIds({ userId, clientId, resourceType, resourceIds })  // anti N+1 RFC-ACL-006
 ```
+
+> Pas d’API `assertCanReadResource` / `assertCanWriteResource` / `assertCanAdminResource` séparée en V1 — les modules métier appellent les `can…Resource` et lèvent l’exception localement, ou s’appuient sur `ResourceAclGuard`. La hiérarchie `READ < WRITE < ADMIN` est appliquée côté évaluation : `WRITE` couvre `READ`, `ADMIN` couvre tout.
 
 ---
 
 ## 14. Guards backend
 
-Pipeline cible :
+Pipeline réel V1 :
 
 ```text
 JwtAuthGuard
 → ActiveClientGuard
-→ ModuleAccessGuard
-→ ModuleVisibilityGuard
-→ LicenseGuard
-→ PermissionsGuard
-→ ResourceAclGuard si ressource ciblée
+→ ModuleAccessGuard         (module activé client + visibilité module RFC-ACL-004)
+→ PermissionsGuard          (RBAC sur permissions décorées)
+→ LicenseWriteGuard         (sur mutations explicitement annotées)
+→ ResourceAclGuard          (si la route déclare resourceType / resourceId, RFC-ACL-006)
 ```
 
-### 14.1 LicenseGuard
+### 14.1 LicenseWriteGuard
 
-Bloque : écriture avec READ_ONLY, licence expirée, CLIENT_BILLABLE hors abonnement actif/grâce, EVALUATION expirée, PLATFORM_INTERNAL expiré.
+Bloque les mutations en : `READ_ONLY`, licence expirée, `CLIENT_BILLABLE` hors abonnement actif/grâce, `EVALUATION` expirée, `PLATFORM_INTERNAL` expiré.
 
-### 14.2 ModuleVisibilityGuard
+> Pas de `LicenseGuard` global posé sur tout le pipeline : la vérification d’écriture est ciblée via `LicenseWriteGuard` + appel direct à `LicenseService.validateWriteAccess()` dans les services sensibles. Les lectures restent gouvernées par RBAC + visibilité module + ACL ressource.
 
-Bloque si le module est masqué pour l’utilisateur.
+### 14.2 Visibilité modules
+
+Pas de `ModuleVisibilityGuard` séparé. La visibilité module (RFC-ACL-004) est intégrée à `ModuleAccessGuard` via `EffectivePermissionsService`, qui combine module activé client + override `USER > GROUP > CLIENT`. Le frontend reçoit `visibleModuleCodes` sur `GET /api/me/permissions`.
 
 ### 14.3 ResourceAclGuard
 
-Bloque si la ressource est restreinte et que l’utilisateur n’a pas l’ACL requise.
+Bloque si la ressource est restreinte (au moins une entrée ACL existe) et que l’utilisateur n’a pas le niveau requis (READ < WRITE < ADMIN), y compris pour `CLIENT_ADMIN` (mode strict, voir §18.1). Posé sélectivement dans les contrôleurs métier (RFC-ACL-006), pas globalement.
 
 ---
 
@@ -602,18 +646,23 @@ PATCH /api/platform/clients/:clientId/users/:userId/license
 GET /api/client-license-usage
 ```
 
-Réponse :
+Réponse réelle (V1, alignée `LicenseService.getClientUsage`) :
 
 ```ts
 {
-  readOnly: { used: number; limit: null; unlimited: true };
-  readWriteClientBillable: { used: number; limit: number };
-  readWriteExternalBillable: { used: number };
-  readWriteNonBillable: { used: number };
-  readWritePlatformInternal: { used: number };
-  readWriteEvaluation: { used: number; expiresSoon: number; expired: number };
+  clientId: string;
+  totalReadWriteBillableUsed: number;
+  subscriptions: Array<{
+    id: string;
+    status: ClientSubscriptionStatus;
+    graceEndsAt: string | null;
+    readWriteSeatsLimit: number;
+    readWriteBillableUsed: number;
+  }>;
 }
 ```
+
+> Les compteurs détaillés par mode (`EVALUATION`, `NON_BILLABLE`, `PLATFORM_INTERNAL`, `EXTERNAL_BILLABLE`, `READ_ONLY`) sont exposés par les cockpits (RFC-ACL-010) et le reporting plateforme (RFC-ACL-012, `GET /api/platform/license-reporting/overview`), pas par cet endpoint client. La shape ci-dessus reste volontairement minimale pour le quota commercial.
 
 ### 15.5 Client — attribution licence utilisateur
 
@@ -639,9 +688,12 @@ DELETE /api/access-groups/:id/members/:userId
 ### 15.7 Visibilité modules
 
 ```text
-GET   /api/module-visibility
-PATCH /api/module-visibility
+GET    /api/module-visibility
+PATCH  /api/module-visibility
+DELETE /api/module-visibility
 ```
+
+`DELETE` retire un override (retour à l’héritage `USER > GROUP > CLIENT > module activé plateforme`). Le payload identifie la cible par `moduleCode` + `scopeType` + `scopeId?`.
 
 Payload :
 
@@ -662,6 +714,31 @@ PUT    /api/resource-acl/:resourceType/:resourceId
 POST   /api/resource-acl/:resourceType/:resourceId/entries
 DELETE /api/resource-acl/:resourceType/:resourceId/entries/:entryId
 ```
+
+### 15.9 Plateforme — diagnostics droits effectifs (RFC-ACL-011)
+
+```text
+GET /api/access-diagnostics/effective-rights                                    (client actif)
+GET /api/platform/clients/:clientId/access-diagnostics/effective-rights        (PlatformAdminGuard)
+```
+
+Réponse : 6 couches consolidées (`license`, `subscription`, `moduleActivation`, `moduleVisibility`, `rbac`, `acl`). Whitelist `resourceType` V1 = `PROJECT | BUDGET | CONTRACT | SUPPLIER | STRATEGIC_OBJECTIVE`. Refus générique `DIAGNOSTIC_SCOPE_MISMATCH` hors périmètre (anti-fuite).
+
+### 15.10 Plateforme — reporting commercial licences (RFC-ACL-012)
+
+```text
+GET /api/platform/license-reporting/overview
+GET /api/platform/license-reporting/clients
+GET /api/platform/license-reporting/monthly
+GET /api/platform/license-reporting/clients.csv
+GET /api/platform/license-reporting/monthly.csv
+```
+
+Tous protégés par `JwtAuthGuard` + `PlatformAdminGuard` (pas d’endpoint client).
+
+Filtres communs : `clientId`, `licenseBillingMode`, `subscriptionStatus`, `from` (mois), `to` (mois). Fenêtre max 24 mois pour `/monthly`. Calcul à la volée à partir des dates `licenseStartsAt` / `licenseEndsAt` / `subscription.startsAt` / `subscription.endsAt` / `graceEndsAt` (pas de table d’agrégats en V1).
+
+Exports : CSV RFC 4180 + BOM UTF-8 ; JSON via les endpoints non `.csv`.
 
 ---
 
@@ -709,41 +786,74 @@ Matrice : module, client, groupes, utilisateurs avec exception, statut visible/m
 
 Contenu : utilisateurs autorisés, groupes autorisés, permission READ/WRITE/ADMIN, ressource publique ou restreinte.
 
+### 16.4 Cockpits et diagnostics livrés (RFC-ACL-010 / RFC-ACL-011)
+
+```text
+/admin/clients/[clientId]/licenses-cockpit              (RFC-ACL-010)
+/admin/clients/[clientId]/access-diagnostics            (RFC-ACL-011)
+/client/administration/licenses-cockpit                 (RFC-ACL-010)
+/client/administration/access-cockpit                   (RFC-ACL-010)
+/client/administration/access-diagnostics               (RFC-ACL-011)
+```
+
+### 16.5 Reporting commercial plateforme (RFC-ACL-012)
+
+```text
+/admin/license-reporting     (PlatformAdminGuard, sidebar Plateforme)
+```
+
+KPI cards (8 indicateurs canoniques), table par client, trajectoire mensuelle, filtres (`clientId`, `licenseBillingMode`, `subscriptionStatus`, `from`/`to`), exports CSV / JSON. Pas d’écran client équivalent en V1 (reporting plateforme uniquement).
+
 ---
 
 ## 17. Audit obligatoire
 
-Actions à auditer :
+Actions canoniques (alignées sur `acl-audit-actions.ts`, RFC-ACL-008) :
 
 ```text
+# Abonnements client
 client_subscription.created
 client_subscription.updated
 client_subscription.activated
 client_subscription.suspended
 client_subscription.cancelled
+client_subscription.expired
+
+# Licence utilisateur (une seule action canonique par mutation)
 client_user.license.assigned
 client_user.license.updated
-client_user.license.revoked
-client_user.license.expired
-client_user.license.billing_mode_changed
 client_user.license.evaluation_granted
 client_user.license.evaluation_extended
 client_user.license.evaluation_expired
-client_user.license.evaluation_converted
 client_user.license.support_access_granted
 client_user.license.support_access_expired
+client_user.license.subscription_expired_downgrade
+client_user.license.billing_mode_changed
+client_user.license.write_denied
+
+# Groupes d’accès
 access_group.created
 access_group.updated
 access_group.deleted
 access_group.member_added
 access_group.member_removed
+
+# Visibilité modules
 module_visibility.updated
+
+# ACL ressources
 resource_acl.replaced
 resource_acl.entry_created
 resource_acl.entry_deleted
 ```
 
-Audit minimum : `clientId`, `targetUserId`, `actorUserId`, `resourceType`, `resourceId`, `oldValue`, `newValue`, `licenseType`, `licenseBillingMode`, `subscriptionId`, `reason`, `requestId`, `ipAddress`, `userAgent`, `createdAt`.
+> Notes V1 :
+> - **Pas** d’action `client_user.license.revoked` ni `evaluation_converted` séparée : les transitions correspondantes se résolvent en `updated` ou `billing_mode_changed` via `resolveCanonicalLicenseAction()`.
+> - **Pas** d’action `client_user.license.expired` générique : utiliser `evaluation_expired`, `support_access_expired` ou `subscription_expired_downgrade` selon le déclencheur (job RFC-ACL-009).
+> - `write_denied` est utilisé par `LicenseWriteGuard` pour tracer un blocage (avec `LicenseWriteDeniedReasonCode`).
+> - Les payloads `oldValue` / `newValue` suivent l’enveloppe `{ assignment | subscription, meta }` (snapshot métier + meta `actorUserId`/`targetUserId`/`reason`/`requestId`/`ipAddress`/`userAgent`).
+
+Audit minimum côté ligne : `clientId`, `targetUserId`, `actorUserId`, `resourceType`, `resourceId`, `oldValue`, `newValue`, `licenseType`, `licenseBillingMode`, `subscriptionId`, `reason`, `requestId`, `ipAddress`, `userAgent`, `createdAt`.
 
 ---
 
