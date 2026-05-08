@@ -158,8 +158,8 @@ describe('UsersService', () => {
   });
 
   describe('listPlatformUsers', () => {
-    it('should delegate to prisma.user.findMany with correct select and order', async () => {
-      const users = [
+    it('should delegate to prisma.user.findMany with correct select and order, and expose clientIds', async () => {
+      const dbRows = [
         {
           id: 'user-1',
           email: 'a@test.fr',
@@ -168,9 +168,27 @@ describe('UsersService', () => {
           createdAt: new Date('2024-01-02'),
           updatedAt: new Date('2024-01-03'),
           platformRole: null,
+          clientUsers: [
+            {
+              clientId: 'c1',
+              role: 'CLIENT_USER',
+              licenseType: 'READ_ONLY',
+              licenseBillingMode: 'NON_BILLABLE',
+              licenseEndsAt: null,
+              client: { name: 'Acme', slug: 'acme' },
+            },
+            {
+              clientId: 'c2',
+              role: 'CLIENT_ADMIN',
+              licenseType: 'READ_WRITE',
+              licenseBillingMode: 'CLIENT_BILLABLE',
+              licenseEndsAt: new Date('2025-12-31'),
+              client: { name: 'Beta', slug: 'beta' },
+            },
+          ],
         },
       ];
-      (prisma.user.findMany as jest.Mock).mockResolvedValue(users);
+      (prisma.user.findMany as jest.Mock).mockResolvedValue(dbRows);
 
       const result = await service.listPlatformUsers();
 
@@ -184,11 +202,49 @@ describe('UsersService', () => {
           createdAt: true,
           updatedAt: true,
           platformRole: true,
+          clientUsers: {
+            select: {
+              clientId: true,
+              role: true,
+              licenseType: true,
+              licenseBillingMode: true,
+              licenseEndsAt: true,
+              client: { select: { name: true, slug: true } },
+            },
+            orderBy: { client: { name: 'asc' } },
+          },
         },
       });
-      expect(result).toEqual(users);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        id: 'user-1',
+        email: 'a@test.fr',
+        clientIds: ['c1', 'c2'],
+      });
+      expect(result[0].licenses).toEqual([
+        {
+          clientId: 'c1',
+          clientName: 'Acme',
+          clientSlug: 'acme',
+          role: 'CLIENT_USER',
+          licenseType: 'READ_ONLY',
+          licenseBillingMode: 'NON_BILLABLE',
+          licenseEndsAt: null,
+        },
+        {
+          clientId: 'c2',
+          clientName: 'Beta',
+          clientSlug: 'beta',
+          role: 'CLIENT_ADMIN',
+          licenseType: 'READ_WRITE',
+          licenseBillingMode: 'CLIENT_BILLABLE',
+          licenseEndsAt: new Date('2025-12-31').toISOString(),
+        },
+      ]);
       // passwordHash ne doit jamais être exposé
       expect((result[0] as any).passwordHash).toBeUndefined();
+      // Pas d'objet brut clientUsers exposé
+      expect((result[0] as any).clientUsers).toBeUndefined();
     });
   });
 

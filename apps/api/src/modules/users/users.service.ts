@@ -54,6 +54,20 @@ export interface UserResponse {
   isDirectoryLocked?: boolean;
 }
 
+/**
+ * Vue compacte d'une licence (par client) pour l'affichage liste plateforme.
+ * Reflète l'état courant côté `ClientUser` enrichi du libellé client.
+ */
+export interface PlatformUserLicenseSummary {
+  clientId: string;
+  clientName: string;
+  clientSlug: string;
+  role: ClientUserRole;
+  licenseType: ClientUserLicenseType;
+  licenseBillingMode: ClientUserLicenseBillingMode;
+  licenseEndsAt: string | null;
+}
+
 /** Résumé utilisateur global exposé par les endpoints plateforme (sans passwordHash). */
 export interface PlatformUserSummary {
   id: string;
@@ -63,6 +77,37 @@ export interface PlatformUserSummary {
   createdAt: Date;
   updatedAt: Date;
   platformRole: string | null;
+  /** IDs des clients auxquels l'utilisateur est rattaché (pour filtre côté UI). */
+  clientIds: string[];
+  /** Licences courantes par client (lib métier, jamais l'ID seul). */
+  licenses: PlatformUserLicenseSummary[];
+}
+
+/**
+ * Rattachement d'un user global à un client, vu côté plateforme.
+ * Enrichi avec libellés métier (`clientName`, `clientSlug`) et licence courante
+ * pour alimenter la modale de gestion plateforme (RFC-ACL-001 / RFC-ACL-010).
+ */
+export interface PlatformUserClientLink {
+  clientId: string;
+  clientName: string;
+  clientSlug: string;
+  role: ClientUserRole;
+  status: ClientUserStatus;
+  licenseType: ClientUserLicenseType;
+  licenseBillingMode: ClientUserLicenseBillingMode;
+  subscriptionId: string | null;
+  licenseStartsAt: string | null;
+  licenseEndsAt: string | null;
+  licenseAssignmentReason: string | null;
+  subscription: {
+    id: string;
+    status: string;
+    billingPeriod: string;
+    readWriteSeatsLimit: number;
+    endsAt: string | null;
+    graceEndsAt: string | null;
+  } | null;
 }
 
 /**
@@ -355,9 +400,32 @@ export class UsersService {
         createdAt: true,
         updatedAt: true,
         platformRole: true,
+        clientUsers: {
+          select: {
+            clientId: true,
+            role: true,
+            licenseType: true,
+            licenseBillingMode: true,
+            licenseEndsAt: true,
+            client: { select: { name: true, slug: true } },
+          },
+          orderBy: { client: { name: 'asc' } },
+        },
       },
     });
-    return users;
+    return users.map(({ clientUsers, ...rest }) => ({
+      ...rest,
+      clientIds: clientUsers.map((cu) => cu.clientId),
+      licenses: clientUsers.map((cu) => ({
+        clientId: cu.clientId,
+        clientName: cu.client.name,
+        clientSlug: cu.client.slug,
+        role: cu.role,
+        licenseType: cu.licenseType,
+        licenseBillingMode: cu.licenseBillingMode,
+        licenseEndsAt: cu.licenseEndsAt?.toISOString() ?? null,
+      })),
+    }));
   }
 
   /**
@@ -388,7 +456,7 @@ export class UsersService {
    * Shape compatible avec le front (assignments?: [{ clientId, role }]).
    */
   async getPlatformUserClients(userId: string): Promise<{
-    assignments: PlatformUserClientAssignmentDto[];
+    assignments: PlatformUserClientLink[];
   }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -400,14 +468,54 @@ export class UsersService {
 
     const links = await this.prisma.clientUser.findMany({
       where: { userId },
-      select: { clientId: true, role: true },
-      orderBy: { clientId: 'asc' },
+      select: {
+        clientId: true,
+        role: true,
+        status: true,
+        licenseType: true,
+        licenseBillingMode: true,
+        subscriptionId: true,
+        licenseStartsAt: true,
+        licenseEndsAt: true,
+        licenseAssignmentReason: true,
+        client: { select: { id: true, name: true, slug: true } },
+        subscription: {
+          select: {
+            id: true,
+            status: true,
+            billingPeriod: true,
+            readWriteSeatsLimit: true,
+            endsAt: true,
+            graceEndsAt: true,
+          },
+        },
+      },
+      orderBy: [{ client: { name: 'asc' } }],
     });
 
     return {
       assignments: links.map((l) => ({
         clientId: l.clientId,
-        role: l.role as ClientUserRole,
+        clientName: l.client.name,
+        clientSlug: l.client.slug,
+        role: l.role,
+        status: l.status,
+        licenseType: l.licenseType,
+        licenseBillingMode: l.licenseBillingMode,
+        subscriptionId: l.subscriptionId,
+        licenseStartsAt: l.licenseStartsAt?.toISOString() ?? null,
+        licenseEndsAt: l.licenseEndsAt?.toISOString() ?? null,
+        licenseAssignmentReason: l.licenseAssignmentReason ?? null,
+        subscription: l.subscription
+          ? {
+              id: l.subscription.id,
+              status: l.subscription.status,
+              billingPeriod: l.subscription.billingPeriod,
+              readWriteSeatsLimit: l.subscription.readWriteSeatsLimit,
+              endsAt: l.subscription.endsAt?.toISOString() ?? null,
+              graceEndsAt: l.subscription.graceEndsAt?.toISOString() ?? null,
+            }
+          : null,
       })),
     };
   }

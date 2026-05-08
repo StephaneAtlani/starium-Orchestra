@@ -18,6 +18,22 @@ export interface AdminClientUserSummary {
   status: string;
 }
 
+/** Licence courante d'un user pour un client donné (vue compacte plateforme). */
+export interface AdminPlatformUserLicense {
+  clientId: string;
+  clientName: string;
+  clientSlug: string;
+  role: 'CLIENT_ADMIN' | 'CLIENT_USER';
+  licenseType: 'READ_ONLY' | 'READ_WRITE';
+  licenseBillingMode:
+    | 'CLIENT_BILLABLE'
+    | 'NON_BILLABLE'
+    | 'EXTERNAL_BILLABLE'
+    | 'PLATFORM_INTERNAL'
+    | 'EVALUATION';
+  licenseEndsAt: string | null;
+}
+
 export interface AdminPlatformUserSummary {
   id: string;
   email: string;
@@ -26,6 +42,10 @@ export interface AdminPlatformUserSummary {
   createdAt: string;
   updatedAt: string;
   platformRole: string | null;
+  /** IDs des clients auxquels l'utilisateur est rattaché. */
+  clientIds: string[];
+  /** Licences courantes par client. */
+  licenses: AdminPlatformUserLicense[];
 }
 
 export interface AdminPlatformAuditLogRow {
