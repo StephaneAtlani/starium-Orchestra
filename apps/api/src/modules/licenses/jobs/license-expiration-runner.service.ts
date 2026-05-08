@@ -389,7 +389,7 @@ export class LicenseExpirationRunnerService {
     dedupeKey: string,
     title: string,
     message: string,
-    metadata: Record<string, unknown>,
+    metadata: Prisma.InputJsonValue,
   ): Promise<void> {
     const admins = await tx.clientUser.findMany({
       where: {

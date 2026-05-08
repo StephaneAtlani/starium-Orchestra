@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -93,6 +94,7 @@ export class StrategicVisionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
