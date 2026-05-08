@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -53,6 +54,7 @@ export class BudgetsService {
     private readonly budgetSnapshots: BudgetSnapshotsService,
     private readonly budgetEnvelopes: BudgetEnvelopesService,
     private readonly budgetLines: BudgetLinesService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'filterReadableResourceIds'

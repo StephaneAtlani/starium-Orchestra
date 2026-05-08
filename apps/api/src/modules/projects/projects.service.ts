@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -172,6 +173,7 @@ export class ProjectsService {
     private readonly auditLogs: AuditLogsService,
     private readonly pilotage: ProjectsPilotageService,
     private readonly projectTeam: ProjectTeamService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'

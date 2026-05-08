@@ -19,12 +19,18 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
     };
   };
   let auditLogs: { create: jest.Mock };
-  let projects: { getProjectForScope: jest.Mock };
+  let projects: {
+    getProjectForScope: jest.Mock;
+    assertCanReadProject: jest.Mock;
+    assertCanWriteProject: jest.Mock;
+    assertCanAdminProject: jest.Mock;
+  };
 
   const clientId = 'c1';
   const projectId = 'p1';
   const otherProjectId = 'p2';
   const documentId = 'd1';
+  const userId = 'u1';
 
   function baseDoc(overrides: Record<string, unknown> = {}) {
     return {
@@ -64,6 +70,9 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     projects = {
       getProjectForScope: jest.fn().mockResolvedValue({ id: projectId }),
+      assertCanReadProject: jest.fn().mockResolvedValue(undefined),
+      assertCanWriteProject: jest.fn().mockResolvedValue(undefined),
+      assertCanAdminProject: jest.fn().mockResolvedValue(undefined),
     };
     service = new ProjectDocumentsService(
       prisma as unknown as PrismaService,
@@ -74,7 +83,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
 
   it('list filtre status != DELETED', async () => {
     prisma.projectDocument.findMany.mockResolvedValue([]);
-    await service.list(clientId, projectId);
+    await service.list(clientId, projectId, userId);
     expect(prisma.projectDocument.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -89,7 +98,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
   it('getOne rejette si document appartient à un autre projectId (même client)', async () => {
     prisma.projectDocument.findFirst.mockResolvedValue(null);
     await expect(
-      service.getOne(clientId, projectId, documentId),
+      service.getOne(clientId, projectId, documentId, userId),
     ).rejects.toThrow(NotFoundException);
     expect(prisma.projectDocument.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -129,6 +138,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
         clientId,
         projectId,
         { name: 'Doc', storageType: 'STARIUM' },
+        { actorUserId: userId, meta: {} },
       ),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.projectDocument.create).not.toHaveBeenCalled();
@@ -141,6 +151,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
         clientId,
         projectId,
         { name: 'Doc', storageType: 'EXTERNAL' },
+        { actorUserId: userId, meta: {} },
       ),
     ).rejects.toThrow(BadRequestException);
     expect(prisma.projectDocument.create).not.toHaveBeenCalled();

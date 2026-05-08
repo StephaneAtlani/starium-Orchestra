@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -91,6 +92,7 @@ export class ContractAttachmentsService {
     private readonly storage: ProcurementObjectStorageService,
     private readonly auditLogs: AuditLogsService,
     private readonly platformUpload: PlatformUploadSettingsService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'canAdminResource'

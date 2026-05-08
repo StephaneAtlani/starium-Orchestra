@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   InternalServerErrorException,
   Injectable,
   NotFoundException,
@@ -81,6 +82,7 @@ export class SuppliersService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly logoStorage: SuppliersLogoStorageService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'

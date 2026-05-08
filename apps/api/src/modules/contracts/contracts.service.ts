@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -201,6 +202,7 @@ export class ContractsService {
     private readonly auditLogs: AuditLogsService,
     private readonly suppliers: SuppliersService,
     private readonly contractKindTypes: ContractKindTypesService,
+    @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
       'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
