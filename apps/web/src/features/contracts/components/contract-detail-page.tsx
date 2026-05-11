@@ -21,6 +21,7 @@ import {
 } from '../lib/contracts-labels';
 import { ContractFormDialog } from './contract-form-dialog';
 import { ContractAttachmentsPanel } from './contract-attachments-panel';
+import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -111,6 +112,12 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
             Modifier
           </Button>
         )}
+        <ResourceAclTriggerButton
+          resourceType="CONTRACT"
+          resourceId={c.id}
+          resourceLabel={c.title}
+          size="sm"
+        />
         {canDelete && !terminated && (
           <Button
             type="button"

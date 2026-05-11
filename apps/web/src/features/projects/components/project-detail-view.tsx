@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
@@ -1313,6 +1314,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <HealthBadge health={project.computedHealth} merged={badgeMerged} />
+                <ResourceAclTriggerButton
+                  resourceType="PROJECT"
+                  resourceId={project.id}
+                  resourceLabel={project.name}
+                  size="sm"
+                />
               </div>
             }
           />

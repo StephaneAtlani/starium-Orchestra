@@ -190,9 +190,10 @@ export function AccessDiagnosticsPage({
               <Select
                 value={selectedOptionId}
                 onValueChange={(v) => {
-                  setSelectedOptionId(v);
+                  const id = v ?? '';
+                  setSelectedOptionId(id);
                   setSelectedOptionLabel(
-                    options.find((opt) => opt.id === v)?.label ?? '',
+                    options.find((opt) => opt.id === id)?.label ?? '',
                   );
                 }}
               >

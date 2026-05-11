@@ -25,6 +25,10 @@ import { useBudgetLineEvents } from '../../hooks/use-budget-line-events';
 import { useBudgetDetail } from '../../hooks/use-budgets';
 import type { BudgetLineDrilldownNavigation } from '../../lib/budget-envelope-navigation';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActiveClient } from '@/hooks/use-active-client';
+import { canEditResourceAcl } from '@/features/resource-acl/lib/policy';
+import { ResourceAclEditor } from '@/features/resource-acl/components/resource-acl-editor';
+import { ResourceAclDialog } from '@/features/resource-acl/components/resource-acl-dialog';
 
 export type BudgetLineDrawerTab =
   | 'overview'
@@ -33,7 +37,8 @@ export type BudgetLineDrawerTab =
   | 'invoices'
   | 'allocations'
   | 'timeline'
-  | 'dsi-info';
+  | 'dsi-info'
+  | 'access';
 
 const LAST_EVENT_LIMIT = 1;
 const RECENT_INVOICE_DAYS = 30;
@@ -69,7 +74,12 @@ export function BudgetLineIntelligenceDrawer({
   const detail = useBudgetLineDetail(open ? budgetLineId : null);
   const { data: budget } = useBudgetDetail(open && budgetId ? budgetId : null);
   const { has } = usePermissions();
+  const { activeClient } = useActiveClient();
   const canCreateProcurementInvoice = has('procurement.create');
+  const canSeeAccessTab = canEditResourceAcl({
+    activeClientRole: activeClient?.role,
+  });
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
 
   // Dernier event (pour l’onglet overview) — on ne force pas le chargement si drawer fermé.
   const lastEventQuery = useBudgetLineEvents({
@@ -236,6 +246,9 @@ export function BudgetLineIntelligenceDrawer({
                       <TabsTrigger value="allocations">Allocations</TabsTrigger>
                       <TabsTrigger value="timeline">Timeline</TabsTrigger>
                       <TabsTrigger value="dsi-info">Infos DSI</TabsTrigger>
+                      {canSeeAccessTab && (
+                        <TabsTrigger value="access">Accès</TabsTrigger>
+                      )}
                     </TabsList>
                   </div>
 
@@ -298,8 +311,45 @@ export function BudgetLineIntelligenceDrawer({
                     <TabsContent value="dsi-info">
                       <BudgetLineDsiInfoTab line={line} />
                     </TabsContent>
+                    {canSeeAccessTab && (
+                      <TabsContent value="access" className="space-y-3">
+                        <Alert>
+                          <AlertDescription>
+                            Cette ligne hérite des permissions du <strong>budget parent</strong>{' '}
+                            «&nbsp;{budgetName ?? budget?.name ?? 'Budget'}&nbsp;». Les ACL ne se
+                            définissent pas au niveau ligne.
+                          </AlertDescription>
+                        </Alert>
+                        <ResourceAclEditor
+                          resourceType="BUDGET"
+                          resourceId={budgetId}
+                          resourceLabel={budgetName ?? budget?.name ?? 'Budget parent'}
+                          readOnly
+                          canEdit={false}
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAccessDialogOpen(true)}
+                          >
+                            Gérer au niveau du budget parent
+                          </Button>
+                        </div>
+                      </TabsContent>
+                    )}
                   </div>
                 </Tabs>
+                {canSeeAccessTab && accessDialogOpen && (
+                  <ResourceAclDialog
+                    open={accessDialogOpen}
+                    onOpenChange={setAccessDialogOpen}
+                    resourceType="BUDGET"
+                    resourceId={budgetId}
+                    resourceLabel={budgetName ?? budget?.name ?? 'Budget parent'}
+                  />
+                )}
               </div>
 
               <CreateOrderDialog

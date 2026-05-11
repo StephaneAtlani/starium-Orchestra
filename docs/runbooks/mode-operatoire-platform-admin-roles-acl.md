@@ -43,7 +43,7 @@ Les rôles **globaux** (`Role.scope = GLOBAL`) sont administrés **uniquement** 
 | **Rôles par client** (`Role.scope = CLIENT`) | Gérés par le **client admin** via `/api/roles`, `/api/permissions`, `/api/users/:id/roles` avec `X-Client-Id` (voir [mode-operatoire-client-admin-roles-acl.md](./mode-operatoire-client-admin-roles-acl.md)). |
 | **Diagnostic « pourquoi refusé ? »** | Le plateforme admin peut utiliser les routes **diagnostic** ciblant un `clientId` explicite : `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights` (RFC-ACL-011, voir `docs/API.md` §5.05). Cela **n’édite** pas les ACL ; ça **explique** la combinaison licence / abonnement / module / visibilité / RBAC / ACL. |
 
-En résumé : **plateforme = catalogue global des rôles + permissions** ; **ACL = toujours dans le périmètre d’un client**, par un `CLIENT_ADMIN`.
+En résumé : **plateforme = catalogue global des rôles + permissions** ; **ACL = toujours dans le périmètre d’un client**, par un **`CLIENT_ADMIN`** depuis l’application client (éditeur par ressource — [RFC-ACL-013](../RFC/RFC-ACL-013%20%E2%80%94%20%C3%89diteur%20ACL%20par%20ressource.md)).
 
 ---
 
@@ -66,4 +66,4 @@ En résumé : **plateforme = catalogue global des rôles + permissions** ; **ACL
 
 - [docs/API.md](../API.md) — sections clients, utilisateurs plateforme, diagnostic ACL-011, license-reporting ACL-012 si besoin métier.
 - [RFC-ACL-005](../RFC/RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) — périmètre technique ACL (strictement client-admin + client actif).
-- [RFC-ACL-011](../RFC/RFC-ACL-011%20%E2%80%94%20Matrice%20des%20droits%20effectifs.md) — diagnostic consolidé.
+- [RFC-ACL-013](../RFC/RFC-ACL-013%20%E2%80%94%20%C3%89diteur%20ACL%20par%20ressource.md) — UI éditeur ACL par ressource (client actif, `CLIENT_ADMIN`).

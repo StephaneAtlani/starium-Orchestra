@@ -43,6 +43,7 @@ import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-li
 import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
+import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -506,18 +507,26 @@ export default function BudgetDetailPage() {
                 <BudgetStatusBadge status={budget.status} className="shrink-0" />
               </div>
             </div>
-            <PermissionGate permission="budgets.update">
-              <Link
-                href={budgetEdit(budget.id)}
-                className={cn(
-                  buttonVariants({ variant: 'ghost', size: 'icon' }),
-                  'size-9 shrink-0 text-muted-foreground hover:text-foreground',
-                )}
-                aria-label={`Modifier le budget ${budget.name}`}
-              >
-                <Pencil className="size-4" />
-              </Link>
-            </PermissionGate>
+            <div className="flex shrink-0 items-center gap-2">
+              <ResourceAclTriggerButton
+                resourceType="BUDGET"
+                resourceId={budget.id}
+                resourceLabel={budget.name}
+                size="sm"
+              />
+              <PermissionGate permission="budgets.update">
+                <Link
+                  href={budgetEdit(budget.id)}
+                  className={cn(
+                    buttonVariants({ variant: 'ghost', size: 'icon' }),
+                    'size-9 shrink-0 text-muted-foreground hover:text-foreground',
+                  )}
+                  aria-label={`Modifier le budget ${budget.name}`}
+                >
+                  <Pencil className="size-4" />
+                </Link>
+              </PermissionGate>
+            </div>
           </div>
 
           <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] sm:p-3.5">

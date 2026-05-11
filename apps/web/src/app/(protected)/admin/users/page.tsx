@@ -364,7 +364,10 @@ export default function AdminUsersPage() {
             </SelectContent>
           </Select>
 
-          <Select value={clientFilter} onValueChange={setClientFilter}>
+          <Select
+            value={clientFilter}
+            onValueChange={(v) => setClientFilter(v ?? 'ALL')}
+          >
             <SelectTrigger size="sm" className="h-8 w-[240px] text-xs">
               <SelectValue>{clientFilterLabel}</SelectValue>
             </SelectTrigger>

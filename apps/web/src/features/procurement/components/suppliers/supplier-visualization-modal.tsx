@@ -23,6 +23,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { formatNumberFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { SupplierContractsPreviewCard } from '@/features/contracts/components/supplier-contracts-preview-card';
+import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 
 const PROCUREMENT_PREVIEW_LIMIT = 8;
 
@@ -188,6 +189,14 @@ export function SupplierVisualizationContent({
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <ResourceAclTriggerButton
+          resourceType="SUPPLIER"
+          resourceId={supplierId}
+          resourceLabel={supplierQuery.data?.name ?? 'Fournisseur'}
+          size="sm"
+        />
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>

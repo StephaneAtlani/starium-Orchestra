@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ObjectiveStatusBadge } from './objective-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import type { StrategicLinkDto, StrategicObjectiveDto } from '../types/strategic-vision.types';
 
 function formatDate(value: string | null): string {
@@ -37,11 +38,19 @@ export function StrategicObjectiveCard({
       <CardHeader className="gap-2">
         <div className="flex items-start justify-between gap-2">
           <CardTitle>{objective.title}</CardTitle>
-          {canUpdate && onEdit ? (
-            <Button size="sm" variant="outline" onClick={() => onEdit(objective)}>
-              Modifier
-            </Button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            <ResourceAclTriggerButton
+              resourceType="STRATEGIC_OBJECTIVE"
+              resourceId={objective.id}
+              resourceLabel={objective.title}
+              size="sm"
+            />
+            {canUpdate && onEdit ? (
+              <Button size="sm" variant="outline" onClick={() => onEdit(objective)}>
+                Modifier
+              </Button>
+            ) : null}
+          </div>
         </div>
         <ObjectiveStatusBadge status={objective.status} />
       </CardHeader>

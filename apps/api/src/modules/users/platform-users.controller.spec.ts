@@ -45,6 +45,8 @@ describe('PlatformUsersController', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         platformRole: null,
+        clientIds: [],
+        licenses: [],
       },
     ];
     usersService.listPlatformUsers.mockResolvedValue(users);

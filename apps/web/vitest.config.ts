@@ -7,8 +7,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  esbuild: {
+    jsx: 'automatic',
+  },
   test: {
-    environment: 'node',
-    include: ['src/**/*.spec.ts'],
+    environment: 'jsdom',
+    include: ['src/**/*.spec.{ts,tsx}'],
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

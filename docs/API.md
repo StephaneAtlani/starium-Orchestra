@@ -601,6 +601,7 @@ Administration des entrées **ResourceAcl** pour une ressource donnée, **dans l
 - **Corps JSON** : aucun champ `clientId` (rejet `forbidNonWhitelisted` si fourni) ; le client provient du contexte.
 - **Audit** : mutations tracées avec instantanés **old/new** exploitables (`resource_acl.*`).
 - **Garde métier** : `ResourceAclGuard` + `@RequireResourceAcl` (RFC-ACL-006) ; le module Nest du domaine importe **`AccessControlModule`** — il n’est pas fourni via **`CommonModule`**.
+- **UI (RFC-ACL-013)** : `apps/web/src/features/resource-acl/` — éditeur par ressource dans les fiches métier (bouton « Permissions » ou onglet « Accès » budget-ligne) ; aucune route HTTP supplémentaire ; le client actif reste porté par `X-Client-Id` comme pour toutes les routes métier.
 
 ## 5.05 Diagnostic droits effectifs — `/api/access-diagnostics` (RFC-ACL-011)
 
