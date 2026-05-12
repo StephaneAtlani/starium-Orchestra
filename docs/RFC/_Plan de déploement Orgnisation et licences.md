@@ -34,6 +34,10 @@ Il reprend le format du plan ACL existant avec **RFC, objectif, priorité, état
 
 ## Ordre prioritaire recommandé
 
+La chaîne **RFC-ACL-017 → 018 → 019** suit une mise en prod progressive : politique d’accès d’abord, moteur unifié ensuite, diagnostic aligné sur ce moteur. **RFC-ACL-022** est avant **RFC-ACL-021** pour que backfill, rapports d’écarts et feature flags nourrissent un cockpit utile plutôt qu’une vue vide ou bruitée.
+
+**RFC-ACL-020** et **RFC-ACL-022** : en delivery, les traiter comme **une même tranche par module métier** (ex. Projets, puis Budgets…) — pour chaque périmètre, livrer ensemble **flags + migrations/backfill (022)** et **branchement ownership, guards et filtrage liste (020)** ; éviter d’activer en production le nouveau comportement **020** sur un module sans le socle **022** correspondant sur ce même module.
+
 | Ordre | RFC             | Pourquoi                                                                                    |
 | ----: | --------------- | ------------------------------------------------------------------------------------------- |
 |     1 | **RFC-ORG-002** | Sans lien `User → Resource HUMAN`, impossible de calculer les droits `OWN` ou `SCOPE`       |
@@ -43,9 +47,9 @@ Il reprend le format du plan ACL existant avec **RFC, objectif, priorité, état
 |     5 | **RFC-ACL-017** | Il faut sécuriser la transition entre ACL restrictive actuelle et ACL de partage            |
 |     6 | **RFC-ACL-018** | Le moteur de décision cible peut ensuite être branché                                       |
 |     7 | **RFC-ACL-019** | Le diagnostic doit expliquer les nouvelles décisions                                        |
-|     8 | **RFC-ACL-020** | Intégration progressive module par module                                                   |
-|     9 | **RFC-ACL-022** | Migration, backfill et feature flags pour déploiement contrôlé                              |
-|    10 | **RFC-ACL-021** | Cockpit de pilotage une fois les données disponibles                                        |
+|     8 | **RFC-ACL-020** | Intégration progressive **par module**, **couplée** à la même tranche **RFC-ACL-022** (flags + données) sur ce module |
+|     9 | **RFC-ACL-022** | Migration, backfill et feature flags **par module**, **couplés** au branchement **RFC-ACL-020** sur ce module — pas d’activation 020 seule sans 022 |
+|    10 | **RFC-ACL-021** | Cockpit de pilotage une fois les données et rollouts (020 + 022) disponibles                |
 
 ---
 
