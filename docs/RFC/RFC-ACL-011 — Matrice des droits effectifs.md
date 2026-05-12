@@ -24,7 +24,8 @@ Quand un accès est refusé, l’admin ne sait pas rapidement quelle couche bloq
 - `apps/api/src/modules/access-diagnostics/platform-access-diagnostics.controller.ts`
 - `apps/api/src/modules/access-diagnostics/resource-diagnostics.registry.ts`
 - `apps/api/src/modules/access-diagnostics/access-diagnostics.types.ts`
-- `apps/api/src/modules/access-diagnostics/dto/effective-rights-query.dto.ts`
+- `apps/api/src/modules/access-diagnostics/access-diagnostics-self.controller.ts` *(RFC-ACL-014 — self-service)*
+- `apps/api/src/modules/access-diagnostics/dto/my-effective-rights-query.dto.ts`
 - `apps/api/src/app.module.ts` (import `AccessDiagnosticsModule`)
 
 ### Frontend
@@ -62,8 +63,9 @@ Quand un accès est refusé, l’admin ne sait pas rapidement quelle couche bloq
 - Décision consolidée:
   - `finalDecision` + `denialReasons[]` ordonnée + `computedAt`.
 - Endpoints:
-  - Client actif: `GET /api/access-diagnostics/effective-rights?...`
-  - Plateforme: `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights?...`
+  - Client actif (admin diagnostic) : `GET /api/access-diagnostics/effective-rights?...`
+  - Plateforme : `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights?...`
+  - **Membre client (self-service, RFC-ACL-014)** : `GET /api/access-diagnostics/effective-rights/me?intent=READ|WRITE|ADMIN&resourceType=...&resourceId=...` — pas de `userId` en query ; réponse métier `ALLOWED` / `DENIED` / `UNSAFE_CONTEXT` + `controls[]` canoniques ; voir `docs/API.md` §5.051.
 - Anti-fuite:
   - user/ressource hors client => refus générique stable `DIAGNOSTIC_SCOPE_MISMATCH` sans détail sensible.
 - UI:

@@ -85,3 +85,8 @@ La RFC livre un moteur ACL transversal qui complète le RBAC sans régression su
 - Extension whitelist `resourceType` : **RFC-ACL-006** avec mapping modules canoniques.
 
 La synthèse des règles produit V1 (dont PUT vide interdit et strict CLIENT_ADMIN) est aussi regroupée dans [_plan développement licences / ACL §18.1](./_plan_developpement_licences_abonnements_acl_starium.md).
+
+## 9. Évolutions — RFC-ACL-014 (conformité accès)
+
+- Les routes **`GET`** `/api/resource-acl/...` restent **`ClientAdminGuard`** + **`ActiveClientGuard`** (membre **CLIENT_ADMIN** actif).
+- Les routes **`PUT` / `POST` / `DELETE`** appliquent l’**Option A** : **`PLATFORM_ADMIN`** avec **`X-Client-Id`** valide peut muter sans `ClientUser`, plus garde-fou **lockout** dernier successeur ADMIN effectif et query **`force=true`** (détail : [RFC-ACL-014](./RFC-ACL-014%20%E2%80%94%20Conformit%C3%A9%20mod%C3%A8le%20R%C3%B4les%2C%20Groupes%20et%20ACL.md), `docs/API.md` §5.0).
