@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — non implémentée. Priorité **P2**. Dépend de [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md) et [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
+**Draft** — non implémentée. Dépend de [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md) et [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P2** |
+| **Ordre recommandé** | **10** (après les tranches **020 + 022**, ordre 8–9 du plan) |
+| **Dépendances (plan)** | RFC-ACL-019, RFC-ACL-020 |
+| **Livrables (plan)** | UI `/client/administration/access-model`, KPI droits, alertes, filtres, actions correctives |
+
+**RFC-ACL-022** est **volontairement avant** ce cockpit dans le plan : sans backfill partiel, flags et au moins une intégration métier (020), les KPI « ressources sans Direction », « membres sans HUMAN », etc. restent vides ou bruités. En pratique : lancer **021** quand au moins une **tranche module 020+022** est stabilisée ou en rollout contrôlé.
 
 ## Objectif
 

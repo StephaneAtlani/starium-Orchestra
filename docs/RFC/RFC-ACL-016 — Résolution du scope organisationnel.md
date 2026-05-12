@@ -4,6 +4,19 @@
 
 **Draft** — non implémentée. Dépend de [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md), [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-015](./RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
 
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P0** |
+| **Ordre recommandé** | **4** |
+| **Dépendances (plan)** | RFC-ORG-002, RFC-ORG-003, RFC-ACL-015 |
+| **Livrables (plan)** | `OrganizationScopeService`, résolution `User → Resource HUMAN → OrgUnit`, `reasonCodes`, tests unitaires |
+
+Bloque la chaîne **RFC-ACL-017 → 018 → 019** : sans résolution de scope fiable, ni politique d’accès ni moteur unifié ne peuvent être figés.
+
 ## Objectif
 
 Fournir un service backend **`OrganizationScopeService`** (nom indicatif) qui, pour un **utilisateur**, un **client actif** et une **ressource métier cible** (ou son `ownerOrgUnitId`), retourne un verdict de périmètre :

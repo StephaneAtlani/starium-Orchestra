@@ -2,7 +2,27 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md) et [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md). Priorité **P1**.
+**Draft** — non implémentée. Dépend de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md) et [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md) (§ *Ordre prioritaire recommandé* : couplage explicite **020 ↔ 022**).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P1** |
+| **Ordre recommandé** | **8** |
+| **Dépendances (plan)** | RFC-ACL-018, RFC-ORG-003 |
+| **Livrables (plan)** | Ownership affiché, filtrage par scope, contrôle détail, contrôle mutation, tests anti-fuite |
+
+### Couplage obligatoire avec RFC-ACL-022
+
+Pour **chaque module métier** (Projets, Budgets, Contrats, etc.), livrer dans **la même tranche** :
+
+- [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) : flags, migrations, backfill, rapports d’écarts applicables à ce module ;
+- **RFC-ACL-020** : branchement ownership, guards, filtrage liste / détail sur ce module.
+
+**Interdit (plan)** : activer en production le nouveau comportement **020** sur un module **sans** le socle **022** correspondant (flags + données) sur **ce même module** — sinon états intermédiaires incohérents.
 
 ## Objectif
 

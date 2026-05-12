@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md). Priorité **P1**.
+**Draft** — non implémentée. Dépend de [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P1** |
+| **Ordre recommandé** | **6** |
+| **Dépendances (plan)** | RFC-ACL-016, RFC-ACL-017 |
+| **Livrables (plan)** | `AccessDecisionService`, `ResourceAccessDecisionGuard`, decorators, filtrage liste, contrôle détail/mutation |
+
+Suite directe de **017** dans la chaîne **017 → 018 → 019**. L’activation progressive en production sur un module métier se fait en **tranche commune** avec [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) + [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) (voir RFC-020 et RFC-022).
 
 ## Objectif
 

@@ -4,6 +4,19 @@
 
 **Draft** — non implémentée. Dépend de [RFC-ACL-011](./RFC-ACL-011%20%E2%80%94%20Matrice%20des%20droits%20effectifs.md) (matrice droits effectifs), [RFC-ACL-014](./RFC-ACL-014%20%E2%80%94%20Conformit%C3%A9%20mod%C3%A8le%20R%C3%B4les%2C%20Groupes%20et%20ACL.md) (registre diagnostic) et [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md).
 
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P1** |
+| **Ordre recommandé** | **7** |
+| **Dépendances (plan)** | RFC-ACL-011, RFC-ACL-018 |
+| **Livrables (plan)** | `organizationScopeCheck`, `resourceOwnershipCheck`, `resourceAccessPolicyCheck`, UI diagnostic, `AccessExplainerPopover` enrichi |
+
+**Chaîne 017 → 018 → 019** : le diagnostic doit refléter les décisions du moteur (018) et les entrées policy (017) + scope (016), avec les mêmes `reasonCodes` que possible.
+
 ## Objectif
 
 Étendre la **matrice des droits effectifs** et le **self-diagnostic** (`GET /api/access-diagnostics/effective-rights/me`, popover explainer) avec des contrôles explicites :

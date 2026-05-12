@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) et [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md). Priorité **P1** dans le plan [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3%A9ploement%20Orgnisation%20et%20licences.md).
+**Draft** — non implémentée. Dépend de [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) et [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P1** |
+| **Ordre recommandé** | **5** |
+| **Dépendances (plan)** | RFC-ACL-005, RFC-ACL-016 |
+| **Livrables (plan)** | `ResourceAccessPolicy`, API policy, compatibilité ACL existante, tests non-régression |
+
+**Chaîne de mise en prod (plan)** : **RFC-ACL-017 → 018 → 019** — la politique d’accès est livrée **avant** le moteur unifié et le diagnostic enrichi, pour figer la matrice `DEFAULT` / `RESTRICTIVE` / `SHARING` consommée par RFC-ACL-018.
 
 ## Objectif
 

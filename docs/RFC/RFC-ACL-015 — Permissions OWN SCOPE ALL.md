@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — non implémentée. Étend le RBAC existant (permissions par module + rôles) sans remplacer [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) (ACL par ressource `READ|WRITE|ADMIN`). Référence plan : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+**Draft** — non implémentée. Étend le RBAC existant (permissions par module + rôles) sans remplacer [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) (ACL par ressource `READ|WRITE|ADMIN`).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P0** |
+| **Ordre recommandé** | **3** (après ORG-002 et ORG-003) |
+| **Dépendances (plan)** | RBAC existant (seeds, profils, `EffectivePermissionsService`) |
+| **Livrables (plan)** | Permissions seedées (`read_own`, `read_scope`, `read_all`, `write_scope`, `manage_all`, etc.), profils mis à jour, tests RBAC, documentation des mappings |
+
+Les codes doivent être **figés avant** le durcissement enforcement dans [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) / [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md).
 
 ## Objectif
 

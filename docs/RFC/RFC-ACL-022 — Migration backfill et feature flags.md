@@ -2,7 +2,24 @@
 
 ## Statut
 
-**Draft** — non implémentée. Priorité **P1**. Dépend des schémas introduits par [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md).
+**Draft** — non implémentée. Dépend des schémas et règles introduits par [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md). Les scripts de backfill pour **RFC-ORG-002** (`ClientUser.resourceId`) s’appuient sur le modèle défini dans ORG-002 même si le plan ne répète pas ORG-002 dans la ligne « Dépendances » du tableau.
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md) (§ *Ordre prioritaire recommandé* : **022 avant 021**, couplage **022 ↔ 020**).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P1** |
+| **Ordre recommandé** | **9** (en parallèle logique de la tranche **020** ordre **8** sur le même module) |
+| **Dépendances (plan)** | RFC-ORG-003, RFC-ACL-017 |
+| **Livrables (plan)** | Scripts de backfill, rapports d’écarts, feature flags, documentation de migration |
+
+### Couplage obligatoire avec RFC-ACL-020
+
+Les **feature flags**, migrations et rapports d’écarts doivent être **scopés par module métier** et activés **en même temps** que le branchement [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) sur ce module. Pas d’activation des guards / filtrage scope (020) sans les leviers 022 correspondants.
+
+**Position vs RFC-ACL-021** : **022** (et des données issues des rollouts **020+022**) précède le cockpit **021** pour des indicateurs exploitables.
 
 ## Objectif
 

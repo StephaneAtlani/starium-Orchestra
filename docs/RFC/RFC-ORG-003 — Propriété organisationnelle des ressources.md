@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (`OrgUnit`, hiérarchie). Complète le plan [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+**Draft** — non implémentée. Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (`OrgUnit`, hiérarchie).
+
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P0** |
+| **Ordre recommandé** | **2** |
+| **Dépendances (plan)** | RFC-ORG-001 |
+| **Livrables (plan)** | **`ResourceOrgOwnership`** au sens produit : propriété organisationnelle exposée par API, validations `clientId`, responsable métier optionnel, audit — que l’implémentation retenue soit **colonnes `ownerOrgUnitId` par table** (§2 option A) ou **table polymorphe** (option B). |
+
+RFC-ACL-016 consomme la propriété ; [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) couvre backfill / défauts d’`ownerOrgUnitId` en delivery couplée au portage métier.
 
 ## Objectif
 

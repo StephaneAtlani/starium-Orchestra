@@ -4,6 +4,19 @@
 
 **Draft** — spécification cible ; non implémentée au moment de la rédaction. Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (socle `OrgUnit` / memberships sur `resourceId` HUMAN).
 
+## Alignement plan
+
+Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20déploement%20Orgnisation%20et%20licences.md).
+
+| Élément | Valeur |
+| --- | --- |
+| **Priorité** | **P0** |
+| **Ordre recommandé** | **1** (après RFC-ORG-001, déjà livrée) |
+| **Dépendances (plan)** | RFC-ORG-001, `ClientUser`, `Resource` |
+| **Livrables (plan)** | Extension `ClientUser.resourceId`, service de liaison, endpoints, audit, UI d’administration |
+
+Le **backfill** des liens existants relève de [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) ; cette RFC définit le modèle, l’API et les règles de validation.
+
 ## Objectif
 
 Relier explicitement le **compte d’appartenance au client** (`ClientUser`) à la **fiche personne** du catalogue ressources (`Resource` avec `type = HUMAN`) dans le **même `clientId`**, afin que les moteurs d’accès (RFC-ACL-016+) puissent résoudre : `User` authentifié → `ClientUser` actif → `Resource` HUMAN → rattachements organisationnels (`OrgUnitMembership`, etc.).
