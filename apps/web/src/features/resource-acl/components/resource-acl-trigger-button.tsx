@@ -14,13 +14,13 @@ interface ResourceAclTriggerButtonProps {
   resourceLabel: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'sm' | 'default';
-  /** Texte du bouton (défaut : « Permissions »). */
+  /** Texte du bouton (défaut : « Accès à la ressource »). */
   label?: string;
   className?: string;
 }
 
 /**
- * Bouton « Permissions » des barres d'actions / headers des fiches métier.
+ * Bouton « Accès à la ressource » des barres d'actions / headers des fiches métier.
  *
  * Visibilité **strictement** réservée au `CLIENT_ADMIN` du client actif :
  * - early return `null` **avant** tout `useQuery` ou fetch ACL ;
@@ -36,7 +36,7 @@ export function ResourceAclTriggerButton({
   resourceLabel,
   variant = 'outline',
   size = 'default',
-  label = 'Permissions',
+  label = 'Accès à la ressource',
   className,
 }: ResourceAclTriggerButtonProps) {
   const { activeClient } = useActiveClient();

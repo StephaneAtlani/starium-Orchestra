@@ -19,6 +19,10 @@ export class ListAuditLogsQueryDto {
 
   @IsOptional()
   @IsString()
+  actionPrefix?: string;
+
+  @IsOptional()
+  @IsString()
   userId?: string;
 
   @IsOptional()

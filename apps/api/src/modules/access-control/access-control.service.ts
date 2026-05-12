@@ -1,6 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -24,6 +27,8 @@ import {
   RESOURCE_ACL_RESOURCE_TYPE_WHITELIST,
   ResourceAclCanonicalResourceType,
 } from './resource-acl.constants';
+import { PlatformRole } from '@prisma/client';
+import { AccessDiagnosticsService } from '../access-diagnostics/access-diagnostics.service';
 
 const WHITELIST_SET = new Set<string>(RESOURCE_ACL_RESOURCE_TYPE_WHITELIST);
 
@@ -57,6 +62,9 @@ export type ResourceAclListResponse = {
 export type ReplaceContext = {
   actorUserId?: string;
   meta?: RequestMeta;
+  /** RFC-ACL-014 : uniquement PLATFORM_ADMIN + lockout bypass. */
+  force?: boolean;
+  platformRole?: string | null;
 };
 
 /** Snapshots ACL sérialisables pour audit (`oldValue` / `newValue`). */
@@ -75,6 +83,8 @@ export class AccessControlService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    @Inject(forwardRef(() => AccessDiagnosticsService))
+    private readonly accessDiagnostics: AccessDiagnosticsService,
   ) {}
 
   /**
@@ -298,6 +308,21 @@ export class AccessControlService {
       await this.assertSubjectInClient(clientId, e.subjectType, e.subjectId);
     }
 
+    await this.assertValidForceContext(clientId, context);
+
+    const simulatedRows = entries.map((e) => ({
+      subjectType: e.subjectType,
+      subjectId: e.subjectId,
+      permission: e.permission,
+    }));
+    await this.enforceAdminSuccessorLockout({
+      clientId,
+      resourceType,
+      resourceId,
+      simulatedRows,
+      context,
+    });
+
     const previous = await this.prisma.resourceAcl.findMany({
       where: { clientId, resourceType, resourceId },
     });
@@ -362,6 +387,30 @@ export class AccessControlService {
       rawResourceId,
     );
     await this.assertSubjectInClient(clientId, dto.subjectType, dto.subjectId);
+    await this.assertValidForceContext(clientId, context);
+
+    const previousRows = await this.prisma.resourceAcl.findMany({
+      where: { clientId, resourceType, resourceId },
+    });
+    const simulatedRows = [
+      ...previousRows.map((r) => ({
+        subjectType: r.subjectType,
+        subjectId: r.subjectId,
+        permission: r.permission,
+      })),
+      {
+        subjectType: dto.subjectType,
+        subjectId: dto.subjectId,
+        permission: dto.permission,
+      },
+    ];
+    await this.enforceAdminSuccessorLockout({
+      clientId,
+      resourceType,
+      resourceId,
+      simulatedRows,
+      context,
+    });
 
     try {
       const row = await this.prisma.resourceAcl.create({
@@ -427,6 +476,26 @@ export class AccessControlService {
       throw new NotFoundException('Entrée ACL non trouvée pour cette ressource');
     }
 
+    const allRows = await this.prisma.resourceAcl.findMany({
+      where: { clientId, resourceType, resourceId },
+    });
+    const simulatedRows = allRows
+      .filter((r) => r.id !== existing.id)
+      .map((r) => ({
+        subjectType: r.subjectType,
+        subjectId: r.subjectId,
+        permission: r.permission,
+      }));
+
+    await this.assertValidForceContext(clientId, context);
+    await this.enforceAdminSuccessorLockout({
+      clientId,
+      resourceType,
+      resourceId,
+      simulatedRows,
+      context,
+    });
+
     await this.prisma.resourceAcl.delete({
       where: { id: existing.id },
     });
@@ -456,6 +525,98 @@ export class AccessControlService {
         },
       }),
     );
+  }
+
+  private async assertValidForceContext(
+    clientId: string,
+    context?: ReplaceContext,
+  ): Promise<void> {
+    if (!context?.force) return;
+    if (context.platformRole !== PlatformRole.PLATFORM_ADMIN) {
+      try {
+        await this.auditLogs.create(
+          this.buildAuditInput({
+            clientId,
+            businessResourceId: clientId,
+            context,
+            action: 'resource_acl.force_denied',
+            newValue: { reason: 'non_platform_admin' },
+          }),
+        );
+      } catch {
+        /* audit best-effort */
+      }
+      throw new ForbiddenException({
+        message:
+          'Le paramètre force=true est réservé aux administrateurs plateforme.',
+        reasonCode: 'RESOURCE_ACL_FORCE_FORBIDDEN',
+      });
+    }
+  }
+
+  private async enforceAdminSuccessorLockout(params: {
+    clientId: string;
+    resourceType: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    simulatedRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+    context?: ReplaceContext;
+  }): Promise<void> {
+    if (params.simulatedRows.length === 0) {
+      return;
+    }
+
+    const ok =
+      await this.accessDiagnostics.hasEffectiveAdminSuccessorAfterSimulation({
+        clientId: params.clientId,
+        resourceType: params.resourceType,
+        resourceId: params.resourceId,
+        simulatedRows: params.simulatedRows,
+      });
+    if (ok) {
+      return;
+    }
+
+    const force = !!params.context?.force;
+    const platform = params.context?.platformRole === PlatformRole.PLATFORM_ADMIN;
+
+    if (force && platform) {
+      await this.auditLogs.create(
+        this.buildAuditInput({
+          clientId: params.clientId,
+          businessResourceId: params.resourceId,
+          context: params.context,
+          action: 'resource_acl.force_used',
+          newValue: {
+            aclResourceType: params.resourceType,
+            resourceId: params.resourceId,
+            reason: 'last_admin_lockout_bypass',
+          },
+        }),
+      );
+      return;
+    }
+
+    await this.auditLogs.create(
+      this.buildAuditInput({
+        clientId: params.clientId,
+        businessResourceId: params.resourceId,
+        context: params.context,
+        action: 'resource_acl.lockout_blocked',
+        newValue: {
+          aclResourceType: params.resourceType,
+          resourceId: params.resourceId,
+        },
+      }),
+    );
+    throw new ConflictException({
+      message:
+        'Modification refusée : au moins un successeur effectif avec niveau ADMIN ACL est requis tant que la ressource reste en mode restreint.',
+      reasonCode: 'RESOURCE_ACL_LAST_ADMIN_LOCKOUT',
+    });
   }
 
   private buildAuditInput(params: {
@@ -524,6 +685,89 @@ export class AccessControlService {
       maxRank = Math.max(maxRank, PERM_RANK[a.permission]);
     }
     return { unrestricted: false, maxRank };
+  }
+
+  /**
+   * Évalue le rang ACL max contre un snapshot de lignes (RFC-ACL-014 lockout / diagnostic),
+   * sans lecture Prisma des lignes courantes.
+   */
+  async maxAclRankAgainstSimulatedRows(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    aclRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+  }): Promise<{ unrestricted: boolean; maxRank: number }> {
+    const rows = params.aclRows;
+    if (rows.length === 0) {
+      return { unrestricted: true, maxRank: 0 };
+    }
+    const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+    const groupSet = new Set(groupIds);
+    let maxRank = 0;
+    for (const row of rows) {
+      const allowedByUser =
+        row.subjectType === ResourceAclSubjectType.USER &&
+        row.subjectId === params.userId;
+      const allowedByGroup =
+        row.subjectType === ResourceAclSubjectType.GROUP &&
+        groupSet.has(row.subjectId);
+      if (!allowedByUser && !allowedByGroup) continue;
+      maxRank = Math.max(maxRank, PERM_RANK[row.permission]);
+    }
+    return { unrestricted: false, maxRank };
+  }
+
+  async canReadResourceWithSimulatedAcl(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    aclRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+  }): Promise<boolean> {
+    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
+    if (unrestricted) return true;
+    return maxRank >= PERM_RANK[ResourceAclPermission.READ];
+  }
+
+  async canWriteResourceWithSimulatedAcl(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    aclRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+  }): Promise<boolean> {
+    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
+    if (unrestricted) return true;
+    return maxRank >= PERM_RANK[ResourceAclPermission.WRITE];
+  }
+
+  async canAdminResourceWithSimulatedAcl(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    aclRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+  }): Promise<boolean> {
+    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
+    if (unrestricted) return true;
+    return maxRank >= PERM_RANK[ResourceAclPermission.ADMIN];
   }
 
   private async loadUserGroupIds(clientId: string, userId: string): Promise<string[]> {

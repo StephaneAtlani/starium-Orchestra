@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
+import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
@@ -1319,6 +1320,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                   resourceId={project.id}
                   resourceLabel={project.name}
                   size="sm"
+                />
+                <AccessExplainerPopover
+                  resourceType="PROJECT"
+                  resourceId={project.id}
+                  resourceLabel={project.name}
+                  intent="READ"
                 />
               </div>
             }

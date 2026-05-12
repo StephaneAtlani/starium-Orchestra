@@ -546,7 +546,9 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | Auth              | —                                                  | —                                                           |
 | /api/me           | `Authorization: Bearer <accessToken>`             | JwtAuthGuard                                                |
 | /api/users        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
-| /api/resource-acl/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
+| /api/resource-acl/:resourceType/:resourceId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
+| /api/resource-acl/:resourceType/:resourceId (PUT), …/entries (POST), …/entries/:id (DELETE) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query optionnelle `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) |
+| /api/access-diagnostics/effective-rights/me | idem | JwtAuthGuard → ActiveClientGuard (self-service membre) |
 | /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
@@ -587,11 +589,14 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
 ---
 
-## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005)
+## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005, RFC-ACL-014)
 
 Administration des entrées **ResourceAcl** pour une ressource donnée, **dans le client actif uniquement** (`X-Client-Id`). Détail métier : [RFC-ACL-005](RFC/RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md).
 
-- **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard`.
+- **Guards** :
+  - **`GET`** : `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard` (inchangé).
+  - **`PUT` / `POST` … `/entries` / `DELETE` … `/entries/:entryId`** (RFC-ACL-014 Option A) : `JwtAuthGuard` → `ActiveClientOrPlatformContextGuard` → `ClientAdminOrPlatformAdminGuard` (CLIENT_ADMIN **ou** PLATFORM_ADMIN avec `X-Client-Id` valide même sans `ClientUser`).
+- **Query `force`** : uniquement sur les mutations ci-dessus. `force=true` **interdit** si l’utilisateur n’est pas `PLATFORM_ADMIN` → **403** + `reasonCode=RESOURCE_ACL_FORCE_FORBIDDEN` + audit `resource_acl.force_denied`. Si lockout « dernier ADMIN effectif » et bypass autorisé → audit `resource_acl.force_used`. Lockout sans `force` → **409** + `reasonCode=RESOURCE_ACL_LAST_ADMIN_LOCKOUT` + audit `resource_acl.lockout_blocked`.
 - **Routes** :
   - `GET /api/resource-acl/:resourceType/:resourceId`
   - `PUT /api/resource-acl/:resourceType/:resourceId` (remplacement transactionnel des entrées)
@@ -601,7 +606,7 @@ Administration des entrées **ResourceAcl** pour une ressource donnée, **dans l
 - **Corps JSON** : aucun champ `clientId` (rejet `forbidNonWhitelisted` si fourni) ; le client provient du contexte.
 - **Audit** : mutations tracées avec instantanés **old/new** exploitables (`resource_acl.*`).
 - **Garde métier** : `ResourceAclGuard` + `@RequireResourceAcl` (RFC-ACL-006) ; le module Nest du domaine importe **`AccessControlModule`** — il n’est pas fourni via **`CommonModule`**.
-- **UI (RFC-ACL-013)** : `apps/web/src/features/resource-acl/` — éditeur par ressource dans les fiches métier (bouton « Permissions » ou onglet « Accès » budget-ligne) ; aucune route HTTP supplémentaire ; le client actif reste porté par `X-Client-Id` comme pour toutes les routes métier.
+- **UI (RFC-ACL-013)** : `apps/web/src/features/resource-acl/` — éditeur par ressource dans les fiches métier (bouton « Accès à la ressource » ou onglet « Accès » budget-ligne) ; aucune route HTTP supplémentaire ; le client actif reste porté par `X-Client-Id` comme pour toutes les routes métier.
 
 ## 5.05 Diagnostic droits effectifs — `/api/access-diagnostics` (RFC-ACL-011)
 
@@ -624,6 +629,18 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
 - **Anti-fuite**
   - aucune révélation d’existence user/ressource hors client ;
   - hors périmètre => refus générique stable (`DIAGNOSTIC_SCOPE_MISMATCH`) sans détail sensible.
+
+### 5.051 Self-service — `GET /api/access-diagnostics/effective-rights/me` (RFC-ACL-014)
+
+- **Guards** : `JwtAuthGuard` → `ActiveClientGuard` (membre client actif ; pas d’Option A plateforme).
+- **Query** : `intent` obligatoire (`READ` \| `WRITE` \| `ADMIN`), `resourceType`, `resourceId` (CUID). Pas de `userId` en query (identité = JWT).
+- **`finalDecision`** : `ALLOWED` \| `DENIED` \| `UNSAFE_CONTEXT` — ne pas tout regrouper en `UNSAFE_CONTEXT` : refus explicites (licence, module, RBAC, ACL) sur ressource **dans** le client ⇒ `DENIED` avec `reasonCode` par couche ; ressource absente / hors client / type non supporté ⇒ `UNSAFE_CONTEXT` + `reasonCode=DIAGNOSTIC_UNSAFE_CONTEXT`.
+- **Réponse** : `resourceLabel` (null si contexte non sûr), `controls[]` canoniques (`USER_LICENSE`, `CLIENT_SUBSCRIPTION`, `CLIENT_MODULE_ENABLED`, `USER_MODULE_VISIBLE`, `RBAC_PERMISSION`, `RESOURCE_ACL`), `safeMessage`, `computedAt`.
+- **Audit** : `access_diagnostic.self_outcome` pour `DENIED` et `UNSAFE_CONTEXT` (pas pour `ALLOWED` nominal).
+
+### 5.052 `GET /api/me/permissions` — `roles[]` informatif (RFC-ACL-014)
+
+- Réponse enrichie avec `roles[]` (`id`, `name`, `code` nullable, `scope`, `clientId`) — **informatif uniquement** ; l’UI ne dérive pas les droits depuis `roles[]` : seule la liste `permissionCodes` fait foi.
 
 ## 5.06 License Reporting — `/api/platform/license-reporting` (RFC-ACL-012)
 
@@ -1404,8 +1421,10 @@ Routes protégées par :
 | Champ        | Type   | Description                                          |
 |--------------|--------|------------------------------------------------------|
 | `resourceType` | string | Type de ressource (ex. `user`, `client`, `module`)  |
-| `action`     | string | Code d’action `<resource>.<action>` (ex. `user.created`) |
+| `action`     | string | Code d’action `<resource>.<action>` (ex. `user.created`) ; **mutuellement exclusif** avec `actionPrefix` |
+| `actionPrefix` | string | Préfixe d’action (ex. `organization.`) — filtre `startsWith` ; **400** si fourni en même temps que `action` (`Use either action or actionPrefix, not both.`) |
 | `userId`     | string | Filtre sur l’utilisateur initiateur                  |
+| `resourceId` | string | Filtre sur l’identifiant métier ciblé par le log       |
 | `dateFrom`   | string (ISO) | Date de début (inclus)                        |
 | `dateTo`     | string (ISO) | Date de fin (inclus)                          |
 | `offset`     | number | Décalage de pagination (par défaut 0)               |
@@ -1438,7 +1457,20 @@ Règles :
 - `userId` peut être `null` pour des actions système ou jobs.
 - `oldValue` / `newValue` ne contiennent **jamais** de données sensibles (`passwordHash`, tokens…).
 
-**Erreurs :** 401, 403 (client invalide, module `audit_logs` désactivé, permission manquante).
+**Erreurs :** 401, 403 (client invalide, module `audit_logs` désactivé, permission manquante). **400** si `action` et `actionPrefix` sont tous deux renseignés.
+
+### Organisation client — `/api/organization/*` (RFC-ORG-001)
+
+Préfixe **`/api/organization`** : même chaîne de guards que le métier client (`JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`). Module catalogue **`organization`** ; permissions **`organization.read`**, **`organization.update`**, **`organization.members.update`**.
+
+Principales routes :
+
+- `GET /api/organization/units` — arbre des unités (`organization.read`).
+- `POST /api/organization/units`, `PATCH /api/organization/units/:id`, `POST /api/organization/units/:id/archive` — `organization.update`.
+- `GET|POST /api/organization/units/:id/members`, `DELETE /api/organization/units/:id/members/:membershipId` — lecture membres : `organization.read` ; mutations : `organization.members.update` (rattachements sur **`Resource` HUMAN** du client actif ; DELETE renvoie **404** si le membership ne correspond pas à l’unité ou au client).
+- Même schéma sous **`/api/organization/groups`** pour les groupes métier.
+
+Les actions d’audit associées sont préfixées **`organization.`** ; l’UI administration peut les lister via `GET /api/audit-logs?actionPrefix=organization.` (permission **`audit_logs.read`**).
 
 ---
 

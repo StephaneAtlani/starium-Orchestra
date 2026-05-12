@@ -123,11 +123,14 @@ export class AuditLogsService {
     const limit = query.limit ?? 50;
     const offset = query.offset ?? 0;
 
+    const actionPrefixTrimmed = query.actionPrefix?.trim();
     const where: any = {
       clientId,
       ...auditLogResourceTypeWhere(query.resourceType),
       ...(query.resourceId && { resourceId: query.resourceId }),
-      ...auditLogActionWhere(query.action),
+      ...(actionPrefixTrimmed
+        ? { action: { startsWith: actionPrefixTrimmed } }
+        : auditLogActionWhere(query.action)),
       ...(query.userId && { userId: query.userId }),
       ...(query.dateFrom || query.dateTo
         ? {

@@ -20,11 +20,11 @@ export function ResourceAclDialog({ open, onOpenChange, ...editorProps }: Props)
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Permissions de «&nbsp;{editorProps.resourceLabel}&nbsp;»
+            Accès à la ressource «&nbsp;{editorProps.resourceLabel}&nbsp;»
           </DialogTitle>
           <DialogDescription>
             Gérez les utilisateurs et groupes autorisés à accéder à cette ressource.
-            En l'absence d'entrée, la ressource reste accessible selon les règles RBAC
+            En l&apos;absence d&apos;entrée, la ressource reste accessible selon les règles RBAC
             standards (mode public).
           </DialogDescription>
         </DialogHeader>

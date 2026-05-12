@@ -32,6 +32,16 @@ import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 
+/** Rôle métier informatif (GET /me/permissions, RFC-ACL-014) — ne pas dériver les droits UI depuis ce tableau. */
+export interface MeInformativeRole {
+  id: string;
+  name: string;
+  /** Absent en schéma Prisma V1 ; réservé extension. */
+  code: string | null;
+  scope: import('@prisma/client').RoleScope;
+  clientId: string | null;
+}
+
 /** Profil utilisateur exposé par GET /me (RFC-014-2 : inclut platformRole). */
 export interface MeProfile {
   id: string;
@@ -176,6 +186,41 @@ export class MeService {
       }
     }
     return Array.from(codes);
+  }
+
+  /** Rôles UserRole liés au client (informatif uniquement ; `permissionCodes` reste l’autorité UI). */
+  async getInformativeRolesForClient(
+    userId: string,
+    clientId: string,
+  ): Promise<MeInformativeRole[]> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: {
+        userId,
+        role: {
+          OR: [
+            { scope: RoleScope.CLIENT, clientId },
+            { scope: RoleScope.GLOBAL },
+          ],
+        },
+      },
+      include: {
+        role: { select: { id: true, name: true, scope: true, clientId: true } },
+      },
+    });
+    const seen = new Set<string>();
+    const out: MeInformativeRole[] = [];
+    for (const ur of userRoles) {
+      if (seen.has(ur.roleId)) continue;
+      seen.add(ur.roleId);
+      out.push({
+        id: ur.role.id,
+        name: ur.role.name,
+        code: null,
+        scope: ur.role.scope,
+        clientId: ur.role.clientId,
+      });
+    }
+    return out;
   }
 
   /**

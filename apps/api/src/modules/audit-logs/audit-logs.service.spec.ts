@@ -69,6 +69,25 @@ describe('AuditLogsService', () => {
     );
   });
 
+  it('listForClient filtre actionPrefix en startsWith (sans legacy action)', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { auditLog: { findMany } };
+    const service = new AuditLogsService(prisma as any);
+
+    await service.listForClient({
+      clientId: 'c1',
+      query: { actionPrefix: 'organization.' } as any,
+    });
+
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.where).toEqual(
+      expect.objectContaining({
+        clientId: 'c1',
+        action: { startsWith: 'organization.' },
+      }),
+    );
+  });
+
   it('create avec tx propage l’erreur (rollback transactionnel)', async () => {
     const auditCreate = jest.fn().mockRejectedValue(new Error('audit fail'));
     const prisma = {

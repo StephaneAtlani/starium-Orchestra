@@ -225,6 +225,14 @@ export interface MePermissionsResponse {
   permissionCodes: string[];
   /** Absent sur anciennes API : considérer tous les modules activés comme visibles. */
   visibleModuleCodes?: string[];
+  /** RFC-ACL-014 : informatif uniquement ; ne pas en déduire les droits effectifs. */
+  roles?: Array<{
+    id: string;
+    name: string;
+    code: string | null;
+    scope: 'CLIENT' | 'GLOBAL';
+    clientId: string | null;
+  }>;
 }
 
 /** GET /me/permissions — codes de permission pour le client actif (X-Client-Id requis). */

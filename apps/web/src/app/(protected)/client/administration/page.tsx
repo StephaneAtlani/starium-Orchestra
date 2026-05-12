@@ -15,6 +15,7 @@ import {
   UsersRound,
   Eye,
   KeyRound,
+  Network,
 } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
@@ -65,6 +66,21 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Groupes d&apos;accès</h3>
                 <p className="text-sm text-muted-foreground">
                   Regrouper des utilisateurs pour ciblage ACL
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/organization">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Network className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Organisation</h3>
+                <p className="text-sm text-muted-foreground">
+                  Unités, rattachements collaborateurs et groupes métier
                 </p>
               </div>
             </CardContent>

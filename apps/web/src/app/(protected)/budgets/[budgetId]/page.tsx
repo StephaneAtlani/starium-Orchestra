@@ -44,6 +44,7 @@ import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create
 import { PermissionGate } from '@/components/PermissionGate';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
+import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -513,6 +514,12 @@ export default function BudgetDetailPage() {
                 resourceId={budget.id}
                 resourceLabel={budget.name}
                 size="sm"
+              />
+              <AccessExplainerPopover
+                resourceType="BUDGET"
+                resourceId={budget.id}
+                resourceLabel={budget.name}
+                intent="READ"
               />
               <PermissionGate permission="budgets.update">
                 <Link

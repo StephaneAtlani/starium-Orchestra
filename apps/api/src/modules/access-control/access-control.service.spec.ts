@@ -26,7 +26,7 @@ describe('AccessControlService', () => {
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     prisma = {
       resourceAcl: {
-        findMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         deleteMany: jest.fn(),
         createMany: jest.fn(),
@@ -48,7 +48,10 @@ describe('AccessControlService', () => {
         return fn(tx);
       }),
     };
-    service = new AccessControlService(prisma as any, auditLogs as any);
+    const diagnostics = {
+      hasEffectiveAdminSuccessorAfterSimulation: jest.fn().mockResolvedValue(true),
+    };
+    service = new AccessControlService(prisma as any, auditLogs as any, diagnostics as any);
   });
 
   it('parseResourceTypeFromRoute normalise uppercase et whitelist', () => {
@@ -198,6 +201,19 @@ describe('AccessControlService', () => {
       createdAt: new Date('2026-01-01'),
       updatedAt: new Date('2026-01-02'),
     });
+    prisma.resourceAcl.findMany.mockResolvedValueOnce([
+      {
+        id: 'entry-xyz',
+        clientId,
+        resourceType: 'PROJECT',
+        resourceId: RID_PROJECT,
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.READ,
+        createdAt: new Date('2026-01-01'),
+        updatedAt: new Date('2026-01-02'),
+      },
+    ]);
     prisma.resourceAcl.count.mockResolvedValueOnce(2);
 
     await service.removeEntry(

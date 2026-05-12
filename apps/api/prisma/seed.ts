@@ -1593,6 +1593,88 @@ async function ensureResourcesModuleAndPermissions(): Promise<void> {
   }
 }
 
+/** RFC-ORG-001 — module Organisation + permissions. */
+async function ensureOrganizationModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "organization" },
+    create: {
+      code: "organization",
+      name: "Organisation",
+      description: "Unités organisationnelles et groupes métier par client (RFC-ORG-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "organization.read", label: "Organisation — lecture" },
+    {
+      code: "organization.update",
+      label: "Organisation — unités et groupes (création, modification, archivage)",
+    },
+    { code: "organization.members.update", label: "Organisation — rattachements des membres" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label },
+    });
+  }
+}
+
+/** RFC-ORG-001 — permissions organisation pour les CLIENT_ADMIN (UserRole). */
+async function ensureClientAdminOrganizationRole(): Promise<void> {
+  const codes = [
+    "organization.read",
+    "organization.update",
+    "organization.members.update",
+  ] as const;
+  const permissions = await prisma.permission.findMany({
+    where: { code: { in: [...codes] } },
+  });
+  if (permissions.length !== codes.length) {
+    console.warn(
+      "⚠️  ensureClientAdminOrganizationRole : permissions organization.* manquantes — skip.",
+    );
+    return;
+  }
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — organisation" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — organisation",
+        description: "Structure organisationnelle et groupes métier du client",
+        isSystem: true,
+      },
+    });
+  }
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+      },
+      create: { roleId: role.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 /** RFC-033 — types d’occasion des versions figées ; rattachement au module Budget via `budgets.read`. */
 async function ensureBudgetSnapshotOccasionTypePermission(): Promise<void> {
   const ref = await prisma.permission.findUnique({
@@ -3367,7 +3449,7 @@ async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
  *   de ces rôles par le contenu du fichier (deleteMany puis createMany par rôle) ;
  *   suppression éventuelle du rôle legacy « Responsable Stratégie » ;
  * - `BudgetSnapshotOccasionType` globaux manquants (CODIR, workflow, etc.) ;
- * - rôles globaux « Client admin — taxonomie risques / équipes métier / contrats » + leurs
+ * - rôles globaux « Client admin — taxonomie risques / équipes métier / contrats / organisation » + leurs
  *   `RolePermission` ; **liaisons `UserRole`** (upsert) pour chaque `ClientUser` CLIENT_ADMIN actif
  *   → élargit les droits métier des admins client, **sans** toucher aux mots de passe ;
  * - `ActivityType` : pour chaque client, une ligne par `kind` **seulement** si aucune ligne n’existe
@@ -3410,6 +3492,7 @@ async function main() {
   await ensureActivityTypesModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
+  await ensureOrganizationModuleAndPermissions();
   await ensureBudgetSnapshotOccasionTypePermission();
   await ensureDefaultGlobalProfiles();
   await ensureGlobalBudgetSnapshotOccasionTypes();
@@ -3453,6 +3536,8 @@ async function main() {
   await ensureDefaultActivityTypesForAllClients();
 
   await ensureClientAdminTeamsModuleRole();
+
+  await ensureClientAdminOrganizationRole();
 
   await ensureClientAdminContractsModuleRole();
 

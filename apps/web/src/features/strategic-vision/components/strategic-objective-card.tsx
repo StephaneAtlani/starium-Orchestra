@@ -5,6 +5,7 @@ import { ObjectiveStatusBadge } from './objective-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
+import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 import type { StrategicLinkDto, StrategicObjectiveDto } from '../types/strategic-vision.types';
 
 function formatDate(value: string | null): string {
@@ -44,6 +45,12 @@ export function StrategicObjectiveCard({
               resourceId={objective.id}
               resourceLabel={objective.title}
               size="sm"
+            />
+            <AccessExplainerPopover
+              resourceType="STRATEGIC_OBJECTIVE"
+              resourceId={objective.id}
+              resourceLabel={objective.title}
+              intent="READ"
             />
             {canUpdate && onEdit ? (
               <Button size="sm" variant="outline" onClick={() => onEdit(objective)}>

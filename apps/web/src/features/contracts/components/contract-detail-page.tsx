@@ -22,6 +22,7 @@ import {
 import { ContractFormDialog } from './contract-form-dialog';
 import { ContractAttachmentsPanel } from './contract-attachments-panel';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
+import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -117,6 +118,12 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
           resourceId={c.id}
           resourceLabel={c.title}
           size="sm"
+        />
+        <AccessExplainerPopover
+          resourceType="CONTRACT"
+          resourceId={c.id}
+          resourceLabel={c.title}
+          intent="READ"
         />
         {canDelete && !terminated && (
           <Button

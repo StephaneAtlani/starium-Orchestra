@@ -79,7 +79,7 @@ describe('ResourceAclTriggerButton — visibilité (test imposé n°1)', () => {
     expect(
       screen.getByTestId('resource-acl-trigger-button'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Permissions')).toBeInTheDocument();
+    expect(screen.getByText('Accès à la ressource')).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

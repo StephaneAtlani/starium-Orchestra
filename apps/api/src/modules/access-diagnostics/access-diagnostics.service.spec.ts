@@ -7,8 +7,10 @@ describe('AccessDiagnosticsService', () => {
   let accessControl: any;
   let moduleVisibility: any;
   let effectivePermissions: any;
+  let auditLogs: { create: jest.Mock };
 
   beforeEach(() => {
+    auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     prisma = {
       clientUser: { findFirst: jest.fn() },
       module: { findFirst: jest.fn() },
@@ -22,6 +24,9 @@ describe('AccessDiagnosticsService', () => {
       canReadResource: jest.fn().mockResolvedValue(true),
       canWriteResource: jest.fn().mockResolvedValue(true),
       canAdminResource: jest.fn().mockResolvedValue(true),
+      canReadResourceWithSimulatedAcl: jest.fn().mockResolvedValue(true),
+      canWriteResourceWithSimulatedAcl: jest.fn().mockResolvedValue(true),
+      canAdminResourceWithSimulatedAcl: jest.fn().mockResolvedValue(true),
     };
     moduleVisibility = { isVisibleForUser: jest.fn().mockResolvedValue(true) };
     effectivePermissions = {
@@ -34,6 +39,7 @@ describe('AccessDiagnosticsService', () => {
       accessControl,
       moduleVisibility,
       effectivePermissions,
+      auditLogs as any,
     );
   });
 

@@ -351,6 +351,10 @@ model Client {
   activityTypes                    ActivityType[]
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
+  orgUnits                         OrgUnit[]
+  orgGroups                        OrgGroup[]
+  orgUnitMemberships               OrgUnitMembership[]
+  orgGroupMemberships              OrgGroupMembership[]
   procurementAttachments           ProcurementAttachment[]
   alerts                           Alert[]
   notifications                    Notification[]
@@ -869,11 +873,145 @@ model Resource {
   projectScenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
+  orgUnitMemberships               OrgUnitMembership[]
+  orgGroupMemberships              OrgGroupMembership[]
 
   @@unique([clientId, email])
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, type])
+}
+
+// --- Organization client (RFC-ORG-001) ---
+
+enum OrgUnitType {
+  COMPANY
+  DIRECTION
+  DEPARTMENT
+  SERVICE
+  SITE
+  TEAM
+  COMMITTEE
+  OTHER
+}
+
+enum OrgUnitStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrgUnitMemberType {
+  MANAGER
+  MEMBER
+  OBSERVER
+}
+
+enum OrgGroupType {
+  BUSINESS
+  COMMITTEE
+  FUNCTIONAL
+  SECURITY
+  TRANSVERSE
+  OTHER
+}
+
+enum OrgGroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum OrgGroupMemberType {
+  OWNER
+  MEMBER
+  OBSERVER
+}
+
+model OrgUnit {
+  id          String        @id @default(cuid())
+  clientId    String
+  parentId    String?
+  code        String?
+  name        String
+  description String?
+  type        OrgUnitType
+  status      OrgUnitStatus @default(ACTIVE)
+  sortOrder   Int           @default(0)
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+
+  client   Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  parent   OrgUnit?            @relation("OrgUnitHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children OrgUnit[]           @relation("OrgUnitHierarchy")
+  members  OrgUnitMembership[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, parentId])
+  @@index([clientId, status])
+}
+
+model OrgUnitMembership {
+  id         String            @id @default(cuid())
+  clientId   String
+  orgUnitId  String
+  resourceId String
+  roleTitle  String?
+  memberType OrgUnitMemberType @default(MEMBER)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  orgUnit  OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([orgUnitId, resourceId])
+  @@index([clientId])
+  @@index([clientId, orgUnitId])
+  @@index([clientId, resourceId])
+}
+
+model OrgGroup {
+  id          String         @id @default(cuid())
+  clientId    String
+  code        String?
+  name        String
+  description String?
+  type        OrgGroupType
+  status      OrgGroupStatus @default(ACTIVE)
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  archivedAt  DateTime?
+
+  client  Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members OrgGroupMembership[]
+
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, status])
+}
+
+model OrgGroupMembership {
+  id         String             @id @default(cuid())
+  clientId   String
+  groupId    String
+  resourceId String
+  memberType OrgGroupMemberType @default(MEMBER)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  group    OrgGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, resourceId])
+  @@index([clientId])
+  @@index([clientId, groupId])
+  @@index([clientId, resourceId])
 }
 
 // --- Projects MVP (RFC-PROJ-001) ---

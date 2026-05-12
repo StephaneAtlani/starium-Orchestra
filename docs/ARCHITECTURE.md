@@ -86,6 +86,7 @@ apps/
 │   │   ├── budget-import
 │   │   ├── budget-versioning
 │   │   ├── procurement
+│   │   ├── organization   (RFC-ORG-001 — unités / groupes métier, rattachements Resource HUMAN, module `organization.*`)
 │   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
 │   │   ├── licenses   (RFC-ACL-001 — abonnements `ClientSubscription`, sièges, `LicenseService`, plateforme `PATCH …/license`, jobs expiration RFC-ACL-009)
 │   │   ├── strategic-vision   (RFC-STRAT-001→005 — vision, axes, objectifs, directions, KPI/alerts client-scopés)
@@ -106,6 +107,7 @@ apps/
     ├── features/access-cockpit   (`/client/administration/access-cockpit` — RFC-ACL-010)
     ├── features/resource-acl   (éditeur ACL par ressource — [RFC-ACL-013](./RFC/RFC-ACL-013%20%E2%80%94%20%C3%89diteur%20ACL%20par%20ressource.md) ; consomme `GET|POST|DELETE /api/resource-acl/*` ; visibilité **CLIENT_ADMIN** uniquement côté UI)
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
+    ├── features/organization   (`/client/administration/organization` — [RFC-ORG-001](./RFC/RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) ; API `/api/organization/*`)
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
 ```
@@ -508,6 +510,7 @@ Core budgétaire / financier
 
 Autres domaines
 ├── collaborators (RFC-TEAM-002 — référentiel métier)
+├── organization (RFC-ORG-001 — `OrgUnit` / `OrgGroup`, memberships sur `Resource` HUMAN ; permissions `organization.*`)
 ├── skills (RFC-TEAM-003 catalogue ; RFC-TEAM-004 `CollaboratorSkill` — associations collaborateur ↔ compétence)
 ├── work-teams (RFC-TEAM-005 — `WorkTeam`, `WorkTeamMembership` sur `Resource` HUMAN, périmètres managers ; permissions `teams.*`)
 ├── activity-types (RFC-TEAM-006 — `ActivityType`, taxonomie des types d’activité ; permissions `activity_types.*`)

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -19,6 +19,12 @@ export class AuditLogsController {
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListAuditLogsQueryDto,
   ) {
+    const hasAction = query.action !== undefined && String(query.action).trim() !== '';
+    const hasPrefix =
+      query.actionPrefix !== undefined && String(query.actionPrefix).trim() !== '';
+    if (hasAction && hasPrefix) {
+      throw new BadRequestException('Use either action or actionPrefix, not both.');
+    }
     return this.auditLogs.listForClient({ clientId: clientId!, query });
   }
 }

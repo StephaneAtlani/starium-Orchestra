@@ -46,9 +46,12 @@ export function usePermissions() {
   const isModuleVisible = (moduleCode: string): boolean =>
     treatAllModulesVisible || visibleModulesSet.has(moduleCode);
 
+  const roles = useMemo(() => data?.roles ?? [], [data?.roles]);
+
   return {
     permissionCodes,
     visibleModuleCodes,
+    roles,
     has,
     isModuleVisible,
     isLoading,

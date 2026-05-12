@@ -203,7 +203,13 @@ export default function ProjectsPortfolioPage() {
                       <code className="rounded bg-background/50 px-1 font-mono text-xs">
                         projects.read
                       </code>
-                      .
+                      .{' '}
+                      <Link
+                        href="/client/help/access-model"
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        Modèle d&apos;accès actuel (aide)
+                      </Link>
                     </p>
                   )}
                   {apiErr?.status === 404 && (

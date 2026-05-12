@@ -32,3 +32,30 @@ export type EffectiveRightsResponse = {
   }>;
   computedAt: string;
 };
+
+/** RFC-ACL-014 §3 — réponse self-service `GET .../effective-rights/me`. */
+export type SelfEffectiveControlId =
+  | 'USER_LICENSE'
+  | 'CLIENT_SUBSCRIPTION'
+  | 'CLIENT_MODULE_ENABLED'
+  | 'USER_MODULE_VISIBLE'
+  | 'RBAC_PERMISSION'
+  | 'RESOURCE_ACL';
+
+export type SelfEffectiveDecision = 'ALLOWED' | 'DENIED' | 'UNSAFE_CONTEXT';
+
+export type SelfEffectiveControl = {
+  id: SelfEffectiveControlId;
+  status: 'pass' | 'fail' | 'not_applicable';
+  reasonCode: string | null;
+  message: string;
+};
+
+export type MyEffectiveRightsResponse = {
+  finalDecision: SelfEffectiveDecision;
+  reasonCode: string | null;
+  resourceLabel: string | null;
+  controls: SelfEffectiveControl[];
+  safeMessage: string;
+  computedAt: string;
+};

@@ -49,6 +49,7 @@ import { LicenseReportingModule } from './modules/license-reporting/license-repo
 import { AccessGroupsModule } from './modules/access-groups/access-groups.module';
 import { AccessControlModule } from './modules/access-control/access-control.module';
 import { AccessDiagnosticsModule } from './modules/access-diagnostics/access-diagnostics.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { AccessDiagnosticsModule } from './modules/access-diagnostics/access-dia
     AccessGroupsModule,
     AccessControlModule,
     AccessDiagnosticsModule,
+    OrganizationModule,
   ],
 })
 export class AppModule {}

@@ -24,6 +24,7 @@ import { formatNumberFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { SupplierContractsPreviewCard } from '@/features/contracts/components/supplier-contracts-preview-card';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
+import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 
 const PROCUREMENT_PREVIEW_LIMIT = 8;
 
@@ -189,12 +190,18 @@ export function SupplierVisualizationContent({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <ResourceAclTriggerButton
           resourceType="SUPPLIER"
           resourceId={supplierId}
           resourceLabel={supplierQuery.data?.name ?? 'Fournisseur'}
           size="sm"
+        />
+        <AccessExplainerPopover
+          resourceType="SUPPLIER"
+          resourceId={supplierId}
+          resourceLabel={supplierQuery.data?.name ?? 'Fournisseur'}
+          intent="READ"
         />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
