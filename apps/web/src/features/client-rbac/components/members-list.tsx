@@ -88,6 +88,7 @@ export function MembersList() {
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Fiche Humaine</TableHead>
                   <TableHead>Rôle</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -106,6 +107,9 @@ export function MembersList() {
                       ) : null}
                     </TableCell>
                     <TableCell>{member.email}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
+                      {member.humanResourceSummary?.displayName ?? '—'}
+                    </TableCell>
                     <TableCell>
                       {member.role
                         ? (CLIENT_ROLE_LABEL[member.role] ?? member.role)

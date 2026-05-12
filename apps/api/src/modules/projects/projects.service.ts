@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   ClientUserStatus,
+  OrgUnitType,
   Prisma,
   Project,
   ProjectMilestone,
@@ -45,6 +46,16 @@ import { normalizeSearchText } from '../search/search-normalize.util';
 import { buildProjectSearchText } from '../search/search-text-build.util';
 import { AccessControlService } from '../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  toOwnerOrgUnitSummary,
+} from '../organization/org-unit-ownership.helpers';
+import type { OwnerOrgUnitSummaryDto } from '../organization/org-unit-ownership.types';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../organization/resource-ownership-audit.constants';
 
 const projectIncludeList = {
   tasks: true,
@@ -74,6 +85,7 @@ const projectIncludeList = {
       parent: { select: { id: true, name: true } },
     },
   },
+  ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
 } as const;
 
 export type ProjectTagItemDto = {
@@ -111,6 +123,8 @@ export type ProjectListItemDto = {
     parentId: string | null;
     parentName: string | null;
   } | null;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -443,6 +457,12 @@ export class ProjectsService {
         parentId: string | null;
         parent: { id: string; name: string } | null;
       } | null;
+      ownerOrgUnit: {
+        id: string;
+        name: string;
+        type: OrgUnitType;
+        code: string | null;
+      } | null;
     },
   ): ProjectListItemDto {
     const ownerDisplayName = this.ownerDisplayResolved(project);
@@ -500,6 +520,8 @@ export class ProjectsService {
             parentName: project.portfolioCategory.parent?.name ?? null,
           }
         : null,
+      ownerOrgUnitId: project.ownerOrgUnitId ?? null,
+      ownerOrgUnitSummary: toOwnerOrgUnitSummary(project.ownerOrgUnit),
     };
   }
 
@@ -675,6 +697,7 @@ export class ProjectsService {
     if (query.kind) where.kind = query.kind;
     if (query.portfolioCategoryId) where.portfolioCategoryId = query.portfolioCategoryId;
     if (query.ownerUserId) where.ownerUserId = query.ownerUserId;
+    if (query.ownerOrgUnitId) where.ownerOrgUnitId = query.ownerOrgUnitId;
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -1011,6 +1034,9 @@ export class ProjectsService {
     await this.assertClientUser(clientId, dto.sponsorUserId);
     await this.assertClientUser(clientId, dto.ownerUserId);
     await this.assertProjectPortfolioSubCategory(clientId, dto.portfolioCategoryId);
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
 
     const hasOwnerUser = Boolean(dto.ownerUserId?.trim());
     const freeTrim = dto.ownerFreeLabel?.trim();
@@ -1070,6 +1096,7 @@ export class ProjectsService {
       sponsorUserId: dto.sponsorUserId ?? null,
       ownerUserId: dto.ownerUserId ?? null,
       portfolioCategoryId: dto.portfolioCategoryId ?? null,
+      ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       targetEndDate: dto.targetEndDate ? new Date(dto.targetEndDate) : null,
       actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
@@ -1185,6 +1212,13 @@ export class ProjectsService {
     if (dto.portfolioCategoryId !== undefined) {
       data.portfolioCategoryId = dto.portfolioCategoryId ?? null;
     }
+    if (dto.ownerOrgUnitId !== undefined) {
+      const nextOwner = dto.ownerOrgUnitId?.trim() || null;
+      if (nextOwner) {
+        await assertOrgUnitInClient(this.prisma, clientId, nextOwner);
+      }
+      data.ownerOrgUnitId = nextOwner;
+    }
     if (dto.startDate !== undefined) {
       data.startDate = dto.startDate ? new Date(dto.startDate) : null;
     }
@@ -1297,6 +1331,25 @@ export class ProjectsService {
         resourceId: id,
         oldValue: { portfolioCategoryId: existing.portfolioCategoryId ?? null },
         newValue: { portfolioCategoryId: updated.portfolioCategoryId ?? null },
+        ...meta,
+      });
+    }
+
+    const prevOwnerOrg = existing.ownerOrgUnitId ?? null;
+    const nextOwnerOrg = updated.ownerOrgUnitId ?? null;
+    if (prevOwnerOrg !== nextOwnerOrg) {
+      const [oldRef, newRef] = await Promise.all([
+        orgUnitAuditRef(this.prisma, clientId, prevOwnerOrg),
+        orgUnitAuditRef(this.prisma, clientId, nextOwnerOrg),
+      ]);
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: RESOURCE_OWNERSHIP_AUDIT.PROJECT,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.PROJECT,
+        resourceId: id,
+        oldValue: oldRef,
+        newValue: newRef,
         ...meta,
       });
     }

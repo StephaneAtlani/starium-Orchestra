@@ -1,4 +1,6 @@
 /** Réponse GET /api/projects/assignable-users */
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
 export type ProjectAssignableUser = {
   id: string;
   email: string;
@@ -59,6 +61,9 @@ export type ProjectListItem = {
   warnings: string[];
   tags: ProjectTag[];
   portfolioCategory: ProjectPortfolioCategoryAssignment | null;
+  /** RFC-ORG-003 */
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary;
 };
 
 export type ProjectsListResponse = {

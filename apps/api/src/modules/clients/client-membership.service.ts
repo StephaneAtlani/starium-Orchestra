@@ -8,6 +8,7 @@ import {
   ClientUserLicenseBillingMode,
   ClientUserLicenseType,
   ClientUserStatus,
+  ResourceType,
 } from '@prisma/client';
 import bcrypt from '@/lib/bcrypt-compat';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -18,6 +19,11 @@ import {
 } from '../audit-logs/audit-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { AttachUserToClientDto } from './dto/attach-user-to-client.dto';
+import {
+  humanResourceCatalogLabelForApi,
+  humanResourceSummaryFromRow,
+  type HumanResourceSummaryPayload,
+} from '../../common/utils/human-resource-catalog-label';
 
 @Injectable()
 export class ClientMembershipService {
@@ -42,6 +48,7 @@ export class ClientMembershipService {
       licenseType: ClientUserLicenseType;
       licenseBillingMode: ClientUserLicenseBillingMode;
       subscriptionId: string | null;
+      humanResourceSummary: HumanResourceSummaryPayload | null;
     }[];
   }> {
     const client = await this.prisma.client.findUnique({
@@ -54,7 +61,12 @@ export class ClientMembershipService {
 
     const links = await this.prisma.clientUser.findMany({
       where: { clientId },
-      include: { user: true },
+      include: {
+        user: true,
+        humanResource: {
+          select: { id: true, name: true, firstName: true, email: true, type: true },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -69,6 +81,59 @@ export class ClientMembershipService {
         licenseType: link.licenseType,
         licenseBillingMode: link.licenseBillingMode,
         subscriptionId: link.subscriptionId,
+        humanResourceSummary:
+          link.humanResource && link.humanResource.type === ResourceType.HUMAN
+            ? humanResourceSummaryFromRow({
+                id: link.humanResource.id,
+                name: link.humanResource.name,
+                firstName: link.humanResource.firstName,
+                email: link.humanResource.email,
+              })
+            : null,
+      })),
+    };
+  }
+
+  /**
+   * Catalogue Resource HUMAN pour un client (Admin Studio / plateforme), sans X-Client-Id.
+   */
+  async listHumanResourcesCatalogForClient(
+    clientId: string,
+    search?: string,
+  ): Promise<{
+    items: { id: string; displayName: string; email: string | null }[];
+  }> {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true },
+    });
+    if (!client) {
+      throw new NotFoundException('Client non trouvé');
+    }
+    const q = search?.trim();
+    const rows = await this.prisma.resource.findMany({
+      where: {
+        clientId,
+        type: ResourceType.HUMAN,
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' as const } },
+                { firstName: { contains: q, mode: 'insensitive' as const } },
+                { email: { contains: q, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
+      take: 50,
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, firstName: true, email: true },
+    });
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        displayName: humanResourceCatalogLabelForApi(r),
+        email: r.email?.trim() ?? null,
       })),
     };
   }

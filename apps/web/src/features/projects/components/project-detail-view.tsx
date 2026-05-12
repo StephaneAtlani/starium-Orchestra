@@ -84,6 +84,8 @@ import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 import { useStrategicObjectivesQuery } from '@/features/strategic-vision/hooks/use-strategic-vision-queries';
 import { strategicVisionKeys } from '@/features/strategic-vision/lib/strategic-vision-query-keys';
 import { useStrategicVisionQuery } from '@/features/strategic-vision/hooks/use-strategic-vision-queries';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -97,6 +99,12 @@ function formatDate(iso: string | null) {
 function formatTargetBudgetDisplay(raw: string): string {
   const n = Number(raw);
   return Number.isFinite(n) ? formatCurrencyAmountFr(n, 'EUR') : raw;
+}
+
+function formatOwnerOrgSummary(summary: OwnerOrgUnitSummary | undefined): string {
+  if (!summary) return '—';
+  const code = summary.code ? ` (${summary.code})` : '';
+  return `${summary.name}${code}`;
 }
 
 function KpiTile({
@@ -130,6 +138,7 @@ function ProjectDetailTabbedContent({
   badgeMerged,
   canReadStrategicVision,
   canManageStrategicLinks,
+  canUpdateProject,
 }: {
   projectId: string;
   project: ProjectDetail;
@@ -137,6 +146,7 @@ function ProjectDetailTabbedContent({
   badgeMerged: MergedUiBadges;
   canReadStrategicVision: boolean;
   canManageStrategicLinks: boolean;
+  canUpdateProject: boolean;
 }) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
@@ -151,8 +161,11 @@ function ProjectDetailTabbedContent({
     project.portfolioCategory?.id ?? '__none__',
   );
   const [editableStrategicObjectiveId, setEditableStrategicObjectiveId] = useState<string>('__none__');
+  const [editableOwnerOrgUnitId, setEditableOwnerOrgUnitId] = useState<string | null>(
+    project.ownerOrgUnitId ?? null,
+  );
   const [activeInlineEdit, setActiveInlineEdit] = useState<
-    'type' | 'status' | 'portfolioCategory' | 'strategicObjective' | null
+    'type' | 'status' | 'portfolioCategory' | 'strategicObjective' | 'ownerOrgUnit' | null
   >(null);
   const strategicObjectivesQuery = useStrategicObjectivesQuery({
     enabled: canReadStrategicVision,
@@ -167,7 +180,8 @@ function ProjectDetailTabbedContent({
     setEditableType(project.type);
     setEditableStatus(project.status);
     setEditablePortfolioCategoryId(project.portfolioCategory?.id ?? '__none__');
-  }, [project.type, project.status, project.portfolioCategory?.id]);
+    setEditableOwnerOrgUnitId(project.ownerOrgUnitId ?? null);
+  }, [project.type, project.status, project.portfolioCategory?.id, project.ownerOrgUnitId]);
 
   const optionsTagsQuery = useQuery({
     queryKey: projectQueryKeys.optionsTags(clientId),
@@ -202,6 +216,7 @@ function ProjectDetailTabbedContent({
       type?: string;
       status?: string;
       portfolioCategoryId?: string | null;
+      ownerOrgUnitId?: string | null;
     }) => updateProject(authFetch, projectId, payload),
     onSuccess: async () => {
       await Promise.all([
@@ -675,6 +690,58 @@ function ProjectDetailTabbedContent({
                   ) : (
                     '—'
                   )}
+                </div>
+                <div className="sm:col-span-2 border-t pt-3">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">Direction propriétaire :</span>
+                    {activeInlineEdit === 'ownerOrgUnit' ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <OwnerOrgUnitSelect
+                          value={editableOwnerOrgUnitId}
+                          onChange={(v) => setEditableOwnerOrgUnitId(v)}
+                          triggerClassName="h-7 w-[min(100%,300px)] text-xs"
+                          placeholder="Aucune unité"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            updateProjectMetaMutation.mutate(
+                              { ownerOrgUnitId: editableOwnerOrgUnitId },
+                              { onSuccess: () => setActiveInlineEdit(null) },
+                            );
+                          }}
+                          disabled={updateProjectMetaMutation.isPending}
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setEditableOwnerOrgUnitId(project.ownerOrgUnitId ?? null);
+                            setActiveInlineEdit(null);
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded px-1 py-0.5 text-left hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                        onClick={() => {
+                          if (canUpdateProject) setActiveInlineEdit('ownerOrgUnit');
+                        }}
+                        disabled={!canUpdateProject}
+                      >
+                        {formatOwnerOrgSummary(project.ownerOrgUnitSummary)}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="sm:col-span-2 border-t pt-3">
                   <div className="mb-2 flex items-center gap-2">
@@ -1244,13 +1311,13 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const risks = useProjectRisksQuery(projectId);
   const { merged: badgeMerged } = useClientUiBadgeConfig();
   const { has } = usePermissions();
-  const canPostMortemCta = has('projects.update');
+  const canUpdateProject = has('projects.update');
   const canReadStrategicVision = has('strategic_vision.read');
   const canManageStrategicLinks = has('strategic_vision.manage_links');
   const showPostMortemHeaderCta =
     project != null &&
     isPostMortemEligibleProjectStatus(project.status) &&
-    canPostMortemCta;
+    canUpdateProject;
 
   const reviewsForRexCta = useProjectReviewsQuery(projectId, {
     enabled: showPostMortemHeaderCta,
@@ -1422,6 +1489,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           badgeMerged={badgeMerged}
           canReadStrategicVision={canReadStrategicVision}
           canManageStrategicLinks={canManageStrategicLinks}
+          canUpdateProject={canUpdateProject}
         />
       </Suspense>
     </>

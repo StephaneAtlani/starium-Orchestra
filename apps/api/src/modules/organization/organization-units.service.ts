@@ -22,6 +22,7 @@ import {
   isPrismaUniqueViolation,
   resolveLinkedUserEmailForResource,
 } from './organization-membership.helpers';
+import { listOrgUnitOwnershipArchiveBlockers } from './org-unit-ownership.helpers';
 
 @Injectable()
 export class OrganizationUnitsService {
@@ -171,6 +172,12 @@ export class OrganizationUnitsService {
     if (!existing) throw new NotFoundException('Unité introuvable');
     if (existing.status === OrgUnitStatus.ARCHIVED) {
       return existing;
+    }
+    const ownershipBlockers = await listOrgUnitOwnershipArchiveBlockers(this.prisma, clientId, id);
+    if (ownershipBlockers.length > 0) {
+      throw new BadRequestException(
+        `Impossible d’archiver l’unité : des ressources actives en font encore la Direction propriétaire (${ownershipBlockers.join(', ')}). Réassignez l’ownership ou clôturez les ressources concernées.`,
+      );
     }
     const row = await this.prisma.orgUnit.update({
       where: { id },

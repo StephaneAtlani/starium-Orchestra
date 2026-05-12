@@ -24,6 +24,11 @@ export class CreateContractDto {
   @IsNotEmpty()
   supplierId!: string;
 
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(128)

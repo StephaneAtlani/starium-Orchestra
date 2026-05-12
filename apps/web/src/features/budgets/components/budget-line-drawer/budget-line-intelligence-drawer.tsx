@@ -259,6 +259,8 @@ export function BudgetLineIntelligenceDrawer({
                         budgetName={budgetName}
                         budgetOwnerName={budget?.ownerUserName ?? null}
                         budgetOwnerUserId={budget?.ownerUserId ?? null}
+                        budgetOwnerOrgUnitId={budget?.ownerOrgUnitId ?? null}
+                        budgetOwnerOrgUnitSummary={budget?.ownerOrgUnitSummary}
                         envelopeName={envelopeName}
                         envelopeCode={envelopeCode}
                         envelopeType={envelopeType}

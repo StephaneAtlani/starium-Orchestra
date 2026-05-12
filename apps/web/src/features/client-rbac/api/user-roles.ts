@@ -32,6 +32,12 @@ export interface ClientMember {
   licenseAssignmentReason?: string | null;
   /** true = pas de fiche Humaine dans le catalogue pour ce membre. */
   excludeFromResourceCatalog?: boolean;
+  /** RFC-ORG-002 — fiche Resource HUMAN liée (libellé pour l’UI). */
+  humanResourceSummary?: {
+    resourceId: string;
+    displayName: string;
+    email: string | null;
+  } | null;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
   [key: string]: unknown;
@@ -74,6 +80,8 @@ export type UpdateClientMemberPayload = {
   role?: 'CLIENT_ADMIN' | 'CLIENT_USER';
   status?: 'ACTIVE' | 'SUSPENDED' | 'INVITED';
   excludeFromResourceCatalog?: boolean;
+  /** RFC-ORG-002 — absent : pas de changement ; null : délier ; string : CUID Resource HUMAN. */
+  humanResourceId?: string | null;
 };
 
 /** PATCH /api/users/:id — prénom, nom, rôle et statut sur ce client. */

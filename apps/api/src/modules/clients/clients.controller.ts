@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -85,6 +86,17 @@ export class ClientsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
     await this.clients.remove(id);
+  }
+
+  /**
+   * GET /clients/:clientId/human-resources-catalog — options Resource HUMAN (Admin Studio, sans X-Client-Id).
+   */
+  @Get(':clientId/human-resources-catalog')
+  listHumanResourcesCatalog(
+    @Param('clientId') clientId: string,
+    @Query('search') search?: string,
+  ) {
+    return this.membership.listHumanResourcesCatalogForClient(clientId, search);
   }
 
   /**

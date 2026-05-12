@@ -38,6 +38,15 @@ import { UpdateStrategicObjectiveDto } from './dto/update-strategic-objective.dt
 import { UpdateStrategicVisionDto } from './dto/update-strategic-vision.dto';
 import { AccessControlService } from '../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  toOwnerOrgUnitSummary,
+} from '../organization/org-unit-ownership.helpers';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../organization/resource-ownership-audit.constants';
 
 const SUPPORTED_LINK_TYPES_V1: readonly StrategicLinkType[] = [
   StrategicLinkType.PROJECT,
@@ -66,11 +75,29 @@ const strategicVisionInclude: Prisma.StrategicVisionInclude = {
               isActive: true,
             },
           },
+          ownerOrgUnit: {
+            select: { id: true, name: true, type: true, code: true },
+          },
         },
       },
     },
   },
 };
+
+function mapObjectiveOrgSummaryRow(row: any) {
+  const { ownerOrgUnit, ...rest } = row;
+  return { ...rest, ownerOrgUnitSummary: toOwnerOrgUnitSummary(ownerOrgUnit) };
+}
+
+function mapVisionObjectivesOrgSummary(vision: any) {
+  return {
+    ...vision,
+    axes: vision.axes.map((axis: any) => ({
+      ...axis,
+      objectives: axis.objectives.map((o: any) => mapObjectiveOrgSummaryRow(o)),
+    })),
+  };
+}
 
 const OBJECTIVE_AT_RISK_STATUSES: readonly StrategicObjectiveStatus[] = [
   StrategicObjectiveStatus.AT_RISK,
@@ -454,7 +481,7 @@ export class StrategicVisionService {
       where,
       include: strategicVisionInclude,
       orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
-    });
+    }).then((rows) => rows.map(mapVisionObjectivesOrgSummary));
   }
 
   async getKpis(clientId: string): Promise<StrategicVisionKpisResponseDto> {
@@ -770,7 +797,7 @@ export class StrategicVisionService {
       include: strategicVisionInclude,
     });
     if (!found) throw new NotFoundException('Strategic vision not found');
-    return found;
+    return mapVisionObjectivesOrgSummary(found);
   }
 
   async updateVision(
@@ -1295,10 +1322,13 @@ export class StrategicVisionService {
           },
         },
         links: { orderBy: { createdAt: 'desc' } },
+        ownerOrgUnit: {
+          select: { id: true, name: true, type: true, code: true },
+        },
       },
       orderBy: [{ createdAt: 'desc' }],
     });
-    if (!userId) return rows;
+    if (!userId) return rows.map(mapObjectiveOrgSummaryRow);
     const readableIds = await this.accessControl.filterReadableResourceIds({
       clientId,
       userId,
@@ -1307,7 +1337,9 @@ export class StrategicVisionService {
       operation: 'read',
     });
     const readableSet = new Set(readableIds);
-    return rows.filter((row) => readableSet.has(row.id));
+    return rows
+      .filter((row) => readableSet.has(row.id))
+      .map(mapObjectiveOrgSummaryRow);
   }
 
   async createObjective(
@@ -1331,6 +1363,9 @@ export class StrategicVisionService {
     if (dto.directionId) {
       await this.resolveDirectionForClient(clientId, dto.directionId);
     }
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
     if (dto.ownerUserId) {
       await this.assertUserInClient(clientId, dto.ownerUserId);
     }
@@ -1351,6 +1386,7 @@ export class StrategicVisionService {
         clientId,
         axisId: dto.axisId,
         directionId: dto.directionId ?? null,
+        ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
         ownerLabel: dto.ownerLabel?.trim() || null,
@@ -1466,6 +1502,13 @@ export class StrategicVisionService {
         data.directionId = null;
       }
     }
+    if (dto.ownerOrgUnitId !== undefined) {
+      const trimmed = dto.ownerOrgUnitId?.trim() || null;
+      if (trimmed) {
+        await assertOrgUnitInClient(this.prisma, clientId, trimmed);
+      }
+      data.ownerOrgUnitId = trimmed;
+    }
 
     if (Object.keys(data).length === 0) return this.getObjectiveById(clientId, objectiveId);
 
@@ -1529,6 +1572,27 @@ export class StrategicVisionService {
         { directionId: existing.directionId },
         { directionId: updated.directionId },
       );
+    }
+
+    const prevOwnerOrg = existing.ownerOrgUnitId ?? null;
+    const nextOwnerOrg = updated.ownerOrgUnitId ?? null;
+    if (prevOwnerOrg !== nextOwnerOrg) {
+      const [oldRef, newRef] = await Promise.all([
+        orgUnitAuditRef(this.prisma, clientId, prevOwnerOrg),
+        orgUnitAuditRef(this.prisma, clientId, nextOwnerOrg),
+      ]);
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: RESOURCE_OWNERSHIP_AUDIT.STRATEGIC_OBJECTIVE,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
+        resourceId: objectiveId,
+        oldValue: oldRef,
+        newValue: newRef,
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
     }
 
     return this.getObjectiveById(clientId, objectiveId);
@@ -1600,10 +1664,13 @@ export class StrategicVisionService {
           },
         },
         links: { orderBy: { createdAt: 'desc' } },
+        ownerOrgUnit: {
+          select: { id: true, name: true, type: true, code: true },
+        },
       },
       orderBy: [{ createdAt: 'asc' }],
     });
-    if (!userId) return rows;
+    if (!userId) return rows.map(mapObjectiveOrgSummaryRow);
     const readableIds = await this.accessControl.filterReadableResourceIds({
       clientId,
       userId,
@@ -1612,7 +1679,9 @@ export class StrategicVisionService {
       operation: 'read',
     });
     const readableSet = new Set(readableIds);
-    return rows.filter((row) => readableSet.has(row.id));
+    return rows
+      .filter((row) => readableSet.has(row.id))
+      .map(mapObjectiveOrgSummaryRow);
   }
 
   async getObjectiveById(clientId: string, objectiveId: string, userId?: string) {
@@ -1628,13 +1697,16 @@ export class StrategicVisionService {
           },
         },
         links: { orderBy: { createdAt: 'desc' } },
+        ownerOrgUnit: {
+          select: { id: true, name: true, type: true, code: true },
+        },
       },
     });
     if (!objective) throw new NotFoundException('Strategic objective not found');
     if (userId) {
       await this.assertCanReadObjective(clientId, userId, objectiveId);
     }
-    return objective;
+    return mapObjectiveOrgSummaryRow(objective);
   }
 
   async listObjectiveLinks(clientId: string, objectiveId: string, userId?: string) {

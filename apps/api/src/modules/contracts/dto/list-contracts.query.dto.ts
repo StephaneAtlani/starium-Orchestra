@@ -39,4 +39,8 @@ export class ListContractsQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string;
 }

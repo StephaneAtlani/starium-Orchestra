@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/context/auth-context';
-import { cn } from '@/lib/utils';
+import { HumanResourceCombobox } from '@/features/teams/work-teams/components/human-resource-combobox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUpdateClientMember } from '../hooks/use-update-client-member';
 import type { ClientMember, UpdateClientMemberPayload } from '../api/user-roles';
 
@@ -58,6 +59,7 @@ export function EditMemberDialog({
   const [role, setRole] = useState<'CLIENT_ADMIN' | 'CLIENT_USER'>('CLIENT_USER');
   const [status, setStatus] = useState<'ACTIVE' | 'SUSPENDED' | 'INVITED'>('ACTIVE');
   const [excludeFromResourceCatalog, setExcludeFromResourceCatalog] = useState(false);
+  const [hrDraft, setHrDraft] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,6 +79,7 @@ export function EditMemberDialog({
         ? member.status
         : 'ACTIVE',
     );
+    setHrDraft(member.humanResourceSummary?.resourceId ?? null);
     setErr(null);
   }, [open, member]);
 
@@ -97,6 +100,11 @@ export function EditMemberDialog({
     if (!isEditingSelf && !isDirectoryLocked) {
       payload.role = role;
       payload.status = status;
+    }
+
+    const initialHr = member.humanResourceSummary?.resourceId ?? null;
+    if (hrDraft !== initialHr) {
+      payload.humanResourceId = hrDraft;
     }
 
     try {
@@ -219,6 +227,49 @@ export function EditMemberDialog({
                     )}
                   </SelectContent>
                 </Select>
+              )}
+            </div>
+            {excludeFromResourceCatalog ? (
+              <Alert variant="default" className="border-amber-500/40 bg-amber-500/5">
+                <AlertTitle className="text-sm">Catalogue masqué</AlertTitle>
+                <AlertDescription className="text-xs leading-relaxed">
+                  Ce compte est exclu du catalogue ressources : une fiche Humaine liée peut coexister
+                  mais l’incohérence métier est possible. Vérifiez le rattachement si besoin.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="space-y-2">
+              <Label htmlFor={`${formId}-hr`}>Fiche Humaine catalogue (RFC-ORG-002)</Label>
+              {isDirectoryLocked ? (
+                <p
+                  id={`${formId}-hr-readonly`}
+                  className="rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-sm"
+                >
+                  {member.humanResourceSummary?.displayName ?? '— (aucune fiche liée)'}
+                </p>
+              ) : (
+                <>
+                  <HumanResourceCombobox
+                    id={`${formId}-hr`}
+                    dialogOpen={open}
+                    value={hrDraft ?? ''}
+                    onChange={(id) => setHrDraft(id.trim() || null)}
+                    fallbackLabel={member.humanResourceSummary?.displayName ?? null}
+                    disabled={isDirectoryLocked}
+                    label="Ressource Humaine liée au compte"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setHrDraft(null)}
+                    >
+                      Aucune fiche (délier)
+                    </Button>
+                  </div>
+                </>
               )}
             </div>
             <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">

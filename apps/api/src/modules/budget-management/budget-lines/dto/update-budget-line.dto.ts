@@ -74,6 +74,11 @@ export class UpdateBudgetLineDto {
   @IsEnum(ExpenseType)
   expenseType?: ExpenseType;
 
+  /** RFC-ORG-003 — override unité propriétaire (null = hériter du budget). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   /** Commentaire optionnel lors d’un changement de statut — stocké dans l’audit `budget_line.status.changed` (non persisté sur la ligne). */
   @IsOptional()
   @IsString()

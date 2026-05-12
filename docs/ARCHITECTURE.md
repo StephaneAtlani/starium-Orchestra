@@ -86,7 +86,7 @@ apps/
 │   │   ├── budget-import
 │   │   ├── budget-versioning
 │   │   ├── procurement
-│   │   ├── organization   (RFC-ORG-001 — unités / groupes métier, rattachements Resource HUMAN, module `organization.*`)
+│   │   ├── organization   (RFC-ORG-001 — unités / groupes métier, rattachements Resource HUMAN, module `organization.*` ; **RFC-ORG-003** — `ownerOrgUnitId` / `ownerOrgUnitSummary` sur entités métier, helpers `org-unit-ownership.*`)
 │   │   ├── contracts   (RFC-036 — SupplierContract, pièces jointes, module RBAC `contracts`)
 │   │   ├── licenses   (RFC-ACL-001 — abonnements `ClientSubscription`, sièges, `LicenseService`, plateforme `PATCH …/license`, jobs expiration RFC-ACL-009)
 │   │   ├── strategic-vision   (RFC-STRAT-001→005 — vision, axes, objectifs, directions, KPI/alerts client-scopés)
@@ -108,7 +108,7 @@ apps/
     ├── features/resource-acl   (éditeur ACL par ressource — [RFC-ACL-013](./RFC/RFC-ACL-013%20%E2%80%94%20%C3%89diteur%20ACL%20par%20ressource.md) ; [RFC-ACL-014](./RFC/RFC-ACL-014%20%E2%80%94%20Conformit%C3%A9%20mod%C3%A8le%20R%C3%B4les%2C%20Groupes%20et%20ACL.md) : libellé bouton **« Accès à la ressource »**, lazy `AccessExplainerPopover` → `GET /api/access-diagnostics/effective-rights/me` ; consomme `GET|PUT|POST|DELETE /api/resource-acl/*` ; visibilité trigger **CLIENT_ADMIN** uniquement côté UI)
     ├── features/access-diagnostics   (matrice admin [RFC-ACL-011](./RFC/RFC-ACL-011%20%E2%80%94%20Matrice%20des%20droits%20effectifs.md) ; self-service **effective-rights/me** + composant explainer — [RFC-ACL-014](./RFC/RFC-ACL-014%20%E2%80%94%20Conformit%C3%A9%20mod%C3%A8le%20R%C3%B4les%2C%20Groupes%20et%20ACL.md))
     ├── features/teams (`collaborators/`, `skills/`, `work-teams/`, `resource-time-entries/` — [RFC-FE-TEAM-002](./RFC/RFC-FE-TEAM-002%20%E2%80%94%20UI%20Collaborateurs.md), [RFC-FE-TEAM-003](./RFC/RFC-FE-TEAM-003%20%E2%80%94%20UI%20Comp%C3%A9tences.md), [RFC-FE-TEAM-004](./RFC/RFC-FE-TEAM-004%20%E2%80%94%20UI%20%C3%89quipes%20scopes%20managers.md) ; module Équipes métier = **Resource HUMAN** — [RFC-TEAM-020](./RFC/RFC-TEAM-020%20%E2%80%94%20Refonte%20%C3%89quipes%20Resource%20HUMAN.md))
-    ├── features/organization   (`/client/administration/organization` — [RFC-ORG-001](./RFC/RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) ; API `/api/organization/*`)
+    ├── features/organization   (`/client/administration/organization` — [RFC-ORG-001](./RFC/RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) ; API `/api/organization/*` ; sélecteur **Direction propriétaire** [RFC-ORG-003](./RFC/RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) : `OwnerOrgUnitSelect`, consommation `organization.read`)
     ├── providers/ (auth, active client, query)
     └── lib/ (authenticated-fetch, api, utils)
 ```
@@ -158,7 +158,7 @@ Le modèle d’accès distingue deux niveaux de rôle :
 
 Règles d’architecture :
 
-- Les routes **plateforme** pour gérer les organisations (`GET|POST /api/clients`, `PATCH|DELETE /api/clients/:id`, `/api/clients/:clientId/users`, …), ainsi que `/api/platform/*` et `/api/modules`, reposent sur `platformRole` + `PlatformAdminGuard` — **sans** `X-Client-Id` / `ActiveClientGuard`.
+- Les routes **plateforme** pour gérer les organisations (`GET|POST /api/clients`, `PATCH|DELETE /api/clients/:id`, `/api/clients/:clientId/users`, `GET /api/clients/:clientId/human-resources-catalog` — catalogue `Resource` type HUMAN pour l’Admin Studio, `PATCH /api/platform/clients/:clientId/users/:userId` — lien `ClientUser` ↔ fiche HUMAN, **RFC-ORG-002**, …), ainsi que `/api/platform/*` et `/api/modules`, reposent sur `platformRole` + `PlatformAdminGuard` — **sans** `X-Client-Id` / `ActiveClientGuard`. Côté **client actif**, le même lien se gère via `PATCH /api/users/:userId` (champ JSON `humanResourceId`, garde annuaire verrouillé).
 - Les routes sous **`/api/clients/active/*`** (identifiants Microsoft OAuth du client actif, paramètres fiscaux « client actif », **`GET|PATCH /api/clients/active/budget-workflow-settings`** — overrides JSON sparse `Client.budgetWorkflowConfig` + merge défauts applicatifs, RBAC `budgets.read` / `budgets.update`, etc.) reposent sur **`X-Client-Id`** + `ActiveClientGuard` comme le reste du métier client-scopé.
 - Les autres routes métier client-scopées reposent sur `X-Client-Id` + `ActiveClientGuard` (puis `ClientAdminGuard` ou `PermissionsGuard` selon la ressource).
 - `PLATFORM_ADMIN` ne confère pas automatiquement un rôle `CLIENT_ADMIN` sur un client.
@@ -511,7 +511,7 @@ Core budgétaire / financier
 
 Autres domaines
 ├── collaborators (RFC-TEAM-002 — référentiel métier)
-├── organization (RFC-ORG-001 — `OrgUnit` / `OrgGroup`, memberships sur `Resource` HUMAN ; permissions `organization.*`)
+├── organization (RFC-ORG-001 — `OrgUnit` / `OrgGroup`, memberships sur `Resource` HUMAN ; permissions `organization.*` ; **RFC-ORG-003** — colonnes `ownerOrgUnitId` sur ressources métier, garde-fous archivage unité, audits `*.ownership.changed`)
 ├── skills (RFC-TEAM-003 catalogue ; RFC-TEAM-004 `CollaboratorSkill` — associations collaborateur ↔ compétence)
 ├── work-teams (RFC-TEAM-005 — `WorkTeam`, `WorkTeamMembership` sur `Resource` HUMAN, périmètres managers ; permissions `teams.*`)
 ├── activity-types (RFC-TEAM-006 — `ActivityType`, taxonomie des types d’activité ; permissions `activity_types.*`)

@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md), [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-015](./RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
+**Draft** — non implémentée. Dépend de [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md) (**MVP livré** : `ClientUser.resourceId` + API), [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-015](./RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
 
 ## Alignement plan
 
@@ -34,7 +34,7 @@ Chaque réponse porte des **`reasonCodes`** stables pour le diagnostic (RFC-ACL-
 
 - [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) : `OrgUnitMembership` lie `resourceId` (HUMAN) à `orgUnitId`.
 - Hiérarchie `OrgUnit.parentId` : permet calcul sous-arbre (CTE récursif ou cache matérialisé ultérieur).
-- Pas encore de `ClientUser.resourceId` ni d’`ownerOrgUnitId` généralisé avant ORG-002 / ORG-003.
+- [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md) : `ClientUser.resourceId` et API de liaison sont **livrés** ; il manque encore **`OrganizationScopeService`** et l’`ownerOrgUnitId` généralisé ([RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md)) pour brancher le calcul `OWN` / `SCOPE` cible.
 
 ---
 

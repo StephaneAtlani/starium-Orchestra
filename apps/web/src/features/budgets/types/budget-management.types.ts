@@ -2,6 +2,8 @@
  * Types alignés sur les réponses API budget-management (exercices, budgets, enveloppes, lignes).
  */
 
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
 export interface BudgetExercise {
   id: string;
   clientId: string;
@@ -50,6 +52,9 @@ export interface Budget {
   exerciseCode?: string | null;
   /** Présent sur le détail budget (GET) — compteurs enveloppes/lignes pour confirmation cascade. */
   childWorkflowCascadeCounts?: ChildWorkflowCascadeCounts;
+  /** RFC-ORG-003 */
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary;
 }
 
 export interface BudgetEnvelope {
@@ -119,6 +124,10 @@ export interface BudgetLine {
   deferredToExerciseCode?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** RFC-ORG-003 — effectif + source (API). */
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+  ownerOrgUnitSource?: 'line' | 'budget' | null;
 }
 
 export interface ListBudgetExercisesQuery {

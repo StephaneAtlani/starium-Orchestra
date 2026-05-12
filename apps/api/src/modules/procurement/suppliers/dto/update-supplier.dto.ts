@@ -50,5 +50,10 @@ export class UpdateSupplierDto {
   @IsString()
   @MaxLength(50)
   supplierCategoryId?: string | null;
+
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
 }
 

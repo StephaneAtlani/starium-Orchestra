@@ -26,6 +26,8 @@ describe('PlatformClientUsersController', () => {
           provide: UsersService,
           useValue: {
             findAll: jest.fn(),
+            patchHumanResourceLinkForClientMember: jest.fn(),
+            getClientMemberForClient: jest.fn(),
           },
         },
         {
@@ -71,6 +73,7 @@ describe('PlatformClientUsersController', () => {
         licenseEndsAt: '2026-01-31T00:00:00.000Z',
         licenseAssignmentReason: 'POC',
         excludeFromResourceCatalog: false,
+        humanResourceSummary: null,
         isDirectorySynced: false,
         isDirectoryLocked: false,
       },
@@ -104,5 +107,61 @@ describe('PlatformClientUsersController', () => {
       NotFoundException,
     );
     expect(usersService.findAll).not.toHaveBeenCalled();
+  });
+
+  describe('patchHumanResourceLink', () => {
+    it('should validate client then patch and return member', async () => {
+      prisma.client.findUnique.mockResolvedValue({ id: 'client-1' });
+      const member = {
+        id: 'user-1',
+        email: 'a@test.fr',
+        firstName: 'A',
+        lastName: 'User',
+        role: 'CLIENT_USER',
+        status: 'ACTIVE',
+        licenseType: 'READ_ONLY',
+        licenseBillingMode: 'NON_BILLABLE',
+        subscriptionId: null,
+        licenseStartsAt: null,
+        licenseEndsAt: null,
+        licenseAssignmentReason: null,
+        excludeFromResourceCatalog: false,
+        humanResourceSummary: {
+          resourceId: 'chumanresddddddddddddddddd',
+          displayName: 'Test — t@test.fr',
+          email: 't@test.fr',
+        },
+        isDirectorySynced: false,
+        isDirectoryLocked: false,
+      };
+      usersService.patchHumanResourceLinkForClientMember.mockResolvedValue(undefined);
+      usersService.getClientMemberForClient.mockResolvedValue(member as never);
+
+      const dto = { humanResourceId: 'chumanresddddddddddddddddd' as string | null };
+      const result = await controller.patchHumanResourceLink(
+        'client-1',
+        'user-1',
+        dto,
+        'actor-1',
+        {},
+      );
+
+      expect(usersService.patchHumanResourceLinkForClientMember).toHaveBeenCalledWith(
+        'client-1',
+        'user-1',
+        'chumanresddddddddddddddddd',
+        { actorUserId: 'actor-1', meta: {} },
+      );
+      expect(usersService.getClientMemberForClient).toHaveBeenCalledWith('client-1', 'user-1');
+      expect(result).toEqual(member);
+    });
+
+    it('should 404 when client missing on PATCH', async () => {
+      prisma.client.findUnique.mockResolvedValue(null);
+      await expect(
+        controller.patchHumanResourceLink('missing', 'user-1', {}, undefined, {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(usersService.patchHumanResourceLinkForClientMember).not.toHaveBeenCalled();
+    });
   });
 });

@@ -280,6 +280,8 @@ export interface UpdateBudgetPayload {
   statusChangeComment?: string;
   /** Confirmation explicite pour propager les statuts enveloppes/lignes (workflow budget). */
   cascadeChildWorkflowStatuses?: boolean;
+  /** RFC-ORG-003 */
+  ownerOrgUnitId?: string | null;
 }
 
 export async function createBudget(
@@ -387,6 +389,8 @@ export interface UpdateLinePayload {
   deferredToExerciseId?: string | null;
   /** Commentaire saisi avec le changement de statut — audit `budget_line.status.changed`. */
   statusChangeComment?: string;
+  /** RFC-ORG-003 — override sur la ligne ; null = hériter du budget. */
+  ownerOrgUnitId?: string | null;
 }
 
 export interface BulkStatusApplyResult {

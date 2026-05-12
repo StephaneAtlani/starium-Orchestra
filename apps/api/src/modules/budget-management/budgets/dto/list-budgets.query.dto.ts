@@ -15,6 +15,11 @@ export class ListBudgetsQueryDto extends PaginationQueryDto {
   @IsString()
   ownerUserId?: string;
 
+  /** RFC-ORG-003 — filtre sur `Budget.ownerOrgUnitId` (colonne stockée). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string;
+
   @IsOptional()
   @IsString()
   search?: string;

@@ -11,15 +11,27 @@ import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useInlineUpdateBudgetLine } from '../../hooks/use-inline-update-budget-line';
 import { usePatchBudgetOwner } from '../../hooks/use-patch-budget-owner';
+import { usePatchBudgetOrgUnit } from '../../hooks/use-patch-budget-org-unit';
 import type { UpdateLinePayload } from '../../api/budget-management.api';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import { BudgetLineWorkflowBlock } from '../budget-line-workflow-block';
 import { BudgetLineStatusBadge } from '../budget-line-status-badge';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
 
 const AUTOSAVE_MS = 650;
 
-type EditKey = 'name' | 'description' | 'code' | 'budget' | 'scope' | 'owner' | null;
+type EditKey =
+  | 'name'
+  | 'description'
+  | 'code'
+  | 'budget'
+  | 'scope'
+  | 'owner'
+  | 'budgetOrgUnit'
+  | 'lineOrgUnit'
+  | null;
 
 function memberLabel(m: ClientMember): string {
   const n = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
@@ -101,6 +113,8 @@ export function BudgetLineOverviewTab({
   budgetName,
   budgetOwnerName,
   budgetOwnerUserId,
+  budgetOwnerOrgUnitId,
+  budgetOwnerOrgUnitSummary,
   envelopeName,
   envelopeCode,
   envelopeType,
@@ -111,6 +125,9 @@ export function BudgetLineOverviewTab({
   budgetOwnerName?: string | null;
   /** Responsable du budget (PATCH budget), pas un champ ligne. */
   budgetOwnerUserId?: string | null;
+  /** RFC-ORG-003 — unité propriétaire du budget (PATCH budget). */
+  budgetOwnerOrgUnitId?: string | null;
+  budgetOwnerOrgUnitSummary?: OwnerOrgUnitSummary;
   envelopeName?: string | null;
   envelopeCode?: string | null;
   envelopeType?: string | null;
@@ -124,6 +141,7 @@ export function BudgetLineOverviewTab({
     silentSuccess: true,
   });
   const patchBudgetOwner = usePatchBudgetOwner(line.budgetId, { silentSuccess: true });
+  const patchBudgetOrgUnit = usePatchBudgetOrgUnit(line.budgetId, { silentSuccess: true });
   const membersQuery = useClientMembers();
   const members = membersQuery.data ?? [];
 
@@ -256,7 +274,22 @@ export function BudgetLineOverviewTab({
     setActiveEdit(null);
   };
 
-  const saving = update.isPending || patchBudgetOwner.isPending;
+  const formatOrgSummary = (s: OwnerOrgUnitSummary | undefined) => {
+    if (!s) return '—';
+    const code = s.code ? ` (${s.code})` : '';
+    return `${s.name}${code}`;
+  };
+
+  const lineOrgDisplay = (() => {
+    const sum = line.ownerOrgUnitSummary;
+    const base = formatOrgSummary(sum);
+    if (base === '—') return base;
+    if (line.ownerOrgUnitSource === 'budget') return `${base} — hérité du budget`;
+    if (line.ownerOrgUnitSource === 'line') return `${base} — défini sur la ligne`;
+    return base;
+  })();
+
+  const saving = update.isPending || patchBudgetOwner.isPending || patchBudgetOrgUnit.isPending;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -485,6 +518,84 @@ export function BudgetLineOverviewTab({
                   </button>
                 ) : (
                   <div className="leading-snug">{ownerDisplayName}</div>
+                )}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              Direction propriétaire (budget)
+            </div>
+            {canEdit && activeEdit === 'budgetOrgUnit' ? (
+              <div className="mt-1 max-w-md" onBlur={scheduleCloseEdit}>
+                <OwnerOrgUnitSelect
+                  value={budgetOwnerOrgUnitId ?? null}
+                  onChange={(v) => {
+                    const cur = budgetOwnerOrgUnitId?.trim() || null;
+                    const next = v?.trim() || null;
+                    if (next === cur) {
+                      setActiveEdit(null);
+                      return;
+                    }
+                    patchBudgetOrgUnit.mutate(next);
+                    setActiveEdit(null);
+                  }}
+                  triggerClassName="h-9 w-full max-w-md text-sm"
+                  placeholder="Aucune unité"
+                />
+              </div>
+            ) : (
+              <div className="mt-0.5">
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-sm leading-snug transition-colors hover:border-border/60 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onMouseDown={cancelCloseEdit}
+                    onClick={() => openEdit('budgetOrgUnit')}
+                  >
+                    {formatOrgSummary(budgetOwnerOrgUnitSummary)}
+                  </button>
+                ) : (
+                  <div className="text-sm leading-snug">{formatOrgSummary(budgetOwnerOrgUnitSummary)}</div>
+                )}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-medium text-muted-foreground">
+              Direction propriétaire (ligne)
+            </div>
+            {canEdit && activeEdit === 'lineOrgUnit' ? (
+              <div className="mt-1 max-w-md" onBlur={scheduleCloseEdit}>
+                <OwnerOrgUnitSelect
+                  value={line.ownerOrgUnitId ?? null}
+                  onChange={(v) => {
+                    const cur = line.ownerOrgUnitId?.trim() || null;
+                    const next = v?.trim() || null;
+                    if (next === cur) {
+                      setActiveEdit(null);
+                      return;
+                    }
+                    patch({ ownerOrgUnitId: next });
+                    setActiveEdit(null);
+                  }}
+                  triggerClassName="h-9 w-full max-w-md text-sm"
+                  placeholder="Hériter du budget (aucun override)"
+                />
+              </div>
+            ) : (
+              <div className="mt-0.5">
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="w-full rounded-md border border-transparent px-1 py-0.5 text-left text-sm leading-snug transition-colors hover:border-border/60 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onMouseDown={cancelCloseEdit}
+                    onClick={() => openEdit('lineOrgUnit')}
+                  >
+                    {lineOrgDisplay}
+                  </button>
+                ) : (
+                  <div className="text-sm leading-snug">{lineOrgDisplay}</div>
                 )}
               </div>
             )}

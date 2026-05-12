@@ -40,6 +40,11 @@ export class CreateBudgetDto {
   @IsString()
   ownerUserId?: string;
 
+  /** RFC-ORG-003 — unité propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   @IsOptional()
   @IsEnum(BudgetTaxMode)
   taxMode?: BudgetTaxMode;

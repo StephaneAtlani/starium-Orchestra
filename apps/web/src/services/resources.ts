@@ -54,6 +54,7 @@ export async function tryListResources(
     type?: ResourceType;
     search?: string;
   },
+  init?: RequestInit,
 ): Promise<ListResourcesOutcome> {
   const sp = new URLSearchParams();
   if (params.offset != null) sp.set('offset', String(params.offset));
@@ -61,7 +62,7 @@ export async function tryListResources(
   if (params.type) sp.set('type', params.type);
   if (params.search) sp.set('search', params.search);
   const q = sp.toString();
-  const res = await authFetch(`/api/resources${q ? `?${q}` : ''}`);
+  const res = await authFetch(`/api/resources${q ? `?${q}` : ''}`, init);
   if (!res.ok) {
     let msg = 'Impossible de charger la liste des ressources.';
     try {
@@ -97,8 +98,9 @@ export async function listResources(
     type?: ResourceType;
     search?: string;
   },
+  init?: RequestInit,
 ): Promise<Paginated<ResourceListItem>> {
-  const out = await tryListResources(authFetch, params);
+  const out = await tryListResources(authFetch, params, init);
   if (!out.ok) throw new Error(out.message);
   return out.data;
 }

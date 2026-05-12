@@ -16,6 +16,12 @@ export interface AdminClientUserSummary {
   lastName: string | null;
   role: string;
   status: string;
+  /** RFC-ORG-002 — fiche Resource HUMAN liée (affichage métier). */
+  humanResourceSummary?: {
+    resourceId: string;
+    displayName: string;
+    email: string | null;
+  } | null;
 }
 
 /** Licence courante d'un user pour un client donné (vue compacte plateforme). */

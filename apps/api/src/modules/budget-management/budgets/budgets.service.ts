@@ -11,6 +11,7 @@ import {
   BudgetEnvelopeStatus,
   BudgetLineStatus,
   BudgetStatus,
+  OrgUnitType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -42,6 +43,16 @@ import { BudgetEnvelopesService } from '../budget-envelopes/budget-envelopes.ser
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 import { AccessControlService } from '../../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  toOwnerOrgUnitSummary,
+} from '../../organization/org-unit-ownership.helpers';
+import type { OwnerOrgUnitSummaryDto } from '../../organization/org-unit-ownership.types';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../../organization/resource-ownership-audit.constants';
 
 @Injectable()
 export class BudgetsService {
@@ -97,6 +108,7 @@ export class BudgetsService {
       ...(query.exerciseId && { exerciseId: query.exerciseId }),
       ...(query.status && { status: query.status }),
       ...(query.ownerUserId && { ownerUserId: query.ownerUserId }),
+      ...(query.ownerOrgUnitId && { ownerOrgUnitId: query.ownerOrgUnitId }),
     };
     if (query.search?.trim()) {
       const term = query.search.trim();
@@ -134,6 +146,7 @@ export class BudgetsService {
             include: {
               exercise: { select: { name: true, code: true } },
               owner: { select: { firstName: true, lastName: true, email: true } },
+              ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
             },
           });
     const byId = new Map(items.map((item) => [item.id, item]));
@@ -158,6 +171,7 @@ export class BudgetsService {
       include: {
         exercise: { select: { name: true, code: true } },
         owner: { select: { firstName: true, lastName: true, email: true } },
+        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
       },
     });
     if (!budget) {
@@ -233,6 +247,10 @@ export class BudgetsService {
       }
     }
 
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
+
     let code = dto.code?.trim();
     if (!code) {
       code = await this.resolveUniqueBudgetCode(clientId);
@@ -262,6 +280,7 @@ export class BudgetsService {
         currency: dto.currency,
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
+        ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
         ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
         ...(dto.defaultTaxRate !== undefined
           ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
@@ -270,6 +289,7 @@ export class BudgetsService {
       include: {
         exercise: { select: { name: true, code: true } },
         owner: { select: { firstName: true, lastName: true, email: true } },
+        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
       },
     });
 
@@ -345,6 +365,13 @@ export class BudgetsService {
             'ownerUserId must be a user linked to the active client',
           );
         }
+      }
+    }
+
+    if (dto.ownerOrgUnitId !== undefined) {
+      const nextOwn = dto.ownerOrgUnitId?.trim() || null;
+      if (nextOwn) {
+        await assertOrgUnitInClient(this.prisma, clientId, nextOwn);
       }
     }
 
@@ -434,6 +461,12 @@ export class BudgetsService {
         lastName: string | null;
         email: string;
       } | null;
+      ownerOrgUnit?: {
+        id: string;
+        name: string;
+        type: import('@prisma/client').OrgUnitType;
+        code: string | null;
+      } | null;
     };
 
     let updated: BudgetUpdateRow;
@@ -495,6 +528,9 @@ export class BudgetsService {
             ...(dto.ownerUserId !== undefined && {
               ownerUserId: dto.ownerUserId || null,
             }),
+            ...(dto.ownerOrgUnitId !== undefined && {
+              ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+            }),
             ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
             ...(dto.defaultTaxRate !== undefined
               ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
@@ -504,6 +540,7 @@ export class BudgetsService {
           include: {
             exercise: { select: { name: true, code: true } },
             owner: { select: { firstName: true, lastName: true, email: true } },
+            ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
           },
         });
         return { row, audits };
@@ -546,6 +583,9 @@ export class BudgetsService {
           ...(dto.ownerUserId !== undefined && {
             ownerUserId: dto.ownerUserId || null,
           }),
+          ...(dto.ownerOrgUnitId !== undefined && {
+            ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+          }),
           ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
           ...(dto.defaultTaxRate !== undefined
             ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
@@ -555,6 +595,7 @@ export class BudgetsService {
         include: {
           exercise: { select: { name: true, code: true } },
           owner: { select: { firstName: true, lastName: true, email: true } },
+          ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
         },
       });
     }
@@ -579,6 +620,25 @@ export class BudgetsService {
       await this.auditLogs.create({
         ...a,
         userId: context?.actorUserId,
+        ...meta,
+      });
+    }
+
+    const prevBudgetOwn = existing.ownerOrgUnitId ?? null;
+    const nextBudgetOwn = updated.ownerOrgUnitId ?? null;
+    if (prevBudgetOwn !== nextBudgetOwn && context?.actorUserId) {
+      const [oldRef, newRef] = await Promise.all([
+        orgUnitAuditRef(this.prisma, clientId, prevBudgetOwn),
+        orgUnitAuditRef(this.prisma, clientId, nextBudgetOwn),
+      ]);
+      await this.auditLogs.create({
+        clientId,
+        userId: context.actorUserId,
+        action: RESOURCE_OWNERSHIP_AUDIT.BUDGET,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.BUDGET,
+        resourceId: updated.id,
+        oldValue: oldRef,
+        newValue: newRef,
         ...meta,
       });
     }
@@ -876,12 +936,16 @@ export class BudgetsService {
 }
 
 type BudgetRow = Awaited<ReturnType<PrismaService['budget']['findFirst']>>;
-type BudgetWithNumbers = Omit<NonNullable<BudgetRow>, 'defaultTaxRate' | 'exercise' | 'owner'> & {
+type BudgetWithNumbers = Omit<
+  NonNullable<BudgetRow>,
+  'defaultTaxRate' | 'exercise' | 'owner' | 'ownerOrgUnit'
+> & {
   defaultTaxRate: number | null;
   exerciseName?: string;
   exerciseCode?: string | null;
   /** Libellé affichable (prénom + nom ou email) — dérivé de `owner` en base. */
   ownerUserName: string | null;
+  ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
   /** Présent sur le détail budget (compteurs pour modale cascade workflow). */
   childWorkflowCascadeCounts?: {
     draftEnvelopeCount: number;
@@ -903,13 +967,20 @@ function toResponse(
   row: NonNullable<BudgetRow> & {
     exercise?: { name: string; code: string } | null;
     owner?: { firstName: string | null; lastName: string | null; email: string } | null;
+    ownerOrgUnit?: {
+      id: string;
+      name: string;
+      type: OrgUnitType;
+      code: string | null;
+    } | null;
   },
 ): BudgetWithNumbers {
-  const { exercise, defaultTaxRate, owner, ...rest } = row;
+  const { exercise, defaultTaxRate, owner, ownerOrgUnit, ...rest } = row;
   return {
     ...rest,
     defaultTaxRate: defaultTaxRate ? Number(defaultTaxRate) : null,
     ownerUserName: formatOwnerDisplayName(owner),
+    ownerOrgUnitSummary: toOwnerOrgUnitSummary(ownerOrgUnit),
     ...(exercise && {
       exerciseName: exercise.name,
       exerciseCode: exercise.code,

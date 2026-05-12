@@ -34,6 +34,18 @@ import {
 } from '../helpers/status-change-comment.helper';
 import { AccessControlService } from '../../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  resolveEffectiveOwnerOrgUnitId,
+  resolveOwnerOrgUnitSource,
+  toOwnerOrgUnitSummary,
+} from '../../organization/org-unit-ownership.helpers';
+import type { OwnerOrgUnitSummaryDto, OwnerOrgUnitSource } from '../../organization/org-unit-ownership.types';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../../organization/resource-ownership-audit.constants';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -87,6 +99,9 @@ export interface BudgetLineResponse {
   deferredToExerciseCode: string | null;
   createdAt: Date;
   updatedAt: Date;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
+  ownerOrgUnitSource: OwnerOrgUnitSource;
 }
 
 const BUDGET_LINE_INCLUDE = {
@@ -95,6 +110,14 @@ const BUDGET_LINE_INCLUDE = {
   deferredToExercise: { select: { id: true, name: true, code: true } },
   costCenterSplits: {
     include: { costCenter: { select: { id: true, code: true, name: true } } },
+  },
+  ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+  budget: {
+    select: {
+      id: true,
+      ownerOrgUnitId: true,
+      ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+    },
   },
 } as const;
 
@@ -176,6 +199,7 @@ export class BudgetLinesService {
         generalLedgerAccountId: query.generalLedgerAccountId,
       }),
       ...(query.allocationScope && { allocationScope: query.allocationScope }),
+      ...(query.ownerOrgUnitId && { ownerOrgUnitId: query.ownerOrgUnitId }),
       ...(query.costCenterId && {
         costCenterSplits: {
           some: { costCenterId: query.costCenterId, clientId },
@@ -346,6 +370,10 @@ export class BudgetLinesService {
       );
     }
 
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
+
     const forecastAmount = 0;
     const committedAmount = 0;
     const consumedAmount = 0;
@@ -420,6 +448,7 @@ export class BudgetLinesService {
           consumedAmount: toDecimal(consumedAmount),
           remainingAmount: remainingAmountStored,
           taxRate: taxRateToPersist,
+          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
         },
       });
       if (allocationScope === BudgetLineAllocationScope.ANALYTICAL && costCenterSplits.length > 0) {
@@ -524,6 +553,13 @@ export class BudgetLinesService {
         throw new BadRequestException(
           'Closed budget line can only transition to ARCHIVED',
         );
+      }
+    }
+
+    if (dto.ownerOrgUnitId !== undefined) {
+      const nextOwn = dto.ownerOrgUnitId?.trim() || null;
+      if (nextOwn) {
+        await assertOrgUnitInClient(this.prisma, clientId, nextOwn);
       }
     }
 
@@ -635,6 +671,9 @@ export class BudgetLinesService {
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
         }),
         ...(dto.allocationScope != null && { allocationScope: dto.allocationScope }),
+        ...(dto.ownerOrgUnitId !== undefined && {
+          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+        }),
         ...(dto.taxRate !== undefined && { taxRate: toDecimal(dto.taxRate) }),
       };
 
@@ -737,6 +776,25 @@ export class BudgetLinesService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     };
+
+    const prevLineOrg = existing.ownerOrgUnitId ?? null;
+    const nextLineOrg = updated.ownerOrgUnitId ?? null;
+    if (prevLineOrg !== nextLineOrg && context?.actorUserId) {
+      const [oldRef, newRef] = await Promise.all([
+        orgUnitAuditRef(this.prisma, clientId, prevLineOrg),
+        orgUnitAuditRef(this.prisma, clientId, nextLineOrg),
+      ]);
+      await this.auditLogs.create({
+        clientId,
+        userId: context.actorUserId,
+        action: RESOURCE_OWNERSHIP_AUDIT.BUDGET_LINE,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.BUDGET_LINE,
+        resourceId: updated.id,
+        oldValue: oldRef,
+        newValue: newRef,
+        ...meta,
+      });
+    }
 
     if (onlyStatusInDto && !statusChanged) {
       return toResponse(updated);
@@ -1134,6 +1192,21 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     remainingAmountTtc = fromDecimal(calcRemaining.amountTtc);
   }
 
+  const effOwnerId = resolveEffectiveOwnerOrgUnitId(
+    row.ownerOrgUnitId,
+    row.budget.ownerOrgUnitId,
+  );
+  const ownerOrgUnitSource = resolveOwnerOrgUnitSource(
+    row.ownerOrgUnitId,
+    row.budget.ownerOrgUnitId,
+  );
+  const ownerOrgUnitSummary: OwnerOrgUnitSummaryDto =
+    effOwnerId == null
+      ? null
+      : effOwnerId === row.ownerOrgUnitId
+        ? toOwnerOrgUnitSummary(row.ownerOrgUnit)
+        : toOwnerOrgUnitSummary(row.budget.ownerOrgUnit);
+
   return {
     id: row.id,
     clientId: row.clientId,
@@ -1180,5 +1253,8 @@ function toResponse(row: BudgetLineRowWithAnalytics): BudgetLineResponse {
     deferredToExerciseCode: row.deferredToExercise?.code ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    ownerOrgUnitId: row.ownerOrgUnitId ?? null,
+    ownerOrgUnitSummary,
+    ownerOrgUnitSource,
   };
 }

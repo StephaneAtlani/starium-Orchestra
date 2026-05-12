@@ -22,6 +22,11 @@ export class UpdateContractDto {
   @IsString()
   supplierId?: string;
 
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(128)

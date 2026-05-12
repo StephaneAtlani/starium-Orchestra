@@ -25,6 +25,16 @@ import {
 import { SuppliersLogoStorageService } from './suppliers-logo.storage';
 import { AccessControlService } from '../../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  toOwnerOrgUnitSummary,
+} from '../../organization/org-unit-ownership.helpers';
+import type { OwnerOrgUnitSummaryDto } from '../../organization/org-unit-ownership.types';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../../organization/resource-ownership-audit.constants';
 
 export interface ProcurementAuditContext {
   actorUserId?: string;
@@ -56,6 +66,8 @@ export interface SupplierResponse {
   status: string;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategorySummary | null;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -168,6 +180,7 @@ export class SuppliersService {
       ...(query.supplierCategoryId
         ? { supplierCategoryId: query.supplierCategoryId }
         : {}),
+      ...(query.ownerOrgUnitId ? { ownerOrgUnitId: query.ownerOrgUnitId } : {}),
     };
     if (query.search?.trim()) {
       where.name = { contains: query.search.trim(), mode: 'insensitive' };
@@ -196,7 +209,10 @@ export class SuppliersService {
         ? []
         : await supplierRepo.findMany({
             where: { clientId, id: { in: pagedIds } },
-            include: { supplierCategory: true },
+            include: {
+              supplierCategory: true,
+              ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+            },
           });
     const byId = new Map(items.map((item: (typeof items)[number]) => [item.id, item]));
     const orderedItems = pagedIds
@@ -229,6 +245,10 @@ export class SuppliersService {
     });
     this.assertNoCreationConflict(existing);
 
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
+
     let created: any;
     try {
       created = await supplierRepo.create({
@@ -244,6 +264,7 @@ export class SuppliersService {
           website: dto.website?.trim() || null,
           vatNumber: normalizedVatNumber,
           notes: dto.notes?.trim() || null,
+          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
         },
       });
     } catch (error) {
@@ -254,6 +275,14 @@ export class SuppliersService {
       }
       throw error;
     }
+
+    const createdWithOrg = await supplierRepo.findFirst({
+      where: { id: created.id, clientId },
+      include: {
+        supplierCategory: true,
+        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+      },
+    });
 
     await this.auditLogs.create({
       clientId,
@@ -273,7 +302,7 @@ export class SuppliersService {
       requestId: context?.meta?.requestId,
     });
 
-    return toSupplierResponse(created);
+    return toSupplierResponse(createdWithOrg ?? created);
   }
 
   async quickCreate(
@@ -371,6 +400,12 @@ export class SuppliersService {
       throw new BadRequestException('Cannot update an archived supplier');
     }
 
+    const meta = {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+
     const nextName = dto.name
       ? normalizeSupplierDisplayName(dto.name)
       : existing.name;
@@ -400,6 +435,13 @@ export class SuppliersService {
     });
     this.assertNoCreationConflict(conflict);
 
+    if (dto.ownerOrgUnitId !== undefined) {
+      const trimmed = dto.ownerOrgUnitId?.trim() || null;
+      if (trimmed) {
+        await assertOrgUnitInClient(this.prisma, clientId, trimmed);
+      }
+    }
+
     let updated: any;
     try {
       updated = await supplierRepo.update({
@@ -418,9 +460,13 @@ export class SuppliersService {
           ...(dto.supplierCategoryId !== undefined && {
             supplierCategoryId: nextSupplierCategoryId,
           }),
+          ...(dto.ownerOrgUnitId !== undefined && {
+            ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+          }),
         },
         include: {
           supplierCategory: true,
+          ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
         },
       });
     } catch (error) {
@@ -452,9 +498,9 @@ export class SuppliersService {
         vatNumber: updated.vatNumber ?? null,
         supplierCategoryId: updated.supplierCategoryId ?? null,
       },
-      ipAddress: context?.meta?.ipAddress,
-      userAgent: context?.meta?.userAgent,
-      requestId: context?.meta?.requestId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
     });
 
     if (
@@ -474,6 +520,25 @@ export class SuppliersService {
         ipAddress: context?.meta?.ipAddress,
         userAgent: context?.meta?.userAgent,
         requestId: context?.meta?.requestId,
+      });
+    }
+
+    const prevOwnerOrg = existing.ownerOrgUnitId ?? null;
+    const nextOwnerOrg = updated.ownerOrgUnitId ?? null;
+    if (prevOwnerOrg !== nextOwnerOrg) {
+      const [oldRef, newRef] = await Promise.all([
+        orgUnitAuditRef(this.prisma, clientId, prevOwnerOrg),
+        orgUnitAuditRef(this.prisma, clientId, nextOwnerOrg),
+      ]);
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: RESOURCE_OWNERSHIP_AUDIT.SUPPLIER,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.SUPPLIER,
+        resourceId: id,
+        oldValue: oldRef,
+        newValue: newRef,
+        ...meta,
       });
     }
 
@@ -638,7 +703,13 @@ export class SuppliersService {
   async findById(clientId: string, id: string, userId?: string): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
-    const row = await supplierRepo.findFirst({ where: { id, clientId } });
+    const row = await supplierRepo.findFirst({
+      where: { id, clientId },
+      include: {
+        supplierCategory: true,
+        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+      },
+    });
     if (!row) {
       throw new NotFoundException('Supplier not found');
     }
@@ -805,6 +876,8 @@ function toSupplierResponse(row: any): SupplierResponse {
     status: row.status,
     supplierCategoryId: row.supplierCategoryId ?? null,
     supplierCategory,
+    ownerOrgUnitId: row.ownerOrgUnitId ?? null,
+    ownerOrgUnitSummary: toOwnerOrgUnitSummary(row.ownerOrgUnit),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

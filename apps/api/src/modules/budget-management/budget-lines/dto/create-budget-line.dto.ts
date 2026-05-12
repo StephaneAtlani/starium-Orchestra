@@ -52,6 +52,11 @@ export class CreateBudgetLineDto {
   @IsEnum(BudgetLineAllocationScope)
   allocationScope?: BudgetLineAllocationScope;
 
+  /** RFC-ORG-003 — override unité propriétaire (null = hériter du budget). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

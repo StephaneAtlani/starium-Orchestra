@@ -45,5 +45,10 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
 }
 

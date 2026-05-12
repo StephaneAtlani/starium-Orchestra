@@ -79,4 +79,11 @@ export class CreateStrategicObjectiveDto {
   @IsString()
   @MinLength(1)
   directionId?: string | null;
+
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MinLength(1)
+  ownerOrgUnitId?: string | null;
 }

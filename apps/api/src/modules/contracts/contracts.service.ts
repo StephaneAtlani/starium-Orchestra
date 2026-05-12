@@ -10,6 +10,7 @@ import {
 import {
   Prisma,
   SupplierContractStatus,
+  type OrgUnitType,
   type SupplierContract,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,6 +23,16 @@ import { ListContractsQueryDto } from './dto/list-contracts.query.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { AccessControlService } from '../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
+import {
+  assertOrgUnitInClient,
+  orgUnitAuditRef,
+  toOwnerOrgUnitSummary,
+} from '../organization/org-unit-ownership.helpers';
+import type { OwnerOrgUnitSummaryDto } from '../organization/org-unit-ownership.types';
+import {
+  RESOURCE_OWNERSHIP_AUDIT,
+  RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
+} from '../organization/resource-ownership-audit.constants';
 
 export interface ContractsAuditContext {
   actorUserId?: string;
@@ -92,6 +103,8 @@ export interface ContractResponse {
   internalNotes: string | null;
   createdAt: Date;
   updatedAt: Date;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
 }
 
 export interface ListContractsResult {
@@ -128,6 +141,12 @@ function toContractResponse(
       code: string | null;
       supplierCategory: { id: string; name: string } | null;
     };
+    ownerOrgUnit?: {
+      id: string;
+      name: string;
+      type: OrgUnitType;
+      code: string | null;
+    } | null;
   },
   kindLabel: string,
 ): ContractResponse {
@@ -156,6 +175,8 @@ function toContractResponse(
     internalNotes: row.internalNotes,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    ownerOrgUnitId: row.ownerOrgUnitId ?? null,
+    ownerOrgUnitSummary: toOwnerOrgUnitSummary(row.ownerOrgUnit),
   };
 }
 
@@ -282,6 +303,7 @@ export class ContractsService {
       clientId,
       ...(query.supplierId && { supplierId: query.supplierId }),
       ...(query.status && { status: query.status }),
+      ...(query.ownerOrgUnitId ? { ownerOrgUnitId: query.ownerOrgUnitId } : {}),
     };
     if (query.expiresBefore?.trim()) {
       const d = new Date(query.expiresBefore.trim());
@@ -321,7 +343,10 @@ export class ContractsService {
         ? []
         : await this.prisma.supplierContract.findMany({
             where: { clientId, id: { in: pagedIds } },
-            include: { supplier: this.supplierInclude() },
+            include: {
+              supplier: this.supplierInclude(),
+              ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+            },
           });
     const byId = new Map(rows.map((row) => [row.id, row] as const));
 
@@ -344,7 +369,10 @@ export class ContractsService {
   async getById(clientId: string, id: string, userId?: string): Promise<ContractResponse> {
     const row = await this.prisma.supplierContract.findFirst({
       where: { id, clientId },
-      include: { supplier: this.supplierInclude() },
+      include: {
+        supplier: this.supplierInclude(),
+        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+      },
     });
     if (!row) {
       throw new NotFoundException('Contrat introuvable');
@@ -385,11 +413,16 @@ export class ContractsService {
 
     await this.contractKindTypes.assertKindCodeAssignable(clientId, dto.kind);
 
+    if (dto.ownerOrgUnitId?.trim()) {
+      await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
+
     try {
       const created = await this.prisma.supplierContract.create({
         data: {
           clientId,
           supplierId: dto.supplierId,
+          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
           reference: dto.reference.trim(),
           title: dto.title.trim(),
           kind: dto.kind,
@@ -415,7 +448,10 @@ export class ContractsService {
           description: dto.description?.trim() || null,
           internalNotes: dto.internalNotes?.trim() || null,
         },
-        include: { supplier: this.supplierInclude() },
+        include: {
+          supplier: this.supplierInclude(),
+          ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+        },
       });
 
       await this.auditLogs.create({
@@ -470,6 +506,12 @@ export class ContractsService {
     if (context?.actorUserId) {
       await this.assertCanWriteContract(clientId, context.actorUserId, id);
     }
+
+    const meta = {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
 
     if (dto.supplierId && dto.supplierId !== existing.supplierId) {
       const supplier = await this.prisma.supplier.findFirst({
@@ -559,6 +601,16 @@ export class ContractsService {
       data.internalNotes = dto.internalNotes?.trim() || null;
     }
 
+    if (dto.ownerOrgUnitId !== undefined) {
+      const trimmed = dto.ownerOrgUnitId?.trim() || null;
+      if (trimmed) {
+        await assertOrgUnitInClient(this.prisma, clientId, trimmed);
+        data.ownerOrgUnit = { connect: { id: trimmed } };
+      } else {
+        data.ownerOrgUnit = { disconnect: true };
+      }
+    }
+
     if (Object.keys(data).length === 0) {
       return this.getById(clientId, id);
     }
@@ -567,7 +619,10 @@ export class ContractsService {
       const updated = await this.prisma.supplierContract.update({
         where: { id },
         data,
-        include: { supplier: this.supplierInclude() },
+        include: {
+          supplier: this.supplierInclude(),
+          ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+        },
       });
 
       await this.auditLogs.create({
@@ -584,10 +639,29 @@ export class ContractsService {
           status: updated.status,
           reference: updated.reference,
         },
-        ipAddress: context?.meta?.ipAddress,
-        userAgent: context?.meta?.userAgent,
-        requestId: context?.meta?.requestId,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
       });
+
+      const prevOwnerOrg = existing.ownerOrgUnitId ?? null;
+      const nextOwnerOrg = updated.ownerOrgUnitId ?? null;
+      if (prevOwnerOrg !== nextOwnerOrg) {
+        const [oldRef, newRef] = await Promise.all([
+          orgUnitAuditRef(this.prisma, clientId, prevOwnerOrg),
+          orgUnitAuditRef(this.prisma, clientId, nextOwnerOrg),
+        ]);
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: RESOURCE_OWNERSHIP_AUDIT.CONTRACT,
+          resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.CONTRACT,
+          resourceId: id,
+          oldValue: oldRef,
+          newValue: newRef,
+          ...meta,
+        });
+      }
 
       const kindLabels = await this.contractKindTypes.resolveKindLabels(
         clientId,

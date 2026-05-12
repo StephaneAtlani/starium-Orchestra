@@ -59,6 +59,11 @@ export class CreateProjectDto {
   @MinLength(1)
   portfolioCategoryId?: string | null;
 
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   /** Responsable nom libre (ressource Humaine déjà vue en équipe projet). Exclu si `ownerUserId`. */
   @IsOptional()
   @IsString()

@@ -15,5 +15,9 @@ export class ListSuppliersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   supplierCategoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string;
 }
 

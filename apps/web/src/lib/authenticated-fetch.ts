@@ -47,7 +47,7 @@ export function createAuthenticatedFetch(
       activeClientId: getActiveClientId(),
       apiBaseUrl: getApiBaseUrl(),
     });
-    if (headerValue !== null) {
+    if (!headers.has('X-Client-Id') && headerValue !== null) {
       headers.set('X-Client-Id', headerValue);
     }
 

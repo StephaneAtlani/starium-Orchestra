@@ -30,6 +30,10 @@ import {
 } from './dto/update-platform-user-clients.dto';
 import { UpdatePlatformUserPasswordDto } from './dto/update-platform-user-password.dto';
 import { CollaboratorsService } from '../collaborators/collaborators.service';
+import {
+  humanResourceSummaryFromRow,
+  type HumanResourceSummaryPayload,
+} from '../../common/utils/human-resource-catalog-label';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -50,6 +54,8 @@ export interface UserResponse {
   licenseAssignmentReason: string | null;
   /** false par défaut : fiche Humaine catalogue pour ce membre. */
   excludeFromResourceCatalog: boolean;
+  /** RFC-ORG-002 — fiche Resource HUMAN liée au ClientUser (null si aucune). */
+  humanResourceSummary: HumanResourceSummaryPayload | null;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
 }
@@ -135,6 +141,13 @@ export class UsersService {
       licenseEndsAt?: Date | string | null;
       licenseAssignmentReason?: string | null;
       excludeFromResourceCatalog?: boolean;
+      humanResource?: {
+        id: string;
+        name: string;
+        firstName: string | null;
+        email: string | null;
+        type: ResourceType;
+      } | null;
     },
     options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
   ): UserResponse {
@@ -142,6 +155,16 @@ export class UsersService {
       if (v == null) return null;
       return v instanceof Date ? v.toISOString() : v;
     };
+    const hr = clientUser.humanResource;
+    const humanResourceSummary =
+      hr && hr.type === ResourceType.HUMAN
+        ? humanResourceSummaryFromRow({
+            id: hr.id,
+            name: hr.name,
+            firstName: hr.firstName,
+            email: hr.email,
+          })
+        : null;
     return {
       id: user.id,
       email: user.email,
@@ -157,6 +180,7 @@ export class UsersService {
       licenseEndsAt: toIso(clientUser.licenseEndsAt),
       licenseAssignmentReason: clientUser.licenseAssignmentReason ?? null,
       excludeFromResourceCatalog: clientUser.excludeFromResourceCatalog ?? false,
+      humanResourceSummary,
       isDirectorySynced: options?.isDirectorySynced ?? false,
       isDirectoryLocked: options?.isDirectoryLocked ?? false,
     };
@@ -166,7 +190,12 @@ export class UsersService {
   async findAll(clientId: string): Promise<UserResponse[]> {
     const clientUsers = await this.prisma.clientUser.findMany({
       where: { clientId },
-      include: { user: true },
+      include: {
+        user: true,
+        humanResource: {
+          select: { id: true, name: true, firstName: true, email: true, type: true },
+        },
+      },
     });
     const emails = clientUsers
       .map((cu) => cu.user.email?.trim().toLowerCase())
@@ -209,6 +238,7 @@ export class UsersService {
           licenseEndsAt: cu.licenseEndsAt,
           licenseAssignmentReason: cu.licenseAssignmentReason,
           excludeFromResourceCatalog: cu.excludeFromResourceCatalog,
+          humanResource: cu.humanResource,
         },
         {
           isDirectorySynced,
@@ -290,6 +320,7 @@ export class UsersService {
         role: clientUser.role,
         status: clientUser.status,
         excludeFromResourceCatalog: excludeCatalog,
+        humanResource: null,
       });
     }
 
@@ -344,6 +375,7 @@ export class UsersService {
       role: clientUser.role,
       status: clientUser.status,
       excludeFromResourceCatalog: excludeCatalog,
+      humanResource: null,
     });
   }
 
@@ -668,26 +700,7 @@ export class UsersService {
       throw new NotFoundException('Utilisateur non rattaché à ce client');
     }
 
-    const lockPolicy = await this.getDirectoryLockPolicy(clientId);
-    if (lockPolicy) {
-      const synced = await this.prisma.collaborator.findFirst({
-        where: {
-          clientId,
-          source: CollaboratorSource.DIRECTORY_SYNC,
-          OR: [
-            { email: { equals: user.email, mode: 'insensitive' } },
-            { username: { equals: user.email, mode: 'insensitive' } },
-            { externalUsername: { equals: user.email, mode: 'insensitive' } },
-          ],
-        },
-        select: { id: true },
-      });
-      if (synced) {
-        throw new BadRequestException(
-          'Ce membre est synchronisé depuis l’annuaire et verrouillé par la politique active.',
-        );
-      }
-    }
+    await this.assertDirectoryLockedMemberOrThrow(clientId, user.email);
 
     if (
       context?.actorUserId &&
@@ -728,6 +741,8 @@ export class UsersService {
       }
     }
 
+    await this.patchHumanResourceLinkForClientMember(clientId, userId, dto.humanResourceId, context);
+
     const userData: { firstName?: string; lastName?: string } = {};
     if (dto.firstName !== undefined) userData.firstName = dto.firstName;
     if (dto.lastName !== undefined) userData.lastName = dto.lastName;
@@ -764,6 +779,11 @@ export class UsersService {
     });
     const updatedClientUser = await this.prisma.clientUser.findUnique({
       where: { id: clientUser.id },
+      include: {
+        humanResource: {
+          select: { id: true, name: true, firstName: true, email: true, type: true },
+        },
+      },
     });
     if (!updatedUser || !updatedClientUser) {
       throw new NotFoundException('Utilisateur non trouvé');
@@ -800,6 +820,7 @@ export class UsersService {
       licenseEndsAt: updatedClientUser.licenseEndsAt,
       licenseAssignmentReason: updatedClientUser.licenseAssignmentReason,
       excludeFromResourceCatalog: updatedClientUser.excludeFromResourceCatalog,
+      humanResource: updatedClientUser.humanResource,
     });
   }
 
@@ -888,6 +909,232 @@ export class UsersService {
       select: { isSyncEnabled: true, lockSyncedCollaborators: true },
     });
     return Boolean(row?.isSyncEnabled && row?.lockSyncedCollaborators);
+  }
+
+  private async assertDirectoryLockedMemberOrThrow(
+    clientId: string,
+    memberEmail: string,
+  ): Promise<void> {
+    const lockPolicy = await this.getDirectoryLockPolicy(clientId);
+    if (!lockPolicy) {
+      return;
+    }
+    const synced = await this.prisma.collaborator.findFirst({
+      where: {
+        clientId,
+        source: CollaboratorSource.DIRECTORY_SYNC,
+        OR: [
+          { email: { equals: memberEmail, mode: 'insensitive' } },
+          { username: { equals: memberEmail, mode: 'insensitive' } },
+          { externalUsername: { equals: memberEmail, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (synced) {
+      throw new BadRequestException(
+        'Ce membre est synchronisé depuis l’annuaire et verrouillé par la politique active.',
+      );
+    }
+  }
+
+  private async logClientUserHumanResourceAudit(params: {
+    clientId: string;
+    clientUserId: string;
+    action: 'client_user.human_resource.linked' | 'client_user.human_resource.unlinked';
+    context?: { actorUserId?: string; meta?: RequestMeta };
+    oldValue: Record<string, unknown>;
+    newValue: Record<string, unknown>;
+  }): Promise<void> {
+    await this.auditLogs.create({
+      clientId: params.clientId,
+      userId: params.context?.actorUserId,
+      action: params.action,
+      resourceType: 'client_user',
+      resourceId: params.clientUserId,
+      oldValue: params.oldValue,
+      newValue: params.newValue,
+      ipAddress: params.context?.meta?.ipAddress,
+      userAgent: params.context?.meta?.userAgent,
+      requestId: params.context?.meta?.requestId,
+    });
+  }
+
+  /**
+   * RFC-ORG-002 — Met à jour `ClientUser.resourceId` pour un couple (clientId, userId).
+   * `humanResourceId` : `undefined` = pas de changement ; `null` = délier ; string = lier (CUID).
+   */
+  async patchHumanResourceLinkForClientMember(
+    clientId: string,
+    userId: string,
+    humanResourceId: string | null | undefined,
+    context?: { actorUserId?: string; meta?: RequestMeta },
+  ): Promise<void> {
+    if (humanResourceId === undefined) {
+      return;
+    }
+    const clientUser = await this.prisma.clientUser.findUnique({
+      where: { userId_clientId: { userId, clientId } },
+      include: { user: { select: { email: true } } },
+    });
+    if (!clientUser) {
+      throw new NotFoundException('Utilisateur non rattaché à ce client');
+    }
+
+    await this.assertDirectoryLockedMemberOrThrow(clientId, clientUser.user.email);
+
+    const previousResourceId = clientUser.resourceId;
+
+    if (humanResourceId === null) {
+      if (previousResourceId === null) {
+        return;
+      }
+      let oldSummary: HumanResourceSummaryPayload | null = null;
+      const oldRes = await this.prisma.resource.findUnique({
+        where: { id: previousResourceId },
+        select: { id: true, name: true, firstName: true, email: true },
+      });
+      if (oldRes) {
+        oldSummary = humanResourceSummaryFromRow(oldRes);
+      }
+      await this.prisma.clientUser.update({
+        where: { id: clientUser.id },
+        data: { resourceId: null },
+      });
+      await this.activeClientCache.invalidate(userId, clientId);
+      await this.logClientUserHumanResourceAudit({
+        clientId,
+        clientUserId: clientUser.id,
+        action: 'client_user.human_resource.unlinked',
+        context,
+        oldValue: {
+          humanResourceId: previousResourceId,
+          displayName: oldSummary?.displayName ?? null,
+        },
+        newValue: { humanResourceId: null, displayName: null },
+      });
+      return;
+    }
+
+    if (humanResourceId === previousResourceId) {
+      return;
+    }
+
+    const resource = await this.prisma.resource.findUnique({
+      where: { id: humanResourceId },
+    });
+    if (!resource) {
+      throw new NotFoundException('Fiche ressource introuvable');
+    }
+    if (resource.clientId !== clientId) {
+      throw new BadRequestException('La fiche ressource n’appartient pas à ce client.');
+    }
+    if (resource.type !== ResourceType.HUMAN) {
+      throw new BadRequestException('Seules les ressources de type Humain peuvent être liées.');
+    }
+
+    const conflict = await this.prisma.clientUser.findFirst({
+      where: {
+        clientId,
+        resourceId: humanResourceId,
+        NOT: { id: clientUser.id },
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new ConflictException(
+        'Cette fiche Humaine est déjà liée à un autre membre sur ce client.',
+      );
+    }
+
+    let oldSummary: HumanResourceSummaryPayload | null = null;
+    if (previousResourceId) {
+      const oldRes = await this.prisma.resource.findUnique({
+        where: { id: previousResourceId },
+        select: { id: true, name: true, firstName: true, email: true },
+      });
+      if (oldRes) {
+        oldSummary = humanResourceSummaryFromRow(oldRes);
+      }
+    }
+
+    await this.prisma.clientUser.update({
+      where: { id: clientUser.id },
+      data: { resourceId: humanResourceId },
+    });
+    await this.activeClientCache.invalidate(userId, clientId);
+
+    const newSummary = humanResourceSummaryFromRow({
+      id: resource.id,
+      name: resource.name,
+      firstName: resource.firstName,
+      email: resource.email,
+    });
+
+    await this.logClientUserHumanResourceAudit({
+      clientId,
+      clientUserId: clientUser.id,
+      action: 'client_user.human_resource.linked',
+      context,
+      oldValue: {
+        humanResourceId: previousResourceId,
+        displayName: oldSummary?.displayName ?? null,
+      },
+      newValue: {
+        humanResourceId: resource.id,
+        displayName: newSummary?.displayName ?? null,
+      },
+    });
+  }
+
+  /** Membre client (réponse agrégée) pour un couple (clientId, userId). */
+  async getClientMemberForClient(clientId: string, userId: string): Promise<UserResponse> {
+    const cu = await this.prisma.clientUser.findFirst({
+      where: { clientId, userId },
+      include: {
+        user: true,
+        humanResource: {
+          select: { id: true, name: true, firstName: true, email: true, type: true },
+        },
+      },
+    });
+    if (!cu) {
+      throw new NotFoundException('Utilisateur non rattaché à ce client');
+    }
+    const lockPolicy = await this.getDirectoryLockPolicy(clientId);
+    const emailLower = cu.user.email.trim().toLowerCase();
+    const synced = await this.prisma.collaborator.findFirst({
+      where: {
+        clientId,
+        source: CollaboratorSource.DIRECTORY_SYNC,
+        OR: [
+          { email: { equals: emailLower, mode: 'insensitive' } },
+          { username: { equals: emailLower, mode: 'insensitive' } },
+          { externalUsername: { equals: emailLower, mode: 'insensitive' } },
+        ],
+      },
+      select: { id: true },
+    });
+    const isDirectorySynced = Boolean(synced);
+    return this.toResponse(
+      cu.user,
+      {
+        role: cu.role,
+        status: cu.status,
+        licenseType: cu.licenseType,
+        licenseBillingMode: cu.licenseBillingMode,
+        subscriptionId: cu.subscriptionId,
+        licenseStartsAt: cu.licenseStartsAt,
+        licenseEndsAt: cu.licenseEndsAt,
+        licenseAssignmentReason: cu.licenseAssignmentReason,
+        excludeFromResourceCatalog: cu.excludeFromResourceCatalog,
+        humanResource: cu.humanResource,
+      },
+      {
+        isDirectorySynced,
+        isDirectoryLocked: isDirectorySynced && lockPolicy,
+      },
+    );
   }
 
   /** Supprime le lien ClientUser uniquement (le User global n’est pas supprimé). */

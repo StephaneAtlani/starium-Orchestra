@@ -596,19 +596,24 @@ model ClientUser {
   isDefault                  Boolean            @default(false)
   defaultEmailIdentityId     String?
   defaultEmailIdentity       UserEmailIdentity? @relation("ClientUserDefaultEmail", fields: [defaultEmailIdentityId], references: [id], onDelete: Restrict)
+  /// RFC-ORG-002 — fiche catalogue Resource type HUMAN pour ce membre (même clientId).
+  resourceId                 String?
   createdAt                  DateTime           @default(now())
   updatedAt                  DateTime           @updatedAt
   user                       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   client                     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   subscription               ClientSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  humanResource              Resource?          @relation("ClientUserHumanResource", fields: [resourceId], references: [id], onDelete: SetNull)
 
   @@unique([userId, clientId])
+  @@unique([resourceId])
   @@index([clientId])
   @@index([userId])
   @@index([defaultEmailIdentityId])
   @@index([clientId, subscriptionId])
   @@index([clientId, licenseType, licenseBillingMode])
   @@index([clientId, licenseEndsAt])
+  @@index([clientId, resourceId])
 }
 
 /// RFC-ACL-003 — regroupement métier client-scopé (visibilité module / ACL futures).
@@ -875,6 +880,8 @@ model Resource {
   resourceTimesheetMonths          ResourceTimesheetMonth[]
   orgUnitMemberships               OrgUnitMembership[]
   orgGroupMemberships              OrgGroupMembership[]
+  /// RFC-ORG-002 — au plus un ClientUser lié à cette fiche HUMAN.
+  clientUserHumanLink              ClientUser?                       @relation("ClientUserHumanResource")
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -945,6 +952,14 @@ model OrgUnit {
   parent   OrgUnit?            @relation("OrgUnitHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children OrgUnit[]           @relation("OrgUnitHierarchy")
   members  OrgUnitMembership[]
+
+  /// RFC-ORG-003 — propriété organisationnelle (Direction / unité propriétaire)
+  ownedProjects            Project[]            @relation("OrgUnitOwnedProject")
+  ownedBudgets             Budget[]             @relation("OrgUnitOwnedBudget")
+  ownedBudgetLines         BudgetLine[]         @relation("OrgUnitOwnedBudgetLine")
+  ownedSuppliers           Supplier[]           @relation("OrgUnitOwnedSupplier")
+  ownedSupplierContracts   SupplierContract[]   @relation("OrgUnitOwnedSupplierContract")
+  ownedStrategicObjectives StrategicObjective[] @relation("OrgUnitOwnedStrategicObjective")
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1350,6 +1365,8 @@ model Project {
   sponsorUserId       String?
   ownerUserId         String?
   portfolioCategoryId String?
+  /// RFC-ORG-003 — unité organisationnelle propriétaire (nullable en V1)
+  ownerOrgUnitId      String?
   /// Responsable hors compte (dénormalisé ; aligné avec entrée équipe « Responsable » nom libre).
   ownerFreeLabel      String?                       @db.VarChar(200)
   ownerAffiliation    ProjectTeamMemberAffiliation?
@@ -1413,6 +1430,7 @@ model Project {
   client                 Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   sponsor                User?                          @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner                  User?                          @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  ownerOrgUnit           OrgUnit?                       @relation("OrgUnitOwnedProject", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   portfolioCategory      ProjectPortfolioCategory?      @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
   microsoftLink          ProjectMicrosoftLink?
   microsoftTaskSyncs     ProjectTaskMicrosoftSync[]
@@ -1445,6 +1463,7 @@ model Project {
   @@index([clientId, status])
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
+  @@index([clientId, ownerOrgUnitId])
   @@index([targetEndDate])
 }
 
@@ -1496,6 +1515,8 @@ model StrategicObjective {
   clientId        String
   axisId          String
   directionId     String?
+  /// RFC-ORG-003 — unité organisationnelle propriétaire (distinct de directionId / StrategicDirection)
+  ownerOrgUnitId  String?
   title           String
   description     String?
   ownerLabel      String?
@@ -1512,6 +1533,7 @@ model StrategicObjective {
   client                          Client                                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   axis                            StrategicAxis                             @relation(fields: [axisId], references: [id], onDelete: Cascade)
   direction                       StrategicDirection?                       @relation(fields: [directionId], references: [id], onDelete: SetNull)
+  ownerOrgUnit                    OrgUnit?                                  @relation("OrgUnitOwnedStrategicObjective", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   ownerUser                       User?                                     @relation("StrategicObjectiveOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   links                           StrategicLink[]
   directionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
@@ -1524,6 +1546,7 @@ model StrategicObjective {
   @@index([clientId, deadline])
   @@index([clientId, targetDate])
   @@index([clientId, ownerUserId])
+  @@index([clientId, ownerOrgUnitId])
 }
 
 model StrategicDirection {
@@ -2858,6 +2881,8 @@ model Budget {
   taxMode                   BudgetTaxMode           @default(HT)
   defaultTaxRate            Decimal?                @db.Decimal(5, 2)
   ownerUserId               String?
+  /// RFC-ORG-003
+  ownerOrgUnitId            String?
   versionSetId              String?
   versionNumber             Int?
   versionLabel              String?
@@ -2872,6 +2897,7 @@ model Budget {
   client                    Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   exercise                  BudgetExercise          @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
   owner                     User?                   @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  ownerOrgUnit              OrgUnit?                @relation("OrgUnitOwnedBudget", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   versionSet                BudgetVersionSet?       @relation("VersionSetVersions", fields: [versionSetId], references: [id], onDelete: SetNull)
   parentBudget              Budget?                 @relation("BudgetVersionParent", fields: [parentBudgetId], references: [id], onDelete: SetNull)
   childVersions             Budget[]                @relation("BudgetVersionParent")
@@ -2892,6 +2918,7 @@ model Budget {
   @@index([clientId, versionSetId])
   @@index([clientId, versionStatus])
   @@index([clientId, versionKind])
+  @@index([clientId, ownerOrgUnitId])
 }
 
 /// Configuration cockpit budgétaire (RFC-022).
@@ -3097,10 +3124,13 @@ model BudgetLine {
   allocationScope               BudgetLineAllocationScope      @default(ENTERPRISE)
   planningMode                  BudgetLinePlanningMode?
   planningTotalAmount           Decimal?                       @db.Decimal(18, 2)
+  /// RFC-ORG-003 — override unité propriétaire (null = hériter du budget)
+  ownerOrgUnitId                String?
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
   client                        Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget                        Budget                         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  ownerOrgUnit                  OrgUnit?                       @relation("OrgUnitOwnedBudgetLine", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   envelope                      BudgetEnvelope                 @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
   deferredToExerciseId          String?
   deferredToExercise            BudgetExercise?                @relation("DeferredExerciseBudgetLines", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
@@ -3126,6 +3156,7 @@ model BudgetLine {
   @@index([envelopeId])
   @@index([status])
   @@index([deferredToExerciseId])
+  @@index([clientId, ownerOrgUnitId])
 }
 
 model BudgetLinePlanningMonth {
@@ -3368,11 +3399,14 @@ model Supplier {
   logoMimeType       String?
   vatNumber          String?
   notes              String?
+  /// RFC-ORG-003
+  ownerOrgUnitId     String?
   status             SupplierStatus     @default(ACTIVE)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   client             Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplierCategory   SupplierCategory?  @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
+  ownerOrgUnit       OrgUnit?           @relation("OrgUnitOwnedSupplier", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   contacts           SupplierContact[]
   purchaseOrders     PurchaseOrder[]
   invoices           Invoice[]
@@ -3385,6 +3419,7 @@ model Supplier {
   @@index([clientId, externalId])
   @@index([supplierCategoryId])
   @@index([clientId, supplierCategoryId])
+  @@index([clientId, ownerOrgUnitId])
 }
 
 model SupplierContact {
@@ -3558,6 +3593,8 @@ model SupplierContract {
   id         String @id @default(cuid())
   clientId   String
   supplierId String
+  /// RFC-ORG-003
+  ownerOrgUnitId String?
 
   reference String
   title     String
@@ -3588,6 +3625,7 @@ model SupplierContract {
 
   client      Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplier    Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  ownerOrgUnit OrgUnit?            @relation("OrgUnitOwnedSupplierContract", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   attachments ContractAttachment[]
 
   @@unique([clientId, reference])
@@ -3595,6 +3633,7 @@ model SupplierContract {
   @@index([clientId, supplierId])
   @@index([clientId, status])
   @@index([clientId, effectiveEnd])
+  @@index([clientId, ownerOrgUnitId])
 }
 
 /// RFC-036 — pièce jointe contrat (stockage aligné procurement).

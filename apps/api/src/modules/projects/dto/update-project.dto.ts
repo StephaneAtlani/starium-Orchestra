@@ -62,6 +62,11 @@ export class UpdateProjectDto {
   @MinLength(1)
   portfolioCategoryId?: string | null;
 
+  /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string | null;
+
   @IsOptional()
   @IsDateString()
   startDate?: string;

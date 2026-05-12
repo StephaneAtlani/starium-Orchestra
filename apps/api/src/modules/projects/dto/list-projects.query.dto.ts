@@ -99,4 +99,10 @@ export class ListProjectsQueryDto {
   @IsString()
   @MinLength(1)
   ownerUserId?: string;
+
+  /** RFC-ORG-003 — filtre sur `Project.ownerOrgUnitId` (colonne stockée). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  ownerOrgUnitId?: string;
 }

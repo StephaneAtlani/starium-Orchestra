@@ -31,6 +31,11 @@ export class ListBudgetLinesQueryDto extends PaginationQueryDto {
   @IsEnum(BudgetLineAllocationScope)
   allocationScope?: BudgetLineAllocationScope;
 
+  /** RFC-ORG-003 — filtre sur `BudgetLine.ownerOrgUnitId` (colonne stockée, pas l’effectif hérité du budget). */
+  @IsOptional()
+  @IsString()
+  ownerOrgUnitId?: string;
+
   @IsOptional()
   @IsString()
   search?: string;

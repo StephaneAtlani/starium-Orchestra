@@ -3,7 +3,13 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientUserRole, ClientUserStatus } from '@prisma/client';
+import {
+  ClientUserLicenseBillingMode,
+  ClientUserLicenseType,
+  ClientUserRole,
+  ClientUserStatus,
+  ResourceType,
+} from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActiveClientCacheService } from '../../common/cache/active-client-cache.service';
@@ -69,9 +75,11 @@ describe('UsersService', () => {
             },
             collaborator: {
               findMany: jest.fn().mockResolvedValue([]),
+              findFirst: jest.fn().mockResolvedValue(null),
             },
             resource: {
               findFirst: jest.fn().mockResolvedValue(null),
+              findUnique: jest.fn(),
               create: jest.fn().mockResolvedValue({ id: 'res-1' }),
               update: jest.fn().mockResolvedValue({}),
               delete: jest.fn().mockResolvedValue({}),
@@ -118,17 +126,30 @@ describe('UsersService', () => {
           role: ClientUserRole.CLIENT_ADMIN,
           status: ClientUserStatus.ACTIVE,
           excludeFromResourceCatalog: false,
+          licenseType: ClientUserLicenseType.READ_ONLY,
+          licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+          subscriptionId: null,
+          licenseStartsAt: null,
+          licenseEndsAt: null,
+          licenseAssignmentReason: null,
+          humanResource: null,
         },
       ]);
       const result = await service.findAll(clientId);
       expect(prisma.clientUser.findMany).toHaveBeenCalledWith({
         where: { clientId },
-        include: { user: true },
+        include: {
+          user: true,
+          humanResource: {
+            select: { id: true, name: true, firstName: true, email: true, type: true },
+          },
+        },
       });
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(mockUser.id);
       expect(result[0].email).toBe(mockUser.email);
       expect(result[0].role).toBe(ClientUserRole.CLIENT_ADMIN);
+      expect(result[0].humanResourceSummary).toBeNull();
     });
 
     it('should expose extended license fields (RFC-ACL-010)', async () => {
@@ -146,6 +167,7 @@ describe('UsersService', () => {
           licenseEndsAt: endsAt,
           licenseAssignmentReason: 'POC commercial',
           excludeFromResourceCatalog: false,
+          humanResource: null,
         },
       ]);
       const result = await service.findAll(clientId);
@@ -154,6 +176,85 @@ describe('UsersService', () => {
       expect(result[0].licenseAssignmentReason).toBe('POC commercial');
       expect(result[0].licenseType).toBe('READ_WRITE');
       expect(result[0].licenseBillingMode).toBe('EVALUATION');
+    });
+  });
+
+  describe('patchHumanResourceLinkForClientMember (RFC-ORG-002)', () => {
+    it('should no-op when humanResourceId is undefined', async () => {
+      await service.patchHumanResourceLinkForClientMember(
+        clientId,
+        mockUser.id,
+        undefined,
+        {},
+      );
+      expect(prisma.clientUser.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should unlink when humanResourceId is null and resource was linked', async () => {
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue({
+        id: 'cu-1',
+        userId: mockUser.id,
+        clientId,
+        resourceId: 'cresoldddddddddddddddddd',
+        user: { email: mockUser.email },
+      });
+      (prisma.resource.findUnique as jest.Mock).mockResolvedValue({
+        id: 'cresoldddddddddddddddddd',
+        name: 'Old',
+        firstName: null,
+        email: 'old@test.fr',
+      });
+      (prisma.clientUser.update as jest.Mock).mockResolvedValue({});
+      await service.patchHumanResourceLinkForClientMember(clientId, mockUser.id, null, {});
+      expect(prisma.clientUser.update).toHaveBeenCalledWith({
+        where: { id: 'cu-1' },
+        data: { resourceId: null },
+      });
+    });
+
+    it('should throw NotFound when target resource does not exist', async () => {
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue({
+        id: 'cu-1',
+        userId: mockUser.id,
+        clientId,
+        resourceId: null,
+        user: { email: mockUser.email },
+      });
+      (prisma.resource.findUnique as jest.Mock).mockResolvedValue(null);
+      await expect(
+        service.patchHumanResourceLinkForClientMember(
+          clientId,
+          mockUser.id,
+          'cnewresdddddddddddddddddd',
+          {},
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('should throw BadRequest when resource is not HUMAN', async () => {
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue({
+        id: 'cu-1',
+        userId: mockUser.id,
+        clientId,
+        resourceId: null,
+        user: { email: mockUser.email },
+      });
+      (prisma.resource.findUnique as jest.Mock).mockResolvedValue({
+        id: 'cnewresdddddddddddddddddd',
+        clientId,
+        type: ResourceType.MATERIAL,
+        name: 'Srv',
+        firstName: null,
+        email: null,
+      });
+      await expect(
+        service.patchHumanResourceLinkForClientMember(
+          clientId,
+          mockUser.id,
+          'cnewresdddddddddddddddddd',
+          {},
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

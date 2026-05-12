@@ -61,6 +61,7 @@ describe('access-cockpit aggregate', () => {
         lastName: 'Z',
         role: 'CLIENT_ADMIN',
         status: 'ACTIVE',
+        humanResourceSummary: null,
       },
       {
         id: 'u2',
@@ -69,6 +70,7 @@ describe('access-cockpit aggregate', () => {
         lastName: 'Z',
         role: 'CLIENT_USER',
         status: 'ACTIVE',
+        humanResourceSummary: null,
       },
       {
         id: 'u3',
@@ -77,6 +79,7 @@ describe('access-cockpit aggregate', () => {
         lastName: 'Z',
         role: 'CLIENT_USER',
         status: 'ACTIVE',
+        humanResourceSummary: null,
       },
     ];
 
