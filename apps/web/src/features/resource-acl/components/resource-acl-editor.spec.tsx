@@ -101,11 +101,35 @@ function makeEntry(
   };
 }
 
+function normalizeList(
+  initial: Pick<ResourceAclListResponse, 'restricted' | 'entries'> &
+    Partial<Pick<ResourceAclListResponse, 'accessPolicy' | 'effectiveAccessMode'>>,
+): ResourceAclListResponse {
+  const accessPolicy = initial.accessPolicy ?? 'DEFAULT';
+  let effectiveAccessMode = initial.effectiveAccessMode;
+  if (!effectiveAccessMode) {
+    if (initial.entries.length > 0) {
+      effectiveAccessMode = 'ACL_RESTRICTED';
+    } else if (accessPolicy === 'RESTRICTIVE') {
+      effectiveAccessMode = 'RESTRICTIVE_EMPTY_DENY';
+    } else {
+      effectiveAccessMode = 'PUBLIC_DEFAULT';
+    }
+  }
+  return {
+    restricted: initial.restricted,
+    entries: initial.entries,
+    accessPolicy,
+    effectiveAccessMode,
+  };
+}
+
 function setupHappyMocks(
-  initial: ResourceAclListResponse,
+  initial: Pick<ResourceAclListResponse, 'restricted' | 'entries'> &
+    Partial<Pick<ResourceAclListResponse, 'accessPolicy' | 'effectiveAccessMode'>>,
   overrides?: { groupMemberships?: { groupId: string; memberUserIds: Set<string> }[] },
 ) {
-  let current: ResourceAclListResponse = initial;
+  let current: ResourceAclListResponse = normalizeList(initial);
   const refetchSpy = vi.fn(async () => {
     return { data: current };
   });
@@ -145,8 +169,9 @@ function setupHappyMocks(
     isLoading: false,
   });
   return {
-    setData: (next: ResourceAclListResponse) => {
-      current = next;
+    setData: (next: Pick<ResourceAclListResponse, 'restricted' | 'entries'> &
+      Partial<Pick<ResourceAclListResponse, 'accessPolicy' | 'effectiveAccessMode'>>) => {
+      current = normalizeList(next);
       useResourceAclMock.mockReturnValue({
         data: current,
         isLoading: false,
@@ -457,18 +482,25 @@ describe('ResourceAclEditor — bulk delete erreur partielle (test imposé n°3 
     let serverEntries = [...initialEntries];
 
     const refetchSpy = vi.fn(async () => {
+      const data = normalizeList({
+        restricted: serverEntries.length > 0,
+        entries: serverEntries,
+      });
       useResourceAclMock.mockReturnValue({
-        data: { restricted: serverEntries.length > 0, entries: serverEntries },
+        data,
         isLoading: false,
         isError: false,
         error: null,
         refetch: refetchSpy,
       });
-      return { data: { restricted: true, entries: serverEntries } };
+      return { data };
     });
 
     useResourceAclMock.mockReturnValue({
-      data: { restricted: true, entries: serverEntries },
+      data: normalizeList({
+        restricted: true,
+        entries: serverEntries,
+      }),
       isLoading: false,
       isError: false,
       error: null,

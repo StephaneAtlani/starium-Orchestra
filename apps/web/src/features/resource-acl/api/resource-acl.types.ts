@@ -15,6 +15,18 @@ export type ResourceAclResourceType =
   | 'SUPPLIER'
   | 'STRATEGIC_OBJECTIVE';
 
+/** RFC-ACL-017 — aligné Prisma / API. */
+export type ResourceAccessPolicyMode = 'DEFAULT' | 'RESTRICTIVE' | 'SHARING';
+
+/** RFC-ACL-017 — dérivé serveur pour l’UI. */
+export type EffectiveResourceAccessMode =
+  | 'PUBLIC_DEFAULT'
+  | 'ACL_RESTRICTED'
+  | 'RESTRICTIVE_EMPTY_DENY'
+  | 'SHARING_FLOOR_ALLOW'
+  | 'SHARING_FLOOR_DENY'
+  | 'SHARING_ACL_PLUS_FLOOR';
+
 export interface ResourceAclEntry {
   id: string;
   subjectType: ResourceAclSubjectType;
@@ -28,6 +40,8 @@ export interface ResourceAclEntry {
 
 export interface ResourceAclListResponse {
   restricted: boolean;
+  accessPolicy: ResourceAccessPolicyMode;
+  effectiveAccessMode: EffectiveResourceAccessMode;
   entries: ResourceAclEntry[];
 }
 

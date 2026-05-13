@@ -9,6 +9,10 @@ import {
 } from '@prisma/client';
 import { AccessControlService } from '../access-control/access-control.service';
 import { ModuleVisibilityService } from '../module-visibility/module-visibility.service';
+import {
+  satisfiesPermission,
+  SCOPED_READ_MODULES,
+} from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import type { RequestWithClient } from '../../common/types/request-with-client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -260,14 +264,34 @@ export class AccessDiagnosticsService {
         request: {} as RequestWithClient,
       });
     for (const code of params.requiredCodes) {
-      if (!permissionCodes.has(code)) {
+      if (!satisfiesPermission(permissionCodes, code)) {
         return this.failCheck(
           'RBAC_PERMISSION_MISSING',
           'Permission RBAC manquante pour cette intention.',
+          this.rbacAcl015DetailsIfRelevant(permissionCodes, code),
         );
       }
     }
     return this.passCheck('Permissions RBAC requises présentes.');
+  }
+
+  /** Détail diagnostic quand un code scoped existe sans ouvrir le legacy (RFC-ACL-015). */
+  private rbacAcl015DetailsIfRelevant(
+    userCodes: ReadonlySet<string>,
+    requiredCode: string,
+  ): Record<string, unknown> | undefined {
+    const m = /^([a-z0-9_]+)\.read$/.exec(requiredCode);
+    if (!m) return undefined;
+    const mod = m[1];
+    if (!(SCOPED_READ_MODULES as readonly string[]).includes(mod)) return undefined;
+    if (userCodes.has(`${mod}.read_scope`) || userCodes.has(`${mod}.read_own`)) {
+      return {
+        seededNotEnforced: true,
+        note:
+          'Permission scoped présente (read_scope/read_own) ; filtrage organisationnel non actif (RFC-ACL-016/018). Aucun accès legacy lecture inféré.',
+      };
+    }
+    return undefined;
   }
 
   private async evaluateRbacCheck(params: {
@@ -288,10 +312,11 @@ export class AccessDiagnosticsService {
         clientId: params.clientId,
         request: {} as RequestWithClient,
       });
-    if (!permissionCodes.has(params.requiredPermission)) {
+    if (!satisfiesPermission(permissionCodes, params.requiredPermission)) {
       return this.failCheck(
         'RBAC_PERMISSION_MISSING',
         'Permission RBAC manquante pour cette opération.',
+        this.rbacAcl015DetailsIfRelevant(permissionCodes, params.requiredPermission),
       );
     }
     return this.passCheck('Permission RBAC valide.');
@@ -318,6 +343,7 @@ export class AccessDiagnosticsService {
           resourceTypeNormalized: params.resourceType,
           resourceId: params.resourceId,
           aclRows: params.aclRowsOverride,
+          sharingFloorAllows: true,
         });
       } else if (params.operation === 'write') {
         allowed = await this.accessControl.canWriteResourceWithSimulatedAcl({
@@ -326,6 +352,7 @@ export class AccessDiagnosticsService {
           resourceTypeNormalized: params.resourceType,
           resourceId: params.resourceId,
           aclRows: params.aclRowsOverride,
+          sharingFloorAllows: true,
         });
       } else {
         allowed = await this.accessControl.canAdminResourceWithSimulatedAcl({
@@ -334,6 +361,7 @@ export class AccessDiagnosticsService {
           resourceTypeNormalized: params.resourceType,
           resourceId: params.resourceId,
           aclRows: params.aclRowsOverride,
+          sharingFloorAllows: true,
         });
       }
     } else if (params.operation === 'read') {
@@ -342,6 +370,7 @@ export class AccessDiagnosticsService {
         userId: params.userId,
         resourceTypeNormalized: params.resourceType,
         resourceId: params.resourceId,
+        sharingFloorAllows: true,
       });
     } else if (params.operation === 'write') {
       allowed = await this.accessControl.canWriteResource({
@@ -349,6 +378,7 @@ export class AccessDiagnosticsService {
         userId: params.userId,
         resourceTypeNormalized: params.resourceType,
         resourceId: params.resourceId,
+        sharingFloorAllows: true,
       });
     } else {
       allowed = await this.accessControl.canAdminResource({
@@ -356,6 +386,7 @@ export class AccessDiagnosticsService {
         userId: params.userId,
         resourceTypeNormalized: params.resourceType,
         resourceId: params.resourceId,
+        sharingFloorAllows: true,
       });
     }
     if (!allowed) {
@@ -417,8 +448,12 @@ export class AccessDiagnosticsService {
     return { status: 'pass', reasonCode: null, message };
   }
 
-  private failCheck(reasonCode: string, message: string): EffectiveRightsCheck {
-    return { status: 'fail', reasonCode, message };
+  private failCheck(
+    reasonCode: string,
+    message: string,
+    details?: Record<string, unknown>,
+  ): EffectiveRightsCheck {
+    return { status: 'fail', reasonCode, message, ...(details ? { details } : {}) };
   }
 
   private naCheck(message: string): EffectiveRightsCheck {

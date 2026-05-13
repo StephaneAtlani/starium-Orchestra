@@ -45,12 +45,17 @@ export class MeController {
     @RequestUserId() userId: string | undefined,
     @ActiveClientId() clientId: string | undefined,
   ) {
-    const [permissionCodes, visibleModuleCodes, roles] = await Promise.all([
-      this.me.getPermissionCodes(userId!, clientId!),
+    const [perm, visibleModuleCodes, roles] = await Promise.all([
+      this.me.getPermissionCodesWithUiHints(userId!, clientId!),
       this.me.getVisibleModuleCodes(userId!, clientId!),
       this.me.getInformativeRolesForClient(userId!, clientId!),
     ]);
-    return { permissionCodes, visibleModuleCodes, roles };
+    return {
+      permissionCodes: perm.permissionCodes,
+      uiPermissionHints: perm.uiPermissionHints,
+      visibleModuleCodes,
+      roles,
+    };
   }
 
   /** GET /me/human-resource — Ressource catalogue Humaine alignée sur l’utilisateur (email), pour saisie des temps. */

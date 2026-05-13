@@ -547,6 +547,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/me           | `Authorization: Bearer <accessToken>`             | JwtAuthGuard                                                |
 | /api/users        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/resource-acl/:resourceType/:resourceId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard |
+| /api/resource-acl/:resourceType/:resourceId/access-policy (PATCH) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) — RFC-ACL-017 |
 | /api/resource-acl/:resourceType/:resourceId (PUT), …/entries (POST), …/entries/:id (DELETE) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query optionnelle `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) |
 | /api/access-diagnostics/effective-rights/me | idem | JwtAuthGuard → ActiveClientGuard (self-service membre) |
 | /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
@@ -589,24 +590,27 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
 ---
 
-## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005, RFC-ACL-014)
+## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005, RFC-ACL-014, **RFC-ACL-017**)
 
-Administration des entrées **ResourceAcl** pour une ressource donnée, **dans le client actif uniquement** (`X-Client-Id`). Détail métier : [RFC-ACL-005](RFC/RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md).
+Administration des entrées **ResourceAcl** et de la **politique d’accès** par ressource, **dans le client actif uniquement** (`X-Client-Id`). Détail métier entrées : [RFC-ACL-005](RFC/RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md). Politique `DEFAULT` / `RESTRICTIVE` / `SHARING` : [RFC-ACL-017](RFC/RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md).
 
 - **Guards** :
   - **`GET`** : `JwtAuthGuard` → `ActiveClientGuard` → `ClientAdminGuard` (inchangé).
+  - **`PATCH …/access-policy`** (RFC-ACL-017) : même stack que les mutations ACL ci-dessous (Option A RFC-ACL-014).
   - **`PUT` / `POST` … `/entries` / `DELETE` … `/entries/:entryId`** (RFC-ACL-014 Option A) : `JwtAuthGuard` → `ActiveClientOrPlatformContextGuard` → `ClientAdminOrPlatformAdminGuard` (CLIENT_ADMIN **ou** PLATFORM_ADMIN avec `X-Client-Id` valide même sans `ClientUser`).
-- **Query `force`** : uniquement sur les mutations ci-dessus. `force=true` **interdit** si l’utilisateur n’est pas `PLATFORM_ADMIN` → **403** + `reasonCode=RESOURCE_ACL_FORCE_FORBIDDEN` + audit `resource_acl.force_denied`. Si lockout « dernier ADMIN effectif » et bypass autorisé → audit `resource_acl.force_used`. Lockout sans `force` → **409** + `reasonCode=RESOURCE_ACL_LAST_ADMIN_LOCKOUT` + audit `resource_acl.lockout_blocked`.
+- **Query `force`** : uniquement sur les mutations ci-dessus **et** sur `PATCH …/access-policy`. `force=true` **interdit** si l’utilisateur n’est pas `PLATFORM_ADMIN` → **403** + `reasonCode=RESOURCE_ACL_FORCE_FORBIDDEN` + audit `resource_acl.force_denied`. Si lockout « dernier ADMIN effectif » et bypass autorisé → audit `resource_acl.force_used`. Lockout sans `force` → **409** + `reasonCode=RESOURCE_ACL_LAST_ADMIN_LOCKOUT` + audit `resource_acl.lockout_blocked`.
 - **Routes** :
   - `GET /api/resource-acl/:resourceType/:resourceId`
+  - `PATCH /api/resource-acl/:resourceType/:resourceId/access-policy` — body `{ "mode": "DEFAULT" | "RESTRICTIVE" | "SHARING" }` ; réponse **liste ACL** (même forme que `GET`).
   - `PUT /api/resource-acl/:resourceType/:resourceId` (remplacement transactionnel des entrées)
   - `POST /api/resource-acl/:resourceType/:resourceId/entries`
   - `DELETE /api/resource-acl/:resourceType/:resourceId/entries/:entryId`
+- **Réponse `GET` / corps `PUT` / `PATCH access-policy`** : en plus de `restricted` (inchangé : `entries.length > 0`) et `entries[]`, champs **`accessPolicy`** (mode Prisma résolu) et **`effectiveAccessMode`** (dérivé serveur pour l’UI — voir RFC-ACL-017 §2.c / §4).
 - **Paramètres** : `resourceType` sur liste blanche V1 ; `resourceId` au format CUID. La validation est centralisée (**`resolveResourceAclRoute`**) avant toute lecture / écriture Prisma.
 - **Corps JSON** : aucun champ `clientId` (rejet `forbidNonWhitelisted` si fourni) ; le client provient du contexte.
-- **Audit** : mutations tracées avec instantanés **old/new** exploitables (`resource_acl.*`).
+- **Audit** : mutations entrées ACL avec instantanés **old/new** exploitables (`resource_acl.*`) ; changement de politique → `resource_access_policy.changed`.
 - **Garde métier** : `ResourceAclGuard` + `@RequireResourceAcl` (RFC-ACL-006) ; le module Nest du domaine importe **`AccessControlModule`** — il n’est pas fourni via **`CommonModule`**.
-- **UI (RFC-ACL-013)** : `apps/web/src/features/resource-acl/` — éditeur par ressource dans les fiches métier (bouton « Accès à la ressource » ou onglet « Accès » budget-ligne) ; aucune route HTTP supplémentaire ; le client actif reste porté par `X-Client-Id` comme pour toutes les routes métier.
+- **UI (RFC-ACL-013 + RFC-ACL-017)** : `apps/web/src/features/resource-acl/` — éditeur par ressource (sélecteur politique, bannières) dans les fiches métier ; le client actif reste porté par `X-Client-Id` comme pour toutes les routes métier.
 
 ## 5.05 Diagnostic droits effectifs — `/api/access-diagnostics` (RFC-ACL-011)
 
@@ -640,7 +644,10 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
 
 ### 5.052 `GET /api/me/permissions` — `roles[]` informatif (RFC-ACL-014)
 
-- Réponse enrichie avec `roles[]` (`id`, `name`, `code` nullable, `scope`, `clientId`) — **informatif uniquement** ; l’UI ne dérive pas les droits depuis `roles[]` : seule la liste `permissionCodes` fait foi.
+- Réponse enrichie avec `roles[]` (`id`, `name`, `code` nullable, `scope`, `clientId`) — **informatif uniquement** ; l’UI ne dérive pas les droits depuis `roles[]`.
+- `permissionCodes` : codes **bruts** issus des rôles (filtre modules activés) — alignés sur `satisfiesPermission` côté API ; utiliser le hook `has(code)` côté web pour refléter les guards.
+- `uiPermissionHints` (RFC-ACL-015) : implications d’affichage (ex. `read_scope` / `read_own` dérivés de `read_all`) — **ne pas** utiliser seuls pour afficher une action que le backend refuserait.
+- **Implémentation** : règles `satisfiesPermission` / hints dans le package workspace **`@starium-orchestra/rbac-permissions`** ; voir [RFC-ACL-015](RFC/RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
 
 ## 5.06 License Reporting — `/api/platform/license-reporting` (RFC-ACL-012)
 

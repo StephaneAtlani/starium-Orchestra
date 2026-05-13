@@ -2,7 +2,9 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) et [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md).
+**Implémentée V1 — politique `ResourceAccessPolicy` livrée, plancher SHARING basé RBAC, scope organisationnel branché ultérieurement par RFC-ACL-018.**
+
+Dépend de [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) et [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md). [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d'acc%C3%A8s%20unifi%C3%A9.md) couvre le **moteur de décision complet** et le diagnostic enrichi ; la présente RFC fournit les **entrées policy** (`mode`, `reasonCode`, champs API `accessPolicy` / `effectiveAccessMode`) consommées par ce moteur — **sans** promettre que le scope organisationnel est déjà dans le même pipeline que tous les `can*` métier.
 
 ## Alignement plan
 
@@ -24,10 +26,10 @@ Formaliser un **mode de gouvernance** par ressource (ou par type de ressource + 
 | Mode | Comportement cible (intention) |
 | --- | --- |
 | **DEFAULT** | Comportement historique « RBAC public » tant qu’aucune ACL n’existe ; dès qu’une ACL existe, appliquer la sémantique restrictive actuelle (cf. `ResourceAclGuard` aujourd’hui). |
-| **RESTRICTIVE** | Toute lecture/écriture doit satisfaire RBAC + scope + ACL explicite (même liste vide = pas d’accès par défaut pour les sujets non couverts — variante à valider produit). |
+| **RESTRICTIVE** | RBAC + ACL explicite côté couche ACL : liste vide = refus pour tout le monde sur cette couche (V1 alignée produit, voir matrice §4). |
 | **SHARING** | Le RBAC + scope définissent un **plancher** ; les entrées ACL **ajoutent** des sujets (partage explicite) sans basculer automatiquement en « tout le monde interdit sauf liste » tant que non configuré. |
 
-> Les noms exacts peuvent rester `DEFAULT | RESTRICTIVE | SHARING` en enum Prisma ; l’important est la **matrice de décision** documentée et testée (RFC-ACL-018).
+> Les noms exacts restent `DEFAULT | RESTRICTIVE | SHARING` en enum Prisma ; la **matrice de décision** documentée et testée est en §4 (implémentation V1) ; RFC-ACL-018 unifiera le moteur avec les autres couches.
 
 ---
 
@@ -46,18 +48,28 @@ Formaliser un **mode de gouvernance** par ressource (ou par type de ressource + 
 
 ---
 
-## 3. Fichiers à créer / modifier (indicatif)
+## 3. Implémentation V1 (réalisée)
 
-- Prisma : modèle ou colonnes + migration + seed défaut.
-- `ResourceAclGuard` / futur `AccessDecisionService` : lecture policy avant branche ACL.
-- Audit : `resource_access_policy.changed`.
-- UI : sélecteur dans l’éditeur ACL ou fiche ressource (libellés métier des modes + aide contextuelle).
+- **Prisma** : enum `ResourceAccessPolicyMode`, modèle `ResourceAccessPolicy` (`@@unique([clientId, resourceType, resourceId])`), migration ; absence de ligne = mode **`DEFAULT`**.
+- **Backend** : `apps/api/src/modules/access-control/resource-access-policy.decision.ts` (`evaluateResourceAccessDecision`, `reasonCode`, `effectiveAccessMode`) ; `AccessControlService` (`resolveAccessPolicy` / batch `resolveAccessPolicies`, `can*` / `filterReadableResourceIds` avec `sharingFloorAllows`, `upsertAccessPolicy`).
+- **API** : `GET` liste enrichi (`accessPolicy`, `effectiveAccessMode`, `restricted` inchangé = `entries.length > 0`) ; `PATCH /api/resource-acl/:resourceType/:resourceId/access-policy` body `{ mode }` ; audit `resource_access_policy.changed`.
+- **Frontend** : `apps/web/src/features/resource-acl/` — sélecteur politique, bannières sur `(accessPolicy, effectiveAccessMode)`.
 
 ---
 
-## 4. Matrice de décision (à compléter en implémentation)
+## 4. Matrice de décision (V1 — implémentation)
 
-Document obligatoire dans la RFC lors du grooming : pour chaque combinaison `(mode, hasAclEntries, rbacLevel, orgScope, aclEntry)` → `ALLOW` / `DENY` + `reasonCode`.
+La logique canonique est `evaluateResourceAccessDecision` dans `apps/api/src/modules/access-control/resource-access-policy.decision.ts`. Les colonnes **RBAC / scope** ne sont pas re-évaluées ici : elles doivent déjà autoriser l’opération avant l’appel ; `sharingFloorAllows` n’est `true` que si le guard métier a validé le plancher pour la même opération.
+
+Légende : **ACL** = présence d’au moins une entrée `ResourceAcl` sur la ressource ; **match** = le sujet a un rang ACL ≥ rang minimal de l’opération (ordre croissant : `read`, `write`, `admin`).
+
+| Mode | ACL vide | ACL + match | ACL + pas match |
+| --- | --- | --- | --- |
+| **DEFAULT** | ALLOW (`POLICY_DEFAULT_NO_ACL_PUBLIC`) — `effectiveAccessMode`: `PUBLIC_DEFAULT` | ALLOW (`POLICY_DEFAULT_ACL_MATCH`) — `ACL_RESTRICTED` | DENY (`POLICY_DEFAULT_ACL_NO_MATCH`) — `ACL_RESTRICTED` |
+| **RESTRICTIVE** | DENY (`POLICY_RESTRICTIVE_EMPTY_DENY`) — `RESTRICTIVE_EMPTY_DENY` | ALLOW (`POLICY_RESTRICTIVE_ACL_MATCH`) — `ACL_RESTRICTED` | DENY (`POLICY_RESTRICTIVE_ACL_NO_MATCH`) — `ACL_RESTRICTED` |
+| **SHARING** | ALLOW si `sharingFloorAllows` (`POLICY_SHARING_NO_ACL_FLOOR_ALLOW`, `SHARING_FLOOR_ALLOW`), sinon DENY (`POLICY_SHARING_NO_ACL_FLOOR_DENY`, `SHARING_FLOOR_DENY`) | ALLOW (`POLICY_SHARING_ACL_MATCH`, `SHARING_ACL_PLUS_FLOOR`) | ALLOW si `sharingFloorAllows` (`POLICY_SHARING_ACL_NO_MATCH_FLOOR_ALLOW`), sinon DENY (`POLICY_SHARING_ACL_NO_MATCH_FLOOR_DENY`) — `effectiveAccessMode`: `SHARING_ACL_PLUS_FLOOR` |
+
+**Liste vide + RESTRICTIVE** : refus explicite (pas d’accès par défaut pour les sujets non couverts par ACL). **GET liste ACL (admin)** : le calcul d’`effectiveAccessMode` côté API utilise `sharingFloorAllows: true` pour refléter la bannière « plancher » sans élargir les droits métier des autres endpoints.
 
 ---
 

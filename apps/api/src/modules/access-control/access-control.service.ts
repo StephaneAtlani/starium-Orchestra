@@ -10,6 +10,7 @@ import {
 import {
   ClientUserStatus,
   Prisma,
+  ResourceAccessPolicyMode,
   ResourceAclPermission,
   ResourceAclSubjectType,
 } from '@prisma/client';
@@ -29,6 +30,12 @@ import {
 } from './resource-acl.constants';
 import { PlatformRole } from '@prisma/client';
 import { AccessDiagnosticsService } from '../access-diagnostics/access-diagnostics.service';
+import {
+  evaluateResourceAccessDecision,
+  type EffectiveResourceAccessMode,
+  type ResourceAccessDecisionOperation,
+  type ResourceAccessEvaluationResult,
+} from './resource-access-policy.decision';
 
 const WHITELIST_SET = new Set<string>(RESOURCE_ACL_RESOURCE_TYPE_WHITELIST);
 
@@ -56,6 +63,8 @@ export type ResourceAclEntryRow = {
 
 export type ResourceAclListResponse = {
   restricted: boolean;
+  accessPolicy: ResourceAccessPolicyMode;
+  effectiveAccessMode: EffectiveResourceAccessMode;
   entries: ResourceAclEntryRow[];
 };
 
@@ -86,6 +95,172 @@ export class AccessControlService {
     @Inject(forwardRef(() => AccessDiagnosticsService))
     private readonly accessDiagnostics: AccessDiagnosticsService,
   ) {}
+
+  async resolveAccessPolicy(
+    clientId: string,
+    resourceType: ResourceAclCanonicalResourceType,
+    resourceId: string,
+  ): Promise<ResourceAccessPolicyMode> {
+    const row = await this.prisma.resourceAccessPolicy.findUnique({
+      where: {
+        clientId_resourceType_resourceId: { clientId, resourceType, resourceId },
+      },
+      select: { mode: true },
+    });
+    return row?.mode ?? ResourceAccessPolicyMode.DEFAULT;
+  }
+
+  /**
+   * RFC-ACL-017 — résolution batch (un `findMany`), fallback `DEFAULT` par id sans ligne.
+   * À réutiliser pour tout filtrage multi-ressources.
+   */
+  private async resolveAccessPolicies(
+    clientId: string,
+    resourceType: ResourceAclCanonicalResourceType,
+    resourceIds: string[],
+  ): Promise<Map<string, ResourceAccessPolicyMode>> {
+    const map = new Map<string, ResourceAccessPolicyMode>();
+    for (const id of resourceIds) {
+      map.set(id, ResourceAccessPolicyMode.DEFAULT);
+    }
+    if (resourceIds.length === 0) {
+      return map;
+    }
+    const policies = await this.prisma.resourceAccessPolicy.findMany({
+      where: { clientId, resourceType, resourceId: { in: resourceIds } },
+      select: { resourceId: true, mode: true },
+    });
+    for (const p of policies) {
+      map.set(p.resourceId, p.mode);
+    }
+    return map;
+  }
+
+  private computeMaxRankFromRowsForSubject(
+    rows: Array<{ subjectType: ResourceAclSubjectType; subjectId: string; permission: ResourceAclPermission }>,
+    userId: string,
+    groupIdSet: Set<string>,
+  ): number {
+    let maxRank = 0;
+    for (const row of rows) {
+      const allowedByUser =
+        row.subjectType === ResourceAclSubjectType.USER && row.subjectId === userId;
+      const allowedByGroup =
+        row.subjectType === ResourceAclSubjectType.GROUP && groupIdSet.has(row.subjectId);
+      if (!allowedByUser && !allowedByGroup) continue;
+      maxRank = Math.max(maxRank, PERM_RANK[row.permission]);
+    }
+    return maxRank;
+  }
+
+  private async computeUserMaxAclRankForResource(params: {
+    clientId: string;
+    userId: string;
+    resourceType: ResourceAclCanonicalResourceType;
+    resourceId: string;
+  }): Promise<number> {
+    const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+    const groupSet = new Set(groupIds);
+    const orClause: Prisma.ResourceAclWhereInput[] = [
+      { subjectType: ResourceAclSubjectType.USER, subjectId: params.userId },
+    ];
+    if (groupIds.length > 0) {
+      orClause.push({
+        subjectType: ResourceAclSubjectType.GROUP,
+        subjectId: { in: groupIds },
+      });
+    }
+    const applicable = await this.prisma.resourceAcl.findMany({
+      where: {
+        clientId: params.clientId,
+        resourceType: params.resourceType,
+        resourceId: params.resourceId,
+        OR: orClause,
+      },
+      select: { subjectType: true, subjectId: true, permission: true },
+    });
+    return this.computeMaxRankFromRowsForSubject(applicable, params.userId, groupSet);
+  }
+
+  async evaluateResourceAccess(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    operation: ResourceAccessDecisionOperation;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (read / write / admin). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
+  }): Promise<ResourceAccessEvaluationResult> {
+    const [mode, aclEntryCount] = await Promise.all([
+      this.resolveAccessPolicy(
+        params.clientId,
+        params.resourceTypeNormalized,
+        params.resourceId,
+      ),
+      this.prisma.resourceAcl.count({
+        where: {
+          clientId: params.clientId,
+          resourceType: params.resourceTypeNormalized,
+          resourceId: params.resourceId,
+        },
+      }),
+    ]);
+    const maxRankForSubject =
+      aclEntryCount > 0
+        ? await this.computeUserMaxAclRankForResource({
+            clientId: params.clientId,
+            userId: params.userId,
+            resourceType: params.resourceTypeNormalized,
+            resourceId: params.resourceId,
+          })
+        : 0;
+    return evaluateResourceAccessDecision({
+      mode,
+      operation: params.operation,
+      aclEntryCount,
+      maxRankForSubject,
+      sharingFloorAllows: params.sharingFloorAllows,
+    });
+  }
+
+  /**
+   * RFC-ACL-017 — même matrice que `evaluateResourceAccess` sur un snapshot de lignes ACL.
+   */
+  async evaluateResourceAccessWithSimulatedAclRows(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceId: string;
+    operation: ResourceAccessDecisionOperation;
+    aclRows: Array<{
+      subjectType: ResourceAclSubjectType;
+      subjectId: string;
+      permission: ResourceAclPermission;
+    }>;
+    sharingFloorAllows?: boolean;
+  }): Promise<ResourceAccessEvaluationResult> {
+    const mode = await this.resolveAccessPolicy(
+      params.clientId,
+      params.resourceTypeNormalized,
+      params.resourceId,
+    );
+    const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+    const maxRankForSubject = this.computeMaxRankFromRowsForSubject(
+      params.aclRows,
+      params.userId,
+      new Set(groupIds),
+    );
+    return evaluateResourceAccessDecision({
+      mode,
+      operation: params.operation,
+      aclEntryCount: params.aclRows.length,
+      maxRankForSubject,
+      sharingFloorAllows: params.sharingFloorAllows,
+    });
+  }
 
   /**
    * Validation unique utilisée par GET/PUT/POST/DELETE (+ garde métier RFC-ACL-006).
@@ -157,13 +332,56 @@ export class AccessControlService {
     clientId: string,
     resourceType: ResourceAclCanonicalResourceType,
     resourceId: string,
+    viewerUserId?: string,
   ): Promise<ResourceAclListResponse> {
     const rows = await this.prisma.resourceAcl.findMany({
       where: { clientId, resourceType, resourceId },
       orderBy: [{ subjectType: 'asc' }, { subjectId: 'asc' }],
     });
     const entries = await this.enrichEntries(clientId, rows);
-    return { restricted: rows.length > 0, entries };
+    const accessPolicy = await this.resolveAccessPolicy(clientId, resourceType, resourceId);
+    let maxRankForSubject = 0;
+    if (rows.length > 0 && viewerUserId) {
+      maxRankForSubject = this.computeMaxRankFromRowsForSubject(
+        rows,
+        viewerUserId,
+        new Set(await this.loadUserGroupIds(clientId, viewerUserId)),
+      );
+    }
+    /**
+     * GET resource-acl (CLIENT_ADMIN) : plancher affichage SHARING sans ACL en ALLOW pour l’UI.
+     */
+    const ev = evaluateResourceAccessDecision({
+      mode: accessPolicy,
+      operation: 'read',
+      aclEntryCount: rows.length,
+      maxRankForSubject,
+      sharingFloorAllows: true,
+    });
+    return {
+      restricted: rows.length > 0,
+      accessPolicy,
+      effectiveAccessMode: ev.effectiveAccessMode,
+      entries,
+    };
+  }
+
+  async listEntries(
+    clientId: string,
+    rawResourceType: string,
+    rawResourceId: string,
+    viewerUserId?: string,
+  ): Promise<ResourceAclListResponse> {
+    const { resourceType, resourceId } = this.resolveResourceAclRoute(
+      rawResourceType,
+      rawResourceId,
+    );
+    return this.loadAclPayloadForResolvedRoute(
+      clientId,
+      resourceType,
+      resourceId,
+      viewerUserId,
+    );
   }
 
   async assertSubjectInClient(
@@ -258,18 +476,6 @@ export class AccessControlService {
         updatedAt: r.updatedAt,
       };
     });
-  }
-
-  async listEntries(
-    clientId: string,
-    rawResourceType: string,
-    rawResourceId: string,
-  ): Promise<ResourceAclListResponse> {
-    const { resourceType, resourceId } = this.resolveResourceAclRoute(
-      rawResourceType,
-      rawResourceId,
-    );
-    return this.loadAclPayloadForResolvedRoute(clientId, resourceType, resourceId);
   }
 
   private assertNoDuplicateSubjects(entries: ResourceAclEntryInputDto[]): void {
@@ -372,7 +578,28 @@ export class AccessControlService {
     );
 
     const entriesOut = await this.enrichEntries(clientId, afterRows);
-    return { restricted: afterRows.length > 0, entries: entriesOut };
+    const accessPolicy = await this.resolveAccessPolicy(clientId, resourceType, resourceId);
+    let maxRankForSubject = 0;
+    if (afterRows.length > 0 && context?.actorUserId) {
+      maxRankForSubject = this.computeMaxRankFromRowsForSubject(
+        afterRows,
+        context.actorUserId,
+        new Set(await this.loadUserGroupIds(clientId, context.actorUserId)),
+      );
+    }
+    const ev = evaluateResourceAccessDecision({
+      mode: accessPolicy,
+      operation: 'read',
+      aclEntryCount: afterRows.length,
+      maxRankForSubject,
+      sharingFloorAllows: true,
+    });
+    return {
+      restricted: afterRows.length > 0,
+      accessPolicy,
+      effectiveAccessMode: ev.effectiveAccessMode,
+      entries: entriesOut,
+    };
   }
 
   async addEntry(
@@ -642,51 +869,6 @@ export class AccessControlService {
     };
   }
 
-  private async computeRestrictedMaxRank(
-    clientId: string,
-    userId: string,
-    resourceType: ResourceAclCanonicalResourceType,
-    resourceId: string,
-  ): Promise<{ unrestricted: boolean; maxRank: number }> {
-    const total = await this.prisma.resourceAcl.count({
-      where: { clientId, resourceType, resourceId },
-    });
-    if (total === 0) {
-      return { unrestricted: true, maxRank: 0 };
-    }
-
-    const members = await this.prisma.accessGroupMember.findMany({
-      where: { clientId, userId },
-      select: { groupId: true },
-    });
-    const groupIds = members.map((m) => m.groupId);
-    const orClause: Prisma.ResourceAclWhereInput[] = [
-      { subjectType: ResourceAclSubjectType.USER, subjectId: userId },
-    ];
-    if (groupIds.length > 0) {
-      orClause.push({
-        subjectType: ResourceAclSubjectType.GROUP,
-        subjectId: { in: groupIds },
-      });
-    }
-
-    const applicable = await this.prisma.resourceAcl.findMany({
-      where: {
-        clientId,
-        resourceType,
-        resourceId,
-        OR: orClause,
-      },
-      select: { permission: true },
-    });
-
-    let maxRank = 0;
-    for (const a of applicable) {
-      maxRank = Math.max(maxRank, PERM_RANK[a.permission]);
-    }
-    return { unrestricted: false, maxRank };
-  }
-
   /**
    * Évalue le rang ACL max contre un snapshot de lignes (RFC-ACL-014 lockout / diagnostic),
    * sans lecture Prisma des lignes courantes.
@@ -732,10 +914,17 @@ export class AccessControlService {
       subjectId: string;
       permission: ResourceAclPermission;
     }>;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (read). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.READ];
+    const d = await this.evaluateResourceAccessWithSimulatedAclRows({
+      ...params,
+      operation: 'read',
+    });
+    return d.allowed;
   }
 
   async canWriteResourceWithSimulatedAcl(params: {
@@ -748,10 +937,17 @@ export class AccessControlService {
       subjectId: string;
       permission: ResourceAclPermission;
     }>;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (write). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.WRITE];
+    const d = await this.evaluateResourceAccessWithSimulatedAclRows({
+      ...params,
+      operation: 'write',
+    });
+    return d.allowed;
   }
 
   async canAdminResourceWithSimulatedAcl(params: {
@@ -764,10 +960,17 @@ export class AccessControlService {
       subjectId: string;
       permission: ResourceAclPermission;
     }>;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (admin). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.maxAclRankAgainstSimulatedRows(params);
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.ADMIN];
+    const d = await this.evaluateResourceAccessWithSimulatedAclRows({
+      ...params,
+      operation: 'admin',
+    });
+    return d.allowed;
   }
 
   private async loadUserGroupIds(clientId: string, userId: string): Promise<string[]> {
@@ -784,14 +987,24 @@ export class AccessControlService {
     resourceTypeNormalized: ResourceAclCanonicalResourceType;
     resourceIds: string[];
     operation?: 'read' | 'write' | 'admin';
+    /**
+     * Ne jamais utiliser comme bypass. Aligné sur `canReadResource` / opération du batch :
+     * true seulement si la permission correspondante a déjà été validée par le guard appelant.
+     * Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<string[]> {
     const uniqueIds = Array.from(new Set(params.resourceIds.filter(Boolean)));
     if (uniqueIds.length === 0) return [];
 
-    const minPermission =
-      MIN_PERMISSION_BY_OPERATION[params.operation ?? 'read'];
-    const minRank = PERM_RANK[minPermission];
+    const op = (params.operation ?? 'read') as ResourceAccessDecisionOperation;
+    const policyMap = await this.resolveAccessPolicies(
+      params.clientId,
+      params.resourceTypeNormalized,
+      uniqueIds,
+    );
     const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+    const groupSet = new Set(groupIds);
 
     const rows = await this.prisma.resourceAcl.findMany({
       where: {
@@ -802,27 +1015,37 @@ export class AccessControlService {
       select: { resourceId: true, subjectType: true, subjectId: true, permission: true },
     });
 
-    if (rows.length === 0) {
-      return uniqueIds;
-    }
-
-    const restrictedIds = new Set(rows.map((r) => r.resourceId));
-    const groupSet = new Set(groupIds);
-    const maxRankByResource = new Map<string, number>();
-
+    const rowsByResource = new Map<
+      string,
+      Array<{
+        resourceId: string;
+        subjectType: ResourceAclSubjectType;
+        subjectId: string;
+        permission: ResourceAclPermission;
+      }>
+    >();
     for (const row of rows) {
-      const allowedByUser =
-        row.subjectType === ResourceAclSubjectType.USER && row.subjectId === params.userId;
-      const allowedByGroup =
-        row.subjectType === ResourceAclSubjectType.GROUP && groupSet.has(row.subjectId);
-      if (!allowedByUser && !allowedByGroup) continue;
-      const current = maxRankByResource.get(row.resourceId) ?? 0;
-      maxRankByResource.set(row.resourceId, Math.max(current, PERM_RANK[row.permission]));
+      const list = rowsByResource.get(row.resourceId) ?? [];
+      list.push(row);
+      rowsByResource.set(row.resourceId, list);
     }
 
     return uniqueIds.filter((resourceId) => {
-      if (!restrictedIds.has(resourceId)) return true;
-      return (maxRankByResource.get(resourceId) ?? 0) >= minRank;
+      const mode = policyMap.get(resourceId) ?? ResourceAccessPolicyMode.DEFAULT;
+      const resourceRows = rowsByResource.get(resourceId) ?? [];
+      const maxRank = this.computeMaxRankFromRowsForSubject(
+        resourceRows,
+        params.userId,
+        groupSet,
+      );
+      const d = evaluateResourceAccessDecision({
+        mode,
+        operation: op,
+        aclEntryCount: resourceRows.length,
+        maxRankForSubject: maxRank,
+        sharingFloorAllows: params.sharingFloorAllows,
+      });
+      return d.allowed;
     });
   }
 
@@ -831,15 +1054,17 @@ export class AccessControlService {
     userId: string;
     resourceTypeNormalized: ResourceAclCanonicalResourceType;
     resourceId: string;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (read). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.computeRestrictedMaxRank(
-      params.clientId,
-      params.userId,
-      params.resourceTypeNormalized,
-      params.resourceId,
-    );
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.READ];
+    const d = await this.evaluateResourceAccess({
+      ...params,
+      operation: 'read',
+    });
+    return d.allowed;
   }
 
   async canWriteResource(params: {
@@ -847,15 +1072,17 @@ export class AccessControlService {
     userId: string;
     resourceTypeNormalized: ResourceAclCanonicalResourceType;
     resourceId: string;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (write). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.computeRestrictedMaxRank(
-      params.clientId,
-      params.userId,
-      params.resourceTypeNormalized,
-      params.resourceId,
-    );
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.WRITE];
+    const d = await this.evaluateResourceAccess({
+      ...params,
+      operation: 'write',
+    });
+    return d.allowed;
   }
 
   async canAdminResource(params: {
@@ -863,14 +1090,62 @@ export class AccessControlService {
     userId: string;
     resourceTypeNormalized: ResourceAclCanonicalResourceType;
     resourceId: string;
+    /**
+     * Ne jamais utiliser comme bypass. Réservé au plancher déjà validé par le guard appelant
+     * pour la même opération (admin). Défaut false.
+     */
+    sharingFloorAllows?: boolean;
   }): Promise<boolean> {
-    const { unrestricted, maxRank } = await this.computeRestrictedMaxRank(
-      params.clientId,
-      params.userId,
-      params.resourceTypeNormalized,
-      params.resourceId,
+    const d = await this.evaluateResourceAccess({
+      ...params,
+      operation: 'admin',
+    });
+    return d.allowed;
+  }
+
+  async upsertAccessPolicy(
+    clientId: string,
+    rawResourceType: string,
+    rawResourceId: string,
+    mode: ResourceAccessPolicyMode,
+    context?: ReplaceContext,
+  ): Promise<ResourceAclListResponse> {
+    const { resourceType, resourceId } = this.resolveResourceAclRoute(
+      rawResourceType,
+      rawResourceId,
     );
-    if (unrestricted) return true;
-    return maxRank >= PERM_RANK[ResourceAclPermission.ADMIN];
+    await this.assertValidForceContext(clientId, context);
+
+    const existing = await this.prisma.resourceAccessPolicy.findUnique({
+      where: {
+        clientId_resourceType_resourceId: { clientId, resourceType, resourceId },
+      },
+    });
+
+    const row = await this.prisma.resourceAccessPolicy.upsert({
+      where: {
+        clientId_resourceType_resourceId: { clientId, resourceType, resourceId },
+      },
+      create: { clientId, resourceType, resourceId, mode },
+      update: { mode },
+    });
+
+    await this.auditLogs.create(
+      this.buildAuditInput({
+        clientId,
+        businessResourceId: resourceId,
+        context,
+        action: 'resource_access_policy.changed',
+        oldValue: existing ? { mode: existing.mode } : null,
+        newValue: { resourceType, resourceId, mode: row.mode },
+      }),
+    );
+
+    return this.loadAclPayloadForResolvedRoute(
+      clientId,
+      resourceType,
+      resourceId,
+      context?.actorUserId,
+    );
   }
 }

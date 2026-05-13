@@ -222,7 +222,13 @@ export async function getMyClients(
 }
 
 export interface MePermissionsResponse {
+  /** Codes bruts issus des rôles (alignés sur les guards / `satisfiesPermission`). */
   permissionCodes: string[];
+  /**
+   * Implications UI seules (ex. read_scope/read_own dérivés de read_all) — ne pas utiliser comme
+   * preuve d’accès API (RFC-ACL-015).
+   */
+  uiPermissionHints?: string[];
   /** Absent sur anciennes API : considérer tous les modules activés comme visibles. */
   visibleModuleCodes?: string[];
   /** RFC-ACL-014 : informatif uniquement ; ne pas en déduire les droits effectifs. */

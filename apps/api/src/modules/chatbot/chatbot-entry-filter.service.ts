@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import {
   ChatbotKnowledgeEntry,
   ChatbotKnowledgeScope,
@@ -68,7 +69,9 @@ export class ChatbotEntryFilterService {
       if (!ctx.moduleOk.get(e.moduleCode)) return false;
     }
     if (e.requiredPermission) {
-      if (!ctx.permissionCodes.has(e.requiredPermission)) return false;
+      if (!satisfiesPermission(ctx.permissionCodes, e.requiredPermission)) {
+        return false;
+      }
     }
     if (e.targetRole != null) {
       if (ctx.clientUserRole !== e.targetRole) return false;

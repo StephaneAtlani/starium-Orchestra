@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { satisfiesAnyPermission, satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 
@@ -51,7 +52,7 @@ export class PermissionsGuard implements CanActivate {
       });
 
     if (anyRequired?.length) {
-      const ok = anyRequired.some((code) => permissionCodes.has(code));
+      const ok = satisfiesAnyPermission(permissionCodes, anyRequired);
       if (!ok) {
         throw new ForbiddenException(
           'Permissions insuffisantes pour accéder à cette ressource',
@@ -74,7 +75,9 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const missing = required.filter((code) => !permissionCodes.has(code));
+    const missing = required.filter(
+      (code) => !satisfiesPermission(permissionCodes, code),
+    );
     if (missing.length > 0) {
       throw new ForbiddenException(
         "Permissions insuffisantes pour accéder à cette ressource",

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { getMyPermissions } from '@/services/me';
@@ -29,9 +30,14 @@ export function usePermissions() {
     () => data?.permissionCodes ?? [],
     [data?.permissionCodes],
   );
-  const set = useMemo(() => new Set(permissionCodes), [permissionCodes]);
+  const uiPermissionHints = useMemo(
+    () => data?.uiPermissionHints ?? [],
+    [data?.uiPermissionHints],
+  );
+  const permissionSet = useMemo(() => new Set(permissionCodes), [permissionCodes]);
 
-  const has = (code: string): boolean => set.has(code);
+  const has = (code: string): boolean =>
+    satisfiesPermission(permissionSet, code);
 
   const treatAllModulesVisible = data?.visibleModuleCodes === undefined;
   const visibleModuleCodes = useMemo(
@@ -50,6 +56,7 @@ export function usePermissions() {
 
   return {
     permissionCodes,
+    uiPermissionHints,
     visibleModuleCodes,
     roles,
     has,

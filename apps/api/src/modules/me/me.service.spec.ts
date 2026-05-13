@@ -719,6 +719,29 @@ describe('MeService', () => {
       const codes = await service.getPermissionCodes('user-1', 'client-1');
       expect(codes).toEqual([]);
     });
+
+    it('getPermissionCodesWithUiHints : hints read_scope/read_own si read_all', async () => {
+      prisma.clientModule.findMany.mockResolvedValue([{ moduleId: 'm-budgets' }]);
+      prisma.userRole.findMany.mockResolvedValue([
+        {
+          role: {
+            rolePermissions: [
+              {
+                permission: {
+                  code: 'budgets.read_all',
+                  moduleId: 'm-budgets',
+                  module: { isActive: true },
+                },
+              },
+            ],
+          },
+        },
+      ] as any);
+
+      const out = await service.getPermissionCodesWithUiHints('user-1', 'client-1');
+      expect(out.permissionCodes).toEqual(['budgets.read_all']);
+      expect(out.uiPermissionHints).toEqual(['budgets.read_own', 'budgets.read_scope']);
+    });
   });
 });
 

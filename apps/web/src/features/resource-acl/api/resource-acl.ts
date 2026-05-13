@@ -9,6 +9,7 @@ import type {
   ResourceAclEntryInput,
   ResourceAclListResponse,
   ResourceAclResourceType,
+  ResourceAccessPolicyMode,
 } from './resource-acl.types';
 
 export type AuthFetch = (
@@ -51,6 +52,23 @@ export async function listResourceAcl(
   resourceId: string,
 ): Promise<ResourceAclListResponse> {
   const res = await authFetch(buildPath(resourceType, resourceId));
+  return handleResponse<ResourceAclListResponse>(res);
+}
+
+export async function updateResourceAccessPolicy(
+  authFetch: AuthFetch,
+  resourceType: ResourceAclResourceType,
+  resourceId: string,
+  mode: ResourceAccessPolicyMode,
+): Promise<ResourceAclListResponse> {
+  const res = await authFetch(
+    `${buildPath(resourceType, resourceId)}/access-policy`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    },
+  );
   return handleResponse<ResourceAclListResponse>(res);
 }
 

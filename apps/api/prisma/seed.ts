@@ -49,6 +49,7 @@ import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-t
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
 import { ensureBudgetCockpitCompleteDemo } from "./seed-budget-cockpit-complete";
+import { getScopedPermissionSeedRows } from "@starium-orchestra/rbac-permissions";
 
 const prisma = new PrismaClient();
 const PASSWORD = "aa";
@@ -1591,6 +1592,130 @@ async function ensureResourcesModuleAndPermissions(): Promise<void> {
       update: { label: p.label },
     });
   }
+}
+
+/** RFC-ACL-015 — modules cœur IT + permissions legacy référencées par les profils (référentiel plateforme). */
+async function ensureBudgetsProjectsProcurementModuleAndPermissions(): Promise<void> {
+  const modules: Array<{ code: string; name: string; description: string }> = [
+    {
+      code: "budgets",
+      name: "Budgets",
+      description: "Pilotage budgétaire et exercices (RFC-ACL-015)",
+    },
+    {
+      code: "projects",
+      name: "Projets",
+      description: "Portefeuille projets et risques (RFC-ACL-015)",
+    },
+    {
+      code: "procurement",
+      name: "Procurement",
+      description: "Fournisseurs, commandes, factures (RFC-ACL-015)",
+    },
+  ];
+  const modByCode: Record<string, { id: string }> = {};
+  for (const m of modules) {
+    const mod = await prisma.module.upsert({
+      where: { code: m.code },
+      create: {
+        code: m.code,
+        name: m.name,
+        description: m.description,
+        isActive: true,
+      },
+      update: { isActive: true, name: m.name, description: m.description },
+    });
+    modByCode[m.code] = mod;
+  }
+
+  const budgetDefs: Array<{ code: string; label: string }> = [
+    { code: "budgets.read", label: "Budgets — lecture" },
+    { code: "budgets.create", label: "Budgets — création" },
+    { code: "budgets.update", label: "Budgets — mise à jour" },
+    { code: "budgets.cost-centers.read", label: "Budgets — centres de coûts (lecture)" },
+    { code: "budgets.cost-centers.create", label: "Budgets — centres de coûts (création)" },
+    { code: "budgets.cost-centers.update", label: "Budgets — centres de coûts (mise à jour)" },
+    {
+      code: "budgets.general-ledger-accounts.read",
+      label: "Budgets — comptes grand livre général (lecture)",
+    },
+    {
+      code: "budgets.general-ledger-accounts.create",
+      label: "Budgets — comptes grand livre général (création)",
+    },
+    {
+      code: "budgets.general-ledger-accounts.update",
+      label: "Budgets — comptes grand livre général (mise à jour)",
+    },
+    {
+      code: "budgets.analytical-ledger-accounts.read",
+      label: "Budgets — comptes grand livre analytique (lecture)",
+    },
+    {
+      code: "budgets.analytical-ledger-accounts.create",
+      label: "Budgets — comptes grand livre analytique (création)",
+    },
+    {
+      code: "budgets.analytical-ledger-accounts.update",
+      label: "Budgets — comptes grand livre analytique (mise à jour)",
+    },
+    {
+      code: "budgets.snapshot_occasion_types.manage",
+      label: "Budgets — types d’occasion des versions figées",
+    },
+  ];
+  for (const p of budgetDefs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: modByCode.budgets!.id },
+      update: { label: p.label, moduleId: modByCode.budgets!.id },
+    });
+  }
+
+  const projectDefs: Array<{ code: string; label: string }> = [
+    { code: "projects.read", label: "Projets — lecture" },
+    { code: "projects.create", label: "Projets — création" },
+    { code: "projects.update", label: "Projets — mise à jour" },
+    { code: "projects.delete", label: "Projets — suppression" },
+  ];
+  for (const p of projectDefs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: modByCode.projects!.id },
+      update: { label: p.label, moduleId: modByCode.projects!.id },
+    });
+  }
+
+  const procurementDefs: Array<{ code: string; label: string }> = [
+    { code: "procurement.read", label: "Procurement — lecture" },
+    { code: "procurement.create", label: "Procurement — création" },
+    { code: "procurement.update", label: "Procurement — mise à jour" },
+  ];
+  for (const p of procurementDefs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: modByCode.procurement!.id },
+      update: { label: p.label, moduleId: modByCode.procurement!.id },
+    });
+  }
+  console.log("✅ Modules budgets / projects / procurement + permissions legacy (RFC-ACL-015)");
+}
+
+/** RFC-ACL-015 — codes scoped OWN / SCOPE / ALL (vocabulaire ; enforcement périmètre = RFC-016/018). */
+async function ensureScopedPermissionsFromCatalog(): Promise<void> {
+  for (const row of getScopedPermissionSeedRows()) {
+    const mod = await prisma.module.findUnique({ where: { code: row.moduleCode } });
+    if (!mod) {
+      console.warn(`⚠️  Scoped permission skip — module « ${row.moduleCode} » absent`);
+      continue;
+    }
+    await prisma.permission.upsert({
+      where: { code: row.code },
+      create: { code: row.code, label: row.label, moduleId: mod.id },
+      update: { label: row.label, moduleId: mod.id },
+    });
+  }
+  console.log("✅ Permissions scoped RFC-ACL-015 (catalogue)");
 }
 
 /** RFC-ORG-001 — module Organisation + permissions. */
@@ -3480,6 +3605,8 @@ async function main() {
 
   await ensurePlatformUiBadgeDefaultsFromFile();
 
+  await ensureBudgetsProjectsProcurementModuleAndPermissions();
+
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
   await ensureStrategicVisionModuleAndPermissions();
@@ -3494,6 +3621,7 @@ async function main() {
   await ensureResourcesModuleAndPermissions();
   await ensureOrganizationModuleAndPermissions();
   await ensureBudgetSnapshotOccasionTypePermission();
+  await ensureScopedPermissionsFromCatalog();
   await ensureDefaultGlobalProfiles();
   await ensureGlobalBudgetSnapshotOccasionTypes();
   await ensureClientAdminRiskTaxonomyRole();

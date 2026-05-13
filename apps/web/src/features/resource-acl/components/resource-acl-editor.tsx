@@ -22,8 +22,9 @@ import type {
   ResourceAclEntry,
   ResourceAclEntryInput,
   ResourceAclResourceType,
+  ResourceAccessPolicyMode,
 } from '../api/resource-acl.types';
-import { addResourceAclEntry, removeResourceAclEntry } from '../api/resource-acl';
+import { addResourceAclEntry, removeResourceAclEntry, updateResourceAccessPolicy } from '../api/resource-acl';
 import { resourceAclKeys } from '../query-keys';
 import { useResourceAcl } from '../hooks/use-resource-acl';
 import { useGroupMemberships } from '../hooks/use-group-memberships';
@@ -36,6 +37,18 @@ import { runSequentialDelete } from '../lib/delete-sequence';
 import { resolveEffectiveCanEdit } from '../lib/policy';
 import type { SubjectCandidate } from '../lib/filter-available-subjects';
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import {
+  RESOURCE_ACCESS_POLICY_MODE_HINT,
+  RESOURCE_ACCESS_POLICY_MODE_LABEL,
+} from '../lib/access-policy-labels';
 import { ResourceAclPublicBanner } from './resource-acl-public-banner';
 import { ResourceAclEntryRow } from './resource-acl-entry-row';
 import { ResourceAclAddEntryForm } from './resource-acl-add-entry-form';
@@ -139,6 +152,7 @@ export function ResourceAclEditor({
   } | null>(null);
   const [addPending, setAddPending] = useState(false);
   const [removePending, setRemovePending] = useState<string | null>(null);
+  const [policySaving, setPolicySaving] = useState(false);
 
   const canPerformDestructive =
     effectiveCanEdit && !groupMembershipsQuery.isLoading;
@@ -146,6 +160,34 @@ export function ResourceAclEditor({
   const refetch = useCallback(async () => {
     await aclQuery.refetch();
   }, [aclQuery]);
+
+  const handleAccessPolicyChange = useCallback(
+    async (mode: ResourceAccessPolicyMode) => {
+      if (!effectiveCanEdit) return;
+      setPolicySaving(true);
+      try {
+        await updateResourceAccessPolicy(authFetch, resourceType, resourceId, mode);
+        await queryClient.invalidateQueries({
+          queryKey: resourceAclKeys.list(activeClientId, resourceType, resourceId),
+        });
+        toast.success('Politique d’accès mise à jour');
+      } catch (err) {
+        toast.error('Impossible de mettre à jour la politique', {
+          description: (err as Error).message,
+        });
+      } finally {
+        setPolicySaving(false);
+      }
+    },
+    [
+      effectiveCanEdit,
+      authFetch,
+      resourceType,
+      resourceId,
+      queryClient,
+      activeClientId,
+    ],
+  );
 
   const showFirstEntryHelp = !restricted;
 
@@ -361,17 +403,56 @@ export function ResourceAclEditor({
     );
   }
 
-  const showPublicBanner =
+  const accessPolicy: ResourceAccessPolicyMode =
+    aclQuery.data?.accessPolicy ?? 'DEFAULT';
+  const effectiveAccessMode =
+    aclQuery.data?.effectiveAccessMode ?? 'PUBLIC_DEFAULT';
+
+  const showEmptyEntriesBanner =
     !!aclQuery.data &&
-    aclQuery.data.restricted === false &&
-    aclQuery.data.entries.length === 0 &&
+    entries.length === 0 &&
     !bulkDelete?.inProgress &&
     !bulkDelete?.failedAt;
 
   return (
     <div className="space-y-4" data-testid="resource-acl-editor">
-      {showPublicBanner && (
-        <ResourceAclPublicBanner resourceLabel={resourceLabel} />
+      <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
+        <Label htmlFor="resource-access-policy">Politique d&apos;accès (RFC-ACL-017)</Label>
+        {effectiveCanEdit ? (
+          <Select
+            value={accessPolicy}
+            onValueChange={(v) =>
+              void handleAccessPolicyChange((v as ResourceAccessPolicyMode) ?? 'DEFAULT')
+            }
+            disabled={policySaving}
+          >
+            <SelectTrigger id="resource-access-policy" className="w-full max-w-md">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(['DEFAULT', 'RESTRICTIVE', 'SHARING'] as const).map((m) => (
+                <SelectItem key={m} value={m}>
+                  {RESOURCE_ACCESS_POLICY_MODE_LABEL[m]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-sm font-medium">
+            {RESOURCE_ACCESS_POLICY_MODE_LABEL[accessPolicy]}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground max-w-2xl">
+          {RESOURCE_ACCESS_POLICY_MODE_HINT[accessPolicy]}
+        </p>
+      </div>
+
+      {showEmptyEntriesBanner && (
+        <ResourceAclPublicBanner
+          resourceLabel={resourceLabel}
+          accessPolicy={accessPolicy}
+          effectiveAccessMode={effectiveAccessMode}
+        />
       )}
 
       {restricted && (

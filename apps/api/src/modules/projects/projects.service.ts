@@ -205,6 +205,7 @@ export class ProjectsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
       resourceId: projectId,
+      sharingFloorAllows: true,
     });
     if (!allowed) {
       throw new ForbiddenException('Accès refusé par ACL ressource');
@@ -217,6 +218,7 @@ export class ProjectsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
       resourceId: projectId,
+      sharingFloorAllows: true,
     });
     if (!allowed) {
       throw new ForbiddenException('Accès refusé par ACL ressource');
@@ -229,6 +231,7 @@ export class ProjectsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
       resourceId: projectId,
+      sharingFloorAllows: true,
     });
     if (!allowed) {
       throw new ForbiddenException('Accès refusé par ACL ressource');
@@ -729,6 +732,7 @@ export class ProjectsService {
         resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
         resourceIds: rows.map((row) => row.id),
         operation: 'read',
+        sharingFloorAllows: true,
       });
       const readableSet = new Set(readableProjectIds);
       rows = rows.filter((row) => readableSet.has(row.id));

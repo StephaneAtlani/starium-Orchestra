@@ -4,7 +4,7 @@ Ce document complète la section **§11** de `docs/API.md` avec une vue produit 
 
 ## Modèle opérationnel actuel
 
-### Six contrôles canoniques
+### Sept contrôles canoniques
 
 Pour une intention donnée (`READ`, `WRITE`, `ADMIN`), l’évaluation effective combine jusqu’à :
 
@@ -12,12 +12,13 @@ Pour une intention donnée (`READ`, `WRITE`, `ADMIN`), l’évaluation effective
 2. **Abonnement client** (`CLIENT_SUBSCRIPTION`) — si la licence est facturable côté client.
 3. **Module activé** (`CLIENT_MODULE_ENABLED`) — module global + activation client.
 4. **Visibilité module** (`USER_MODULE_VISIBLE`) — masquage profil (admin studio).
-5. **RBAC** (`RBAC_PERMISSION`) — codes issus du registre `RESOURCE_ACCESS_DIAGNOSTIC_REGISTRY` (alignés seed) ; `permissionCodes` de `GET /api/me/permissions` est la **seule** source d’autorité pour l’UI.
-6. **ACL ressource** (`RESOURCE_ACL`) — si la ressource est en mode restreint (au moins une entrée `ResourceAcl`).
+5. **RBAC** (`RBAC_PERMISSION`) — codes seedés + package `@starium-orchestra/rbac-permissions` ; contrôle via **`satisfiesPermission`** (guards, diagnostics RBAC, recherche) — pas de `Set.has(codeRequis)` isolé.
+6. **`GET /api/me/permissions`** : `permissionCodes` = codes **bruts** (alignés guards) ; `uiPermissionHints` = implications d’affichage uniquement (RFC-ACL-015). L’UI aligne masquage / actions sur `has()` = `satisfiesPermission(bruts, code)`.
+7. **ACL ressource** (`RESOURCE_ACL`) — couche **ResourceAcl** + politique **`ResourceAccessPolicy`** (RFC-ACL-017 : modes `DEFAULT` / `RESTRICTIVE` / `SHARING`) ; le champ API historique **`restricted`** reste « au moins une entrée ACL » ; l’effet réel pour l’UI combine **`accessPolicy`** et **`effectiveAccessMode`** (voir RFC-ACL-017 et `docs/API.md` §5.0).
 
 ### ACL ressource et administration
 
-- Liste et édition des entrées ACL : routes `GET|PUT|POST|DELETE` sous `/api/resource-acl/...` (voir `docs/API.md`).
+- Liste, politique et édition des entrées ACL : routes `GET`, `PATCH …/access-policy`, `PUT|POST|DELETE` sous `/api/resource-acl/...` (voir `docs/API.md`).
 - **GET** liste ACL : uniquement **CLIENT_ADMIN** avec **ClientUser ACTIVE** (stack historique).
 - **Mutations** : **CLIENT_ADMIN** **ou** **PLATFORM_ADMIN** avec `X-Client-Id` valide (Option A RFC-ACL-014), query `force=true` réservée plateforme pour bypass lockout documenté.
 
@@ -31,13 +32,19 @@ Si, après une mutation simulée, la ressource reste **restreinte** mais **aucun
 
 ### Rôles informatifs
 
-`GET /api/me/permissions` inclut `roles[]` **sans** effet sur les droits UI : affichage / traçabilité uniquement.
+`GET /api/me/permissions` inclut `roles[]` **sans** effet sur les droits effectifs : affichage / traçabilité uniquement.
+
+## RFC-ACL-015 — vocabulaire OWN / SCOPE / ALL (pré RFC-016/018)
+
+- Les codes `*.read_own`, `*.read_scope`, `*.read_all`, `*.write_scope`, `*.manage_all` sont **seedés** pour les modules concernés ; le **filtrage** réel par périmètre organisationnel arrive avec RFC-ACL-016 / RFC-ACL-018.
+- **Guards** : avant livraison du moteur organisationnel, seuls `*.read_all` (équivalent **global client** au legacy `*.read`) et les paires documentées `*.manage_all` → `*.delete` (ex. `projects`, `contracts`) élargissent la satisfaction d’un décorateur legacy ; `read_scope` / `read_own` **ne** valident **pas** un `@RequirePermissions('*.read')` sur routes non filtrées.
+- **Diagnostics** : en cas de refus RBAC alors que l’utilisateur détient `read_scope` / `read_own` sans legacy `*.read`, la réponse peut inclure `details.seededNotEnforced` — le vocabulaire existe mais **aucun** accès lecture legacy ne doit être inféré.
 
 ## Modèle cible (RFC-ORG-001 et périmètres futurs)
 
 Le socle **OrgUnit** / **OrgGroup** / rattachements ressource **HUMAN** peut vivre en admin sans être injecté dans le moteur ci-dessus tant qu’il n’est pas branché dans l’autorisation.
 
-Les notions **`read_scope`**, **`write_scope`**, **`manage_acl_scope`** et toute couche « Direction » comme **contrôle d’accès opérationnel** sont **hors moteur** tant que non implémentées explicitement.
+Les notions **`write_scope`** et **`manage_acl_scope`** et toute couche « Direction » comme **contrôle d’accès opérationnel** complètent le vocabulaire RFC-ACL-015 une fois RFC-ACL-016 / RFC-ACL-018 branchés sur les routes et requêtes métier.
 
 ## Hors périmètre RFC-ACL-014
 

@@ -17,6 +17,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-toast": "^1.2.15",
     "@starium-orchestra/budget-exercise-calendar": "workspace:*",
+    "@starium-orchestra/rbac-permissions": "workspace:*",
     "@starium-orchestra/types": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "class-variance-authority": "^0.7.1",

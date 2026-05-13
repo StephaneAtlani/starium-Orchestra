@@ -241,6 +241,7 @@ export class ContractsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
       resourceId: contractId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -251,6 +252,7 @@ export class ContractsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
       resourceId: contractId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -261,6 +263,7 @@ export class ContractsService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
       resourceId: contractId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -334,6 +337,7 @@ export class ContractsService {
           resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
           resourceIds: orderedIds.map((row) => row.id),
           operation: 'read',
+          sharingFloorAllows: true,
         })
       : orderedIds.map((row) => row.id);
     const total = readableIds.length;

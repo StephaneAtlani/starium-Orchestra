@@ -147,6 +147,7 @@ export class BudgetLinesService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
       resourceId: budgetId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -161,6 +162,7 @@ export class BudgetLinesService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
       resourceId: budgetId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -226,6 +228,7 @@ export class BudgetLinesService {
           resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
           resourceIds: Array.from(new Set(rows.map((row) => row.budgetId))),
           operation: 'read',
+          sharingFloorAllows: true,
         })
       : Array.from(new Set(rows.map((row) => row.budgetId)));
     const readableBudgetSet = new Set(readableBudgetIds);

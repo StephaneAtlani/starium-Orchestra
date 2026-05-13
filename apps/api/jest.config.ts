@@ -13,5 +13,7 @@ export default {
     '^../../prisma/prisma.service$': '<rootDir>/prisma/prisma.service.ts',
     '^@starium-orchestra/budget-exercise-calendar$':
       '<rootDir>/../../../packages/budget-exercise-calendar/dist/index.js',
+    '^@starium-orchestra/rbac-permissions$':
+      '<rootDir>/../../../packages/rbac-permissions/dist/index.js',
   },
 };

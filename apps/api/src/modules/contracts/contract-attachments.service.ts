@@ -123,6 +123,7 @@ export class ContractAttachmentsService {
             userId,
             resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
             resourceId: supplierContractId,
+            sharingFloorAllows: true,
           })
         : operation === 'write'
           ? await this.accessControl.canWriteResource({
@@ -130,12 +131,14 @@ export class ContractAttachmentsService {
               userId,
               resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
               resourceId: supplierContractId,
+              sharingFloorAllows: true,
             })
           : await this.accessControl.canAdminResource({
               clientId,
               userId,
               resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
               resourceId: supplierContractId,
+              sharingFloorAllows: true,
             });
     if (!allowed) {
       throw new ForbiddenException('Accès refusé par ACL ressource');

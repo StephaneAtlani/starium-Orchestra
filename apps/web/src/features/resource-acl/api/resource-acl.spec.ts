@@ -4,6 +4,7 @@ import {
   listResourceAcl,
   removeResourceAclEntry,
   replaceResourceAcl,
+  updateResourceAccessPolicy,
   type AuthFetch,
 } from './resource-acl';
 
@@ -25,11 +26,18 @@ function errorResponse(status: number, message = 'Erreur'): Response {
   });
 }
 
+const emptyListPayload = {
+  restricted: false,
+  accessPolicy: 'DEFAULT' as const,
+  effectiveAccessMode: 'PUBLIC_DEFAULT' as const,
+  entries: [],
+};
+
 describe('resource-acl api', () => {
   it('encode strictement le resourceType et le resourceId dans l’URL GET', async () => {
     const authFetch = vi
       .fn<AuthFetch>()
-      .mockResolvedValue(okResponse({ restricted: false, entries: [] }));
+      .mockResolvedValue(okResponse(emptyListPayload));
 
     await listResourceAcl(authFetch, 'PROJECT', 'cabcdefghijklmnopqrstuvw1');
 
@@ -98,7 +106,14 @@ describe('resource-acl api', () => {
   it('PUT replace — body sans clientId, structure { entries }', async () => {
     const authFetch = vi
       .fn<AuthFetch>()
-      .mockResolvedValue(okResponse({ restricted: true, entries: [] }));
+      .mockResolvedValue(
+        okResponse({
+          restricted: true,
+          accessPolicy: 'DEFAULT',
+          effectiveAccessMode: 'ACL_RESTRICTED',
+          entries: [],
+        }),
+      );
 
     await replaceResourceAcl(
       authFetch,
@@ -183,5 +198,21 @@ describe('resource-acl api', () => {
         'centry000000000000000001',
       ),
     ).rejects.toThrow(/autorisation/i);
+  });
+
+  it('PATCH access-policy — URL et body', async () => {
+    const authFetch = vi.fn<AuthFetch>().mockResolvedValue(okResponse(emptyListPayload));
+    await updateResourceAccessPolicy(
+      authFetch,
+      'PROJECT',
+      'cabcdefghijklmnopqrstuvw1',
+      'RESTRICTIVE',
+    );
+    const [url, init] = authFetch.mock.calls[0]!;
+    expect(String(url)).toBe(
+      '/api/resource-acl/PROJECT/cabcdefghijklmnopqrstuvw1/access-policy',
+    );
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(String(init?.body ?? '{}'))).toEqual({ mode: 'RESTRICTIVE' });
   });
 });

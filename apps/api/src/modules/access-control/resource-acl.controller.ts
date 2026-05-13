@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -29,6 +30,7 @@ import {
   CreateResourceAclEntryDto,
   ReplaceResourceAclEntriesDto,
 } from './dto/resource-acl-entry.dto';
+import { UpdateResourceAccessPolicyDto } from './dto/resource-access-policy.dto';
 
 function parseForceQuery(raw?: string): boolean {
   if (raw === undefined || raw === '') return false;
@@ -49,8 +51,44 @@ export class ResourceAclController {
     @ActiveClientId() clientId: string | undefined,
     @Param('resourceType') resourceType: string,
     @Param('resourceId') resourceId: string,
+    @RequestUserId() viewerUserId: string | undefined,
   ) {
-    return this.accessControl.listEntries(clientId!, resourceType, resourceId);
+    return this.accessControl.listEntries(
+      clientId!,
+      resourceType,
+      resourceId,
+      viewerUserId,
+    );
+  }
+
+  @UseGuards(
+    JwtAuthGuard,
+    ActiveClientOrPlatformContextGuard,
+    ClientAdminOrPlatformAdminGuard,
+  )
+  @Patch(':resourceType/:resourceId/access-policy')
+  updateAccessPolicy(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('resourceType') resourceType: string,
+    @Param('resourceId') resourceId: string,
+    @Body() dto: UpdateResourceAccessPolicyDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMetaDecorator() meta: RequestMeta,
+    @Req() req: RequestWithClient,
+    @Query('force') forceRaw?: string,
+  ) {
+    return this.accessControl.upsertAccessPolicy(
+      clientId!,
+      resourceType,
+      resourceId,
+      dto.mode,
+      {
+        actorUserId,
+        meta,
+        force: parseForceQuery(forceRaw),
+        platformRole: req.user?.platformRole ?? null,
+      },
+    );
   }
 
   @UseGuards(

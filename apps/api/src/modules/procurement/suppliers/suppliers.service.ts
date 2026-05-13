@@ -112,6 +112,7 @@ export class SuppliersService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
       resourceId: supplierId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -122,6 +123,7 @@ export class SuppliersService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
       resourceId: supplierId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -132,6 +134,7 @@ export class SuppliersService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
       resourceId: supplierId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -200,6 +203,7 @@ export class SuppliersService {
           resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
           resourceIds: orderedIds.map((row: { id: string }) => row.id),
           operation: 'read',
+          sharingFloorAllows: true,
         })
       : orderedIds.map((row: { id: string }) => row.id);
     const total = readableIds.length;

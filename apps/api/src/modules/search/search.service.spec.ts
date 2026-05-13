@@ -1,3 +1,4 @@
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { Test } from '@nestjs/testing';
 import { UserClientAccessService } from '../chatbot/user-client-access.service';
 import type { SearchAdapter, SearchAdapterContext } from './search.adapter';
@@ -226,7 +227,7 @@ describe('SearchService', () => {
     const adapters: SearchAdapter[] = [
       {
         search: async (ctx: SearchAdapterContext) =>
-          ctx.permissionCodes.has('projects.read')
+          satisfiesPermission(ctx.permissionCodes, 'projects.read')
             ? [
                 hit({
                   moduleCode: 'projects',
@@ -243,7 +244,7 @@ describe('SearchService', () => {
       },
       {
         search: async (ctx: SearchAdapterContext) =>
-          ctx.permissionCodes.has('budgets.read')
+          satisfiesPermission(ctx.permissionCodes, 'budgets.read')
             ? [
                 hit({
                   moduleCode: 'budgets',
@@ -286,7 +287,7 @@ describe('SearchService', () => {
     const adapters: SearchAdapter[] = [
       {
         search: async (ctx: SearchAdapterContext) =>
-          ctx.permissionCodes.has('projects.read')
+          satisfiesPermission(ctx.permissionCodes, 'projects.read')
             ? [
                 hit({
                   moduleCode: 'projects',

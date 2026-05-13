@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UserClientAccessService } from '../../chatbot/user-client-access.service';
 import type { SearchAdapter, SearchAdapterContext } from '../search.adapter';
@@ -15,7 +16,7 @@ export class ProjectSearchAdapter implements SearchAdapter {
 
   async search(ctx: SearchAdapterContext): Promise<InternalSearchHit[]> {
     if (!ctx.normalizedQuery) return [];
-    if (!ctx.permissionCodes.has('projects.read')) return [];
+    if (!satisfiesPermission(ctx.permissionCodes, 'projects.read')) return [];
     if (!(await this.userAccess.isModuleEnabledForClient(ctx.clientId, 'projects'))) {
       return [];
     }

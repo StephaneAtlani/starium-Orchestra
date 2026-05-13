@@ -4,8 +4,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RequestWithClient } from '../types/request-with-client';
 
 /**
- * Résolution des codes permission effectifs (même logique que PermissionsGuard).
- * Centralise pour éviter toute divergence avec ModuleAccessGuard (ordre des guards).
+ * Résolution des codes permission **bruts** issus des rôles (UserRole → Permission.code).
+ * Les guards utilisent `satisfiesPermission` (@starium-orchestra/rbac-permissions) sur ce set :
+ * ne pas faire de `Set.has(required)` directement sur les décorateurs.
  */
 @Injectable()
 export class EffectivePermissionsService {

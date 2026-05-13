@@ -139,6 +139,7 @@ export class StrategicVisionService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
       resourceId: objectiveId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -149,6 +150,7 @@ export class StrategicVisionService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
       resourceId: objectiveId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -159,6 +161,7 @@ export class StrategicVisionService {
       userId,
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
       resourceId: objectiveId,
+      sharingFloorAllows: true,
     });
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
@@ -1335,6 +1338,7 @@ export class StrategicVisionService {
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
       resourceIds: rows.map((row) => row.id),
       operation: 'read',
+      sharingFloorAllows: true,
     });
     const readableSet = new Set(readableIds);
     return rows
@@ -1677,6 +1681,7 @@ export class StrategicVisionService {
       resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.STRATEGIC_OBJECTIVE,
       resourceIds: rows.map((row) => row.id),
       operation: 'read',
+      sharingFloorAllows: true,
     });
     const readableSet = new Set(readableIds);
     return rows

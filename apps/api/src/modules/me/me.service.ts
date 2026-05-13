@@ -31,6 +31,7 @@ import { normalizeEmail } from './email-identity.util';
 import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
+import { uiPermissionHintsArray } from '@starium-orchestra/rbac-permissions';
 
 /** Rôle métier informatif (GET /me/permissions, RFC-ACL-014) — ne pas dériver les droits UI depuis ce tableau. */
 export interface MeInformativeRole {
@@ -139,10 +140,24 @@ export class MeService {
   }
 
   /**
-   * Liste des codes de permission de l'utilisateur pour le client donné
-   * (via UserRole → Role → RolePermission → Permission.code). Utilisé par le frontend pour afficher/masquer les actions.
+   * Codes permission **bruts** (rôles + DB filtrés par modules activés) — seule source fiable pour aligner l’UI
+   * sur les guards (`satisfiesPermission`). Ne pas confondre avec `uiPermissionHints` (RFC-ACL-015).
    */
   async getPermissionCodes(userId: string, clientId: string): Promise<string[]> {
+    const { permissionCodes } = await this.getPermissionCodesWithUiHints(
+      userId,
+      clientId,
+    );
+    return permissionCodes;
+  }
+
+  /**
+   * Bruts + hints UI (implications OWN/SCOPE/ALL pour affichage). Les hints **ne** prouvent **pas** l’accès API.
+   */
+  async getPermissionCodesWithUiHints(
+    userId: string,
+    clientId: string,
+  ): Promise<{ permissionCodes: string[]; uiPermissionHints: string[] }> {
     const enabledClientModules = await this.prisma.clientModule.findMany({
       where: { clientId, status: 'ENABLED' },
       select: { moduleId: true },
@@ -185,10 +200,14 @@ export class MeService {
         codes.add(p.code);
       }
     }
-    return Array.from(codes);
+    const permissionCodes = Array.from(codes).sort((a, b) =>
+      a.localeCompare(b, 'fr'),
+    );
+    const uiPermissionHints = uiPermissionHintsArray(permissionCodes);
+    return { permissionCodes, uiPermissionHints };
   }
 
-  /** Rôles UserRole liés au client (informatif uniquement ; `permissionCodes` reste l’autorité UI). */
+  /** Rôles UserRole liés au client (informatif uniquement). Les droits UI alignés sur les guards se lisent dans `permissionCodes` (bruts), pas dans `uiPermissionHints`. */
   async getInformativeRolesForClient(
     userId: string,
     clientId: string,

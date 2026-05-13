@@ -15,6 +15,7 @@ const recapDir = path.join(root, '.test-recap');
 /** Ordre d’affichage : packages puis apps, noms npm. */
 const RECAP_ROWS = [
   { name: '@starium-orchestra/budget-exercise-calendar', report: 'budget-exercise-calendar.json' },
+  { name: '@starium-orchestra/rbac-permissions', report: 'rbac-permissions.json' },
   { name: '@starium-orchestra/config', report: null },
   { name: '@starium-orchestra/types', report: null },
   { name: '@starium-orchestra/api', report: 'api.json' },

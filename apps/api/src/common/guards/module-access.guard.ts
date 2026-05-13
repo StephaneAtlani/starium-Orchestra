@@ -10,6 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ModuleVisibilityService } from '../../modules/module-visibility/module-visibility.service';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { satisfiesAnyPermission, satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 
@@ -97,7 +98,7 @@ export class ModuleAccessGuard implements CanActivate {
       });
 
     for (const code of requiredPerms) {
-      if (!permissionCodes.has(code)) {
+      if (!satisfiesPermission(permissionCodes, code)) {
         throw new ForbiddenException(
           'Permissions insuffisantes pour accéder à cette ressource',
         );
@@ -134,7 +135,9 @@ export class ModuleAccessGuard implements CanActivate {
         request,
       });
 
-    const candidates = anyRequired.filter((code) => permissionCodes.has(code));
+    const candidates = anyRequired.filter((code) =>
+      satisfiesPermission(permissionCodes, code),
+    );
     if (candidates.length === 0) {
       throw new ForbiddenException(
         'Permissions insuffisantes pour accéder à cette ressource',

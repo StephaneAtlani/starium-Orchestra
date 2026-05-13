@@ -6,6 +6,7 @@ import {
 import {
   ClientUserStatus,
   Prisma,
+  ResourceAccessPolicyMode,
   ResourceAclPermission,
   ResourceAclSubjectType,
 } from '@prisma/client';
@@ -33,6 +34,11 @@ describe('AccessControlService', () => {
         create: jest.fn(),
         delete: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
+      },
+      resourceAccessPolicy: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        upsert: jest.fn(),
       },
       clientUser: { findFirst: jest.fn() },
       accessGroup: { findMany: jest.fn(), findFirst: jest.fn() },
@@ -118,6 +124,7 @@ describe('AccessControlService', () => {
 
   it('replaceEntries valide exécute transaction deleteMany + createMany', async () => {
     prisma.clientUser.findFirst.mockResolvedValue({ id: 'cu1' });
+    prisma.accessGroupMember.findMany.mockResolvedValue([]);
     prisma.resourceAcl.findMany
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -177,6 +184,8 @@ describe('AccessControlService', () => {
       expect.objectContaining({ action: 'resource_acl.replaced' }),
     );
     expect(result.restricted).toBe(true);
+    expect(result.accessPolicy).toBe(ResourceAccessPolicyMode.DEFAULT);
+    expect(result.effectiveAccessMode).toBe('ACL_RESTRICTED');
     expect(result.entries).toHaveLength(1);
   });
 
@@ -307,7 +316,11 @@ describe('AccessControlService', () => {
     prisma.resourceAcl.count.mockResolvedValue(1);
     prisma.accessGroupMember.findMany.mockResolvedValue([]);
     prisma.resourceAcl.findMany.mockResolvedValue([
-      { permission: ResourceAclPermission.WRITE },
+      {
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.WRITE,
+      },
     ]);
 
     await expect(
@@ -316,11 +329,16 @@ describe('AccessControlService', () => {
         userId,
         resourceTypeNormalized: 'PROJECT',
         resourceId: RID_PROJECT,
+        sharingFloorAllows: true,
       }),
     ).resolves.toBe(true);
 
     prisma.resourceAcl.findMany.mockResolvedValue([
-      { permission: ResourceAclPermission.READ },
+      {
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.READ,
+      },
     ]);
     await expect(
       service.canWriteResource({
@@ -328,11 +346,16 @@ describe('AccessControlService', () => {
         userId,
         resourceTypeNormalized: 'PROJECT',
         resourceId: RID_PROJECT,
+        sharingFloorAllows: true,
       }),
     ).resolves.toBe(false);
 
     prisma.resourceAcl.findMany.mockResolvedValue([
-      { permission: ResourceAclPermission.READ },
+      {
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.READ,
+      },
     ]);
     await expect(
       service.canAdminResource({
@@ -340,11 +363,16 @@ describe('AccessControlService', () => {
         userId,
         resourceTypeNormalized: 'PROJECT',
         resourceId: RID_PROJECT,
+        sharingFloorAllows: true,
       }),
     ).resolves.toBe(false);
 
     prisma.resourceAcl.findMany.mockResolvedValue([
-      { permission: ResourceAclPermission.ADMIN },
+      {
+        subjectType: ResourceAclSubjectType.USER,
+        subjectId: userId,
+        permission: ResourceAclPermission.ADMIN,
+      },
     ]);
     await expect(
       service.canWriteResource({
@@ -352,6 +380,7 @@ describe('AccessControlService', () => {
         userId,
         resourceTypeNormalized: 'PROJECT',
         resourceId: RID_PROJECT,
+        sharingFloorAllows: true,
       }),
     ).resolves.toBe(true);
     await expect(
@@ -360,6 +389,7 @@ describe('AccessControlService', () => {
         userId,
         resourceTypeNormalized: 'PROJECT',
         resourceId: RID_PROJECT,
+        sharingFloorAllows: true,
       }),
     ).resolves.toBe(true);
   });
@@ -395,8 +425,9 @@ describe('AccessControlService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('filterReadableResourceIds filtre en batch sans N+1', async () => {
+  it('filterReadableResourceIds filtre en batch sans N+1 (ACL + policies)', async () => {
     prisma.accessGroupMember.findMany.mockResolvedValue([{ groupId: 'g-1' }]);
+    prisma.resourceAccessPolicy.findMany.mockResolvedValue([]);
     prisma.resourceAcl.findMany.mockResolvedValue([
       {
         resourceId: RID_PROJECT,
@@ -418,11 +449,59 @@ describe('AccessControlService', () => {
       resourceTypeNormalized: 'PROJECT',
       resourceIds: [RID_PROJECT, RID_OTHER],
       operation: 'read',
+      sharingFloorAllows: true,
     });
 
     expect(readable).toEqual([RID_PROJECT]);
     expect(prisma.accessGroupMember.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.resourceAccessPolicy.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.resourceAcl.findMany).toHaveBeenCalledTimes(1);
-    expect(prisma.resourceAcl.count).not.toHaveBeenCalled();
+  });
+
+  it('RESTRICTIVE + ACL vide : deny', async () => {
+    prisma.resourceAccessPolicy.findUnique.mockResolvedValue({
+      mode: ResourceAccessPolicyMode.RESTRICTIVE,
+    });
+    prisma.resourceAcl.count.mockResolvedValue(0);
+    const d = await service.evaluateResourceAccess({
+      clientId,
+      userId,
+      resourceTypeNormalized: 'PROJECT',
+      resourceId: RID_PROJECT,
+      operation: 'read',
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.reasonCode).toBe('POLICY_RESTRICTIVE_EMPTY_DENY');
+    expect(d.effectiveAccessMode).toBe('RESTRICTIVE_EMPTY_DENY');
+  });
+
+  it('SHARING sans ACL + floor true / false', async () => {
+    prisma.resourceAccessPolicy.findUnique.mockResolvedValue({
+      mode: ResourceAccessPolicyMode.SHARING,
+    });
+    prisma.resourceAcl.count.mockResolvedValue(0);
+    const allow = await service.evaluateResourceAccess({
+      clientId,
+      userId,
+      resourceTypeNormalized: 'PROJECT',
+      resourceId: RID_PROJECT,
+      operation: 'read',
+      sharingFloorAllows: true,
+    });
+    expect(allow.allowed).toBe(true);
+    expect(allow.reasonCode).toBe('POLICY_SHARING_NO_ACL_FLOOR_ALLOW');
+    expect(allow.effectiveAccessMode).toBe('SHARING_FLOOR_ALLOW');
+
+    const deny = await service.evaluateResourceAccess({
+      clientId,
+      userId,
+      resourceTypeNormalized: 'PROJECT',
+      resourceId: RID_PROJECT,
+      operation: 'read',
+      sharingFloorAllows: false,
+    });
+    expect(deny.allowed).toBe(false);
+    expect(deny.reasonCode).toBe('POLICY_SHARING_NO_ACL_FLOOR_DENY');
+    expect(deny.effectiveAccessMode).toBe('SHARING_FLOOR_DENY');
   });
 });

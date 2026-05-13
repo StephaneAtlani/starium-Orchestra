@@ -396,6 +396,7 @@ model Client {
   accessGroupMembers         AccessGroupMember[]
   clientModuleVisibilities   ClientModuleVisibility[]
   resourceAcls               ResourceAcl[]
+  resourceAccessPolicies     ResourceAccessPolicy[]
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
@@ -699,6 +700,28 @@ model ResourceAcl {
   client         Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([clientId, resourceType, resourceId, subjectType, subjectId])
+  @@index([clientId, resourceType, resourceId])
+}
+
+/// RFC-ACL-017 — mode de gouvernance d’accès par ressource (DEFAULT / RESTRICTIVE / SHARING).
+enum ResourceAccessPolicyMode {
+  DEFAULT
+  RESTRICTIVE
+  SHARING
+}
+
+/// RFC-ACL-017 — politique d’accès stockée par triplet client / type / id ressource.
+model ResourceAccessPolicy {
+  id           String                   @id @default(cuid())
+  clientId     String
+  resourceType String
+  resourceId   String
+  mode         ResourceAccessPolicyMode
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  client       Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, resourceType, resourceId])
   @@index([clientId, resourceType, resourceId])
 }
 

@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  transpilePackages: ['@starium-orchestra/budget-exercise-calendar'],
+  transpilePackages: ['@starium-orchestra/budget-exercise-calendar', '@starium-orchestra/rbac-permissions'],
   async redirects() {
     return [
       { source: '/teams/collaborators', destination: '/resources', permanent: false },
