@@ -114,6 +114,11 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       auditLogs as unknown as AuditLogsService,
       pilotage as ProjectsPilotageService,
       projectTeam as any,
+      undefined,
+      {
+        assertAllowed: jest.fn().mockResolvedValue(undefined),
+        filterResourceIdsByAccess: jest.fn().mockImplementation(async (p: { resourceIds: string[] }) => p.resourceIds),
+      } as any,
     );
   });
 

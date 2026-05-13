@@ -113,8 +113,9 @@ export class AccessControlService {
   /**
    * RFC-ACL-017 — résolution batch (un `findMany`), fallback `DEFAULT` par id sans ligne.
    * À réutiliser pour tout filtrage multi-ressources.
+   * @public RFC-ACL-018 — `AccessDecisionService` (plancher org par ressource).
    */
-  private async resolveAccessPolicies(
+  async resolveAccessPolicies(
     clientId: string,
     resourceType: ResourceAclCanonicalResourceType,
     resourceIds: string[],
@@ -1047,6 +1048,78 @@ export class AccessControlService {
       });
       return d.allowed;
     });
+  }
+
+  /**
+   * RFC-ACL-018 — même matrice que `filterReadableResourceIds`, avec un plancher SHARING
+   * **par ressource** (`sharingFloorAllows` peut varier selon le scope org).
+   */
+  async evaluateResourceAccessBatch(params: {
+    clientId: string;
+    userId: string;
+    resourceTypeNormalized: ResourceAclCanonicalResourceType;
+    resourceIds: string[];
+    operation: ResourceAccessDecisionOperation;
+    /** Id absent ou `false` ⇒ plancher refusé pour cette ressource. */
+    sharingFloorAllowsByResourceId: ReadonlyMap<string, boolean>;
+  }): Promise<Map<string, ResourceAccessEvaluationResult>> {
+    const out = new Map<string, ResourceAccessEvaluationResult>();
+    const uniqueIds = Array.from(new Set(params.resourceIds.filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      return out;
+    }
+
+    const policyMap = await this.resolveAccessPolicies(
+      params.clientId,
+      params.resourceTypeNormalized,
+      uniqueIds,
+    );
+    const groupIds = await this.loadUserGroupIds(params.clientId, params.userId);
+    const groupSet = new Set(groupIds);
+
+    const rows = await this.prisma.resourceAcl.findMany({
+      where: {
+        clientId: params.clientId,
+        resourceType: params.resourceTypeNormalized,
+        resourceId: { in: uniqueIds },
+      },
+      select: { resourceId: true, subjectType: true, subjectId: true, permission: true },
+    });
+
+    const rowsByResource = new Map<
+      string,
+      Array<{
+        resourceId: string;
+        subjectType: ResourceAclSubjectType;
+        subjectId: string;
+        permission: ResourceAclPermission;
+      }>
+    >();
+    for (const row of rows) {
+      const list = rowsByResource.get(row.resourceId) ?? [];
+      list.push(row);
+      rowsByResource.set(row.resourceId, list);
+    }
+
+    for (const resourceId of uniqueIds) {
+      const mode = policyMap.get(resourceId) ?? ResourceAccessPolicyMode.DEFAULT;
+      const resourceRows = rowsByResource.get(resourceId) ?? [];
+      const maxRank = this.computeMaxRankFromRowsForSubject(
+        resourceRows,
+        params.userId,
+        groupSet,
+      );
+      const floor = params.sharingFloorAllowsByResourceId.get(resourceId) === true;
+      const d = evaluateResourceAccessDecision({
+        mode,
+        operation: params.operation,
+        aclEntryCount: resourceRows.length,
+        maxRankForSubject: maxRank,
+        sharingFloorAllows: floor,
+      });
+      out.set(resourceId, d);
+    }
+    return out;
   }
 
   async canReadResource(params: {

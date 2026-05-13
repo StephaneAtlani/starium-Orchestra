@@ -2,7 +2,9 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md).
+**Implémentée (V1 — lecture pilote Projets)** — backend livré avec garde-fous licence / abonnement / module / RBAC intent / org / matrice **RFC-ACL-017** ; **`sharingFloorAllows = floorAllowed`** (jamais `true` par défaut) ; pas de pré-filtrage org avant policy/ACL ; verdict structuré **`AccessDecisionResult`** pour préparer [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md). Dépend toujours conceptuellement de [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md) pour la sémantique des couches.
+
+**Hors V1 actuelle** : intents `write` / `admin` sur le moteur (erreur explicite jusqu’à [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md)) ; branchement **`ResourceAccessDecisionGuard`** sur les contrôleurs (adoption progressive, le pilote Projets passe par le **service**).
 
 ## Alignement plan
 
@@ -54,12 +56,22 @@ Chaque refus / autorisation partielle doit être **justifiable** par une liste o
 
 ---
 
-## 3. Fichiers à créer / modifier (indicatif)
+## 3. Implémentation (code — V1)
 
-- `access-decision.service.ts`, `access-decision.types.ts`
-- `resource-access-decision.guard.ts`
-- Refactor progressif des contrôleurs ciblés par RFC-ACL-020.
-- Intégration avec `EffectivePermissionsService`.
+| Élément | Emplacement |
+| --- | --- |
+| Module Nest | `apps/api/src/modules/access-decision/` (`access-decision.module.ts`) |
+| Moteur | `access-decision.service.ts` — `decide`, `assertAllowed`, `filterResourceIdsByAccess` |
+| Types verdict | `access-decision.types.ts` (`AccessIntent`, `AccessDecisionResult`) |
+| Batch `ownerOrgUnitId` (+ hints OWN V1 vides) | `access-decision.registry.ts` — `loadAccessResources` |
+| RBAC lecture scoped | `access-decision.read-intent.ts` — `evaluateReadRbacIntent` |
+| Garde-fous licence / abonnement | `membership-access-gates.ts` |
+| Matrice policy/ACL | Délégation à `AccessControlService` (`evaluateResourceAccess`, **`evaluateResourceAccessBatch`** avec plancher **par ressource**) ; `resolveAccessPolicies` exposée pour le batch |
+| Guard + décorateur | `resource-access-decision.guard.ts`, `require-access.decorator.ts` |
+| Pilote Projets | `ProjectsModule` importe `AccessDecisionModule` ; `ProjectsService` — `assertCanReadProject` → `assertAllowed` (intent `read`) ; liste enrichie → `filterResourceIdsByAccess` (intent `list`) |
+| Tests | `access-decision.service.spec.ts`, `access-decision.read-intent.spec.ts` ; extension `access-control.service.spec.ts` (batch) |
+
+Refactor progressif des autres contrôleurs / modules : [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
 
 ---
 
@@ -72,8 +84,8 @@ Chaque refus / autorisation partielle doit être **justifiable** par une liste o
 
 ## 5. Tests
 
-- Tests unitaires du service : grilles combinées licence × module × rbac × org × acl × policy.
-- Tests d’intégration sur **un** module pilote (ex. `GET /api/projects/:id` vs liste) avant généralisation.
+- **Livré (V1)** : specs unitaires `access-decision.service.spec.ts`, `access-decision.read-intent.spec.ts` ; batch policy/ACL dans `access-control.service.spec.ts` (`evaluateResourceAccessBatch`).
+- **Suite** : grilles supplémentaires licence × module × combinaisons policy ; tests d’intégration HTTP sur d’autres modules lors du portage [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
 
 ---
 
@@ -85,5 +97,5 @@ RFC-ACL-018 est le **point d’ancrage technique** pour éviter les failles « l
 
 ## 7. Points de vigilance
 
-- **Latence** : éviter N appels au moteur dans une boucle ; API batch `assertAccessMany`.
-- **Compatibilité** : feature flags (RFC-ACL-022) pour activer le guard unifié module par module.
+- **Latence** : éviter N appels au moteur dans une boucle ; utiliser **`filterResourceIdsByAccess`** (batch ressources + policies + ACL) ou étendre le batch côté métier.
+- **Compatibilité** : feature flags ([RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md)) pour activer le guard unifié sur les contrôleurs module par module.

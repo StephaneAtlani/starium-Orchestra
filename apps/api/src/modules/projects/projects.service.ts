@@ -45,6 +45,8 @@ import type { ComputedHealth } from './projects.types';
 import { normalizeSearchText } from '../search/search-normalize.util';
 import { buildProjectSearchText } from '../search/search-text-build.util';
 import { AccessControlService } from '../access-control/access-control.service';
+import { AccessDecisionService } from '../access-decision/access-decision.service';
+import type { RequestWithClient } from '../../common/types/request-with-client';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 import {
   assertOrgUnitInClient,
@@ -190,26 +192,32 @@ export class ProjectsService {
     @Inject(AccessControlService)
     private readonly accessControl: Pick<
       AccessControlService,
-      'canReadResource' | 'canWriteResource' | 'canAdminResource' | 'filterReadableResourceIds'
+      'canWriteResource' | 'canAdminResource'
     > = {
-      canReadResource: async () => true,
       canWriteResource: async () => true,
       canAdminResource: async () => true,
-      filterReadableResourceIds: async (params) => params.resourceIds,
     },
+    private readonly accessDecision: AccessDecisionService,
   ) {}
 
-  async assertCanReadProject(clientId: string, userId: string, projectId: string): Promise<void> {
-    const allowed = await this.accessControl.canReadResource({
+  /**
+   * RFC-ACL-018 — lecture (licence, module, RBAC intent, org, ACL/policy).
+   * `request` optionnel : sans mémoïsation requête HTTP (ex. jobs).
+   */
+  async assertCanReadProject(
+    clientId: string,
+    userId: string,
+    projectId: string,
+    request?: RequestWithClient,
+  ): Promise<void> {
+    await this.accessDecision.assertAllowed({
+      request: request ?? ({} as RequestWithClient),
       clientId,
       userId,
-      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+      resourceType: 'PROJECT',
       resourceId: projectId,
-      sharingFloorAllows: true,
+      intent: 'read',
     });
-    if (!allowed) {
-      throw new ForbiddenException('Accès refusé par ACL ressource');
-    }
   }
 
   async assertCanWriteProject(clientId: string, userId: string, projectId: string): Promise<void> {
@@ -726,13 +734,13 @@ export class ProjectsService {
     });
 
     if (userId) {
-      const readableProjectIds = await this.accessControl.filterReadableResourceIds({
+      const readableProjectIds = await this.accessDecision.filterResourceIdsByAccess({
+        request: {} as RequestWithClient,
         clientId,
         userId,
-        resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.PROJECT,
+        resourceType: 'PROJECT',
         resourceIds: rows.map((row) => row.id),
-        operation: 'read',
-        sharingFloorAllows: true,
+        intent: 'list',
       });
       const readableSet = new Set(readableProjectIds);
       rows = rows.filter((row) => readableSet.has(row.id));

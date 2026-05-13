@@ -458,6 +458,32 @@ describe('AccessControlService', () => {
     expect(prisma.resourceAcl.findMany).toHaveBeenCalledTimes(1);
   });
 
+  it('evaluateResourceAccessBatch applique un plancher par ressource (1 policy + 1 ACL)', async () => {
+    prisma.accessGroupMember.findMany.mockResolvedValue([]);
+    prisma.resourceAccessPolicy.findMany.mockResolvedValue([
+      { resourceId: RID_PROJECT, mode: ResourceAccessPolicyMode.DEFAULT },
+      { resourceId: RID_OTHER, mode: ResourceAccessPolicyMode.SHARING },
+    ]);
+    prisma.resourceAcl.findMany.mockResolvedValue([]);
+
+    const batch = await service.evaluateResourceAccessBatch({
+      clientId,
+      userId,
+      resourceTypeNormalized: 'PROJECT',
+      resourceIds: [RID_PROJECT, RID_OTHER],
+      operation: 'read',
+      sharingFloorAllowsByResourceId: new Map([
+        [RID_PROJECT, true],
+        [RID_OTHER, false],
+      ]),
+    });
+
+    expect(batch.get(RID_PROJECT)?.allowed).toBe(true);
+    expect(batch.get(RID_OTHER)?.allowed).toBe(false);
+    expect(prisma.resourceAccessPolicy.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.resourceAcl.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it('RESTRICTIVE + ACL vide : deny', async () => {
     prisma.resourceAccessPolicy.findUnique.mockResolvedValue({
       mode: ResourceAccessPolicyMode.RESTRICTIVE,

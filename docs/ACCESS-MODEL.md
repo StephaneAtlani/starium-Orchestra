@@ -34,17 +34,17 @@ Si, après une mutation simulée, la ressource reste **restreinte** mais **aucun
 
 `GET /api/me/permissions` inclut `roles[]` **sans** effet sur les droits effectifs : affichage / traçabilité uniquement.
 
-## RFC-ACL-015 — vocabulaire OWN / SCOPE / ALL (pré RFC-016/018)
+## RFC-ACL-015 — vocabulaire OWN / SCOPE / ALL (RFC-016 + RFC-018)
 
-- Les codes `*.read_own`, `*.read_scope`, `*.read_all`, `*.write_scope`, `*.manage_all` sont **seedés** pour les modules concernés ; le **filtrage** réel par périmètre organisationnel arrive avec RFC-ACL-016 / RFC-ACL-018.
-- **Guards** : avant livraison du moteur organisationnel, seuls `*.read_all` (équivalent **global client** au legacy `*.read`) et les paires documentées `*.manage_all` → `*.delete` (ex. `projects`, `contracts`) élargissent la satisfaction d’un décorateur legacy ; `read_scope` / `read_own` **ne** valident **pas** un `@RequirePermissions('*.read')` sur routes non filtrées.
+- Les codes `*.read_own`, `*.read_scope`, `*.read_all`, `*.write_scope`, `*.manage_all` sont **seedés** pour les modules concernés. **`OrganizationScopeService` (RFC-016)** résout le périmètre org ; **`AccessDecisionService` (RFC-018)** orchestre licence → module → RBAC intent → org → matrice policy/ACL (**RFC-017**) pour les chemins **branchés** (V1 : **lecture** et **liste** Projets côté `ProjectsService` ; autres modules et intents `write`/`admin` sur le moteur = portages ultérieurs).
+- **Guards HTTP** : `ModuleAccessGuard` / `PermissionsGuard` restent la porte d’entrée sur les contrôleurs ; le moteur 018 renforce la **cohérence service** (détail vs liste) et impose `sharingFloorAllows = floorAllowed` vers `AccessControlService`. Tant qu’une route n’est pas couverte par 018, seuls `*.read_all` (équivalent **global client** au legacy `*.read`) et les paires documentées `*.manage_all` → `*.delete` (ex. `projects`, `contracts`) élargissent la satisfaction d’un décorateur legacy ; `read_scope` / `read_own` **ne** valident **pas** un `@RequirePermissions('*.read')` sur routes non filtrées.
 - **Diagnostics** : en cas de refus RBAC alors que l’utilisateur détient `read_scope` / `read_own` sans legacy `*.read`, la réponse peut inclure `details.seededNotEnforced` — le vocabulaire existe mais **aucun** accès lecture legacy ne doit être inféré.
 
 ## Modèle cible (RFC-ORG-001 et périmètres futurs)
 
 Le socle **OrgUnit** / **OrgGroup** / rattachements ressource **HUMAN** peut vivre en admin sans être injecté dans le moteur ci-dessus tant qu’il n’est pas branché dans l’autorisation.
 
-Les notions **`write_scope`** et **`manage_acl_scope`** et toute couche « Direction » comme **contrôle d’accès opérationnel** complètent le vocabulaire RFC-ACL-015 une fois RFC-ACL-016 / RFC-ACL-018 branchés sur les routes et requêtes métier.
+Les notions **`write_scope`** et **`manage_acl_scope`** et toute couche « Direction » comme **contrôle d’accès opérationnel** complètent le vocabulaire RFC-ACL-015 une fois RFC-016 / RFC-018 étendus aux écritures et aux autres modules (RFC-020).
 
 ## Hors périmètre RFC-ACL-014
 
