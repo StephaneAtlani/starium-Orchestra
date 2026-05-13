@@ -28,7 +28,9 @@ Si, après une mutation simulée, la ressource reste **restreinte** mais **aucun
 
 ### Diagnostic self-service
 
-`GET /api/access-diagnostics/effective-rights/me` : voir `docs/API.md` — `ALLOWED` / `DENIED` / `UNSAFE_CONTEXT`, `DIAGNOSTIC_UNSAFE_CONTEXT` pour les cas où le diagnostic ne doit pas fuiter d’existence de ressource hors périmètre.
+`GET /api/access-diagnostics/effective-rights/me` : voir `docs/API.md` §5.051 — `ALLOWED` / `DENIED` / `UNSAFE_CONTEXT`, `DIAGNOSTIC_UNSAFE_CONTEXT` pour les cas où le diagnostic ne doit pas fuiter d’existence de ressource hors périmètre.
+
+Avec **`ACCESS_DIAGNOSTICS_ENRICHED`** = `true` ou `1` au sens strict (voir `docs/API.md` §5.05), la réponse peut inclure trois contrôles supplémentaires entre RBAC et ACL — **`ORGANIZATION_SCOPE`**, **`RESOURCE_OWNERSHIP`**, **`RESOURCE_ACCESS_POLICY`** — et harmoniser l’intention **READ** avec le moteur [RFC-ACL-018](./RFC/RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md) ([RFC-ACL-019](./RFC/RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md)).
 
 ### Rôles informatifs
 

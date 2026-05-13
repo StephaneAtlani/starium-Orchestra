@@ -627,9 +627,14 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
   - hors whitelist => `reasonCode=RESOURCE_TYPE_UNSUPPORTED`
 - **Contrat de check unifié**
   - `{ status: "pass" | "fail" | "not_applicable", reasonCode: string | null, message: string, details?: Record<string, unknown> }`
+  - Avec **RFC-ACL-019** (flag actif) : champ optionnel **`evaluationMode`** sur chaque check des six couches — voir §5.05 ci-dessus.
 - **Réponse consolidée**
   - `licenseCheck`, `subscriptionCheck`, `moduleActivationCheck`, `moduleVisibilityCheck`, `rbacCheck`, `aclCheck`
   - `finalDecision`, `denialReasons[]`, `computedAt`
+- **RFC-ACL-019 — enrichissement opt-in** : si la variable d’environnement **`ACCESS_DIAGNOSTICS_ENRICHED`** vaut **`true`** ou **`1`** (normalisation stricte, toute autre valeur ou absence = désactivé), la réponse peut inclure en plus :
+  - **`organizationScopeCheck`**, **`resourceOwnershipCheck`**, **`resourceAccessPolicyCheck`** : `{ status, reasonCode, message, enforcedForIntent }` (lecture **read** sur type supporté par le moteur et garde-fous OK → `enforcedForIntent: true` ; **write**/**admin** → blocs **pédagogiques** avec `enforcedForIntent: false` — pas de substitution du `finalDecision` legacy).
+  - Sur chaque entrée des six couches historiques : champ optionnel **`evaluationMode`** ∈ `enforced` \| `informational` \| `superseded_by_decision_engine` lorsque la couche est harmonisée avec le verdict moteur **018** (évite un « échec » visuel contradictoire quand `finalDecision` **read** suit `decide`).
+  - Sans flag actif : **aucun** de ces champs (le JSON reste strictement celui de la V1 **011**).
 - **Anti-fuite**
   - aucune révélation d’existence user/ressource hors client ;
   - hors périmètre => refus générique stable (`DIAGNOSTIC_SCOPE_MISMATCH`) sans détail sensible.
@@ -640,6 +645,7 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
 - **Query** : `intent` obligatoire (`READ` \| `WRITE` \| `ADMIN`), `resourceType`, `resourceId` (CUID). Pas de `userId` en query (identité = JWT).
 - **`finalDecision`** : `ALLOWED` \| `DENIED` \| `UNSAFE_CONTEXT` — ne pas tout regrouper en `UNSAFE_CONTEXT` : refus explicites (licence, module, RBAC, ACL) sur ressource **dans** le client ⇒ `DENIED` avec `reasonCode` par couche ; ressource absente / hors client / type non supporté ⇒ `UNSAFE_CONTEXT` + `reasonCode=DIAGNOSTIC_UNSAFE_CONTEXT`.
 - **Réponse** : `resourceLabel` (null si contexte non sûr), `controls[]` canoniques (`USER_LICENSE`, `CLIENT_SUBSCRIPTION`, `CLIENT_MODULE_ENABLED`, `USER_MODULE_VISIBLE`, `RBAC_PERMISSION`, `RESOURCE_ACL`), `safeMessage`, `computedAt`.
+- **RFC-ACL-019 (même flag `ACCESS_DIAGNOSTICS_ENRICHED`)** : contrôles supplémentaires **`ORGANIZATION_SCOPE`**, **`RESOURCE_OWNERSHIP`**, **`RESOURCE_ACCESS_POLICY`** (ordre entre RBAC et ACL) ; champs optionnels **`enforcedForIntent`** et **`evaluationMode`** sur les entrées de `controls[]` lorsque le mode enrichi harmonise l’affichage avec le moteur **018** ; sans flag, liste et forme inchangées (**014**).
 - **Audit** : `access_diagnostic.self_outcome` pour `DENIED` et `UNSAFE_CONTEXT` (pas pour `ALLOWED` nominal).
 
 ### 5.052 `GET /api/me/permissions` — `roles[]` informatif (RFC-ACL-014)

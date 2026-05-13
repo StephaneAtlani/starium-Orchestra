@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Service livré — non appliqué aux décisions d'accès** (2026-05). `OrganizationScopeService` est en place dans `apps/api/src/common/organization/` avec 23 tests unitaires verts ; il n'est **pas encore branché** dans les guards / services métier — l'enforcement réel arrivera avec [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20cible.md) et le diagnostic enrichi avec [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation.md).
+🟡 **Service livré — appliqué au moteur lecture (018), exposé dans le diagnostic sous flag (019)** (2026-05). `OrganizationScopeService` est en place dans `apps/api/src/common/organization/` avec tests unitaires ; il est **consommé** par [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d'acc%C3%A8s%20unifi%C3%A9.md) sur le périmètre **Projets** (lecture détail + liste). Il est **visible** dans le diagnostic consolidé / self lorsque [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md) est activé (`ACCESS_DIAGNOSTICS_ENRICHED` = `true` ou `1` strictement) ; sans ce flag, la matrice historique peut encore diverger du verdict moteur sur certains cas. La généralisation **write/admin** et **autres modules** hors pilote Projets relève de [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
 
 Dépend de [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md) (**MVP livré** : `ClientUser.resourceId` + API), [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) (**V1 livrée** : `ownerOrgUnitId`, etc.) et du **socle** [RFC-ACL-015](./RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md) (**partiel** : codes seedés + `satisfiesPermission`).
 
@@ -36,7 +36,7 @@ Chaque réponse porte des **`reasonCodes`** stables pour le diagnostic (RFC-ACL-
 
 - [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) : `OrgUnitMembership` lie `resourceId` (HUMAN) à `orgUnitId`.
 - Hiérarchie `OrgUnit.parentId` : permet calcul sous-arbre (CTE récursif ou cache matérialisé ultérieur).
-- [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md) : `ClientUser.resourceId` et API de liaison sont **livrés** ; il manque encore **`OrganizationScopeService`** et l’`ownerOrgUnitId` généralisé ([RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md)) pour brancher le calcul `OWN` / `SCOPE` cible.
+- [RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md) : `ClientUser.resourceId` et API de liaison sont **livrés** ; **`OrganizationScopeService`** est **livrée** et consommée par le moteur **018** ; l’`ownerOrgUnitId` sur les entités métier listées en **RFC-ORG-003 (V1)** alimente le calcul `OWN` / `SCOPE` sur le périmètre **Projets** ; la généralisation **autres modules** et **write/admin** → **RFC-ACL-020**.
 
 ---
 
