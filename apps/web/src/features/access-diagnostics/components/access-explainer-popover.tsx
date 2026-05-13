@@ -24,18 +24,38 @@ const CONTROL_LABEL_FR: Record<string, string> = {
   CLIENT_MODULE_ENABLED: 'Module activé',
   USER_MODULE_VISIBLE: 'Visibilité module',
   RBAC_PERMISSION: 'Permission métier (RBAC)',
+  ORGANIZATION_SCOPE: 'Périmètre organisationnel',
+  RESOURCE_OWNERSHIP: 'Propriété organisationnelle',
+  RESOURCE_ACCESS_POLICY: 'Politique / ACL (consolidé)',
   RESOURCE_ACL: 'Accès restreint à la ressource (ACL)',
 };
 
+function controlStatusLabel(c: MyEffectiveRightsPayload['controls'][0]): string {
+  if (c.status === 'pass') {
+    if (
+      c.evaluationMode === 'superseded_by_decision_engine' ||
+      c.evaluationMode === 'informational'
+    ) {
+      return 'OK (RFC-018)';
+    }
+    return 'OK';
+  }
+  if (c.status === 'fail') return 'Bloqué';
+  return 'N/A';
+}
+
 function formatControls(
   rows: MyEffectiveRightsPayload['controls'],
-): { id: string; label: string; status: string; detail: string }[] {
+): { id: string; label: string; status: string; detail: string; foot?: string }[] {
   return rows.map((c) => ({
     id: c.id,
     label: CONTROL_LABEL_FR[c.id] ?? c.id,
-    status:
-      c.status === 'pass' ? 'OK' : c.status === 'fail' ? 'Bloqué' : 'N/A',
+    status: controlStatusLabel(c),
     detail: c.message,
+    foot:
+      c.enforcedForIntent === false
+        ? 'Bloc informatif (non contractuel pour write/admin tant que RFC-020).'
+        : undefined,
   }));
 }
 
@@ -118,6 +138,9 @@ export function AccessExplainerPopover(props: {
                         <span className="shrink-0 text-muted-foreground">{row.status}</span>
                       </div>
                       <p className="mt-1 text-muted-foreground">{row.detail}</p>
+                      {row.foot && (
+                        <p className="mt-1 text-[10px] text-muted-foreground">{row.foot}</p>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -1,9 +1,11 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ClientSubscriptionStatus,
   ClientUserLicenseBillingMode,
   ClientUserLicenseType,
   ClientUserStatus,
+  OrgUnitStatus,
   ResourceAclPermission,
   ResourceAclSubjectType,
 } from '@prisma/client';
@@ -14,12 +16,15 @@ import {
   SCOPED_READ_MODULES,
 } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
+import { OrganizationScopeService } from '../../common/organization/organization-scope.service';
 import type { RequestWithClient } from '../../common/types/request-with-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { EffectiveRightsQueryDto } from './dto/effective-rights-query.dto';
 import type {
   EffectiveRightsCheck,
+  EffectiveRightsDenialLayer,
   EffectiveRightsResponse,
+  EnrichedDiagnosticCheck,
   MyEffectiveRightsResponse,
   SelfEffectiveControl,
   SelfEffectiveControlId,
@@ -32,9 +37,22 @@ import {
   getResourceAccessDiagnosticEntry,
   resolveRbacCodesForIntent,
 } from './resource-access-diagnostic.registry';
-import { getResourceDiagnosticsConfig } from './resource-diagnostics.registry';
+import {
+  getResourceDiagnosticsConfig,
+  type SupportedDiagnosticResourceType,
+} from './resource-diagnostics.registry';
+import { loadAccessResources } from '../access-decision/access-decision.registry';
+import { AccessDecisionService } from '../access-decision/access-decision.service';
+import type { AccessDecisionResult } from '../access-decision/access-decision.types';
+import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
+import { parseAccessDiagnosticsEnrichedFlag } from './access-diagnostics-enriched.config';
+import {
+  joinAccessDecisionReasonsFr,
+  messageForAccessDecisionReasonCode,
+  messageForOrgScopeReason,
+} from './access-diagnostics-reason-messages.fr';
 
-type DenialLayer = EffectiveRightsResponse['denialReasons'][number]['layer'];
+type DenialLayer = EffectiveRightsDenialLayer;
 
 const CHECK_ORDER: DenialLayer[] = [
   'licenseCheck',
@@ -45,7 +63,7 @@ const CHECK_ORDER: DenialLayer[] = [
   'aclCheck',
 ];
 
-const SELF_CONTROL_ORDER: ReadonlyArray<{
+const SELF_CONTROL_ORDER_BASE: ReadonlyArray<{
   id: SelfEffectiveControlId;
   layer: DenialLayer;
 }> = [
@@ -54,6 +72,22 @@ const SELF_CONTROL_ORDER: ReadonlyArray<{
   { id: 'CLIENT_MODULE_ENABLED', layer: 'moduleActivationCheck' },
   { id: 'USER_MODULE_VISIBLE', layer: 'moduleVisibilityCheck' },
   { id: 'RBAC_PERMISSION', layer: 'rbacCheck' },
+  { id: 'RESOURCE_ACL', layer: 'aclCheck' },
+];
+
+const SELF_CONTROL_ORDER_ENRICHED: ReadonlyArray<{
+  id: SelfEffectiveControlId;
+  layer?: DenialLayer;
+  enrichedKey?: 'organizationScopeCheck' | 'resourceOwnershipCheck' | 'resourceAccessPolicyCheck';
+}> = [
+  { id: 'USER_LICENSE', layer: 'licenseCheck' },
+  { id: 'CLIENT_SUBSCRIPTION', layer: 'subscriptionCheck' },
+  { id: 'CLIENT_MODULE_ENABLED', layer: 'moduleActivationCheck' },
+  { id: 'USER_MODULE_VISIBLE', layer: 'moduleVisibilityCheck' },
+  { id: 'RBAC_PERMISSION', layer: 'rbacCheck' },
+  { id: 'ORGANIZATION_SCOPE', enrichedKey: 'organizationScopeCheck' },
+  { id: 'RESOURCE_OWNERSHIP', enrichedKey: 'resourceOwnershipCheck' },
+  { id: 'RESOURCE_ACCESS_POLICY', enrichedKey: 'resourceAccessPolicyCheck' },
   { id: 'RESOURCE_ACL', layer: 'aclCheck' },
 ];
 
@@ -66,7 +100,17 @@ export class AccessDiagnosticsService {
     private readonly moduleVisibility: ModuleVisibilityService,
     private readonly effectivePermissions: EffectivePermissionsService,
     private readonly auditLogs: AuditLogsService,
+    private readonly config: ConfigService,
+    @Inject(forwardRef(() => AccessDecisionService))
+    private readonly accessDecision: AccessDecisionService,
+    private readonly organizationScope: OrganizationScopeService,
   ) {}
+
+  private isEnrichedFlagOn(): boolean {
+    return parseAccessDiagnosticsEnrichedFlag(
+      this.config.get<string>('ACCESS_DIAGNOSTICS_ENRICHED'),
+    );
+  }
 
   async computeEffectiveRights(params: {
     clientId: string;
@@ -74,18 +118,18 @@ export class AccessDiagnosticsService {
     resourceType: EffectiveRightsQueryDto['resourceType'];
     resourceId: string;
     operation: EffectiveRightsQueryDto['operation'];
-    /** Si défini (y compris []), remplace le mapping RBAC unique issu de `cfg.permissions`. */
     rbacRequiredPermissionCodes?: readonly string[];
-    /** Si défini, ACL évaluée sur ce snapshot (lockout) au lieu de la base. */
     aclRowsOverride?: Array<{
       subjectType: import('@prisma/client').ResourceAclSubjectType;
       subjectId: string;
       permission: import('@prisma/client').ResourceAclPermission;
     }>;
+    /** Requête HTTP réelle uniquement ; jamais d’objet casté vide pour le moteur RFC-018. */
+    httpRequest?: RequestWithClient;
   }): Promise<EffectiveRightsResponse> {
     const cfg = getResourceDiagnosticsConfig(params.resourceType);
     if (!cfg) {
-      return this.buildUnsupportedTypeResponse();
+      return this.stripUndefinedEnriched(this.buildUnsupportedTypeResponse());
     }
 
     const [membership, resource] = await Promise.all([
@@ -100,8 +144,16 @@ export class AccessDiagnosticsService {
     ]);
 
     if (!membership || !resource) {
-      return this.buildOutOfScopeResponse();
+      return this.stripUndefinedEnriched(this.buildOutOfScopeResponse());
     }
+
+    if (resource.clientId !== params.clientId) {
+      return this.stripUndefinedEnriched(this.buildOutOfScopeResponse());
+    }
+
+    const enrichedOn = this.isEnrichedFlagOn();
+    const canUseReadEngine =
+      enrichedOn && params.operation === 'read' && !params.aclRowsOverride;
 
     const licenseCheck = this.evaluateLicenseCheck(membership, params.operation);
     const subscriptionCheck = this.evaluateSubscriptionCheck(membership);
@@ -120,12 +172,14 @@ export class AccessDiagnosticsService {
             userId: params.userId,
             clientId: params.clientId,
             requiredCodes: params.rbacRequiredPermissionCodes,
+            httpRequest: params.httpRequest,
           })
         : await this.evaluateRbacCheck({
             userId: params.userId,
             clientId: params.clientId,
             operation: params.operation,
             requiredPermission: cfg.permissions[params.operation],
+            httpRequest: params.httpRequest,
           });
     const aclCheck = await this.evaluateAclCheck({
       clientId: params.clientId,
@@ -136,7 +190,7 @@ export class AccessDiagnosticsService {
       aclRowsOverride: params.aclRowsOverride,
     });
 
-    return this.buildResponse({
+    let response = this.buildResponse({
       licenseCheck,
       subscriptionCheck,
       moduleActivationCheck,
@@ -144,6 +198,333 @@ export class AccessDiagnosticsService {
       rbacCheck,
       aclCheck,
     });
+
+    if (!enrichedOn) {
+      return this.stripUndefinedEnriched(response);
+    }
+
+    if (canUseReadEngine) {
+      const engine = await this.accessDecision.decide({
+        request: params.httpRequest,
+        clientId: params.clientId,
+        userId: params.userId,
+        resourceType: cfg.resourceType,
+        resourceId: params.resourceId,
+        intent: 'read',
+      });
+      const engineAllowed = engine.allowed;
+      const harmonized = {
+        licenseCheck: this.harmonizeLegacyCheck(licenseCheck, engineAllowed),
+        subscriptionCheck: this.harmonizeLegacyCheck(subscriptionCheck, engineAllowed),
+        moduleActivationCheck: this.harmonizeLegacyCheck(moduleActivationCheck, engineAllowed),
+        moduleVisibilityCheck: this.harmonizeLegacyCheck(moduleVisibilityCheck, engineAllowed),
+        rbacCheck: this.harmonizeLegacyCheck(rbacCheck, engineAllowed),
+        aclCheck: this.harmonizeLegacyCheck(aclCheck, engineAllowed),
+      };
+      const denialReasons = engineAllowed
+        ? []
+        : this.buildEngineDenialReasons(engine);
+      const enriched = await this.buildReadEnrichedChecks({
+        clientId: params.clientId,
+        userId: params.userId,
+        resourceType: cfg.resourceType,
+        resourceId: params.resourceId,
+        engine,
+        httpRequest: params.httpRequest,
+      });
+      response = {
+        ...harmonized,
+        finalDecision: engineAllowed ? 'allowed' : 'denied',
+        denialReasons,
+        computedAt: new Date().toISOString(),
+        ...enriched,
+      };
+      return this.stripUndefinedEnriched(response);
+    }
+
+    if (params.operation === 'write' || params.operation === 'admin') {
+      const info = await this.buildWriteAdminInformationalChecks({
+        clientId: params.clientId,
+        userId: params.userId,
+        resourceType: cfg.resourceType,
+        resourceId: params.resourceId,
+        operation: params.operation,
+        aclResourceType: cfg.aclResourceType,
+        httpRequest: params.httpRequest,
+      });
+      response = {
+        ...response,
+        ...info,
+      };
+    }
+
+    return this.stripUndefinedEnriched(response);
+  }
+
+  private stripUndefinedEnriched(r: EffectiveRightsResponse): EffectiveRightsResponse {
+    const out = { ...r };
+    if (out.organizationScopeCheck === undefined) {
+      delete out.organizationScopeCheck;
+    }
+    if (out.resourceOwnershipCheck === undefined) {
+      delete out.resourceOwnershipCheck;
+    }
+    if (out.resourceAccessPolicyCheck === undefined) {
+      delete out.resourceAccessPolicyCheck;
+    }
+    return out;
+  }
+
+  private harmonizeLegacyCheck(
+    check: EffectiveRightsCheck,
+    engineAllowed: boolean,
+  ): EffectiveRightsCheck {
+    const legacyFail = check.status === 'fail';
+    const legacyAllow = check.status === 'pass' || check.status === 'not_applicable';
+    if (engineAllowed && legacyFail) {
+      return {
+        ...check,
+        status: 'pass',
+        reasonCode: null,
+        message:
+          'Ce contrôle pris isolément serait en échec ; la décision finale de lecture suit le moteur RFC-018.',
+        evaluationMode: 'superseded_by_decision_engine',
+      };
+    }
+    if (!engineAllowed && legacyAllow) {
+      return {
+        ...check,
+        status: 'pass',
+        reasonCode: null,
+        message:
+          'Ce critère est satisfait, mais la lecture est refusée par le moteur RFC-018 (consolidation licence, RBAC, organisation et politique d’accès).',
+        evaluationMode: 'informational',
+      };
+    }
+    return { ...check, evaluationMode: 'enforced' };
+  }
+
+  private mapEngineReasonToLayer(code: string): EffectiveRightsDenialLayer {
+    if (code.includes('SUBSCRIPTION')) {
+      return 'subscriptionCheck';
+    }
+    if (code.includes('LICENSE')) {
+      return 'licenseCheck';
+    }
+    if (code.includes('MODULE')) {
+      return 'moduleActivationCheck';
+    }
+    if (code.includes('RBAC') || code.includes('ORG') || code.includes('SCOPE')) {
+      return 'rbacCheck';
+    }
+    return 'aclCheck';
+  }
+
+  private buildEngineDenialReasons(engine: AccessDecisionResult): Array<{
+    layer: EffectiveRightsDenialLayer;
+    reasonCode: string;
+    message: string;
+  }> {
+    return engine.reasonCodes.map((reasonCode) => ({
+      layer: this.mapEngineReasonToLayer(reasonCode),
+      reasonCode,
+      message: messageForAccessDecisionReasonCode(reasonCode),
+    }));
+  }
+
+  private async buildReadEnrichedChecks(input: {
+    clientId: string;
+    userId: string;
+    resourceType: SupportedDiagnosticResourceType;
+    resourceId: string;
+    engine: AccessDecisionResult;
+    httpRequest?: RequestWithClient;
+  }): Promise<{
+    organizationScopeCheck: EnrichedDiagnosticCheck;
+    resourceOwnershipCheck: EnrichedDiagnosticCheck;
+    resourceAccessPolicyCheck: EnrichedDiagnosticCheck;
+  }> {
+    const org = input.engine.orgScope;
+    let orgStatus: EffectiveRightsCheck['status'] = 'pass';
+    let orgReason: string | null = null;
+    let orgMsg = 'Périmètre organisationnel compatible avec la décision de lecture.';
+    if (org?.required && org.verdict?.level === 'NONE') {
+      orgStatus = 'fail';
+      orgReason = 'ACCESS_DENIED_ORG_SCOPE';
+      orgMsg = joinAccessDecisionReasonsFr(input.engine.reasonCodes);
+    } else if (org?.required && org.verdict) {
+      orgMsg = `Périmètre organisationnel : ${org.verdict.level}. ${(org.verdict.reasonCodes ?? [])
+        .map((c) => messageForOrgScopeReason(c))
+        .join(' ')}`;
+    } else if (!org?.required) {
+      orgMsg =
+        'Périmètre organisationnel non exigé pour cette combinaison permission / ressource (ex. lecture élargie).';
+    }
+
+    const ownership = await this.buildOwnershipCheck({
+      clientId: input.clientId,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      enforcedForIntent: true,
+    });
+
+    const acl = input.engine.acl;
+    const polStatus: EffectiveRightsCheck['status'] = acl?.allowed ? 'pass' : 'fail';
+    const polMsg = acl
+      ? `Politique / ACL : mode ${acl.mode}, effectif ${acl.effectiveAccessMode}. ${messageForAccessDecisionReasonCode(acl.reasonCode)}`
+      : 'Politique d’accès : non résolue.';
+
+    return {
+      organizationScopeCheck: {
+        status: orgStatus,
+        reasonCode: orgReason,
+        message: orgMsg,
+        enforcedForIntent: true,
+        details: org?.verdict
+          ? { level: org.verdict.level, reasonCodes: org.verdict.reasonCodes }
+          : { required: org?.required ?? false },
+      },
+      resourceOwnershipCheck: ownership,
+      resourceAccessPolicyCheck: {
+        status: polStatus,
+        reasonCode: acl?.reasonCode ?? null,
+        message: polMsg,
+        enforcedForIntent: true,
+        details: acl
+          ? {
+              mode: acl.mode,
+              effectiveAccessMode: acl.effectiveAccessMode,
+              aclRank: acl.aclRank,
+              floorAllowed: input.engine.floorAllowed,
+            }
+          : undefined,
+      },
+    };
+  }
+
+  private async buildOwnershipCheck(input: {
+    clientId: string;
+    resourceType: SupportedDiagnosticResourceType;
+    resourceId: string;
+    enforcedForIntent: boolean;
+  }): Promise<EnrichedDiagnosticCheck> {
+    const map = await loadAccessResources(this.prisma, {
+      clientId: input.clientId,
+      resourceType: input.resourceType,
+      resourceIds: [input.resourceId],
+    });
+    const row = map.get(input.resourceId);
+    if (!row) {
+      return {
+        status: 'not_applicable',
+        reasonCode: null,
+        message: 'Propriété organisationnelle : ressource hors registre de diagnostic.',
+        enforcedForIntent: input.enforcedForIntent,
+      };
+    }
+    if (row.ownerOrgUnitId === null) {
+      return {
+        status: 'fail',
+        reasonCode: 'MISSING_OWNER_ORG_UNIT',
+        message: 'Aucune unité organisationnelle propriétaire n’est définie sur cette ressource.',
+        enforcedForIntent: input.enforcedForIntent,
+      };
+    }
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id: row.ownerOrgUnitId, clientId: input.clientId },
+      select: { name: true, code: true, status: true, archivedAt: true },
+    });
+    if (
+      !unit ||
+      unit.status !== OrgUnitStatus.ACTIVE ||
+      unit.archivedAt !== null
+    ) {
+      return {
+        status: 'fail',
+        reasonCode: 'SCOPE_OWNER_ORG_UNIT_INACTIVE',
+        message:
+          'L’unité organisationnelle propriétaire est absente, inactive ou archivée pour ce client.',
+        enforcedForIntent: input.enforcedForIntent,
+        details: { ownerOrgUnitId: row.ownerOrgUnitId },
+      };
+    }
+    const label = unit.code ? `${unit.name} (${unit.code})` : unit.name;
+    return {
+      status: 'pass',
+      reasonCode: null,
+      message: `Unité propriétaire : ${label}.`,
+      enforcedForIntent: input.enforcedForIntent,
+      details: { ownerOrgUnitLabel: label },
+    };
+  }
+
+  private async buildWriteAdminInformationalChecks(input: {
+    clientId: string;
+    userId: string;
+    resourceType: SupportedDiagnosticResourceType;
+    resourceId: string;
+    operation: 'write' | 'admin';
+    aclResourceType: keyof typeof RESOURCE_ACL_RESOURCE_TYPES;
+    httpRequest?: RequestWithClient;
+  }): Promise<{
+    organizationScopeCheck: EnrichedDiagnosticCheck;
+    resourceOwnershipCheck: EnrichedDiagnosticCheck;
+    resourceAccessPolicyCheck: EnrichedDiagnosticCheck;
+  }> {
+    const map = await loadAccessResources(this.prisma, {
+      clientId: input.clientId,
+      resourceType: input.resourceType,
+      resourceIds: [input.resourceId],
+    });
+    const row = map.get(input.resourceId);
+    const cu = await this.prisma.clientUser.findFirst({
+      where: { clientId: input.clientId, userId: input.userId },
+      select: { resourceId: true },
+    });
+    const verdict = await this.organizationScope.resolveOrgScope({
+      clientId: input.clientId,
+      userId: input.userId,
+      resource: {
+        ownerOrgUnitId: row?.ownerOrgUnitId ?? null,
+        ownHints: { subjectResourceId: cu?.resourceId ?? null },
+      },
+      request: input.httpRequest,
+    });
+    const aclType = RESOURCE_ACL_RESOURCE_TYPES[input.aclResourceType];
+    const aclEval = await this.accessControl.evaluateResourceAccess({
+      clientId: input.clientId,
+      userId: input.userId,
+      resourceTypeNormalized: aclType,
+      resourceId: input.resourceId,
+      operation: input.operation,
+      sharingFloorAllows: true,
+    });
+    const ownership = await this.buildOwnershipCheck({
+      clientId: input.clientId,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      enforcedForIntent: false,
+    });
+    return {
+      organizationScopeCheck: {
+        status: 'pass',
+        reasonCode: null,
+        message: `Aperçu organisationnel (informatif) : verdict ${verdict.level}. ${verdict.reasonCodes.map((c) => messageForOrgScopeReason(c)).join(' ')}`,
+        enforcedForIntent: false,
+        details: { level: verdict.level, reasonCodes: verdict.reasonCodes },
+      },
+      resourceOwnershipCheck: ownership,
+      resourceAccessPolicyCheck: {
+        status: aclEval.allowed ? 'pass' : 'fail',
+        reasonCode: aclEval.reasonCode,
+        message: `Aperçu politique / ACL pour l’opération « ${input.operation} » (informatif, non contractuel tant que RFC-020 n’est pas livré) : ${messageForAccessDecisionReasonCode(aclEval.reasonCode)}`,
+        enforcedForIntent: false,
+        details: {
+          mode: aclEval.mode,
+          effectiveAccessMode: aclEval.effectiveAccessMode,
+        },
+      },
+    };
   }
 
   private evaluateLicenseCheck(
@@ -251,6 +632,7 @@ export class AccessDiagnosticsService {
     userId: string;
     clientId: string;
     requiredCodes: readonly string[];
+    httpRequest?: RequestWithClient;
   }): Promise<EffectiveRightsCheck> {
     if (params.requiredCodes.length === 0) {
       return this.naCheck(
@@ -261,7 +643,7 @@ export class AccessDiagnosticsService {
       await this.effectivePermissions.resolvePermissionCodesForRequest({
         userId: params.userId,
         clientId: params.clientId,
-        request: {} as RequestWithClient,
+        request: params.httpRequest,
       });
     for (const code of params.requiredCodes) {
       if (!satisfiesPermission(permissionCodes, code)) {
@@ -275,7 +657,6 @@ export class AccessDiagnosticsService {
     return this.passCheck('Permissions RBAC requises présentes.');
   }
 
-  /** Détail diagnostic quand un code scoped existe sans ouvrir le legacy (RFC-ACL-015). */
   private rbacAcl015DetailsIfRelevant(
     userCodes: ReadonlySet<string>,
     requiredCode: string,
@@ -299,6 +680,7 @@ export class AccessDiagnosticsService {
     clientId: string;
     operation: EffectiveRightsQueryDto['operation'];
     requiredPermission: string | null;
+    httpRequest?: RequestWithClient;
   }): Promise<EffectiveRightsCheck> {
     if (!params.requiredPermission) {
       return this.failCheck(
@@ -310,7 +692,7 @@ export class AccessDiagnosticsService {
       await this.effectivePermissions.resolvePermissionCodesForRequest({
         userId: params.userId,
         clientId: params.clientId,
-        request: {} as RequestWithClient,
+        request: params.httpRequest,
       });
     if (!satisfiesPermission(permissionCodes, params.requiredPermission)) {
       return this.failCheck(
@@ -465,6 +847,7 @@ export class AccessDiagnosticsService {
     userId: string;
     query: MyEffectiveRightsQueryDto;
     meta?: RequestMeta;
+    httpRequest?: RequestWithClient;
   }): Promise<MyEffectiveRightsResponse> {
     const rt = params.query.resourceType.trim().toUpperCase();
     const entry = getResourceAccessDiagnosticEntry(rt);
@@ -508,10 +891,11 @@ export class AccessDiagnosticsService {
       resourceId: params.query.resourceId,
       operation,
       rbacRequiredPermissionCodes: [...rbacCodes],
+      httpRequest: params.httpRequest,
     });
 
     const out = this.mapRawToMyRights(raw, resource.label);
-    await this.auditMyDiagnostic(params, out);
+    await this.auditMyDiagnostic(params, out, raw);
     return out;
   }
 
@@ -527,30 +911,68 @@ export class AccessDiagnosticsService {
     r: EffectiveRightsResponse,
     resourceLabel: string,
   ): MyEffectiveRightsResponse {
-    const controls: SelfEffectiveControl[] = SELF_CONTROL_ORDER.map(({ id, layer }) => {
+    const useEnrichedControls =
+      r.organizationScopeCheck !== undefined ||
+      r.resourceOwnershipCheck !== undefined ||
+      r.resourceAccessPolicyCheck !== undefined;
+
+    const order = useEnrichedControls ? SELF_CONTROL_ORDER_ENRICHED : SELF_CONTROL_ORDER_BASE;
+
+    const controls: SelfEffectiveControl[] = order.map((row) => {
+      if ('enrichedKey' in row && row.enrichedKey) {
+        const b = r[row.enrichedKey]!;
+        return {
+          id: row.id,
+          status: b.status,
+          reasonCode: b.reasonCode,
+          message: b.message,
+          enforcedForIntent: b.enforcedForIntent,
+        };
+      }
+      const layer = (row as { layer: DenialLayer }).layer;
       const c = r[layer];
       return {
-        id,
+        id: row.id,
         status:
-          c.status === 'pass'
-            ? 'pass'
-            : c.status === 'fail'
-              ? 'fail'
-              : 'not_applicable',
+          c.status === 'pass' ? 'pass' : c.status === 'fail' ? 'fail' : 'not_applicable',
         reasonCode: c.reasonCode,
         message: c.message,
+        evaluationMode: c.evaluationMode,
       };
     });
+
     const denied = r.finalDecision === 'denied';
-    const firstFail = SELF_CONTROL_ORDER.map((x) => r[x.layer]).find(
-      (c) => c.status === 'fail',
-    );
+    const firstBlocking = order
+      .map((row) => {
+        if ('enrichedKey' in row && row.enrichedKey) {
+          const b = r[row.enrichedKey]!;
+          if (b.status === 'fail') {
+            return { reasonCode: b.reasonCode, message: b.message };
+          }
+          return null;
+        }
+        const layer = (row as { layer: DenialLayer }).layer;
+        const c = r[layer];
+        if (c.status === 'fail') {
+          return { reasonCode: c.reasonCode, message: c.message };
+        }
+        return null;
+      })
+      .find(Boolean);
+
     const safeMessage = denied
-      ? (firstFail?.message ?? 'Accès refusé pour cette intention.')
+      ? (firstBlocking?.message ??
+          r.denialReasons[0]?.message ??
+          'Accès refusé pour cette intention.')
       : 'Accès autorisé pour cette intention.';
+
     return {
       finalDecision: denied ? 'DENIED' : 'ALLOWED',
-      reasonCode: denied ? (firstFail?.reasonCode ?? 'ACCESS_DENIED') : null,
+      reasonCode: denied
+        ? (firstBlocking?.reasonCode ??
+            r.denialReasons[0]?.reasonCode ??
+            'ACCESS_DENIED')
+        : null,
       resourceLabel,
       controls,
       safeMessage,
@@ -562,7 +984,7 @@ export class AccessDiagnosticsService {
     safeMessage: string,
     reasonCode: string,
   ): MyEffectiveRightsResponse {
-    const controls: SelfEffectiveControl[] = SELF_CONTROL_ORDER.map(({ id }) => ({
+    const controls: SelfEffectiveControl[] = SELF_CONTROL_ORDER_BASE.map(({ id }) => ({
       id,
       status: 'fail' as const,
       reasonCode,
@@ -586,11 +1008,20 @@ export class AccessDiagnosticsService {
       meta?: RequestMeta;
     },
     out: MyEffectiveRightsResponse,
+    raw?: EffectiveRightsResponse,
   ): Promise<void> {
     if (out.finalDecision === 'ALLOWED') {
       return;
     }
     try {
+      const engineCodes =
+        raw?.denialReasons?.map((d) => d.reasonCode).filter(Boolean) ?? [];
+      const orgLevel =
+        raw?.organizationScopeCheck?.details &&
+        typeof (raw.organizationScopeCheck.details as { level?: string }).level ===
+          'string'
+          ? (raw.organizationScopeCheck.details as { level: string }).level
+          : undefined;
       await this.auditLogs.create({
         clientId: params.clientId,
         userId: params.userId,
@@ -603,6 +1034,8 @@ export class AccessDiagnosticsService {
           resourceType: params.query.resourceType,
           finalDecision: out.finalDecision,
           reasonCode: out.reasonCode,
+          decisionReasonCodesPreview: engineCodes.slice(0, 8),
+          orgVerdictLevel: orgLevel,
         },
         ipAddress: params.meta?.ipAddress,
         userAgent: params.meta?.userAgent,
@@ -613,10 +1046,6 @@ export class AccessDiagnosticsService {
     }
   }
 
-  /**
-   * RFC-ACL-014 §2 — après simulation des lignes ACL finales, existe-t-il au moins un
-   * utilisateur actif qui passe les six contrôles avec intention ADMIN (RBAC registre + ACL simulée).
-   */
   async hasEffectiveAdminSuccessorAfterSimulation(params: {
     clientId: string;
     resourceType: string;

@@ -31,4 +31,48 @@ describe('effective-rights-matrix', () => {
     ]);
     expect(rows[4]?.reasonCode).toBe('RBAC_PERMISSION_MISSING');
   });
+
+  it('insère les blocs enrichis entre RBAC et ACL lorsque présents', () => {
+    const rows = toEffectiveRightsRows({
+      licenseCheck: { status: 'pass', reasonCode: null, message: 'ok' },
+      subscriptionCheck: { status: 'not_applicable', reasonCode: null, message: 'na' },
+      moduleActivationCheck: { status: 'pass', reasonCode: null, message: 'ok' },
+      moduleVisibilityCheck: { status: 'pass', reasonCode: null, message: 'ok' },
+      rbacCheck: { status: 'pass', reasonCode: null, message: 'ok' },
+      aclCheck: { status: 'pass', reasonCode: null, message: 'ok' },
+      organizationScopeCheck: {
+        status: 'pass',
+        reasonCode: null,
+        message: 'org ok',
+        enforcedForIntent: true,
+      },
+      resourceOwnershipCheck: {
+        status: 'pass',
+        reasonCode: null,
+        message: 'own ok',
+        enforcedForIntent: true,
+      },
+      resourceAccessPolicyCheck: {
+        status: 'pass',
+        reasonCode: null,
+        message: 'pol ok',
+        enforcedForIntent: true,
+      },
+      finalDecision: 'allowed',
+      denialReasons: [],
+      computedAt: new Date().toISOString(),
+    });
+
+    expect(rows.map((r) => r.key)).toEqual([
+      'licenseCheck',
+      'subscriptionCheck',
+      'moduleActivationCheck',
+      'moduleVisibilityCheck',
+      'rbacCheck',
+      'organizationScopeCheck',
+      'resourceOwnershipCheck',
+      'resourceAccessPolicyCheck',
+      'aclCheck',
+    ]);
+  });
 });

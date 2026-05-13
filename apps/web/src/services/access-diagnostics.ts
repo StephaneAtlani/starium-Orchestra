@@ -11,6 +11,8 @@ export type MyEffectiveRightsPayload = {
     status: 'pass' | 'fail' | 'not_applicable';
     reasonCode: string | null;
     message: string;
+    enforcedForIntent?: boolean;
+    evaluationMode?: 'enforced' | 'informational' | 'superseded_by_decision_engine';
   }>;
   safeMessage: string;
   computedAt: string;

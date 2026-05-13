@@ -15,10 +15,11 @@ export class EffectivePermissionsService {
   async resolvePermissionCodesForRequest(params: {
     userId: string;
     clientId: string;
-    request: RequestWithClient;
+    /** Absent hors requête HTTP : pas de cache `resolvedPermissionCodes`. */
+    request?: RequestWithClient;
   }): Promise<Set<string>> {
     const { userId, clientId, request } = params;
-    if (request.resolvedPermissionCodes) {
+    if (request?.resolvedPermissionCodes) {
       return request.resolvedPermissionCodes;
     }
     const prisma = this.prisma as any;
@@ -53,7 +54,9 @@ export class EffectivePermissionsService {
       }
     }
 
-    request.resolvedPermissionCodes = codes;
+    if (request) {
+      request.resolvedPermissionCodes = codes;
+    }
     return codes;
   }
 }

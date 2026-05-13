@@ -55,13 +55,14 @@ describe('PlatformAccessDiagnosticsController', () => {
       resourceId: 'resource-1',
       resourceType: 'PROJECT',
       operation: 'read',
-    } as any);
+    } as any, {} as any);
 
     expect(service.computeEffectiveRights).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: 'client-route',
         userId: 'user-1',
         resourceType: 'PROJECT',
+        httpRequest: {},
       }),
     );
   });

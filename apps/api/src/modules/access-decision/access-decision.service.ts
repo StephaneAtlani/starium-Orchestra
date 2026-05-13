@@ -55,7 +55,8 @@ export class AccessDecisionService {
    * RFC-ACL-018 — lecture / liste uniquement en V1 (`write` / `admin` → erreur explicite).
    */
   async decide(params: {
-    request: RequestWithClient;
+    /** Optionnel hors contexte HTTP (diagnostic sans requête réelle). */
+    request?: RequestWithClient;
     clientId: string;
     userId: string;
     resourceType: SupportedDiagnosticResourceType;
@@ -307,7 +308,7 @@ export class AccessDecisionService {
   }
 
   private async resolveOrgAndFloor(input: {
-    request: RequestWithClient;
+    request?: RequestWithClient;
     clientId: string;
     userId: string;
     orgScopeRequired: boolean;
@@ -351,7 +352,7 @@ export class AccessDecisionService {
   }
 
   private async runReadGates(params: {
-    request: RequestWithClient;
+    request?: RequestWithClient;
     clientId: string;
     userId: string;
     resourceType: SupportedDiagnosticResourceType;

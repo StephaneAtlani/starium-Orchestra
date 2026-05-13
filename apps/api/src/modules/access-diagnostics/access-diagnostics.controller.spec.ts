@@ -42,7 +42,7 @@ describe('AccessDiagnosticsController', () => {
       resourceId: 'resource-1',
       resourceType: 'PROJECT',
       operation: 'read',
-    } as any);
+    } as any, { user: { userId: 'admin' } } as any);
 
     expect(service.computeEffectiveRights).toHaveBeenCalledWith({
       clientId: 'client-active',
@@ -50,6 +50,7 @@ describe('AccessDiagnosticsController', () => {
       resourceType: 'PROJECT',
       resourceId: 'resource-1',
       operation: 'read',
+      httpRequest: { user: { userId: 'admin' } },
     });
   });
 });

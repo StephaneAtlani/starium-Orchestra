@@ -56,7 +56,7 @@ describe('AccessDecisionService', () => {
           status: ClientUserStatus.ACTIVE,
           licenseType: ClientUserLicenseType.READ_WRITE,
           licenseEndsAt: null,
-          licenseBillingMode: ClientUserLicenseBillingMode.NONE,
+          licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
           subscriptionId: null,
           subscription: null,
         }),

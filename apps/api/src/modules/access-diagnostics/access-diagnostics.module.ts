@@ -5,6 +5,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AccessControlModule } from '../access-control/access-control.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { ModuleVisibilityModule } from '../module-visibility/module-visibility.module';
@@ -18,6 +19,7 @@ import { PlatformAccessDiagnosticsController } from './platform-access-diagnosti
     PrismaModule,
     AuthModule,
     forwardRef(() => AccessControlModule),
+    forwardRef(() => AccessDecisionModule),
     ModuleVisibilityModule,
     AuditLogsModule,
   ],

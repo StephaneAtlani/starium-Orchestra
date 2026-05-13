@@ -17,10 +17,24 @@ export type EffectiveRightsResourceType =
   | 'SUPPLIER'
   | 'STRATEGIC_OBJECTIVE';
 
+export type EffectiveRightsEvaluationMode =
+  | 'enforced'
+  | 'informational'
+  | 'superseded_by_decision_engine';
+
 export type EffectiveRightsCheck = {
   status: 'pass' | 'fail' | 'not_applicable';
   reasonCode: string | null;
   message: string;
+  details?: Record<string, unknown>;
+  evaluationMode?: EffectiveRightsEvaluationMode;
+};
+
+export type EnrichedDiagnosticCheck = {
+  status: 'pass' | 'fail' | 'not_applicable';
+  reasonCode: string | null;
+  message: string;
+  enforcedForIntent: boolean;
   details?: Record<string, unknown>;
 };
 
@@ -34,6 +48,9 @@ export type EffectiveRightsResponse = {
   finalDecision: 'allowed' | 'denied';
   denialReasons: Array<{ layer: string; reasonCode: string; message: string }>;
   computedAt: string;
+  organizationScopeCheck?: EnrichedDiagnosticCheck;
+  resourceOwnershipCheck?: EnrichedDiagnosticCheck;
+  resourceAccessPolicyCheck?: EnrichedDiagnosticCheck;
 };
 
 export type EffectiveRightsQuery = {

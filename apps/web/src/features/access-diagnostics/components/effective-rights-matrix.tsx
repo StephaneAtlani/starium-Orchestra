@@ -2,64 +2,129 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import type { EffectiveRightsResponse } from '../api/access-diagnostics';
+import type {
+  EffectiveRightsCheck,
+  EffectiveRightsEvaluationMode,
+  EffectiveRightsResponse,
+  EnrichedDiagnosticCheck,
+} from '../api/access-diagnostics';
 
 type MatrixRow = {
   key: string;
   title: string;
-  status: 'pass' | 'fail' | 'not_applicable';
+  status: EffectiveRightsCheck['status'];
   reasonCode: string | null;
   message: string;
+  evaluationMode?: EffectiveRightsEvaluationMode;
+  enforcedForIntent?: boolean;
 };
+
+const EVAL_MODE_LABEL_FR: Record<EffectiveRightsEvaluationMode, string> = {
+  enforced: 'Contrôle effectif (aligné RFC-018)',
+  informational: 'Informatif (non bloquant seul)',
+  superseded_by_decision_engine: 'Remplacé par le moteur RFC-018',
+};
+
+function rowFromCheck(
+  key: string,
+  title: string,
+  check: EffectiveRightsCheck | EnrichedDiagnosticCheck,
+): MatrixRow {
+  const base: MatrixRow = {
+    key,
+    title,
+    status: check.status,
+    reasonCode: check.reasonCode,
+    message: check.message,
+  };
+  if ('evaluationMode' in check && check.evaluationMode) {
+    base.evaluationMode = check.evaluationMode;
+  }
+  if ('enforcedForIntent' in check) {
+    base.enforcedForIntent = check.enforcedForIntent;
+  }
+  return base;
+}
 
 export function toEffectiveRightsRows(
   response: EffectiveRightsResponse,
 ): MatrixRow[] {
-  return [
-    {
-      key: 'licenseCheck',
-      title: 'Licence',
-      ...response.licenseCheck,
-    },
-    {
-      key: 'subscriptionCheck',
-      title: 'Abonnement',
-      ...response.subscriptionCheck,
-    },
-    {
-      key: 'moduleActivationCheck',
-      title: 'Activation module',
-      ...response.moduleActivationCheck,
-    },
-    {
-      key: 'moduleVisibilityCheck',
-      title: 'Visibilité module',
-      ...response.moduleVisibilityCheck,
-    },
-    {
-      key: 'rbacCheck',
-      title: 'RBAC',
-      ...response.rbacCheck,
-    },
-    {
-      key: 'aclCheck',
-      title: 'ACL ressource',
-      ...response.aclCheck,
-    },
+  const rows: MatrixRow[] = [
+    rowFromCheck('licenseCheck', 'Licence', response.licenseCheck),
+    rowFromCheck('subscriptionCheck', 'Abonnement', response.subscriptionCheck),
+    rowFromCheck(
+      'moduleActivationCheck',
+      'Activation module',
+      response.moduleActivationCheck,
+    ),
+    rowFromCheck(
+      'moduleVisibilityCheck',
+      'Visibilité module',
+      response.moduleVisibilityCheck,
+    ),
+    rowFromCheck('rbacCheck', 'RBAC', response.rbacCheck),
   ];
+
+  if (response.organizationScopeCheck) {
+    rows.push(
+      rowFromCheck(
+        'organizationScopeCheck',
+        'Périmètre organisationnel',
+        response.organizationScopeCheck,
+      ),
+    );
+  }
+  if (response.resourceOwnershipCheck) {
+    rows.push(
+      rowFromCheck(
+        'resourceOwnershipCheck',
+        'Propriété organisationnelle',
+        response.resourceOwnershipCheck,
+      ),
+    );
+  }
+  if (response.resourceAccessPolicyCheck) {
+    rows.push(
+      rowFromCheck(
+        'resourceAccessPolicyCheck',
+        'Politique / ACL (consolidé)',
+        response.resourceAccessPolicyCheck,
+      ),
+    );
+  }
+
+  rows.push(rowFromCheck('aclCheck', 'ACL ressource (vue historique)', response.aclCheck));
+
+  return rows;
 }
 
-function statusLabel(status: MatrixRow['status']): string {
-  if (status === 'pass') return 'PASS';
-  if (status === 'fail') return 'FAIL';
+function statusLabel(row: MatrixRow): string {
+  if (row.status === 'pass') {
+    if (
+      row.evaluationMode === 'superseded_by_decision_engine' ||
+      row.evaluationMode === 'informational'
+    ) {
+      return 'OK';
+    }
+    return 'PASS';
+  }
+  if (row.status === 'fail') return 'FAIL';
   return 'N/A';
 }
 
 function statusVariant(
-  status: MatrixRow['status'],
-): 'default' | 'secondary' | 'destructive' {
-  if (status === 'pass') return 'default';
-  if (status === 'fail') return 'destructive';
+  row: MatrixRow,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
+  if (row.status === 'pass') {
+    if (
+      row.evaluationMode === 'superseded_by_decision_engine' ||
+      row.evaluationMode === 'informational'
+    ) {
+      return 'secondary';
+    }
+    return 'default';
+  }
+  if (row.status === 'fail') return 'destructive';
   return 'secondary';
 }
 
@@ -87,9 +152,19 @@ export function EffectiveRightsMatrix({
           >
             <div className="mb-1 flex items-center justify-between gap-2">
               <span className="font-medium">{row.title}</span>
-              <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <Badge variant={statusVariant(row)}>{statusLabel(row)}</Badge>
+                {row.enforcedForIntent === false && (
+                  <span className="text-[10px] text-muted-foreground">Informatif</span>
+                )}
+              </div>
             </div>
             <p className="text-muted-foreground">{row.message}</p>
+            {row.evaluationMode && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {EVAL_MODE_LABEL_FR[row.evaluationMode]}
+              </p>
+            )}
             {row.reasonCode && (
               <p className="mt-1 text-xs text-muted-foreground">Code: {row.reasonCode}</p>
             )}

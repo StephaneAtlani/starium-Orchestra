@@ -38,12 +38,13 @@ describe('AccessDiagnosticsSelfController', () => {
       resourceType: 'PROJECT',
       resourceId: 'caaaaaaaaaaaaaaaaaaaaaaaaa',
     } as any;
-    await controller.getMyEffectiveRights('client-1', 'user-1', query, {} as any);
+    await controller.getMyEffectiveRights('client-1', 'user-1', query, {} as any, {} as any);
     expect(service.computeMyEffectiveRights).toHaveBeenCalledWith({
       clientId: 'client-1',
       userId: 'user-1',
       query,
       meta: {},
+      httpRequest: {},
     });
   });
 });
