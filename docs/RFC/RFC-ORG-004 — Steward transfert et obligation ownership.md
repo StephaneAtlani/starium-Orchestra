@@ -2,7 +2,9 @@
 
 ## Statut
 
-**📝 Draft** — 2026-05. Tranche **V2** après [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) (V1 : `ownerOrgUnitId` nullable). Dépend des données stabilisées par [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md).
+**✅ Implémentée (V1)** — 2026-05. Tranche **V2** après [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md). Activation obligation en prod : backfill owner ([RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md)) + flag client `ORG_OWNERSHIP_REQUIRED` (cf. [runbook](../runbooks/migration-org-scope-access.md) §7).
+
+**Hors V1 livré** : exposition API/UI `stewardSummary` et champ steward sur les fiches métier **hors Projet** (colonnes Prisma prêtes ; extension module par module).
 
 ## Alignement plan
 
@@ -30,7 +32,7 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 
 - **Steward** = `Resource` HUMAN responsable métier **distinct** de la Direction propriétaire (ex. chef de projet sur budget d’une autre Direction) — optionnel, nullable.
 - **Transfert** = opération atomique **multi-ressources** ou **unité → unité** avec audit unique `*.ownership.transferred` (en plus ou à la place des `*.ownership.changed` unitaires).
-- **Obligation** : activable par client via `Client.metadata` ou table `ClientOrgOwnershipPolicy` — phases :
+- **Obligation** : table `ClientOrgOwnershipPolicy` (pas de `Client.metadata`) — phases :
   - `ADVISORY` (défaut, = V1) : warnings UI + cockpit ;
   - `REQUIRED_ON_CREATE` : refus création sans `ownerOrgUnitId` ;
   - `REQUIRED_ON_ACTIVATE` : refus passage à statut « actif » métier sans owner.
@@ -51,44 +53,85 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 
 ---
 
-## 4. Implémentation
+## 4. Implémentation livrée (dépôt)
 
-### 4.1 Steward (optionnel V2a)
+Migration : `apps/api/prisma/migrations/20260516120000_rfc_org_004_steward_ownership_policy/`.
 
-- Colonne `stewardResourceId String?` → `Resource` HUMAN, `onDelete: SetNull`.
-- Réponse API `stewardSummary: { id, displayName, email? } | null`.
-- Permission : `organization.steward.update` ou réutilisation `*.update` module — **à trancher** (recommandation : `projects.update` etc. pour steward sur la ressource, `organization.steward.update` pour changement sans droit module).
+### 4.1 Steward
 
-### 4.2 Transfert dédié (V2b)
+| Élément | Livré |
+| --- | --- |
+| Prisma | `stewardResourceId` sur les 6 entités ORG-003, FK `Resource` (`onDelete: SetNull`), index `(clientId, stewardResourceId)` |
+| API **Projet** | DTO create/update `stewardResourceId` ; réponse `stewardSummary` ; audit `project.steward.changed` |
+| API **Budget** | DTO create `stewardResourceId` (persistance) — pas encore `stewardSummary` en réponse liste/détail |
+| API autres modules | Colonne Prisma uniquement (pas de DTO/réponse steward V1) |
+| Permission | Pas de `organization.steward.update` — steward modifiable via `projects.update` (et futurs `*.update` par module) |
 
-**`POST /api/organization/ownership-transfers`**
+Helpers : `apps/api/src/modules/organization/steward-resource.helpers.ts`, `organization-steward.integration.ts`.
+
+### 4.2 Transfert massif
+
+**`POST /api/organization/ownership-transfers`** — permission `organization.ownership.transfer` + `organization.read`.
 
 ```json
 {
   "fromOrgUnitId": "…",
   "toOrgUnitId": "…",
-  "resourceTypes": ["Project", "Budget"],
-  "dryRun": true
+  "resourceTypes": ["PROJECT", "BUDGET"],
+  "dryRun": true,
+  "confirmApply": false,
+  "page": 1,
+  "limit": 50
 }
 ```
 
-- Permission : `organization.ownership.transfer` (+ `organization.read`).
-- Dry-run : compteurs par type, liste tronquée (pagination).
-- Apply : transaction par type ; audit `organization.ownership.batch_transferred` avec payload `{ from, to, counts }`.
-- Refus si `toOrgUnit` ARCHIVED ou hors client.
+| Règle | Comportement |
+| --- | --- |
+| `dryRun: true` | Compteurs + échantillon paginé ; **aucun** `updateMany` ; **aucun** audit |
+| `dryRun: false` sans `confirmApply: true` | **400** |
+| `dryRun: false` + `confirmApply: true` | Apply + audit `organization.ownership.batch_transferred` |
 
-### 4.3 Obligation ownership (V2c)
+**`resourceTypes`** (SCREAMING_SNAKE, aligné diagnostics ACL) : `PROJECT`, `BUDGET`, `BUDGET_LINE`, `SUPPLIER`, `CONTRACT`, `STRATEGIC_OBJECTIVE` — pas les noms Prisma (`Project`, `SupplierContract`, …).
 
-- Lecture policy : `GET /api/clients/active/organization-ownership-policy` → `{ mode: 'ADVISORY' | 'REQUIRED_ON_CREATE' | 'REQUIRED_ON_ACTIVATE' }`.
-- Écriture : `PATCH` même route, `organization.update` ou permission dédiée `organization.policy.update`.
-- Services create : `assertOwnerOrgUnitIfRequired(clientId, dto, lifecycle)`.
-- Feature flag client optionnel `ORG_OWNERSHIP_REQUIRED` (022) pour bascule progressive.
+**`BudgetLine`** : uniquement lignes avec `ownerOrgUnitId` stocké = `fromOrgUnitId` (overrides) ; lignes héritant du budget parent **non** modifiées. `StrategicObjective.directionId` **jamais** touché.
 
-### Frontend
+Code : `ownership-transfer.service.ts`, `ownership-transfer-resource-types.ts`, `dto/transfer-ownership.dto.ts`.
 
-- Libellés métier pour steward et transfert (jamais UUID seul).
-- Wizard transfert : sélection **Directions** par nom/code, récapitulatif counts, confirmation.
-- Bandeau obligation : réutiliser `OwnerOrgUnitNullWarning` en mode bloquant si policy ≠ ADVISORY.
+### 4.3 Obligation ownership
+
+**`GET|PATCH /api/organization/ownership-policy`** (client actif via `ActiveClientGuard`) — pas `/api/clients/active/…`.
+
+Réponse GET :
+
+```json
+{
+  "mode": "ADVISORY",
+  "enforcementEnabled": false,
+  "flagKey": "ORG_OWNERSHIP_REQUIRED"
+}
+```
+
+- `enforcementEnabled` = `mode` ∈ `REQUIRED_ON_*` **et** flag `ORG_OWNERSHIP_REQUIRED` actif (`ClientFeatureFlag` ou env, cf. [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md)).
+- PATCH : `{ "mode" }` seul ; permission `organization.update` ; audit `organization.ownership.policy.updated`.
+
+**BudgetLine** — owner effectif pour l’obligation :
+
+```
+effectiveOwnerOrgUnitId = BudgetLine.ownerOrgUnitId ?? Budget.ownerOrgUnitId
+```
+
+Garde-fous create/activate branchés sur : Project, Budget, BudgetLine (create + activate si statut hors `DRAFT`), Supplier, SupplierContract, StrategicObjective.
+
+### 4.4 Frontend
+
+| Composant | Chemin |
+| --- | --- |
+| Policy | `OrganizationOwnershipPolicyCard` — page `/client/administration/organization` |
+| Transfert | `OwnershipTransferWizard` (dry-run → confirmation → apply) |
+| Obligation UI | `OwnerOrgUnitNullWarning` — `variant: 'advisory' \| 'blocking'` selon `enforcementEnabled` du GET policy |
+| API client | `apps/web/src/features/organization/api/organization-ownership.api.ts` |
+
+Pas d’endpoint global feature flags côté web : `enforcementEnabled` vient uniquement du GET policy.
 
 ---
 
@@ -101,12 +144,17 @@ Index : `@@index([clientId, stewardResourceId])` où filtrage steward prévu.
 
 ---
 
-## 6. Tests
+## 6. Tests (dépôt)
 
-- Transfert dry-run vs apply ; isolation client.
-- Obligation `REQUIRED_ON_CREATE` : 400 sans owner ; OK avec owner ACTIVE.
-- Archivage unité source après transfert partiel : cohérence blockers.
-- Steward : FK HUMAN même client ; refus HUMAN archivé.
+| Fichier | Couverture |
+| --- | --- |
+| `ownership-transfer.service.spec.ts` | dry-run sans audit ; apply sans `confirmApply` → 400 ; apply confirmé ; `BudgetLine` WHERE override |
+| `organization-ownership-policy.service.spec.ts` | défaut ADVISORY ; `enforcementEnabled` + flag |
+| `steward-resource.helpers.spec.ts` | HUMAN même client ; refus type non-HUMAN |
+| `organization-ownership-obligation.helpers.spec.ts` | résolution effectif BudgetLine |
+| `organization-ownership.api.spec.ts` (web) | payload dry-run |
+
+Exécution : `pnpm --filter @starium-orchestra/api exec jest src/modules/organization`.
 
 ---
 
@@ -119,5 +167,6 @@ RFC-ORG-004 complète la **gouvernance** de la propriété organisationnelle au-
 ## 8. Points de vigilance
 
 - Transfert massif : verrouiller en maintenance courte ou batch nocturne si >10k lignes.
-- `BudgetLine` : définir si le transfert d’unité déplace overrides ligne ou uniquement budgets.
+- `BudgetLine` transfert : **overrides stockés uniquement** (décision V1 figée).
+- Steward UI/API sur Budget, Fournisseur, Contrat, Objectif : extension post-V1.
 - Ne pas confondre `StrategicObjective.directionId` (stratégique) et `ownerOrgUnitId` (organisationnel).

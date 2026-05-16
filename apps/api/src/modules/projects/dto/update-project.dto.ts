@@ -67,6 +67,11 @@ export class UpdateProjectDto {
   @IsString()
   ownerOrgUnitId?: string | null;
 
+  /** RFC-ORG-004 */
+  @IsOptional()
+  @IsString()
+  stewardResourceId?: string | null;
+
   @IsOptional()
   @IsDateString()
   startDate?: string;

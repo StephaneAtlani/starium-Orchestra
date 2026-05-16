@@ -10,6 +10,18 @@ export const ORGANIZATION_AUDIT = {
   GROUP_ARCHIVED: 'organization.group.archived',
   GROUP_MEMBER_ADDED: 'organization.group.member.added',
   GROUP_MEMBER_REMOVED: 'organization.group.member.removed',
+  OWNERSHIP_BATCH_TRANSFERRED: 'organization.ownership.batch_transferred',
+  OWNERSHIP_POLICY_UPDATED: 'organization.ownership.policy.updated',
+} as const;
+
+/** RFC-ORG-004 — audit changement steward métier. */
+export const RESOURCE_STEWARD_AUDIT = {
+  PROJECT: 'project.steward.changed',
+  BUDGET: 'budget.steward.changed',
+  BUDGET_LINE: 'budget_line.steward.changed',
+  SUPPLIER: 'supplier.steward.changed',
+  CONTRACT: 'contract.steward.changed',
+  STRATEGIC_OBJECTIVE: 'strategic_objective.steward.changed',
 } as const;
 
 export const ORG_AUDIT_RESOURCE_TYPES = {

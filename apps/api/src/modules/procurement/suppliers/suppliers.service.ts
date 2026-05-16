@@ -8,7 +8,7 @@ import {
   NotFoundException,
   StreamableFile,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, SupplierStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -39,6 +39,8 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
+import { isSupplierActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
 
 export interface ProcurementAuditContext {
   actorUserId?: string;
@@ -119,6 +121,13 @@ export class SuppliersService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertOwnerOrgUnitForClient'
+    > = {
+      assertOwnerOrgUnitForClient: async () => undefined,
     },
   ) {}
 
@@ -338,6 +347,19 @@ export class SuppliersService {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
 
+    const ownerOrgUnitId = dto.ownerOrgUnitId?.trim() || null;
+    await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+      phase: 'create',
+      effectiveOwnerOrgUnitId: ownerOrgUnitId,
+    });
+    const supplierStatus = SupplierStatus.ACTIVE;
+    if (isSupplierActivationStatus(supplierStatus)) {
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: ownerOrgUnitId,
+      });
+    }
+
     let created: any;
     try {
       created = await supplierRepo.create({
@@ -353,7 +375,7 @@ export class SuppliersService {
           website: dto.website?.trim() || null,
           vatNumber: normalizedVatNumber,
           notes: dto.notes?.trim() || null,
-          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+          ownerOrgUnitId,
         },
       });
     } catch (error) {

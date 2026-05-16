@@ -1737,6 +1737,10 @@ async function ensureOrganizationModuleAndPermissions(): Promise<void> {
       label: "Organisation — unités et groupes (création, modification, archivage)",
     },
     { code: "organization.members.update", label: "Organisation — rattachements des membres" },
+    {
+      code: "organization.ownership.transfer",
+      label: "Organisation — transfert massif de propriété (Direction)",
+    },
   ];
   for (const p of defs) {
     await prisma.permission.upsert({
@@ -1822,6 +1826,7 @@ async function ensureClientAdminOrganizationRole(): Promise<void> {
     "organization.read",
     "organization.update",
     "organization.members.update",
+    "organization.ownership.transfer",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },

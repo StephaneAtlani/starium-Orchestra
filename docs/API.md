@@ -1501,7 +1501,7 @@ Règles :
 
 ### Organisation client — `/api/organization/*` (RFC-ORG-001)
 
-Préfixe **`/api/organization`** : même chaîne de guards que le métier client (`JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`). Module catalogue **`organization`** ; permissions **`organization.read`**, **`organization.update`**, **`organization.members.update`**.
+Préfixe **`/api/organization`** : même chaîne de guards que le métier client (`JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`). Module catalogue **`organization`** ; permissions **`organization.read`**, **`organization.update`**, **`organization.members.update`**, **`organization.ownership.transfer`** (RFC-ORG-004).
 
 Principales routes :
 
@@ -1509,6 +1509,19 @@ Principales routes :
 - `POST /api/organization/units`, `PATCH /api/organization/units/:id`, `POST /api/organization/units/:id/archive` — `organization.update`.
 - `GET|POST /api/organization/units/:id/members`, `DELETE /api/organization/units/:id/members/:membershipId` — lecture membres : `organization.read` ; mutations : `organization.members.update` (rattachements sur **`Resource` HUMAN** du client actif ; DELETE renvoie **404** si le membership ne correspond pas à l’unité ou au client).
 - Même schéma sous **`/api/organization/groups`** pour les groupes métier.
+
+#### Politique d’obligation ownership (RFC-ORG-004)
+
+- **`GET /api/organization/ownership-policy`** — `organization.read`. Réponse : `{ mode, enforcementEnabled, flagKey }` où `mode` ∈ `ADVISORY` | `REQUIRED_ON_CREATE` | `REQUIRED_ON_ACTIVATE` ; `enforcementEnabled` = mode `REQUIRED_ON_*` **et** flag client `ORG_OWNERSHIP_REQUIRED` actif ; `flagKey` = `"ORG_OWNERSHIP_REQUIRED"`.
+- **`PATCH /api/organization/ownership-policy`** — corps `{ "mode": "…" }` ; `organization.update` ; audit `organization.ownership.policy.updated`.
+
+#### Transfert massif de propriété (RFC-ORG-004)
+
+- **`POST /api/organization/ownership-transfers`** — `organization.ownership.transfer` + `organization.read`.
+- Corps : `fromOrgUnitId`, `toOrgUnitId`, `resourceTypes[]` (`PROJECT` | `BUDGET` | `BUDGET_LINE` | `SUPPLIER` | `CONTRACT` | `STRATEGIC_OBJECTIVE`), `dryRun` (bool), `confirmApply?` (bool), `page?`, `limit?` (échantillon dry-run).
+- **`dryRun: true`** : compteurs par type + liste paginée ; **aucune** écriture ni audit.
+- **`dryRun: false`** : apply uniquement si **`confirmApply: true`** ; sinon **400**. Audit batch `organization.ownership.batch_transferred`.
+- **`BUDGET_LINE`** : ne déplace que les lignes dont `ownerOrgUnitId` stocké = `fromOrgUnitId` (overrides) ; lignes héritant du budget parent inchangées. **`StrategicObjective`** : `directionId` jamais modifié.
 
 Les actions d’audit associées sont préfixées **`organization.`** ; l’UI administration peut les lister via `GET /api/audit-logs?actionPrefix=organization.` (permission **`audit_logs.read`**).
 

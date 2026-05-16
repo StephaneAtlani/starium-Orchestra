@@ -49,6 +49,8 @@ import {
   type AuditLogRow,
 } from '../api/organization-api';
 import { resourcePickerLabel } from '../lib/resource-label';
+import { OrganizationOwnershipPolicyCard } from './organization-ownership-policy-card';
+import { OwnershipTransferWizard } from './ownership-transfer-wizard';
 
 function flattenOrgUnits(nodes: OrgUnitTreeNode[], depth = 0): { id: string; label: string; status: string }[] {
   const out: { id: string; label: string; status: string }[] = [];
@@ -110,6 +112,8 @@ export function OrganizationAdminPage() {
   const canUpdate = has('organization.update');
   const canMembers = has('organization.members.update');
   const canAudit = has('audit_logs.read');
+  const canTransfer = has('organization.ownership.transfer');
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const unitsQ = useQuery({
     queryKey: ['organization-units-tree'],
@@ -293,13 +297,20 @@ export function OrganizationAdminPage() {
         </TabsList>
 
         <TabsContent value="units" className="mt-4 space-y-4">
-          <div className="flex gap-2">
+          {canUpdate ? <OrganizationOwnershipPolicyCard /> : null}
+          <div className="flex flex-wrap gap-2">
             {canUpdate ? (
               <Button type="button" onClick={() => setCreateUnitOpen(true)}>
                 Nouvelle unité
               </Button>
             ) : null}
+            {canTransfer ? (
+              <Button type="button" variant="secondary" onClick={() => setTransferOpen(true)}>
+                Transfert de propriété
+              </Button>
+            ) : null}
           </div>
+          <OwnershipTransferWizard open={transferOpen} onOpenChange={setTransferOpen} />
           <Card>
             <CardContent className="pt-4">
               {unitsQ.isLoading ? (

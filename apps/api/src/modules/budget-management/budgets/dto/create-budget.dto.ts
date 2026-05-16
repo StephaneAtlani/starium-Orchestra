@@ -46,6 +46,10 @@ export class CreateBudgetDto {
   ownerOrgUnitId?: string | null;
 
   @IsOptional()
+  @IsString()
+  stewardResourceId?: string | null;
+
+  @IsOptional()
   @IsEnum(BudgetTaxMode)
   taxMode?: BudgetTaxMode;
 

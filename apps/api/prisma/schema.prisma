@@ -399,6 +399,23 @@ model Client {
   resourceAccessPolicies     ResourceAccessPolicy[]
   /// RFC-ACL-022 — feature flags scopés client (bascule moteur accès V2, etc.).
   featureFlags               ClientFeatureFlag[]
+  /// RFC-ORG-004 — politique obligation ownership (mode par client).
+  orgOwnershipPolicy         ClientOrgOwnershipPolicy?
+}
+
+/// RFC-ORG-004 — durcissement progressif de l’obligation Direction propriétaire.
+enum OrgOwnershipPolicyMode {
+  ADVISORY
+  REQUIRED_ON_CREATE
+  REQUIRED_ON_ACTIVATE
+}
+
+model ClientOrgOwnershipPolicy {
+  clientId  String                 @id
+  mode      OrgOwnershipPolicyMode @default(ADVISORY)
+  updatedAt DateTime               @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 /// RFC-ACL-022 — bascule par client / par clé pour les features sensibles (par défaut désactivées).
@@ -921,6 +938,13 @@ model Resource {
   orgGroupMemberships              OrgGroupMembership[]
   /// RFC-ORG-002 — au plus un ClientUser lié à cette fiche HUMAN.
   clientUserHumanLink              ClientUser?                       @relation("ClientUserHumanResource")
+  /// RFC-ORG-004 — steward métier (HUMAN) sur ressources gouvernées.
+  stewardedProjects                Project[]                         @relation("ProjectStewardResource")
+  stewardedBudgets                 Budget[]                          @relation("BudgetStewardResource")
+  stewardedBudgetLines             BudgetLine[]                      @relation("BudgetLineStewardResource")
+  stewardedSuppliers               Supplier[]                        @relation("SupplierStewardResource")
+  stewardedSupplierContracts       SupplierContract[]                @relation("SupplierContractStewardResource")
+  stewardedStrategicObjectives     StrategicObjective[]              @relation("StrategicObjectiveStewardResource")
 
   @@unique([clientId, email])
   @@unique([clientId, code])
@@ -1406,6 +1430,8 @@ model Project {
   portfolioCategoryId String?
   /// RFC-ORG-003 — unité organisationnelle propriétaire (nullable en V1)
   ownerOrgUnitId      String?
+  /// RFC-ORG-004 — responsable métier (Resource HUMAN), distinct de la Direction propriétaire.
+  stewardResourceId   String?
   /// Responsable hors compte (dénormalisé ; aligné avec entrée équipe « Responsable » nom libre).
   ownerFreeLabel      String?                       @db.VarChar(200)
   ownerAffiliation    ProjectTeamMemberAffiliation?
@@ -1470,6 +1496,7 @@ model Project {
   sponsor                User?                          @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
   owner                  User?                          @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   ownerOrgUnit           OrgUnit?                       @relation("OrgUnitOwnedProject", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward                Resource?                      @relation("ProjectStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   portfolioCategory      ProjectPortfolioCategory?      @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
   microsoftLink          ProjectMicrosoftLink?
   microsoftTaskSyncs     ProjectTaskMicrosoftSync[]
@@ -1503,6 +1530,7 @@ model Project {
   @@index([clientId, kind])
   @@index([clientId, portfolioCategoryId])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
   @@index([targetEndDate])
 }
 
@@ -1555,7 +1583,9 @@ model StrategicObjective {
   axisId          String
   directionId     String?
   /// RFC-ORG-003 — unité organisationnelle propriétaire (distinct de directionId / StrategicDirection)
-  ownerOrgUnitId  String?
+  ownerOrgUnitId    String?
+  /// RFC-ORG-004
+  stewardResourceId String?
   title           String
   description     String?
   ownerLabel      String?
@@ -1573,6 +1603,7 @@ model StrategicObjective {
   axis                            StrategicAxis                             @relation(fields: [axisId], references: [id], onDelete: Cascade)
   direction                       StrategicDirection?                       @relation(fields: [directionId], references: [id], onDelete: SetNull)
   ownerOrgUnit                    OrgUnit?                                  @relation("OrgUnitOwnedStrategicObjective", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward                         Resource?                                 @relation("StrategicObjectiveStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   ownerUser                       User?                                     @relation("StrategicObjectiveOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   links                           StrategicLink[]
   directionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
@@ -1586,6 +1617,7 @@ model StrategicObjective {
   @@index([clientId, targetDate])
   @@index([clientId, ownerUserId])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
 }
 
 model StrategicDirection {
@@ -2922,6 +2954,8 @@ model Budget {
   ownerUserId               String?
   /// RFC-ORG-003
   ownerOrgUnitId            String?
+  /// RFC-ORG-004
+  stewardResourceId         String?
   versionSetId              String?
   versionNumber             Int?
   versionLabel              String?
@@ -2937,6 +2971,7 @@ model Budget {
   exercise                  BudgetExercise          @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
   owner                     User?                   @relation("OwnedBudgets", fields: [ownerUserId], references: [id], onDelete: SetNull)
   ownerOrgUnit              OrgUnit?                @relation("OrgUnitOwnedBudget", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward                   Resource?               @relation("BudgetStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   versionSet                BudgetVersionSet?       @relation("VersionSetVersions", fields: [versionSetId], references: [id], onDelete: SetNull)
   parentBudget              Budget?                 @relation("BudgetVersionParent", fields: [parentBudgetId], references: [id], onDelete: SetNull)
   childVersions             Budget[]                @relation("BudgetVersionParent")
@@ -2958,6 +2993,7 @@ model Budget {
   @@index([clientId, versionStatus])
   @@index([clientId, versionKind])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
 }
 
 /// Configuration cockpit budgétaire (RFC-022).
@@ -3165,11 +3201,14 @@ model BudgetLine {
   planningTotalAmount           Decimal?                       @db.Decimal(18, 2)
   /// RFC-ORG-003 — override unité propriétaire (null = hériter du budget)
   ownerOrgUnitId                String?
+  /// RFC-ORG-004
+  stewardResourceId             String?
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
   client                        Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   budget                        Budget                         @relation(fields: [budgetId], references: [id], onDelete: Cascade)
   ownerOrgUnit                  OrgUnit?                       @relation("OrgUnitOwnedBudgetLine", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward                       Resource?                      @relation("BudgetLineStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   envelope                      BudgetEnvelope                 @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
   deferredToExerciseId          String?
   deferredToExercise            BudgetExercise?                @relation("DeferredExerciseBudgetLines", fields: [deferredToExerciseId], references: [id], onDelete: SetNull)
@@ -3196,6 +3235,7 @@ model BudgetLine {
   @@index([status])
   @@index([deferredToExerciseId])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
 }
 
 model BudgetLinePlanningMonth {
@@ -3440,12 +3480,15 @@ model Supplier {
   notes              String?
   /// RFC-ORG-003
   ownerOrgUnitId     String?
+  /// RFC-ORG-004
+  stewardResourceId  String?
   status             SupplierStatus     @default(ACTIVE)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   client             Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplierCategory   SupplierCategory?  @relation(fields: [supplierCategoryId], references: [id], onDelete: SetNull)
   ownerOrgUnit       OrgUnit?           @relation("OrgUnitOwnedSupplier", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward            Resource?          @relation("SupplierStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   contacts           SupplierContact[]
   purchaseOrders     PurchaseOrder[]
   invoices           Invoice[]
@@ -3459,6 +3502,7 @@ model Supplier {
   @@index([supplierCategoryId])
   @@index([clientId, supplierCategoryId])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
 }
 
 model SupplierContact {
@@ -3634,6 +3678,8 @@ model SupplierContract {
   supplierId String
   /// RFC-ORG-003
   ownerOrgUnitId String?
+  /// RFC-ORG-004
+  stewardResourceId String?
 
   reference String
   title     String
@@ -3665,6 +3711,7 @@ model SupplierContract {
   client      Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   supplier    Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   ownerOrgUnit OrgUnit?            @relation("OrgUnitOwnedSupplierContract", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
+  steward      Resource?           @relation("SupplierContractStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   attachments ContractAttachment[]
 
   @@unique([clientId, reference])
@@ -3673,6 +3720,7 @@ model SupplierContract {
   @@index([clientId, status])
   @@index([clientId, effectiveEnd])
   @@index([clientId, ownerOrgUnitId])
+  @@index([clientId, stewardResourceId])
 }
 
 /// RFC-036 — pièce jointe contrat (stockage aligné procurement).

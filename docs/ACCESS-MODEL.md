@@ -57,6 +57,14 @@ Le socle **OrgUnit** / **OrgGroup** / rattachements ressource **HUMAN** peut viv
 
 Les notions **`write_scope`** et **`manage_acl_scope`** et la couche « Direction » (`ownerOrgUnitId`) comme **contrôle d’accès opérationnel** s’appliquent sur les modules branchés **020** lorsque le flag client correspondant est activé (après backfill **022**).
 
+## RFC-ORG-004 — steward, transfert massif, obligation ownership
+
+- **`stewardResourceId`** (Resource HUMAN, même client) sur Project, Budget, BudgetLine, Supplier, SupplierContract, StrategicObjective — réponse API **`stewardSummary`** sur **Projet** (libellé humain) ; autres modules : colonne Prisma, pas encore `stewardSummary` en API V1.
+- **Transfert** : `POST /api/organization/ownership-transfers` — `resourceTypes` canoniques `PROJECT` | `BUDGET` | `BUDGET_LINE` | `SUPPLIER` | `CONTRACT` | `STRATEGIC_OBJECTIVE` ; `dryRun: true` = preview sans écriture ni audit ; apply = `dryRun: false` + `confirmApply: true` ; `BudgetLine` = overrides stockés uniquement (`ownerOrgUnitId` colonne ligne).
+- **Politique client** : `GET|PATCH /api/organization/ownership-policy` → `{ mode, enforcementEnabled, flagKey: 'ORG_OWNERSHIP_REQUIRED' }` ; `enforcementEnabled` = mode `REQUIRED_ON_*` **et** flag ops actif (pas d’API flags globale V1).
+- **BudgetLine obligation** : owner effectif = `line.ownerOrgUnitId ?? budget.ownerOrgUnitId` (héritage budget accepté).
+- Permission dédiée : `organization.ownership.transfer` ; steward modifiable via `*.update` module.
+
 ## Cockpit admin santé du modèle (RFC-ACL-021)
 
 Pour les **CLIENT_ADMIN** disposant de `access_model.read` :

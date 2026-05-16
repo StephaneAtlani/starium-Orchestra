@@ -184,7 +184,16 @@ Clés registre : `ControllerName.methodName` (ex. `ProjectsController.list`) —
 
 ---
 
-## 7. Checklist déploiement client (une ligne par module)
+## 7. Obligation ownership et transfert (RFC-ORG-004)
+
+Après backfill `ownerOrgUnitId` (§2) :
+
+1. **Politique** : `PATCH /api/organization/ownership-policy` `{ "mode": "ADVISORY" | "REQUIRED_ON_CREATE" | "REQUIRED_ON_ACTIVATE" }` — défaut `ADVISORY`.
+2. **Flag ops** : activer `ORG_OWNERSHIP_REQUIRED` sur le client (`ClientFeatureFlag`) pour que `enforcementEnabled` soit vrai ; sinon seuls les avertissements UI s’affichent.
+3. **Transfert massif** : toujours `dryRun: true` puis `dryRun: false` + `confirmApply: true` ; >10k lignes → fenêtre maintenance.
+4. **BudgetLine** : le transfert ne déplace que les lignes avec override explicite ; les lignes héritant du budget parent ne bougent pas.
+
+## 8. Checklist déploiement client (une ligne par module)
 
 - [ ] Dry-run backfill + CSV archivé
 - [ ] Backfill appliqué ou écarts signés

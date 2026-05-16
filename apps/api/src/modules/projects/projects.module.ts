@@ -45,6 +45,7 @@ import { ProjectScenariosModule } from '../project-scenarios/project-scenarios.m
 import { AccessControlModule } from '../access-control/access-control.module';
 import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
+import { OrganizationModule } from '../organization/organization.module';
 @Module({
   imports: [
     PrismaModule,
@@ -55,6 +56,7 @@ import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
     AccessControlModule,
     AccessDecisionModule,
     FeatureFlagsModule,
+    OrganizationModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

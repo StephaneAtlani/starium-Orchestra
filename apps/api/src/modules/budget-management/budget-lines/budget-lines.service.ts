@@ -50,6 +50,8 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
+import { isBudgetLineActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -150,6 +152,13 @@ export class BudgetLinesService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertBudgetLineOwnerForClient'
+    > = {
+      assertBudgetLineOwnerForClient: async () => undefined,
     },
   ) {}
 
@@ -508,6 +517,21 @@ export class BudgetLinesService {
 
     if (dto.ownerOrgUnitId?.trim()) {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
+    }
+
+    await this.ownershipPolicy.assertBudgetLineOwnerForClient(clientId, {
+      phase: 'create',
+      lineOwnerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+      budgetOwnerOrgUnitId: budget.ownerOrgUnitId,
+    });
+
+    const lineStatus = dto.status ?? BudgetLineStatus.DRAFT;
+    if (isBudgetLineActivationStatus(lineStatus)) {
+      await this.ownershipPolicy.assertBudgetLineOwnerForClient(clientId, {
+        phase: 'activate',
+        lineOwnerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+        budgetOwnerOrgUnitId: budget.ownerOrgUnitId,
+      });
     }
 
     const forecastAmount = 0;

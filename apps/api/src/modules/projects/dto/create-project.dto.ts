@@ -64,6 +64,11 @@ export class CreateProjectDto {
   @IsString()
   ownerOrgUnitId?: string | null;
 
+  /** RFC-ORG-004 — steward métier (Resource HUMAN). */
+  @IsOptional()
+  @IsString()
+  stewardResourceId?: string | null;
+
   /** Responsable nom libre (ressource Humaine déjà vue en équipe projet). Exclu si `ownerUserId`. */
   @IsOptional()
   @IsString()

@@ -23,6 +23,7 @@ import { BudgetDecisionHistoryService } from './budget-decision-history.service'
 import { AccessControlModule } from '../access-control/access-control.module';
 import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
+import { OrganizationModule } from '../organization/organization.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
     AccessControlModule,
     AccessDecisionModule,
     FeatureFlagsModule,
+    OrganizationModule,
   ],
   controllers: [
     BudgetExercisesController,

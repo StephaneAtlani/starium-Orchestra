@@ -51,6 +51,8 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../organization/organization-ownership-policy.service';
+import { isStrategicObjectiveActivationLifecycle } from '../organization/organization-ownership-obligation.helpers';
 
 const SUPPORTED_LINK_TYPES_V1: readonly StrategicLinkType[] = [
   StrategicLinkType.PROJECT,
@@ -146,6 +148,13 @@ export class StrategicVisionService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertOwnerOrgUnitForClient'
+    > = {
+      assertOwnerOrgUnitForClient: async () => undefined,
     },
   ) {}
 
@@ -1454,6 +1463,13 @@ export class StrategicVisionService {
     if (dto.ownerOrgUnitId?.trim()) {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
+
+    const ownerOrgUnitId = dto.ownerOrgUnitId?.trim() || null;
+    await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+      phase: 'create',
+      effectiveOwnerOrgUnitId: ownerOrgUnitId,
+    });
+
     if (dto.ownerUserId) {
       await this.assertUserInClient(clientId, dto.ownerUserId);
     }
@@ -1466,6 +1482,13 @@ export class StrategicVisionService {
       healthStatus: dto.healthStatus,
     });
 
+    if (isStrategicObjectiveActivationLifecycle(resolvedStatuses.lifecycleStatus)) {
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: ownerOrgUnitId,
+      });
+    }
+
     const targetDate = dto.targetDate ?? dto.deadline ?? null;
     const deadline = dto.deadline ?? dto.targetDate ?? null;
 
@@ -1474,7 +1497,7 @@ export class StrategicVisionService {
         clientId,
         axisId: dto.axisId,
         directionId: dto.directionId ?? null,
-        ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+        ownerOrgUnitId,
         title: dto.title.trim(),
         description: dto.description?.trim() || null,
         ownerLabel: dto.ownerLabel?.trim() || null,

@@ -57,6 +57,9 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
+import { isBudgetActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
+import { resolveStewardResourceIdForWrite } from '../../organization/organization-steward.integration';
 
 @Injectable()
 export class BudgetsService {
@@ -89,6 +92,13 @@ export class BudgetsService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertOwnerOrgUnitForClient'
+    > = {
+      assertOwnerOrgUnitForClient: async () => undefined,
     },
   ) {}
 
@@ -328,6 +338,25 @@ export class BudgetsService {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
 
+    const ownerOrgUnitId = dto.ownerOrgUnitId?.trim() || null;
+    await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+      phase: 'create',
+      effectiveOwnerOrgUnitId: ownerOrgUnitId,
+    });
+    const createStatus = dto.status ?? BudgetStatus.DRAFT;
+    if (isBudgetActivationStatus(createStatus)) {
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: ownerOrgUnitId,
+      });
+    }
+
+    const stewardResourceId = await resolveStewardResourceIdForWrite(
+      this.prisma,
+      clientId,
+      dto.stewardResourceId,
+    );
+
     let code = dto.code?.trim();
     if (!code) {
       code = await this.resolveUniqueBudgetCode(clientId);
@@ -357,7 +386,8 @@ export class BudgetsService {
         currency: dto.currency,
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
-        ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+        ownerOrgUnitId,
+        ...(stewardResourceId !== undefined && { stewardResourceId }),
         ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
         ...(dto.defaultTaxRate !== undefined
           ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }

@@ -37,6 +37,8 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../organization/organization-ownership-policy.service';
+import { isContractActivationStatus } from '../organization/organization-ownership-obligation.helpers';
 
 export interface ContractsAuditContext {
   actorUserId?: string;
@@ -248,6 +250,13 @@ export class ContractsService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertOwnerOrgUnitForClient'
+    > = {
+      assertOwnerOrgUnitForClient: async () => undefined,
     },
   ) {}
 
@@ -511,12 +520,24 @@ export class ContractsService {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
 
+    const ownerOrgUnitId = dto.ownerOrgUnitId?.trim() || null;
+    await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+      phase: 'create',
+      effectiveOwnerOrgUnitId: ownerOrgUnitId,
+    });
+    if (isContractActivationStatus(status)) {
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: ownerOrgUnitId,
+      });
+    }
+
     try {
       const created = await this.prisma.supplierContract.create({
         data: {
           clientId,
           supplierId: dto.supplierId,
-          ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+          ownerOrgUnitId,
           reference: dto.reference.trim(),
           title: dto.title.trim(),
           kind: dto.kind,

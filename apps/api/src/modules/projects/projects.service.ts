@@ -13,6 +13,7 @@ import {
   Project,
   ProjectMilestone,
   ProjectRisk,
+  ProjectStatus,
   ProjectTask,
   ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
@@ -60,6 +61,19 @@ import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
 } from '../organization/resource-ownership-audit.constants';
+import { OrganizationOwnershipPolicyService } from '../organization/organization-ownership-policy.service';
+import { isProjectActivationStatus } from '../organization/organization-ownership-obligation.helpers';
+import { resolveStewardResourceIdForWrite } from '../organization/organization-steward.integration';
+import {
+  RESOURCE_STEWARD_AUDIT,
+} from '../organization/organization-audit.constants';
+import {
+  STEWARD_RESOURCE_SELECT,
+  toStewardSummary,
+  type StewardSummaryDto,
+} from '../organization/steward-resource.helpers';
+
+const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
 const projectIncludeList = {
   tasks: true,
@@ -90,6 +104,7 @@ const projectIncludeList = {
     },
   },
   ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+  steward: stewardSelect,
 } as const;
 
 export type ProjectTagItemDto = {
@@ -129,6 +144,8 @@ export type ProjectListItemDto = {
   } | null;
   ownerOrgUnitId: string | null;
   ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
+  stewardResourceId: string | null;
+  stewardSummary: StewardSummaryDto;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -203,6 +220,13 @@ export class ProjectsService {
     @Inject(FeatureFlagsService)
     private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
       isEnabled: async () => false,
+    },
+    @Inject(OrganizationOwnershipPolicyService)
+    private readonly ownershipPolicy: Pick<
+      OrganizationOwnershipPolicyService,
+      'assertOwnerOrgUnitForClient'
+    > = {
+      assertOwnerOrgUnitForClient: async () => undefined,
     },
   ) {}
 
@@ -523,6 +547,12 @@ export class ProjectsService {
         type: OrgUnitType;
         code: string | null;
       } | null;
+      steward: {
+        id: string;
+        name: string;
+        firstName: string | null;
+        email: string | null;
+      } | null;
     },
   ): ProjectListItemDto {
     const ownerDisplayName = this.ownerDisplayResolved(project);
@@ -582,6 +612,8 @@ export class ProjectsService {
         : null,
       ownerOrgUnitId: project.ownerOrgUnitId ?? null,
       ownerOrgUnitSummary: toOwnerOrgUnitSummary(project.ownerOrgUnit),
+      stewardResourceId: project.stewardResourceId ?? null,
+      stewardSummary: toStewardSummary(project.steward),
     };
   }
 
@@ -1099,6 +1131,25 @@ export class ProjectsService {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
 
+    const ownerOrgUnitId = dto.ownerOrgUnitId?.trim() || null;
+    await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+      phase: 'create',
+      effectiveOwnerOrgUnitId: ownerOrgUnitId,
+    });
+    const createStatus = dto.status ?? ProjectStatus.DRAFT;
+    if (isProjectActivationStatus(createStatus)) {
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: ownerOrgUnitId,
+      });
+    }
+
+    const stewardResourceId = await resolveStewardResourceIdForWrite(
+      this.prisma,
+      clientId,
+      dto.stewardResourceId,
+    );
+
     const hasOwnerUser = Boolean(dto.ownerUserId?.trim());
     const freeTrim = dto.ownerFreeLabel?.trim();
     const hasFree = Boolean(freeTrim);
@@ -1157,7 +1208,8 @@ export class ProjectsService {
       sponsorUserId: dto.sponsorUserId ?? null,
       ownerUserId: dto.ownerUserId ?? null,
       portfolioCategoryId: dto.portfolioCategoryId ?? null,
-      ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
+      ownerOrgUnitId,
+      ...(stewardResourceId !== undefined && { stewardResourceId }),
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       targetEndDate: dto.targetEndDate ? new Date(dto.targetEndDate) : null,
       actualEndDate: dto.actualEndDate ? new Date(dto.actualEndDate) : null,
@@ -1281,6 +1333,25 @@ export class ProjectsService {
       }
       data.ownerOrgUnitId = nextOwner;
     }
+    const stewardResourceId = await resolveStewardResourceIdForWrite(
+      this.prisma,
+      clientId,
+      dto.stewardResourceId,
+    );
+    if (stewardResourceId !== undefined) {
+      data.stewardResourceId = stewardResourceId;
+    }
+    const nextStatus = dto.status ?? existing.status;
+    if (dto.status !== undefined && isProjectActivationStatus(nextStatus)) {
+      const effectiveOwner =
+        dto.ownerOrgUnitId !== undefined
+          ? dto.ownerOrgUnitId?.trim() || null
+          : existing.ownerOrgUnitId;
+      await this.ownershipPolicy.assertOwnerOrgUnitForClient(clientId, {
+        phase: 'activate',
+        effectiveOwnerOrgUnitId: effectiveOwner,
+      });
+    }
     if (dto.startDate !== undefined) {
       data.startDate = dto.startDate ? new Date(dto.startDate) : null;
     }
@@ -1393,6 +1464,21 @@ export class ProjectsService {
         resourceId: id,
         oldValue: { portfolioCategoryId: existing.portfolioCategoryId ?? null },
         newValue: { portfolioCategoryId: updated.portfolioCategoryId ?? null },
+        ...meta,
+      });
+    }
+
+    const prevSteward = existing.stewardResourceId ?? null;
+    const nextSteward = updated.stewardResourceId ?? null;
+    if (prevSteward !== nextSteward) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: RESOURCE_STEWARD_AUDIT.PROJECT,
+        resourceType: RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES.PROJECT,
+        resourceId: id,
+        oldValue: { stewardResourceId: prevSteward },
+        newValue: { stewardResourceId: nextSteward },
         ...meta,
       });
     }
