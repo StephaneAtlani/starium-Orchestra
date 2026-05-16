@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 import type { StrategicLinkDto, StrategicObjectiveDto } from '../types/strategic-vision.types';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
+function formatOwnerOrgSummary(summary: OwnerOrgUnitSummary | null | undefined): string {
+  if (!summary) return 'Non définie';
+  return summary.code ? `${summary.name} (${summary.code})` : summary.name;
+}
 
 function formatDate(value: string | null): string {
   if (!value) return 'Non defini';
@@ -77,13 +84,18 @@ export function StrategicObjectiveCard({
           <span className="font-medium">{objective.ownerLabel ?? 'Non assigne'}</span>
         </p>
         <p className="text-sm">
-          Direction:{' '}
+          Direction stratégique:{' '}
           <span className="font-medium">
             {objective.direction?.name
               ? `${objective.direction.name} (${objective.direction.code})`
               : 'Non affecté'}
           </span>
         </p>
+        <p className="text-sm">
+          Direction propriétaire:{' '}
+          <span className="font-medium">{formatOwnerOrgSummary(objective.ownerOrgUnitSummary)}</span>
+        </p>
+        {!objective.ownerOrgUnitSummary ? <OwnerOrgUnitNullWarning /> : null}
         <p className="text-sm">
           Echeance: <span className="font-medium">{formatDate(objective.deadline)}</span>
         </p>

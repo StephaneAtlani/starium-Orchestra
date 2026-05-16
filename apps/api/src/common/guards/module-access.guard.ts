@@ -9,6 +9,10 @@ import { ClientModuleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ModuleVisibilityService } from '../../modules/module-visibility/module-visibility.service';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
+import {
+  REQUIRE_ACCESS_INTENT_KEY,
+  type RequireAccessIntentMetadata,
+} from '../decorators/require-access-intent.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { satisfiesAnyPermission, satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../services/effective-permissions.service';
@@ -53,6 +57,16 @@ export class ModuleAccessGuard implements CanActivate {
         context.getClass(),
       );
 
+    const accessIntent =
+      this.reflector.get<RequireAccessIntentMetadata>(
+        REQUIRE_ACCESS_INTENT_KEY,
+        context.getHandler(),
+      ) ??
+      this.reflector.get<RequireAccessIntentMetadata>(
+        REQUIRE_ACCESS_INTENT_KEY,
+        context.getClass(),
+      );
+
     const requiredPerms =
       this.reflector.get<string[]>(
         REQUIRE_PERMISSIONS_KEY,
@@ -62,6 +76,10 @@ export class ModuleAccessGuard implements CanActivate {
         REQUIRE_PERMISSIONS_KEY,
         context.getClass(),
       );
+
+    if (accessIntent) {
+      return this.assertModulesForIntent(userId, activeClient.id, accessIntent.module);
+    }
 
     if (anyRequired?.length) {
       return this.handleAnyPermissions(
@@ -187,6 +205,19 @@ export class ModuleAccessGuard implements CanActivate {
     throw new ForbiddenException(
       'Permissions insuffisantes pour accéder à cette ressource',
     );
+  }
+
+  /** Module activé + visible — RBAC porté par PermissionsGuard (RFC-ACL-024). */
+  private async assertModulesForIntent(
+    userId: string,
+    clientId: string,
+    moduleCode: string,
+  ): Promise<boolean> {
+    const visMap = await this.moduleVisibility.getVisibilityMap(userId, clientId, [
+      moduleCode,
+    ]);
+    await this.assertModulesEnabledForClient(clientId, [moduleCode], visMap);
+    return true;
   }
 
   private async assertModulesEnabledForClient(

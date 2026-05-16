@@ -2,9 +2,9 @@
 
 ## Statut
 
-**Implémentée (V1 — lecture pilote Projets)** — backend livré avec garde-fous licence / abonnement / module / RBAC intent / org / matrice **RFC-ACL-017** ; **`sharingFloorAllows = floorAllowed`** (jamais `true` par défaut) ; pas de pré-filtrage org avant policy/ACL ; verdict structuré **`AccessDecisionResult`** pour préparer [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md). Dépend toujours conceptuellement de [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md) pour la sémantique des couches.
+**Implémentée** — socle moteur + pilote Projets (lecture/liste) ; extension **write/admin** et modules métier via [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) (activation `ACCESS_DECISION_V2_*`, [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md)). Garde-fous licence / abonnement / module / RBAC / org / matrice **017** ; **`sharingFloorAllows = floorAllowed`** ; verdict **`AccessDecisionResult`** → [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md).
 
-**Hors V1 actuelle** : intents `write` / `admin` sur le moteur (erreur explicite jusqu’à [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md)) ; branchement **`ResourceAccessDecisionGuard`** sur les contrôleurs (adoption progressive, le pilote Projets passe par le **service**).
+**Hors périmètre actuel** : adoption HTTP généralisée de **`ResourceAccessDecisionGuard`** sur les contrôleurs (les modules **020** passent par les **services** métier).
 
 ## Alignement plan
 

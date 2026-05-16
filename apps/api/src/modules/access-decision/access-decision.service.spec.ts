@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import {
   ClientUserLicenseBillingMode,
   ClientUserLicenseType,
@@ -76,19 +75,6 @@ describe('AccessDecisionService', () => {
       moduleVisibility as any,
       accessControl as any,
     );
-  });
-
-  it('write intent → BadRequestException', async () => {
-    await expect(
-      service.decide({
-        request,
-        clientId,
-        userId,
-        resourceType: 'PROJECT',
-        resourceId: RID,
-        intent: 'write',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('read_scope + org NONE + DEFAULT public ACL : refuse après resserrement org', async () => {
@@ -259,5 +245,376 @@ describe('AccessDecisionService', () => {
 
     expect(d.allowed).toBe(false);
     expect(d.reasonCodes).toContain('ACCESS_DENIED_RESOURCE_NOT_FOUND');
+  });
+
+  describe('RFC-ACL-020 §2.2 — matrice policy/ACL × write/admin', () => {
+    beforeEach(() => {
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'ALL',
+        reasonCodes: ['ALL_RBAC_OVERRIDE'],
+      });
+    });
+
+    it('write + DEFAULT sans ACL + manage_all → allow ACCESS_ALLOWED_BY_MANAGE_ALL', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.manage_all']),
+      );
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_MANAGE_ALL');
+      expect(accessControl.evaluateResourceAccess).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'write' }),
+      );
+    });
+
+    it('write + legacy `*.update` → allow ACCESS_ALLOWED_BY_LEGACY_UPDATE', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.update']),
+      );
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_LEGACY_UPDATE');
+    });
+
+    it('write + write_scope + org SCOPE → allow ACCESS_ALLOWED_BY_WRITE_SCOPE', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.write_scope']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'SCOPE',
+        reasonCodes: ['SCOPE_IN_SUBTREE'],
+      });
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_WRITE_SCOPE');
+    });
+
+    it('write + write_scope + org NONE → refus ACCESS_DENIED_ORG_SCOPE', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.write_scope']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'NONE',
+        reasonCodes: ['SCOPE_OUT_OF_SUBTREE'],
+      });
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(false);
+      expect(d.reasonCodes).toContain('ACCESS_DENIED_ORG_SCOPE');
+    });
+
+    it('write + SHARING + ACL match + org NONE → allow ACCESS_ALLOWED_BY_SHARING_ACL', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.write_scope']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'NONE',
+        reasonCodes: ['SCOPE_OUT_OF_SUBTREE'],
+      });
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_SHARING_ACL_MATCH',
+        effectiveAccessMode: 'SHARING_ACL_PLUS_FLOOR',
+        aclRank: 2,
+        mode: 'SHARING',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_SHARING_ACL');
+    });
+
+    it('write + RESTRICTIVE + ACL no-match → refus', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.manage_all']),
+      );
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: false,
+        reasonCode: 'POLICY_RESTRICTIVE_ACL_NO_MATCH',
+        effectiveAccessMode: 'ACL_RESTRICTED',
+        aclRank: 0,
+        mode: 'RESTRICTIVE',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(false);
+    });
+
+    it('admin + manage_all → allow ACCESS_ALLOWED_BY_MANAGE_ALL', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.manage_all']),
+      );
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'admin',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_MANAGE_ALL');
+      expect(accessControl.evaluateResourceAccess).toHaveBeenCalledWith(
+        expect.objectContaining({ operation: 'admin' }),
+      );
+    });
+
+    it('admin + legacy `projects.delete` → allow ACCESS_ALLOWED_BY_LEGACY_DELETE', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.delete']),
+      );
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'admin',
+      });
+
+      expect(d.allowed).toBe(true);
+      expect(d.reasonCodes).toContain('ACCESS_ALLOWED_BY_LEGACY_DELETE');
+    });
+
+    it('admin + write_scope (sans manage_all/delete) → refus RBAC', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.write_scope']),
+      );
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'admin',
+      });
+
+      expect(d.allowed).toBe(false);
+      expect(d.reasonCodes).toContain('ACCESS_DENIED_RBAC');
+    });
+  });
+
+  describe('RFC-ACL-020 §2.3 — owner null × niveau RBAC', () => {
+    it('read_scope + owner null → refus MISSING_OWNER_ORG_UNIT', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.read_scope']),
+      );
+      prisma.project.findMany.mockResolvedValue([{ id: RID, ownerOrgUnitId: null }]);
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'read',
+      });
+
+      expect(d.allowed).toBe(false);
+      expect(d.reasonCodes).toContain('MISSING_OWNER_ORG_UNIT');
+    });
+
+    it('write_scope + owner null → refus MISSING_OWNER_ORG_UNIT', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.write_scope']),
+      );
+      prisma.project.findMany.mockResolvedValue([{ id: RID, ownerOrgUnitId: null }]);
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(false);
+      expect(d.reasonCodes).toContain('MISSING_OWNER_ORG_UNIT');
+    });
+
+    it('read_all + owner null → autorisé', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.read_all']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'ALL',
+        reasonCodes: ['ALL_RBAC_OVERRIDE'],
+      });
+      prisma.project.findMany.mockResolvedValue([{ id: RID, ownerOrgUnitId: null }]);
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'read',
+      });
+
+      expect(d.allowed).toBe(true);
+    });
+
+    it('manage_all + owner null → autorisé (write)', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.manage_all']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'ALL',
+        reasonCodes: ['ALL_RBAC_OVERRIDE'],
+      });
+      prisma.project.findMany.mockResolvedValue([{ id: RID, ownerOrgUnitId: null }]);
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+    });
+
+    it('legacy `projects.update` + owner null → autorisé (write)', async () => {
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['projects.update']),
+      );
+      organizationScope.resolveOrgScope.mockResolvedValue({
+        level: 'ALL',
+        reasonCodes: ['ALL_RBAC_OVERRIDE'],
+      });
+      prisma.project.findMany.mockResolvedValue([{ id: RID, ownerOrgUnitId: null }]);
+      accessControl.evaluateResourceAccess.mockResolvedValue({
+        allowed: true,
+        reasonCode: 'POLICY_DEFAULT_NO_ACL_PUBLIC',
+        effectiveAccessMode: 'PUBLIC_DEFAULT',
+        aclRank: 0,
+        mode: 'DEFAULT',
+      });
+
+      const d = await service.decide({
+        request,
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: RID,
+        intent: 'write',
+      });
+
+      expect(d.allowed).toBe(true);
+    });
   });
 });

@@ -1747,6 +1747,75 @@ async function ensureOrganizationModuleAndPermissions(): Promise<void> {
   }
 }
 
+/** RFC-ACL-021 — module cockpit modèle d'accès + permission lecture. */
+async function ensureAccessModelModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "access_model" },
+    create: {
+      code: "access_model",
+      name: "Modèle d'accès",
+      description: "Cockpit santé organisation, scope et ACL (RFC-ACL-021)",
+      isActive: true,
+    },
+    update: { isActive: true, name: "Modèle d'accès" },
+  });
+  await prisma.permission.upsert({
+    where: { code: "access_model.read" },
+    create: {
+      code: "access_model.read",
+      label: "Cockpit modèle d'accès — lecture",
+      moduleId: mod.id,
+    },
+    update: { label: "Cockpit modèle d'accès — lecture", moduleId: mod.id },
+  });
+}
+
+/** RFC-ACL-021 — permission cockpit pour les CLIENT_ADMIN (UserRole). */
+async function ensureClientAdminAccessModelRole(): Promise<void> {
+  const perm = await prisma.permission.findUnique({
+    where: { code: "access_model.read" },
+  });
+  if (!perm) {
+    console.warn(
+      "⚠️  ensureClientAdminAccessModelRole : permission access_model.read manquante — skip.",
+    );
+    return;
+  }
+  let role = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Client admin — modèle d'accès" },
+  });
+  if (!role) {
+    role = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Client admin — modèle d'accès",
+        description: "Cockpit santé du modèle d'accès organisationnel et ACL",
+        isSystem: true,
+      },
+    });
+  }
+  await prisma.rolePermission.upsert({
+    where: {
+      roleId_permissionId: { roleId: role.id, permissionId: perm.id },
+    },
+    create: { roleId: role.id, permissionId: perm.id },
+    update: {},
+  });
+  const admins = await prisma.clientUser.findMany({
+    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  for (const a of admins) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: { userId: a.userId, roleId: role.id },
+      },
+      create: { userId: a.userId, roleId: role.id },
+      update: {},
+    });
+  }
+}
+
 /** RFC-ORG-001 — permissions organisation pour les CLIENT_ADMIN (UserRole). */
 async function ensureClientAdminOrganizationRole(): Promise<void> {
   const codes = [
@@ -3620,6 +3689,7 @@ async function main() {
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
   await ensureOrganizationModuleAndPermissions();
+  await ensureAccessModelModuleAndPermissions();
   await ensureBudgetSnapshotOccasionTypePermission();
   await ensureScopedPermissionsFromCatalog();
   await ensureDefaultGlobalProfiles();
@@ -3666,6 +3736,8 @@ async function main() {
   await ensureClientAdminTeamsModuleRole();
 
   await ensureClientAdminOrganizationRole();
+
+  await ensureClientAdminAccessModelRole();
 
   await ensureClientAdminContractsModuleRole();
 

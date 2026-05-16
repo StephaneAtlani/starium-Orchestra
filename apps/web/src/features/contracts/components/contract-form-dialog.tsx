@@ -56,6 +56,8 @@ import {
   previewTermEndLabel,
 } from '../lib/contract-form-date-hints';
 import { ContractAttachmentFilePicker } from './contract-attachment-file-picker';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
 
 const RENEWAL_TERM_PRESET_VALUES = ['12', '24', '36', '48', '60'] as const;
 
@@ -146,6 +148,7 @@ export function ContractFormDialog(props: {
   const [billingFrequency, setBillingFrequency] = useState('');
   const [description, setDescription] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [ownerOrgUnitId, setOwnerOrgUnitId] = useState<string | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentDocName, setAttachmentDocName] = useState('');
   const [attachmentCategory, setAttachmentCategory] =
@@ -184,6 +187,7 @@ export function ContractFormDialog(props: {
       setBillingFrequency(contract.billingFrequency ?? '');
       setDescription(contract.description ?? '');
       setInternalNotes(contract.internalNotes ?? '');
+      setOwnerOrgUnitId(contract.ownerOrgUnitId ?? null);
       clearAttachmentFields();
     } else if (mode === 'create') {
       setSupplierId('');
@@ -204,6 +208,7 @@ export function ContractFormDialog(props: {
       setBillingFrequency('');
       setDescription('');
       setInternalNotes('');
+      setOwnerOrgUnitId(null);
       clearAttachmentFields();
     }
   }, [open, mode, contract, clearAttachmentFields]);
@@ -240,6 +245,7 @@ export function ContractFormDialog(props: {
           billingFrequency: billingFrequency.trim() || undefined,
           description: description.trim() || undefined,
           internalNotes: internalNotes.trim() || undefined,
+          ownerOrgUnitId,
         });
       } else {
         if (!contract) throw new Error('Contrat manquant.');
@@ -263,6 +269,7 @@ export function ContractFormDialog(props: {
           billingFrequency: billingFrequency.trim() || null,
           description: description.trim() || null,
           internalNotes: internalNotes.trim() || null,
+          ownerOrgUnitId,
         });
       }
 
@@ -851,6 +858,16 @@ export function ContractFormDialog(props: {
                   ) : null}
                 </div>
               </div>
+            </div>
+
+            <div className="mt-6 space-y-2 border-t border-border/60 pt-4">
+              <Label>Direction propriétaire</Label>
+              <OwnerOrgUnitSelect
+                value={ownerOrgUnitId}
+                onChange={setOwnerOrgUnitId}
+                disabled={mut.isPending}
+              />
+              {!ownerOrgUnitId ? <OwnerOrgUnitNullWarning /> : null}
             </div>
 
             <div className="mt-6 space-y-2 border-t border-border/60 pt-4">

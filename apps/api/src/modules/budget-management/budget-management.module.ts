@@ -21,6 +21,8 @@ import { CostCentersController } from './cost-centers/cost-centers.controller';
 import { CostCentersService } from './cost-centers/cost-centers.service';
 import { BudgetDecisionHistoryService } from './budget-decision-history.service';
 import { AccessControlModule } from '../access-control/access-control.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AccessControlModule } from '../access-control/access-control.module';
     ClientsModule,
     BudgetSnapshotsModule,
     AccessControlModule,
+    AccessDecisionModule,
+    FeatureFlagsModule,
   ],
   controllers: [
     BudgetExercisesController,

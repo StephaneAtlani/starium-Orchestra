@@ -1,3 +1,5 @@
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
 export type SupplierContractStatus =
   | 'DRAFT'
   | 'ACTIVE'
@@ -42,6 +44,8 @@ export interface Contract {
   billingFrequency: string | null;
   description: string | null;
   internalNotes: string | null;
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary;
   createdAt: string;
   updatedAt: string;
 }

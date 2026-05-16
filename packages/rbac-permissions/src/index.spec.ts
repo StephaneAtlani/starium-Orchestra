@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   expandForLegacyGuards,
   expandForUi,
+  isAccessModelScopedPermission,
   satisfiesPermission,
   uiPermissionHintsArray,
 } from './index';
@@ -57,6 +58,21 @@ describe('expandForUi', () => {
     expect(satisfiesPermission(new Set(raw), 'budgets.read')).toBe(true);
     // Un set « hints only » sans read_all ne doit pas ouvrir legacy read
     expect(satisfiesPermission(new Set(hints), 'budgets.read')).toBe(false);
+  });
+});
+
+describe('isAccessModelScopedPermission', () => {
+  it('accepte read_scope, read_own, write_scope', () => {
+    expect(isAccessModelScopedPermission('budgets.read_scope')).toBe(true);
+    expect(isAccessModelScopedPermission('projects.read_own')).toBe(true);
+    expect(isAccessModelScopedPermission('contracts.write_scope')).toBe(true);
+  });
+
+  it('rejette legacy read/update et read_all', () => {
+    expect(isAccessModelScopedPermission('budgets.read')).toBe(false);
+    expect(isAccessModelScopedPermission('projects.update')).toBe(false);
+    expect(isAccessModelScopedPermission('budgets.read_all')).toBe(false);
+    expect(isAccessModelScopedPermission('budgets.manage_all')).toBe(false);
   });
 });
 

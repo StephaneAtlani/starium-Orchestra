@@ -8,7 +8,7 @@
 
 - **API** : `apps/api/src/modules/access-diagnostics/` — `access-diagnostics.service.ts` (fusion `finalDecision` **read** ↔ `decide`, harmonisation des six couches avec `evaluationMode`, blocs enrichis, audit self), `access-diagnostics.types.ts`, `access-diagnostics-enriched.config.ts`, `access-diagnostics-reason-messages.fr.ts`, `forwardRef` vers `AccessDecisionModule` ; contrôleurs passent la requête HTTP réelle à `compute*` quand elle existe (**pas** de `request` falsifié pour le cache org).
 - **Web** : `apps/web/src/features/access-diagnostics/` — matrice `effective-rights-matrix.tsx`, `access-explainer-popover.tsx`, types `api/access-diagnostics.ts`.
-- **Hors V1** : intents **write** / **admin** sur le moteur dans le diagnostic, généralisation autres modules → [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
+- **RFC-ACL-020** : intents **write** / **admin** via `canUseWriteAdminEngine` (flag enrichi + flag module `ACCESS_DECISION_V2_*`, pas d’override ACL) ; registre diagnostic **`BUDGET_LINE`**.
 
 ## Alignement plan
 

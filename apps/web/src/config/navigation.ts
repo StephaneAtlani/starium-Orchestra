@@ -274,6 +274,14 @@ export const navigation: NavigationSection[] = [
         clientAdminOnly: true,
       },
       {
+        label: "Modèle d'accès",
+        href: '/client/administration/access-model',
+        icon: Shield,
+        scope: 'client',
+        clientAdminOnly: true,
+        requiredPermissions: ['access_model.read'],
+      },
+      {
         label: 'Diagnostic accès',
         href: '/client/administration/access-diagnostics',
         icon: ShieldCheck,

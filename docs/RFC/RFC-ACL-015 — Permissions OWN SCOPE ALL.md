@@ -2,7 +2,7 @@
 
 ## Statut
 
-**🟡 Partielle (socle livré)** — vocabulaire seedé, règles de satisfaction **restrictives** avant [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) / [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md), API `/me/permissions` (bruts + hints UI), diagnostics ; **non livré** : résolution `OWN` / `SCOPE` sur les ressources, filtrage liste/détail métier, remplacement des décorateurs legacy par des intentions scope-aware. Étend le RBAC existant sans remplacer [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) (ACL par ressource `READ|WRITE|ADMIN`).
+**🟡 Partielle (socle livré)** — vocabulaire seedé, règles de satisfaction **restrictives** avant [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) / [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md), API `/me/permissions` (bruts + hints UI), diagnostics ; **généralisation guards HTTP (V1)** : [RFC-ACL-024](./RFC-ACL-024%20%E2%80%94%20Enforcement%20permissions%20scoped.md) (`@RequireAccessIntent`, registre handlers, `accessDecisionV2` sur `/me/permissions`) — résolution `OWN`/`SCOPE` sur **ressources** = 016/018/020 ; satellites contrôleurs hors V1. Étend le RBAC existant sans remplacer [RFC-ACL-005](./RFC-ACL-005%20%E2%80%94%20ACL%20ressources%20g%C3%A9n%C3%A9riques.md) (ACL par ressource `READ|WRITE|ADMIN`).
 
 ## Alignement plan
 
@@ -80,7 +80,7 @@ Les permissions **sans** suffixe existantes restent la référence sur les route
 
 ## 6. Récapitulatif
 
-RFC-ACL-015 fournit le **vocabulaire** RBAC ; RFC-ACL-016 et RFC-ACL-018 donnent la **sémantique** et l’**enforcement** sur les ressources. **État dépôt** : le **socle** (codes seedés, règles `satisfiesPermission`, `/me/permissions`, diagnostics) est livré ; le reste de la vision (filtrage par périmètre) reste porté par 016 / 018.
+RFC-ACL-015 fournit le **vocabulaire** RBAC ; RFC-ACL-016 et RFC-ACL-018 donnent la **sémantique** et l’**enforcement** sur les ressources (via 020 + flags 022). **État dépôt** : le **socle** est livré ; l’**enforcement guards HTTP V1** est livré par [RFC-ACL-024](./RFC-ACL-024%20%E2%80%94%20Enforcement%20permissions%20scoped.md) (vague 1 controllers + registre `SERVICE_ENFORCED_REGISTRY`).
 
 ---
 

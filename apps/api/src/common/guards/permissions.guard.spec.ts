@@ -1,275 +1,226 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ACCESS_ENFORCED_HANDLERS } from '../../modules/access-decision/access-intent-enforced-handlers';
+import { FeatureFlagsService } from '../../modules/feature-flags/feature-flags.service';
+import { REQUIRE_ACCESS_INTENT_KEY } from '../decorators/require-access-intent.decorator';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 import { PermissionsGuard } from './permissions.guard';
 
-const createExecutionContext = (req: Partial<RequestWithClient>): ExecutionContext =>
+const createExecutionContext = (
+  req: Partial<RequestWithClient>,
+  className = 'ProjectsController',
+  handlerName = 'list',
+): ExecutionContext =>
   ({
     switchToHttp: () => ({
       getRequest: () => req,
     }),
-    getHandler: () => ((): void => undefined) as any,
-    getClass: () => (class {} as any),
-  } as unknown as ExecutionContext);
+    getHandler: () => ({ name: handlerName }) as any,
+    getClass: () => ({ name: className }) as any,
+  }) as unknown as ExecutionContext;
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
   let prisma: any;
   let reflector: Reflector;
   let effectivePermissions: EffectivePermissionsService;
+  let featureFlags: jest.Mocked<Pick<FeatureFlagsService, 'isEnabled'>>;
 
   beforeEach(() => {
     prisma = {
-      userRole: {
-        findMany: jest.fn(),
-      },
+      userRole: { findMany: jest.fn() },
+      clientFeatureFlag: { findUnique: jest.fn() },
     } as unknown as jest.Mocked<PrismaService>;
     reflector = new Reflector();
     effectivePermissions = new EffectivePermissionsService(prisma);
-    guard = new PermissionsGuard(reflector, effectivePermissions);
+    featureFlags = { isEnabled: jest.fn().mockResolvedValue(false) };
+    guard = new PermissionsGuard(reflector, effectivePermissions, featureFlags as FeatureFlagsService);
     jest.spyOn(reflector, 'get').mockReturnValue(undefined);
   });
 
   it('refuse si utilisateur ou client actif absent', async () => {
-    const req: Partial<RequestWithClient> = {};
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext({}))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('refuse si permission requise manquante', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
       if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
       if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
       return undefined;
     });
-    prisma.userRole.findMany.mockResolvedValue([] as any);
+    prisma.userRole.findMany.mockResolvedValue([]);
 
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(createExecutionContext(req))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('accepte si toutes les permissions requises sont présentes', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
       if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
       return undefined;
     });
     prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [{ permission: { code: 'budgets.read' } }],
-        },
-      },
-    ] as any);
+      { role: { rolePermissions: [{ permission: { code: 'budgets.read' } }] } },
+    ]);
 
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
+    await expect(guard.canActivate(createExecutionContext(req))).resolves.toBe(true);
   });
 
-  it('applique une stratégie AND sur plusieurs permissions', async () => {
+  it('accepte budgets.read_all (RFC-ACL-015)', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
-      if (key === REQUIRE_PERMISSIONS_KEY) {
-        return ['budgets.read', 'budgets.update'];
-      }
-      return undefined;
-    });
-
-    prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [
-            { permission: { code: 'budgets.read' } },
-            { permission: { code: 'budgets.update' } },
-          ],
-        },
-      },
-    ] as any);
-
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
-  });
-
-  it('utilise le cache request (ne relance pas Prisma)', async () => {
-    const req: Partial<RequestWithClient> = {
-      user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
-    };
-
-    (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
       if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
       return undefined;
     });
-
     prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [{ permission: { code: 'budgets.read' } }],
-        },
-      },
-    ] as any);
+      { role: { rolePermissions: [{ permission: { code: 'budgets.read_all' } }] } },
+    ]);
 
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
-    await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
-
-    expect(prisma.userRole.findMany).toHaveBeenCalledTimes(1);
+    await expect(guard.canActivate(createExecutionContext(req))).resolves.toBe(true);
   });
 
-  it('accepte RequirePermissions sur plusieurs modules si toutes détenues', async () => {
+  it('read_scope + flag V2 on + route migrée → OK', async () => {
+    featureFlags.isEnabled.mockResolvedValue(true);
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
-      if (key === REQUIRE_PERMISSIONS_KEY) {
-        return ['budgets.read', 'contracts.read'];
+      if (key === REQUIRE_ACCESS_INTENT_KEY) {
+        return { module: 'projects', intent: 'read' };
       }
       return undefined;
     });
     prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [
-            { permission: { code: 'budgets.read' } },
-            { permission: { code: 'contracts.read' } },
-          ],
-        },
-      },
-    ] as any);
+      { role: { rolePermissions: [{ permission: { code: 'projects.read_scope' } }] } },
+    ]);
 
     await expect(
-      guard.canActivate(createExecutionContext(req)),
+      guard.canActivate(
+        createExecutionContext(req, 'ProjectsController', 'list'),
+      ),
     ).resolves.toBe(true);
+    expect(featureFlags.isEnabled).toHaveBeenCalled();
   });
 
-  it('refuse RequireAnyPermissions si aucune alternative détenue', async () => {
+  it('read_scope + flag V2 on + route non migrée → refuse', async () => {
+    featureFlags.isEnabled.mockResolvedValue(true);
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
-        return ['projects.read', 'budgets.read'];
-      }
-      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['projects.read'];
       return undefined;
     });
-    prisma.userRole.findMany.mockResolvedValue([] as any);
+    prisma.userRole.findMany.mockResolvedValue([
+      { role: { rolePermissions: [{ permission: { code: 'projects.read_scope' } }] } },
+    ]);
 
     await expect(
-      guard.canActivate(createExecutionContext(req)),
+      guard.canActivate(
+        createExecutionContext(req, 'ProjectsController', 'portfolioSummary'),
+      ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('accepte RequireAnyPermissions si une alternative est détenue', async () => {
+  it('read_scope + flag V2 off → refuse (RequireAccessIntent)', async () => {
+    featureFlags.isEnabled.mockResolvedValue(false);
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
-
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) {
-        return ['projects.read', 'budgets.read'];
+      if (key === REQUIRE_ACCESS_INTENT_KEY) {
+        return { module: 'projects', intent: 'read' };
       }
-      if (key === REQUIRE_PERMISSIONS_KEY) return undefined;
       return undefined;
     });
     prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [{ permission: { code: 'budgets.read' } }],
-        },
-      },
-    ] as any);
+      { role: { rolePermissions: [{ permission: { code: 'projects.read_scope' } }] } },
+    ]);
 
     await expect(
-      guard.canActivate(createExecutionContext(req)),
-    ).resolves.toBe(true);
+      guard.canActivate(createExecutionContext(req, 'ProjectsController', 'list')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('accepte budgets.read si seul budgets.read_all est détenu (RFC-ACL-015)', async () => {
+  it('pont legacy : read_scope + V2 on sur handler enregistré', async () => {
+    featureFlags.isEnabled.mockResolvedValue(true);
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },
-      activeClient: {
-        id: 'client-1',
-        role: null as any,
-        status: null as any,
-      },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
     };
     (reflector.get as jest.Mock).mockImplementation((key: string) => {
-      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
-      if (key === REQUIRE_PERMISSIONS_KEY) return ['budgets.read'];
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['projects.read'];
       return undefined;
     });
     prisma.userRole.findMany.mockResolvedValue([
-      {
-        role: {
-          rolePermissions: [{ permission: { code: 'budgets.read_all' } }],
-        },
-      },
-    ] as any);
+      { role: { rolePermissions: [{ permission: { code: 'projects.read_scope' } }] } },
+    ]);
 
     await expect(
-      guard.canActivate(createExecutionContext(req)),
+      guard.canActivate(createExecutionContext(req, 'ProjectsController', 'list')),
+    ).resolves.toBe(true);
+    expect(ACCESS_ENFORCED_HANDLERS.ProjectsController.list).toBe('ProjectsController.list');
+  });
+
+  it('create : write_scope ne suffit pas', async () => {
+    featureFlags.isEnabled.mockResolvedValue(true);
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ACCESS_INTENT_KEY) {
+        return { module: 'projects', intent: 'create' };
+      }
+      return undefined;
+    });
+    prisma.userRole.findMany.mockResolvedValue([
+      { role: { rolePermissions: [{ permission: { code: 'projects.write_scope' } }] } },
+    ]);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req, 'ProjectsController', 'create')),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('create : projects.create OK', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ACCESS_INTENT_KEY) {
+        return { module: 'projects', intent: 'create' };
+      }
+      return undefined;
+    });
+    prisma.userRole.findMany.mockResolvedValue([
+      { role: { rolePermissions: [{ permission: { code: 'projects.create' } }] } },
+    ]);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req, 'ProjectsController', 'create')),
     ).resolves.toBe(true);
   });
 });

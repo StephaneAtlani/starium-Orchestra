@@ -1,3 +1,5 @@
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
 /** Réponse GET /api/suppliers/dashboard */
 export interface SuppliersDashboardStats {
   suppliersListed: number;
@@ -27,6 +29,8 @@ export interface Supplier {
   notes: string | null;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategory | null;
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary | null;
   status: string;
   createdAt: string;
   updatedAt: string;

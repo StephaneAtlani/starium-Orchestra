@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md) et [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md).
+**Implémentée (Lot A backend + Lot B UI ownership)** — 2026-05. Dépend de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d%27acc%C3%A8s%20unifi%C3%A9.md) et [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md). **Activation prod** : couplée à [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) — voir [runbook](../runbooks/migration-org-scope-access.md).
 
 ## Alignement plan
 
@@ -54,39 +54,56 @@ Pour chaque module : **ownership affiché** en UI, **filtrage liste** cohérent 
 
 ---
 
-## 3. Checklist par module (à cocher en delivery)
+## 3. Implémentation (code — 2026-05)
 
-Pour chaque ressource :
+| Élément | Emplacement |
+| --- | --- |
+| Intents write/admin | `access-decision.write-intent.ts` + `access-decision.service.ts` (`applyOrgNarrowingAfterAcl`, `composeResult`) |
+| Flags par client | `apps/api/src/modules/feature-flags/` (`ClientFeatureFlag`, `FLAG_KEYS.ACCESS_DECISION_V2_*`) |
+| Registre ressources | `access-decision.registry.ts` — `BUDGET_LINE` → ACL sur budget parent |
+| Services branchés | `ProjectsService`, `BudgetsService`, `BudgetLinesService`, `ContractsService`, `SuppliersService`, `StrategicVisionService` — pattern `isAccessV2Enabled` + fallback legacy |
+| Diagnostic write/admin | `access-diagnostics.service.ts` — `canUseWriteAdminEngine` |
+| Tests anti-fuite | `access-decision.modules.integration.spec.ts` (52 scénarios) |
+| Backfill CLI | `apps/api/scripts/backfill-owner-org-unit.ts` |
+| UI ownership | `OwnerOrgUnitSelect`, `OwnerOrgUnitNullWarning` — Projets, Budgets/Lignes, Fournisseurs (`/suppliers`), Contrats, Objectifs stratégiques |
+| Runbook prod | [docs/runbooks/migration-org-scope-access.md](../runbooks/migration-org-scope-access.md) |
 
-- [ ] Colonne / lien `ownerOrgUnitId` + affichage UI (sélecteur arbre / combobox unités).
-- [ ] Liste : application du filtre SCOPE/OWN via helper commun (wrap du moteur ou pré-filtre IDs).
-- [ ] Détail : même verdict que liste.
-- [ ] Mutations : guard unifié ou équivalent.
-- [ ] Tests : utilisateur A d’une direction ne voit pas les entités d’une autre (client identique).
-- [ ] Diagnostic RFC-ACL-019 branché sur l’intention représentative du module.
+**Flags** (un par module) : `ACCESS_DECISION_V2_PROJECTS`, `_BUDGETS`, `_CONTRACTS`, `_PROCUREMENT`, `_STRATEGIC_VISION`.
 
 ---
 
-## 4. Hors périmètre
+## 4. Checklist par module (delivery)
 
-- Cockpit transverse RFC-ACL-021 (s’appuie sur les données produites ici).
+Pour chaque ressource (état Lot A) :
+
+- [x] Colonne / lien `ownerOrgUnitId` + affichage UI (`OwnerOrgUnitSelect`, `OwnerOrgUnitNullWarning`).
+- [x] Liste / détail / mutations : branchement `AccessDecisionService` (read/write/admin) derrière flag `ACCESS_DECISION_V2_*` par module.
+- [x] Tests anti-fuite paramétrés : `access-decision.modules.integration.spec.ts`.
+- [x] Diagnostic RFC-ACL-019 : chemin moteur write/admin si enrichi + flag module (sans override ACL).
+- [x] Cockpit écarts ownership transverse → RFC-ACL-021 (V1 livré).
 
 ---
 
-## 5. Tests
+## 5. Hors périmètre
+
+- Export CSV cockpit RFC-ACL-021 (hors V1).
+
+---
+
+## 6. Tests
 
 - Suite **paramétrée** par `resourceType` / module (au minimum un test par module livré).
 - Régression ACL stricte + policy (RFC-ACL-017).
 
 ---
 
-## 6. Récapitulatif
+## 7. Récapitulatif
 
 RFC-ACL-020 est le **plan de portage opérationnel** : elle ne redéfinit pas le moteur, elle **matérialise** les branchements réels sur le code existant.
 
 ---
 
-## 7. Points de vigilance
+## 8. Points de vigilance
 
 - **Budget lines** : héritage direction du budget parent vs override — à trancher (recommandation : héritage par défaut, override optionnel seulement si besoin CODIR).
 - **Performance** des portefeuilles (projets, budgets) après filtrage scope : indexer et mesurer.

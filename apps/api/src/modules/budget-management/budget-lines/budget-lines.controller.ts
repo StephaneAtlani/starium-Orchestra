@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -13,9 +14,11 @@ import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
+import { RequireAccessIntent } from '../../../common/decorators/require-access-intent.decorator';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
+import type { RequestWithClient } from '../../../common/types/request-with-client';
 import type { AuditContext } from '../types/audit-context';
 import { BudgetLinesService } from './budget-lines.service';
 import { CreateBudgetLineDto } from './dto/create-budget-line.dto';
@@ -29,23 +32,25 @@ export class BudgetLinesController {
   constructor(private readonly service: BudgetLinesService) {}
 
   @Get()
-  @RequirePermissions('budgets.read')
+  @RequireAccessIntent({ module: 'budgets', intent: 'read' })
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListBudgetLinesQueryDto,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.list(clientId!, query, userId);
+    return this.service.list(clientId!, query, userId, request);
   }
 
   @Get(':id')
-  @RequirePermissions('budgets.read')
+  @RequireAccessIntent({ module: 'budgets', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.getById(clientId!, id, userId);
+    return this.service.getById(clientId!, id, userId, request);
   }
 
   @Patch('bulk-status')
@@ -61,27 +66,29 @@ export class BudgetLinesController {
   }
 
   @Post()
-  @RequirePermissions('budgets.create')
+  @RequireAccessIntent({ module: 'budgets', intent: 'create' })
   create(
     @ActiveClientId() clientId: string | undefined,
     @Body() dto: CreateBudgetLineDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.service.create(clientId!, dto, context);
+    return this.service.create(clientId!, dto, context, request);
   }
 
   @Patch(':id')
-  @RequirePermissions('budgets.update')
+  @RequireAccessIntent({ module: 'budgets', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateBudgetLineDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.service.update(clientId!, id, dto, context);
+    return this.service.update(clientId!, id, dto, context, request);
   }
 }

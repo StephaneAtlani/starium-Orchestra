@@ -46,6 +46,8 @@ import { normalizeSearchText } from '../search/search-normalize.util';
 import { buildProjectSearchText } from '../search/search-text-build.util';
 import { AccessControlService } from '../access-control/access-control.service';
 import { AccessDecisionService } from '../access-decision/access-decision.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { FLAG_KEYS } from '../feature-flags/flag-keys';
 import type { RequestWithClient } from '../../common/types/request-with-client';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 import {
@@ -198,7 +200,22 @@ export class ProjectsService {
       canAdminResource: async () => true,
     },
     private readonly accessDecision: AccessDecisionService,
+    @Inject(FeatureFlagsService)
+    private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
+      isEnabled: async () => false,
+    },
   ) {}
+
+  private async isAccessV2Enabled(
+    clientId: string,
+    request?: RequestWithClient,
+  ): Promise<boolean> {
+    return this.featureFlags.isEnabled(
+      clientId,
+      FLAG_KEYS.ACCESS_DECISION_V2_PROJECTS,
+      request,
+    );
+  }
 
   /**
    * RFC-ACL-018 — lecture (licence, module, RBAC intent, org, ACL/policy).
@@ -220,7 +237,23 @@ export class ProjectsService {
     });
   }
 
-  async assertCanWriteProject(clientId: string, userId: string, projectId: string): Promise<void> {
+  async assertCanWriteProject(
+    clientId: string,
+    userId: string,
+    projectId: string,
+    request?: RequestWithClient,
+  ): Promise<void> {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request: request ?? ({} as RequestWithClient),
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: projectId,
+        intent: 'write',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canWriteResource({
       clientId,
       userId,
@@ -233,7 +266,23 @@ export class ProjectsService {
     }
   }
 
-  async assertCanAdminProject(clientId: string, userId: string, projectId: string): Promise<void> {
+  async assertCanAdminProject(
+    clientId: string,
+    userId: string,
+    projectId: string,
+    request?: RequestWithClient,
+  ): Promise<void> {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request: request ?? ({} as RequestWithClient),
+        clientId,
+        userId,
+        resourceType: 'PROJECT',
+        resourceId: projectId,
+        intent: 'admin',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canAdminResource({
       clientId,
       userId,
@@ -1173,6 +1222,7 @@ export class ProjectsService {
     id: string,
     dto: UpdateProjectDto,
     context?: AuditContext,
+    request?: RequestWithClient,
   ) {
     const existing = await this.prisma.project.findFirst({
       where: { id, clientId },
@@ -1183,7 +1233,7 @@ export class ProjectsService {
     if (!context?.actorUserId) {
       throw new ForbiddenException('Contexte utilisateur manquant');
     }
-    await this.assertCanWriteProject(clientId, context.actorUserId, id);
+    await this.assertCanWriteProject(clientId, context.actorUserId, id, request);
 
     if (dto.code !== undefined && dto.code.trim() !== existing.code) {
       const clash = await this.prisma.project.findUnique({
@@ -1378,7 +1428,12 @@ export class ProjectsService {
     return this.getById(clientId, id, context.actorUserId);
   }
 
-  async delete(clientId: string, id: string, context?: AuditContext) {
+  async delete(
+    clientId: string,
+    id: string,
+    context?: AuditContext,
+    request?: RequestWithClient,
+  ) {
     const existing = await this.prisma.project.findFirst({
       where: { id, clientId },
     });
@@ -1388,7 +1443,7 @@ export class ProjectsService {
     if (!context?.actorUserId) {
       throw new ForbiddenException('Contexte utilisateur manquant');
     }
-    await this.assertCanAdminProject(clientId, context.actorUserId, id);
+    await this.assertCanAdminProject(clientId, context.actorUserId, id, request);
 
     await this.prisma.project.delete({ where: { id } });
 

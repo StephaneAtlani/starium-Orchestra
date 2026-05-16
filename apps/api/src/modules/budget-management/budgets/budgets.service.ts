@@ -43,6 +43,10 @@ import { BudgetEnvelopesService } from '../budget-envelopes/budget-envelopes.ser
 import { BudgetLinesService } from '../budget-lines/budget-lines.service';
 import { AccessControlService } from '../../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
+import { AccessDecisionService } from '../../access-decision/access-decision.service';
+import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
+import { FLAG_KEYS } from '../../feature-flags/flag-keys';
+import type { RequestWithClient } from '../../../common/types/request-with-client';
 import {
   assertOrgUnitInClient,
   orgUnitAuditRef,
@@ -74,9 +78,48 @@ export class BudgetsService {
       canWriteResource: async () => true,
       filterReadableResourceIds: async (params) => params.resourceIds,
     },
+    @Inject(AccessDecisionService)
+    private readonly accessDecision: Pick<
+      AccessDecisionService,
+      'assertAllowed' | 'filterResourceIdsByAccess'
+    > = {
+      assertAllowed: async () => undefined,
+      filterResourceIdsByAccess: async (params) => params.resourceIds,
+    },
+    @Inject(FeatureFlagsService)
+    private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
+      isEnabled: async () => false,
+    },
   ) {}
 
-  private async assertCanReadBudget(clientId: string, userId: string, budgetId: string) {
+  private async isAccessV2Enabled(
+    clientId: string,
+    request?: RequestWithClient,
+  ): Promise<boolean> {
+    return this.featureFlags.isEnabled(
+      clientId,
+      FLAG_KEYS.ACCESS_DECISION_V2_BUDGETS,
+      request,
+    );
+  }
+
+  private async assertCanReadBudget(
+    clientId: string,
+    userId: string,
+    budgetId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'BUDGET',
+        resourceId: budgetId,
+        intent: 'read',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canReadResource({
       clientId,
       userId,
@@ -87,7 +130,23 @@ export class BudgetsService {
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
 
-  private async assertCanWriteBudget(clientId: string, userId: string, budgetId: string) {
+  private async assertCanWriteBudget(
+    clientId: string,
+    userId: string,
+    budgetId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'BUDGET',
+        resourceId: budgetId,
+        intent: 'write',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canWriteResource({
       clientId,
       userId,
@@ -102,6 +161,7 @@ export class BudgetsService {
     clientId: string,
     query: ListBudgetsQueryDto,
     userId?: string,
+    request?: RequestWithClient,
   ): Promise<ListResult<BudgetWithNumbers>> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -130,14 +190,23 @@ export class BudgetsService {
       select: { id: true },
     });
     const readableBudgetIds = userId
-      ? await this.accessControl.filterReadableResourceIds({
-          clientId,
-          userId,
-          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
-          resourceIds: rows.map((row) => row.id),
-          operation: 'read',
-          sharingFloorAllows: true,
-        })
+      ? (await this.isAccessV2Enabled(clientId, request))
+        ? await this.accessDecision.filterResourceIdsByAccess({
+            request: request as RequestWithClient,
+            clientId,
+            userId,
+            resourceType: 'BUDGET',
+            resourceIds: rows.map((row) => row.id),
+            intent: 'list',
+          })
+        : await this.accessControl.filterReadableResourceIds({
+            clientId,
+            userId,
+            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.BUDGET,
+            resourceIds: rows.map((row) => row.id),
+            operation: 'read',
+            sharingFloorAllows: true,
+          })
       : rows.map((row) => row.id);
     const total = readableBudgetIds.length;
     const pagedIds = readableBudgetIds.slice(offset, offset + limit);
@@ -168,7 +237,12 @@ export class BudgetsService {
     };
   }
 
-  async getById(clientId: string, id: string, userId?: string): Promise<BudgetWithNumbers> {
+  async getById(
+    clientId: string,
+    id: string,
+    userId?: string,
+    request?: RequestWithClient,
+  ): Promise<BudgetWithNumbers> {
     const budget = await this.prisma.budget.findFirst({
       where: { id, clientId },
       include: {
@@ -181,7 +255,7 @@ export class BudgetsService {
       throw new NotFoundException('Budget not found');
     }
     if (userId) {
-      await this.assertCanReadBudget(clientId, userId, id);
+      await this.assertCanReadBudget(clientId, userId, id, request);
     }
     const [
       draftEnvelopeCount,
@@ -326,6 +400,7 @@ export class BudgetsService {
     id: string,
     dto: UpdateBudgetDto,
     context?: AuditContext,
+    request?: RequestWithClient,
   ): Promise<BudgetWithNumbers> {
     const existing = await this.prisma.budget.findFirst({
       where: { id, clientId },
@@ -334,7 +409,7 @@ export class BudgetsService {
       throw new NotFoundException('Budget not found');
     }
     if (context?.actorUserId) {
-      await this.assertCanWriteBudget(clientId, context.actorUserId, id);
+      await this.assertCanWriteBudget(clientId, context.actorUserId, id, request);
     }
     if (
       existing.status === BudgetStatus.LOCKED ||

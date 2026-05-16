@@ -1,8 +1,9 @@
 import type { ResourceAccessPolicyMode } from '@prisma/client';
 import type { OrgScopeVerdict } from '../../common/organization/organization-scope.types';
+import type { ResourceAclCanonicalResourceType } from '../access-control/resource-acl.constants';
 import type { SupportedDiagnosticResourceType } from '../access-diagnostics/resource-diagnostics.registry';
 
-/** RFC-ACL-018 V1 : lecture (+ liste) ; write/admin typés sans matrice produit. */
+/** RFC-ACL-018 (V1 read/list) ; RFC-ACL-020 ajoute write/admin. */
 export type AccessIntent = 'read' | 'list' | 'write' | 'admin';
 
 export type AccessDecisionRbacDetail = {
@@ -39,5 +40,11 @@ export type AccessDecisionResult = {
 
 export type AccessResourceScopeRow = {
   ownerOrgUnitId: string | null;
+  /** Provenance de l'ownership (utile pour les diagnostics RFC-019). */
+  ownerOrgUnitSource?: 'self' | 'parent';
+  /** Type ACL réellement appliqué (peut différer du resourceType métier — ex. BUDGET_LINE → BUDGET). */
+  aclResourceType: ResourceAclCanonicalResourceType;
+  /** Id ACL réellement appliqué (peut différer du resourceId métier — ex. BUDGET_LINE → budgetId parent). */
+  aclResourceId: string;
   ownHints?: { subjectResourceId?: string | null };
 };

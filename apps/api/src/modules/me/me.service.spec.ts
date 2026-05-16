@@ -33,8 +33,11 @@ describe('MeService', () => {
     getHumanResourceIdForUser: jest.fn(),
   };
   const config = { get: jest.fn() };
+  const featureFlags = { isEnabled: jest.fn().mockResolvedValue(false) };
 
   beforeEach(() => {
+    featureFlags.isEnabled.mockReset();
+    featureFlags.isEnabled.mockResolvedValue(false);
     securityLogs.create.mockReset();
     emailService.queueEmail.mockReset();
     config.get.mockReset();
@@ -94,6 +97,7 @@ describe('MeService', () => {
       emailService as any,
       config as any,
       moduleVisibility as any,
+      featureFlags as any,
     );
   });
 
@@ -741,6 +745,26 @@ describe('MeService', () => {
       const out = await service.getPermissionCodesWithUiHints('user-1', 'client-1');
       expect(out.permissionCodes).toEqual(['budgets.read_all']);
       expect(out.uiPermissionHints).toEqual(['budgets.read_own', 'budgets.read_scope']);
+      expect(out.accessDecisionV2).toBeDefined();
+    });
+
+    it('accessDecisionV2 reflète le client actif uniquement', async () => {
+      prisma.clientModule.findMany.mockResolvedValue([]);
+      prisma.userRole.findMany.mockResolvedValue([]);
+      featureFlags.isEnabled.mockImplementation(async (_clientId: string, flag: string) => {
+        return flag === 'ACCESS_DECISION_V2_PROJECTS';
+      });
+
+      const outA = await service.getAccessDecisionV2ForClient('client-a');
+      expect(outA.projects).toBe(true);
+      expect(outA.budgets).toBe(false);
+
+      featureFlags.isEnabled.mockImplementation(async (_clientId: string, flag: string) => {
+        return flag === 'ACCESS_DECISION_V2_BUDGETS';
+      });
+      const outB = await service.getAccessDecisionV2ForClient('client-b');
+      expect(outB.budgets).toBe(true);
+      expect(outB.projects).toBe(false);
     });
   });
 });

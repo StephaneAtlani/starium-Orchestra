@@ -5,30 +5,37 @@
  * L’expansion guard est **volontairement restrictive** : `read_scope` / `read_own` ne valident **pas** un
  * legacy `*.read` tant qu’aucun filtrage périmètre n’est branché sur les routes concernées.
  *
- * **UI** : `expandForUi` / `uiPermissionHintsArray` servent au **front** (badges, futurs feature flags) ;
+ * **UI** : `expandForUi` / `uiPermissionHintsArray` / `evaluateAccessIntentForUi` servent au **front** ;
  * ils ne constituent **pas** une preuve d’autorisation backend.
- *
- * Équivalences explicites (pré-moteur organisationnel) :
- * - `*.read_all` satisfait legacy `*.read` pour les modules listés dans `SCOPED_READ_MODULES` (même périmètre « global client »).
- * - `*.manage_all` satisfait legacy `*.delete` uniquement pour `projects` et `contracts` (paires catalogue).
- * - `write_scope` ne satisfait **pas** `*.update` legacy ; `read_scope` / `read_own` ne satisfient **pas** `*.read` legacy.
  */
 
-export const SCOPED_READ_MODULES = [
-  'budgets',
-  'projects',
-  'contracts',
-  'procurement',
-  'strategic_vision',
-] as const;
+export {
+  SCOPED_READ_MODULES,
+  MANAGE_ALL_IMPLIES_DELETE_MODULES,
+  satisfiesPermission,
+  type ScopedReadModule,
+} from './catalog';
 
-export type ScopedReadModule = (typeof SCOPED_READ_MODULES)[number];
+import {
+  SCOPED_READ_MODULES,
+  MANAGE_ALL_IMPLIES_DELETE_MODULES,
+  satisfiesPermission,
+  type ScopedReadModule,
+} from './catalog';
 
-/** `manage_all` implique le legacy `*.delete` pour ces modules uniquement (routes existantes). */
-export const MANAGE_ALL_IMPLIES_DELETE_MODULES = [
-  'projects',
-  'contracts',
-] as const;
+export { evaluateReadRbacIntent, type ReadRbacIntentResult } from './read-intent';
+export {
+  evaluateWriteRbacIntent,
+  type WriteIntent,
+  type WriteRbacIntentResult,
+} from './write-intent';
+export {
+  evaluateAccessIntentForUi,
+  getIntentPermissionCandidates,
+  type AccessIntentKindUi,
+  type AccessIntentUiResult,
+  type EvaluateAccessIntentForUiOptions,
+} from './access-intent-ui';
 
 const MODULE_LABEL_FR: Record<ScopedReadModule, string> = {
   budgets: 'Budgets',
@@ -44,7 +51,12 @@ export type ScopedPermissionSeedRow = {
   label: string;
 };
 
-/** Lignes à upserter (seed) : triplets lecture + écriture périmètre + gestion globale. */
+const ACCESS_MODEL_SCOPED_SUFFIXES = ['.read_scope', '.read_own', '.write_scope'] as const;
+
+export function isAccessModelScopedPermission(code: string): boolean {
+  return ACCESS_MODEL_SCOPED_SUFFIXES.some((s) => code.endsWith(s));
+}
+
 export function getScopedPermissionSeedRows(): ScopedPermissionSeedRow[] {
   const rows: ScopedPermissionSeedRow[] = [];
   for (const m of SCOPED_READ_MODULES) {
@@ -80,33 +92,6 @@ export function getScopedPermissionSeedRows(): ScopedPermissionSeedRow[] {
   return rows;
 }
 
-/**
- * Vérifie si l’utilisateur possède le droit `requiredCode` à partir des codes **bruts** issus des rôles
- * (filtrage module activé appliqué en amont par l’appelant si nécessaire).
- */
-export function satisfiesPermission(
-  userCodes: ReadonlySet<string>,
-  requiredCode: string,
-  _context?: unknown,
-): boolean {
-  if (userCodes.has(requiredCode)) return true;
-
-  for (const m of SCOPED_READ_MODULES) {
-    if (requiredCode === `${m}.read` && userCodes.has(`${m}.read_all`)) {
-      return true;
-    }
-  }
-
-  for (const m of MANAGE_ALL_IMPLIES_DELETE_MODULES) {
-    if (requiredCode === `${m}.delete` && userCodes.has(`${m}.manage_all`)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/** Au moins un des codes `candidates` est satisfait (RequireAnyPermissions). */
 export function satisfiesAnyPermission(
   userCodes: ReadonlySet<string>,
   candidates: readonly string[],
@@ -114,10 +99,6 @@ export function satisfiesAnyPermission(
   return candidates.some((c) => satisfiesPermission(userCodes, c));
 }
 
-/**
- * Codes **additionnels** dérivés pour les guards (pré RFC-016/018) : élargissement global → legacy read,
- * `manage_all` → `delete` documenté. Ne pas utiliser pour l’UI.
- */
 export function expandForLegacyGuards(codes: ReadonlySet<string>): Set<string> {
   const out = new Set(codes);
   for (const m of SCOPED_READ_MODULES) {
@@ -129,9 +110,6 @@ export function expandForLegacyGuards(codes: ReadonlySet<string>): Set<string> {
   return out;
 }
 
-/**
- * Implications **affichage** entre niveaux de lecture (OWN ⊂ SCOPE ⊂ ALL) — ne pas confondre avec les droits API.
- */
 export function expandForUi(codes: ReadonlySet<string>): Set<string> {
   const out = new Set(codes);
   for (const m of SCOPED_READ_MODULES) {
@@ -146,7 +124,6 @@ export function expandForUi(codes: ReadonlySet<string>): Set<string> {
   return out;
 }
 
-/** Codes présents dans `expandForUi` mais absents des codes bruts (hints uniquement). */
 export function uiPermissionHintsArray(rawCodes: readonly string[]): string[] {
   const raw = new Set(rawCodes);
   const expanded = expandForUi(raw);

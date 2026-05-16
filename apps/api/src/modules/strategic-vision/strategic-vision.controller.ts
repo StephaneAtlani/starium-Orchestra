@@ -9,11 +9,14 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { RequestWithClient } from '../../common/types/request-with-client';
 import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { RequireAccessIntent } from '../../common/decorators/require-access-intent.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
@@ -111,13 +114,14 @@ export class StrategicVisionController {
 
   // ===== Objectives nested under axes =====
   @Get('strategic-vision/axes/:axisId/objectives')
-  @RequirePermissions('strategic_vision.read')
+  @RequireAccessIntent({ module: 'strategic_vision', intent: 'read' })
   listObjectivesByAxis(
     @ActiveClientId() clientId: string | undefined,
     @Param('axisId') axisId: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.listObjectivesByAxis(clientId!, axisId, userId);
+    return this.service.listObjectivesByAxis(clientId!, axisId, userId, request);
   }
 
   @Post('strategic-vision/axes/:axisId/objectives')
@@ -143,8 +147,9 @@ export class StrategicVisionController {
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.listObjectiveLinks(clientId!, objectiveId, userId);
+    return this.service.listObjectiveLinks(clientId!, objectiveId, userId, request);
   }
 
   @Post('strategic-vision/objectives/:objectiveId/links')
@@ -155,11 +160,15 @@ export class StrategicVisionController {
     @Body() dto: CreateStrategicLinkDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.addObjectiveLink(clientId!, objectiveId, dto, {
-      actorUserId,
-      meta,
-    });
+    return this.service.addObjectiveLink(
+      clientId!,
+      objectiveId,
+      dto,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   @Patch('strategic-vision/objectives/:objectiveId/links/:linkId')
@@ -171,6 +180,7 @@ export class StrategicVisionController {
     @Body() dto: UpdateStrategicLinkDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
     return this.service.updateObjectiveLink(
       clientId!,
@@ -178,6 +188,7 @@ export class StrategicVisionController {
       linkId,
       dto,
       { actorUserId, meta },
+      request,
     );
   }
 
@@ -189,36 +200,45 @@ export class StrategicVisionController {
     @Param('linkId') linkId: string,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.removeObjectiveLink(clientId!, objectiveId, linkId, {
-      actorUserId,
-      meta,
-    });
+    return this.service.removeObjectiveLink(
+      clientId!,
+      objectiveId,
+      linkId,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   @Get('strategic-vision/objectives/:objectiveId')
-  @RequirePermissions('strategic_vision.read')
+  @RequireAccessIntent({ module: 'strategic_vision', intent: 'read' })
   getObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.getObjectiveById(clientId!, objectiveId, userId);
+    return this.service.getObjectiveById(clientId!, objectiveId, userId, request);
   }
 
   @Patch('strategic-vision/objectives/:objectiveId')
-  @RequirePermissions('strategic_vision.update')
+  @RequireAccessIntent({ module: 'strategic_vision', intent: 'write' })
   updateObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
     @Body() dto: UpdateStrategicObjectiveDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.updateObjective(clientId!, objectiveId, dto, {
-      actorUserId,
-      meta,
-    });
+    return this.service.updateObjective(
+      clientId!,
+      objectiveId,
+      dto,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   @Delete('strategic-vision/objectives/:objectiveId')
@@ -229,11 +249,14 @@ export class StrategicVisionController {
     @Param('objectiveId') objectiveId: string,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.archiveObjective(clientId!, objectiveId, {
-      actorUserId,
-      meta,
-    });
+    return this.service.archiveObjective(
+      clientId!,
+      objectiveId,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   // ===== Axes nested under vision =====
@@ -435,12 +458,13 @@ export class StrategicVisionController {
   }
 
   @Get('strategic-objectives')
-  @RequirePermissions('strategic_vision.read')
+  @RequireAccessIntent({ module: 'strategic_vision', intent: 'read' })
   listObjectives(
     @ActiveClientId() clientId: string | undefined,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.listObjectives(clientId!, userId);
+    return this.service.listObjectives(clientId!, userId, request);
   }
 
   @Post('strategic-objectives')
@@ -455,18 +479,22 @@ export class StrategicVisionController {
   }
 
   @Patch('strategic-objectives/:id')
-  @RequirePermissions('strategic_vision.update')
+  @RequireAccessIntent({ module: 'strategic_vision', intent: 'write' })
   updateObjective(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') objectiveId: string,
     @Body() dto: UpdateStrategicObjectiveDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.updateObjective(clientId!, objectiveId, dto, {
-      actorUserId,
-      meta,
-    });
+    return this.service.updateObjective(
+      clientId!,
+      objectiveId,
+      dto,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   @Post('strategic-objectives/:id/links')
@@ -477,11 +505,15 @@ export class StrategicVisionController {
     @Body() dto: CreateStrategicLinkDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.addObjectiveLink(clientId!, objectiveId, dto, {
-      actorUserId,
-      meta,
-    });
+    return this.service.addObjectiveLink(
+      clientId!,
+      objectiveId,
+      dto,
+      { actorUserId, meta },
+      request,
+    );
   }
 
   @Delete('strategic-objectives/:id/links/:linkId')
@@ -492,10 +524,14 @@ export class StrategicVisionController {
     @Param('linkId') linkId: string,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: AuditMeta,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.removeObjectiveLink(clientId!, objectiveId, linkId, {
-      actorUserId,
-      meta,
-    });
+    return this.service.removeObjectiveLink(
+      clientId!,
+      objectiveId,
+      linkId,
+      { actorUserId, meta },
+      request,
+    );
   }
 }

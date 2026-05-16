@@ -50,10 +50,15 @@ export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const tablePan = useTablePan();
-  const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } =
-    usePermissions();
-  const canReadProjects = has('projects.read');
-  const canUpdateProjects = has('projects.update');
+  const {
+    has,
+    hasIntent,
+    isLoading: permsLoading,
+    isSuccess: permsSuccess,
+    isError: permsError,
+  } = usePermissions();
+  const canReadProjects = hasIntent('projects', 'read', { serviceEnforced: true });
+  const canUpdateProjects = hasIntent('projects', 'write', { serviceEnforced: true });
   const listEnabled = !!clientId && permsSuccess && canReadProjects;
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 

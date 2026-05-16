@@ -54,7 +54,10 @@ import { ImageUploadDropzone } from '@/features/procurement/components/image-upl
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 import { SupplierContactModal } from '@/features/procurement/components/suppliers/supplier-contact-modal';
 import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
-import type { SupplierContact } from '@/features/procurement/types/supplier.types';
+import type { SupplierContact, Supplier } from '@/features/procurement/types/supplier.types';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
 
 type SupplierFormState = {
   name: string;
@@ -67,6 +70,7 @@ type SupplierFormState = {
   website: string;
   notes: string;
   supplierCategoryId: string;
+  ownerOrgUnitId: string | null;
 };
 
 type SupplierFormErrors = Partial<Record<keyof SupplierFormState, string>>;
@@ -175,6 +179,7 @@ export default function SuppliersPage() {
     website: '',
     notes: '',
     supplierCategoryId: '__none__',
+    ownerOrgUnitId: null as string | null,
   });
   const [supplierCategoryFilter, setSupplierCategoryFilter] = useState('all');
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -195,6 +200,7 @@ export default function SuppliersPage() {
     website: '',
     notes: '',
     supplierCategoryId: '__none__',
+    ownerOrgUnitId: null as string | null,
   });
   const [formErrors, setFormErrors] = useState<SupplierFormErrors>({});
   const [editFormErrors, setEditFormErrors] = useState<SupplierFormErrors>({});
@@ -418,6 +424,7 @@ export default function SuppliersPage() {
         phone: form.phone || undefined,
         website: form.website || undefined,
         notes: form.notes || undefined,
+        ownerOrgUnitId: form.ownerOrgUnitId,
       });
 
       if (newLogoFile) {
@@ -444,6 +451,7 @@ export default function SuppliersPage() {
         website: '',
         notes: '',
         supplierCategoryId: '__none__',
+        ownerOrgUnitId: null,
       });
       setNewLogoFile(null);
       setNewLogoPreview(null);
@@ -491,6 +499,7 @@ export default function SuppliersPage() {
           editForm.supplierCategoryId === '__none__'
             ? null
             : editForm.supplierCategoryId,
+        ownerOrgUnitId: editForm.ownerOrgUnitId,
       });
     },
     onSuccess: async (updatedSupplier) => {
@@ -709,19 +718,7 @@ export default function SuppliersPage() {
     };
   }, [authFetch, selectedSupplierId, editSupplierModalOpen, editLogoFile]);
 
-  const openEditSupplierModal = (supplier: {
-    id: string;
-    name: string | null;
-    code: string | null;
-    siret: string | null;
-    vatNumber: string | null;
-    externalId: string | null;
-    email: string | null;
-    phone: string | null;
-    website: string | null;
-    notes: string | null;
-    supplierCategoryId: string | null;
-  }) => {
+  const openEditSupplierModal = (supplier: Supplier) => {
     setSelectedSupplierId(supplier.id);
     setEditForm({
       name: supplier.name ?? '',
@@ -734,6 +731,7 @@ export default function SuppliersPage() {
       website: supplier.website ?? '',
       notes: supplier.notes ?? '',
       supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
+      ownerOrgUnitId: supplier.ownerOrgUnitId ?? null,
     });
     setEditLogoFile(null);
     setEditingContactId(null);
@@ -946,6 +944,20 @@ export default function SuppliersPage() {
                       <p className="text-xs text-destructive">{formErrors.vatNumber}</p>
                     ) : null}
                   </div>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Direction propriétaire</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="supplier-owner-org-unit">Unité organisationnelle propriétaire</Label>
+                  <OwnerOrgUnitSelect
+                    id="supplier-owner-org-unit"
+                    value={form.ownerOrgUnitId}
+                    onChange={(next) => setForm((p) => ({ ...p, ownerOrgUnitId: next }))}
+                    triggerClassName="h-9 w-full"
+                  />
+                  {!form.ownerOrgUnitId ? <OwnerOrgUnitNullWarning /> : null}
                 </div>
               </section>
 
@@ -1255,6 +1267,21 @@ export default function SuppliersPage() {
                       <Input value={editForm.externalId} onChange={(e) => setEditForm((p) => ({ ...p, externalId: sanitizeTrimmed(e.target.value, 128) }))} placeholder="ID externe" />
                       {editFormErrors.externalId ? <p className="text-xs text-destructive">{editFormErrors.externalId}</p> : null}
                     </div>
+                  </div>
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-card p-3">
+                  <h3 className="mb-3 text-sm font-semibold text-foreground">Direction propriétaire</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-owner-org-unit-edit">Unité organisationnelle propriétaire</Label>
+                    <OwnerOrgUnitSelect
+                      id="supplier-owner-org-unit-edit"
+                      value={editForm.ownerOrgUnitId}
+                      onChange={(next) => setEditForm((p) => ({ ...p, ownerOrgUnitId: next }))}
+                      disabled={updateSupplierMutation.isPending}
+                      triggerClassName="h-9 w-full"
+                    />
+                    {!editForm.ownerOrgUnitId ? <OwnerOrgUnitNullWarning /> : null}
                   </div>
                 </section>
 

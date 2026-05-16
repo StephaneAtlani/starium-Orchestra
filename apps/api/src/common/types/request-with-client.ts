@@ -35,5 +35,11 @@ export interface RequestWithClient extends Request {
    * de descendants : le BFS s'exécute à chaque appel à partir des `membershipOrgUnitIds` reçus.
    */
   resolvedOrgUnitTreeByClient?: Map<string, OrgScopeOrgUnitTree>;
+  /**
+   * RFC-ACL-022 — cache feature flags scopé requête HTTP.
+   * Clé **obligatoire** : `${clientId}:${flagKey}` (jamais `flagKey` seul — sinon mélange
+   * inter-client si la même requête traverse plusieurs `clientId`).
+   */
+  featureFlagsCache?: Map<string, boolean>;
 }
 

@@ -210,6 +210,7 @@ export type UpdateStrategicObjectiveInput = {
   status?: StrategicObjectiveDto['status'];
   deadline?: string | null;
   directionId?: string | null;
+  ownerOrgUnitId?: string | null;
 };
 
 export type CreateStrategicObjectiveInput = {
@@ -220,6 +221,7 @@ export type CreateStrategicObjectiveInput = {
   status?: StrategicObjectiveDto['status'];
   deadline?: string;
   directionId?: string | null;
+  ownerOrgUnitId?: string | null;
 };
 
 export async function createStrategicObjective(

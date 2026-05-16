@@ -32,6 +32,8 @@ import { EmailService } from '../email/email.service';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { uiPermissionHintsArray } from '@starium-orchestra/rbac-permissions';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { ROLLOUT_FLAG_ENTRIES } from '../access-model/access-model.constants';
 
 /** Rôle métier informatif (GET /me/permissions, RFC-ACL-014) — ne pas dériver les droits UI depuis ce tableau. */
 export interface MeInformativeRole {
@@ -128,7 +130,27 @@ export class MeService {
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
     private readonly moduleVisibility: ModuleVisibilityService,
+    private readonly featureFlags: FeatureFlagsService,
   ) {}
+
+  /**
+   * RFC-ACL-024 — flags V2 informatifs UI pour le **client actif** uniquement.
+   * Le backend (guards) reste la source de vérité.
+   */
+  async getAccessDecisionV2ForClient(
+    clientId: string,
+    httpRequest?: import('../../common/types/request-with-client').RequestWithClient,
+  ): Promise<Record<string, boolean>> {
+    const out: Record<string, boolean> = {};
+    for (const entry of ROLLOUT_FLAG_ENTRIES) {
+      out[entry.module] = await this.featureFlags.isEnabled(
+        clientId,
+        entry.flagKey,
+        httpRequest,
+      );
+    }
+    return out;
+  }
 
   /** Ressource catalogue Humaine liée au compte (email membre client), pour saisie temps « mes saisies ». */
   async getHumanResourceCatalogId(
@@ -157,7 +179,12 @@ export class MeService {
   async getPermissionCodesWithUiHints(
     userId: string,
     clientId: string,
-  ): Promise<{ permissionCodes: string[]; uiPermissionHints: string[] }> {
+    httpRequest?: import('../../common/types/request-with-client').RequestWithClient,
+  ): Promise<{
+    permissionCodes: string[];
+    uiPermissionHints: string[];
+    accessDecisionV2: Record<string, boolean>;
+  }> {
     const enabledClientModules = await this.prisma.clientModule.findMany({
       where: { clientId, status: 'ENABLED' },
       select: { moduleId: true },
@@ -204,7 +231,11 @@ export class MeService {
       a.localeCompare(b, 'fr'),
     );
     const uiPermissionHints = uiPermissionHintsArray(permissionCodes);
-    return { permissionCodes, uiPermissionHints };
+    const accessDecisionV2 = await this.getAccessDecisionV2ForClient(
+      clientId,
+      httpRequest,
+    );
+    return { permissionCodes, uiPermissionHints, accessDecisionV2 };
   }
 
   /** Rôles UserRole liés au client (informatif uniquement). Les droits UI alignés sur les guards se lisent dans `permissionCodes` (bruts), pas dans `uiPermissionHints`. */

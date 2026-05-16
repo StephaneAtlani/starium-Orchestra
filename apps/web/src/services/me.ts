@@ -229,6 +229,10 @@ export interface MePermissionsResponse {
    * preuve d’accès API (RFC-ACL-015).
    */
   uiPermissionHints?: string[];
+  /**
+   * RFC-ACL-024 — flags `ACCESS_DECISION_V2_*` pour le client actif uniquement (informatif UI).
+   */
+  accessDecisionV2?: Record<string, boolean>;
   /** Absent sur anciennes API : considérer tous les modules activés comme visibles. */
   visibleModuleCodes?: string[];
   /** RFC-ACL-014 : informatif uniquement ; ne pas en déduire les droits effectifs. */

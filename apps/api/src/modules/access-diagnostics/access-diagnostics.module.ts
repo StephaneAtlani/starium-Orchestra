@@ -13,6 +13,7 @@ import { AccessDiagnosticsController } from './access-diagnostics.controller';
 import { AccessDiagnosticsSelfController } from './access-diagnostics-self.controller';
 import { AccessDiagnosticsService } from './access-diagnostics.service';
 import { PlatformAccessDiagnosticsController } from './platform-access-diagnostics.controller';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PlatformAccessDiagnosticsController } from './platform-access-diagnosti
     forwardRef(() => AccessDecisionModule),
     ModuleVisibilityModule,
     AuditLogsModule,
+    FeatureFlagsModule,
   ],
   controllers: [
     AccessDiagnosticsController,

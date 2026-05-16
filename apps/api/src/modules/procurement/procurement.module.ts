@@ -33,6 +33,8 @@ import { PurchaseOrderAttachmentsController } from './attachments/purchase-order
 import { InvoiceAttachmentsController } from './attachments/invoice-attachments.controller';
 import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
 import { AccessControlModule } from '../access-control/access-control.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { AccessControlModule } from '../access-control/access-control.module';
     MicrosoftModule,
     PlatformUploadModule,
     AccessControlModule,
+    AccessDecisionModule,
+    FeatureFlagsModule,
   ],
   controllers: [
     PlatformProcurementS3SettingsController,

@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft** — non implémentée. S’appuie sur [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md) (V1 — diagnostic enrichi sous flag) et sur [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) (généralisation moteur).
+**Implémentée (V1)** — module `access-model`, API `GET /api/access-model/health` et `GET /api/access-model/issues`, permission `access_model.read`, UI `/client/administration/access-model`. S’appuie sur [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md) et [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md). Distinct du cockpit groupes/licences [RFC-ACL-010](./RFC-ACL-010%20%E2%80%94%20UX%20cockpit%20licences%20et%20droits.md) (`/client/administration/access-cockpit`).
 
 ## Alignement plan
 
@@ -15,63 +15,91 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20dép
 | **Dépendances (plan)** | RFC-ACL-019, RFC-ACL-020 |
 | **Livrables (plan)** | UI `/client/administration/access-model`, KPI droits, alertes, filtres, actions correctives |
 
-**RFC-ACL-022** est **volontairement avant** ce cockpit dans le plan : sans backfill partiel, flags et au moins une intégration métier (020), les KPI « ressources sans Direction », « membres sans HUMAN », etc. restent vides ou bruités. En pratique : lancer **021** quand au moins une **tranche module 020+022** est stabilisée ou en rollout contrôlé.
+**RFC-ACL-022** précède ce cockpit dans le plan : sans backfill partiel, flags et au moins une intégration métier (020), les KPI peuvent rester vides ou bruités. Le cockpit reste exploitable dès qu’il existe des données organisationnelles / ACL sur le client.
 
 ## Objectif
 
 Fournir une **vue d’ensemble** pour les administrateurs client sur la santé du modèle d’accès :
 
-- Ressources métier **sans Direction** (`ownerOrgUnitId` null) alors qu’elles devraient en avoir une (politique client).
-- Utilisateurs **sans `Resource` HUMAN** liée ([RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md)) alors qu’ils ont des permissions `*_scope` / `*_own`.
-- **Partages ACL** atypiques (ex. beaucoup de `WRITE` externes à la direction propriétaire) — détection heuristique.
-- **Conflits potentiels** (ex. policy `SHARING` + ACL vide + RBAC restreint — combinaisons documentées RFC-ACL-017).
+- Ressources métier **sans Direction effective** (`ownerOrgUnitId` null ou héritage budget insuffisant pour les lignes).
+- Utilisateurs **sans `Resource` HUMAN** liée ([RFC-ORG-002](./RFC-ORG-002%20%E2%80%94%20Lien%20ClientUser%20%E2%86%94%20Resource%20HUMAN.md)) avec au moins une permission scopée (`*.read_scope`, `*.read_own`, `*.write_scope` — pas les legacy `*.read` / `*.update`).
+- **Partages ACL** atypiques (entrées `WRITE` / `ADMIN` hors sous-arbre de l’unité propriétaire) — heuristique batch.
+- **Conflits potentiels** (`RESTRICTIVE` ou `SHARING` sans entrée ACL — signaux structurels RFC-ACL-017).
 
-Route UI cible (indicative) : **`/client/administration/access-model`** (à valider avec l’arborescence navigation existante — voir placeholder `access-cockpit`).
-
----
-
-## 1. Analyse de l’existant
-
-- [RFC-ACL-010](./RFC-ACL-010%20%E2%80%94%20UX%20cockpit%20licences%20et%20droits.md) : cockpit licences / quotas — périmètre différent.
-- Pages administration client sous `(protected)/client/administration/`.
+Route UI : **`/client/administration/access-model`** (complément de `/client/administration/access-cockpit` et `/client/help/access-model`).
 
 ---
 
-## 2. Hypothèses
+## 1. Implémentation (état code)
 
-- Les KPI sont calculés **côté serveur** (agrégations SQL ou jobs matérialisés si volumétrie) avec pagination ; pas de scan complet synchrone si > N milliers de lignes sans index.
-- Toutes les listes affichent **nom / titre** métier, jamais UUID seul.
+### Backend — `apps/api/src/modules/access-model/`
+
+| Fichier | Rôle |
+| --- | --- |
+| `access-model.module.ts` | `PrismaModule`, `AuthModule`, `FeatureFlagsModule` ; enregistré dans `AppModule` |
+| `access-model.controller.ts` | `GET /api/access-model/health`, `GET /api/access-model/issues` |
+| `access-model.service.ts` | Orchestration KPI + listes paginées |
+| `access-model.helpers.ts` | `missing_owner` (owner effectif), `missing_human` (permissions batch), utilitaires pagination |
+| `access-model-heuristics.ts` | `atypical_acl`, `policy_review` (batch anti-N+1) |
+| `access-model.constants.ts` | Plafonds scan, entrées rollout `FLAG_KEYS` |
+| `dto/access-model-issues.query.dto.ts` | `category`, `page`, `limit`, `module`, `search` |
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `PermissionsGuard` + `@RequirePermissions('access_model.read')` — **sans** `ModuleAccessGuard` (cockpit admin transverse, même philosophie que `access-diagnostics`).
+
+**Seed** (`apps/api/prisma/seed.ts`) :
+
+- `ensureAccessModelModuleAndPermissions()` — module `access_model` (`isActive: true`), permission `access_model.read`.
+- `ensureClientAdminAccessModelRole()` — rôle global « Client admin — modèle d'accès », `UserRole` pour chaque `CLIENT_ADMIN` actif.
+- Activation client via `ensureEnabledClientModulesForAllClients()` (fin de seed).
+
+**Package** : `isAccessModelScopedPermission()` dans `@starium-orchestra/rbac-permissions` (catalogue RFC-ACL-015).
+
+### API
+
+- **`GET /api/access-model/health`** — KPI + `rollout[]` (lecture `ClientFeatureFlag` / env pour `ACCESS_DECISION_V2_*` **uniquement ici** ; pas d’endpoint `/api/me/feature-flags`).
+- **`GET /api/access-model/issues?category=...&page=&limit=&module=&search=`** — catégories : `missing_owner` \| `missing_human` \| `atypical_acl` \| `policy_review` ; réponse paginée avec `truncated` si plafond scan.
+
+**Règles métier V1** :
+
+- **`missing_owner`** : owner effectif ; `BudgetLine` = `BudgetLine.ownerOrgUnitId ?? Budget.ownerOrgUnitId` ; pas d’issue si le budget parent a une Direction.
+- **`missing_human`** : `ClientUser` ACTIVE sans `resourceId` ; permissions filtrées comme `/me/permissions` (rôles `CLIENT` du client + `GLOBAL`, modules `ENABLED` uniquement) ; helper `isAccessModelScopedPermission`.
+- **`atypical_acl`** : un `ResourceAcl.findMany` + chargements groupés (users, groupes, memberships, arbre `OrgUnit`) — pas de boucle Prisma par ACL.
+- **`policy_review`** : `RESTRICTIVE` + zéro ACL ; ou `SHARING` + zéro ACL + owner effectif défini.
+
+Types canoniques : `SupportedDiagnosticResourceType`, `RESOURCE_ACL_RESOURCE_TYPES`, `FLAG_KEYS` (pas de strings libres).
+
+### Frontend — `apps/web/src/features/access-model/`
+
+- Page : `apps/web/src/app/(protected)/client/administration/access-model/page.tsx`.
+- KPI cliquables, bandeau rollout (données `health` uniquement), table alertes avec libellés métier et liens correctifs.
+- Carte admin (`AccessModelAdminCard`) et entrée navigation si `access_model.read` ; raccourci depuis le cockpit accès RFC-ACL-010.
+- Lien depuis `/client/help/access-model` vers le cockpit.
+
+### Tests
+
+- API : `access-model.service.spec.ts`, `access-model.controller.spec.ts` (BudgetLine owner effectif, scoped permissions, batch ACL, guards).
+- Web : `access-model.api.spec.ts` ; `access-cockpit/lib/shortcuts.spec.ts` (route access-model).
 
 ---
 
-## 3. Fichiers à créer / modifier (indicatif)
+## 2. Hypothèses (inchangées)
 
-- Backend : `GET /api/access-model/health` ou module dédié avec permissions `access_model.read` (nouvelle permission seed).
-- Frontend : feature `access-model/` (KPI cards, tableaux filtrables, liens d’action vers fiches correctives).
-- Actions correctives : deep-links vers écrans existants (édition membre, fiche budget, éditeur ACL).
-
----
-
-## 4. Hors périmètre
-
-- Modification massive automatique des données (pas de « magic fix » sans revue) — seulement **assist** + exports.
+- KPI calculés **côté serveur** avec pagination ; plafond scan par catégorie (`truncated: true` si dépassement).
+- Listes : **nom / titre** métier, jamais UUID seul en colonne principale.
 
 ---
 
-## 5. Tests
+## 3. Hors périmètre
 
-- API : isolation client, permission refusée, résultats stables sur fixture.
-- UI : smoke tests sur rendu KPI + navigation.
-
----
-
-## 6. Récapitulatif
-
-RFC-ACL-021 transforme les briques techniques (ORG + ACL + scope) en **outillage de pilotage** pour une DSI fractionnée.
+- Correction automatique en masse (assist + deep-links uniquement).
+- Export CSV dédié → [RFC-ACL-026](./RFC-ACL-026%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%20acc%C3%A8s%20V2.md).
+- Variante plateforme / endpoint global feature-flags.
+- Hook React global `useFeatureFlags` (V1 : `rollout` dans `health` seulement).
 
 ---
 
-## 7. Points de vigilance
+## 4. Points de vigilance
 
-- Coût des agrégations en production : cache courte TTL ou job nocturne.
-- Ne pas exposer de données nominatives sensibles aux rôles non autorisés (filtrer selon RBAC du viewer).
+- Ne pas confondre avec **RFC-ACL-010** (`access-cockpit`).
+- Coût des agrégations : plafonds documentés dans le service ; cache TTL optionnel non activé en V1.
+- Filtrer les permissions `missing_human` par **client actif** (pas de rôles d’un autre client ni legacy seuls).

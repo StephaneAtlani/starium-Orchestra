@@ -23,6 +23,13 @@ import { ContractFormDialog } from './contract-form-dialog';
 import { ContractAttachmentsPanel } from './contract-attachments-panel';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
+function formatOwnerOrgSummary(summary: OwnerOrgUnitSummary | null | undefined): string {
+  if (!summary) return '—';
+  return summary.code ? `${summary.name} (${summary.code})` : summary.name;
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -214,6 +221,15 @@ export function ContractDetailPage({ contractId }: { contractId: string }) {
         <div className="sm:col-span-2">
           <dt className="text-muted-foreground">Fréquence facturation</dt>
           <dd>{c.billingFrequency ?? '—'}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-muted-foreground">Direction propriétaire</dt>
+          <dd className="font-medium">{formatOwnerOrgSummary(c.ownerOrgUnitSummary)}</dd>
+          {!c.ownerOrgUnitSummary ? (
+            <dd className="mt-2">
+              <OwnerOrgUnitNullWarning />
+            </dd>
+          ) : null}
         </div>
         {c.description && (
           <div className="sm:col-span-2">

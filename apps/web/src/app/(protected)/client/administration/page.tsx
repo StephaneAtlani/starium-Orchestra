@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
+import { AccessModelAdminCard } from '@/features/access-model/components/access-model-admin-card';
 import {
   Users,
   Shield,
@@ -146,6 +147,7 @@ export default async function ClientAdministrationPage() {
             </CardContent>
           </Card>
         </Link>
+        <AccessModelAdminCard />
         <Link href="/client/administration/access-diagnostics">
           <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 pt-6">

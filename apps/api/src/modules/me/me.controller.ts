@@ -8,10 +8,12 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { RequestWithClient } from '../../common/types/request-with-client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
@@ -44,15 +46,17 @@ export class MeController {
   async getPermissions(
     @RequestUserId() userId: string | undefined,
     @ActiveClientId() clientId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
     const [perm, visibleModuleCodes, roles] = await Promise.all([
-      this.me.getPermissionCodesWithUiHints(userId!, clientId!),
+      this.me.getPermissionCodesWithUiHints(userId!, clientId!, request),
       this.me.getVisibleModuleCodes(userId!, clientId!),
       this.me.getInformativeRolesForClient(userId!, clientId!),
     ]);
     return {
       permissionCodes: perm.permissionCodes,
       uiPermissionHints: perm.uiPermissionHints,
+      accessDecisionV2: perm.accessDecisionV2,
       visibleModuleCodes,
       roles,
     };

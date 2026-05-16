@@ -1,3 +1,5 @@
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+
 export type StrategicObjectiveStatus =
   | 'ON_TRACK'
   | 'AT_RISK'
@@ -51,6 +53,8 @@ export type StrategicObjectiveDto = {
   ownerLabel: string | null;
   directionId: string | null;
   direction: Pick<StrategicDirectionDto, 'id' | 'code' | 'name' | 'isActive'> | null;
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: OwnerOrgUnitSummary;
   status: StrategicObjectiveStatus;
   deadline: string | null;
   createdAt: string;

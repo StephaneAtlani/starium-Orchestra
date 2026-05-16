@@ -10,6 +10,8 @@ import { ContractAttachmentsController } from './contract-attachments.controller
 import { ContractAttachmentsService } from './contract-attachments.service';
 import { ContractKindTypesService } from './contract-kind-types.service';
 import { AccessControlModule } from '../access-control/access-control.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { AccessControlModule } from '../access-control/access-control.module';
     ProcurementModule,
     PlatformUploadModule,
     AccessControlModule,
+    AccessDecisionModule,
+    FeatureFlagsModule,
   ],
   controllers: [
     ContractsController,

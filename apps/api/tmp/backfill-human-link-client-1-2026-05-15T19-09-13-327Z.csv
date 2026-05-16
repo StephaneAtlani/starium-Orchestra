@@ -1,0 +1,4 @@
+clientUserId,clientUserLabel,userEmail,defaultEmailIdentity,mode,action,resourceId,resourceLabel,matchedBy,candidateCount,reason
+cu-alice,Alice Martin — alice@test.com,alice@test.com,,apply,SKIP,,,none,1,resource_already_linked
+cu-bob,Bob Durand — bob@test.com,bob@test.com,,apply,ERROR,res-2,Bob Durand — bob@test.com,none,1,unique_constraint_resource_already_linked
+cu-none,Zoe X — unknown@test.com,unknown@test.com,,apply,NO_CANDIDATE,,,none,0,no_candidate

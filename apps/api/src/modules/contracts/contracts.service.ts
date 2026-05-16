@@ -23,6 +23,10 @@ import { ListContractsQueryDto } from './dto/list-contracts.query.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { AccessControlService } from '../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
+import { AccessDecisionService } from '../access-decision/access-decision.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { FLAG_KEYS } from '../feature-flags/flag-keys';
+import type { RequestWithClient } from '../../common/types/request-with-client';
 import {
   assertOrgUnitInClient,
   orgUnitAuditRef,
@@ -233,9 +237,48 @@ export class ContractsService {
       canAdminResource: async () => true,
       filterReadableResourceIds: async (params) => params.resourceIds,
     },
+    @Inject(AccessDecisionService)
+    private readonly accessDecision: Pick<
+      AccessDecisionService,
+      'assertAllowed' | 'filterResourceIdsByAccess'
+    > = {
+      assertAllowed: async () => undefined,
+      filterResourceIdsByAccess: async (params) => params.resourceIds,
+    },
+    @Inject(FeatureFlagsService)
+    private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
+      isEnabled: async () => false,
+    },
   ) {}
 
-  private async assertCanReadContract(clientId: string, userId: string, contractId: string) {
+  private async isAccessV2Enabled(
+    clientId: string,
+    request?: RequestWithClient,
+  ): Promise<boolean> {
+    return this.featureFlags.isEnabled(
+      clientId,
+      FLAG_KEYS.ACCESS_DECISION_V2_CONTRACTS,
+      request,
+    );
+  }
+
+  private async assertCanReadContract(
+    clientId: string,
+    userId: string,
+    contractId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'CONTRACT',
+        resourceId: contractId,
+        intent: 'read',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canReadResource({
       clientId,
       userId,
@@ -246,7 +289,23 @@ export class ContractsService {
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
 
-  private async assertCanWriteContract(clientId: string, userId: string, contractId: string) {
+  private async assertCanWriteContract(
+    clientId: string,
+    userId: string,
+    contractId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'CONTRACT',
+        resourceId: contractId,
+        intent: 'write',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canWriteResource({
       clientId,
       userId,
@@ -257,7 +316,23 @@ export class ContractsService {
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
 
-  private async assertCanAdminContract(clientId: string, userId: string, contractId: string) {
+  private async assertCanAdminContract(
+    clientId: string,
+    userId: string,
+    contractId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'CONTRACT',
+        resourceId: contractId,
+        intent: 'admin',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canAdminResource({
       clientId,
       userId,
@@ -299,6 +374,7 @@ export class ContractsService {
     clientId: string,
     query: ListContractsQueryDto,
     userId?: string,
+    request?: RequestWithClient,
   ): Promise<ListContractsResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -331,14 +407,23 @@ export class ContractsService {
       select: { id: true },
     });
     const readableIds = userId
-      ? await this.accessControl.filterReadableResourceIds({
-          clientId,
-          userId,
-          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
-          resourceIds: orderedIds.map((row) => row.id),
-          operation: 'read',
-          sharingFloorAllows: true,
-        })
+      ? (await this.isAccessV2Enabled(clientId, request))
+        ? await this.accessDecision.filterResourceIdsByAccess({
+            request: request as RequestWithClient,
+            clientId,
+            userId,
+            resourceType: 'CONTRACT',
+            resourceIds: orderedIds.map((row) => row.id),
+            intent: 'list',
+          })
+        : await this.accessControl.filterReadableResourceIds({
+            clientId,
+            userId,
+            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+            resourceIds: orderedIds.map((row) => row.id),
+            operation: 'read',
+            sharingFloorAllows: true,
+          })
       : orderedIds.map((row) => row.id);
     const total = readableIds.length;
     const pagedIds = readableIds.slice(offset, offset + limit);
@@ -370,7 +455,12 @@ export class ContractsService {
     };
   }
 
-  async getById(clientId: string, id: string, userId?: string): Promise<ContractResponse> {
+  async getById(
+    clientId: string,
+    id: string,
+    userId?: string,
+    request?: RequestWithClient,
+  ): Promise<ContractResponse> {
     const row = await this.prisma.supplierContract.findFirst({
       where: { id, clientId },
       include: {
@@ -382,7 +472,7 @@ export class ContractsService {
       throw new NotFoundException('Contrat introuvable');
     }
     if (userId) {
-      await this.assertCanReadContract(clientId, userId, id);
+      await this.assertCanReadContract(clientId, userId, id, request);
     }
     const kindLabels = await this.contractKindTypes.resolveKindLabels(
       clientId,
@@ -500,6 +590,7 @@ export class ContractsService {
     id: string,
     dto: UpdateContractDto,
     context?: ContractsAuditContext,
+    request?: RequestWithClient,
   ): Promise<ContractResponse> {
     const existing = await this.prisma.supplierContract.findFirst({
       where: { id, clientId },
@@ -508,7 +599,7 @@ export class ContractsService {
       throw new NotFoundException('Contrat introuvable');
     }
     if (context?.actorUserId) {
-      await this.assertCanWriteContract(clientId, context.actorUserId, id);
+      await this.assertCanWriteContract(clientId, context.actorUserId, id, request);
     }
 
     const meta = {

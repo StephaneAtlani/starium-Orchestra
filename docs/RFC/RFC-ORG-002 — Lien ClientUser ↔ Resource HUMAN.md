@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Implémentée (MVP socle)** — modèle Prisma, API client + plateforme, audit, UI membres client et Admin Studio (libellés métier). Le **backfill** des liens historiques reste couvert par [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md). Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (socle `OrgUnit` / memberships sur `resourceId` HUMAN).
+**Implémentée (MVP socle)** — modèle Prisma, API client + plateforme, audit, UI membres client et Admin Studio (libellés métier). Le **backfill** des liens historiques est couvert par [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md). Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (socle `OrgUnit` / memberships sur `resourceId` HUMAN).
 
 ## Implémentation (état code)
 
@@ -24,9 +24,9 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20dép
 | **Priorité** | **P0** |
 | **Ordre recommandé** | **1** (après RFC-ORG-001, déjà livrée) |
 | **Dépendances (plan)** | RFC-ORG-001, `ClientUser`, `Resource` |
-| **Livrables (plan)** | Extension `ClientUser.resourceId`, endpoints, audit, UI d’administration (livrés MVP) ; backfill → RFC-ACL-022 |
+| **Livrables (plan)** | Extension `ClientUser.resourceId`, endpoints, audit, UI d’administration (livrés MVP) ; backfill → RFC-ACL-023 |
 
-Le **backfill** des liens existants relève de [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) ; cette RFC définit le modèle, l’API et les règles de validation.
+Le **backfill** des liens existants relève de [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md) ; cette RFC définit le modèle, l’API et les règles de validation.
 
 ## Objectif
 
@@ -59,7 +59,7 @@ Sans ce lien, seuls des heuristiques fragiles (email, code interne) permettraien
 | Zone | Fichiers / zones |
 | --- | --- |
 | Prisma | `schema.prisma` — `ClientUser.resourceId` + FK `Resource`, `@@index([clientId, resourceId])`, `@@unique([resourceId])` |
-| Migration | Nouvelle migration SQL + backfill optionnel derrière job (RFC-ACL-022) |
+| Migration | Nouvelle migration SQL + backfill optionnel CLI (RFC-ACL-023) |
 | Backend | Service dédié ou extension module `clients` / `me` / `organization` — validation stricte `clientId`, type HUMAN, pas de fuite inter-client |
 | API | `PATCH /api/users/:userId` + `PATCH /api/platform/clients/:clientId/users/:userId` + enrichissement listes avec `humanResourceSummary` ; catalogue `GET /api/clients/:clientId/human-resources-catalog` |
 | Audit | Actions `client_user.human_resource.linked` / `…unlinked` avec old/new |

@@ -5,7 +5,7 @@
 **Implémentée (V1)** — socle métier et API livrés. Dépend de [RFC-ORG-001](./RFC-ORG-001%20%E2%80%94%20Socle%20Organisation%20Client.md) (`OrgUnit`, hiérarchie).
 
 - **V1** : uniquement **`ownerOrgUnitId`** nullable par entité (option **A — colonnes**), FK `OrgUnit` avec `onDelete: Restrict`, index `@@index([clientId, ownerOrgUnitId])`, réponses **`ownerOrgUnitSummary`** (liste + détail), audits **`*.ownership.changed`** si la valeur **stockée** change, garde-fou **archivage `OrgUnit`** (comptage ressources actives par type).
-- **Hors V1 (tranches ultérieures)** : `stewardResourceId` / responsable métier `Resource` HUMAN distinct ; permission dédiée `organization.ownership.transfer` ; obligation systématique d’ownership et backfill → [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md).
+- **Hors V1 (tranches ultérieures)** : steward, transfert dédié, obligation ownership → [RFC-ORG-004](./RFC-ORG-004%20%E2%80%94%20Steward%20transfert%20et%20obligation%20ownership.md) ; backfill données → [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md).
 - **SCOPE / filtrage effectif utilisateur** : [RFC-ACL-016](./RFC-ACL-016%20%E2%80%94%20R%C3%A9solution%20du%20scope%20organisationnel.md) — la RFC-ORG-003 fournit les **données** et la **résolution ownership effectif** (ex. ligne budgétaire) ; pas le moteur d’accès complet.
 
 ## Alignement plan
@@ -60,7 +60,7 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 
 ### Transfert / steward
 
-- **Non livré en V1** : pas de permission seed `organization.ownership.transfer` ; pas de `stewardResourceId`.
+- **Non livré en V1** : voir [RFC-ORG-004](./RFC-ORG-004%20%E2%80%94%20Steward%20transfert%20et%20obligation%20ownership.md) (`stewardResourceId`, `organization.ownership.transfer`, obligation).
 
 ---
 
@@ -97,9 +97,12 @@ Alignement sur les permissions **update** déjà utilisées par module (`project
 
 ## 4. Frontend (V1)
 
-- Composant **`OwnerOrgUnitSelect`** (`apps/web/src/features/organization/components/owner-org-unit-select.tsx`) — arbre via `fetchOrgUnitsTree`, libellés nom + code, valeur `ownerOrgUnitId`.
+- Composants **`OwnerOrgUnitSelect`** et **`OwnerOrgUnitNullWarning`** (`apps/web/src/features/organization/components/`) — arbre via `fetchOrgUnitsTree`, libellés nom + code ; avertissement fixe si `ownerOrgUnitId` null (indépendant du flag V2).
 - **Projet** : fiche détail — « Direction propriétaire » (PATCH `ownerOrgUnitId`) si `projects.update`.
 - **Budget / ligne** : tiroir ligne — onglet synthèse : direction **budget** (PATCH budget) et direction **ligne** (override / héritage, texte cohérent avec `ownerOrgUnitSource`).
+- **Fournisseur** : modals création / édition + modal visualisation (`/suppliers`).
+- **Contrat** : formulaire création/édition + fiche détail (`/contracts`).
+- **Objectif stratégique** : dialogs création / édition + carte objectif (vision stratégique).
 
 Listes filtrées côté UI : libellés d’aide cohérents avec le contrat « filtre = colonne stockée » pour les lignes budgétaires (cf. §3).
 

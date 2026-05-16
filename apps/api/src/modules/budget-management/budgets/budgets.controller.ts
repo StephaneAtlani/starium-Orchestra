@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -13,9 +14,11 @@ import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
+import { RequireAccessIntent } from '../../../common/decorators/require-access-intent.decorator';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
+import type { RequestWithClient } from '../../../common/types/request-with-client';
 import type { AuditContext } from '../types/audit-context';
 import { BudgetsService } from './budgets.service';
 import { CreateBudgetDto } from './dto/create-budget.dto';
@@ -34,13 +37,14 @@ export class BudgetsController {
   ) {}
 
   @Get()
-  @RequirePermissions('budgets.read')
+  @RequireAccessIntent({ module: 'budgets', intent: 'read' })
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListBudgetsQueryDto,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.list(clientId!, query, userId);
+    return this.service.list(clientId!, query, userId, request);
   }
 
   /** RFC-032 — doit rester avant `GET :id` pour ne pas capturer `decision-history` comme id. */
@@ -55,13 +59,14 @@ export class BudgetsController {
   }
 
   @Get(':id')
-  @RequirePermissions('budgets.read')
+  @RequireAccessIntent({ module: 'budgets', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.service.getById(clientId!, id, userId);
+    return this.service.getById(clientId!, id, userId, request);
   }
 
   @Patch('bulk-status')
@@ -77,7 +82,7 @@ export class BudgetsController {
   }
 
   @Post()
-  @RequirePermissions('budgets.create')
+  @RequireAccessIntent({ module: 'budgets', intent: 'create' })
   create(
     @ActiveClientId() clientId: string | undefined,
     @Body() dto: CreateBudgetDto,
@@ -89,15 +94,16 @@ export class BudgetsController {
   }
 
   @Patch(':id')
-  @RequirePermissions('budgets.update')
+  @RequireAccessIntent({ module: 'budgets', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateBudgetDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.service.update(clientId!, id, dto, context);
+    return this.service.update(clientId!, id, dto, context, request);
   }
 }

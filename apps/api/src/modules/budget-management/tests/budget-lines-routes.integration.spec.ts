@@ -109,9 +109,19 @@ describe('Budget lines routes integration', () => {
     } as any;
     (budgetLinesService.getById as jest.Mock).mockResolvedValue(expected);
 
-    const result = await budgetManagementController.getById(clientId, lineId, userId);
+    const result = await budgetManagementController.getById(
+      clientId,
+      lineId,
+      userId,
+      {} as never,
+    );
 
-    expect(budgetLinesService.getById).toHaveBeenCalledWith(clientId, lineId, userId);
+    expect(budgetLinesService.getById).toHaveBeenCalledWith(
+      clientId,
+      lineId,
+      userId,
+      {},
+    );
     expect(result).toEqual(expected);
   });
 

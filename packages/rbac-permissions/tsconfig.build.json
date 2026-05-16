@@ -9,5 +9,5 @@
     "moduleResolution": "Node",
     "noEmit": false
   },
-  "include": ["src/index.ts"]
+  "include": ["src/**/*.ts"]
 }

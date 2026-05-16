@@ -25,6 +25,10 @@ import {
 import { SuppliersLogoStorageService } from './suppliers-logo.storage';
 import { AccessControlService } from '../../access-control/access-control.service';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../../access-control/resource-acl.constants';
+import { AccessDecisionService } from '../../access-decision/access-decision.service';
+import { FeatureFlagsService } from '../../feature-flags/feature-flags.service';
+import { FLAG_KEYS } from '../../feature-flags/flag-keys';
+import type { RequestWithClient } from '../../../common/types/request-with-client';
 import {
   assertOrgUnitInClient,
   orgUnitAuditRef,
@@ -104,9 +108,48 @@ export class SuppliersService {
       canAdminResource: async () => true,
       filterReadableResourceIds: async (params) => params.resourceIds,
     },
+    @Inject(AccessDecisionService)
+    private readonly accessDecision: Pick<
+      AccessDecisionService,
+      'assertAllowed' | 'filterResourceIdsByAccess'
+    > = {
+      assertAllowed: async () => undefined,
+      filterResourceIdsByAccess: async (params) => params.resourceIds,
+    },
+    @Inject(FeatureFlagsService)
+    private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
+      isEnabled: async () => false,
+    },
   ) {}
 
-  private async assertCanReadSupplier(clientId: string, userId: string, supplierId: string) {
+  private async isAccessV2Enabled(
+    clientId: string,
+    request?: RequestWithClient,
+  ): Promise<boolean> {
+    return this.featureFlags.isEnabled(
+      clientId,
+      FLAG_KEYS.ACCESS_DECISION_V2_PROCUREMENT,
+      request,
+    );
+  }
+
+  private async assertCanReadSupplier(
+    clientId: string,
+    userId: string,
+    supplierId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'SUPPLIER',
+        resourceId: supplierId,
+        intent: 'read',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canReadResource({
       clientId,
       userId,
@@ -117,7 +160,23 @@ export class SuppliersService {
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
 
-  private async assertCanWriteSupplier(clientId: string, userId: string, supplierId: string) {
+  private async assertCanWriteSupplier(
+    clientId: string,
+    userId: string,
+    supplierId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'SUPPLIER',
+        resourceId: supplierId,
+        intent: 'write',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canWriteResource({
       clientId,
       userId,
@@ -128,7 +187,23 @@ export class SuppliersService {
     if (!allowed) throw new ForbiddenException('Accès refusé par ACL ressource');
   }
 
-  private async assertCanAdminSupplier(clientId: string, userId: string, supplierId: string) {
+  private async assertCanAdminSupplier(
+    clientId: string,
+    userId: string,
+    supplierId: string,
+    request?: RequestWithClient,
+  ) {
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      await this.accessDecision.assertAllowed({
+        request,
+        clientId,
+        userId,
+        resourceType: 'SUPPLIER',
+        resourceId: supplierId,
+        intent: 'admin',
+      });
+      return;
+    }
     const allowed = await this.accessControl.canAdminResource({
       clientId,
       userId,
@@ -174,6 +249,7 @@ export class SuppliersService {
     clientId: string,
     query: ListSuppliersQueryDto,
     userId?: string,
+    request?: RequestWithClient,
   ): Promise<ListSuppliersResult> {
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
@@ -197,14 +273,23 @@ export class SuppliersService {
       select: { id: true },
     });
     const readableIds = userId
-      ? await this.accessControl.filterReadableResourceIds({
-          clientId,
-          userId,
-          resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
-          resourceIds: orderedIds.map((row: { id: string }) => row.id),
-          operation: 'read',
-          sharingFloorAllows: true,
-        })
+      ? (await this.isAccessV2Enabled(clientId, request))
+        ? await this.accessDecision.filterResourceIdsByAccess({
+            request: request as RequestWithClient,
+            clientId,
+            userId,
+            resourceType: 'SUPPLIER',
+            resourceIds: orderedIds.map((row: { id: string }) => row.id),
+            intent: 'list',
+          })
+        : await this.accessControl.filterReadableResourceIds({
+            clientId,
+            userId,
+            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+            resourceIds: orderedIds.map((row: { id: string }) => row.id),
+            operation: 'read',
+            sharingFloorAllows: true,
+          })
       : orderedIds.map((row: { id: string }) => row.id);
     const total = readableIds.length;
     const pagedIds = readableIds.slice(offset, offset + limit);
@@ -385,6 +470,7 @@ export class SuppliersService {
     id: string,
     dto: UpdateSupplierDto,
     context?: ProcurementAuditContext,
+    request?: RequestWithClient,
   ): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
@@ -398,7 +484,7 @@ export class SuppliersService {
       throw new NotFoundException('Supplier not found');
     }
     if (context?.actorUserId) {
-      await this.assertCanWriteSupplier(clientId, context.actorUserId, id);
+      await this.assertCanWriteSupplier(clientId, context.actorUserId, id, request);
     }
     if (existing.status === 'ARCHIVED') {
       throw new BadRequestException('Cannot update an archived supplier');
@@ -704,7 +790,12 @@ export class SuppliersService {
     return new StreamableFile(stream, { type: existing.logoMimeType });
   }
 
-  async findById(clientId: string, id: string, userId?: string): Promise<SupplierResponse> {
+  async findById(
+    clientId: string,
+    id: string,
+    userId?: string,
+    request?: RequestWithClient,
+  ): Promise<SupplierResponse> {
     const prisma = this.prisma as any;
     const supplierRepo = this.getSupplierRepo(prisma);
     const row = await supplierRepo.findFirst({
@@ -718,7 +809,7 @@ export class SuppliersService {
       throw new NotFoundException('Supplier not found');
     }
     if (userId) {
-      await this.assertCanReadSupplier(clientId, userId, id);
+      await this.assertCanReadSupplier(clientId, userId, id, request);
     }
     return toSupplierResponse(row);
   }

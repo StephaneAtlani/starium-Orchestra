@@ -57,11 +57,17 @@ export default function ClientAccessModelHelpPage() {
               dans le moteur tant qu’elles ne sont pas branchées explicitement dans l’autorisation.
             </p>
             <p>
-              Retour à l’administration :{' '}
+              <Link
+                href="/client/administration/access-model"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Cockpit modèle d&apos;accès
+              </Link>
+              {' '}
+              ·{' '}
               <Link href="/client/administration" className="text-primary underline-offset-4 hover:underline">
                 Administration client
               </Link>
-              .
             </p>
           </CardContent>
         </Card>

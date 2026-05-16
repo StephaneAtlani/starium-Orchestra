@@ -158,6 +158,7 @@ export interface CreateContractPayload {
   billingFrequency?: string | null;
   description?: string | null;
   internalNotes?: string | null;
+  ownerOrgUnitId?: string | null;
 }
 
 export async function createContract(

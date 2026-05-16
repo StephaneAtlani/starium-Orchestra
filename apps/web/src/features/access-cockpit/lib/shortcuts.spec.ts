@@ -22,6 +22,7 @@ describe('access-cockpit shortcuts — RFC-ACL-010', () => {
         '/client/administration/module-visibility',
         '/client/members',
         '/client/roles',
+        '/client/administration/access-model',
       ]),
     );
   });

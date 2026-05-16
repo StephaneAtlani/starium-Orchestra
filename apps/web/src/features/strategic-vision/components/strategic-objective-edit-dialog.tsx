@@ -21,6 +21,8 @@ import {
   getFirstZodError,
   strategicObjectiveFormSchema,
 } from '../schemas/strategic-vision.schemas';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
 
 export function StrategicObjectiveEditDialog({
   objective,
@@ -40,6 +42,7 @@ export function StrategicObjectiveEditDialog({
   const [status, setStatus] = useState<StrategicObjectiveStatus>('ON_TRACK');
   const [deadline, setDeadline] = useState('');
   const [directionId, setDirectionId] = useState<string>('UNASSIGNED');
+  const [ownerOrgUnitId, setOwnerOrgUnitId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!objective) return;
@@ -49,6 +52,7 @@ export function StrategicObjectiveEditDialog({
     setStatus(objective.status);
     setDeadline(objective.deadline ? objective.deadline.slice(0, 10) : '');
     setDirectionId(objective.directionId ?? 'UNASSIGNED');
+    setOwnerOrgUnitId(objective.ownerOrgUnitId ?? null);
   }, [objective]);
 
   const handleSave = async () => {
@@ -61,6 +65,7 @@ export function StrategicObjectiveEditDialog({
       status,
       deadline,
       directionId,
+      ownerOrgUnitId,
     });
     if (!parsed.success) {
       toast.error(getFirstZodError(parsed.error));
@@ -77,6 +82,7 @@ export function StrategicObjectiveEditDialog({
           deadline: parsed.data.deadline ? `${parsed.data.deadline}T00:00:00.000Z` : null,
           directionId:
             parsed.data.directionId === 'UNASSIGNED' ? null : parsed.data.directionId,
+          ownerOrgUnitId: parsed.data.ownerOrgUnitId ?? null,
         },
       });
       toast.success('Objectif stratégique mis à jour.');
@@ -152,7 +158,7 @@ export function StrategicObjectiveEditDialog({
           </label>
 
           <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Direction</span>
+            <span className="text-muted-foreground">Direction stratégique</span>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={directionId}
@@ -166,6 +172,12 @@ export function StrategicObjectiveEditDialog({
               ))}
             </select>
           </label>
+
+          <div className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Direction propriétaire</span>
+            <OwnerOrgUnitSelect value={ownerOrgUnitId} onChange={setOwnerOrgUnitId} />
+            {!ownerOrgUnitId ? <OwnerOrgUnitNullWarning className="mt-2" /> : null}
+          </div>
         </div>
 
         <DialogFooter showCloseButton={false}>

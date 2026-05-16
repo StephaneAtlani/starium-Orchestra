@@ -5,6 +5,7 @@ import type { EffectiveRightsOperation } from './access-diagnostics.types';
 export type SupportedDiagnosticResourceType =
   | 'PROJECT'
   | 'BUDGET'
+  | 'BUDGET_LINE'
   | 'CONTRACT'
   | 'SUPPLIER'
   | 'STRATEGIC_OBJECTIVE';
@@ -64,6 +65,26 @@ export const RESOURCE_DIAGNOSTICS_REGISTRY: Record<
     },
     async resolveResourceForClient(prisma, params) {
       const row = await prisma.budget.findFirst({
+        where: { id: params.resourceId, clientId: params.clientId },
+        select: { id: true, clientId: true, name: true, code: true },
+      });
+      if (!row) return null;
+      return { id: row.id, clientId: row.clientId, label: `${row.name} (${row.code})` };
+    },
+  },
+  BUDGET_LINE: {
+    resourceType: 'BUDGET_LINE',
+    moduleCode: 'budgets',
+    moduleVisibilityScope: 'budgets',
+    /** RFC-ACL-020 §4.2 — ACL portée par le Budget parent en V1. */
+    aclResourceType: 'BUDGET',
+    permissions: {
+      read: 'budgets.read',
+      write: 'budgets.update',
+      admin: null,
+    },
+    async resolveResourceForClient(prisma, params) {
+      const row = await prisma.budgetLine.findFirst({
         where: { id: params.resourceId, clientId: params.clientId },
         select: { id: true, clientId: true, name: true, code: true },
       });
@@ -144,6 +165,7 @@ export function getResourceDiagnosticsConfig(
   if (
     resourceType !== 'PROJECT' &&
     resourceType !== 'BUDGET' &&
+    resourceType !== 'BUDGET_LINE' &&
     resourceType !== 'CONTRACT' &&
     resourceType !== 'SUPPLIER' &&
     resourceType !== 'STRATEGIC_OBJECTIVE'

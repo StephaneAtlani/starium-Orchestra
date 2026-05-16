@@ -44,6 +44,7 @@ import { ActionPlansService } from './action-plans.service';
 import { ProjectScenariosModule } from '../project-scenarios/project-scenarios.module';
 import { AccessControlModule } from '../access-control/access-control.module';
 import { AccessDecisionModule } from '../access-decision/access-decision.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 @Module({
   imports: [
     PrismaModule,
@@ -53,6 +54,7 @@ import { AccessDecisionModule } from '../access-decision/access-decision.module'
     forwardRef(() => ProjectScenariosModule),
     AccessControlModule,
     AccessDecisionModule,
+    FeatureFlagsModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

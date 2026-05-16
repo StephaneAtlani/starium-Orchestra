@@ -49,7 +49,9 @@ import { LicenseReportingModule } from './modules/license-reporting/license-repo
 import { AccessGroupsModule } from './modules/access-groups/access-groups.module';
 import { AccessControlModule } from './modules/access-control/access-control.module';
 import { AccessDiagnosticsModule } from './modules/access-diagnostics/access-diagnostics.module';
+import { AccessModelModule } from './modules/access-model/access-model.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    FeatureFlagsModule,
     CommonModule,
     HealthModule,
     AuthModule,
@@ -107,6 +110,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
     AccessGroupsModule,
     AccessControlModule,
     AccessDiagnosticsModule,
+    AccessModelModule,
     OrganizationModule,
   ],
 })

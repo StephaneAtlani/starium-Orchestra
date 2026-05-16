@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -19,9 +20,11 @@ import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
+import { RequireAccessIntent } from '../../../common/decorators/require-access-intent.decorator';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
+import type { RequestWithClient } from '../../../common/types/request-with-client';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { ListSuppliersQueryDto } from './dto/list-suppliers.query.dto';
 import { QuickCreateSupplierDto } from './dto/quick-create-supplier.dto';
@@ -35,13 +38,14 @@ export class SuppliersController {
   constructor(private readonly suppliers: SuppliersService) {}
 
   @Get()
-  @RequirePermissions('procurement.read')
+  @RequireAccessIntent({ module: 'procurement', intent: 'read' })
   list(
     @ActiveClientId() clientId: string | undefined,
     @Query() query: ListSuppliersQueryDto,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.suppliers.list(clientId!, query, userId);
+    return this.suppliers.list(clientId!, query, userId, request);
   }
 
   @Get('dashboard')
@@ -51,13 +55,14 @@ export class SuppliersController {
   }
 
   @Get(':id')
-  @RequirePermissions('procurement.read')
+  @RequireAccessIntent({ module: 'procurement', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
   ) {
-    return this.suppliers.findById(clientId!, id, userId);
+    return this.suppliers.findById(clientId!, id, userId, request);
   }
 
   @Post()
@@ -83,15 +88,16 @@ export class SuppliersController {
   }
 
   @Patch(':id')
-  @RequirePermissions('procurement.update')
+  @RequireAccessIntent({ module: 'procurement', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
     @Body() dto: UpdateSupplierDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
   ) {
-    return this.suppliers.update(clientId!, id, dto, { actorUserId, meta });
+    return this.suppliers.update(clientId!, id, dto, { actorUserId, meta }, request);
   }
 
   @Get(':id/logo')

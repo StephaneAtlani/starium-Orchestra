@@ -181,6 +181,7 @@ export interface CreateSupplierPayload {
   phone?: string;
   website?: string;
   notes?: string;
+  ownerOrgUnitId?: string | null;
 }
 
 export async function createSupplier(
@@ -207,6 +208,7 @@ export interface UpdateSupplierPayload {
   website?: string;
   notes?: string;
   supplierCategoryId?: string | null;
+  ownerOrgUnitId?: string | null;
 }
 
 export async function updateSupplier(

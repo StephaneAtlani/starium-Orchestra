@@ -18,6 +18,8 @@ import {
   getFirstZodError,
   strategicObjectiveFormSchema,
 } from '../schemas/strategic-vision.schemas';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
 
 type AxisOption = { id: string; name: string };
 
@@ -42,6 +44,7 @@ export function StrategicObjectiveCreateDialog({
   const [status, setStatus] = useState<StrategicObjectiveStatus>('ON_TRACK');
   const [deadline, setDeadline] = useState('');
   const [directionId, setDirectionId] = useState<string>('UNASSIGNED');
+  const [ownerOrgUnitId, setOwnerOrgUnitId] = useState<string | null>(null);
 
   const effectiveAxisId = useMemo(() => {
     if (axisId) return axisId;
@@ -57,6 +60,7 @@ export function StrategicObjectiveCreateDialog({
     setStatus('ON_TRACK');
     setDeadline('');
     setDirectionId('UNASSIGNED');
+    setOwnerOrgUnitId(null);
   };
 
   const handleCreate = async () => {
@@ -69,6 +73,7 @@ export function StrategicObjectiveCreateDialog({
       status,
       deadline,
       directionId,
+      ownerOrgUnitId,
     });
     if (!parsed.success) {
       toast.error(getFirstZodError(parsed.error));
@@ -83,6 +88,7 @@ export function StrategicObjectiveCreateDialog({
         status: parsed.data.status,
         deadline: parsed.data.deadline || undefined,
         directionId: parsed.data.directionId === 'UNASSIGNED' ? null : parsed.data.directionId,
+        ownerOrgUnitId: parsed.data.ownerOrgUnitId ?? null,
       });
       toast.success('Objectif stratégique créé.');
       reset();
@@ -172,7 +178,7 @@ export function StrategicObjectiveCreateDialog({
             </label>
           </div>
           <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Direction</span>
+            <span className="text-muted-foreground">Direction stratégique</span>
             <select
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={directionId}
@@ -186,6 +192,11 @@ export function StrategicObjectiveCreateDialog({
               ))}
             </select>
           </label>
+          <div className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Direction propriétaire</span>
+            <OwnerOrgUnitSelect value={ownerOrgUnitId} onChange={setOwnerOrgUnitId} />
+            {!ownerOrgUnitId ? <OwnerOrgUnitNullWarning className="mt-2" /> : null}
+          </div>
         </div>
         <DialogFooter showCloseButton={false}>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

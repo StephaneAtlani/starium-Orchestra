@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft** — non implémentée. Dépend des schémas et règles introduits par [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md). Les scripts de backfill pour **RFC-ORG-002** (`ClientUser.resourceId`) s’appuient sur le modèle défini dans ORG-002 même si le plan ne répète pas ORG-002 dans la ligne « Dépendances » du tableau.
+**Implémentée (socle Lot A+B)** — 2026-05. Dépend de [RFC-ORG-003](./RFC-ORG-003%20%E2%80%94%20Propri%C3%A9t%C3%A9%20organisationnelle%20des%20ressources.md) et [RFC-ACL-017](./RFC-ACL-017%20%E2%80%94%20Politique%20d%27acc%C3%A8s%20ressource.md). Runbook : [migration-org-scope-access.md](../runbooks/migration-org-scope-access.md). Backfill `ClientUser.resourceId` (ORG-002) : [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md) (hors livrable Lot A+B actuel).
 
 ## Alignement plan
 
@@ -25,7 +25,7 @@ Les **feature flags**, migrations et rapports d’écarts doivent être **scopé
 
 Permettre un **déploiement contrôlé** du socle organisationnel + scope + moteur unifié sans rupture de service :
 
-1. **Scripts de backfill** : liens `ClientUser.resourceId` (matching contrôlé), `ownerOrgUnitId` par défaut (ex. racine client ou unité « Non classé » créée ad hoc), politiques `DEFAULT`.
+1. **Scripts de backfill** : `ownerOrgUnitId` par défaut (CLI livré) ; liens `ClientUser.resourceId` → [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md) ; politiques `DEFAULT`.
 2. **Rapports d’écarts** : CSV/JSON listant lignes non résolues (plusieurs candidats HUMAN, aucune unité applicable).
 3. **Feature flags** : activation par module (`projects`, `budgets`, …) et par capacité (`ORG_SCOPE_ENFORCEMENT`, `ACCESS_DECISION_V2`, etc.) — noms indicatifs à centraliser (`apps/api/src/config` ou table `ClientFeatureFlag` si dynamique client).
 4. **Documentation de migration** : ordre d’exécution, rollback, critères de « done ».
@@ -51,10 +51,11 @@ Permettre un **déploiement contrôlé** du socle organisationnel + scope + mote
 
 | Livrable | Description |
 | --- | --- |
-| `scripts/migrations/org-scope/` | CLI interne (pnpm) avec options `--clientId`, `--dry-run`. |
-| Rapports | Artefacts stockés localement ou export S3 selon infra (hors scope : choix équipe). |
-| Flags | Lecture côté `AccessDecisionService` pour fallback comportement V1. |
-| Runbook | `docs/runbooks/migration-org-scope-access.md` *(création seulement si validé par équipe — sinon section dans cette RFC jusqu’à implémentation)* |
+| CLI backfill | `apps/api/scripts/backfill-owner-org-unit.ts` — `--client-id`, `--module` (`budgets` \| `projects` \| `contracts` \| `suppliers` \| `strategic_vision` \| `all`), `--dry-run`, `--default-org-unit-id` |
+| Rapports CSV | `tmp/backfill-org-scope-<clientId>-<timestamp>.csv` ; audit `org_scope_backfill.applied` |
+| Prisma | `ClientFeatureFlag` — migration `20260513140000_rfc_acl_022_client_feature_flag` |
+| Flags | `FeatureFlagsService` + `FLAG_KEYS.ACCESS_DECISION_V2_*` ; lecture dans les services métier → fallback legacy si désactivé |
+| Runbook | [docs/runbooks/migration-org-scope-access.md](../runbooks/migration-org-scope-access.md) |
 
 ---
 

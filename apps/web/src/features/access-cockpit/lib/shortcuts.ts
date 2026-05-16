@@ -47,4 +47,10 @@ export const ACCESS_COCKPIT_SHORTCUTS: AccessCockpitShortcut[] = [
     description: 'Expliquer un accès autorisé/refusé par couche de contrôle',
     icon: ShieldQuestion,
   },
+  {
+    href: '/client/administration/access-model',
+    title: "Modèle d'accès",
+    description: 'KPI Direction, liens HUMAN, ACL atypiques et politiques',
+    icon: ShieldCheck,
+  },
 ];

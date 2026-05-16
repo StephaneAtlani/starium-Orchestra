@@ -25,8 +25,15 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { SupplierContractsPreviewCard } from '@/features/contracts/components/supplier-contracts-preview-card';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
+import { OwnerOrgUnitNullWarning } from '@/features/organization/components/owner-org-unit-null-warning';
+import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
 
 const PROCUREMENT_PREVIEW_LIMIT = 8;
+
+function formatOwnerOrgSummary(summary: OwnerOrgUnitSummary | null | undefined): string {
+  if (!summary) return '—';
+  return summary.code ? `${summary.name} (${summary.code})` : summary.name;
+}
 
 function formatShortDate(iso: string): string {
   try {
@@ -254,6 +261,15 @@ export function SupplierVisualizationContent({
             <div>
               <p className="text-xs text-muted-foreground">Statut</p>
               <Badge variant="secondary">{supplierQuery.data?.status ?? 'UNKNOWN'}</Badge>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Direction propriétaire</p>
+              <p className="font-medium">
+                {formatOwnerOrgSummary(supplierQuery.data?.ownerOrgUnitSummary)}
+              </p>
+              {!supplierQuery.data?.ownerOrgUnitSummary ? (
+                <OwnerOrgUnitNullWarning className="mt-2" />
+              ) : null}
             </div>
           </CardContent>
         </Card>

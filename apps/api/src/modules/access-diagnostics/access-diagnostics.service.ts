@@ -12,9 +12,13 @@ import {
 import { AccessControlService } from '../access-control/access-control.service';
 import { ModuleVisibilityService } from '../module-visibility/module-visibility.service';
 import {
+  evaluateReadRbacIntent,
   satisfiesPermission,
   SCOPED_READ_MODULES,
 } from '@starium-orchestra/rbac-permissions';
+import {
+  getFlagKeyForServiceEnforcedModule,
+} from '../access-decision/access-intent.registry';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { OrganizationScopeService } from '../../common/organization/organization-scope.service';
 import type { RequestWithClient } from '../../common/types/request-with-client';
@@ -43,9 +47,14 @@ import {
 } from './resource-diagnostics.registry';
 import { loadAccessResources } from '../access-decision/access-decision.registry';
 import { AccessDecisionService } from '../access-decision/access-decision.service';
-import type { AccessDecisionResult } from '../access-decision/access-decision.types';
+import type {
+  AccessDecisionResult,
+  AccessIntent,
+} from '../access-decision/access-decision.types';
 import { RESOURCE_ACL_RESOURCE_TYPES } from '../access-control/resource-acl.constants';
 import { parseAccessDiagnosticsEnrichedFlag } from './access-diagnostics-enriched.config';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { FLAG_KEYS, type FlagKey } from '../feature-flags/flag-keys';
 import {
   joinAccessDecisionReasonsFr,
   messageForAccessDecisionReasonCode,
@@ -104,6 +113,10 @@ export class AccessDiagnosticsService {
     @Inject(forwardRef(() => AccessDecisionService))
     private readonly accessDecision: AccessDecisionService,
     private readonly organizationScope: OrganizationScopeService,
+    @Inject(FeatureFlagsService)
+    private readonly featureFlags: Pick<FeatureFlagsService, 'isEnabled'> = {
+      isEnabled: async () => false,
+    },
   ) {}
 
   private isEnrichedFlagOn(): boolean {
@@ -112,10 +125,40 @@ export class AccessDiagnosticsService {
     );
   }
 
+  /**
+   * RFC-ACL-020 — flag canonique par type de ressource pour activer le chemin
+   * moteur write/admin dans les diagnostics. `null` = pas de bascule prévue.
+   */
+  private flagKeyForResourceType(rt: SupportedDiagnosticResourceType): FlagKey | null {
+    switch (rt) {
+      case 'PROJECT':
+        return FLAG_KEYS.ACCESS_DECISION_V2_PROJECTS;
+      case 'BUDGET':
+      case 'BUDGET_LINE':
+        return FLAG_KEYS.ACCESS_DECISION_V2_BUDGETS;
+      case 'CONTRACT':
+        return FLAG_KEYS.ACCESS_DECISION_V2_CONTRACTS;
+      case 'SUPPLIER':
+        return FLAG_KEYS.ACCESS_DECISION_V2_PROCUREMENT;
+      case 'STRATEGIC_OBJECTIVE':
+        return FLAG_KEYS.ACCESS_DECISION_V2_STRATEGIC_VISION;
+      default:
+        return null;
+    }
+  }
+
+  private operationToIntent(
+    op: EffectiveRightsQueryDto['operation'],
+  ): AccessIntent {
+    if (op === 'read') return 'read';
+    if (op === 'write') return 'write';
+    return 'admin';
+  }
+
   async computeEffectiveRights(params: {
     clientId: string;
     userId: string;
-    resourceType: EffectiveRightsQueryDto['resourceType'];
+    resourceType: SupportedDiagnosticResourceType;
     resourceId: string;
     operation: EffectiveRightsQueryDto['operation'];
     rbacRequiredPermissionCodes?: readonly string[];
@@ -152,8 +195,22 @@ export class AccessDiagnosticsService {
     }
 
     const enrichedOn = this.isEnrichedFlagOn();
+    const v2FlagKey = this.flagKeyForResourceType(params.resourceType);
+    const v2ModuleOn =
+      enrichedOn && v2FlagKey !== null
+        ? await this.featureFlags.isEnabled(
+            params.clientId,
+            v2FlagKey,
+            params.httpRequest,
+          )
+        : false;
     const canUseReadEngine =
       enrichedOn && params.operation === 'read' && !params.aclRowsOverride;
+    const canUseWriteAdminEngine =
+      enrichedOn &&
+      v2ModuleOn &&
+      (params.operation === 'write' || params.operation === 'admin') &&
+      !params.aclRowsOverride;
 
     const licenseCheck = this.evaluateLicenseCheck(membership, params.operation);
     const subscriptionCheck = this.evaluateSubscriptionCheck(membership);
@@ -203,14 +260,14 @@ export class AccessDiagnosticsService {
       return this.stripUndefinedEnriched(response);
     }
 
-    if (canUseReadEngine) {
+    if (canUseReadEngine || canUseWriteAdminEngine) {
       const engine = await this.accessDecision.decide({
         request: params.httpRequest,
         clientId: params.clientId,
         userId: params.userId,
         resourceType: cfg.resourceType,
         resourceId: params.resourceId,
-        intent: 'read',
+        intent: this.operationToIntent(params.operation),
       });
       const engineAllowed = engine.allowed;
       const harmonized = {
@@ -224,7 +281,7 @@ export class AccessDiagnosticsService {
       const denialReasons = engineAllowed
         ? []
         : this.buildEngineDenialReasons(engine);
-      const enriched = await this.buildReadEnrichedChecks({
+      const enriched = await this.buildEngineEnrichedChecks({
         clientId: params.clientId,
         userId: params.userId,
         resourceType: cfg.resourceType,
@@ -332,7 +389,7 @@ export class AccessDiagnosticsService {
     }));
   }
 
-  private async buildReadEnrichedChecks(input: {
+  private async buildEngineEnrichedChecks(input: {
     clientId: string;
     userId: string;
     resourceType: SupportedDiagnosticResourceType;
@@ -650,29 +707,51 @@ export class AccessDiagnosticsService {
         return this.failCheck(
           'RBAC_PERMISSION_MISSING',
           'Permission RBAC manquante pour cette intention.',
-          this.rbacAcl015DetailsIfRelevant(permissionCodes, code),
+          await this.rbacAcl015DetailsIfRelevant(
+            permissionCodes,
+            code,
+            params.clientId,
+            params.httpRequest,
+          ),
         );
       }
     }
     return this.passCheck('Permissions RBAC requises présentes.');
   }
 
-  private rbacAcl015DetailsIfRelevant(
+  private async rbacAcl015DetailsIfRelevant(
     userCodes: ReadonlySet<string>,
     requiredCode: string,
-  ): Record<string, unknown> | undefined {
+    clientId: string,
+    httpRequest?: RequestWithClient,
+  ): Promise<Record<string, unknown> | undefined> {
     const m = /^([a-z0-9_]+)\.read$/.exec(requiredCode);
     if (!m) return undefined;
-    const mod = m[1];
+    const mod = m[1]!;
     if (!(SCOPED_READ_MODULES as readonly string[]).includes(mod)) return undefined;
-    if (userCodes.has(`${mod}.read_scope`) || userCodes.has(`${mod}.read_own`)) {
+    if (!userCodes.has(`${mod}.read_scope`) && !userCodes.has(`${mod}.read_own`)) {
+      return undefined;
+    }
+
+    const flagKey = getFlagKeyForServiceEnforcedModule(mod);
+    const v2Enabled = flagKey
+      ? await this.featureFlags.isEnabled(clientId, flagKey, httpRequest)
+      : false;
+
+    const readIntent = evaluateReadRbacIntent(mod, userCodes);
+    if (v2Enabled && readIntent.allowed && readIntent.orgScopeRequired) {
       return {
-        seededNotEnforced: true,
+        seededButRouteNotMigrated: true,
         note:
-          'Permission scoped présente (read_scope/read_own) ; filtrage organisationnel non actif (RFC-ACL-016/018). Aucun accès legacy lecture inféré.',
+          'Vocabulaire scoped actif et flag V2 module activé ; vérifier que la route cible est migrée (@RequireAccessIntent + service AccessDecision).',
       };
     }
-    return undefined;
+
+    return {
+      seededNotEnforced: true,
+      note:
+        'Permission scoped présente (read_scope/read_own) sans legacy *.read ; enforcement route/guard non aligné ou flag V2 module désactivé (RFC-ACL-024).',
+    };
   }
 
   private async evaluateRbacCheck(params: {
@@ -698,7 +777,12 @@ export class AccessDiagnosticsService {
       return this.failCheck(
         'RBAC_PERMISSION_MISSING',
         'Permission RBAC manquante pour cette opération.',
-        this.rbacAcl015DetailsIfRelevant(permissionCodes, params.requiredPermission),
+        await this.rbacAcl015DetailsIfRelevant(
+          permissionCodes,
+          params.requiredPermission,
+          params.clientId,
+          params.httpRequest,
+        ),
       );
     }
     return this.passCheck('Permission RBAC valide.');

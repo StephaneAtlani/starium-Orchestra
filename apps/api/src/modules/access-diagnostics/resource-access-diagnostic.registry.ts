@@ -39,6 +39,17 @@ export const RESOURCE_ACCESS_DIAGNOSTIC_REGISTRY: Record<
       ADMIN: [],
     },
   },
+  BUDGET_LINE: {
+    moduleCode: 'budgets',
+    moduleVisibilityScope: 'budgets',
+    /** RFC-ACL-020 §4.2 — ACL portée par le Budget parent en V1. */
+    aclResourceType: 'BUDGET',
+    intents: {
+      READ: ['budgets.read'],
+      WRITE: ['budgets.update'],
+      ADMIN: [],
+    },
+  },
   CONTRACT: {
     moduleCode: 'contracts',
     moduleVisibilityScope: 'contracts',

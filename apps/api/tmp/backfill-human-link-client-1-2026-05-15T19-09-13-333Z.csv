@@ -1,0 +1,2 @@
+clientUserId,clientUserLabel,userEmail,defaultEmailIdentity,mode,action,resourceId,resourceLabel,matchedBy,candidateCount,reason
+cu-1,Alice — alice@test.com,alice@test.com,,dry-run,LINKED,res-1,Alice Martin,email-default,1,email-default

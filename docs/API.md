@@ -550,6 +550,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/resource-acl/:resourceType/:resourceId/access-policy (PATCH) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) — RFC-ACL-017 |
 | /api/resource-acl/:resourceType/:resourceId (PUT), …/entries (POST), …/entries/:id (DELETE) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query optionnelle `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) |
 | /api/access-diagnostics/effective-rights/me | idem | JwtAuthGuard → ActiveClientGuard (self-service membre) |
+| /api/access-model/health, /api/access-model/issues | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → PermissionsGuard (`access_model.read`) — **sans** ModuleAccessGuard (RFC-ACL-021) |
 | /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
@@ -651,9 +652,35 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
 ### 5.052 `GET /api/me/permissions` — `roles[]` informatif (RFC-ACL-014)
 
 - Réponse enrichie avec `roles[]` (`id`, `name`, `code` nullable, `scope`, `clientId`) — **informatif uniquement** ; l’UI ne dérive pas les droits depuis `roles[]`.
-- `permissionCodes` : codes **bruts** issus des rôles (filtre modules activés) — alignés sur `satisfiesPermission` côté API ; utiliser le hook `has(code)` côté web pour refléter les guards.
+- `permissionCodes` : codes **bruts** issus des rôles (filtre modules activés) — alignés sur `satisfiesPermission` côté API ; utiliser le hook `has(code)` côté web pour refléter les guards legacy.
+- `accessDecisionV2` (RFC-ACL-024) : `Record<string, boolean>` — état des flags `ACCESS_DECISION_V2_*` pour le **client actif** (`X-Client-Id`) uniquement (ex. `{ "projects": true, "budgets": false }`). **Informatif UI** ; les guards restent la source de vérité. Préférer `hasIntent(module, intent, { serviceEnforced: true })` sur les écrans migrés (package `evaluateAccessIntentForUi`).
+
+### 5.053 Cockpit modèle d’accès — `/api/access-model` (RFC-ACL-021)
+
+Vue agrégée pour **CLIENT_ADMIN** (permission **`access_model.read`**, module référentiel `access_model` activé client via seed).
+
+- **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `PermissionsGuard` — **pas** de `ModuleAccessGuard`.
+- **`GET /api/access-model/health`**
+  - `generatedAt`, `rollout[]` (`module`, `flagKey`, `enabled` pour les clés `ACCESS_DECISION_V2_*` — **exposé uniquement sur cet endpoint**, pas de route `/api/me/feature-flags`).
+  - `kpis` : `resourcesMissingOwner` (total + `byModule`), `membersMissingHumanWithScopedPerms`, `atypicalAclShares`, `policyReviewHints`.
+- **`GET /api/access-model/issues`**
+  - Query : `category` obligatoire (`missing_owner` \| `missing_human` \| `atypical_acl` \| `policy_review`), `page`, `limit` (max 100), `module`, `search` (sur `label`).
+  - Réponse : `items[]` (libellé métier, `correctiveAction.href`, `severity`, `resourceType` optionnel), `page`, `limit`, `total`, `truncated`.
+- **Règles notables**
+  - `missing_owner` : `BudgetLine` compte l’owner **effectif** (`line.ownerOrgUnitId ?? budget.ownerOrgUnitId`).
+  - `missing_human` : permissions scopées via `isAccessModelScopedPermission` (`*.read_scope`, `*.read_own`, `*.write_scope`) ; filtre rôles client actif + modules ENABLED (aligné `/me/permissions`).
+- **UI** : `/client/administration/access-model` — voir [RFC-ACL-021](./RFC/RFC-ACL-021%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%27acc%C3%A8s%20admin%20client.md).
 - `uiPermissionHints` (RFC-ACL-015) : implications d’affichage (ex. `read_scope` / `read_own` dérivés de `read_all`) — **ne pas** utiliser seuls pour afficher une action que le backend refuserait.
-- **Implémentation** : règles `satisfiesPermission` / hints dans le package workspace **`@starium-orchestra/rbac-permissions`** ; voir [RFC-ACL-015](RFC/RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
+- **Implémentation** : `satisfiesPermission`, `evaluateReadRbacIntent` / `evaluateWriteRbacIntent`, `evaluateAccessIntentForUi` dans **`@starium-orchestra/rbac-permissions`** ; guards HTTP V1 : [RFC-ACL-024](RFC/RFC-ACL-024%20%E2%80%94%20Enforcement%20permissions%20scoped.md), [RFC-ACL-015](RFC/RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md).
+
+### 5.054 `PermissionsGuard` — intentions scope-aware (RFC-ACL-024)
+
+Sur les routes décorées `@RequireAccessIntent` (ou pont `@RequirePermissions` si handler ∈ `SERVICE_ENFORCED_REGISTRY`) :
+
+- `read_scope` / `write_scope` / `read_own` / `write_own` : acceptés **uniquement** si flag `ACCESS_DECISION_V2_<MODULE>` actif **et** handler enregistré (`ControllerName.methodName` dans `access-intent-enforced-handlers.ts`).
+- Routes non enregistrées : legacy strict (`read_all` → `*.read` via `satisfiesPermission` ; pas d’ouverture scoped).
+- `create` : `*.create` ou `*.manage_all` — pas de `write_scope`.
+- Filtrage liste/détail par périmètre org : toujours côté **service** (`AccessDecisionService`, RFC-ACL-018/020) — le guard ne remplace pas le moteur.
 
 ## 5.06 License Reporting — `/api/platform/license-reporting` (RFC-ACL-012)
 

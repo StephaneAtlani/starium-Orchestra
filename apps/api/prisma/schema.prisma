@@ -397,6 +397,22 @@ model Client {
   clientModuleVisibilities   ClientModuleVisibility[]
   resourceAcls               ResourceAcl[]
   resourceAccessPolicies     ResourceAccessPolicy[]
+  /// RFC-ACL-022 — feature flags scopés client (bascule moteur accès V2, etc.).
+  featureFlags               ClientFeatureFlag[]
+}
+
+/// RFC-ACL-022 — bascule par client / par clé pour les features sensibles (par défaut désactivées).
+model ClientFeatureFlag {
+  id        String   @id @default(cuid())
+  clientId  String
+  flagKey   String
+  enabled   Boolean
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, flagKey])
+  @@index([clientId])
 }
 
 /// Défauts globaux badges UI (id = `default`) — fusionnés avant `Client.uiBadgeConfig`.
