@@ -4,6 +4,7 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @starium-orchestra/types build
+RUN pnpm --filter @starium-orchestra/rbac-permissions build
 RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
 # Un seul arbre node_modules (racine) : un 2e `pnpm install` dans apps/api créait
 # un @prisma/client / prisma generate désaligné du paquet hoisted sous /app/node_modules.

@@ -10,7 +10,7 @@ ARG INTERNAL_API_URL=http://api:3001
 ENV INTERNAL_API_URL=${INTERNAL_API_URL}
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
-RUN pnpm --filter @starium-orchestra/types build
+# prebuild web : types + rbac-permissions + budget-exercise-calendar (workspace dist/)
 RUN pnpm --filter @starium-orchestra/web build
 # Standalone n’embarque pas automatiquement `public` + `.next/static` (doc Next.js).
 # Sans ça : 404 sur une partie des chunks sous `/_next/static/*`.

@@ -64,6 +64,8 @@ x-api-dev-mounts: &api-dev-mounts
   - ./packages/types/package.json:/app/packages/types/package.json:ro
   - ./packages/config/package.json:/app/packages/config/package.json:ro
   - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
+  - ./packages/rbac-permissions/package.json:/app/packages/rbac-permissions/package.json:ro
+  - ./packages/rbac-permissions:/app/packages/rbac-permissions
   - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
   - ./apps/api/docker-entrypoint-worker-dev.sh:/app/apps/api/docker-entrypoint-worker-dev.sh:ro
   - ./apps/api/src:/app/apps/api/src
@@ -217,6 +219,7 @@ services:
       - ./apps/web:/app/apps/web
       - web_next_cache:/app/apps/web/.next
       - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
+      - ./packages/rbac-permissions:/app/packages/rbac-permissions
     depends_on:
       api-dev:
         condition: service_healthy

@@ -105,6 +105,11 @@ echo "[api-dev] prisma migrate deploy..."
 pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
 api_prisma_generate
 assert_generated_client_has_bucket_fields
+echo "[api-dev] build workspace @starium-orchestra/rbac-permissions (requis par prisma/seed.ts)..."
+if ! pnpm --filter @starium-orchestra/rbac-permissions run build 2>/dev/null; then
+  echo "[api-dev] fallback: build direct packages/rbac-permissions (workspace non monté ?)"
+  (cd /app/packages/rbac-permissions && pnpm run build)
+fi
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
 echo "[api-dev] build workspace @starium-orchestra/budget-exercise-calendar..."
