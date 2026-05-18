@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { StreamableFile } from '@nestjs/common';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -14,6 +15,7 @@ describe('AccessModelController', () => {
     service = {
       getHealth: jest.fn(),
       listIssues: jest.fn(),
+      exportIssuesCsv: jest.fn(),
     } as unknown as jest.Mocked<AccessModelService>;
     controller = new AccessModelController(service);
   });
@@ -31,6 +33,7 @@ describe('AccessModelController', () => {
     service.getHealth.mockResolvedValue({
       generatedAt: new Date().toISOString(),
       rollout: [],
+      checklist: [],
       kpis: {
         resourcesMissingOwner: { total: 0, byModule: {} },
         membersMissingHumanWithScopedPerms: { total: 0 },
@@ -41,5 +44,33 @@ describe('AccessModelController', () => {
     const req = { user: { userId: 'u1' } } as any;
     await controller.getHealth('client-1', req);
     expect(service.getHealth).toHaveBeenCalledWith('client-1', req);
+  });
+
+  it('exportIssues pose Content-Type et Content-Disposition dynamiques', async () => {
+    const buffer = Buffer.from('\uFEFFcategory,module\n', 'utf-8');
+    service.exportIssuesCsv.mockResolvedValue({
+      buffer,
+      filename: 'access-model-issues-acme-2026-05-18.csv',
+      rowCount: 1,
+    });
+    const req = { user: { userId: 'u1' }, headers: {} } as any;
+    const res = {
+      setHeader: jest.fn(),
+    } as any;
+    const file = await controller.exportIssues(
+      'client-1',
+      { category: 'missing_owner' } as any,
+      req,
+      res,
+    );
+    expect(file).toBeInstanceOf(StreamableFile);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/csv; charset=utf-8',
+    );
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="access-model-issues-acme-2026-05-18.csv"',
+    );
   });
 });

@@ -550,7 +550,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/resource-acl/:resourceType/:resourceId/access-policy (PATCH) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) — RFC-ACL-017 |
 | /api/resource-acl/:resourceType/:resourceId (PUT), …/entries (POST), …/entries/:id (DELETE) | idem | JwtAuthGuard → ActiveClientOrPlatformContextGuard → ClientAdminOrPlatformAdminGuard ; query optionnelle `force=true` réservée `PLATFORM_ADMIN` (RFC-ACL-014) |
 | /api/access-diagnostics/effective-rights/me | idem | JwtAuthGuard → ActiveClientGuard (self-service membre) |
-| /api/access-model/health, /api/access-model/issues | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → PermissionsGuard (`access_model.read`) — **sans** ModuleAccessGuard (RFC-ACL-021) |
+| /api/access-model/health, /api/access-model/issues, /api/access-model/issues/export | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → PermissionsGuard (`access_model.read`) — **sans** ModuleAccessGuard (RFC-ACL-021 / 026) |
 | /api/roles        | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/permissions  | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ClientAdminGuard         |
 | /api/clients      | `Authorization: Bearer <accessToken>`             | JwtAuthGuard → PlatformAdminGuard                           |
@@ -662,10 +662,17 @@ Vue agrégée pour **CLIENT_ADMIN** (permission **`access_model.read`**, module 
 - **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `PermissionsGuard` — **pas** de `ModuleAccessGuard`.
 - **`GET /api/access-model/health`**
   - `generatedAt`, `rollout[]` (`module`, `flagKey`, `enabled` pour les clés `ACCESS_DECISION_V2_*` — **exposé uniquement sur cet endpoint**, pas de route `/api/me/feature-flags`).
+  - `checklist[]` (RFC-ACL-026) : étapes rollout **calculées** (`org_tree`, `backfill_owner`, `backfill_human`, `flag_module`, `smoke`) — informatives, non persistées.
   - `kpis` : `resourcesMissingOwner` (total + `byModule`), `membersMissingHumanWithScopedPerms`, `atypicalAclShares`, `policyReviewHints`.
 - **`GET /api/access-model/issues`**
   - Query : `category` obligatoire (`missing_owner` \| `missing_human` \| `atypical_acl` \| `policy_review`), `page`, `limit` (max 100), `module`, `search` (sur `label`).
-  - Réponse : `items[]` (libellé métier, `correctiveAction.href`, `severity`, `resourceType` optionnel), `page`, `limit`, `total`, `truncated`.
+  - Réponse : `items[]` (`id`, `resourceId`, libellé métier, `correctiveAction.href`, `severity`, `resourceType` optionnel), `page`, `limit`, `total`, `truncated`.
+- **`GET /api/access-model/issues/export`** (RFC-ACL-026)
+  - Query : `category` (requis), `module`, `search`, `delimiter` (`,` ou `;`, défaut `,`), `format=csv` optionnel — **pas** de `page` / `limit`.
+  - Réponse : `text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="access-model-issues-{slug-sanitized}-{date}.csv"`.
+  - Colonnes CSV : `category`, `module`, `resourceLabel`, `resourceType`, **`resourceId`** (métier, jamais la clé composite `id` de l’issue), `detail`, `suggestedAction`, `deepLinkPath`.
+  - Plafond : **5 000** lignes exportées ; probe **5 001** après filtres → **413** `Payload Too Large` si `> 5_000` lignes **ou** `scanTruncated` — **jamais** de CSV partiel ; en **413** : pas d’audit `access_model.issues.exported`.
+  - Audit succès uniquement : `access_model.issues.exported` (`newValue` : `category`, `module`, `search`, `rowCount`, `delimiter`).
 - **Règles notables**
   - `missing_owner` : `BudgetLine` compte l’owner **effectif** (`line.ownerOrgUnitId ?? budget.ownerOrgUnitId`).
   - `missing_human` : permissions scopées via `isAccessModelScopedPermission` (`*.read_scope`, `*.read_own`, `*.write_scope`) ; filtre rôles client actif + modules ENABLED (aligné `/me/permissions`).
@@ -680,7 +687,16 @@ Sur les routes décorées `@RequireAccessIntent` (ou pont `@RequirePermissions` 
 - `read_scope` / `write_scope` / `read_own` / `write_own` : acceptés **uniquement** si flag `ACCESS_DECISION_V2_<MODULE>` actif **et** handler enregistré (`ControllerName.methodName` dans `access-intent-enforced-handlers.ts`).
 - Routes non enregistrées : legacy strict (`read_all` → `*.read` via `satisfiesPermission` ; pas d’ouverture scoped).
 - `create` : `*.create` ou `*.manage_all` — pas de `write_scope`.
-- Filtrage liste/détail par périmètre org : toujours côté **service** (`AccessDecisionService`, RFC-ACL-018/020) — le guard ne remplace pas le moteur.
+- Filtrage **liste** par périmètre : côté **service** (`filterResourceIdsByAccess`). Routes `@AccessDecision` : le guard appelle `decide` sur l’id de route si flag V2 actif — **complément** au service, pas remplacement des listes.
+
+### 5.055 `ResourceAccessDecisionGuard` — accès par `resourceId` (RFC-ACL-025)
+
+Sur les routes décorées `@AccessDecision` (alias `@RequireAccess`) :
+
+- Ordre : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard` → **`ResourceAccessDecisionGuard`**.
+- Si le flag client `ACCESS_DECISION_V2_<MODULE>` est **désactivé** : le guard ne bloque pas (enforcement liste/détail reste côté service quand applicable).
+- Si le flag est **actif** : `AccessDecisionService.decide` sur le paramètre de route (`resourceIdParam`). Refus → **403** avec `reasonCode: ACCESS_DECISION_DENIED` et `reasonCodes[]` (codes moteur 018/019).
+- `resourceType` inconnu ou sans mapping flag → **500** (erreur de configuration, pas un refus métier).
 
 ## 5.06 License Reporting — `/api/platform/license-reporting` (RFC-ACL-012)
 

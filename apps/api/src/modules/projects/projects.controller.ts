@@ -19,6 +19,8 @@ import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../common/decorators/require-access-intent.decorator';
+import { AccessDecision } from '../../common/decorators/access-decision.decorator';
+import { ResourceAccessDecisionGuard } from '../access-decision/resource-access-decision.guard';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
@@ -37,7 +39,13 @@ import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
 import { ResourcesService } from '../resources/resources.service';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
+@UseGuards(
+  JwtAuthGuard,
+  ActiveClientGuard,
+  ModuleAccessGuard,
+  PermissionsGuard,
+  ResourceAccessDecisionGuard,
+)
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
@@ -240,6 +248,7 @@ export class ProjectsController {
 
   @Get(':id')
   @RequireAccessIntent({ module: 'projects', intent: 'read' })
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -250,6 +259,7 @@ export class ProjectsController {
 
   @Patch(':id')
   @RequireAccessIntent({ module: 'projects', intent: 'write' })
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -264,6 +274,7 @@ export class ProjectsController {
 
   @Delete(':id')
   @RequireAccessIntent({ module: 'projects', intent: 'admin' })
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'admin' })
   remove(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,

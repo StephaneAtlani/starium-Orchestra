@@ -16,6 +16,8 @@ import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../common/decorators/require-access-intent.decorator';
+import { AccessDecision } from '../../common/decorators/access-decision.decorator';
+import { ResourceAccessDecisionGuard } from '../access-decision/resource-access-decision.guard';
 import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
@@ -28,7 +30,13 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 import { ListSuppliersQueryDto } from '../procurement/suppliers/dto/list-suppliers.query.dto';
 
 @Controller('contracts')
-@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
+@UseGuards(
+  JwtAuthGuard,
+  ActiveClientGuard,
+  ModuleAccessGuard,
+  PermissionsGuard,
+  ResourceAccessDecisionGuard,
+)
 export class ContractsController {
   constructor(private readonly contracts: ContractsService) {}
 
@@ -64,6 +72,7 @@ export class ContractsController {
 
   @Get(':id')
   @RequireAccessIntent({ module: 'contracts', intent: 'read' })
+  @AccessDecision({ resourceType: 'CONTRACT', resourceIdParam: 'id', intent: 'read' })
   getOne(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -86,6 +95,7 @@ export class ContractsController {
 
   @Patch(':id')
   @RequireAccessIntent({ module: 'contracts', intent: 'write' })
+  @AccessDecision({ resourceType: 'CONTRACT', resourceIdParam: 'id', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -99,6 +109,7 @@ export class ContractsController {
 
   @Delete(':id')
   @RequireAccessIntent({ module: 'contracts', intent: 'admin' })
+  @AccessDecision({ resourceType: 'CONTRACT', resourceIdParam: 'id', intent: 'admin' })
   remove(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,

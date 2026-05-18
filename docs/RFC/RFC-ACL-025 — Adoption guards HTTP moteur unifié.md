@@ -2,7 +2,7 @@
 
 ## Statut
 
-**📝 Draft** — 2026-05. Suite de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d'acc%C3%A8s%20unifi%C3%A9.md). Complément de [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) (enforcement aujourd’hui dans les **services**).
+**✅ Implémentée (V1)** — 2026-05. Suite de [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d'acc%C3%A8s%20unifi%C3%A9.md). Complément de [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) (enforcement dans les **services** + garde-fou HTTP).
 
 ## Alignement plan
 
@@ -13,22 +13,27 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 | **Priorité** | **P2** |
 | **Ordre recommandé** | **13** — après [RFC-ACL-024](./RFC-ACL-024%20%E2%80%94%20Enforcement%20permissions%20scoped.md) sur au moins un module |
 | **Dépendances** | RFC-ACL-018, RFC-ACL-020, RFC-ACL-022 |
-| **Livrables** | `ResourceAccessDecisionGuard` sur contrôleurs cibles, metadata param/route, tests e2e, doc adoption |
+| **Livrables** | `@AccessDecision`, `ResourceAccessDecisionGuard` sur routes détail/mutation V1, tests unitaires, doc |
 
 ---
 
-## 1. Analyse de l’existant
+## 1. Analyse de l’existant (avant V1)
 
-- `AccessDecisionService` + `assertAllowed` / `filterResourceIdsByAccess` dans services Projets, Budgets, etc.
-- `ResourceAccessDecisionGuard` **exporté** mais **non généralisé** sur les controllers.
-- Double risque : oubli d’appel service vs garde-fou HTTP central.
+- `AccessDecisionService` + `assertAllowed` / `filterResourceIdsByAccess` dans les services métier (**020**).
+- `ResourceAccessDecisionGuard` exporté par `AccessDecisionModule` mais non monté sur les controllers → risque IDOR si oubli service.
+
+**État après V1 (dépôt)** :
+
+- Décorateur [`@AccessDecision`](../../apps/api/src/common/decorators/access-decision.decorator.ts) (clé `REQUIRE_ACCESS_KEY`, alias `@RequireAccess`).
+- Guard durci : `decide` (pas `assertAllowed`), flag `ACCESS_DECISION_V2_*`, cache `request.accessDecisionCache`, **403** `ACCESS_DECISION_DENIED`, **500** si metadata invalide.
+- Controllers : projects, budgets, budget-lines, contracts, suppliers, strategic-vision (routes détail/mutation du plan).
 
 ---
 
 ## 2. Hypothèses
 
 - Le guard **ne remplace pas** la logique liste (filtrage Prisma) : il **complète** pour `GET :id`, mutations sans passage service, routes annexes.
-- Metadata : `@AccessDecision({ resourceType: 'PROJECT', intent: 'read', param: 'id' })`.
+- Metadata : `@AccessDecision({ resourceType: 'PROJECT', intent: 'read', resourceIdParam: 'id' })`.
 - Respect du flag `ACCESS_DECISION_V2_*` : si désactivé, guard no-op (pass-through) — même sémantique que 020.
 - Ordre guards : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard` → **`ResourceAccessDecisionGuard`**.
 
@@ -38,10 +43,11 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 
 | Fichier | Action |
 | --- | --- |
-| `apps/api/src/modules/access-decision/guards/resource-access-decision.guard.ts` | Durcir lecture metadata + registre |
+| `apps/api/src/modules/access-decision/resource-access-decision.guard.ts` | Durcir : flag V2, `decide`, cache requête, 403 structuré |
+| `apps/api/src/modules/access-decision/resolve-v2-flag-key.ts` | Mapping `resourceType` → `ACCESS_DECISION_V2_*` |
 | `apps/api/src/common/decorators/access-decision.decorator.ts` | **Créer** |
 | `*.controller.ts` (projects, budgets, …) | Annoter routes read/write/delete |
-| Tests | `access-decision.guard.spec.ts`, e2e par module |
+| Tests | `resource-access-decision.guard.spec.ts`, `resolve-v2-flag-key.spec.ts`, DI guard |
 
 ---
 
@@ -66,15 +72,20 @@ findOne(...) {}
 - `ForbiddenException` + code stable `ACCESS_DECISION_DENIED` (aligné diagnostic 019).
 - Logger debug si flag V2 off (skip).
 
-### 4.3 Périmètre V1 adoption
+### 4.3 Périmètre V1 adoption (livré)
 
-| Module | Routes cibles |
-| --- | --- |
-| Projects | `GET :id`, `PATCH :id`, `DELETE :id` |
-| Budgets | idem + lignes si route dédiée |
-| Contracts, Suppliers, Strategic objectives | CRUD détail |
+| Module | Controller | Routes | `resourceType` |
+| --- | --- | --- | --- |
+| projects | `ProjectsController` | `GET/PATCH/DELETE :id` | `PROJECT` |
+| budgets | `BudgetsController` | `GET/PATCH :id` | `BUDGET` |
+| budgets | `BudgetLinesController` | `GET/PATCH :id` | `BUDGET_LINE` |
+| contracts | `ContractsController` | `GET/PATCH/DELETE :id` | `CONTRACT` |
+| procurement | `SuppliersController` | `GET/PATCH :id` | `SUPPLIER` |
+| strategic_vision | `StrategicVisionController` | `GET/PATCH/DELETE …/objectives/:objectiveId`, `PATCH strategic-objectives/:id` | `STRATEGIC_OBJECTIVE` |
 
-**Hors V1** : routes liste (déjà filtrées en service), uploads fichiers, webhooks.
+Mapping flag : `resolve-v2-flag-key.ts` → `RESOURCE_DIAGNOSTICS_REGISTRY.moduleCode` → `ACCESS_DECISION_V2_*` (ex. `BUDGET_LINE` → `ACCESS_DECISION_V2_BUDGETS`).
+
+**Hors V1** : listes, `bulk-status`, uploads logo, routes satellites `projects/*`, webhooks.
 
 ### 4.4 Cohabitation service
 
@@ -92,9 +103,9 @@ findOne(...) {}
 
 ## 6. Tests
 
-- Guard unitaire : metadata manquante → 500 config (fail fast dev) ou skip documenté.
-- E2E : flag V2 on/off.
-- Pas de régression performance : `decide` déjà optimisé ; éviter double appel guard + service sur même requête (cache request-scoped optionnel).
+- Guard unitaire : metadata absente → pass-through ; `resourceType` / flag introuvable → **500** ; refus métier → **403** `ACCESS_DECISION_DENIED`.
+- Tests : `resource-access-decision.guard.spec.ts`, `resolve-v2-flag-key.spec.ts`, DI guard.
+- Cache `request.accessDecisionCache` pour limiter le double appel guard + service (V1).
 
 ---
 
@@ -106,5 +117,7 @@ RFC-ACL-025 uniformise la **surface HTTP** avec le moteur 018, réduisant les ou
 
 ## 8. Points de vigilance
 
-- Double évaluation (service + guard) : mesurer latence ; introduire cache `AsyncLocalStorage` par requête si besoin.
+- Double évaluation (service + guard) : cache `accessDecisionCache` sur la requête HTTP (V1).
+- `assertAllowed` inchangé ; harmonisation 403 structuré côté service = chantier séparé.
+- Config invalide (`resourceType` inconnu) : **500** fail-fast, jamais 403.
 - Routes batch / import : exclure explicitement du guard ou intent `admin` dédié.

@@ -4,7 +4,9 @@
 
 **✅ Implémentée (V1)** — 2026-05. Suite de [RFC-ACL-015](./RFC-ACL-015%20%E2%80%94%20Permissions%20OWN%20SCOPE%20ALL.md) (socle vocabulaire livré). S’appuie sur [RFC-ACL-018](./RFC-ACL-018%20%E2%80%94%20Moteur%20de%20d%C3%A9cision%20d'acc%C3%A8s%20unifi%C3%A9.md) et [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Intégration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md).
 
-**Hors scope V1** (prévu ultérieurement) : extension catalogue `documents` / `orders` ; profils « scope-ready » dans `default-profiles.json` ; migration **vague 2** des contrôleurs satellites (`projects/*`, `budget-*`, etc.) ; [RFC-ACL-025](./RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md) (guard HTTP par `resourceId`).
+**Hors scope V1** (prévu ultérieurement) : extension catalogue `documents` / `orders` ; profils « scope-ready » dans `default-profiles.json` ; migration **vague 2** des contrôleurs satellites (`projects/*`, `budget-*`, etc.).
+
+**Complément livré** : [RFC-ACL-025](./RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md) — guard HTTP par `resourceId` sur routes détail/mutation V1 (après `PermissionsGuard`).
 
 ## Alignement plan
 
@@ -105,4 +107,4 @@ Commande indicative : `pnpm --filter @starium-orchestra/api exec jest access-int
 - Ne pas activer V2 sans backfill (runbook 022 / 023).
 - Satellites non migrés : legacy au guard même si flag on.
 - `GET /api/access-model/health` reste la source détaillée des flags pour le cockpit admin ; `accessDecisionV2` sur `/me/permissions` est **informatif** pour l’UI métier.
-- Suite : [RFC-ACL-025](./RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md) (guard par `resourceId`).
+- Complément HTTP : [RFC-ACL-025](./RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md) (**V1 livrée** — `@AccessDecision` + `ResourceAccessDecisionGuard`).

@@ -17,6 +17,8 @@ import { RequireAnyPermissions } from '../../common/decorators/require-any-permi
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../common/decorators/require-access-intent.decorator';
+import { AccessDecision } from '../../common/decorators/access-decision.decorator';
+import { ResourceAccessDecisionGuard } from '../access-decision/resource-access-decision.guard';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
@@ -50,7 +52,13 @@ type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
  *    génériques `strategic-vision/:id` pour éviter que `axes` / `objectives`
  *    soient capturés comme `:id`.
  */
-@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
+@UseGuards(
+  JwtAuthGuard,
+  ActiveClientGuard,
+  ModuleAccessGuard,
+  PermissionsGuard,
+  ResourceAccessDecisionGuard,
+)
 @Controller()
 export class StrategicVisionController {
   constructor(private readonly service: StrategicVisionService) {}
@@ -213,6 +221,11 @@ export class StrategicVisionController {
 
   @Get('strategic-vision/objectives/:objectiveId')
   @RequireAccessIntent({ module: 'strategic_vision', intent: 'read' })
+  @AccessDecision({
+    resourceType: 'STRATEGIC_OBJECTIVE',
+    resourceIdParam: 'objectiveId',
+    intent: 'read',
+  })
   getObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
@@ -224,6 +237,11 @@ export class StrategicVisionController {
 
   @Patch('strategic-vision/objectives/:objectiveId')
   @RequireAccessIntent({ module: 'strategic_vision', intent: 'write' })
+  @AccessDecision({
+    resourceType: 'STRATEGIC_OBJECTIVE',
+    resourceIdParam: 'objectiveId',
+    intent: 'write',
+  })
   updateObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
@@ -244,6 +262,11 @@ export class StrategicVisionController {
   @Delete('strategic-vision/objectives/:objectiveId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermissions('strategic_vision.delete')
+  @AccessDecision({
+    resourceType: 'STRATEGIC_OBJECTIVE',
+    resourceIdParam: 'objectiveId',
+    intent: 'admin',
+  })
   archiveObjectiveNested(
     @ActiveClientId() clientId: string | undefined,
     @Param('objectiveId') objectiveId: string,
@@ -480,6 +503,11 @@ export class StrategicVisionController {
 
   @Patch('strategic-objectives/:id')
   @RequireAccessIntent({ module: 'strategic_vision', intent: 'write' })
+  @AccessDecision({
+    resourceType: 'STRATEGIC_OBJECTIVE',
+    resourceIdParam: 'id',
+    intent: 'write',
+  })
   updateObjective(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') objectiveId: string,

@@ -163,13 +163,19 @@ export function correctiveActionForResource(
   resourceType: SupportedDiagnosticResourceType,
   resourceId: string,
   budgetId?: string,
+  options?: { focusOwnership?: boolean },
 ): AccessModelCorrectiveAction {
+  const ownershipSuffix =
+    options?.focusOwnership && resourceType === 'PROJECT'
+      ? '?focus=ownership'
+      : '';
+
   switch (resourceType) {
     case 'PROJECT':
       return {
         kind: 'link',
-        href: `/projects/${resourceId}`,
-        label: 'Ouvrir le projet',
+        href: `/projects/${resourceId}${ownershipSuffix}`,
+        label: options?.focusOwnership ? 'Assigner Direction' : 'Ouvrir le projet',
       };
     case 'BUDGET':
       return {
@@ -365,8 +371,10 @@ export async function collectMissingOwnerCandidates(
 }
 
 export function toMissingOwnerIssue(c: MissingOwnerCandidate): AccessModelIssueItem {
+  const focusOwnership = c.resourceType === 'PROJECT';
   return {
     id: c.id,
+    resourceId: c.id,
     category: 'missing_owner',
     resourceType: c.resourceType,
     module: c.module,
@@ -377,6 +385,7 @@ export function toMissingOwnerIssue(c: MissingOwnerCandidate): AccessModelIssueI
       c.resourceType,
       c.id,
       c.budgetId,
+      { focusOwnership },
     ),
   };
 }
@@ -487,6 +496,7 @@ export async function collectMissingHumanIssues(
     const label = name ? `${name} — ${m.user.email}` : m.user.email;
     items.push({
       id: m.userId,
+      resourceId: m.userId,
       category: 'missing_human',
       module: 'organization',
       label,

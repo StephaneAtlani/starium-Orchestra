@@ -167,6 +167,8 @@ function ProjectDetailTabbedContent({
   const [activeInlineEdit, setActiveInlineEdit] = useState<
     'type' | 'status' | 'portfolioCategory' | 'strategicObjective' | 'ownerOrgUnit' | null
   >(null);
+  const searchParams = useSearchParams();
+  const showPoints = searchParams.get('tab') === 'points';
   const strategicObjectivesQuery = useStrategicObjectivesQuery({
     enabled: canReadStrategicVision,
   });
@@ -182,6 +184,12 @@ function ProjectDetailTabbedContent({
     setEditablePortfolioCategoryId(project.portfolioCategory?.id ?? '__none__');
     setEditableOwnerOrgUnitId(project.ownerOrgUnitId ?? null);
   }, [project.type, project.status, project.portfolioCategory?.id, project.ownerOrgUnitId]);
+
+  useEffect(() => {
+    if (searchParams.get('focus') === 'ownership' && canUpdateProject) {
+      setActiveInlineEdit('ownerOrgUnit');
+    }
+  }, [searchParams, canUpdateProject]);
 
   const optionsTagsQuery = useQuery({
     queryKey: projectQueryKeys.optionsTags(clientId),
@@ -300,9 +308,6 @@ function ProjectDetailTabbedContent({
     setSelectedTagIds(nextTagIds);
     replaceTagsMutation.mutate(nextTagIds);
   };
-
-  const searchParams = useSearchParams();
-  const showPoints = searchParams.get('tab') === 'points';
 
   const planningProgressPct =
     project.derivedProgressPercent ?? project.progressPercent ?? null;

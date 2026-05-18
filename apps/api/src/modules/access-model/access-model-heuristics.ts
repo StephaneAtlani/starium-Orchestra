@@ -197,6 +197,7 @@ export async function collectAtypicalAclIssues(
     const placeholderLabel = `${acl.resourceType} — ${acl.permission}`;
     const item: AccessModelIssueItem = {
       id: issueId,
+      resourceId: acl.resourceId,
       category: 'atypical_acl',
       resourceType: diag,
       module: moduleCode,
@@ -318,6 +319,7 @@ export async function collectPolicyReviewIssues(
 
     const item: AccessModelIssueItem = {
       id: `${p.resourceType}:${p.resourceId}:${p.mode}`,
+      resourceId: p.resourceId,
       category: 'policy_review',
       resourceType: diag,
       module: cfg.moduleCode,

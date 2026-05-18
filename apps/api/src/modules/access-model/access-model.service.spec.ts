@@ -6,6 +6,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AccessModelService } from './access-model.service';
 import {
   buildClientScopedPermissionMap,
@@ -28,11 +29,13 @@ describe('AccessModelService', () => {
     userRole: { findMany: jest.Mock };
     resourceAcl: { findMany: jest.Mock; groupBy: jest.Mock };
     resourceAccessPolicy: { findMany: jest.Mock };
-    orgUnit: { findMany: jest.Mock };
+    orgUnit: { findMany: jest.Mock; count: jest.Mock };
+    client: { findUnique: jest.Mock };
     orgUnitMembership: { findMany: jest.Mock };
     accessGroupMember: { findMany: jest.Mock };
   };
   let featureFlags: { isEnabled: jest.Mock };
+  let auditLogs: { create: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -67,28 +70,37 @@ describe('AccessModelService', () => {
         groupBy: jest.fn().mockResolvedValue([]),
       },
       resourceAccessPolicy: { findMany: jest.fn().mockResolvedValue([]) },
-      orgUnit: { findMany: jest.fn().mockResolvedValue([]) },
+      orgUnit: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      client: {
+        findUnique: jest.fn().mockResolvedValue({ slug: 'acme' }),
+      },
       orgUnitMembership: { findMany: jest.fn().mockResolvedValue([]) },
       accessGroupMember: { findMany: jest.fn().mockResolvedValue([]) },
     };
     featureFlags = {
       isEnabled: jest.fn().mockResolvedValue(false),
     };
+    auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AccessModelService,
         { provide: PrismaService, useValue: prisma },
         { provide: FeatureFlagsService, useValue: featureFlags },
+        { provide: AuditLogsService, useValue: auditLogs },
       ],
     }).compile();
 
     service = module.get(AccessModelService);
   });
 
-  it('getHealth retourne rollout et KPI', async () => {
+  it('getHealth retourne rollout, checklist et KPI', async () => {
     const out = await service.getHealth('client-1');
     expect(out.rollout.length).toBeGreaterThan(0);
+    expect(out.checklist).toHaveLength(5);
     expect(out.kpis.resourcesMissingOwner.total).toBe(0);
     expect(featureFlags.isEnabled).toHaveBeenCalled();
   });

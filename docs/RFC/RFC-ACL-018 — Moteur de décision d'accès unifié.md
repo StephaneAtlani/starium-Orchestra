@@ -4,7 +4,7 @@
 
 **Implémentée** — socle moteur + pilote Projets (lecture/liste) ; extension **write/admin** et modules métier via [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) (activation `ACCESS_DECISION_V2_*`, [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md)). Garde-fous licence / abonnement / module / RBAC / org / matrice **017** ; **`sharingFloorAllows = floorAllowed`** ; verdict **`AccessDecisionResult`** → [RFC-ACL-019](./RFC-ACL-019%20%E2%80%94%20Diagnostic%20enrichi%20organisation%20et%20acc%C3%A8s.md).
 
-**Hors périmètre actuel** : adoption HTTP généralisée de **`ResourceAccessDecisionGuard`** sur les contrôleurs (les modules **020** passent par les **services** métier).
+**Adoption HTTP (V1)** : [RFC-ACL-025](./RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md) — `ResourceAccessDecisionGuard` + `@AccessDecision` sur routes détail/mutation des modules **020** ; listes et satellites hors scope.
 
 ## Alignement plan
 

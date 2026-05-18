@@ -46,7 +46,7 @@ export function AccessModelIssueFilters({
         <Label>Module</Label>
         <Select
           value={moduleFilter || 'all'}
-          onValueChange={(v) => onModuleChange(v === 'all' ? '' : v)}
+          onValueChange={(v) => onModuleChange(v === 'all' || v == null ? '' : v)}
         >
           <SelectTrigger>
             <SelectValue placeholder="Tous les modules" />

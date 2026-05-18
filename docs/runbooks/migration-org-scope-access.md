@@ -57,6 +57,7 @@ pnpm --filter @starium-orchestra/api exec ts-node --transpile-only \
 - `--apply` : écrit les lignes `LINKED` + audit batch `client_user.human_resource.backfill.linked`.
 - Corriger les `AMBIGUOUS` via UI membres avant apply.
 - Vérifier `GET /api/access-model/health` → KPI `missingHuman` acceptable avant rollout scope.
+- **Post-backfill** : exporter les écarts via **Administration → Modèle d’accès → Exporter CSV** ou `GET /api/access-model/issues/export?category=missing_owner` (max 5 000 lignes ; 413 si trop volumineux — affiner `module` / `search`).
 
 **Code** : matcher `apps/api/src/common/backfill/client-user-human-resource.matcher.ts`, runner `client-user-human-resource.backfill.ts`.
 
@@ -177,8 +178,9 @@ Checklist route (avant ouverture scoped au guard) :
 
 1. `@RequireAccessIntent` (ou handler dans `SERVICE_ENFORCED_REGISTRY`)
 2. Service : `AccessDecisionService` / `filterResourceIdsByAccess`
-3. Tests guard + service
-4. Activer le flag `ACCESS_DECISION_V2_*` pour le client pilote
+3. Routes **détail/mutation** : `@AccessDecision` + `ResourceAccessDecisionGuard` après `PermissionsGuard` ([RFC-ACL-025](../RFC/RFC-ACL-025%20%E2%80%94%20Adoption%20guards%20HTTP%20moteur%20unifi%C3%A9.md)) ; module parent importe `AccessDecisionModule`
+4. Tests guard intent + guard resourceId + service
+5. Activer le flag `ACCESS_DECISION_V2_*` pour le client pilote
 
 Clés registre : `ControllerName.methodName` (ex. `ProjectsController.list`) — jamais d’URL HTTP.
 

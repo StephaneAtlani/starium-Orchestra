@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Download } from 'lucide-react';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import type { AccessModelIssueCategory } from '../api/access-model.api';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import {
+  downloadAccessModelIssuesCsv,
+  type AccessModelIssueCategory,
+} from '../api/access-model.api';
 import { categoryLabel } from '../lib/labels';
 import { useAccessModelHealth } from '../hooks/use-access-model-health';
 import { useAccessModelIssues } from '../hooks/use-access-model-issues';
@@ -14,6 +19,7 @@ import { AccessModelIssueFilters } from './access-model-issue-filters';
 import { AccessModelIssuesTable } from './access-model-issues-table';
 import { AccessModelKpiCards } from './access-model-kpi-cards';
 import { AccessModelRolloutBanner } from './access-model-rollout-banner';
+import { AccessModelRolloutChecklist } from './access-model-rollout-checklist';
 
 export function AccessModelPage() {
   const [category, setCategory] =
@@ -21,7 +27,10 @@ export function AccessModelPage() {
   const [page, setPage] = useState(1);
   const [moduleFilter, setModuleFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
+  const authFetch = useAuthenticatedFetch();
   const healthQ = useAccessModelHealth();
   const issuesQ = useAccessModelIssues({
     category,
@@ -56,6 +65,7 @@ export function AccessModelPage() {
       {healthQ.data && (
         <>
           <AccessModelRolloutBanner rollout={healthQ.data.rollout} />
+          <AccessModelRolloutChecklist steps={healthQ.data.checklist} />
           <AccessModelKpiCards
             health={healthQ.data}
             activeCategory={category}
@@ -68,7 +78,38 @@ export function AccessModelPage() {
       )}
 
       <Card className="p-4">
-        <h3 className="mb-3 text-sm font-medium">{categoryLabel(category)}</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">{categoryLabel(category)}</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={exporting || issuesQ.isLoading}
+            onClick={async () => {
+              setExportError(null);
+              setExporting(true);
+              try {
+                await downloadAccessModelIssuesCsv(authFetch, {
+                  category,
+                  module: moduleFilter || undefined,
+                  search: search || undefined,
+                });
+              } catch (e) {
+                setExportError(
+                  e instanceof Error ? e.message : 'Export impossible',
+                );
+              } finally {
+                setExporting(false);
+              }
+            }}
+          >
+            <Download className="mr-1.5 h-4 w-4" aria-hidden />
+            {exporting ? 'Export…' : 'Exporter CSV'}
+          </Button>
+        </div>
+        {exportError ? (
+          <p className="mb-3 text-sm text-destructive">{exportError}</p>
+        ) : null}
         <AccessModelIssueFilters
           moduleFilter={moduleFilter}
           search={search}

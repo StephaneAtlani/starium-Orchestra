@@ -244,8 +244,8 @@ export function ResourceAclAddEntryForm({
             aria-label="M'ajouter en ADMIN sur cette ressource"
           />
           <span>
-            <strong>M'ajouter en ADMIN</strong> sur cette ressource. Recommandé
-            pour ne pas perdre l'accès en édition après le passage en mode
+            <strong>M&apos;ajouter en ADMIN</strong> sur cette ressource. Recommandé
+            pour ne pas perdre l&apos;accès en édition après le passage en mode
             restreint.
           </span>
         </label>

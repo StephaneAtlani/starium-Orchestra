@@ -57,7 +57,8 @@ Route UI : **`/client/administration/access-model`** (complément de `/client/ad
 ### API
 
 - **`GET /api/access-model/health`** — KPI + `rollout[]` (lecture `ClientFeatureFlag` / env pour `ACCESS_DECISION_V2_*` **uniquement ici** ; pas d’endpoint `/api/me/feature-flags`).
-- **`GET /api/access-model/issues?category=...&page=&limit=&module=&search=`** — catégories : `missing_owner` \| `missing_human` \| `atypical_acl` \| `policy_review` ; réponse paginée avec `truncated` si plafond scan.
+- **`GET /api/access-model/issues?category=...&page=&limit=&module=&search=`** — catégories : `missing_owner` \| `missing_human` \| `atypical_acl` \| `policy_review` ; items avec `id` + **`resourceId`** ; réponse paginée avec `truncated` si plafond scan (`ACCESS_MODEL_SCAN_CAP`).
+- **Export / checklist V2** → [RFC-ACL-026](./RFC-ACL-026%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%20acc%C3%A8s%20V2.md) (`GET …/issues/export`, `health.checklist[]`).
 
 **Règles métier V1** :
 
@@ -77,7 +78,8 @@ Types canoniques : `SupportedDiagnosticResourceType`, `RESOURCE_ACL_RESOURCE_TYP
 
 ### Tests
 
-- API : `access-model.service.spec.ts`, `access-model.controller.spec.ts` (BudgetLine owner effectif, scoped permissions, batch ACL, guards).
+- API V1 : `access-model.service.spec.ts`, `access-model.controller.spec.ts` (BudgetLine owner effectif, scoped permissions, batch ACL, guards).
+- API V2 (export) : voir RFC-ACL-026 — `access-model-export.service.spec.ts` (5000/5001/scanTruncated), `access-model-builders.resource-id.spec.ts`.
 - Web : `access-model.api.spec.ts` ; `access-cockpit/lib/shortcuts.spec.ts` (route access-model).
 
 ---
@@ -89,12 +91,13 @@ Types canoniques : `SupportedDiagnosticResourceType`, `RESOURCE_ACL_RESOURCE_TYP
 
 ---
 
-## 3. Hors périmètre
+## 3. Hors périmètre V1 (compléments en RFC-ACL-026)
 
 - Correction automatique en masse (assist + deep-links uniquement).
-- Export CSV dédié → [RFC-ACL-026](./RFC-ACL-026%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%20acc%C3%A8s%20V2.md).
 - Variante plateforme / endpoint global feature-flags.
 - Hook React global `useFeatureFlags` (V1 : `rollout` dans `health` seulement).
+
+**Livré en [RFC-ACL-026](./RFC-ACL-026%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%20acc%C3%A8s%20V2.md) (V2.0)** : export CSV, checklist rollout, audit export, `resourceId` explicite sur les issues, `?focus=ownership` sur fiche projet.
 
 ---
 

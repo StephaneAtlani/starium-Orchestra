@@ -41,5 +41,13 @@ export interface RequestWithClient extends Request {
    * inter-client si la même requête traverse plusieurs `clientId`).
    */
   featureFlagsCache?: Map<string, boolean>;
+  /**
+   * RFC-ACL-025 — cache verdicts `AccessDecisionService.decide` par requête HTTP.
+   * Clé : `${resourceType}:${resourceId}:${intent}`.
+   */
+  accessDecisionCache?: Map<
+    string,
+    import('../../modules/access-decision/access-decision.types').AccessDecisionResult
+  >;
 }
 

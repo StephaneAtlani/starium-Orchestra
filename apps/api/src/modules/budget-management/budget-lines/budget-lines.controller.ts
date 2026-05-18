@@ -15,6 +15,8 @@ import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../../common/decorators/require-access-intent.decorator';
+import { AccessDecision } from '../../../common/decorators/access-decision.decorator';
+import { ResourceAccessDecisionGuard } from '../../access-decision/resource-access-decision.guard';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
@@ -27,7 +29,13 @@ import { BulkUpdateBudgetLineStatusDto } from '../dto/bulk-update-status.dto';
 import { UpdateBudgetLineDto } from './dto/update-budget-line.dto';
 
 @Controller('budget-lines')
-@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
+@UseGuards(
+  JwtAuthGuard,
+  ActiveClientGuard,
+  ModuleAccessGuard,
+  PermissionsGuard,
+  ResourceAccessDecisionGuard,
+)
 export class BudgetLinesController {
   constructor(private readonly service: BudgetLinesService) {}
 
@@ -44,6 +52,7 @@ export class BudgetLinesController {
 
   @Get(':id')
   @RequireAccessIntent({ module: 'budgets', intent: 'read' })
+  @AccessDecision({ resourceType: 'BUDGET_LINE', resourceIdParam: 'id', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -80,6 +89,7 @@ export class BudgetLinesController {
 
   @Patch(':id')
   @RequireAccessIntent({ module: 'budgets', intent: 'write' })
+  @AccessDecision({ resourceType: 'BUDGET_LINE', resourceIdParam: 'id', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,

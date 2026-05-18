@@ -558,8 +558,8 @@ export function ResourceAclEditor({
         title="Confirmer sans vous ajouter en ADMIN ?"
         description={
           <>
-            Vous risquez de perdre l'accès en édition à «&nbsp;{resourceLabel}&nbsp;»
-            si vous n'êtes pas listé en ADMIN. Confirmez si vous comprenez le
+            Vous risquez de perdre l&apos;accès en édition à «&nbsp;{resourceLabel}&nbsp;»
+            si vous n&apos;êtes pas listé en ADMIN. Confirmez si vous comprenez le
             risque.
           </>
         }
@@ -578,7 +578,7 @@ export function ResourceAclEditor({
           <>
             Cette entrée est votre <strong>dernière source de capacité ADMIN</strong>{' '}
             sur «&nbsp;{resourceLabel}&nbsp;». Sa suppression vous fera perdre
-            l'accès en édition. Confirmez si vous comprenez le risque.
+            l&apos;accès en édition. Confirmez si vous comprenez le risque.
           </>
         }
         confirmLabel="Supprimer quand même"
@@ -596,7 +596,7 @@ export function ResourceAclEditor({
           <>
             Toutes les entrées ACL de «&nbsp;{resourceLabel}&nbsp;» vont être
             supprimées une à une. La ressource repassera en mode RBAC public.
-            Cette opération peut s'arrêter au premier échec et nécessiter une
+            Cette opération peut s&apos;arrêter au premier échec et nécessiter une
             reprise manuelle.
           </>
         }

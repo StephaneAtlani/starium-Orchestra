@@ -21,6 +21,8 @@ import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../../common/decorators/require-access-intent.decorator';
+import { AccessDecision } from '../../../common/decorators/access-decision.decorator';
+import { ResourceAccessDecisionGuard } from '../../access-decision/resource-access-decision.guard';
 import { ActiveClientId } from '../../../common/decorators/active-client.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
@@ -33,7 +35,13 @@ import { SuppliersService } from './suppliers.service';
 import { MAX_SUPPLIER_LOGO_BYTES } from './suppliers-logo.constants';
 
 @Controller('suppliers')
-@UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
+@UseGuards(
+  JwtAuthGuard,
+  ActiveClientGuard,
+  ModuleAccessGuard,
+  PermissionsGuard,
+  ResourceAccessDecisionGuard,
+)
 export class SuppliersController {
   constructor(private readonly suppliers: SuppliersService) {}
 
@@ -56,6 +64,7 @@ export class SuppliersController {
 
   @Get(':id')
   @RequireAccessIntent({ module: 'procurement', intent: 'read' })
+  @AccessDecision({ resourceType: 'SUPPLIER', resourceIdParam: 'id', intent: 'read' })
   getById(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,
@@ -89,6 +98,7 @@ export class SuppliersController {
 
   @Patch(':id')
   @RequireAccessIntent({ module: 'procurement', intent: 'write' })
+  @AccessDecision({ resourceType: 'SUPPLIER', resourceIdParam: 'id', intent: 'write' })
   update(
     @ActiveClientId() clientId: string | undefined,
     @Param('id') id: string,

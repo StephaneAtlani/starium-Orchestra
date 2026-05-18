@@ -2,7 +2,7 @@
 
 ## Statut
 
-**📝 Draft** — 2026-05. Suite de [RFC-ACL-021](./RFC-ACL-021%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%27acc%C3%A8s%20admin%20client.md) (V1 livrée). S’appuie sur les rollouts [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) + [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) et le backfill HUMAN [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md).
+**✅ Implémentée (V2.0)** — 2026-05. Suite de [RFC-ACL-021](./RFC-ACL-021%20%E2%80%94%20Cockpit%20mod%C3%A8le%20d%27acc%C3%A8s%20admin%20client.md) (V1 livrée). S’appuie sur les rollouts [RFC-ACL-020](./RFC-ACL-020%20%E2%80%94%20Int%C3%A9gration%20modules%20m%C3%A9tier%20ownership%20et%20scope.md) + [RFC-ACL-022](./RFC-ACL-022%20%E2%80%94%20Migration%20backfill%20et%20feature%20flags.md) et le backfill HUMAN [RFC-ACL-023](./RFC-ACL-023%20%E2%80%94%20Backfill%20ClientUser%20Resource%20HUMAN.md).
 
 ## Alignement plan
 
@@ -11,97 +11,100 @@ Référence : [_Plan de déploement Orgnisation et licences](./_Plan%20de%20d%C3
 | Élément | Valeur |
 | --- | --- |
 | **Priorité** | **P2** |
-| **Ordre recommandé** | **14** — après données 022/023 et KPI 021 stabilisés |
+| **Ordre recommandé** | **16** (après 021, 022, 023) |
 | **Dépendances** | RFC-ACL-021, RFC-ACL-022, RFC-ACL-023 (recommandé) |
 | **Livrables** | Export CSV issues, checklist rollout UI, actions correctives guidées |
 
 ---
 
-## 1. Analyse de l’existant (V1)
+## 1. Implémentation (état code)
 
-- `GET /api/access-model/health` — KPI + `rollout[]` flags V2.
-- `GET /api/access-model/issues` — 4 catégories paginées, `truncated`.
-- UI `/client/administration/access-model` — filtres, liens correctifs.
-- **Hors V1** : export CSV, checklist opérateur, comparaison avant/après backfill.
+### Backend — extensions `apps/api/src/modules/access-model/`
 
----
-
-## 2. Hypothèses
-
-- Export **asynchrone** si >5k lignes (job BullMQ) ; sinon streaming CSV synchrone.
-- Encodage CSV : UTF-8 BOM, séparateur `;` option FR.
-- Colonnes = libellés métier + IDs en colonnes secondaires (pas l’inverse).
-- Permission : `access_model.read` pour export ; pas d’export cross-client.
-
----
-
-## 3. Fichiers à créer / modifier
-
-| Fichier | Action |
+| Fichier | Rôle |
 | --- | --- |
-| `access-model.controller.ts` | `GET /api/access-model/issues/export` |
-| `access-model.service.ts` | Génération CSV, plafonds |
-| `apps/web/.../access-model-issues-table.tsx` | Bouton « Exporter » |
-| Runbook 022 | Lien export post-backfill |
+| `dto/access-model-issues-export.query.dto.ts` | `category`, `module`, `search`, `delimiter` (`,` \| `;`), `format=csv` — **sans** `page` / `limit` |
+| `access-model-export.ts` | `issuesToCsv`, `sanitizeAccessModelExportFilenamePart`, `buildAccessModelExportFilename` |
+| `access-model.service.ts` | `resolveFilteredIssues` (modes `list` \| `export`), `exportIssuesCsv`, `buildRolloutChecklist` |
+| `access-model.controller.ts` | `GET /api/access-model/issues/export` + `@Res({ passthrough: true })` pour headers dynamiques |
+| `access-model.module.ts` | + `AuditLogsModule` |
 
----
+**Constantes** (`access-model.constants.ts`) :
 
-## 4. Implémentation
+- `ACCESS_MODEL_MAX_EXPORT_ROWS = 5_000`
+- `ACCESS_MODEL_EXPORT_PROBE_LIMIT = 5_001` (décision 413)
+- `ACCESS_MODEL_SCAN_CAP = 10_000` (liste UI, inchangé V1)
+- `ACCESS_MODEL_CHECKLIST_OWNER_WARNING_MAX = 50`
 
-### 4.1 API export
+**Export** :
 
-**`GET /api/access-model/issues/export?category=...&module=...&format=csv`**
+- Jamais de CSV partiel : probe 5 001 lignes filtrées → **413** si `> 5_000` ou si `scanTruncated` (collecteur catégorie ou cap export).
+- Colonne CSV **`resourceId`** = champ explicite `AccessModelIssueItem.resourceId` uniquement — **jamais** `item.id` (`issuesToCsv` lève une erreur si `resourceId` vide).
+- Builders : `toMissingOwnerIssue`, `missing_human`, `atypical_acl`, `policy_review` renseignent tous `resourceId` ; pour `atypical_acl` / `policy_review`, `id` reste une clé composite UI distincte de l’ID métier.
+- Audit **après succès uniquement** : `access_model.issues.exported` (`newValue` : `category`, `module`, `search`, `rowCount`, `delimiter`).
 
-- Reprend les filtres de `issues` sans pagination (avec plafond `MAX_EXPORT_ROWS`).
-- Headers : `category`, `module`, `resourceLabel`, `resourceType`, `resourceId`, `detail`, `suggestedAction`, `deepLinkPath`.
-- Réponse : `Content-Disposition: attachment; filename="access-model-issues-<client>-<date>.csv"`.
+**Checklist** (`GET /health` → `checklist[]`) :
 
-### 4.2 Checklist rollout (UI)
+- Calculée à la volée, **non persistée**, pas d’action « valider l’étape » en UI.
+- Étapes : `org_tree`, `backfill_owner`, `backfill_human`, `flag_module`, `smoke`.
 
-Composant `AccessModelRolloutChecklist` alimenté par `health.rollout[]` :
+**Actions correctives V2** :
 
-| Étape | Critère auto |
+- `missing_owner` + `PROJECT` : lien `?focus=ownership`, libellé « Assigner Direction ».
+- Autres types métier : liens V1 inchangés (pas de nouvel éditeur inline ownership).
+- `policy_review` : liens fiche métier existants (pas de nouvelle UI politique en V2.0).
+
+### Frontend — `apps/web/src/features/access-model/`
+
+| Composant | Rôle |
 | --- | --- |
-| Arbre org prêt | ≥1 `OrgUnit` ACTIVE |
-| Backfill owner | KPI `missing_owner` sous seuil client |
-| Backfill HUMAN | KPI `missing_human` = 0 pour admins scopés |
-| Flag module | `enabled` dans `rollout[]` |
-| Smoke | lien doc runbook § smoke |
+| `access-model-rollout-checklist.tsx` | Affichage lecture seule des 5 étapes |
+| `access-model-page.tsx` | Bouton **Exporter CSV**, intégration checklist |
+| `api/access-model.api.ts` | `downloadAccessModelIssuesCsv`, types `checklist` / `resourceId` |
+| `project-detail-view.tsx` | `?focus=ownership` → éditeur Direction inline |
 
-### 4.3 Actions correctives V2
+### Tests
 
-- `missing_owner` : bouton « Assigner Direction » → deep-link avec `?focus=ownership`.
-- `missing_human` : lien fiche membre client.
-- `policy_review` : ouverture éditeur politique RFC-017.
+- API (27 specs `access-model`) :
+  - `access-model-builders.resource-id.spec.ts` — `resourceId` sur les 4 catégories ; `id` ≠ `resourceId` pour ACL / policy.
+  - `access-model-export.service.spec.ts` — **5000** lignes → CSV complet + audit ; **5001** → **413** sans audit ni lecture client ; **`scanTruncated: true`** → **413** même si ≤5000 items ; slug dangereux → filename sanitizé.
+  - `access-model-export.spec.ts` — colonne CSV `resourceId` ≠ `id` composite ; filename `Acme-Labs-EU` sans `/`, espaces, guillemets.
+  - `dto/access-model-issues-export.query.dto.spec.ts`, `access-model.controller.spec.ts`, specs V1 existantes.
+- Web : `access-model.api.spec.ts` (URL export, pas de `page`/`limit`).
 
-### 4.4 Catégories additionnelles (option)
+### Documentation
 
-- `flag_without_backfill` : module V2 actif avec KPI owner encore élevé (heuristique).
-- `legacy_profile_risk` : utilisateurs avec `*.read` + `*.read_scope` simultanés (024).
+- `docs/API.md` §5.053, `docs/ACCESS-MODEL.md`, [runbook migration](../runbooks/migration-org-scope-access.md) § export post-backfill.
 
 ---
 
-## 5. Modifications Prisma
+## 2. API (référence)
+
+- **`GET /api/access-model/issues/export`** — voir [API.md](../API.md) §5.053.
+- Permission : `access_model.read` ; isolation `X-Client-Id`.
+
+---
+
+## 3. Hors périmètre V2.0 (suites possibles)
+
+- Export **asynchrone** BullMQ si >5k lignes fréquent en prod (V2.1).
+- Catégories `flag_without_backfill`, `legacy_profile_risk` (RFC-ACL-024).
+- `?focus=ownership` hors fiche **projet** (budget, contrat, etc.).
+- Comparaison avant/après backfill automatisée.
+
+---
+
+## 4. Modifications Prisma
 
 **Aucune** (lecture seule).
 
 ---
 
-## 6. Tests
+## 5. Points de vigilance
 
-- Export CSV : colonnes, encodage, plafond `truncated` → 413 ou fichier partiel documenté.
-- Permission `access_model.read` requise.
-- E2E web : déclenchement export mock.
-
----
-
-## 7. Récapitulatif
-
-RFC-ACL-026 transforme le cockpit 021 en **outil d’exploitation** du rollout org/scope, pas seulement une vue KPI.
-
----
-
-## 8. Points de vigilance
-
-- Exports sensibles : audit `access_model.issues.exported` avec `rowCount`.
-- Ne pas exposer emails personnels dans CSV si politique client restrictive (masquage option).
+- Exports sensibles : audit obligatoire ; pas d’email en colonne CSV V2.0.
+- **413** : pas de `StreamableFile`, pas d’audit de succès (y compris si `scanTruncated` alors que la liste filtrée tient en ≤5 000 lignes).
+- **`resourceId`** : obligatoire sur chaque issue ; export CSV interdit d’utiliser `item.id` comme identifiant métier.
+- **Filename** : `sanitizeAccessModelExportFilenamePart` avant `Content-Disposition` (fallback `clientId` si slug invalide).
+- Ne pas confondre avec `/client/administration/access-cockpit` (RFC-ACL-010).
+- Isolation **client actif** (`X-Client-Id`) sur export et checklist comme sur le reste du module.
