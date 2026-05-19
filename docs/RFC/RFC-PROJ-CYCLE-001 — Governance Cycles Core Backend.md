@@ -4,6 +4,8 @@
 
 📝 **Draft** — spécification cible pour implémentation backend V1.
 
+**Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
+
 **Dépend de** : [RFC-PROJ-001 — Cadrage fonctionnel du module Projets](./RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md), [RFC-013 — Audit logs](./RFC-013%20%E2%80%94%20Audit%20logs.md), [RFC-011-roles-permissions-modules](./RFC-011-roles-permissions-modules.md).
 
 ---

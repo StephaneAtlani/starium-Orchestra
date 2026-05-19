@@ -205,6 +205,8 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ## 🔄 PHASE 1A+ — CYCLES DE PILOTAGE PROJET
 
+**Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (audit doc/code 2026-05-19, lots B1–I2, sprints S1–S5). **Non implémenté** dans le repo à ce jour.
+
 | Ordre | RFC | Nom | Description | État | Commentaire |
 | ----- | --- | --- | --- | --- | --- |
 | 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary | 📝 Draft | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — séparation stricte arbitrage (cycles) / exécution (projects) |

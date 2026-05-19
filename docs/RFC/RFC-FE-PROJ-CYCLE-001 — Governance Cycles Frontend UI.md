@@ -4,6 +4,8 @@
 
 📝 **Draft** — specification cible pour implementation frontend V1.
 
+**Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots F1–F8).
+
 **Depend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-STRAT-003 — Strategic Vision Frontend UI](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md).
 
 ---

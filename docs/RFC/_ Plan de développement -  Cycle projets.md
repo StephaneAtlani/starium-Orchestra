@@ -1,3 +1,12 @@
+# Plan de développement — Cycle projets (legacy)
+
+> **Plan d'exécution canonique (audit doc + lots ordonnés)** :
+> **[\_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md)** — révision 2026-05-19.
+>
+> Ce fichier conserve le **détail technique historique** (schémas Prisma, prompt Cursor, lots frontend détaillés).
+
+---
+
 Voici un **plan de développement backend + frontend** pour intégrer le module **Cycles de pilotage** dans Starium Orchestra, sans casser les modules existants.
 
 Le principe reste aligné avec ton architecture actuelle : **backend source de vérité**, routes API préfixées `/api`, isolation par `X-Client-Id`, guards standards, frontend feature-first, et aucune logique métier critique côté React. 
