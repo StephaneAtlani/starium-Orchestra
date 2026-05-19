@@ -15,15 +15,12 @@
 # le service `api-worker-dev` consomme la queue (logs `[EMAIL worker]`). Pour tout
 # envoyer dans le process API sans worker : `EMAIL_DELIVERIES_INLINE=true` dans le `.env` racine.
 #
-# Ports :
-#   - Web (Next dev)  : http://localhost:3000
-#   - API (Nest dev)  : http://localhost:3001/api
-#   - Postgres         : 127.0.0.1:5432 uniquement (pas d’écoute 0.0.0.0)
-#   - MailHog (SMTP capture + UI) : http://localhost:8025 — SMTP pour l’API : mailhog:1025 (voir env api-dev)
-#   - Vérification identités e-mail : URLs / TTL / cooldown via variables racine (.env) — voir bloc api-dev.
-#   - Redis (BullMQ / RFC-038) : service `redis` (port 6379 publié). L’API utilise
-#     host.docker.internal:6379 pour éviter ENOTFOUND « redis » si Docker Desktop
-#     ne met pas api-dev sur le même réseau DNS que Redis.
+# Ports (dev local — liaison 127.0.0.1 uniquement, pas 0.0.0.0) :
+#   - Web (Next dev)  : http://127.0.0.1:3000
+#   - API (Nest dev)  : http://127.0.0.1:3001/api
+#   - Postgres        : 127.0.0.1:5432
+#   - MailHog UI      : http://127.0.0.1:8025 (SMTP interne mailhog:1025)
+#   - Redis           : réseau Docker uniquement (pas publié sur l’hôte)
 #
 # Notes :
 # - Le fichier `.env` à la racine du repo est lu par Compose pour `${VAR:-défaut}` sur api-dev (ne pas confondre avec apps/api/.env).
@@ -110,23 +107,20 @@ services:
     image: mailhog/mailhog:latest
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
   redis:
     networks: [orchestra_dev]
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     healthcheck: *redis-healthcheck
 
 
   api-dev:
     networks: [orchestra_dev]
-    # Linux / Docker Desktop : accès à l’hôte (port 6379 → conteneur redis).
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
@@ -142,8 +136,8 @@ services:
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"
       SMTP_FROM: noreply@starium.local
-      # BullMQ / RFC-038 : via l’hôte (port publié) — évite ENOTFOUND sur le hostname « redis » (réseau Desktop).
-      REDIS_HOST: host.docker.internal
+      # BullMQ / RFC-038 : même réseau Docker que le service `redis`.
+      REDIS_HOST: redis
       REDIS_PORT: "6379"
       # OAuth M365 (jti) : défaut db (Postgres). `.env` racine ou apps/api/.env peuvent surcharger (db | redis | memory).
       MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
@@ -161,7 +155,7 @@ services:
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       # PROCUREMENT_S3_* : uniquement dans apps/api/.env (sinon ce bloc écrase env_file — buckets créés dans la mauvaise région).
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes: *api-dev-mounts
     depends_on:
       postgres:
@@ -233,7 +227,7 @@ services:
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes: *web-dev-mounts
     depends_on:
       api-dev:

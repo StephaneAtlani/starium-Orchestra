@@ -9,10 +9,9 @@
 #         docker-compose.dev.yml (Postgres lié à 127.0.0.1:5432) ou un tunnel SSH.
 #
 #   docker compose --profile standard up -d
-#       → PostgreSQL + Redis + API (3001) + Web (hôte 3002 → conteneur 3000), images
-#         buildées (prod-like), pas de bind mount. Le port hôte 3002 est volontaire
-#         (évite un conflit avec un autre process sur :3000). Le navigateur appelle
-#         l’API sur :3001 ; NEXT_PUBLIC_API_URL=http://localhost:3001.
+#       → PostgreSQL + Redis + API + Web (images prod-like). Seuls API/Web peuvent
+#         être publiés sur l’hôte en 127.0.0.1 (reverse proxy Dokploy/Traefik en prod).
+#         Postgres et Redis : réseau Docker uniquement (`expose`).
 #         SMTP (Brevo, etc.) : clés explicites dans `x-api-base-env` avec `${SMTP_*}` **sans** `:-` (évite SMTP_PASS="").
 #         Substitution Compose : `.env` à la racine du projet **ou** `docker compose --env-file apps/api/.env …`.
 #         Si `${…}` est vide au parse, la clé `environment` écrase `api.env_file` : alors fournir les vars au parse ou retirer ces lignes.
@@ -125,8 +124,8 @@ services:
       PROCUREMENT_S3_REGION: ${PROCUREMENT_S3_REGION:-}
       PROCUREMENT_S3_USE_SSL: ${PROCUREMENT_S3_USE_SSL:-false}
       PROCUREMENT_S3_FORCE_PATH_STYLE: ${PROCUREMENT_S3_FORCE_PATH_STYLE:-true}
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
     volumes:
       - procurement_blobs:/data/procurement-blobs
     depends_on:
@@ -176,9 +175,8 @@ services:
     environment:
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: http://localhost:3001
-    ports:
-      # 3002 hôte → 3000 conteneur (volontaire : libère :3000 sur la machine)
-      - "3002:3000"
+    expose:
+      - "3000"
     depends_on:
       - api
 
