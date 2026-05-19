@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { StreamableFile } from '@nestjs/common';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AccessModelController } from './access-model.controller';
 import { AccessModelService } from './access-model.service';
@@ -20,12 +20,12 @@ describe('AccessModelController', () => {
     controller = new AccessModelController(service);
   });
 
-  it('applique JwtAuthGuard + ActiveClientGuard + PermissionsGuard (sans ModuleAccessGuard)', () => {
+  it('applique JwtAuthGuard + ActiveClientGuard + PlatformAdminGuard (sans ModuleAccessGuard)', () => {
     const guards: unknown[] =
       Reflect.getMetadata('__guards__', AccessModelController) ?? [];
     expect(guards).toContain(JwtAuthGuard);
     expect(guards).toContain(ActiveClientGuard);
-    expect(guards).toContain(PermissionsGuard);
+    expect(guards).toContain(PlatformAdminGuard);
     expect(guards).not.toContain(ModuleAccessGuard);
   });
 

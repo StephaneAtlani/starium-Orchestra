@@ -410,7 +410,7 @@ async function backfillStrategicObjectives(
       clientId,
       lifecycleStatus: { not: StrategicObjectiveLifecycleStatus.ARCHIVED },
     },
-    select: { id: true, code: true, name: true, ownerOrgUnitId: true },
+    select: { id: true, title: true, ownerOrgUnitId: true },
   });
   let updated = 0;
   let skipped = 0;
@@ -419,7 +419,7 @@ async function backfillStrategicObjectives(
       rows.push({
         resourceType: 'STRATEGIC_OBJECTIVE',
         resourceId: r.id,
-        label: `${r.name} (${r.code ?? ''})`,
+        label: r.title,
         previousOwner: r.ownerOrgUnitId,
         newOwner: r.ownerOrgUnitId,
         action: 'SKIP',
@@ -437,7 +437,7 @@ async function backfillStrategicObjectives(
     rows.push({
       resourceType: 'STRATEGIC_OBJECTIVE',
       resourceId: r.id,
-      label: `${r.name} (${r.code ?? ''})`,
+      label: r.title,
       previousOwner: null,
       newOwner: defaultOrgUnitId,
       action: 'UPDATED',

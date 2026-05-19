@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { usePermissions } from '@/hooks/use-permissions';
+import { useAuth } from '@/context/auth-context';
 
 export function AccessModelAdminCard() {
-  const { has, isSuccess } = usePermissions();
-  if (!isSuccess || !has('access_model.read')) return null;
+  const { user, isLoading } = useAuth();
+  if (isLoading || user?.platformRole !== 'PLATFORM_ADMIN') return null;
 
   return (
     <Link href="/client/administration/access-model">

@@ -1774,7 +1774,10 @@ async function ensureAccessModelModuleAndPermissions(): Promise<void> {
   });
 }
 
-/** RFC-ACL-021 — permission cockpit pour les CLIENT_ADMIN (UserRole). */
+/**
+ * RFC-ACL-021 — rôle technique `access_model.read` (référentiel).
+ * Cockpit réservé aux PLATFORM_ADMIN (API + UI) : ne plus assigner aux CLIENT_ADMIN.
+ */
 async function ensureClientAdminAccessModelRole(): Promise<void> {
   const perm = await prisma.permission.findUnique({
     where: { code: "access_model.read" },
@@ -1805,19 +1808,6 @@ async function ensureClientAdminAccessModelRole(): Promise<void> {
     create: { roleId: role.id, permissionId: perm.id },
     update: {},
   });
-  const admins = await prisma.clientUser.findMany({
-    where: { role: ClientUserRole.CLIENT_ADMIN, status: ClientUserStatus.ACTIVE },
-    select: { userId: true },
-  });
-  for (const a of admins) {
-    await prisma.userRole.upsert({
-      where: {
-        userId_roleId: { userId: a.userId, roleId: role.id },
-      },
-      create: { userId: a.userId, roleId: role.id },
-      update: {},
-    });
-  }
 }
 
 /** RFC-ORG-001 — permissions organisation pour les CLIENT_ADMIN (UserRole). */

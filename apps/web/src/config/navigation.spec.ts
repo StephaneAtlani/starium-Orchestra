@@ -94,4 +94,14 @@ describe('platform navigation', () => {
       false,
     );
   });
+
+  it("réserve Modèle d'accès aux administrateurs plateforme", () => {
+    const adminSection = navigation.find((section) => section.section === 'ADMINISTRATION');
+    const accessModelItem = adminSection?.items.find(
+      (item) => item.href === '/client/administration/access-model',
+    );
+    expect(accessModelItem?.platformOnly).toBe(true);
+    expect(accessModelItem?.clientAdminOnly).toBeUndefined();
+    expect(accessModelItem?.requiredPermissions).toBeUndefined();
+  });
 });

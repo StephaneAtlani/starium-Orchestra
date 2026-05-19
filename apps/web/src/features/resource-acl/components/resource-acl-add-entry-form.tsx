@@ -232,7 +232,7 @@ export function ResourceAclAddEntryForm({
 
       {showSelfAdminOption && (
         <label
-          className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 p-3 text-sm"
+          className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/20 p-3 text-sm"
           data-testid="resource-acl-self-admin-option"
         >
           <input

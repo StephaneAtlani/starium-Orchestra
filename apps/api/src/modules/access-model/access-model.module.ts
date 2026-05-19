@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
@@ -10,7 +10,7 @@ import { AccessModelService } from './access-model.service';
 @Module({
   imports: [PrismaModule, AuthModule, FeatureFlagsModule, AuditLogsModule],
   controllers: [AccessModelController],
-  providers: [AccessModelService, PermissionsGuard],
+  providers: [AccessModelService, PlatformAdminGuard],
   exports: [AccessModelService],
 })
 export class AccessModelModule {}

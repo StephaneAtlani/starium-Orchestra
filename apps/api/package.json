@@ -21,6 +21,8 @@
     "seed:aravis": "node prisma/seed-aravis-2025.js",
     "revert:aravis": "node prisma/revert-aravis-import.js",
     "backfill:search-text": "ts-node --transpile-only scripts/backfill-search-text.ts",
+    "rollout:access-v2": "ts-node --transpile-only scripts/rollout-access-v2.ts",
+    "migrate:access-v2": "ts-node --transpile-only scripts/rollout-access-v2.ts --migrate",
     "verify:smtp": "ts-node --transpile-only scripts/verify-smtp.ts",
     "predeploy": "pnpm run build && pnpm run typecheck && pnpm exec jest --testPathPatterns=modules/email --passWithNoTests"
   },

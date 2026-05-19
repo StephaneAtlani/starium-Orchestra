@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuth } from '@/context/auth-context';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
@@ -54,6 +55,11 @@ import { ResourceAclEntryRow } from './resource-acl-entry-row';
 import { ResourceAclAddEntryForm } from './resource-acl-add-entry-form';
 import { ResourceAclConfirmationDialog } from './resource-acl-confirmation-dialog';
 
+export type ResourceAclEditorHeaderStatus =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'working'; message: string };
+
 export interface ResourceAclEditorProps {
   resourceType: ResourceAclResourceType;
   resourceId: string;
@@ -62,6 +68,8 @@ export interface ResourceAclEditorProps {
   readOnly?: boolean;
   /** Override **réducteur** de la policy par défaut (`activeClient.role === 'CLIENT_ADMIN'`). */
   canEdit?: boolean;
+  /** Ligne d’état du bandeau modale (§11.3.1). */
+  onHeaderStatusChange?: (status: ResourceAclEditorHeaderStatus) => void;
 }
 
 type PendingConfirmation =
@@ -75,6 +83,7 @@ export function ResourceAclEditor({
   resourceLabel,
   readOnly = false,
   canEdit,
+  onHeaderStatusChange,
 }: ResourceAclEditorProps) {
   const { user } = useAuth();
   const { activeClient } = useActiveClient();
@@ -91,6 +100,61 @@ export function ResourceAclEditor({
     });
 
   const aclQuery = useResourceAcl({ resourceType, resourceId });
+
+  const [addPending, setAddPending] = useState(false);
+  const [removePending, setRemovePending] = useState<string | null>(null);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [bulkDelete, setBulkDelete] = useState<{
+    inProgress: boolean;
+    done: number;
+    total: number;
+    failedAt?: { entryId: string; error: Error };
+    remainingEntryIds: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!onHeaderStatusChange) return;
+    if (aclQuery.isLoading) {
+      onHeaderStatusChange({ state: 'loading' });
+      return;
+    }
+    if (policySaving) {
+      onHeaderStatusChange({
+        state: 'working',
+        message: 'Mise à jour de la politique d’accès…',
+      });
+      return;
+    }
+    if (addPending) {
+      onHeaderStatusChange({
+        state: 'working',
+        message: 'Ajout de la permission…',
+      });
+      return;
+    }
+    if (removePending) {
+      onHeaderStatusChange({
+        state: 'working',
+        message: 'Suppression de la permission…',
+      });
+      return;
+    }
+    if (bulkDelete?.inProgress) {
+      onHeaderStatusChange({
+        state: 'working',
+        message: `Suppression en cours… (${bulkDelete.done}/${bulkDelete.total})`,
+      });
+      return;
+    }
+    onHeaderStatusChange({ state: 'idle' });
+  }, [
+    onHeaderStatusChange,
+    aclQuery.isLoading,
+    policySaving,
+    addPending,
+    removePending,
+    bulkDelete,
+  ]);
 
   const entries = useMemo(
     () => aclQuery.data?.entries ?? [],
@@ -143,16 +207,6 @@ export function ResourceAclEditor({
   const [selfAdminChecked, setSelfAdminChecked] = useState(true);
   const [pendingConfirmation, setPendingConfirmation] =
     useState<PendingConfirmation | null>(null);
-  const [bulkDelete, setBulkDelete] = useState<{
-    inProgress: boolean;
-    done: number;
-    total: number;
-    failedAt?: { entryId: string; error: Error };
-    remainingEntryIds: string[];
-  } | null>(null);
-  const [addPending, setAddPending] = useState(false);
-  const [removePending, setRemovePending] = useState<string | null>(null);
-  const [policySaving, setPolicySaving] = useState(false);
 
   const canPerformDestructive =
     effectiveCanEdit && !groupMembershipsQuery.isLoading;
@@ -386,9 +440,12 @@ export function ResourceAclEditor({
 
   if (aclQuery.isLoading) {
     return (
-      <div className="space-y-3" data-testid="resource-acl-editor-loading">
-        <p className="text-sm text-muted-foreground">Chargement des permissions…</p>
-      </div>
+      <section
+        className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4"
+        data-testid="resource-acl-editor-loading"
+      >
+        <LoadingState rows={3} />
+      </section>
     );
   }
 
@@ -416,8 +473,16 @@ export function ResourceAclEditor({
 
   return (
     <div className="space-y-4" data-testid="resource-acl-editor">
-      <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
-        <Label htmlFor="resource-access-policy">Politique d&apos;accès (RFC-ACL-017)</Label>
+      <section className="space-y-3 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Politique d&apos;accès</h3>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Comportement par défaut lorsque la liste ACL est vide ou incomplète.
+          </p>
+        </div>
+        <Label htmlFor="resource-access-policy" className="sr-only">
+          Politique d&apos;accès
+        </Label>
         {effectiveCanEdit ? (
           <Select
             value={accessPolicy}
@@ -442,10 +507,10 @@ export function ResourceAclEditor({
             {RESOURCE_ACCESS_POLICY_MODE_LABEL[accessPolicy]}
           </p>
         )}
-        <p className="text-xs text-muted-foreground max-w-2xl">
+        <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
           {RESOURCE_ACCESS_POLICY_MODE_HINT[accessPolicy]}
         </p>
-      </div>
+      </section>
 
       {showEmptyEntriesBanner && (
         <ResourceAclPublicBanner
@@ -456,8 +521,20 @@ export function ResourceAclEditor({
       )}
 
       {restricted && (
-        <div data-testid="resource-acl-restricted-table">
-          <Table>
+        <section
+          className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-sm"
+          data-testid="resource-acl-restricted-table"
+        >
+          <div className="border-b border-border/60 px-3 py-3 sm:px-4">
+            <h3 className="text-sm font-semibold text-foreground">
+              Permissions explicites
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              Liste des utilisateurs et groupes autorisés sur cette ressource.
+            </p>
+          </div>
+          <div className="overflow-x-auto px-3 py-3 sm:px-4">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Type</TableHead>
@@ -481,11 +558,12 @@ export function ResourceAclEditor({
                 />
               ))}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
 
           {bulkDelete && (
             <div
-              className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-muted/30 p-3 text-sm"
+              className="mx-3 mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-muted/30 p-3 text-sm sm:mx-4"
               data-testid="resource-acl-bulk-delete-status"
             >
               <span>
@@ -510,10 +588,11 @@ export function ResourceAclEditor({
           )}
 
           {effectiveCanEdit && (
-            <div className="mt-3 flex justify-end">
+            <div className="flex justify-end border-t border-border/60 px-3 py-3 sm:px-4">
               <Button
                 type="button"
                 variant="destructive"
+                size="sm"
                 disabled={
                   !canPerformDestructive ||
                   bulkDelete?.inProgress === true ||
@@ -528,12 +607,20 @@ export function ResourceAclEditor({
               </Button>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {effectiveCanEdit && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Ajouter une permission</h3>
+        <section className="space-y-3 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Ajouter une permission
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              Recherchez un utilisateur ou un groupe, puis choisissez le niveau
+              d&apos;accès.
+            </p>
+          </div>
           <ResourceAclAddEntryForm
             entries={entries}
             userCandidates={userCandidates}
@@ -547,7 +634,7 @@ export function ResourceAclEditor({
             }
             onSubmit={handleSubmitAdd}
           />
-        </div>
+        </section>
       )}
 
       <ResourceAclConfirmationDialog

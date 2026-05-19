@@ -57,8 +57,8 @@ export function AccessModelPage() {
 
       {healthQ.isError && (
         <p className="mb-4 text-sm text-destructive">
-          Impossible de charger la synthèse. Vérifiez vos droits (
-          <code className="text-xs">access_model.read</code>).
+          Impossible de charger la synthèse. Réservé aux administrateurs
+          plateforme avec un client actif.
         </p>
       )}
 

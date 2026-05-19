@@ -59,49 +59,60 @@ export function ResourceAclConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangleIcon
-              aria-hidden="true"
-              className="size-5 text-destructive"
+      <DialogContent showCloseButton className="sm:max-w-lg">
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="flex flex-col gap-4"
+        >
+          <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+            <div className="pr-8">
+              <DialogTitle className="flex items-center gap-2 text-left">
+                <AlertTriangleIcon
+                  aria-hidden="true"
+                  className="size-5 shrink-0 text-destructive"
+                />
+                {title}
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-left leading-relaxed">
+                {description}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <section className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+            <Label htmlFor={`${formId}-phrase`}>
+              Pour confirmer, saisissez exactement&nbsp;:&nbsp;
+              <span className="font-mono font-semibold">{confirmationPhrase}</span>
+            </Label>
+            <Input
+              id={`${formId}-phrase`}
+              value={phrase}
+              onChange={(e) => setPhrase(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={isPending}
             />
-            {title}
-          </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor={`${formId}-phrase`}>
-            Pour confirmer, saisissez exactement&nbsp;:&nbsp;
-            <span className="font-mono font-semibold">{confirmationPhrase}</span>
-          </Label>
-          <Input
-            id={`${formId}-phrase`}
-            value={phrase}
-            onChange={(e) => setPhrase(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-            disabled={isPending}
-          />
-        </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={isPending}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={!isPhraseOk || isPending}
-          >
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
+          </section>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={isPending}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onConfirm}
+              disabled={!isPhraseOk || isPending}
+            >
+              {confirmLabel}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

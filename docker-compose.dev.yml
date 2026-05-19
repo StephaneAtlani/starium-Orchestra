@@ -18,7 +18,7 @@
 # Ports :
 #   - Web (Next dev)  : http://localhost:3000
 #   - API (Nest dev)  : http://localhost:3001/api
-#   - Postgres         : localhost:5432
+#   - Postgres         : 127.0.0.1:5432 uniquement (pas d’écoute 0.0.0.0)
 #   - MailHog (SMTP capture + UI) : http://localhost:8025 — SMTP pour l’API : mailhog:1025 (voir env api-dev)
 #   - Vérification identités e-mail : URLs / TTL / cooldown via variables racine (.env) — voir bloc api-dev.
 #   - Redis (BullMQ / RFC-038) : service `redis` (port 6379 publié). L’API utilise
@@ -69,6 +69,7 @@ x-api-dev-mounts: &api-dev-mounts
   - ./apps/api/docker-entrypoint-dev.sh:/app/apps/api/docker-entrypoint-dev.sh:ro
   - ./apps/api/docker-entrypoint-worker-dev.sh:/app/apps/api/docker-entrypoint-worker-dev.sh:ro
   - ./apps/api/src:/app/apps/api/src
+  - ./apps/api/scripts:/app/apps/api/scripts:ro
   - ./apps/api/prisma:/app/apps/api/prisma
   - procurement_blobs:/data/procurement-blobs
 
@@ -99,7 +100,7 @@ services:
       POSTGRES_PASSWORD: starium
       POSTGRES_DB: starium
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck: *postgres-healthcheck

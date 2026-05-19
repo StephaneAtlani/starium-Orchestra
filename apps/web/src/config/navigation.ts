@@ -278,8 +278,7 @@ export const navigation: NavigationSection[] = [
         href: '/client/administration/access-model',
         icon: Shield,
         scope: 'client',
-        clientAdminOnly: true,
-        requiredPermissions: ['access_model.read'],
+        platformOnly: true,
       },
       {
         label: 'Diagnostic accès',

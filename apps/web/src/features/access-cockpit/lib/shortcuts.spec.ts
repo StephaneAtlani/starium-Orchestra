@@ -22,9 +22,9 @@ describe('access-cockpit shortcuts — RFC-ACL-010', () => {
         '/client/administration/module-visibility',
         '/client/members',
         '/client/roles',
-        '/client/administration/access-model',
       ]),
     );
+    expect(hrefs).not.toContain('/client/administration/access-model');
   });
 
   it('every label is human-readable, never an identifier', () => {

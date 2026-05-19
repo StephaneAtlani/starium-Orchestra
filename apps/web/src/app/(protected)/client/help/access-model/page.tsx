@@ -57,14 +57,8 @@ export default function ClientAccessModelHelpPage() {
               dans le moteur tant qu’elles ne sont pas branchées explicitement dans l’autorisation.
             </p>
             <p>
-              <Link
-                href="/client/administration/access-model"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                Cockpit modèle d&apos;accès
-              </Link>
-              {' '}
-              ·{' '}
+              Le cockpit opérationnel « modèle d&apos;accès » (KPI, export, rollout) est réservé aux
+              administrateurs plateforme.{' '}
               <Link href="/client/administration" className="text-primary underline-offset-4 hover:underline">
                 Administration client
               </Link>

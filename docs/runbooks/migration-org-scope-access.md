@@ -15,6 +15,30 @@ Couplage **020 ↔ 022** : un module = backfill + flag + branchement moteur dans
 
 ---
 
+## Script de migration (dev / ops)
+
+**Migration complète** (recommandé) :
+
+```bash
+sh scripts/migrate-access-v2.sh --list-clients
+
+# Tous les clients (dev / staging)
+sh scripts/migrate-access-v2.sh --all-clients --dry-run
+sh scripts/migrate-access-v2.sh --all-clients
+
+# Un client
+sh scripts/migrate-access-v2.sh --client-name "BatiPro Groupe" --dry-run
+sh scripts/migrate-access-v2.sh --client-name "BatiPro Groupe"
+```
+
+Équivalent : `--migrate` = `--apply --module all --ensure-org-root` (crée une OrgUnit racine `ROOT` si absente, puis HUMAN → owner → flags).
+
+**Pilote / rollback** : `sh scripts/rollout-access-v2.sh` avec `--module projects --apply`, `--disable`, `--flags-only`, etc.
+
+Implémentation : `apps/api/scripts/rollout-access-v2.ts` (Docker : conteneur `api-dev` si up).
+
+---
+
 ## Prérequis
 
 - Migration Prisma `ClientFeatureFlag` appliquée (`20260513140000_rfc_acl_022_client_feature_flag`).
