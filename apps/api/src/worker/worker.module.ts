@@ -5,7 +5,7 @@ import { AuditLogsCoreModule } from '../modules/audit-logs/audit-logs-core.modul
 import { QueueModule } from '../modules/queue/queue.module';
 import { EmailModule } from '../modules/email/email.module';
 import { EmailProcessor } from '../modules/email/email.processor';
-import { LicensesModule } from '../modules/licenses/licenses.module';
+import { LicensesWorkerModule } from '../modules/licenses/licenses-worker.module';
 import { LicenseExpirationProcessor } from '../modules/licenses/jobs/license-expiration.processor';
 
 @Module({
@@ -18,7 +18,7 @@ import { LicenseExpirationProcessor } from '../modules/licenses/jobs/license-exp
     AuditLogsCoreModule,
     QueueModule,
     EmailModule,
-    LicensesModule,
+    LicensesWorkerModule,
   ],
   providers: [EmailProcessor, LicenseExpirationProcessor],
 })

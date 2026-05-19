@@ -38,7 +38,11 @@ describe('PermissionsGuard', () => {
     reflector = new Reflector();
     effectivePermissions = new EffectivePermissionsService(prisma);
     featureFlags = { isEnabled: jest.fn().mockResolvedValue(false) };
-    guard = new PermissionsGuard(reflector, effectivePermissions, featureFlags as FeatureFlagsService);
+    guard = new PermissionsGuard(
+      reflector,
+      effectivePermissions,
+      featureFlags as unknown as FeatureFlagsService,
+    );
     jest.spyOn(reflector, 'get').mockReturnValue(undefined);
   });
 

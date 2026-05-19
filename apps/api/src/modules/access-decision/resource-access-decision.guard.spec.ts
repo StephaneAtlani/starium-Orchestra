@@ -195,11 +195,11 @@ describe('ResourceAccessDecisionGuard', () => {
         : undefined,
     );
     featureFlags.isEnabled.mockResolvedValue(true);
-    const req: RequestWithClient = {
+    const req = {
       user: { userId: 'u1' },
       activeClient: { id: 'c1', role: 'USER' as any, status: 'ACTIVE' as any },
       params: { id: 'proj-1' },
-    } as RequestWithClient;
+    } as unknown as RequestWithClient;
     const ctx = {
       getHandler: jest.fn(),
       getClass: jest.fn(),

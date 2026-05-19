@@ -1,4 +1,5 @@
 import {
+  Project,
   ProjectArbitrationLevelStatus,
   ProjectCopilRecommendation,
   ProjectCriticality,
@@ -21,7 +22,7 @@ import {
 describe('ProjectsPilotageService', () => {
   let svc: ProjectsPilotageService;
 
-  const baseProject = {
+  const baseProject: Project = {
     id: 'p1',
     clientId: 'c1',
     name: 'P',
@@ -35,6 +36,7 @@ describe('ProjectsPilotageService', () => {
     ownerUserId: 'u1',
     portfolioCategoryId: null,
     ownerOrgUnitId: null,
+    stewardResourceId: null,
     ownerFreeLabel: null,
     ownerAffiliation: null,
     startDate: null,

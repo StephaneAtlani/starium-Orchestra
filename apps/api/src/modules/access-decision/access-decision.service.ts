@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, forwardRef } from '@nestjs/common';
 import { ClientModuleStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
@@ -64,6 +64,7 @@ export class AccessDecisionService {
     private readonly effectivePermissions: EffectivePermissionsService,
     private readonly organizationScope: OrganizationScopeService,
     private readonly moduleVisibility: ModuleVisibilityService,
+    @Inject(forwardRef(() => AccessControlService))
     private readonly accessControl: AccessControlService,
   ) {}
 

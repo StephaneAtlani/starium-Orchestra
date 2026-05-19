@@ -9,6 +9,7 @@ RUN pnpm --filter @starium-orchestra/budget-exercise-calendar build
 # next dev (HMR) sur le port 3000 pour correspondre au mapping docker-compose
 # Avec le volume mount ./apps/web:/app/apps/web, le node_modules du build est masqué :
 # on réinstalle au démarrage pour que le montage ait bien ses deps.
+RUN chmod +x /app/apps/web/docker-entrypoint-dev.sh
 WORKDIR /app
 EXPOSE 3000
-CMD ["sh", "-c", "pnpm install --frozen-lockfile 2>/dev/null || pnpm install && pnpm --filter @starium-orchestra/rbac-permissions build && pnpm --filter @starium-orchestra/budget-exercise-calendar build && cd apps/web && pnpm exec next dev -p 3000"]
+CMD ["sh", "/app/apps/web/docker-entrypoint-dev.sh"]

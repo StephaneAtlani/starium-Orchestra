@@ -18,7 +18,7 @@ import { collectAtypicalAclIssues } from './access-model-heuristics';
 describe('AccessModelService', () => {
   let service: AccessModelService;
   let prisma: {
-    project: { count: jest.Mock; findMany: jest.Mock };
+    project: { count: jest.Mock; findMany: jest.Mock; findFirst: jest.Mock };
     budget: { count: jest.Mock; findMany: jest.Mock };
     budgetLine: { count: jest.Mock; findMany: jest.Mock };
     supplierContract: { count: jest.Mock; findMany: jest.Mock };

@@ -61,7 +61,24 @@ setTimeout(()=>process.exit(1),800);
 
 wait_for_redis
 
+RBAC_PKG="/app/packages/rbac-permissions"
 SCHEMA="/app/apps/api/prisma/schema.prisma"
+
+assert_rbac_package_present() {
+  if [ ! -f "$RBAC_PKG/package.json" ]; then
+    echo "[api-dev] ERREUR: $RBAC_PKG/package.json introuvable dans le conteneur." >&2
+    echo "[api-dev] Attendu : 7 projets pnpm (packages/rbac-permissions monté)." >&2
+    echo "[api-dev] → Mettre à jour docker-compose.dev.yml (volume packages/rbac-permissions)." >&2
+    echo "[api-dev] → docker compose -f docker-compose.dev.yml build --no-cache api-dev" >&2
+    echo "[api-dev] → docker compose -f docker-compose.dev.yml up -d --force-recreate api-dev" >&2
+    exit 1
+  fi
+}
+
+build_rbac_permissions() {
+  echo "[api-dev] build @starium-orchestra/rbac-permissions (prisma/seed + API)..."
+  (cd "$RBAC_PKG" && pnpm run build)
+}
 
 api_prisma_generate() {
   echo "[api-dev] purge .prisma (évite un client Prisma figé dans le store pnpm)..."
@@ -98,18 +115,17 @@ assert_generated_client_has_bucket_fields() {
   echo "[api-dev] client Prisma OK (documentsBucketName présent sous .prisma/client)"
 }
 
+assert_rbac_package_present
 echo "[api-dev] pnpm install (sync workspace deps)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+_ws_count="$(find /app/apps /app/packages -maxdepth 2 -name package.json 2>/dev/null | wc -l | tr -d ' ')"
+echo "[api-dev] manifests workspace détectés: ${_ws_count} (attendu 6, dont rbac-permissions)"
 assert_schema_has_bucket_fields
 echo "[api-dev] prisma migrate deploy..."
 pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
 api_prisma_generate
 assert_generated_client_has_bucket_fields
-echo "[api-dev] build workspace @starium-orchestra/rbac-permissions (requis par prisma/seed.ts)..."
-if ! pnpm --filter @starium-orchestra/rbac-permissions run build 2>/dev/null; then
-  echo "[api-dev] fallback: build direct packages/rbac-permissions (workspace non monté ?)"
-  (cd /app/packages/rbac-permissions && pnpm run build)
-fi
+build_rbac_permissions
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
 echo "[api-dev] build workspace @starium-orchestra/budget-exercise-calendar..."

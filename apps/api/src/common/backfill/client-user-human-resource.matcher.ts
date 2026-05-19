@@ -465,5 +465,5 @@ export function parseBackfillStrategyFlag(
   if (raw === 'name-strict' && !enableNameStrict) {
     return 'name-strict';
   }
-  return raw;
+  return raw as BackfillStrategy;
 }
