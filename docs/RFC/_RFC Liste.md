@@ -209,7 +209,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 | Ordre | RFC | Nom | Description | État | Commentaire |
 | ----- | --- | --- | --- | --- | --- |
-| 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary | 🟡 Partielle | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — **livré** : migration, RBAC, CRUD cycles + items, scoring §4.5 (`hasScorePatch`, DTO specs), `summary` embarqué, audits cycle/item, tests B4–B6 ; **reste** : `GET …/summary` global, `by-project` |
+| 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary | 🟡 Partielle | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — **livré** : migration, RBAC, CRUD cycles + items, scoring §4.5, `summary` embarqué, KPI global B7 (`GET …/:id/summary`), audits cycle/item, tests B4–B7 ; **reste** : `by-project` (B9), FE-001 |
 | 31a-2 | **RFC-FE-PROJ-CYCLE-001** | Governance Cycles Frontend UI | Pages `/cycles` et `/cycles/[cycleId]`, matrice arbitrage, dialogs, query keys tenant-aware | 📝 Draft | [RFC](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) — règle UI valeur métier, pas ID |
 | 31a-3 | **RFC-PROJ-CYCLE-002** | Project Integration for Governance Cycles | Endpoint `by-project` + bloc lecture seule dans fiche projet | 📝 Draft | [RFC](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) — pas de mutation de `Project.status` |
 

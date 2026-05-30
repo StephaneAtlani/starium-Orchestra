@@ -28,6 +28,7 @@ type PrismaMock = {
   };
   governanceCycleItem: {
     groupBy: jest.Mock;
+    aggregate: jest.Mock;
     findMany: jest.Mock;
     findFirst: jest.Mock;
     count: jest.Mock;
@@ -112,9 +113,16 @@ describe('GovernanceCyclesService', () => {
       },
       governanceCycleItem: {
         groupBy: jest.fn().mockResolvedValue([]),
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            estimatedBudgetAmount: null,
+            estimatedCapacityDays: null,
+          },
+          _avg: { priorityScore: null },
+        }),
         findMany: jest.fn(),
         findFirst: jest.fn(),
-        count: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -299,6 +307,174 @@ describe('GovernanceCyclesService', () => {
       itemsCount: 5,
       acceptedItemsCount: 2,
       deferredItemsCount: 1,
+    });
+  });
+
+  describe('getCycleSummary (B7 KPI global)', () => {
+    const mockGlobalSummaryQueries = (options: {
+      statusGroups?: Array<{
+        decisionStatus: GovernanceCycleItemDecisionStatus;
+        _count: { _all: number };
+      }>;
+      aggregate?: {
+        _sum: {
+          estimatedBudgetAmount: Prisma.Decimal | null;
+          estimatedCapacityDays: Prisma.Decimal | null;
+        };
+        _avg: { priorityScore: number | null };
+      };
+      highRiskCount?: number;
+    }) => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.groupBy.mockResolvedValue(
+        options.statusGroups ?? [],
+      );
+      prisma.governanceCycleItem.aggregate.mockResolvedValue(
+        options.aggregate ?? {
+          _sum: {
+            estimatedBudgetAmount: null,
+            estimatedCapacityDays: null,
+          },
+          _avg: { priorityScore: null },
+        },
+      );
+      prisma.governanceCycleItem.count.mockResolvedValue(
+        options.highRiskCount ?? 0,
+      );
+    };
+
+    it('renvoie 404 si cycle absent ou hors client actif', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getCycleSummary('client-b', 'cycle-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('agrège tous les statuts, totaux et moyenne priorityScore', async () => {
+      mockGlobalSummaryQueries({
+        statusGroups: [
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+            _count: { _all: 2 },
+          },
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.TO_ARBITRATE,
+            _count: { _all: 1 },
+          },
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+            _count: { _all: 3 },
+          },
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.DEFERRED,
+            _count: { _all: 1 },
+          },
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.REJECTED,
+            _count: { _all: 1 },
+          },
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.NEEDS_INFORMATION,
+            _count: { _all: 1 },
+          },
+          {
+            decisionStatus:
+              GovernanceCycleItemDecisionStatus.ACCEPTED_WITH_RESERVE,
+            _count: { _all: 1 },
+          },
+        ],
+        aggregate: {
+          _sum: {
+            estimatedBudgetAmount: new Prisma.Decimal('125000.506'),
+            estimatedCapacityDays: new Prisma.Decimal('42.999'),
+          },
+          _avg: { priorityScore: 12.3456 },
+        },
+        highRiskCount: 4,
+      });
+
+      const result = await service.getCycleSummary('client-a', 'cycle-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          cycleId: 'cycle-1',
+          totalItems: 10,
+          candidateCount: 2,
+          toArbitrateCount: 1,
+          acceptedCount: 3,
+          deferredCount: 1,
+          rejectedCount: 1,
+          needsInformationCount: 1,
+          acceptedWithReserveCount: 1,
+          estimatedBudgetTotal: '125000.51',
+          estimatedCapacityDaysTotal: '43.00',
+          averagePriorityScore: 12.35,
+          highRiskItemsCount: 4,
+        }),
+      );
+      expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(prisma.governanceCycleItem.count).toHaveBeenCalledWith({
+        where: {
+          clientId: 'client-a',
+          cycleId: 'cycle-1',
+          riskScore: { gte: 4 },
+        },
+      });
+    });
+
+    it('retourne 0 pour les statuts absents du groupBy', async () => {
+      mockGlobalSummaryQueries({
+        statusGroups: [
+          {
+            decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+            _count: { _all: 2 },
+          },
+        ],
+      });
+
+      const result = await service.getCycleSummary('client-a', 'cycle-1');
+
+      expect(result.totalItems).toBe(2);
+      expect(result.acceptedCount).toBe(2);
+      expect(result.candidateCount).toBe(0);
+      expect(result.toArbitrateCount).toBe(0);
+      expect(result.deferredCount).toBe(0);
+      expect(result.rejectedCount).toBe(0);
+      expect(result.needsInformationCount).toBe(0);
+      expect(result.acceptedWithReserveCount).toBe(0);
+    });
+
+    it('cycle sans items : counts à 0, totaux "0.00", averagePriorityScore null', async () => {
+      mockGlobalSummaryQueries({});
+
+      const result = await service.getCycleSummary('client-a', 'cycle-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          cycleId: 'cycle-1',
+          totalItems: 0,
+          candidateCount: 0,
+          toArbitrateCount: 0,
+          acceptedCount: 0,
+          deferredCount: 0,
+          rejectedCount: 0,
+          needsInformationCount: 0,
+          acceptedWithReserveCount: 0,
+          estimatedBudgetTotal: '0.00',
+          estimatedCapacityDaysTotal: '0.00',
+          averagePriorityScore: null,
+          highRiskItemsCount: 0,
+        }),
+      );
+    });
+
+    it('highRiskItemsCount reflète le count riskScore >= 4', async () => {
+      mockGlobalSummaryQueries({ highRiskCount: 7 });
+
+      const result = await service.getCycleSummary('client-a', 'cycle-1');
+
+      expect(result.highRiskItemsCount).toBe(7);
     });
   });
 

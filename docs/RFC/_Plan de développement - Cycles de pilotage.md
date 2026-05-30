@@ -1,7 +1,7 @@
 # Plan de développement — Cycles de pilotage
 
 > **Dernière révision** : 2026-05-30  
-> **Statut global** : **partiel** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) §4.3–4.4 cycles + items + **§4.5 scoring** livrés ; **`summary` embarqué** (liste/détail cycle) ✅ ; **route dédiée** `GET …/:id/summary` (lot B7) ❌ — [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) et [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) **à faire**  
+> **Statut global** : **partiel** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) §4.3–4.5 + **KPI global B7** livrés ; **`summary` embarqué** (liste/détail cycle) ✅ ; **route dédiée** `GET …/:id/summary` (lot B7) ✅ — [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) et [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) **à faire**  
 > **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer**
 
 Ce document est le **plan d’exécution** consolidé. **Tu travailles par numéro de RFC** (fichiers dans `docs/RFC/`) ; les anciens codes « lots » (B1, F3, I1…) restent en **annexe** pour lecture historique uniquement.
@@ -14,7 +14,7 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 
 | RFC | Fichier | Rôle | État |
 | --- | ------- | ---- | ---- |
-| **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, tests | 🟡 Partielle (B1–B6 livrés) |
+| **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, tests | 🟡 Partielle (B1–B7 livrés) |
 | **RFC-FE-PROJ-CYCLE-001** | [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | 📝 Draft — non implémentée |
 | **RFC-PROJ-CYCLE-002** | [Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | 📝 Draft — non implémentée |
 | [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index 31a-1 → 31a-3 | Statuts index | À jour |
@@ -30,15 +30,15 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 | **RFC-PROJ-CYCLE-001** §4.3–4.4 — CRUD cycles | ✅ 5 routes — [API.md](../API.md) §5.8 |
 | **RFC-PROJ-CYCLE-001** §4.3 — `summary` **embarqué** (liste + détail cycle) | ✅ Champ `summary` sur `GET /governance-cycles` et `GET /governance-cycles/:id` — `itemsCount`, `acceptedItemsCount`, `deferredItemsCount` ; calcul `getSummaryForCycle` / `buildSummariesForCycles` |
 | **RFC-PROJ-CYCLE-001** §4.3–4.4 — CRUD items | ✅ |
-| **RFC-PROJ-CYCLE-001** §4.5 — scoring | ✅ `governance-cycle-scoring.util.ts`, `hasScorePatch`, specs DTO ValidationPipe, 55 tests |
-| **RFC-PROJ-CYCLE-001** §4.3 — route **`GET /api/governance-cycles/:id/summary`** (lot B7) | ❌ Pas de handler controller ; agrégats déjà calculés mais non exposés sur URL dédiée |
-| **RFC-PROJ-CYCLE-001** §6 — audits items + tests complets | 🟡 partiel (audits cycle + item ✅ ; tests CRUD cycles + items ✅ ; tests scoring ✅ ; reste route summary B7 + tests associés) |
+| **RFC-PROJ-CYCLE-001** §4.5 — scoring | ✅ `governance-cycle-scoring.util.ts`, `hasScorePatch`, specs DTO ValidationPipe ; 61 tests module (dont summary B7) |
+| **RFC-PROJ-CYCLE-001** §4.3 — route **`GET /api/governance-cycles/:id/summary`** (lot B7) | ✅ `GovernanceCycleGlobalSummaryDto` — handler + service + tests + [API.md](../API.md) §5.8 |
+| **RFC-PROJ-CYCLE-001** §6 — audits items + tests complets | 🟡 partiel (audits cycle + item ✅ ; tests CRUD cycles + items ✅ ; tests scoring ✅ ; tests summary B7 ✅ ; reste B9 by-project) |
 | **RFC-FE-PROJ-CYCLE-001** — UI `/cycles` | ❌ |
 | **RFC-PROJ-CYCLE-002** — `GET …/by-project/:projectId` + bloc projet | ❌ |
 
 > **Lexique `summary` (ne pas confondre)**  
 > - **Embarqué ✅ (B4)** : objet `summary` inclus dans la réponse cycle (liste et détail). Suffit pour la liste `/cycles` et le header détail.  
-> - **Route dédiée ❌ (B7)** : `GET /api/governance-cycles/:id/summary` — ressource autonome (même payload V1, contrat API + tests + doc séparés). Recommandée pour l’onglet KPI overview FE ; le front peut aussi consommer le `summary` embarqué du détail en attendant B7.
+> - **Route dédiée ✅ (B7)** : `GET /api/governance-cycles/:id/summary` — ressource KPI autonome (`GovernanceCycleGlobalSummaryDto`, contrat distinct du `summary` embarqué). Recommandée pour l’onglet KPI overview FE.
 
 ### 1.3 Corrections documentaires à retenir pour l’implémentation
 
@@ -117,8 +117,8 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 | 4b | §4.3 | **`summary` embarqué** | Champ `summary` sur liste + détail cycle ; agrégats `itemsCount` / `acceptedItemsCount` / `deferredItemsCount` ; pas de N+1 grossier en liste | ✅ |
 | 5 | §4.3–4.4 | **CRUD items** (5 endpoints sous `:id/items`) | `sourceType` + FK ; doublon projet → 409 ; PATCH mixte → 400 ; pas de mutation `Project` | ✅ |
 | 6 | §4.5 | Scoring `priorityScore` | Formule RFC ; 1–5 ; recalcul create ; update si clé score (`hasScorePatch`) ; `priorityScore` jamais en body ; backend only | ✅ |
-| 7 | §4.3 | **Route** `GET /api/governance-cycles/:id/summary` (**B7**) | Handler controller ; réutiliser `getSummaryForCycle` ; **404** hors client ; permission `governance_cycles.read` ; doc `API.md` ; tests controller/service | ❌ |
-| 8 | §6 | Audits items + tests backend complets | `governance_cycle_item.*` ✅ ; tests items + scoring ✅ ; reste tests route summary B7 | 🟡 partiel |
+| 7 | §4.3 | **Route** `GET /api/governance-cycles/:id/summary` (**B7**) | `GovernanceCycleGlobalSummaryDto` ; 3 requêtes Prisma parallèles ; **404** hors client ; permission `governance_cycles.read` ; doc `API.md` ; tests controller/service | ✅ |
+| 8 | §6 | Audits items + tests backend complets | `governance_cycle_item.*` ✅ ; tests items + scoring + summary B7 ✅ ; reste B9 by-project | 🟡 partiel |
 
 **Durée indicative** : 1,5–2 sprints backend (équipe familière du repo).
 
@@ -128,7 +128,7 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 
 **Fichier** : [RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md)
 
-**Prérequis** : **RFC-PROJ-CYCLE-001** §4.3–4.5 (cycles + items + scoring + summary embarqué) — **livré** ; route `GET …/:id/summary` (B7) **optionnelle** pour l’onglet KPI overview (le détail cycle expose déjà `summary`).
+**Prérequis** : **RFC-PROJ-CYCLE-001** §4.3–4.5 + **B7 KPI global** — **livré**.
 
 **Calquer** : `apps/web/src/features/strategic-vision/`, [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md).
 
@@ -187,8 +187,8 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 | 1 | **RFC-PROJ-CYCLE-001** §4.1–4.2 | Données + permissions en base |
 | 2 | **RFC-PROJ-CYCLE-001** §4.3–4.4 cycles | API cycles testable |
 | 3 | **RFC-PROJ-CYCLE-001** §4.5 scoring | ✅ livré (B6) |
-| 3b | **RFC-PROJ-CYCLE-001** §4.3 route summary + §6 | `GET …/:id/summary` (B7) — backend arbitrage complet côté agrégats | ❌ prochaine étape backend |
-| 4 | **RFC-FE-PROJ-CYCLE-001** §4.1–4.3 | Menu + liste des cycles — **débloqué** (backend B1–B6) |
+| 3b | **RFC-PROJ-CYCLE-001** §4.3 route summary + §6 | `GET …/:id/summary` (B7) — KPI global CODIR | ✅ |
+| 4 | **RFC-FE-PROJ-CYCLE-001** §4.1–4.3 | Menu + liste des cycles — **débloqué** (backend B1–B7) |
 | 5 | **RFC-FE-PROJ-CYCLE-001** §4.4–4.5 + §6 | Arbitrage CODIR utilisable (matrice scores API) |
 | 6 | **RFC-PROJ-CYCLE-002** + doc | Fiche projet informée |
 
@@ -212,13 +212,14 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 - [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 cycles — tests CRUD cycles  
 - [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 items — tests CRUD items
 - [x] **RFC-PROJ-CYCLE-001** §4.5 scoring + §6 tests scoring  
+- [x] **RFC-PROJ-CYCLE-001** §4.3 route summary B7 + tests KPI global  
 - [ ] **RFC-FE-PROJ-CYCLE-001** livrée + tests frontend  
 - [ ] **RFC-PROJ-CYCLE-002** livrée  
 - [x] Seed : module + permissions + profils globaux cohérents  
-- [x] `docs/API.md` à jour (§5.8 cycles + items + scoring)  
-- [x] `_RFC Liste.md` aligné (31a-1 partiel B1–B6)  
-- [ ] RFC 001 statut « Implémenté » (après B7 summary + B9 by-project) ; FE-001 / 002 à faire  
-- [x] Revue conformité multi-client sur CRUD cycles et items ([ARCHITECTURE.md](../ARCHITECTURE.md) — B1–B6)  
+- [x] `docs/API.md` à jour (§5.8 cycles + items + scoring + summary B7)  
+- [x] `_RFC Liste.md` aligné (31a-1 partiel B1–B7)  
+- [ ] RFC 001 statut « Implémenté » (après B9 by-project) ; FE-001 / 002 à faire  
+- [x] Revue conformité multi-client sur CRUD cycles et items ([ARCHITECTURE.md](../ARCHITECTURE.md) — B1–B7)  
 
 ---
 
@@ -228,26 +229,7 @@ Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 
 ### RFC-PROJ-CYCLE-001 (backend — route summary B7)
 
-```
-Implémente RFC-PROJ-CYCLE-001 §4.3 GET /api/governance-cycles/:id/summary (lot B7)
-+ §6 tests + doc API.md.
-
-Contexte : le summary embarqué est DÉJÀ livré (champ summary sur GET liste et GET :id).
-B7 = exposer la MÊME ressource sur une route dédiée — ne pas dupliquer la logique métier.
-
-Implémentation attendue :
-- Controller : @Get('governance-cycles/:id/summary') après :id/items (ordre routes Nest)
-- Service : méthode publique getCycleSummary(clientId, id) → réutilise getSummaryForCycle existant
-- Permission : governance_cycles.read ; 404 si cycle absent/hors client
-- Réponse 200 : GovernanceCycleSummaryDto { itemsCount, acceptedItemsCount, deferredItemsCount }
-- Tests : controller + service (404, isolation client, payload agrégats)
-- docs/API.md §5.8 : section GET …/:id/summary
-
-Prérequis livrés : CRUD cycles/items, scoring §4.5 (B6), summary embarqué (B4).
-Ne pas réimplémenter CRUD, scoring, ni enrichir le payload summary V1 sans spec RFC.
-
-Hors scope : frontend, RFC-PROJ-CYCLE-002 by-project, mutation Project.status.
-```
+> **Livré (2026-05-30)** — ne plus réimplémenter. Référence : `getCycleSummary` dans `GovernanceCyclesService`, route `GET /api/governance-cycles/:id/summary`, DTO `GovernanceCycleGlobalSummaryDto`, [API.md](../API.md) §5.8.
 
 ### RFC-PROJ-CYCLE-001 (sections historiques — déjà livrées)
 
@@ -260,7 +242,7 @@ Implémente RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI (docs/RFC/RF
 
 Calque apps/web/src/features/strategic-vision/. Query keys avec clientId. Libellés FR, jamais UUID en UI. docs/FRONTEND_UI-UX.md.
 
-Prérequis : API RFC-PROJ-CYCLE-001 §4.3–4.5 opérationnelle (B1–B6 livrés). Consommer `priorityScore` API — aucun calcul scoring côté React.
+Prérequis : API RFC-PROJ-CYCLE-001 §4.3–4.5 + B7 KPI global (B1–B7 livrés). Consommer `priorityScore` et `GET …/:id/summary` API — aucun calcul scoring côté React.
 ```
 
 ### RFC-PROJ-CYCLE-002 (intégration projet)

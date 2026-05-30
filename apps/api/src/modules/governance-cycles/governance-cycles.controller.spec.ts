@@ -17,6 +17,7 @@ describe('GovernanceCyclesController', () => {
   const serviceMock = {
     listCycles: jest.fn(),
     getCycleById: jest.fn(),
+    getCycleSummary: jest.fn(),
     createCycle: jest.fn(),
     updateCycle: jest.fn(),
     archiveCycle: jest.fn(),
@@ -67,6 +68,12 @@ describe('GovernanceCyclesController', () => {
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
         GovernanceCyclesController.prototype.getCycle,
+      ),
+    ).toEqual(['governance_cycles.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.getCycleSummary,
       ),
     ).toEqual(['governance_cycles.read']);
   });
@@ -194,5 +201,36 @@ describe('GovernanceCyclesController', () => {
         GovernanceCyclesController.prototype.archiveCycle,
       ) ?? 204,
     ).toBe(204);
+  });
+
+  it('getCycleSummary délègue au service et retourne le DTO KPI', async () => {
+    const controller = new GovernanceCyclesController(
+      serviceMock as unknown as GovernanceCyclesService,
+    );
+    const mockSummary = {
+      cycleId: 'cycle-1',
+      totalItems: 10,
+      candidateCount: 2,
+      toArbitrateCount: 1,
+      acceptedCount: 3,
+      deferredCount: 1,
+      rejectedCount: 1,
+      needsInformationCount: 1,
+      acceptedWithReserveCount: 1,
+      estimatedBudgetTotal: '125000.50',
+      estimatedCapacityDaysTotal: '43.00',
+      averagePriorityScore: 12.35,
+      highRiskItemsCount: 4,
+      generatedAt: '2026-05-30T12:00:00.000Z',
+    };
+    serviceMock.getCycleSummary.mockResolvedValue(mockSummary);
+
+    const result = await controller.getCycleSummary('client-a', 'cycle-1');
+
+    expect(serviceMock.getCycleSummary).toHaveBeenCalledWith(
+      'client-a',
+      'cycle-1',
+    );
+    expect(result).toEqual(mockSummary);
   });
 });

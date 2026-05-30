@@ -69,6 +69,15 @@ export class GovernanceCyclesController {
     return this.service.getCycleById(clientId!, id);
   }
 
+  @Get('governance-cycles/:id/summary')
+  @RequirePermissions('governance_cycles.read')
+  getCycleSummary(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.service.getCycleSummary(clientId!, id);
+  }
+
   @Patch('governance-cycles/:id')
   @RequirePermissions('governance_cycles.update')
   updateCycle(

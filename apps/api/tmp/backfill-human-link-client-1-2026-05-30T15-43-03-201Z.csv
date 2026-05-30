@@ -1,0 +1,4 @@
+clientUserId,clientUserLabel,userEmail,defaultEmailIdentity,mode,action,resourceId,resourceLabel,matchedBy,candidateCount,reason
+cu-alice,Alice Martin — alice@test.com,alice@test.com,,dry-run,LINKED,res-1,Alice Martin — alice@test.com,email-default,1,email-default
+cu-bob,Bob Durand — bob@test.com,bob@test.com,,dry-run,LINKED,res-2,Bob Durand — bob@test.com,email-default,1,email-default
+cu-none,Zoe X — unknown@test.com,unknown@test.com,,dry-run,NO_CANDIDATE,,,none,0,no_candidate

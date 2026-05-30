@@ -26,6 +26,7 @@ import type {
   GovernanceCycleItemListResponseDto,
   GovernanceCycleItemResponseDto,
   GovernanceCycleItemSourceRefDto,
+  GovernanceCycleGlobalSummaryDto,
   GovernanceCycleListResponseDto,
   GovernanceCycleResponseDto,
   GovernanceCycleSummaryDto,
@@ -317,6 +318,95 @@ export class GovernanceCyclesService {
     const row = await this.findCycleInClient(clientId, id);
     const summary = await this.getSummaryForCycle(clientId, id);
     return this.toResponse(row, summary);
+  }
+
+  async getCycleSummary(
+    clientId: string,
+    cycleId: string,
+  ): Promise<GovernanceCycleGlobalSummaryDto> {
+    await this.findCycleInClient(clientId, cycleId);
+
+    const itemWhere = { clientId, cycleId };
+
+    const [statusGroups, aggregates, highRiskItemsCount] = await Promise.all([
+      this.prisma.governanceCycleItem.groupBy({
+        by: ['decisionStatus'],
+        where: itemWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.governanceCycleItem.aggregate({
+        where: itemWhere,
+        _sum: {
+          estimatedBudgetAmount: true,
+          estimatedCapacityDays: true,
+        },
+        _avg: {
+          priorityScore: true,
+        },
+      }),
+      this.prisma.governanceCycleItem.count({
+        where: {
+          ...itemWhere,
+          riskScore: { gte: 4 },
+        },
+      }),
+    ]);
+
+    const countByStatus = new Map(
+      statusGroups.map((group) => [group.decisionStatus, group._count._all]),
+    );
+
+    const candidateCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.CANDIDATE) ?? 0;
+    const toArbitrateCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.TO_ARBITRATE) ?? 0;
+    const acceptedCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.ACCEPTED) ?? 0;
+    const deferredCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.DEFERRED) ?? 0;
+    const rejectedCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.REJECTED) ?? 0;
+    const needsInformationCount =
+      countByStatus.get(GovernanceCycleItemDecisionStatus.NEEDS_INFORMATION) ??
+      0;
+    const acceptedWithReserveCount =
+      countByStatus.get(
+        GovernanceCycleItemDecisionStatus.ACCEPTED_WITH_RESERVE,
+      ) ?? 0;
+
+    const totalItems =
+      candidateCount +
+      toArbitrateCount +
+      acceptedCount +
+      deferredCount +
+      rejectedCount +
+      needsInformationCount +
+      acceptedWithReserveCount;
+
+    const avgRaw = aggregates._avg.priorityScore;
+    const averagePriorityScore =
+      avgRaw == null ? null : Math.round(avgRaw * 100) / 100;
+
+    return {
+      cycleId,
+      totalItems,
+      candidateCount,
+      toArbitrateCount,
+      acceptedCount,
+      deferredCount,
+      rejectedCount,
+      needsInformationCount,
+      acceptedWithReserveCount,
+      estimatedBudgetTotal:
+        serializeDecimal(aggregates._sum.estimatedBudgetAmount ?? null) ??
+        '0.00',
+      estimatedCapacityDaysTotal:
+        serializeDecimal(aggregates._sum.estimatedCapacityDays ?? null) ??
+        '0.00',
+      averagePriorityScore,
+      highRiskItemsCount,
+      generatedAt: new Date().toISOString(),
+    };
   }
 
   async createCycle(

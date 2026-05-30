@@ -11,6 +11,23 @@ export type GovernanceCycleSummaryDto = {
   deferredItemsCount: number;
 };
 
+export type GovernanceCycleGlobalSummaryDto = {
+  cycleId: string;
+  totalItems: number;
+  candidateCount: number;
+  toArbitrateCount: number;
+  acceptedCount: number;
+  deferredCount: number;
+  rejectedCount: number;
+  needsInformationCount: number;
+  acceptedWithReserveCount: number;
+  estimatedBudgetTotal: string;
+  estimatedCapacityDaysTotal: string;
+  averagePriorityScore: number | null;
+  highRiskItemsCount: number;
+  generatedAt: string;
+};
+
 export type GovernanceCycleResponseDto = {
   id: string;
   name: string;

@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Partiellement implémenté** (backend) — lots **B1–B6** livrés (2026-05-30) : modèles, RBAC, CRUD cycles, CRUD items, audits items, **scoring `priorityScore`**. Restent **B7–B9** (`GET …/:id/summary` global, `by-project`, tests summary) et frontend **FE-001**.
+🟡 **Partiellement implémenté** (backend) — lots **B1–B7** livrés (2026-05-30) : modèles, RBAC, CRUD cycles, CRUD items, audits items, **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Restent **B9** (`by-project`) et frontend **FE-001**.
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 
@@ -16,15 +16,17 @@
 | Module Nest `governance-cycles` | ✅ | `apps/api/src/modules/governance-cycles/` |
 | RBAC `governance_cycles.*` + seed + profils globaux | ✅ | `apps/api/prisma/seed.ts`, `default-profiles.json` |
 | CRUD cycles (5 routes) | ✅ | `GET\|POST /api/governance-cycles`, `GET\|PATCH\|DELETE /api/governance-cycles/:id` — voir [docs/API.md](../API.md) §5.8 |
-| `summary` embarqué par cycle (agrégats items) | ✅ | Champ `summary` sur liste et détail ; pas `GET …/:id/summary` global (lot B7) |
+| `summary` embarqué par cycle (agrégats items) | ✅ | Champ `summary` sur liste et détail (3 compteurs légers) |
+| `GET …/:id/summary` KPI global (lot B7) | ✅ | `GovernanceCycleGlobalSummaryDto` — voir [API.md](../API.md) §5.8 |
 | Audits cycle `created` / `updated` / `archived` | ✅ | `GovernanceCyclesService` |
 | CRUD items (5 routes sous `:id/items`) | ✅ | Lot B5 — détail [API.md](../API.md) §5.8 ; PATCH édition/arbitrage séparés (body mixte → 400) |
 | DTOs items | ✅ | `create-` / `update-` / `list-governance-cycle-items-query` |
 | Audits items | ✅ | `governance_cycle_item.created\|updated\|deleted\|decision_changed` |
 | Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` |
 | Scoring `priorityScore` (§4.5) | ✅ | `governance-cycle-scoring.util.ts` (`computePriorityScore`, `hasScorePatch`) ; recalcul create toujours, update si clé score présente ; DTOs + specs ValidationPipe ; tri `nulls: 'last'` |
-| Tests scoring §6 | ✅ | `governance-cycle-scoring.util.spec.ts`, `governance-cycles.service.spec.ts`, `create-` / `update-governance-cycle-item.dto.spec.ts` (55 tests module) |
-| `GET …/summary` global, `by-project` | ❌ | Lots B7–B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
+| Tests scoring §6 | ✅ | `governance-cycle-scoring.util.spec.ts`, `governance-cycles.service.spec.ts`, `create-` / `update-governance-cycle-item.dto.spec.ts` |
+| Tests summary KPI B7 §6 | ✅ | `getCycleSummary` — 5 cas service + controller (61 tests module) |
+| `GET …/by-project` | ❌ | Lot B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
 
 ---
 
@@ -33,7 +35,7 @@
 - Le module `projects` porte l’exécution (planning, risques, budget links, scenarios) et ne doit pas recevoir la logique d’arbitrage CODIR.
 - Les conventions Starium backend sont en place : guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`), DTO validés, `clientId` dérivé du contexte actif.
 - Les modules stratégiques et budget ont un modèle d’isolation stricte par client et des APIs API-first client-scopées.
-- La couche transverse **cycles de pilotage** expose le CRUD cycles, le CRUD items (`GovernanceCycleItem`) et le **scoring `priorityScore`** (lot B6) ; le **summary global** (`GET …/:id/summary`) reste à livrer (B7).
+- La couche transverse **cycles de pilotage** expose le CRUD cycles, le CRUD items (`GovernanceCycleItem`), le **scoring `priorityScore`** (lot B6) et le **KPI global** `GET …/:id/summary` (lot B7 — `GovernanceCycleGlobalSummaryDto`, distinct du `summary` embarqué).
 
 ---
 
@@ -123,8 +125,8 @@ Items :
 
 Agregats :
 
-- `GET /api/governance-cycles/:id/summary`
-- `GET /api/governance-cycles/by-project/:projectId`
+- `GET /api/governance-cycles/:id/summary` ✅ — `GovernanceCycleGlobalSummaryDto` (KPI overview ; voir [API.md](../API.md) §5.8)
+- `GET /api/governance-cycles/by-project/:projectId` ❌ (lot B9 — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md))
 
 ### 4.4 Regles metier obligatoires
 
@@ -190,7 +192,7 @@ Regles :
 - PATCH mixte edition + arbitrage → 400 ✅
 - permissions PATCH par groupe de champs ✅
 - calcul `priorityScore` exact ✅ (lot B6 — util, service, specs DTO ValidationPipe)
-- endpoint `summary` global coherent avec les statuts decision ❌ (lot B7)
+- endpoint `summary` global coherent avec les statuts decision ✅ (lot B7)
 
 ### Audit
 
@@ -203,7 +205,7 @@ Verifier emission:
 
 ## 7) Recapitulatif final
 
-Cette RFC introduit un module backend `governance-cycles` strictement client-scope pour piloter l’arbitrage CODIR sans impacter le cycle de vie `Project`. Le coeur V1 couvre modeles Prisma, RBAC, CRUD cycles/items, scoring explicable, agregats summary et trace audit.
+Cette RFC introduit un module backend `governance-cycles` strictement client-scope pour piloter l’arbitrage CODIR sans impacter le cycle de vie `Project`. Le coeur V1 couvre modeles Prisma, RBAC, CRUD cycles/items, scoring explicable, summary embarqué (listes/header), KPI global `GET …/:id/summary` et trace audit.
 
 ---
 
