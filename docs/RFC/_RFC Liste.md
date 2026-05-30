@@ -205,13 +205,13 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ## 🔄 PHASE 1A+ — CYCLES DE PILOTAGE PROJET
 
-**Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–I2). Backend **B1–B8** livré (2026-05-30) ; reste **B9** (`by-project`), frontend **FE-001** et intégration projet **RFC-002**.
+**Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–I2). Backend **B1–B9**, frontend **FE-001** et intégration projet **RFC-002** livrés (2026-05-30).
 
 | Ordre | RFC | Nom | Description | État | Commentaire |
 | ----- | --- | --- | --- | --- | --- |
-| 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary | 🟡 Partielle | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — **livré** : migration, RBAC, CRUD cycles + items, scoring §4.5, `summary` embarqué, KPI global B7, audits cycle/item (dont `validated`/`closed`, transitions TO_ARBITRATE/CLOSED), tests B4–B8 (78 tests module) ; **reste** : `by-project` (B9 / RFC-002) |
+| 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary, by-project | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — B1–B9 dont `GET …/by-project/:projectId` (RFC-002), 88 tests module |
 | 31a-2 | **RFC-FE-PROJ-CYCLE-001** | Governance Cycles Frontend UI | Pages `/cycles` et `/cycles/[cycleId]`, matrice arbitrage, dialogs, query keys tenant-aware | ✅ Implémenté | [RFC](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) — règle UI valeur métier, pas ID |
-| 31a-3 | **RFC-PROJ-CYCLE-002** | Project Integration for Governance Cycles | Endpoint `by-project` + bloc lecture seule dans fiche projet | 📝 Draft | [RFC](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) — pas de mutation de `Project.status` |
+| 31a-3 | **RFC-PROJ-CYCLE-002** | Project Integration for Governance Cycles | Endpoint `by-project` + bloc lecture seule dans fiche projet | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) — bloc `/projects/[id]`, pas de mutation de `Project.status` |
 
 ---
 

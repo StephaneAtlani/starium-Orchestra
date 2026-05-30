@@ -60,6 +60,15 @@ export class GovernanceCyclesController {
     return this.service.createCycle(clientId!, dto, { actorUserId, meta });
   }
 
+  @Get('governance-cycles/by-project/:projectId')
+  @RequirePermissions('governance_cycles.read')
+  listCyclesByProject(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+  ) {
+    return this.service.listCyclesByProject(clientId!, projectId);
+  }
+
   @Get('governance-cycles/:id')
   @RequirePermissions('governance_cycles.read')
   getCycle(

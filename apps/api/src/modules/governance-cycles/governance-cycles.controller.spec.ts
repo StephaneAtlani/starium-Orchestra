@@ -16,6 +16,7 @@ const passGuard = { canActivate: () => true };
 describe('GovernanceCyclesController', () => {
   const serviceMock = {
     listCycles: jest.fn(),
+    listCyclesByProject: jest.fn(),
     getCycleById: jest.fn(),
     getCycleSummary: jest.fn(),
     createCycle: jest.fn(),
@@ -76,6 +77,12 @@ describe('GovernanceCyclesController', () => {
         GovernanceCyclesController.prototype.getCycleSummary,
       ),
     ).toEqual(['governance_cycles.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.listCyclesByProject,
+      ),
+    ).toEqual(['governance_cycles.read']);
   });
 
   it('permissions create / update / delete', () => {
@@ -120,6 +127,18 @@ describe('GovernanceCyclesController', () => {
       offset: 5,
     });
     expect(result).toEqual({ items: [], total: 0, limit: 20, offset: 0 });
+  });
+
+  it('listCyclesByProject délègue au service', async () => {
+    const controller = new GovernanceCyclesController(
+      serviceMock as unknown as GovernanceCyclesService,
+    );
+    serviceMock.listCyclesByProject.mockResolvedValue({ items: [] });
+
+    const result = await controller.listCyclesByProject('client-a', 'proj-1');
+
+    expect(serviceMock.listCyclesByProject).toHaveBeenCalledWith('client-a', 'proj-1');
+    expect(result).toEqual({ items: [] });
   });
 
   it('createCycle ne reçoit pas clientId dans le DTO', () => {

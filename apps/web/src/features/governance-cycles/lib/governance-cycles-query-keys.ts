@@ -9,4 +9,6 @@ export const governanceCyclesKeys = {
     ['governance-cycles', clientId, 'items', cycleId, filters ?? {}] as const,
   summary: (clientId: string, cycleId: string) =>
     ['governance-cycles', clientId, 'summary', cycleId] as const,
+  byProject: (clientId: string, projectId: string) =>
+    ['governance-cycles', clientId, 'by-project', projectId] as const,
 };

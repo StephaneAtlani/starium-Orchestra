@@ -2,9 +2,9 @@
 
 ## Statut
 
-📝 **Draft** — spécification d’intégration minimale module Projets ↔ Cycles de pilotage.
+✅ **Implémenté** (2026-05-30) — endpoint `by-project` + bloc lecture seule fiche projet `/projects/[id]`.
 
-**Prérequis backend** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — CRUD cycles + items + scoring §4.5 + KPI global B7 + audits/transitions B8 livrés (lots B1–B8) ; endpoint `GET /api/governance-cycles/by-project/:projectId` **non encore implémenté** (RFC-002 / lot B9).
+**Prérequis backend** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — lots B1–B9 livrés (inclut `GET /api/governance-cycles/by-project/:projectId`).
 
 **Prérequis frontend** : [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) — UI `/cycles` **livrée** (2026-05-30).
 
@@ -34,13 +34,16 @@
 
 **Creer**
 
-- (optionnel si separation service) `apps/api/src/modules/governance-cycles/queries/governance-cycles-by-project.query.ts`
+- `apps/api/src/modules/governance-cycles/lib/governance-cycle-period.util.ts` (+ spec)
+- `apps/web/src/features/governance-cycles/components/project-governance-cycles-presence-block.tsx` (+ spec)
 
 **Modifier**
 
-- `apps/api/src/modules/governance-cycles/governance-cycles.controller.ts`
+- `apps/api/src/modules/governance-cycles/governance-cycles.controller.ts` (route `by-project` **avant** `:id`)
 - `apps/api/src/modules/governance-cycles/governance-cycles.service.ts`
-- `apps/web/src/features/projects/*` (zone fiche projet, bloc lateral ou card)
+- `apps/api/src/modules/governance-cycles/governance-cycles.types.ts`
+- `apps/web/src/features/governance-cycles/api/*`, `lib/governance-cycles-query-keys.ts`, hooks
+- `apps/web/src/features/projects/components/project-detail-view.tsx`
 - `docs/API.md` (ajout endpoint)
 
 ---
@@ -77,7 +80,7 @@ type GovernanceCyclesByProjectResponse = {
 - verifier que `projectId` appartient au client actif, sinon `404`
 - ne retourner que les items/cycles du meme `clientId`
 - trier par cycle le plus recent en premier (`updatedAt` cycle puis item)
-- ignorer les cycles archives si choix produit V1 orientee exploitation (ou inclure avec badge "Archive" selon parametre)
+- **V1 livré** : exclure les cycles `ARCHIVED` (aligné sur `listCycles` sans `includeArchived`)
 
 ### 4.3 Integration frontend fiche projet
 
@@ -97,6 +100,24 @@ Exemple visuel :
 - `Cycle budget 2026 — Differe`
 - `Cycle transformation SI — A arbitrer`
 
+### 4.4 Implémentation repo (2026-05-30)
+
+**Backend**
+
+- Route : `GovernanceCyclesController.listCyclesByProject` — `@Get('governance-cycles/by-project/:projectId')` **avant** `@Get('governance-cycles/:id')`
+- Service : `GovernanceCyclesService.listCyclesByProject` — vérif `Project` client-scope, requête unique `GovernanceCycleItem` + join cycle, DTO compact
+- `periodLabel` : `buildGovernanceCyclePeriodLabel` (`lib/governance-cycle-period.util.ts`, locale `fr-FR`, spec dédiée)
+
+**Frontend**
+
+- API : `getGovernanceCyclesByProject` ; query key `governanceCyclesKeys.byProject(clientId, projectId)` ; hook `useGovernanceCyclesByProjectQuery`
+- Composant : `ProjectGovernanceCyclesPresenceBlock` — monté dans `project-detail-view.tsx` (après budget, avant planning) ; **masqué** sans `governance_cycles.read` (`return null`, query `enabled: false`) ; max **5** lignes + lien « Voir tous les cycles » ; `periodLabel` affiché tel quel (pas de reformatage React)
+
+**Tests**
+
+- Backend : 88 tests module `governance-cycles` (dont `listCyclesByProject` service + controller)
+- Frontend : `project-governance-cycles-presence-block.spec.ts` (+ query keys spec)
+
 ---
 
 ## 5) Modifications Prisma si necessaire
@@ -107,19 +128,19 @@ Aucune additionnelle si [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20
 
 ## 6) Tests
 
-### Backend
+### Backend ✅
 
 - `by-project` retourne uniquement les cycles du client actif
 - `404` sur projet hors scope client
 - tri et mapping `periodLabel` coherents
 - robustesse si `priorityScore` null
 
-### Frontend
+### Frontend ✅
 
-- bloc masque si permission absente
+- bloc masque si permission absente (`enabled: false`, pas de fetch)
 - etats loading/empty/error geres proprement
 - badges decision affichent labels metier FR, pas enum brute exposee
-- aucune valeur ID brute visible
+- aucune valeur ID brute visible en texte principal
 
 ---
 

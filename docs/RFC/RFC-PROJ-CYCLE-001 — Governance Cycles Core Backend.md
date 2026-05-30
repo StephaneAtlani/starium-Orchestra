@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Partiellement implémenté** (backend) — lots **B1–B8** livrés : modèles, RBAC, CRUD cycles, CRUD items, audits (cycle + items, dont `validated`/`closed`), **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Reste **B9** (`by-project` — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)). Frontend **FE-001** livré — voir [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md).
+✅ **Implémenté** (backend) — lots **B1–B9** : modèles, RBAC, CRUD cycles/items, scoring, KPI global, audits/transitions, **`GET …/by-project/:projectId`** ([RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)). Frontend **FE-001** — [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md).
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 
@@ -22,12 +22,12 @@
 | CRUD items (5 routes sous `:id/items`) | ✅ | Lot B5 — détail [API.md](../API.md) §5.8 ; PATCH édition/arbitrage séparés (body mixte → 400) |
 | DTOs items | ✅ | `create-` / `update-` / `list-governance-cycle-items-query` |
 | Audits items | ✅ | `governance_cycle_item.created\|updated\|deleted\|decision_changed` |
-| Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` — 78 tests module |
+| Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` — **88 tests module** (dont B9 `by-project`) |
 | Scoring `priorityScore` (§4.5) | ✅ | `governance-cycle-scoring.util.ts` (`computePriorityScore`, `hasScorePatch`) ; recalcul create toujours, update si clé score présente ; DTOs + specs ValidationPipe ; tri `nulls: 'last'` |
 | Tests scoring §6 | ✅ | `governance-cycle-scoring.util.spec.ts`, `governance-cycles.service.spec.ts`, `create-` / `update-governance-cycle-item.dto.spec.ts` |
 | Tests summary KPI B7 §6 | ✅ | `getCycleSummary` — 5 cas service + controller |
 | Tests audits cycle validated/closed + items §6 | ✅ | `describe('audits cycle')`, tests `updateItem.updated`, isolation — lot B8 |
-| `GET …/by-project` | ❌ | Lot B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
+| `GET …/by-project` | ✅ | Lot B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
 
 ---
 
@@ -127,7 +127,7 @@ Items :
 Agregats :
 
 - `GET /api/governance-cycles/:id/summary` ✅ — `GovernanceCycleGlobalSummaryDto` (KPI overview ; voir [API.md](../API.md) §5.8)
-- `GET /api/governance-cycles/by-project/:projectId` ❌ (lot B9 — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md))
+- `GET /api/governance-cycles/by-project/:projectId` ✅ (lot B9 — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md))
 
 ### 4.4 Regles metier obligatoires
 

@@ -91,3 +91,16 @@ export type GovernanceCycleItemListResponseDto = {
   limit: number;
   offset: number;
 };
+
+export type GovernanceCycleByProjectItemDto = {
+  cycleId: string;
+  cycleName: string;
+  cadence: GovernanceCycleCadence;
+  periodLabel: string;
+  decisionStatus: GovernanceCycleItemDecisionStatus;
+  priorityScore: number | null;
+};
+
+export type GovernanceCyclesByProjectResponseDto = {
+  items: GovernanceCycleByProjectItemDto[];
+};

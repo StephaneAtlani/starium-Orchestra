@@ -7,6 +7,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import {
   getGovernanceCycle,
   getGovernanceCycleSummary,
+  getGovernanceCyclesByProject,
   listGovernanceCycleItems,
   listGovernanceCycles,
 } from './governance-cycles.api';
@@ -68,6 +69,21 @@ export function useGovernanceCycleSummaryQuery(
     queryKey: governanceCyclesKeys.summary(clientId, cycleId),
     queryFn: () => getGovernanceCycleSummary(authFetch, cycleId),
     enabled: readEnabled && Boolean(cycleId),
+  });
+}
+
+export function useGovernanceCyclesByProjectQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
+  const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
+  const enabled =
+    readEnabled && Boolean(projectId) && (options?.enabled !== false);
+
+  return useQuery({
+    queryKey: governanceCyclesKeys.byProject(clientId, projectId),
+    queryFn: () => getGovernanceCyclesByProject(authFetch, projectId),
+    enabled,
   });
 }
 

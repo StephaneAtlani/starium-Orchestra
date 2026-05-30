@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** (cycles de pilotage — CRUD cycles + items + scoring §4.5 + KPI global B7, voir §5.8 ; by-project hors scope), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** / **RFC-PROJ-CYCLE-002** (cycles de pilotage — CRUD + `by-project`, voir §5.8), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
 
 ---
 
@@ -589,6 +589,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 | /api/governance-cycles (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.create`) — module `governance_cycles` |
+| /api/governance-cycles/by-project/:projectId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — présence projet dans les cycles (RFC-PROJ-CYCLE-002) ; **404** si projet hors client |
 | /api/governance-cycles/:id (GET, PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.update`) |
 | /api/governance-cycles/:id/summary (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — KPI global `GovernanceCycleGlobalSummaryDto` ; isolation `clientId` |
 | /api/governance-cycles/:id (DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.delete`) — archivage logique → **204** sans corps |
@@ -961,9 +962,9 @@ Statuts : `DRAFT` -> `SUBMITTED` -> `APPROVED | REJECTED` ; depuis `APPROVED`, d
 Le `PATCH` reste interdit en `SUBMITTED` et `ARCHIVED`.
 `statement` reste conservé en legacy (compat API), tandis que l’UI V1 pilote les contenus via `title`, `ambition`, `context`.
 
-## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001)
+## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001, RFC-PROJ-CYCLE-002)
 
-Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + KPI global `GET …/:id/summary` (B7) + audits / transitions `TO_ARBITRATE` / `CLOSED` (B8). **Hors scope actuel** : `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002 / B9).
+Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + KPI global `GET …/:id/summary` (B7) + audits / transitions `TO_ARBITRATE` / `CLOSED` (B8) + intégration projet `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002 / B9).
 
 **Headers** : `Authorization: Bearer <accessToken>`, **`X-Client-Id`** (client actif). Aucun `clientId` dans les corps write.
 
@@ -1013,6 +1014,32 @@ Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cy
 - **Body** : `name` (requis), `code?`, `description?`, `cadence` (enum, requis), `status?` (défaut `DRAFT`), `startDate?`, `endDate?`, `sponsorLabel?`, `objectiveSummary?`, `decisionSummary?`
 - **Réponse 200** : objet cycle (même forme qu’un élément de `items` ci-dessus)
 - **Audit** : `governance_cycle.created`
+
+### GET /api/governance-cycles/by-project/:projectId
+
+- **Permission** : `governance_cycles.read`
+- **Route** : déclarée **avant** `GET …/:id` côté Nest (segment littéral `by-project`)
+- **Comportement** : lecture seule ; vérifie que le projet appartient au client actif (**404** `Project not found for active client` sinon) ; retourne les cycles (non `ARCHIVED`) où le projet est item `PROJECT`, triés par `cycle.updatedAt` desc
+- **Réponse 200** :
+
+```json
+{
+  "items": [
+    {
+      "cycleId": "…",
+      "cycleName": "Cycle CODIR juin 2026",
+      "cadence": "MONTHLY",
+      "periodLabel": "01 juin 2026 → 30 juin 2026",
+      "decisionStatus": "ACCEPTED",
+      "priorityScore": 4.2
+    }
+  ]
+}
+```
+
+- `periodLabel` : format FR stable (util `buildGovernanceCyclePeriodLabel`, aligné UI)
+- Pas de pagination (au plus une ligne par cycle — contrainte unique `cycleId` + `projectId` sur l’item)
+- **Ne modifie pas** `Project.status`
 
 ### GET /api/governance-cycles/:id
 

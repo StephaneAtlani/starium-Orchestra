@@ -6,6 +6,7 @@ import type {
   GovernanceCycleItemResponseDto,
   GovernanceCycleListResponseDto,
   GovernanceCycleResponseDto,
+  GovernanceCyclesByProjectResponseDto,
   ListGovernanceCycleItemsParams,
   ListGovernanceCyclesParams,
 } from '../types/governance-cycle.types';
@@ -75,6 +76,15 @@ export async function getGovernanceCycleSummary(
   const res = await authFetch(`${BASE}/${cycleId}/summary`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<GovernanceCycleGlobalSummaryDto>;
+}
+
+export async function getGovernanceCyclesByProject(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<GovernanceCyclesByProjectResponseDto> {
+  const res = await authFetch(`${BASE}/by-project/${projectId}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<GovernanceCyclesByProjectResponseDto>;
 }
 
 export async function createGovernanceCycle(

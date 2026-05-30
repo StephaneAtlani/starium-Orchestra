@@ -1,7 +1,7 @@
 # Plan de développement — Cycles de pilotage
 
 > **Dernière révision** : 2026-05-30  
-> **Statut global** : **partiel** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) backend **B1–B8** livrés ; [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) **UI V1 livrée** (2026-05-30) ; [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) (**B9** `by-project`) **à faire**  
+> **Statut global** : **livré (V1)** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) backend **B1–B9** ; [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) UI `/cycles` ; [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) intégration fiche projet (2026-05-30)  
 > **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer**
 
 Ce document est le **plan d’exécution** consolidé. **Tu travailles par numéro de RFC** (fichiers dans `docs/RFC/`) ; les anciens codes « lots » (B1, F3, I1…) restent en **annexe** pour lecture historique uniquement.
@@ -14,9 +14,9 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 
 | RFC | Fichier | Rôle | État |
 | --- | ------- | ---- | ---- |
-| **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, tests | 🟡 Partielle (B1–B8 livrés ; reste B9 by-project) |
+| **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, by-project | ✅ Implémenté (B1–B9, 2026-05-30) |
 | **RFC-FE-PROJ-CYCLE-001** | [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | ✅ Implémenté (2026-05-30) |
-| **RFC-PROJ-CYCLE-002** | [Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | 📝 Draft — non implémentée |
+| **RFC-PROJ-CYCLE-002** | [Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | ✅ Implémenté (2026-05-30) |
 | [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index 31a-1 → 31a-3 | Statuts index | À jour |
 | [_Plan legacy Cycle projets](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) | Doublon historique | ⚠️ Ne pas utiliser comme source |
 
@@ -32,9 +32,9 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 | **RFC-PROJ-CYCLE-001** §4.3–4.4 — CRUD items | ✅ |
 | **RFC-PROJ-CYCLE-001** §4.5 — scoring | ✅ `governance-cycle-scoring.util.ts`, `hasScorePatch`, specs DTO ValidationPipe |
 | **RFC-PROJ-CYCLE-001** §4.3 — route **`GET /api/governance-cycles/:id/summary`** (lot B7) | ✅ `GovernanceCycleGlobalSummaryDto` — handler + service + tests + [API.md](../API.md) §5.8 |
-| **RFC-PROJ-CYCLE-001** §6 — audits items + tests backend complets | ✅ (audits cycle validated/closed, règles TO_ARBITRATE/CLOSED, tests B8 — 78 tests module ; hors B9 by-project) |
+| **RFC-PROJ-CYCLE-001** §6 — audits items + tests backend complets | ✅ (audits cycle validated/closed, règles TO_ARBITRATE/CLOSED, tests B8–B9 — 88 tests module) |
 | **RFC-FE-PROJ-CYCLE-001** — UI `/cycles` | ✅ |
-| **RFC-PROJ-CYCLE-002** — `GET …/by-project/:projectId` + bloc projet | ❌ |
+| **RFC-PROJ-CYCLE-002** — `GET …/by-project/:projectId` + bloc projet | ✅ |
 
 > **Lexique `summary` (ne pas confondre)**  
 > - **Embarqué ✅ (B4)** : objet `summary` inclus dans la réponse cycle (liste et détail). Suffit pour la liste `/cycles` et le header détail.  
@@ -118,7 +118,7 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 | 5 | §4.3–4.4 | **CRUD items** (5 endpoints sous `:id/items`) | `sourceType` + FK ; doublon projet → 409 ; PATCH mixte → 400 ; pas de mutation `Project` | ✅ |
 | 6 | §4.5 | Scoring `priorityScore` | Formule RFC ; 1–5 ; recalcul create ; update si clé score (`hasScorePatch`) ; `priorityScore` jamais en body ; backend only | ✅ |
 | 7 | §4.3 | **Route** `GET /api/governance-cycles/:id/summary` (**B7**) | `GovernanceCycleGlobalSummaryDto` ; 3 requêtes Prisma parallèles ; **404** hors client ; permission `governance_cycles.read` ; doc `API.md` ; tests controller/service | ✅ |
-| 8 | §6 | Audits items + tests backend complets | `governance_cycle_item.*` ✅ ; audits `validated`/`closed` + règles transitions ✅ ; tests B8 (78 tests module) ; reste B9 by-project (RFC-002) | ✅ |
+| 8 | §6 | Audits items + tests backend complets | `governance_cycle_item.*` ✅ ; audits `validated`/`closed` + règles transitions ✅ ; B9 `by-project` (RFC-002) ✅ ; 88 tests module | ✅ |
 
 **Durée indicative** : 1,5–2 sprints backend (équipe familière du repo).
 
@@ -155,8 +155,8 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 
 | Contenu | Critères d’acceptation | État |
 | ------- | ---------------------- | ---- |
-| `GET /api/governance-cycles/by-project/:projectId` (module **governance-cycles** uniquement) | Read-only ; isolation client | ❌ |
-| Bloc « Présence dans les cycles » sur fiche projet | Max 5 lignes + lien ; masqué sans permission | ❌ |
+| `GET /api/governance-cycles/by-project/:projectId` (module **governance-cycles** uniquement) | Read-only ; isolation client | ✅ |
+| Bloc « Présence dans les cycles » sur fiche projet | Max 5 lignes + lien ; masqué sans permission | ✅ |
 
 **Durée indicative** : 0,5 sprint.
 
@@ -213,14 +213,14 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 - [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 items — tests CRUD items
 - [x] **RFC-PROJ-CYCLE-001** §4.5 scoring + §6 tests scoring  
 - [x] **RFC-PROJ-CYCLE-001** §4.3 route summary B7 + tests KPI global  
-- [x] **RFC-PROJ-CYCLE-001** §6 audits validated/closed + tests B8 (78 tests module)  
+- [x] **RFC-PROJ-CYCLE-001** §6 audits validated/closed + tests B8–B9 (88 tests module)  
 - [x] **RFC-FE-PROJ-CYCLE-001** livrée + tests frontend  
-- [ ] **RFC-PROJ-CYCLE-002** livrée  
+- [x] **RFC-PROJ-CYCLE-002** livrée  
 - [x] Seed : module + permissions + profils globaux cohérents  
-- [x] `docs/API.md` à jour (§5.8 cycles + items + scoring + summary B7 + transitions TO_ARBITRATE/CLOSED)  
-- [x] `_RFC Liste.md` aligné (31a-1 partiel B1–B8 ; 31a-2 FE-001 implémenté)  
-- [ ] RFC-PROJ-CYCLE-001 statut « Implémenté » (après B9 by-project) ; **RFC-PROJ-CYCLE-002** à faire  
-- [x] Revue conformité multi-client sur CRUD cycles et items ([ARCHITECTURE.md](../ARCHITECTURE.md) — B1–B8)  
+- [x] `docs/API.md` à jour (§5.8 cycles + items + scoring + summary B7 + `by-project` B9 + transitions TO_ARBITRATE/CLOSED)  
+- [x] `_RFC Liste.md` aligné (31a-1 B1–B9 ; 31a-2 FE-001 ; 31a-3 RFC-002)  
+- [x] RFC-PROJ-CYCLE-001 statut « Implémenté » (B9 by-project) ; **RFC-PROJ-CYCLE-002** livrée  
+- [x] Revue conformité multi-client sur CRUD cycles, items et `by-project` ([ARCHITECTURE.md](../ARCHITECTURE.md))  
 
 ---
 
@@ -242,11 +242,7 @@ Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 
 ### RFC-PROJ-CYCLE-002 (intégration projet)
 
-```
-Implémente RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles (docs/RFC/RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles.md).
-
-GET /api/governance-cycles/by-project/:projectId côté governance-cycles uniquement. Bloc read-only fiche projet. Pas de mutation Project.status.
-```
+> **Livré (2026-05-30)** — ne plus réimplémenter. Référence : `listCyclesByProject` dans `GovernanceCyclesService`, route `GET /api/governance-cycles/by-project/:projectId` (déclarée **avant** `:id`), bloc `ProjectGovernanceCyclesPresenceBlock` sur `/projects/[id]`, [API.md](../API.md) §5.8.
 
 ### Doc après livraison
 

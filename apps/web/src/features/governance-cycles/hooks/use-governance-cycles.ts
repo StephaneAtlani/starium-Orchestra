@@ -4,6 +4,7 @@ export {
   useGovernanceCycleSummaryQuery,
   useGovernanceCycleItemsQuery,
   useGovernanceCycleSummariesForIdsQuery,
+  useGovernanceCyclesByProjectQuery,
   useGovernanceCyclesReadContext,
 } from '../api/governance-cycles.queries';
 

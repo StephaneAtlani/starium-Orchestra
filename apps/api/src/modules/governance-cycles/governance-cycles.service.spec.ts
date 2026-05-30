@@ -213,6 +213,76 @@ describe('GovernanceCyclesService', () => {
     );
   });
 
+  describe('listCyclesByProject (RFC-PROJ-CYCLE-002)', () => {
+    it('404 si projet absent ou hors client', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+      await expect(
+        service.listCyclesByProject('client-a', 'proj-unknown'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.governanceCycleItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it('200 avec items vides si projet sans cycle', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: 'proj-1' });
+      prisma.governanceCycleItem.findMany.mockResolvedValue([]);
+
+      const result = await service.listCyclesByProject('client-a', 'proj-1');
+
+      expect(result).toEqual({ items: [] });
+      expect(prisma.governanceCycleItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'client-a',
+            projectId: 'proj-1',
+            cycle: { status: { not: GovernanceCycleStatus.ARCHIVED } },
+          }),
+        }),
+      );
+    });
+
+    it('mappe periodLabel, decisionStatus et priorityScore null', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: 'proj-1' });
+      prisma.governanceCycleItem.findMany.mockResolvedValue([
+        {
+          decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+          priorityScore: null,
+          cycle: {
+            id: 'cycle-2',
+            name: 'Cycle budget 2026',
+            cadence: GovernanceCycleCadence.YEARLY,
+            startDate: new Date('2026-01-01T00:00:00.000Z'),
+            endDate: new Date('2026-12-31T00:00:00.000Z'),
+          },
+        },
+      ]);
+
+      const result = await service.listCyclesByProject('client-a', 'proj-1');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        cycleId: 'cycle-2',
+        cycleName: 'Cycle budget 2026',
+        cadence: GovernanceCycleCadence.YEARLY,
+        decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+        priorityScore: null,
+      });
+      expect(result.items[0].periodLabel).toContain('→');
+    });
+
+    it('respecte le tri cycle.updatedAt desc', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: 'proj-1' });
+      prisma.governanceCycleItem.findMany.mockResolvedValue([]);
+
+      await service.listCyclesByProject('client-a', 'proj-1');
+
+      expect(prisma.governanceCycleItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ cycle: { updatedAt: 'desc' } }, { updatedAt: 'desc' }],
+        }),
+      );
+    });
+  });
+
   it('createCycle injecte clientId et audite', async () => {
     prisma.governanceCycle.create.mockResolvedValue(baseCycle);
     prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);

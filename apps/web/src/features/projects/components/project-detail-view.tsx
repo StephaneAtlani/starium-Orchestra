@@ -56,6 +56,7 @@ import {
   ListTodo,
 } from 'lucide-react';
 import { ProjectBudgetSection } from './project-budget-section';
+import { ProjectGovernanceCyclesPresenceBlock } from '@/features/governance-cycles/components/project-governance-cycles-presence-block';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import type { ProjectDetail } from '../types/project.types';
@@ -985,6 +986,8 @@ function ProjectDetailTabbedContent({
         </div>
 
         <ProjectBudgetSection projectId={projectId} />
+
+        <ProjectGovernanceCyclesPresenceBlock projectId={projectId} />
 
         <Card size="sm" className="overflow-hidden shadow-sm">
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">

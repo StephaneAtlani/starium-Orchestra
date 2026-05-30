@@ -11,5 +11,14 @@ describe('governanceCyclesKeys', () => {
     expect(governanceCyclesKeys.detail(c1, 'cycle-1')).toContain(c1);
     expect(governanceCyclesKeys.items(c1, 'cycle-1')).toContain(c1);
     expect(governanceCyclesKeys.summary(c1, 'cycle-1')).toContain(c1);
+    expect(governanceCyclesKeys.byProject(c1, 'proj-1')).toEqual([
+      'governance-cycles',
+      c1,
+      'by-project',
+      'proj-1',
+    ]);
+    expect(governanceCyclesKeys.byProject(c1, 'proj-1')).not.toEqual(
+      governanceCyclesKeys.byProject(c2, 'proj-1'),
+    );
   });
 });

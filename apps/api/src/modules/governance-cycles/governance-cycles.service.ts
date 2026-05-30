@@ -26,11 +26,14 @@ import type {
   GovernanceCycleItemListResponseDto,
   GovernanceCycleItemResponseDto,
   GovernanceCycleItemSourceRefDto,
+  GovernanceCycleByProjectItemDto,
   GovernanceCycleGlobalSummaryDto,
   GovernanceCycleListResponseDto,
   GovernanceCycleResponseDto,
+  GovernanceCyclesByProjectResponseDto,
   GovernanceCycleSummaryDto,
 } from './governance-cycles.types';
+import { buildGovernanceCyclePeriodLabel } from './lib/governance-cycle-period.util';
 import {
   GOVERNANCE_CYCLE_ITEM_ARBITRATION_KEYS,
   GOVERNANCE_CYCLE_ITEM_EDITION_KEYS,
@@ -381,6 +384,55 @@ export class GovernanceCyclesService {
     const row = await this.findCycleInClient(clientId, id);
     const summary = await this.getSummaryForCycle(clientId, id);
     return this.toResponse(row, summary);
+  }
+
+  async listCyclesByProject(
+    clientId: string,
+    projectId: string,
+  ): Promise<GovernanceCyclesByProjectResponseDto> {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found for active client');
+    }
+
+    const rows = await this.prisma.governanceCycleItem.findMany({
+      where: {
+        clientId,
+        projectId,
+        cycle: { status: { not: GovernanceCycleStatus.ARCHIVED } },
+      },
+      select: {
+        decisionStatus: true,
+        priorityScore: true,
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            cadence: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+      },
+      orderBy: [{ cycle: { updatedAt: 'desc' } }, { updatedAt: 'desc' }],
+    });
+
+    const items: GovernanceCycleByProjectItemDto[] = rows.map((row) => ({
+      cycleId: row.cycle.id,
+      cycleName: row.cycle.name,
+      cadence: row.cycle.cadence,
+      periodLabel: buildGovernanceCyclePeriodLabel(
+        row.cycle.startDate,
+        row.cycle.endDate,
+      ),
+      decisionStatus: row.decisionStatus,
+      priorityScore: row.priorityScore,
+    }));
+
+    return { items };
   }
 
   async getCycleSummary(

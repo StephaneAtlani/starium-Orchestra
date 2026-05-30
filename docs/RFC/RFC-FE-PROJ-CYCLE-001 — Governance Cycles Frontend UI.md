@@ -6,7 +6,9 @@
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots F1–F8).
 
-**Prérequis backend (2026-05-30)** : API cycles + items + **scoring §4.5** + **KPI global B7** (`GET …/:id/summary`) + **audits / transitions** `TO_ARBITRATE` / `CLOSED` (lot B8) opérationnels ([API.md](../API.md) §5.8). L’onglet overview CODIR consomme la route summary dédiée ; le champ `summary` embarqué sur `GET :id` reste utilisable pour le header léger.
+**Prérequis backend (2026-05-30)** : API cycles + items + **scoring §4.5** + **KPI global B7** (`GET …/:id/summary`) + **audits / transitions** `TO_ARBITRATE` / `CLOSED` (lot B8) + **`by-project`** (lot B9 — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)) opérationnels ([API.md](../API.md) §5.8). L’onglet overview CODIR consomme la route summary dédiée ; le champ `summary` embarqué sur `GET :id` reste utilisable pour le header léger.
+
+**Intégration fiche projet (RFC-002)** : bloc read-only `ProjectGovernanceCyclesPresenceBlock` sur `/projects/[id]` — hors feature `/cycles` mais réutilise labels/badges governance-cycles.
 
 **Depend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-STRAT-003 — Strategic Vision Frontend UI](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md).
 
@@ -47,7 +49,7 @@
 | `types/` | `governance-cycle.types.ts` — string unions locales, **sans** `@prisma/client` ni import `apps/api` |
 | `schemas/` | `governance-cycle.schemas.ts` — schémas Zod **séparés** (cycle, create item, patch édition, patch arbitrage `.strict()`) |
 | `lib/` | `governance-cycles-query-keys.ts`, `governance-cycle-labels.ts`, `governance-cycle-formatters.ts` |
-| `components/` | `governance-cycles-page.tsx`, `governance-cycle-detail-page.tsx`, `governance-cycle-form-dialog.tsx`, `governance-cycle-arbitration-table.tsx`, `governance-cycle-item-scores-dialog.tsx`, `add-cycle-item-dialog.tsx`, `governance-cycle-overview-tab.tsx`, badges statut/décision |
+| `components/` | `governance-cycles-page.tsx`, `governance-cycle-detail-page.tsx`, … badges statut/décision ; **`project-governance-cycles-presence-block.tsx`** (RFC-002 — fiche projet) |
 
 **Navigation**
 
@@ -70,7 +72,7 @@
 
 | Action UI | Permission |
 | --------- | ---------- |
-| Liste / détail / summary / items | `governance_cycles.read` |
+| Liste / détail / summary / items / **by-project** (fiche projet) | `governance_cycles.read` |
 | Créer cycle ou item | `governance_cycles.create` |
 | Modifier cycle, scores item, supprimer item | `governance_cycles.update` |
 | Arbitrer (`decisionStatus` / `decisionReason`) | `governance_cycles.arbitrate` |
@@ -88,6 +90,7 @@ export const governanceCyclesKeys = {
   detail: (clientId: string, cycleId: string) => ['governance-cycles', clientId, 'detail', cycleId] as const,
   items: (clientId: string, cycleId: string) => ['governance-cycles', clientId, 'items', cycleId] as const,
   summary: (clientId: string, cycleId: string) => ['governance-cycles', clientId, 'summary', cycleId] as const,
+  byProject: (clientId: string, projectId: string) => ['governance-cycles', clientId, 'by-project', projectId] as const,
 };
 ```
 
@@ -140,11 +143,12 @@ Pas de modification Prisma frontend. Cette RFC consomme les contrats backend de 
 
 | Fichier | Couverture |
 | ------- | ---------- |
-| `lib/governance-cycles-query-keys.spec.ts` | `clientId` dans toutes les clés |
+| `lib/governance-cycles-query-keys.spec.ts` | `clientId` dans toutes les clés (dont `byProject`) |
 | `lib/governance-cycle-labels.spec.ts` | libellés FR, pas d’enum brut |
 | `schemas/governance-cycle.schemas.spec.ts` | schémas édition/arbitrage sans champs croisés |
 | `components/governance-cycles-page.render.spec.ts` | liste sans UUID visible ; synthèse page |
 | `components/governance-cycle-arbitration-table.spec.ts` | `sourceRef.label`, `priorityScore` API |
+| `components/project-governance-cycles-presence-block.spec.ts` | RFC-002 : masquage sans permission, labels FR, pas d’UUID en texte |
 | `config/navigation.spec.ts` | entrée `/cycles` + `moduleCode` |
 | `components/shell/navigation-visibility.spec.ts` | `governance_cycles.read` + module |
 
@@ -154,7 +158,7 @@ Commande : `npm test -- --run src/features/governance-cycles` (depuis `apps/web`
 
 ## 7) Recapitulatif final
 
-Cette RFC pose une UI governance-cycles complete cote frontend, branchee sur les APIs backend sans logique d’arbitrage critique en React. Elle couvre navigation, liste, detail, matrice de decision et ajout d’items, tout en respectant les conventions tenant-aware et "valeur metier, pas ID".
+Cette RFC pose une UI governance-cycles complete cote frontend, branchee sur les APIs backend sans logique d’arbitrage critique en React. Elle couvre navigation, liste, detail, matrice de decision et ajout d’items ; le bloc fiche projet (RFC-002) reutilise les memes libelles/badges. Conventions tenant-aware et « valeur metier, pas ID ».
 
 ---
 
