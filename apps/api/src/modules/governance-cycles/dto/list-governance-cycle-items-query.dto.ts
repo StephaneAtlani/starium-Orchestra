@@ -1,8 +1,32 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  GovernanceCycleItemDecisionStatus,
+  GovernanceCycleItemSourceType,
+} from '@prisma/client';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
-/** Squelette B5 — non exposé en B4. */
 export class ListGovernanceCycleItemsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(GovernanceCycleItemDecisionStatus)
+  decisionStatus?: GovernanceCycleItemDecisionStatus;
+
+  @IsOptional()
+  @IsEnum(GovernanceCycleItemSourceType)
+  sourceType?: GovernanceCycleItemSourceType;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

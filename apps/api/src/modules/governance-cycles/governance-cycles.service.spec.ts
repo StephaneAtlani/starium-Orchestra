@@ -1,11 +1,20 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   GovernanceCycleCadence,
   GovernanceCycleItemDecisionStatus,
+  GovernanceCycleItemSourceType,
   GovernanceCycleStatus,
+  Prisma,
 } from '@prisma/client';
+import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { PATCH_MIXED_EDITION_ARBITRATION_MESSAGE } from './lib/governance-cycle-decimal.util';
 import { GovernanceCyclesService } from './governance-cycles.service';
 
 type PrismaMock = {
@@ -19,7 +28,18 @@ type PrismaMock = {
   };
   governanceCycleItem: {
     groupBy: jest.Mock;
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    count: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
   };
+  project: { findFirst: jest.Mock };
+  budget: { findFirst: jest.Mock };
+  budgetLine: { findFirst: jest.Mock };
+  strategicObjective: { findFirst: jest.Mock };
+  projectRisk: { findFirst: jest.Mock };
 };
 
 const baseCycle = {
@@ -43,10 +63,42 @@ const baseCycle = {
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
 };
 
+const baseItem = {
+  id: 'item-1',
+  clientId: 'client-a',
+  cycleId: 'cycle-1',
+  sourceType: GovernanceCycleItemSourceType.PROJECT,
+  projectId: 'proj-1',
+  budgetId: null,
+  budgetLineId: null,
+  strategicObjectiveId: null,
+  riskId: null,
+  title: 'Projet Alpha',
+  description: null,
+  decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+  decisionReason: null,
+  valueScore: null,
+  riskScore: null,
+  budgetScore: null,
+  capacityScore: null,
+  alignmentScore: null,
+  priorityScore: null,
+  estimatedBudgetAmount: new Prisma.Decimal('1000.50'),
+  estimatedCapacityDays: new Prisma.Decimal('12.25'),
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+  project: { id: 'proj-1', name: 'Projet Alpha', code: 'PRJ-1' },
+  budget: null,
+  budgetLine: null,
+  strategicObjective: null,
+  risk: null,
+};
+
 describe('GovernanceCyclesService', () => {
   let service: GovernanceCyclesService;
   let prisma: PrismaMock;
   let auditLogs: { create: jest.Mock };
+  let effectivePermissions: { resolvePermissionCodesForRequest: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -60,12 +112,34 @@ describe('GovernanceCyclesService', () => {
       },
       governanceCycleItem: {
         groupBy: jest.fn().mockResolvedValue([]),
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        count: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
+      project: { findFirst: jest.fn() },
+      budget: { findFirst: jest.fn() },
+      budgetLine: { findFirst: jest.fn() },
+      strategicObjective: { findFirst: jest.fn() },
+      projectRisk: { findFirst: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    effectivePermissions = {
+      resolvePermissionCodesForRequest: jest.fn().mockResolvedValue(
+        new Set([
+          'governance_cycles.read',
+          'governance_cycles.create',
+          'governance_cycles.update',
+          'governance_cycles.arbitrate',
+        ]),
+      ),
+    };
     service = new GovernanceCyclesService(
       prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
+      effectivePermissions as unknown as EffectivePermissionsService,
     );
   });
 
@@ -87,6 +161,10 @@ describe('GovernanceCyclesService', () => {
           ? [{ cycleId, _count: { _all: counts.deferred } }]
           : [],
       );
+  }
+
+  function mockMutableCycle() {
+    prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
   }
 
   it('listCycles filtre par clientId et retourne pagination', async () => {
@@ -221,6 +299,571 @@ describe('GovernanceCyclesService', () => {
       itemsCount: 5,
       acceptedItemsCount: 2,
       deferredItemsCount: 1,
+    });
+  });
+
+  describe('items', () => {
+    it('createItem PROJECT dérive le titre et audite', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Projet Alpha',
+      });
+      prisma.governanceCycleItem.create.mockResolvedValue(baseItem);
+
+      const result = await service.createItem(
+        'client-a',
+        'cycle-1',
+        {
+          sourceType: GovernanceCycleItemSourceType.PROJECT,
+          projectId: 'proj-1',
+        },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clientId: 'client-a',
+            cycleId: 'cycle-1',
+            projectId: 'proj-1',
+            title: 'Projet Alpha',
+          }),
+        }),
+      );
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.created',
+          resourceType: 'governance_cycle_item',
+        }),
+      );
+      expect(result.estimatedBudgetAmount).toBe('1000.50');
+      expect(result.estimatedCapacityDays).toBe('12.25');
+      expect(result.sourceRef).toEqual({ id: 'proj-1', label: 'PRJ-1 — Projet Alpha' });
+    });
+
+    it('createItem sérialise les Decimal fournis en entrée', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Projet Alpha',
+      });
+      prisma.governanceCycleItem.create.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          estimatedBudgetAmount: data.estimatedBudgetAmount,
+          estimatedCapacityDays: data.estimatedCapacityDays,
+          include,
+        }),
+      );
+
+      const result = await service.createItem('client-a', 'cycle-1', {
+        sourceType: GovernanceCycleItemSourceType.PROJECT,
+        projectId: 'proj-1',
+        estimatedBudgetAmount: '2500.75',
+        estimatedCapacityDays: '8.5',
+      });
+
+      expect(result.estimatedBudgetAmount).toBe('2500.75');
+      expect(result.estimatedCapacityDays).toBe('8.50');
+    });
+
+    it('createItem doublon projet → ConflictException', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Projet Alpha',
+      });
+      prisma.governanceCycleItem.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.createItem('client-a', 'cycle-1', {
+          sourceType: GovernanceCycleItemSourceType.PROJECT,
+          projectId: 'proj-1',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('createItem référence projet hors client → NotFoundException', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createItem('client-a', 'cycle-1', {
+          sourceType: GovernanceCycleItemSourceType.PROJECT,
+          projectId: 'proj-x',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('createItem MANUAL sans titre → BadRequestException', async () => {
+      mockMutableCycle();
+
+      await expect(
+        service.createItem('client-a', 'cycle-1', {
+          sourceType: GovernanceCycleItemSourceType.MANUAL,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('createItem MANUAL avec projectId → BadRequestException', async () => {
+      mockMutableCycle();
+
+      await expect(
+        service.createItem('client-a', 'cycle-1', {
+          sourceType: GovernanceCycleItemSourceType.MANUAL,
+          title: 'Sujet libre',
+          projectId: 'proj-1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('updateItem PATCH mixte édition + arbitrage → BadRequestException', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+
+      await expect(
+        service.updateItem(
+          'client-a',
+          'cycle-1',
+          'item-1',
+          {
+            title: 'Nouveau titre',
+            decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+          },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toMatchObject({
+        response: { message: PATCH_MIXED_EDITION_ARBITRATION_MESSAGE },
+      });
+    });
+
+    it('updateItem édition sans governance_cycles.update → ForbiddenException', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['governance_cycles.arbitrate']),
+      );
+
+      await expect(
+        service.updateItem(
+          'client-a',
+          'cycle-1',
+          'item-1',
+          { title: 'Nouveau titre' },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('updateItem arbitrage sans governance_cycles.arbitrate → ForbiddenException', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['governance_cycles.update']),
+      );
+
+      await expect(
+        service.updateItem(
+          'client-a',
+          'cycle-1',
+          'item-1',
+          { decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('updateItem arbitrage audite decision_changed', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.update.mockResolvedValue({
+        ...baseItem,
+        decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+      });
+
+      await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.decision_changed',
+          resourceType: 'governance_cycle_item',
+        }),
+      );
+    });
+
+    it('createItem sur cycle ARCHIVED → ConflictException', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue({
+        ...baseCycle,
+        status: GovernanceCycleStatus.ARCHIVED,
+      });
+
+      await expect(
+        service.createItem('client-a', 'cycle-1', {
+          sourceType: GovernanceCycleItemSourceType.MANUAL,
+          title: 'Libre',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('deleteItem audite deleted', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.delete.mockResolvedValue(baseItem);
+
+      await service.deleteItem('client-a', 'cycle-1', 'item-1', {
+        actorUserId: 'user-1',
+      });
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.deleted',
+          resourceType: 'governance_cycle_item',
+        }),
+      );
+    });
+
+    it('listItems filtre par clientId et cycleId', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findMany.mockResolvedValue([baseItem]);
+      prisma.governanceCycleItem.count.mockResolvedValue(1);
+
+      await service.listItems('client-a', 'cycle-1', { limit: 20, offset: 0 });
+
+      expect(prisma.governanceCycleItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ clientId: 'client-a', cycleId: 'cycle-1' }),
+          orderBy: [
+            { priorityScore: { sort: 'desc', nulls: 'last' } },
+            { updatedAt: 'desc' },
+          ],
+        }),
+      );
+    });
+
+    it('createItem avec 5 scores calcule priorityScore', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Projet Alpha',
+      });
+      prisma.governanceCycleItem.create.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore,
+          riskScore: data.riskScore,
+          budgetScore: data.budgetScore,
+          capacityScore: data.capacityScore,
+          alignmentScore: data.alignmentScore,
+          priorityScore: data.priorityScore,
+          include,
+        }),
+      );
+
+      const result = await service.createItem('client-a', 'cycle-1', {
+        sourceType: GovernanceCycleItemSourceType.PROJECT,
+        projectId: 'proj-1',
+        valueScore: 5,
+        alignmentScore: 5,
+        budgetScore: 4,
+        capacityScore: 4,
+        riskScore: 2,
+      });
+
+      expect(prisma.governanceCycleItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            valueScore: 5,
+            alignmentScore: 5,
+            budgetScore: 4,
+            capacityScore: 4,
+            riskScore: 2,
+            priorityScore: 42,
+          }),
+        }),
+      );
+      expect(result.priorityScore).toBe(42);
+      expect(result.valueScore).toBe(5);
+    });
+
+    it('createItem sans scores laisse priorityScore à null', async () => {
+      mockMutableCycle();
+      prisma.project.findFirst.mockResolvedValue({
+        id: 'proj-1',
+        name: 'Projet Alpha',
+      });
+      prisma.governanceCycleItem.create.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore,
+          riskScore: data.riskScore,
+          budgetScore: data.budgetScore,
+          capacityScore: data.capacityScore,
+          alignmentScore: data.alignmentScore,
+          priorityScore: data.priorityScore,
+          include,
+        }),
+      );
+
+      const result = await service.createItem('client-a', 'cycle-1', {
+        sourceType: GovernanceCycleItemSourceType.PROJECT,
+        projectId: 'proj-1',
+      });
+
+      expect(prisma.governanceCycleItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            valueScore: null,
+            priorityScore: null,
+          }),
+        }),
+      );
+      expect(result.priorityScore).toBeNull();
+    });
+
+    it('updateItem score partiel avec scores existants complets recalcule priorityScore', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue({
+        ...baseItem,
+        valueScore: 5,
+        alignmentScore: 5,
+        budgetScore: 4,
+        capacityScore: 4,
+        riskScore: 2,
+        priorityScore: 42,
+      });
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore ?? null,
+          riskScore: data.riskScore ?? null,
+          budgetScore: data.budgetScore ?? null,
+          capacityScore: data.capacityScore ?? null,
+          alignmentScore: data.alignmentScore ?? null,
+          priorityScore: data.priorityScore ?? null,
+          include,
+        }),
+      );
+
+      const result = await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { valueScore: 3 },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            valueScore: 3,
+            priorityScore: 36,
+          }),
+        }),
+      );
+      expect(result.priorityScore).toBe(36);
+    });
+
+    it('updateItem score partiel recalcule priorityScore à null si incomplet', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore ?? baseItem.valueScore,
+          riskScore: data.riskScore ?? baseItem.riskScore,
+          budgetScore: data.budgetScore ?? baseItem.budgetScore,
+          capacityScore: data.capacityScore ?? baseItem.capacityScore,
+          alignmentScore: data.alignmentScore ?? baseItem.alignmentScore,
+          priorityScore: data.priorityScore ?? baseItem.priorityScore,
+          include,
+        }),
+      );
+
+      const result = await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { valueScore: 4 },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            valueScore: 4,
+            priorityScore: null,
+          }),
+        }),
+      );
+      expect(result.priorityScore).toBeNull();
+    });
+
+    it('updateItem sans champ score ne modifie pas priorityScore', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue({
+        ...baseItem,
+        valueScore: 5,
+        alignmentScore: 5,
+        budgetScore: 4,
+        capacityScore: 4,
+        riskScore: 2,
+        priorityScore: 42,
+        title: 'Ancien titre',
+      });
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          title: data.title ?? 'Ancien titre',
+          valueScore: 5,
+          alignmentScore: 5,
+          budgetScore: 4,
+          capacityScore: 4,
+          riskScore: 2,
+          priorityScore: 42,
+          include,
+        }),
+      );
+
+      const result = await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { title: 'Nouveau titre' },
+        { actorUserId: 'user-1' },
+      );
+
+      const updateCall = prisma.governanceCycleItem.update.mock.calls[0][0];
+      expect(updateCall.data).not.toHaveProperty('priorityScore');
+      expect(updateCall.data).not.toHaveProperty('valueScore');
+      expect(result.priorityScore).toBe(42);
+      expect(result.title).toBe('Nouveau titre');
+    });
+
+    it('updateItem valueScore null efface le score et priorityScore', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue({
+        ...baseItem,
+        valueScore: 5,
+        alignmentScore: 5,
+        budgetScore: 4,
+        capacityScore: 4,
+        riskScore: 2,
+        priorityScore: 42,
+      });
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore ?? null,
+          riskScore: data.riskScore ?? baseItem.riskScore,
+          budgetScore: data.budgetScore ?? baseItem.budgetScore,
+          capacityScore: data.capacityScore ?? baseItem.capacityScore,
+          alignmentScore: data.alignmentScore ?? baseItem.alignmentScore,
+          priorityScore: data.priorityScore ?? null,
+          include,
+        }),
+      );
+
+      const result = await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { valueScore: null },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            valueScore: null,
+            priorityScore: null,
+          }),
+        }),
+      );
+      expect(result.valueScore).toBeNull();
+      expect(result.priorityScore).toBeNull();
+    });
+
+    it('updateItem PATCH scores + decisionStatus → BadRequestException', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+
+      await expect(
+        service.updateItem(
+          'client-a',
+          'cycle-1',
+          'item-1',
+          {
+            valueScore: 4,
+            decisionStatus: GovernanceCycleItemDecisionStatus.ACCEPTED,
+          },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toMatchObject({
+        response: { message: PATCH_MIXED_EDITION_ARBITRATION_MESSAGE },
+      });
+    });
+
+    it('updateItem scores sans governance_cycles.update → ForbiddenException', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+        new Set(['governance_cycles.arbitrate']),
+      );
+
+      await expect(
+        service.updateItem(
+          'client-a',
+          'cycle-1',
+          'item-1',
+          { valueScore: 4 },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('updateItem scores complets recalcule priorityScore', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore ?? null,
+          riskScore: data.riskScore ?? null,
+          budgetScore: data.budgetScore ?? null,
+          capacityScore: data.capacityScore ?? null,
+          alignmentScore: data.alignmentScore ?? null,
+          priorityScore: data.priorityScore ?? null,
+          include,
+        }),
+      );
+
+      const result = await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        {
+          valueScore: 5,
+          alignmentScore: 5,
+          budgetScore: 4,
+          capacityScore: 4,
+          riskScore: 2,
+        },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(result.priorityScore).toBe(42);
     });
   });
 });

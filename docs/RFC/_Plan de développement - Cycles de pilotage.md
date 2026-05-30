@@ -1,51 +1,55 @@
 # Plan de développement — Cycles de pilotage
 
-> **Dernière révision** : 2026-05-29  
-> **Statut global** : **partiel** — backend lots **B1 + B2 + B4** livrés ; B5–B9, frontend F1–F8 et intégration I1 **à faire**  
+> **Dernière révision** : 2026-05-30  
+> **Statut global** : **partiel** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) §4.3–4.4 cycles + items + **§4.5 scoring** livrés ; **`summary` embarqué** (liste/détail cycle) ✅ ; **route dédiée** `GET …/:id/summary` (lot B7) ❌ — [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) et [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) **à faire**  
 > **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer**
 
-Ce document est le **plan d’exécution** consolidé. Les spécifications détaillées restent dans les RFC numérotées ; ce plan les ordonne, vérifie la cohérence avec le repo et fixe les critères d’acceptation par lot.
+Ce document est le **plan d’exécution** consolidé. **Tu travailles par numéro de RFC** (fichiers dans `docs/RFC/`) ; les anciens codes « lots » (B1, F3, I1…) restent en **annexe** pour lecture historique uniquement.
 
 ---
 
 ## 1. Audit de la documentation (2026-05-19)
 
-### 1.1 Documents de référence
+### 1.1 Documents de référence (RFC)
 
-| Document | Rôle | Cohérence |
-| -------- | ---- | --------- |
-| [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : modèles, API, RBAC, scoring, tests | 🟡 Partielle (B1–B4 livrés) — [statut RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) |
-| [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | ✅ Aligné feature-first + règle « valeur métier, pas ID » |
-| [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | ✅ Découplage module `governance-cycles` / `projects` |
-| [_Plan de développement - Cycle projets (legacy)](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) | Brouillon détaillé (lots + prompt Cursor) | ⚠️ **Doublon** — contenu repris ici ; fichier legacy conservé avec renvoi |
-| [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index statut RFC 31a-1 → 31a-3 | ✅ À jour (Draft) |
+| RFC | Fichier | Rôle | État |
+| --- | ------- | ---- | ---- |
+| **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, tests | 🟡 Partielle (B1–B6 livrés) |
+| **RFC-FE-PROJ-CYCLE-001** | [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | 📝 Draft — non implémentée |
+| **RFC-PROJ-CYCLE-002** | [Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | 📝 Draft — non implémentée |
+| [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index 31a-1 → 31a-3 | Statuts index | À jour |
+| [_Plan legacy Cycle projets](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) | Doublon historique | ⚠️ Ne pas utiliser comme source |
 
-### 1.2 Écarts doc ↔ code (vérification repo — 2026-05-29)
+### 1.2 Écarts doc ↔ code (vérification repo — 2026-05-30)
 
-| Attendu (RFC / plan) | État réel dans le repo |
-| -------------------- | ---------------------- |
-| Modèles `GovernanceCycle` / `GovernanceCycleItem` | ✅ `apps/api/prisma/schema.prisma` |
-| Migration SQL `governance_cycles_core` | ✅ `apps/api/prisma/migrations/20260528120000_governance_cycles_core/` — appliquer via `prisma migrate deploy` (supprimer le dossier vide `20260520120000_governance_cycles_core` s’il bloque P3015) |
-| Module `apps/api/src/modules/governance-cycles/` | ✅ Présent (controller, service, DTOs cycles + squelette items) |
-| Routes CRUD cycles `/api/governance-cycles` (+ `:id`) | ✅ 5 endpoints — [API.md](../API.md) §5.8 |
-| Routes items `/api/governance-cycles/:cycleId/items` | ❌ Lot B5 |
-| `GET /api/governance-cycles/:id/summary` global | ❌ Lot B7 (`summary` par cycle déjà sur liste/détail) |
-| Scoring `priorityScore` | ❌ Lot B6 |
-| `GET /api/governance-cycles/by-project/:projectId` | ❌ Lot I1 / RFC-002 |
-| Module RBAC `governance_cycles` + permissions seed | ✅ `seed.ts`, `default-profiles.json` |
-| Pages `/cycles`, feature `governance-cycles` | ❌ Absentes de `apps/web` |
-| Entrée sidebar « Cycles de pilotage » | ❌ Absente de `navigation.ts` |
+| Attendu (RFC) | État réel dans le repo |
+| ------------- | ---------------------- |
+| **RFC-PROJ-CYCLE-001** §4.1 / §5 — modèles + migration | ✅ `schema.prisma` + `migrations/20260528120000_governance_cycles_core/` — `prisma migrate deploy` (supprimer dossier vide `20260520120000_governance_cycles_core` si P3015) |
+| **RFC-PROJ-CYCLE-001** §3 — module Nest | ✅ `apps/api/src/modules/governance-cycles/` |
+| **RFC-PROJ-CYCLE-001** §4.2 — RBAC + seed | ✅ `seed.ts`, `default-profiles.json` |
+| **RFC-PROJ-CYCLE-001** §4.3–4.4 — CRUD cycles | ✅ 5 routes — [API.md](../API.md) §5.8 |
+| **RFC-PROJ-CYCLE-001** §4.3 — `summary` **embarqué** (liste + détail cycle) | ✅ Champ `summary` sur `GET /governance-cycles` et `GET /governance-cycles/:id` — `itemsCount`, `acceptedItemsCount`, `deferredItemsCount` ; calcul `getSummaryForCycle` / `buildSummariesForCycles` |
+| **RFC-PROJ-CYCLE-001** §4.3–4.4 — CRUD items | ✅ |
+| **RFC-PROJ-CYCLE-001** §4.5 — scoring | ✅ `governance-cycle-scoring.util.ts`, `hasScorePatch`, specs DTO ValidationPipe, 55 tests |
+| **RFC-PROJ-CYCLE-001** §4.3 — route **`GET /api/governance-cycles/:id/summary`** (lot B7) | ❌ Pas de handler controller ; agrégats déjà calculés mais non exposés sur URL dédiée |
+| **RFC-PROJ-CYCLE-001** §6 — audits items + tests complets | 🟡 partiel (audits cycle + item ✅ ; tests CRUD cycles + items ✅ ; tests scoring ✅ ; reste route summary B7 + tests associés) |
+| **RFC-FE-PROJ-CYCLE-001** — UI `/cycles` | ❌ |
+| **RFC-PROJ-CYCLE-002** — `GET …/by-project/:projectId` + bloc projet | ❌ |
+
+> **Lexique `summary` (ne pas confondre)**  
+> - **Embarqué ✅ (B4)** : objet `summary` inclus dans la réponse cycle (liste et détail). Suffit pour la liste `/cycles` et le header détail.  
+> - **Route dédiée ❌ (B7)** : `GET /api/governance-cycles/:id/summary` — ressource autonome (même payload V1, contrat API + tests + doc séparés). Recommandée pour l’onglet KPI overview FE ; le front peut aussi consommer le `summary` embarqué du détail en attendant B7.
 
 ### 1.3 Corrections documentaires à retenir pour l’implémentation
 
-- **Risques** : l’entité métier projet est `ProjectRisk` (pas un modèle `Risk` global) — les FK `riskId` sur `GovernanceCycleItem` doivent pointer vers `ProjectRisk` avec contrôle `project.clientId = client actif`.
-- **Endpoint projet** : exposer `GET /api/governance-cycles/by-project/:projectId` côté **governance-cycles** uniquement (RFC-002), pas sous `/api/projects/...`.
+- **Risques** : l’entité métier projet est `ProjectRisk` (pas un modèle `Risk` global) — les FK `riskId` sur `GovernanceCycleItem` doivent pointer vers `ProjectRisk` avec contrôle `project.clientId = client actif.
+- **Endpoint projet** : exposer `GET /api/governance-cycles/by-project/:projectId` côté **governance-cycles** uniquement (**RFC-PROJ-CYCLE-002**), pas sous `/api/projects/...`.
 - **Décision d’arbitrage** : portée par `GovernanceCycleItem.decisionStatus` — **ne jamais** synchroniser vers `Project.status` en V1.
 - **Profils globaux** : ajouter au minimum `governance_cycles.read` aux rôles « Directeur », « Chef de projet », profils Strategic Board selon politique produit ; créer un profil dédié « Gestionnaire cycles de pilotage » si besoin CODIR.
 
 ### 1.4 Fonctionnalités existantes (proxies, hors scope cycle)
 
-Tant que l’UI cycles n’est pas livrée (F1–F8), ces écrans couvrent une partie du besoin **sans** objet « cycle » côté front :
+Tant que **RFC-FE-PROJ-CYCLE-001** n’est pas livrée, ces écrans couvrent une partie du besoin **sans** objet « cycle » côté front :
 
 | Besoin schéma produit | Écran actuel | Limite |
 | --------------------- | ------------ | ------ |
@@ -74,12 +78,12 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 
 **Cadences V1** (enum `GovernanceCycleCadence`) : mensuel, trimestriel, semestriel, annuel, ponctuel, continu, personnalisé — libellés FR en UI, jamais les enums bruts.
 
-**Types d’items V1** (priorité d’implémentation) :
+**Types d’items V1** (priorité d’implémentation, **RFC-PROJ-CYCLE-001**) :
 
 1. `PROJECT` — MVP indispensable  
 2. `MANUAL` — éléments hors référentiel  
 3. `BUDGET` — lien budget / enveloppe  
-4. `STRATEGIC_OBJECTIVE`, `BUDGET_LINE`, `RISK` — extension lot 2 si charge OK  
+4. `STRATEGIC_OBJECTIVE`, `BUDGET_LINE`, `RISK` — extension post-MVP si charge OK  
 
 ---
 
@@ -89,76 +93,104 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 - **Multi-client** : `clientId` dérivé du client actif ; jamais dans les DTO write ; filtrage systématique.
 - **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`.
 - **Frontend** : `apps/web/src/features/governance-cycles/` + routes App Router ; TanStack Query avec `clientId` dans les query keys.
-- **Audit** : événements listés en RFC-001 (RFC-013).
+- **Audit** : événements listés en **RFC-PROJ-CYCLE-001** §6 (RFC-013).
 - **Références** : [ARCHITECTURE.md](../ARCHITECTURE.md), [RFC-011](./RFC-011-roles-permissions-modules.md), [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md).
 
 ---
 
-## 4. Plan d’exécution par lots
+## 4. Plan d’exécution par RFC (référence principale)
 
-Ordre recommandé : **backend d’abord** (lots B1–B10), puis **frontend** (F1–F10), puis **intégration projet** (I1). Ne pas commencer l’UI avant B4 + B5 stables.
+**Ordre recommandé** : finir **RFC-PROJ-CYCLE-001** (backend) → **RFC-FE-PROJ-CYCLE-001** (UI) → **RFC-PROJ-CYCLE-002** (fiche projet). Ne pas commencer **RFC-FE-PROJ-CYCLE-001** avant CRUD cycles **et** items stables (**RFC-PROJ-CYCLE-001** §4.3–4.4).
 
-### Phase A — Backend socle
+### 4.1 RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend
 
-| Lot | Contenu | Livrables | Critères d’acceptation | RFC | État |
-| --- | ------- | --------- | ---------------------- | --- | ---- |
-| **B1** | Prisma | Migration `GovernanceCycle`, `GovernanceCycleItem`, 4 enums, index `clientId` | `pnpm prisma migrate` OK ; contraintes FK + `@@unique([cycleId, projectId])` où applicable | 001 §4.1, 5 | ✅ |
-| **B2** | Module Nest squelette | `governance-cycles.module.ts`, enregistrement `app.module.ts` | Module boot ; DTOs cycles + squelette items | 001 §3 | ✅ |
-| **B3** | RBAC + seed | `ensureGovernanceCyclesModuleAndPermissions()` ; module client activable ; profils `default-profiles.json` | Permissions créées ; au moins un rôle global avec `governance_cycles.read` en démo | 001 §4.2 | ✅ |
-| **B4** | CRUD cycles | 5 endpoints cycle ; archive logique sur DELETE | 404 hors client ; 409 si cycle `ARCHIVED` modifié ; pas de `clientId` en body ; liste `{ items, total, limit, offset }` + `summary` | 001 §4.3–4.4 | ✅ |
-| **B5** | CRUD items | 5 endpoints items ; validation `sourceType` + FK | Doublon projet → 409 ; ref hors client → 404 ; pas de mutation `Project` | 001 §4.3–4.4 | |
-| **B6** | Scoring | Formule `priorityScore` dans le service | Recalcul à chaque save item ; scores 1–5 ; `null` si incomplet | 001 §4.5 | |
-| **B7** | Summary | `GET .../:id/summary` | Agrégats cohérents avec `decisionStatus` ; pas de N+1 grossier | 001 §4.3 | |
-| **B8** | Audit | Hooks audit sur cycle / item / décision | Événements émis avec `clientId` et acteur | 001 §6 | partiel (cycle) |
-| **B9** | Tests backend | Specs service + controller (isolation client, permissions, scoring) | `pnpm test` vert sur le module | 001 §6 | partiel |
+**Fichier** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md)
+
+**Calquer** : `apps/api/src/modules/strategic-vision/` (Nest), module existant `apps/api/src/modules/governance-cycles/`.
+
+| Ordre | Section RFC | Contenu | Critères d’acceptation (résumé) | État |
+| ----- | ----------- | ------- | -------------------------------- | ---- |
+| 1 | §4.1, §5 | Prisma + migration `governance_cycles_core` | `prisma migrate` OK ; FK ; `@@unique([cycleId, projectId])` | ✅ |
+| 2 | §3 | Module Nest (`governance-cycles.module`, `app.module`) | Boot ; DTOs cycles + items | ✅ |
+| 3 | §4.2 | RBAC `governance_cycles.*` + seed + profils | Permissions + module client activable | ✅ |
+| 4 | §4.3–4.4 | **CRUD cycles** (5 endpoints) | Liste `{ items, total, limit, offset }` ; DELETE → ARCHIVED **204** ; pas de `clientId` en body | ✅ |
+| 4b | §4.3 | **`summary` embarqué** | Champ `summary` sur liste + détail cycle ; agrégats `itemsCount` / `acceptedItemsCount` / `deferredItemsCount` ; pas de N+1 grossier en liste | ✅ |
+| 5 | §4.3–4.4 | **CRUD items** (5 endpoints sous `:id/items`) | `sourceType` + FK ; doublon projet → 409 ; PATCH mixte → 400 ; pas de mutation `Project` | ✅ |
+| 6 | §4.5 | Scoring `priorityScore` | Formule RFC ; 1–5 ; recalcul create ; update si clé score (`hasScorePatch`) ; `priorityScore` jamais en body ; backend only | ✅ |
+| 7 | §4.3 | **Route** `GET /api/governance-cycles/:id/summary` (**B7**) | Handler controller ; réutiliser `getSummaryForCycle` ; **404** hors client ; permission `governance_cycles.read` ; doc `API.md` ; tests controller/service | ❌ |
+| 8 | §6 | Audits items + tests backend complets | `governance_cycle_item.*` ✅ ; tests items + scoring ✅ ; reste tests route summary B7 | 🟡 partiel |
 
 **Durée indicative** : 1,5–2 sprints backend (équipe familière du repo).
 
-### Phase B — Frontend MVP
+---
 
-| Lot | Contenu | Livrables | Critères d’acceptation | RFC |
-| --- | ------- | --------- | ---------------------- | --- |
-| **F1** | Feature skeleton | `features/governance-cycles/` (api, hooks, keys, types, schemas) | Query keys incluent `clientId` | FE-001 §4.2 |
-| **F2** | Navigation | Section **Gouvernance** (ou **Pilotage stratégique**) → « Cycles de pilotage » → `/cycles` | Masqué si module off ou sans `governance_cycles.read` | FE-001 §4.1 |
-| **F3** | Liste `/cycles` | KPI, filtres, table paginée, dialog création | Libellés FR ; pas d’UUID en colonnes | FE-001 §4.3 |
-| **F4** | Détail `/cycles/[id]` | Header, onglets (overview + matrice minimum) | États loading / empty / error | FE-001 §4.4 |
-| **F5** | Matrice d’arbitrage | Table + actions décision (`governance_cycles.arbitrate`) | Retenir / Différer / Refuser / etc. ; labels métier | FE-001 §4.5 |
-| **F6** | Ajout d’items | Dialog recherche projet / manuel / budget | Combobox par nom/code ; soumission par ID interne uniquement | FE-001 §4.5, 6 |
-| **F7** | Onglets secondaires V1 | Projets candidats, Budget & capacité, Risques, Décisions (lecture) ; Documents = placeholder | Données issues API ; pas de logique scoring côté React | FE-001 §4.4 |
-| **F8** | Tests frontend | Tests hooks + composants critiques (permissions, labels) | Pas d’ID brut dans snapshots UI | FE-001 §6 |
+### 4.2 RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI
 
-**Durée indicative** : 1,5–2 sprints frontend après B7.
+**Fichier** : [RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md)
 
-### Phase C — Intégration transverse
+**Prérequis** : **RFC-PROJ-CYCLE-001** §4.3–4.5 (cycles + items + scoring + summary embarqué) — **livré** ; route `GET …/:id/summary` (B7) **optionnelle** pour l’onglet KPI overview (le détail cycle expose déjà `summary`).
 
-| Lot | Contenu | Livrables | Critères d’acceptation | RFC |
-| --- | ------- | --------- | ---------------------- | --- |
-| **I1** | Fiche projet | `GET by-project` + bloc « Présence dans les cycles » | Read-only ; max 5 lignes + lien ; masqué sans permission | 002 |
-| **I2** | Doc API | `docs/API.md` + passage RFC 001/002/FE en « Implémenté » si livré | Endpoints documentés avec permissions | skill docs |
+**Calquer** : `apps/web/src/features/strategic-vision/`, [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md).
 
-**Durée indicative** : 0,5 sprint.
+| Ordre | Section RFC | Contenu | Critères d’acceptation (résumé) | État |
+| ----- | ----------- | ------- | -------------------------------- | ---- |
+| 1 | §4.2 | Feature skeleton `features/governance-cycles/` | api, hooks, query keys avec `clientId` | ❌ |
+| 2 | §4.1 | Navigation → `/cycles` | Masqué si module off ou sans `governance_cycles.read` | ❌ |
+| 3 | §4.3 | Liste `/cycles` | Filtres, pagination, création ; libellés FR, pas d’UUID en colonnes | ❌ |
+| 4 | §4.4 | Détail `/cycles/[id]` | Header, onglets (overview + matrice minimum) | ❌ |
+| 5 | §4.5 | Matrice d’arbitrage | Consommer scores API ; `governance_cycles.arbitrate` ; labels métier ; **pas de calcul React** | ❌ |
+| 6 | §4.5, §6 | Ajout d’items | Combobox nom/code ; pas de scoring côté React | ❌ |
+| 7 | §4.4 | Onglets secondaires V1 | Projets, budget, risques, décisions (lecture) | ❌ |
+| 8 | §6 | Tests frontend | Hooks + composants ; pas d’ID brut en snapshots | ❌ |
 
-### Phase D — Extension (post-MVP, hors V1 stricte)
-
-| Lot | Contenu | Note |
-| --- | ------- | ---- |
-| **E1** | Items `STRATEGIC_OBJECTIVE`, `RISK`, `BUDGET_LINE` | Après stabilisation PROJECT + BUDGET |
-| **E2** | Transitions de statut cycle (PREPARING → TO_ARBITRATE → ARBITRATED → IN_EXECUTION → CLOSED) | Actions explicites + règles RFC (cycle vide, items CANDIDATE) |
-| **E3** | Export CODIR / PDF | Hors scope V1 |
-| **E4** | Lien documents GED cycle | Placeholder UI → module documents |
-| **E5** | ACL ressource (RFC-ACL) sur cycles | Si politique RESTRICTIVE requise |
+**Durée indicative** : 1,5–2 sprints frontend après backend §4.3–4.5.
 
 ---
 
-## 5. Mapping sprints (suggestion)
+### 4.3 RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles
 
-| Sprint | Lots | Résultat utilisateur |
-| ------ | ---- | -------------------- |
-| **S1** | B1–B3 | Données + permissions en base |
-| **S2** | B4–B7, B9 | API testable (Postman / tests) |
-| **S3** | F1–F3 | Menu + liste des cycles |
-| **S4** | F4–F7 | Arbitrage CODIR utilisable |
-| **S5** | I1, B8, F8, I2 | Fiche projet informée + durcissement |
+**Fichier** : [RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)
+
+**Prérequis** : **RFC-PROJ-CYCLE-001** (au minimum items listables) ; **RFC-FE-PROJ-CYCLE-001** optionnel pour le bloc UI mais recommandé après liste cycles.
+
+| Contenu | Critères d’acceptation | État |
+| ------- | ---------------------- | ---- |
+| `GET /api/governance-cycles/by-project/:projectId` (module **governance-cycles** uniquement) | Read-only ; isolation client | ❌ |
+| Bloc « Présence dans les cycles » sur fiche projet | Max 5 lignes + lien ; masqué sans permission | ❌ |
+
+**Durée indicative** : 0,5 sprint.
+
+---
+
+### 4.4 Documentation transverse (hors RFC numérotée cycle)
+
+Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC Liste.md` (statuts), [ARCHITECTURE.md](../ARCHITECTURE.md) si nouvelles routes.
+
+---
+
+### 4.5 Extensions post-MVP (pas de RFC dédiée aujourd’hui)
+
+À traiter dans une future RFC ou évolution **RFC-PROJ-CYCLE-001** / **FE-001** :
+
+- Items `STRATEGIC_OBJECTIVE`, `RISK`, `BUDGET_LINE` (après PROJECT + BUDGET)
+- Transitions de statut cycle (PREPARING → … → CLOSED)
+- Export CODIR / PDF
+- Lien documents GED cycle
+- ACL ressource sur cycles (RFC-ACL)
+
+---
+
+## 5. Ordre de travail suggéré (par RFC)
+
+| Étape | RFC | Résultat utilisateur |
+| ----- | --- | -------------------- |
+| 1 | **RFC-PROJ-CYCLE-001** §4.1–4.2 | Données + permissions en base |
+| 2 | **RFC-PROJ-CYCLE-001** §4.3–4.4 cycles | API cycles testable |
+| 3 | **RFC-PROJ-CYCLE-001** §4.5 scoring | ✅ livré (B6) |
+| 3b | **RFC-PROJ-CYCLE-001** §4.3 route summary + §6 | `GET …/:id/summary` (B7) — backend arbitrage complet côté agrégats | ❌ prochaine étape backend |
+| 4 | **RFC-FE-PROJ-CYCLE-001** §4.1–4.3 | Menu + liste des cycles — **débloqué** (backend B1–B6) |
+| 5 | **RFC-FE-PROJ-CYCLE-001** §4.4–4.5 + §6 | Arbitrage CODIR utilisable (matrice scores API) |
+| 6 | **RFC-PROJ-CYCLE-002** + doc | Fiche projet informée |
 
 ---
 
@@ -177,30 +209,101 @@ Ordre recommandé : **backend d’abord** (lots B1–B10), puis **frontend** (F1
 ## 7. Checklist Definition of Done (module complet)
 
 - [x] Code compile (API) ; migration SQL présente — [ ] migration appliquée sur chaque environnement  
-- [x] Tests backend CRUD cycles (`governance-cycles.*.spec.ts`) — [ ] tests scoring + items + isolation étendue  
-- [ ] Tests frontend query keys + affichage sans ID brut  
+- [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 cycles — tests CRUD cycles  
+- [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 items — tests CRUD items
+- [x] **RFC-PROJ-CYCLE-001** §4.5 scoring + §6 tests scoring  
+- [ ] **RFC-FE-PROJ-CYCLE-001** livrée + tests frontend  
+- [ ] **RFC-PROJ-CYCLE-002** livrée  
 - [x] Seed : module + permissions + profils globaux cohérents  
-- [x] `docs/API.md` à jour (§5.8)  
-- [ ] RFC 001 **complète** / FE-001 / 002 statut « Implémenté » + `_RFC Liste.md` (001 = partielle aujourd’hui)  
-- [x] Revue conformité multi-client sur lots B1–B4 ([ARCHITECTURE.md](../ARCHITECTURE.md) §4)  
+- [x] `docs/API.md` à jour (§5.8 cycles + items + scoring)  
+- [x] `_RFC Liste.md` aligné (31a-1 partiel B1–B6)  
+- [ ] RFC 001 statut « Implémenté » (après B7 summary + B9 by-project) ; FE-001 / 002 à faire  
+- [x] Revue conformité multi-client sur CRUD cycles et items ([ARCHITECTURE.md](../ARCHITECTURE.md) — B1–B6)  
 
 ---
 
-## 8. Prompt d’implémentation (résumé)
+## 8. Prompts Cursor (par RFC)
 
-Pour lancer un lot en Agent / Composer, référencer :
+Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 
-1. Ce plan (numéro de lot, ex. **B4**)  
-2. La RFC correspondante  
-3. Fichiers voisins à imiter : `apps/api/src/modules/strategic-vision/` (Nest), `apps/web/src/features/strategic-vision/` (UI)  
-4. Contraintes : pas de `clientId` en DTO ; scoring backend uniquement ; labels FR  
+### RFC-PROJ-CYCLE-001 (backend — route summary B7)
 
-Le prompt détaillé historique reste dans le [fichier legacy](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) §5.
+```
+Implémente RFC-PROJ-CYCLE-001 §4.3 GET /api/governance-cycles/:id/summary (lot B7)
++ §6 tests + doc API.md.
+
+Contexte : le summary embarqué est DÉJÀ livré (champ summary sur GET liste et GET :id).
+B7 = exposer la MÊME ressource sur une route dédiée — ne pas dupliquer la logique métier.
+
+Implémentation attendue :
+- Controller : @Get('governance-cycles/:id/summary') après :id/items (ordre routes Nest)
+- Service : méthode publique getCycleSummary(clientId, id) → réutilise getSummaryForCycle existant
+- Permission : governance_cycles.read ; 404 si cycle absent/hors client
+- Réponse 200 : GovernanceCycleSummaryDto { itemsCount, acceptedItemsCount, deferredItemsCount }
+- Tests : controller + service (404, isolation client, payload agrégats)
+- docs/API.md §5.8 : section GET …/:id/summary
+
+Prérequis livrés : CRUD cycles/items, scoring §4.5 (B6), summary embarqué (B4).
+Ne pas réimplémenter CRUD, scoring, ni enrichir le payload summary V1 sans spec RFC.
+
+Hors scope : frontend, RFC-PROJ-CYCLE-002 by-project, mutation Project.status.
+```
+
+### RFC-PROJ-CYCLE-001 (sections historiques — déjà livrées)
+
+> CRUD items (§4.3–4.4) et scoring §4.5 (B6) : **ne plus réimplémenter**.
+
+### RFC-FE-PROJ-CYCLE-001 (frontend)
+
+```
+Implémente RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI (docs/RFC/RFC-FE-PROJ-CYCLE-001 — Governance Cycles Frontend UI.md).
+
+Calque apps/web/src/features/strategic-vision/. Query keys avec clientId. Libellés FR, jamais UUID en UI. docs/FRONTEND_UI-UX.md.
+
+Prérequis : API RFC-PROJ-CYCLE-001 §4.3–4.5 opérationnelle (B1–B6 livrés). Consommer `priorityScore` API — aucun calcul scoring côté React.
+```
+
+### RFC-PROJ-CYCLE-002 (intégration projet)
+
+```
+Implémente RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles (docs/RFC/RFC-PROJ-CYCLE-002 — Project Integration for Governance Cycles.md).
+
+GET /api/governance-cycles/by-project/:projectId côté governance-cycles uniquement. Bloc read-only fiche projet. Pas de mutation Project.status.
+```
+
+### Doc après livraison
+
+```
+/starium-docs-update — synchronise RFC-PROJ-CYCLE-001, RFC-FE-PROJ-CYCLE-001, RFC-PROJ-CYCLE-002, ce plan et _RFC Liste avec l’état code.
+```
 
 ---
 
-## 9. Liens
+## 9. Annexe — correspondance lots historiques (optionnel)
+
+> Les codes B/F/I ne sont plus la référence de travail. Utiliser les **§ RFC** ci-dessus.
+
+| Lot | RFC | Section |
+| --- | --- | ------- |
+| B1 | RFC-PROJ-CYCLE-001 | §4.1, §5 |
+| B2 | RFC-PROJ-CYCLE-001 | §3 |
+| B3 | RFC-PROJ-CYCLE-001 | §4.2 |
+| B4 | RFC-PROJ-CYCLE-001 | §4.3–4.4 (cycles) + summary embarqué |
+| B5 | RFC-PROJ-CYCLE-001 | §4.3–4.4 (items) |
+| B6 | RFC-PROJ-CYCLE-001 | §4.5 |
+| B7 | RFC-PROJ-CYCLE-001 | §4.3 (route `GET …/:id/summary` — pas le summary embarqué) |
+| B8–B9 | RFC-PROJ-CYCLE-001 | §6 |
+| F1–F8 | RFC-FE-PROJ-CYCLE-001 | §4.1–4.5, §6 |
+| I1 | RFC-PROJ-CYCLE-002 | — |
+| I2 | — | doc / skill docs |
+
+---
+
+## 10. Liens
 
 - Index RFC : [_RFC Liste.md](./_RFC%20Liste.md) — Phase 1A+  
+- **RFC-PROJ-CYCLE-001** : [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md)  
+- **RFC-FE-PROJ-CYCLE-001** : [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md)  
+- **RFC-PROJ-CYCLE-002** : [Project Integration](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)  
 - Cadrage projets : [RFC-PROJ-001](./RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md)  
 - Profils rôles : [default-profiles.md](../default-profiles.md)  

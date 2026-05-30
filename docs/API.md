@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** (cycles de pilotage — CRUD cycles, §5.8 ; items/scoring hors scope actuel), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** (cycles de pilotage — CRUD cycles + items + scoring §4.5, voir §5.8 ; summary global B7 / by-project hors scope), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
 
 ---
 
@@ -962,7 +962,7 @@ Le `PATCH` reste interdit en `SUBMITTED` et `ARCHIVED`.
 
 ## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001)
 
-Couche transverse d’arbitrage CODIR (cycles de pilotage). **V1 lot B4** : CRUD des cycles uniquement (pas d’items, pas de scoring, pas de `GET …/summary` global).
+Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6). **Hors scope actuel** : `GET …/:id/summary` global (B7), `GET …/by-project/:projectId` (RFC-002).
 
 **Headers** : `Authorization: Bearer <accessToken>`, **`X-Client-Id`** (client actif). Aucun `clientId` dans les corps write.
 
@@ -1032,6 +1032,109 @@ Couche transverse d’arbitrage CODIR (cycles de pilotage). **V1 lot B4** : CRUD
 - **Comportement** : archivage logique (`status = ARCHIVED`), pas de suppression physique ; **idempotent** si déjà archivé
 - **Réponse 204** (No Content, corps vide) — aligné sur `DELETE /api/strategic-vision/:id`
 - **Audit** : `governance_cycle.archived` (uniquement lors du premier passage à `ARCHIVED`)
+
+### Items du cycle — `/api/governance-cycles/:id/items`
+
+Les items portent l’arbitrage (`decisionStatus`) **sans** modifier `Project.status` ni les entités sources.
+
+#### GET /api/governance-cycles/:id/items
+
+- **Permission** : `governance_cycles.read`
+- **Query** : `search?` (titre), `decisionStatus?`, `sourceType?`, `limit?` (1–100, défaut 20), `offset?` (≥ 0)
+- **Réponse 200** : `{ items, total, limit, offset }` — chaque item inclut `sourceRef: { id, label } | null` (libellé métier, pas UUID seul) ; tri serveur : `priorityScore` desc (nulls en fin), puis `updatedAt` desc
+
+#### POST /api/governance-cycles/:id/items
+
+- **Permission** : `governance_cycles.create`
+- **Body** : `sourceType` (requis), `title?` (requis si `MANUAL`), `description?`, FK selon le type (`projectId`, `budgetId`, `budgetLineId`, `strategicObjectiveId`, `riskId`), `estimatedBudgetAmount?`, `estimatedCapacityDays?` (strings numériques, ex. `"125000.50"`), scores optionnels `valueScore?`, `riskScore?`, `budgetScore?`, `capacityScore?`, `alignmentScore?` (entiers **1–5** si présents)
+- **Règles** :
+  - `MANUAL` : **aucune** FK autorisée dans le body (présence de `projectId` / `budgetId` / … → **400**)
+  - Référence hors client → **404** ; `sourceType` incohérent avec les IDs → **400**
+  - Même `projectId` deux fois dans un cycle → **409**
+  - Cycle `ARCHIVED` → **409**
+- **Audit** : `governance_cycle_item.created`
+
+#### GET /api/governance-cycles/:id/items/:itemId
+
+- **Permission** : `governance_cycles.read`
+- **Réponse 200** : objet item ; **404** si absent, hors client ou hors cycle
+
+#### PATCH /api/governance-cycles/:id/items/:itemId
+
+- **Entrée handler** : `@RequireAnyPermissions('governance_cycles.update', 'governance_cycles.arbitrate')` — au moins une des deux permissions.
+- **Contrôle fin (service)** selon les champs présents dans le body :
+
+| Champs du body | Permission requise |
+| --- | --- |
+| `title`, `description`, `estimatedBudgetAmount`, `estimatedCapacityDays`, `valueScore`, `riskScore`, `budgetScore`, `capacityScore`, `alignmentScore` | `governance_cycles.update` |
+| `decisionStatus`, `decisionReason` | `governance_cycles.arbitrate` |
+
+**Décision API structurante — pas de body mixte** : une requête ne peut pas combiner champs d’édition et champs d’arbitrage.
+
+- **Valide** : `{ "title": "Nouveau libellé" }` (édition seule)
+- **Valide** : `{ "valueScore": 4 }` (scores — édition seule)
+- **Valide** : `{ "decisionStatus": "ACCEPTED" }` (arbitrage seul)
+- **Invalide → 400** : `{ "title": "…", "decisionStatus": "ACCEPTED" }` — message : `Cannot mix edition fields (title, description, estimatedBudgetAmount, estimatedCapacityDays, valueScore, riskScore, budgetScore, capacityScore, alignmentScore) with arbitration fields (decisionStatus, decisionReason) in a single request`
+- **403** : champ édition sans `governance_cycles.update`, ou champ arbitrage sans `governance_cycles.arbitrate` (même si l’autre permission est détenue)
+- **400** : tentative de modifier `sourceType` ou une FK après création
+- **Audit** : `governance_cycle_item.updated` (édition) ; `governance_cycle_item.decision_changed` (arbitrage si statut/motif change)
+
+#### DELETE /api/governance-cycles/:id/items/:itemId
+
+- **Permission** : `governance_cycles.update`
+- **Comportement** : suppression physique de la ligne item
+- **Réponse 204**
+- **Audit** : `governance_cycle_item.deleted`
+
+#### Scoring `priorityScore` (RFC §4.5 — lot B6)
+
+- **Entrée** : les 5 scores sont optionnels à la création et au PATCH ; si renseignés : entiers **1–5** ; create/PATCH `{ "valueScore": null }` = absence de score (create) ou effacement (PATCH)
+- **`priorityScore` jamais accepté en body** — rejet validation (`forbidNonWhitelisted`) ; recalcul serveur à **create** (toujours) et à **update** uniquement si le body contient une clé score (`hasScorePatch` / `hasOwnProperty`, y compris `null`) — PATCH titre seul ne recalcule pas
+- **Formule** (si les 5 scores sont présents) :
+
+```text
+priorityScore =
+  (valueScore * 3) + (alignmentScore * 3) +
+  (budgetScore * 2) + (capacityScore * 2) - (riskScore * 2)
+```
+
+- **`priorityScore = null`** si l’un des cinq scores est absent (données insuffisantes)
+- **Réponse** (lecture) : `valueScore`, `riskScore`, `budgetScore`, `capacityScore`, `alignmentScore`, `priorityScore` — jamais de calcul côté client
+
+#### Montants estimés (Decimal)
+
+- **Entrée** : strings JSON (`"1000.50"`, `"12.5"`) — `@IsNumberString`, max 2 décimales
+- **Sortie** : `string | null` avec 2 décimales affichées (`"1000.50"`, `"12.50"`) — jamais d’objet Decimal brut
+
+#### Exemple item (réponse)
+
+```json
+{
+  "id": "…",
+  "cycleId": "…",
+  "sourceType": "PROJECT",
+  "title": "Projet Alpha",
+  "description": null,
+  "decisionStatus": "CANDIDATE",
+  "decisionReason": null,
+  "valueScore": 5,
+  "riskScore": 2,
+  "budgetScore": 4,
+  "capacityScore": 4,
+  "alignmentScore": 5,
+  "priorityScore": 42,
+  "estimatedBudgetAmount": "1000.50",
+  "estimatedCapacityDays": "12.25",
+  "projectId": "…",
+  "budgetId": null,
+  "budgetLineId": null,
+  "strategicObjectiveId": null,
+  "riskId": null,
+  "sourceRef": { "id": "…", "label": "PRJ-1 — Projet Alpha" },
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-02T00:00:00.000Z"
+}
+```
 
 ---
 

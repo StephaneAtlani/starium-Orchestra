@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Partiellement implémenté** (backend) — lots **B1 + B2 + B4** livrés (2026-05-29). Lots **B5–B9** (items, scoring, summary global, audit complémentaire, tests étendus) et frontend **FE-001** restent à faire.
+🟡 **Partiellement implémenté** (backend) — lots **B1–B6** livrés (2026-05-30) : modèles, RBAC, CRUD cycles, CRUD items, audits items, **scoring `priorityScore`**. Restent **B7–B9** (`GET …/:id/summary` global, `by-project`, tests summary) et frontend **FE-001**.
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 
@@ -18,8 +18,13 @@
 | CRUD cycles (5 routes) | ✅ | `GET\|POST /api/governance-cycles`, `GET\|PATCH\|DELETE /api/governance-cycles/:id` — voir [docs/API.md](../API.md) §5.8 |
 | `summary` embarqué par cycle (agrégats items) | ✅ | Champ `summary` sur liste et détail ; pas `GET …/:id/summary` global (lot B7) |
 | Audits cycle `created` / `updated` / `archived` | ✅ | `GovernanceCyclesService` |
-| DTOs items (squelette) | ✅ fichiers | Non exposés au controller (lot B5) |
-| CRUD items, scoring, `by-project`, tests étendus | ❌ | Lots B5–B9, RFC-002 |
+| CRUD items (5 routes sous `:id/items`) | ✅ | Lot B5 — détail [API.md](../API.md) §5.8 ; PATCH édition/arbitrage séparés (body mixte → 400) |
+| DTOs items | ✅ | `create-` / `update-` / `list-governance-cycle-items-query` |
+| Audits items | ✅ | `governance_cycle_item.created\|updated\|deleted\|decision_changed` |
+| Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` |
+| Scoring `priorityScore` (§4.5) | ✅ | `governance-cycle-scoring.util.ts` (`computePriorityScore`, `hasScorePatch`) ; recalcul create toujours, update si clé score présente ; DTOs + specs ValidationPipe ; tri `nulls: 'last'` |
+| Tests scoring §6 | ✅ | `governance-cycle-scoring.util.spec.ts`, `governance-cycles.service.spec.ts`, `create-` / `update-governance-cycle-item.dto.spec.ts` (55 tests module) |
+| `GET …/summary` global, `by-project` | ❌ | Lots B7–B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
 
 ---
 
@@ -28,7 +33,7 @@
 - Le module `projects` porte l’exécution (planning, risques, budget links, scenarios) et ne doit pas recevoir la logique d’arbitrage CODIR.
 - Les conventions Starium backend sont en place : guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`), DTO validés, `clientId` dérivé du contexte actif.
 - Les modules stratégiques et budget ont un modèle d’isolation stricte par client et des APIs API-first client-scopées.
-- La couche transverse **cycles de pilotage** est amorcée côté API (CRUD cycles) ; l’arbitrage sur items (`GovernanceCycleItem`) reste à livrer (B5+).
+- La couche transverse **cycles de pilotage** expose le CRUD cycles, le CRUD items (`GovernanceCycleItem`) et le **scoring `priorityScore`** (lot B6) ; le **summary global** (`GET …/:id/summary`) reste à livrer (B7).
 
 ---
 
@@ -62,7 +67,7 @@
 - `apps/api/src/app.module.ts` — ✅ `GovernanceCyclesModule` importé
 - `apps/api/prisma/seed.ts` — ✅ `ensureGovernanceCyclesModuleAndPermissions()`
 - `apps/api/prisma/default-profiles.json` — ✅ profils lecture / gestion cycles
-- `docs/API.md` — ✅ section §5.8 (lots B1–B4)
+- `docs/API.md` — ✅ section §5.8 (cycles B4 + items B5)
 
 ---
 
@@ -110,11 +115,11 @@ Cycles :
 
 Items :
 
-- `GET /api/governance-cycles/:cycleId/items`
-- `POST /api/governance-cycles/:cycleId/items`
-- `GET /api/governance-cycles/:cycleId/items/:itemId`
-- `PATCH /api/governance-cycles/:cycleId/items/:itemId`
-- `DELETE /api/governance-cycles/:cycleId/items/:itemId`
+- `GET /api/governance-cycles/:id/items` ✅
+- `POST /api/governance-cycles/:id/items` ✅
+- `GET /api/governance-cycles/:id/items/:itemId` ✅
+- `PATCH /api/governance-cycles/:id/items/:itemId` ✅ (voir règles PATCH ci-dessous)
+- `DELETE /api/governance-cycles/:id/items/:itemId` ✅ (suppression physique, **204**)
 
 Agregats :
 
@@ -128,13 +133,17 @@ Agregats :
 - Refus de modification sur cycle `ARCHIVED`.
 - Refus de cloture d’un cycle vide.
 - Refus de validation si des items sont encore `CANDIDATE`.
-- Verification d’appartenance client pour toutes references (`projectId`, `budgetId`, `budgetLineId`, `riskId`, `strategicObjectiveId`).
+- Verification d’appartenance client pour toutes references (`projectId`, `budgetId`, `budgetLineId`, `riskId` → `ProjectRisk`, `strategicObjectiveId`).
+- Items **MANUAL** : aucune FK dans le body create (presence d’un id source → **400**).
+- **PATCH item** : un seul handler ; champs edition (`title`, `description`, `estimated*`) vs arbitrage (`decisionStatus`, `decisionReason`) — body mixte → **400** ; permissions fines `governance_cycles.update` / `governance_cycles.arbitrate` (entree handler via `RequireAnyPermissions`).
+- Pas de mutation de `Project.status` ni des entites sources.
 - Erreurs:
   - `404` objet inexistant ou hors client
-  - `400` incoherence `sourceType` / identifiants
-  - `409` doublon fonctionnel (ex: meme projet deja dans le cycle)
+  - `400` incoherence `sourceType` / identifiants ; body PATCH mixte ; FK sur MANUAL
+  - `403` PATCH sans permission du groupe de champs
+  - `409` doublon fonctionnel (ex: meme projet deja dans le cycle) ; cycle `ARCHIVED`
 
-### 4.5 Scoring backend
+### 4.5 Scoring backend ✅ (lot B6 — 2026-05-30)
 
 Formule :
 
@@ -151,8 +160,10 @@ Regles :
 
 - scores optionnels;
 - si presents: bornes `1..5`;
-- recalcul automatique a chaque create/update item;
-- `priorityScore = null` si donnees insuffisantes.
+- recalcul automatique a **create** (toujours) et a **update** si le body contient une cle score (`hasScorePatch`, y compris `null`);
+- `priorityScore = null` si donnees insuffisantes (un des cinq scores absent).
+
+**Implementation** : `governance-cycle-scoring.util.ts` (`computePriorityScore`, `hasScorePatch`) ; DTOs create/update (1–5, `null` efface) ; **`priorityScore` jamais en entree** (specs ValidationPipe) ; recalcul update conditionnel via `hasOwnProperty` ; groupe edition PATCH ; tests util + service + DTO specs. Voir [API.md](../API.md) §5.8.
 
 ---
 
@@ -173,10 +184,13 @@ Regles :
 - refus sans permission/module desactive
 - archivage logique via `DELETE`
 - interdiction update cycle archive
-- interdiction item avec reference hors client
-- interdiction doublon projet dans un meme cycle
-- calcul `priorityScore` exact
-- endpoint `summary` coherent avec les statuts decision
+- interdiction item avec reference hors client ✅ (tests service)
+- interdiction doublon projet dans un meme cycle ✅
+- MANUAL avec FK → 400 ✅
+- PATCH mixte edition + arbitrage → 400 ✅
+- permissions PATCH par groupe de champs ✅
+- calcul `priorityScore` exact ✅ (lot B6 — util, service, specs DTO ValidationPipe)
+- endpoint `summary` global coherent avec les statuts decision ❌ (lot B7)
 
 ### Audit
 

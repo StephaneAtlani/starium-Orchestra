@@ -6,6 +6,8 @@
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots F1–F8).
 
+**Prérequis backend (2026-05-30)** : API cycles + items + **scoring §4.5** opérationnels ([API.md](../API.md) §5.8). **Recommandé** avant onglet KPI détail : `GET …/summary` global (lot B7) — la matrice d’arbitrage (scores + `priorityScore`) peut démarrer dès B6.
+
 **Depend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-STRAT-003 — Strategic Vision Frontend UI](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md).
 
 ---
@@ -15,7 +17,7 @@
 - Le frontend Starium est organise en mode feature-first, avec pages `app/` et logique metier UI dans `features/`.
 - Le projet utilise TanStack Query + contracts types/schemas et des query keys tenant-aware.
 - La navigation et les permissions sont deja centralisees dans la config sidebar.
-- Il n’existe pas encore de pages `/cycles` ni de feature dediee a l’arbitrage CODIR.
+- Il n’existe pas encore de pages `/cycles` ni de feature dediee a l’arbitrage CODIR (le backend expose deja les routes items — consommer `sourceRef`, respecter PATCH edition/arbitrage separes).
 
 ---
 

@@ -4,7 +4,7 @@
 
 📝 **Draft** — spécification d’intégration minimale module Projets ↔ Cycles de pilotage.
 
-**Prérequis backend** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — CRUD cycles livré (lots B1–B4) ; endpoint `GET /api/governance-cycles/by-project/:projectId` **non encore implémenté** (lot I1).
+**Prérequis backend** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — CRUD cycles + items + scoring §4.5 livrés (lots B1–B6) ; endpoint `GET /api/governance-cycles/by-project/:projectId` **non encore implémenté** (RFC-002 / lot B9).
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lot I1).
 

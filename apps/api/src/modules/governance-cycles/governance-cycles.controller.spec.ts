@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
+import { REQUIRE_ANY_PERMISSIONS_KEY } from '../../common/decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -19,6 +20,11 @@ describe('GovernanceCyclesController', () => {
     createCycle: jest.fn(),
     updateCycle: jest.fn(),
     archiveCycle: jest.fn(),
+    listItems: jest.fn(),
+    createItem: jest.fn(),
+    getItemById: jest.fn(),
+    updateItem: jest.fn(),
+    deleteItem: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -117,6 +123,57 @@ describe('GovernanceCyclesController', () => {
     );
     expect(dtoKeys?.[1]).toBe(CreateGovernanceCycleDto);
     expect(CreateGovernanceCycleDto.prototype).not.toHaveProperty('clientId');
+  });
+
+  it('permissions items read / create / update', () => {
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.listItems,
+      ),
+    ).toEqual(['governance_cycles.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.createItem,
+      ),
+    ).toEqual(['governance_cycles.create']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.deleteItem,
+      ),
+    ).toEqual(['governance_cycles.update']);
+  });
+
+  it('patchItem utilise RequireAnyPermissions update ou arbitrate', () => {
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ANY_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.patchItem,
+      ),
+    ).toEqual(['governance_cycles.update', 'governance_cycles.arbitrate']);
+  });
+
+  it('deleteItem délègue au service (204)', async () => {
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService);
+    serviceMock.deleteItem.mockResolvedValue(undefined);
+
+    const result = await controller.deleteItem(
+      'client-a',
+      'cycle-1',
+      'item-1',
+      'user-1',
+      {},
+    );
+
+    expect(result).toBeUndefined();
+    expect(serviceMock.deleteItem).toHaveBeenCalledWith(
+      'client-a',
+      'cycle-1',
+      'item-1',
+      expect.objectContaining({ actorUserId: 'user-1' }),
+    );
   });
 
   it('archiveCycle délègue au service (DELETE → 204 No Content côté controller)', async () => {
