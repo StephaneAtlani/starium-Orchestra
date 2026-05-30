@@ -8,7 +8,8 @@
       "projects.read",
       "compliance.read",
       "collaborators.read",
-      "strategic_vision.read"
+      "strategic_vision.read",
+      "governance_cycles.read"
     ]
   },
   {
@@ -66,7 +67,8 @@
       "projects.update",
       "projects.delete",
       "compliance.read",
-      "compliance.update"
+      "compliance.update",
+      "governance_cycles.read"
     ]
   },
   {
@@ -116,6 +118,27 @@
       "strategic_direction_strategy.review",
       "strategic_vision.manage_links",
       "projects.read"
+    ]
+  },
+  {
+    "name": "Lecteur cycles de pilotage",
+    "description": "Consultation des cycles de pilotage et matrice d'arbitrage (lecture seule)",
+    "isSystem": true,
+    "permissionCodes": ["governance_cycles.read", "projects.read"]
+  },
+  {
+    "name": "Gestionnaire cycles de pilotage",
+    "description": "Gestion complète des cycles de pilotage CODIR (CRUD, items, arbitrage)",
+    "isSystem": true,
+    "permissionCodes": [
+      "governance_cycles.read",
+      "governance_cycles.create",
+      "governance_cycles.update",
+      "governance_cycles.delete",
+      "governance_cycles.arbitrate",
+      "projects.read",
+      "budgets.read",
+      "strategic_vision.read"
     ]
   },
   {

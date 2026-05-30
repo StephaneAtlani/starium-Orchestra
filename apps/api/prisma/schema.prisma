@@ -311,6 +311,8 @@ model Client {
   strategicDirectionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
   strategicObjectives              StrategicObjective[]
   strategicLinks                   StrategicLink[]
+  governanceCycles                 GovernanceCycle[]
+  governanceCycleItems             GovernanceCycleItem[]
   projectPortfolioCategories       ProjectPortfolioCategory[]
   actionPlans                      ActionPlan[]
   budgetLinePlanningMonths         BudgetLinePlanningMonth[]
@@ -1523,6 +1525,7 @@ model Project {
   projectReviewActionItems  ProjectReviewActionItem[]
   documents                 ProjectDocument[]
   resourceTimeEntries       ResourceTimeEntry[]
+  governanceCycleItems      GovernanceCycleItem[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1607,6 +1610,7 @@ model StrategicObjective {
   ownerUser                       User?                                     @relation("StrategicObjectiveOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   links                           StrategicLink[]
   directionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
+  governanceCycleItems            GovernanceCycleItem[]
 
   @@index([clientId])
   @@index([clientId, axisId])
@@ -2627,6 +2631,7 @@ model ProjectRisk {
   complianceRequirement ComplianceRequirement? @relation(fields: [complianceRequirementId], references: [id], onDelete: SetNull)
 
   tasks ProjectTask[]
+  governanceCycleItems GovernanceCycleItem[]
 
   /// Unicité (projectId, code) et (clientId, code) pour projectId null : index partiels SQL — voir migration.
   @@index([clientId])
@@ -2983,6 +2988,7 @@ model Budget {
   budgetReallocations       BudgetReallocation[]
   budgetImportJobs          BudgetImportJob[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
+  governanceCycleItems      GovernanceCycleItem[]
 
   @@unique([clientId, code])
   @@unique([versionSetId, versionNumber])
@@ -3227,6 +3233,7 @@ model BudgetLine {
   projectActivities             ProjectActivity[]
   planningMonths                BudgetLinePlanningMonth[]
   planningScenarios             BudgetLinePlanningScenario[]
+  governanceCycleItems          GovernanceCycleItem[]
 
   @@unique([clientId, budgetId, code])
   @@index([clientId])
@@ -4716,4 +4723,118 @@ model CollaboratorSkill {
   @@index([clientId, skillId])
   @@index([clientId, level])
   @@index([validatedByUserId])
+}
+
+// ---------------------------------------------------------------------------
+// RFC-PROJ-CYCLE-001 — Cycles de pilotage (gouvernance / arbitrage CODIR)
+// ---------------------------------------------------------------------------
+
+enum GovernanceCycleCadence {
+  MONTHLY
+  QUARTERLY
+  SEMESTERLY
+  YEARLY
+  ONE_SHOT
+  CONTINUOUS
+  CUSTOM
+}
+
+enum GovernanceCycleStatus {
+  DRAFT
+  PREPARING
+  TO_ARBITRATE
+  ARBITRATED
+  IN_EXECUTION
+  CLOSED
+  ARCHIVED
+}
+
+enum GovernanceCycleItemSourceType {
+  PROJECT
+  STRATEGIC_OBJECTIVE
+  BUDGET
+  BUDGET_LINE
+  RISK
+  MANUAL
+}
+
+enum GovernanceCycleItemDecisionStatus {
+  CANDIDATE
+  TO_ARBITRATE
+  ACCEPTED
+  DEFERRED
+  REJECTED
+  NEEDS_INFORMATION
+  ACCEPTED_WITH_RESERVE
+}
+
+model GovernanceCycle {
+  id               String                  @id @default(cuid())
+  clientId         String
+  name             String
+  code             String?
+  description      String?
+  cadence          GovernanceCycleCadence
+  status           GovernanceCycleStatus   @default(DRAFT)
+  startDate        DateTime?
+  endDate          DateTime?
+  sponsorLabel     String?
+  objectiveSummary String?
+  decisionSummary  String?
+  createdByUserId  String?
+  validatedByUserId String?
+  validatedAt      DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  GovernanceCycleItem[]
+
+  @@index([clientId])
+  @@index([clientId, status])
+  @@index([clientId, cadence])
+}
+
+model GovernanceCycleItem {
+  id                     String                            @id @default(cuid())
+  clientId               String
+  cycleId                String
+  sourceType             GovernanceCycleItemSourceType
+  projectId              String?
+  strategicObjectiveId   String?
+  budgetId               String?
+  budgetLineId           String?
+  riskId                 String?
+  title                  String
+  description            String?
+  decisionStatus         GovernanceCycleItemDecisionStatus @default(CANDIDATE)
+  decisionReason         String?
+  valueScore             Int?
+  riskScore              Int?
+  budgetScore            Int?
+  capacityScore          Int?
+  alignmentScore         Int?
+  priorityScore          Int?
+  estimatedBudgetAmount  Decimal?                          @db.Decimal(18, 2)
+  estimatedCapacityDays  Decimal?                          @db.Decimal(10, 2)
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  cycle              GovernanceCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  project            Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  strategicObjective StrategicObjective? @relation(fields: [strategicObjectiveId], references: [id], onDelete: SetNull)
+  budget             Budget?             @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  budgetLine         BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  risk               ProjectRisk?        @relation(fields: [riskId], references: [id], onDelete: SetNull)
+
+  @@unique([cycleId, projectId])
+  @@index([clientId])
+  @@index([cycleId])
+  @@index([projectId])
+  @@index([strategicObjectiveId])
+  @@index([budgetId])
+  @@index([budgetLineId])
+  @@index([riskId])
 }

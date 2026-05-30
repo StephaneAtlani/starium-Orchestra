@@ -1395,6 +1395,33 @@ async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureGovernanceCyclesModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "governance_cycles" },
+    create: {
+      code: "governance_cycles",
+      name: "Cycles de pilotage",
+      description: "Arbitrage CODIR et gouvernance transverse (RFC-PROJ-CYCLE-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "governance_cycles.read", label: "Cycles de pilotage — lecture" },
+    { code: "governance_cycles.create", label: "Cycles de pilotage — création" },
+    { code: "governance_cycles.update", label: "Cycles de pilotage — mise à jour" },
+    { code: "governance_cycles.delete", label: "Cycles de pilotage — archivage" },
+    { code: "governance_cycles.arbitrate", label: "Cycles de pilotage — arbitrage" },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
 async function ensureStrategicDirectionStrategyModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "strategic_direction_strategy" },
@@ -3674,6 +3701,7 @@ async function main() {
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
   await ensureStrategicVisionModuleAndPermissions();
+  await ensureGovernanceCyclesModuleAndPermissions();
   await ensureStrategicDirectionStrategyModuleAndPermissions();
   await ensureAlertsAndNotificationsModulesAndPermissions();
   await ensureGlobalSupplierContractKindTypes();

@@ -1,7 +1,7 @@
 # Plan de développement — Cycles de pilotage
 
-> **Dernière révision** : 2026-05-19  
-> **Statut global** : non implémenté (spécifications RFC en Draft)  
+> **Dernière révision** : 2026-05-29  
+> **Statut global** : **partiel** — backend lots **B1 + B2 + B4** livrés ; B5–B9, frontend F1–F8 et intégration I1 **à faire**  
 > **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer**
 
 Ce document est le **plan d’exécution** consolidé. Les spécifications détaillées restent dans les RFC numérotées ; ce plan les ordonne, vérifie la cohérence avec le repo et fixe les critères d’acceptation par lot.
@@ -14,20 +14,25 @@ Ce document est le **plan d’exécution** consolidé. Les spécifications déta
 
 | Document | Rôle | Cohérence |
 | -------- | ---- | --------- |
-| [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : modèles, API, RBAC, scoring, tests | ✅ Aligné avec l’architecture Starium (guards, `clientId`, audit) |
+| [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : modèles, API, RBAC, scoring, tests | 🟡 Partielle (B1–B4 livrés) — [statut RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) |
 | [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | ✅ Aligné feature-first + règle « valeur métier, pas ID » |
 | [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | ✅ Découplage module `governance-cycles` / `projects` |
 | [_Plan de développement - Cycle projets (legacy)](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) | Brouillon détaillé (lots + prompt Cursor) | ⚠️ **Doublon** — contenu repris ici ; fichier legacy conservé avec renvoi |
 | [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index statut RFC 31a-1 → 31a-3 | ✅ À jour (Draft) |
 
-### 1.2 Écarts doc ↔ code (vérification repo)
+### 1.2 Écarts doc ↔ code (vérification repo — 2026-05-29)
 
 | Attendu (RFC / plan) | État réel dans le repo |
 | -------------------- | ---------------------- |
-| Modèles `GovernanceCycle` / `GovernanceCycleItem` | ❌ Absents de `apps/api/prisma/schema.prisma` |
-| Module `apps/api/src/modules/governance-cycles/` | ❌ Absent |
-| Routes `/api/governance-cycles/*` | ❌ Absentes |
-| Module RBAC `governance_cycles` + permissions seed | ❌ Absents de `seed.ts` et `default-profiles.json` |
+| Modèles `GovernanceCycle` / `GovernanceCycleItem` | ✅ `apps/api/prisma/schema.prisma` |
+| Migration SQL `governance_cycles_core` | ✅ `apps/api/prisma/migrations/20260528120000_governance_cycles_core/` — appliquer via `prisma migrate deploy` (supprimer le dossier vide `20260520120000_governance_cycles_core` s’il bloque P3015) |
+| Module `apps/api/src/modules/governance-cycles/` | ✅ Présent (controller, service, DTOs cycles + squelette items) |
+| Routes CRUD cycles `/api/governance-cycles` (+ `:id`) | ✅ 5 endpoints — [API.md](../API.md) §5.8 |
+| Routes items `/api/governance-cycles/:cycleId/items` | ❌ Lot B5 |
+| `GET /api/governance-cycles/:id/summary` global | ❌ Lot B7 (`summary` par cycle déjà sur liste/détail) |
+| Scoring `priorityScore` | ❌ Lot B6 |
+| `GET /api/governance-cycles/by-project/:projectId` | ❌ Lot I1 / RFC-002 |
+| Module RBAC `governance_cycles` + permissions seed | ✅ `seed.ts`, `default-profiles.json` |
 | Pages `/cycles`, feature `governance-cycles` | ❌ Absentes de `apps/web` |
 | Entrée sidebar « Cycles de pilotage » | ❌ Absente de `navigation.ts` |
 
@@ -40,7 +45,7 @@ Ce document est le **plan d’exécution** consolidé. Les spécifications déta
 
 ### 1.4 Fonctionnalités existantes (proxies, hors scope cycle)
 
-Tant que le module n’est pas livré, ces écrans couvrent une partie du besoin **sans** objet « cycle » :
+Tant que l’UI cycles n’est pas livrée (F1–F8), ces écrans couvrent une partie du besoin **sans** objet « cycle » côté front :
 
 | Besoin schéma produit | Écran actuel | Limite |
 | --------------------- | ------------ | ------ |
@@ -95,17 +100,17 @@ Ordre recommandé : **backend d’abord** (lots B1–B10), puis **frontend** (F1
 
 ### Phase A — Backend socle
 
-| Lot | Contenu | Livrables | Critères d’acceptation | RFC |
-| --- | ------- | --------- | ---------------------- | --- |
-| **B1** | Prisma | Migration `GovernanceCycle`, `GovernanceCycleItem`, 4 enums, index `clientId` | `pnpm prisma migrate` OK ; contraintes FK + `@@unique([cycleId, projectId])` où applicable | 001 §4.1, 5 |
-| **B2** | Module Nest squelette | `governance-cycles.module.ts`, enregistrement `app.module.ts` | Module boot sans route métier | 001 §3 |
-| **B3** | RBAC + seed | `ensureGovernanceCyclesModuleAndPermissions()` ; module client activable ; profils `default-profiles.json` | Permissions créées ; au moins un rôle global avec `governance_cycles.read` en démo | 001 §4.2 |
-| **B4** | CRUD cycles | 5 endpoints cycle ; archive logique sur DELETE | 404 hors client ; 409 si cycle `ARCHIVED` modifié ; pas de `clientId` en body | 001 §4.3–4.4 |
-| **B5** | CRUD items | 5 endpoints items ; validation `sourceType` + FK | Doublon projet → 409 ; ref hors client → 404 ; pas de mutation `Project` | 001 §4.3–4.4 |
-| **B6** | Scoring | Formule `priorityScore` dans le service | Recalcul à chaque save item ; scores 1–5 ; `null` si incomplet | 001 §4.5 |
-| **B7** | Summary | `GET .../:id/summary` | Agrégats cohérents avec `decisionStatus` ; pas de N+1 grossier | 001 §4.3 |
-| **B8** | Audit | Hooks audit sur cycle / item / décision | Événements émis avec `clientId` et acteur | 001 §6 |
-| **B9** | Tests backend | Specs service + controller (isolation client, permissions, scoring) | `pnpm test` vert sur le module | 001 §6 |
+| Lot | Contenu | Livrables | Critères d’acceptation | RFC | État |
+| --- | ------- | --------- | ---------------------- | --- | ---- |
+| **B1** | Prisma | Migration `GovernanceCycle`, `GovernanceCycleItem`, 4 enums, index `clientId` | `pnpm prisma migrate` OK ; contraintes FK + `@@unique([cycleId, projectId])` où applicable | 001 §4.1, 5 | ✅ |
+| **B2** | Module Nest squelette | `governance-cycles.module.ts`, enregistrement `app.module.ts` | Module boot ; DTOs cycles + squelette items | 001 §3 | ✅ |
+| **B3** | RBAC + seed | `ensureGovernanceCyclesModuleAndPermissions()` ; module client activable ; profils `default-profiles.json` | Permissions créées ; au moins un rôle global avec `governance_cycles.read` en démo | 001 §4.2 | ✅ |
+| **B4** | CRUD cycles | 5 endpoints cycle ; archive logique sur DELETE | 404 hors client ; 409 si cycle `ARCHIVED` modifié ; pas de `clientId` en body ; liste `{ items, total, limit, offset }` + `summary` | 001 §4.3–4.4 | ✅ |
+| **B5** | CRUD items | 5 endpoints items ; validation `sourceType` + FK | Doublon projet → 409 ; ref hors client → 404 ; pas de mutation `Project` | 001 §4.3–4.4 | |
+| **B6** | Scoring | Formule `priorityScore` dans le service | Recalcul à chaque save item ; scores 1–5 ; `null` si incomplet | 001 §4.5 | |
+| **B7** | Summary | `GET .../:id/summary` | Agrégats cohérents avec `decisionStatus` ; pas de N+1 grossier | 001 §4.3 | |
+| **B8** | Audit | Hooks audit sur cycle / item / décision | Événements émis avec `clientId` et acteur | 001 §6 | partiel (cycle) |
+| **B9** | Tests backend | Specs service + controller (isolation client, permissions, scoring) | `pnpm test` vert sur le module | 001 §6 | partiel |
 
 **Durée indicative** : 1,5–2 sprints backend (équipe familière du repo).
 
@@ -171,13 +176,13 @@ Ordre recommandé : **backend d’abord** (lots B1–B10), puis **frontend** (F1
 
 ## 7. Checklist Definition of Done (module complet)
 
-- [ ] Code compile ; migrations appliquées  
-- [ ] Tests backend isolation client + permissions + scoring  
+- [x] Code compile (API) ; migration SQL présente — [ ] migration appliquée sur chaque environnement  
+- [x] Tests backend CRUD cycles (`governance-cycles.*.spec.ts`) — [ ] tests scoring + items + isolation étendue  
 - [ ] Tests frontend query keys + affichage sans ID brut  
-- [ ] Seed : module + permissions + profils globaux cohérents  
-- [ ] `docs/API.md` à jour  
-- [ ] RFC 001 / FE-001 / 002 statut « Implémenté » + `_RFC Liste.md`  
-- [ ] Revue conformité multi-client ([ARCHITECTURE.md](../ARCHITECTURE.md) §4)  
+- [x] Seed : module + permissions + profils globaux cohérents  
+- [x] `docs/API.md` à jour (§5.8)  
+- [ ] RFC 001 **complète** / FE-001 / 002 statut « Implémenté » + `_RFC Liste.md` (001 = partielle aujourd’hui)  
+- [x] Revue conformité multi-client sur lots B1–B4 ([ARCHITECTURE.md](../ARCHITECTURE.md) §4)  
 
 ---
 

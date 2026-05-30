@@ -2,20 +2,33 @@
 
 ## Statut
 
-📝 **Draft** — spécification cible pour implémentation backend V1.
+🟡 **Partiellement implémenté** (backend) — lots **B1 + B2 + B4** livrés (2026-05-29). Lots **B5–B9** (items, scoring, summary global, audit complémentaire, tests étendus) et frontend **FE-001** restent à faire.
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 
 **Dépend de** : [RFC-PROJ-001 — Cadrage fonctionnel du module Projets](./RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md), [RFC-013 — Audit logs](./RFC-013%20%E2%80%94%20Audit%20logs.md), [RFC-011-roles-permissions-modules](./RFC-011-roles-permissions-modules.md).
 
+### État d’implémentation (aligné code)
+
+| Périmètre | État | Référence code / API |
+| --------- | ---- | -------------------- |
+| Modèles Prisma + migration `governance_cycles_core` | ✅ | `apps/api/prisma/schema.prisma` ; migration `20260528120000_governance_cycles_core` |
+| Module Nest `governance-cycles` | ✅ | `apps/api/src/modules/governance-cycles/` |
+| RBAC `governance_cycles.*` + seed + profils globaux | ✅ | `apps/api/prisma/seed.ts`, `default-profiles.json` |
+| CRUD cycles (5 routes) | ✅ | `GET\|POST /api/governance-cycles`, `GET\|PATCH\|DELETE /api/governance-cycles/:id` — voir [docs/API.md](../API.md) §5.8 |
+| `summary` embarqué par cycle (agrégats items) | ✅ | Champ `summary` sur liste et détail ; pas `GET …/:id/summary` global (lot B7) |
+| Audits cycle `created` / `updated` / `archived` | ✅ | `GovernanceCyclesService` |
+| DTOs items (squelette) | ✅ fichiers | Non exposés au controller (lot B5) |
+| CRUD items, scoring, `by-project`, tests étendus | ❌ | Lots B5–B9, RFC-002 |
+
 ---
 
 ## 1) Analyse de l’existant
 
-- Le module `projects` porte l’execution (planning, risques, budget links, scenarios) et ne doit pas recevoir la logique d’arbitrage CODIR.
-- Les conventions Starium backend sont deja en place : guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`), DTO valides, `clientId` derive du contexte actif.
-- Les modules strategiques et budget ont deja un modele d’isolation stricte par client et des APIs API-first client-scopees.
-- Il manque une couche transverse pour arbitrer des objets heterogenes (projet, budget, risque, objectif) sans muter leur etat source.
+- Le module `projects` porte l’exécution (planning, risques, budget links, scenarios) et ne doit pas recevoir la logique d’arbitrage CODIR.
+- Les conventions Starium backend sont en place : guards standards (`JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`), DTO validés, `clientId` dérivé du contexte actif.
+- Les modules stratégiques et budget ont un modèle d’isolation stricte par client et des APIs API-first client-scopées.
+- La couche transverse **cycles de pilotage** est amorcée côté API (CRUD cycles) ; l’arbitrage sur items (`GovernanceCycleItem`) reste à livrer (B5+).
 
 ---
 
@@ -45,11 +58,11 @@
 
 **Modifier**
 
-- `apps/api/prisma/schema.prisma`
-- `apps/api/src/app.module.ts`
-- `apps/api/prisma/seed.ts`
-- `apps/api/prisma/default-profiles.json`
-- `docs/API.md` (apres implementation)
+- `apps/api/prisma/schema.prisma` — ✅ modèles présents
+- `apps/api/src/app.module.ts` — ✅ `GovernanceCyclesModule` importé
+- `apps/api/prisma/seed.ts` — ✅ `ensureGovernanceCyclesModuleAndPermissions()`
+- `apps/api/prisma/default-profiles.json` — ✅ profils lecture / gestion cycles
+- `docs/API.md` — ✅ section §5.8 (lots B1–B4)
 
 ---
 

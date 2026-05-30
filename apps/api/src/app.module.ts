@@ -38,6 +38,7 @@ import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resou
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { StrategicDirectionStrategyModule } from './modules/strategic-direction-strategy/strategic-direction-strategy.module';
 import { StrategicVisionModule } from './modules/strategic-vision/strategic-vision.module';
+import { GovernanceCyclesModule } from './modules/governance-cycles/governance-cycles.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { QueueModule } from './modules/queue/queue.module';
@@ -99,6 +100,7 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
     ContractsModule,
     StrategicDirectionStrategyModule,
     StrategicVisionModule,
+    GovernanceCyclesModule,
     QueueModule,
     EmailModule,
     AlertsModule,
