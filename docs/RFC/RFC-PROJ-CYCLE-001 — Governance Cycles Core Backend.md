@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Partiellement implémenté** (backend) — lots **B1–B8** livrés : modèles, RBAC, CRUD cycles, CRUD items, audits (cycle + items, dont `validated`/`closed`), **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Restent **B9** (`by-project`) et frontend **FE-001**.
+🟡 **Partiellement implémenté** (backend) — lots **B1–B8** livrés : modèles, RBAC, CRUD cycles, CRUD items, audits (cycle + items, dont `validated`/`closed`), **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Reste **B9** (`by-project` — [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)). Frontend **FE-001** livré — voir [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md).
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 

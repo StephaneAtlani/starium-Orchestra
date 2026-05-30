@@ -95,6 +95,18 @@ describe('platform navigation', () => {
     );
   });
 
+  it('expose Cycles de pilotage avec governance_cycles.read et moduleCode', () => {
+    const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
+    expect(strategicSection).toBeDefined();
+
+    const cyclesItem = strategicSection?.items.find((item) => item.href === '/cycles');
+    expect(cyclesItem).toBeDefined();
+    expect(cyclesItem?.label).toBe('Cycles de pilotage');
+    expect(cyclesItem?.moduleCode).toBe('governance_cycles');
+    expect(cyclesItem?.requiredPermissions).toEqual(['governance_cycles.read']);
+    expect(cyclesItem?.scope).toBe('client');
+  });
+
   it("réserve Modèle d'accès aux administrateurs plateforme", () => {
     const adminSection = navigation.find((section) => section.section === 'ADMINISTRATION');
     const accessModelItem = adminSection?.items.find(

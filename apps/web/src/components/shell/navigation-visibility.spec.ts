@@ -147,4 +147,28 @@ describe('navigationItemVisible', () => {
       }),
     ).toBe(true);
   });
+
+  it('Cycles de pilotage: governance_cycles.read + module governance_cycles', () => {
+    const cycles: NavigationItem = {
+      label: 'Cycles de pilotage',
+      href: '/cycles',
+      scope: 'client',
+      moduleCode: 'governance_cycles',
+      requiredPermissions: ['governance_cycles.read'],
+    };
+    expect(
+      navigationItemVisible(cycles, {
+        ...baseCtx,
+        has: hasFactory(['governance_cycles.read']),
+        isModuleVisible: (m) => m === 'governance_cycles',
+      }),
+    ).toBe(true);
+    expect(
+      navigationItemVisible(cycles, {
+        ...baseCtx,
+        has: hasFactory(['projects.read']),
+        isModuleVisible: (m) => m === 'governance_cycles',
+      }),
+    ).toBe(false);
+  });
 });

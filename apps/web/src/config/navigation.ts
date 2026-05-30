@@ -9,6 +9,7 @@ import {
   HardDrive,
   Handshake,
   FolderKanban,
+  GitCompareArrows,
   KeyRound,
   LayoutDashboard,
   Settings,
@@ -118,6 +119,15 @@ export const navigation: NavigationSection[] = [
         scope: 'client',
         moduleCode: 'projects',
         requiredPermissions: ['projects.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+      {
+        label: 'Cycles de pilotage',
+        href: '/cycles',
+        icon: GitCompareArrows,
+        scope: 'client',
+        moduleCode: 'governance_cycles',
+        requiredPermissions: ['governance_cycles.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
       {

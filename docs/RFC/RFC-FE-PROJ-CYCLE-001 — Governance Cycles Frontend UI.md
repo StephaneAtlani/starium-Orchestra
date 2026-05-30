@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 **Draft** — specification cible pour implementation frontend V1.
+✅ **Implémenté** (2026-05-30) — UI V1 livrée : routes `/cycles`, liste, détail multi-onglets, matrice d’arbitrage, query keys tenant-aware, tests Vitest.
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots F1–F8).
 
@@ -10,14 +10,16 @@
 
 **Depend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-STRAT-003 — Strategic Vision Frontend UI](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md).
 
+**Implémentation repo** : `apps/web/src/features/governance-cycles/` ; routes `apps/web/src/app/(protected)/cycles/` ; navigation `apps/web/src/config/navigation.ts` (entrée « Cycles de pilotage », `moduleCode: governance_cycles`).
+
 ---
 
 ## 1) Analyse de l’existant
 
 - Le frontend Starium est organise en mode feature-first, avec pages `app/` et logique metier UI dans `features/`.
 - Le projet utilise TanStack Query + contracts types/schemas et des query keys tenant-aware.
-- La navigation et les permissions sont deja centralisees dans la config sidebar.
-- Il n’existe pas encore de pages `/cycles` ni de feature dediee a l’arbitrage CODIR (le backend expose deja les routes items — consommer `sourceRef`, respecter PATCH edition/arbitrage separes).
+- La navigation et les permissions sont centralisees dans `apps/web/src/config/navigation.ts` + `navigation-visibility.ts`.
+- **Livré** : pages `/cycles` et `/cycles/[cycleId]`, feature `apps/web/src/features/governance-cycles/` (liste, detail, matrice arbitrage, PATCH edition/arbitrage separes, `sourceRef` en UI).
 
 ---
 
@@ -29,28 +31,30 @@
 
 ---
 
-## 3) Liste des fichiers a creer / modifier
+## 3) Liste des fichiers (implémentation livrée)
 
-**Creer**
+**Routes App Router**
 
 - `apps/web/src/app/(protected)/cycles/page.tsx`
 - `apps/web/src/app/(protected)/cycles/[cycleId]/page.tsx`
-- `apps/web/src/features/governance-cycles/api/governance-cycles.api.ts`
-- `apps/web/src/features/governance-cycles/hooks/use-governance-cycles.ts`
-- `apps/web/src/features/governance-cycles/types/governance-cycle.types.ts`
-- `apps/web/src/features/governance-cycles/schemas/governance-cycle.schemas.ts`
-- `apps/web/src/features/governance-cycles/lib/governance-cycles-query-keys.ts`
-- composants UI:
-  - `governance-cycles-page.tsx`
-  - `governance-cycle-detail-page.tsx`
-  - `governance-cycle-form-dialog.tsx`
-  - `governance-cycle-arbitration-table.tsx`
-  - `add-cycle-item-dialog.tsx`
 
-**Modifier**
+**Feature `apps/web/src/features/governance-cycles/`**
 
-- `apps/web/src/config/navigation.ts`
-- `apps/web/src/components/shell/sidebar.tsx`
+| Dossier | Fichiers |
+| ------- | -------- |
+| `api/` | `governance-cycles.api.ts`, `governance-cycles.queries.ts`, `governance-cycles.mutations.ts` |
+| `hooks/` | `use-governance-cycles.ts` (barrel) |
+| `types/` | `governance-cycle.types.ts` — string unions locales, **sans** `@prisma/client` ni import `apps/api` |
+| `schemas/` | `governance-cycle.schemas.ts` — schémas Zod **séparés** (cycle, create item, patch édition, patch arbitrage `.strict()`) |
+| `lib/` | `governance-cycles-query-keys.ts`, `governance-cycle-labels.ts`, `governance-cycle-formatters.ts` |
+| `components/` | `governance-cycles-page.tsx`, `governance-cycle-detail-page.tsx`, `governance-cycle-form-dialog.tsx`, `governance-cycle-arbitration-table.tsx`, `governance-cycle-item-scores-dialog.tsx`, `add-cycle-item-dialog.tsx`, `governance-cycle-overview-tab.tsx`, badges statut/décision |
+
+**Navigation**
+
+- `apps/web/src/config/navigation.ts` — entrée « Cycles de pilotage » → `/cycles`, `moduleCode: governance_cycles`, `governance_cycles.read`
+- Visibilité : `apps/web/src/components/shell/navigation-visibility.ts` (inchangé — consomme `navigation.ts`)
+
+**Tests Vitest** (`apps/web/src/features/governance-cycles/**/*.spec.ts`, `navigation.spec.ts`, `navigation-visibility.spec.ts`)
 
 ---
 
@@ -58,10 +62,21 @@
 
 ### 4.1 Routes et navigation
 
-- Ajouter entree sidebar `Cycles de pilotage` dans la section Gouvernance.
-- Route principale: `/cycles`.
-- Route detail: `/cycles/[cycleId]`.
-- Condition d’affichage: permission `governance_cycles.read`.
+- Entree sidebar **PILOTAGE STRATÉGIQUE** : « Cycles de pilotage » → `/cycles`.
+- Route detail : `/cycles/[cycleId]`.
+- Affichage : `moduleCode: governance_cycles` + permission `governance_cycles.read` (via `navigation-visibility.ts`).
+
+### 4.1b Permissions UI (alignées controller backend)
+
+| Action UI | Permission |
+| --------- | ---------- |
+| Liste / détail / summary / items | `governance_cycles.read` |
+| Créer cycle ou item | `governance_cycles.create` |
+| Modifier cycle, scores item, supprimer item | `governance_cycles.update` |
+| Arbitrer (`decisionStatus` / `decisionReason`) | `governance_cycles.arbitrate` |
+| Archiver cycle | `governance_cycles.delete` |
+
+Mutations item : **deux PATCH distincts** (schémas Zod séparés) — jamais mélanger édition/scores et arbitrage.
 
 ### 4.2 Query keys tenant-aware
 
@@ -78,32 +93,11 @@ export const governanceCyclesKeys = {
 
 ### 4.3 Page liste `/cycles`
 
-Composants attendus :
-
-- `PageHeader`
-- KPI row (`Cycles actifs`, `A arbitrer`, `En execution`, `Clotures`)
-- toolbar filtres (`search`, `status`, `cadence`, `period`)
-- table paginee
-
-Colonnes minimales :
-
-- Nom
-- Cadence
-- Periode
-- Statut
-- Items
-- A arbitrer
-- Budget estime
-- Capacite estimee
-- Derniere mise a jour
-- Actions
-
-Actions :
-
-- creer
-- ouvrir
-- modifier
-- archiver
+- **Synthèse de la page affichée** (4 cartes) — calculée sur les cycles **visibles** de la page courante uniquement ; pas d’agrégat global multi-pages.
+- Filtres **serveur** : `search`, `status`, `cadence`, `includeArchived`.
+- Filtre **période client-side** (page affichée) : libellé explicite + aide — ne filtre pas l’ensemble paginé côté API.
+- Colonnes budget / capacité / à arbitrer : `useQueries` sur `GET …/:id/summary` par cycle visible ; échec isolé → « — ».
+- Table paginée (`limit`/`offset`), libellés FR, `sourceRef.label` / nom — jamais UUID en colonne principale.
 
 ### 4.4 Page detail `/cycles/[cycleId]`
 
@@ -126,25 +120,11 @@ Onglets V1 :
 
 ### 4.5 UX d’arbitrage
 
-La matrice affiche au minimum :
-
-- element (valeur metier)
-- type
-- scores (valeur, alignement, budget, capacite, risque)
-- score global
-- decision
-- motif
-- actions ligne
-
-Actions ligne :
-
-- Retenir
-- Differer
-- Refuser
-- Demander complement
-- Accepter sous reserve
-- Modifier scores
-- Supprimer du cycle
+- Matrice : élément via `sourceRef.label` ou `title` ; scores 1–5 ; **`priorityScore` affiché depuis l’API uniquement** (aucun recalcul React).
+- Actions arbitrage : Retenir, Différer, Refuser, Demander complément, Accepter sous réserve — mutation `patchGovernanceCycleItemArbitration` + schéma dédié.
+- Modifier scores : dialog séparé + mutation `patchGovernanceCycleItemEdition`.
+- Add-item V1 : types `PROJECT`, `BUDGET`, `MANUAL` ; combobox libellés métier (code — nom).
+- Transitions cycle `TO_ARBITRATE` / `CLOSED` : erreurs API **400** affichées telles quelles (toast) — pas de règles métier dupliquées côté React.
 
 ---
 
@@ -156,18 +136,19 @@ Pas de modification Prisma frontend. Cette RFC consomme les contrats backend de 
 
 ## 6) Tests
 
-### Frontend unit/integration
+**Livré** (Vitest, `apps/web`) :
 
-- query keys incluant toujours `clientId`
-- etats `loading/error/empty/success` sur liste et detail
-- affichage conditionnel par permission `governance_cycles.read`
-- form cycle: labels metier FR et mapping enum -> label
-- matrice: aucune colonne n’affiche `projectId`, `budgetId`, `riskId`, `objectiveId` en clair
-- add item dialog: recherche metier par label/code, pas par UUID visible
+| Fichier | Couverture |
+| ------- | ---------- |
+| `lib/governance-cycles-query-keys.spec.ts` | `clientId` dans toutes les clés |
+| `lib/governance-cycle-labels.spec.ts` | libellés FR, pas d’enum brut |
+| `schemas/governance-cycle.schemas.spec.ts` | schémas édition/arbitrage sans champs croisés |
+| `components/governance-cycles-page.render.spec.ts` | liste sans UUID visible ; synthèse page |
+| `components/governance-cycle-arbitration-table.spec.ts` | `sourceRef.label`, `priorityScore` API |
+| `config/navigation.spec.ts` | entrée `/cycles` + `moduleCode` |
+| `components/shell/navigation-visibility.spec.ts` | `governance_cycles.read` + module |
 
-### UX obligatoire (regle Starium)
-
-- tous les selects/combobox/tables affichent des valeurs metier (`name`, `code`, `label`, `title`) et jamais un ID brut comme texte principal.
+Commande : `npm test -- --run src/features/governance-cycles` (depuis `apps/web`).
 
 ---
 

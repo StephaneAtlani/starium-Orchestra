@@ -6,6 +6,8 @@
 
 **Prérequis backend** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — CRUD cycles + items + scoring §4.5 + KPI global B7 + audits/transitions B8 livrés (lots B1–B8) ; endpoint `GET /api/governance-cycles/by-project/:projectId` **non encore implémenté** (RFC-002 / lot B9).
 
+**Prérequis frontend** : [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) — UI `/cycles` **livrée** (2026-05-30).
+
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lot I1).
 
 **Dépend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-FE-PROJ-002 — Project Detail UI](./RFC-FE-PROJ-002%20%E2%80%94%20Project%20Detail%20UI.md), [RFC-PROJ-012 — Project Sheet](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md).
