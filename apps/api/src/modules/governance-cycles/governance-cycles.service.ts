@@ -98,6 +98,7 @@ type CycleRow = {
   sponsorLabel: string | null;
   objectiveSummary: string | null;
   decisionSummary: string | null;
+  validatedByUserId: string | null;
   validatedAt: Date | null;
   closedAt: Date | null;
   createdAt: Date;
@@ -146,7 +147,69 @@ export class GovernanceCyclesService {
       sponsorLabel: row.sponsorLabel,
       objectiveSummary: row.objectiveSummary,
       decisionSummary: row.decisionSummary,
+      validatedByUserId: row.validatedByUserId,
+      validatedAt: row.validatedAt?.toISOString() ?? null,
+      closedAt: row.closedAt?.toISOString() ?? null,
     };
+  }
+
+  private datesEqual(a: Date | null, b: Date | null): boolean {
+    const aMs = a?.getTime() ?? null;
+    const bMs = b?.getTime() ?? null;
+    return aMs === bMs;
+  }
+
+  private async assertNoCandidateItems(
+    clientId: string,
+    cycleId: string,
+  ): Promise<void> {
+    const count = await this.prisma.governanceCycleItem.count({
+      where: {
+        clientId,
+        cycleId,
+        decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+      },
+    });
+    if (count > 0) {
+      throw new BadRequestException(
+        'Cannot validate a governance cycle while items remain in CANDIDATE status',
+      );
+    }
+  }
+
+  private async assertCycleHasItems(
+    clientId: string,
+    cycleId: string,
+  ): Promise<void> {
+    const count = await this.prisma.governanceCycleItem.count({
+      where: { clientId, cycleId },
+    });
+    if (count === 0) {
+      throw new BadRequestException('Cannot close an empty governance cycle');
+    }
+  }
+
+  private async assertNoPendingArbitrationItems(
+    clientId: string,
+    cycleId: string,
+  ): Promise<void> {
+    const count = await this.prisma.governanceCycleItem.count({
+      where: {
+        clientId,
+        cycleId,
+        decisionStatus: {
+          in: [
+            GovernanceCycleItemDecisionStatus.CANDIDATE,
+            GovernanceCycleItemDecisionStatus.TO_ARBITRATE,
+          ],
+        },
+      },
+    });
+    if (count > 0) {
+      throw new BadRequestException(
+        'Cannot close a governance cycle while items remain in CANDIDATE or TO_ARBITRATE status',
+      );
+    }
   }
 
   private parseOptionalDate(
@@ -453,31 +516,75 @@ export class GovernanceCyclesService {
     this.assertNotArchived(existing);
 
     const data: Prisma.GovernanceCycleUncheckedUpdateInput = {};
-    if (dto.name !== undefined) data.name = dto.name.trim();
-    if (dto.code !== undefined) data.code = dto.code?.trim() || null;
-    if (dto.description !== undefined) {
-      data.description = dto.description?.trim() || null;
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (name !== existing.name) data.name = name;
     }
-    if (dto.cadence !== undefined) data.cadence = dto.cadence;
-    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.code !== undefined) {
+      const code = dto.code?.trim() || null;
+      if (code !== existing.code) data.code = code;
+    }
+    if (dto.description !== undefined) {
+      const description = dto.description?.trim() || null;
+      if (description !== existing.description) data.description = description;
+    }
+    if (dto.cadence !== undefined && dto.cadence !== existing.cadence) {
+      data.cadence = dto.cadence;
+    }
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      data.status = dto.status;
+    }
     if (dto.startDate !== undefined) {
-      data.startDate = this.parseOptionalDate(dto.startDate) ?? null;
+      const startDate = this.parseOptionalDate(dto.startDate) ?? null;
+      if (!this.datesEqual(startDate, existing.startDate)) {
+        data.startDate = startDate;
+      }
     }
     if (dto.endDate !== undefined) {
-      data.endDate = this.parseOptionalDate(dto.endDate) ?? null;
+      const endDate = this.parseOptionalDate(dto.endDate) ?? null;
+      if (!this.datesEqual(endDate, existing.endDate)) {
+        data.endDate = endDate;
+      }
     }
     if (dto.sponsorLabel !== undefined) {
-      data.sponsorLabel = dto.sponsorLabel?.trim() || null;
+      const sponsorLabel = dto.sponsorLabel?.trim() || null;
+      if (sponsorLabel !== existing.sponsorLabel) data.sponsorLabel = sponsorLabel;
     }
     if (dto.objectiveSummary !== undefined) {
-      data.objectiveSummary = dto.objectiveSummary?.trim() || null;
+      const objectiveSummary = dto.objectiveSummary?.trim() || null;
+      if (objectiveSummary !== existing.objectiveSummary) {
+        data.objectiveSummary = objectiveSummary;
+      }
     }
     if (dto.decisionSummary !== undefined) {
-      data.decisionSummary = dto.decisionSummary?.trim() || null;
+      const decisionSummary = dto.decisionSummary?.trim() || null;
+      if (decisionSummary !== existing.decisionSummary) {
+        data.decisionSummary = decisionSummary;
+      }
     }
 
     if (Object.keys(data).length === 0) {
       return this.getCycleById(clientId, id);
+    }
+
+    const transitioningToArbitrate =
+      data.status === GovernanceCycleStatus.TO_ARBITRATE;
+    const transitioningToClosed = data.status === GovernanceCycleStatus.CLOSED;
+
+    if (transitioningToArbitrate) {
+      await this.assertNoCandidateItems(clientId, id);
+      if (!context?.actorUserId) {
+        throw new ForbiddenException('Contexte utilisateur manquant');
+      }
+      data.validatedAt = new Date();
+      data.validatedByUserId = context.actorUserId;
+    }
+
+    if (transitioningToClosed) {
+      await this.assertCycleHasItems(clientId, id);
+      await this.assertNoPendingArbitrationItems(clientId, id);
+      data.closedAt = new Date();
     }
 
     const updated = await this.prisma.governanceCycle.update({
@@ -493,6 +600,42 @@ export class GovernanceCyclesService {
       this.cycleAuditSnapshot(existing),
       this.cycleAuditSnapshot(updated),
     );
+
+    if (transitioningToArbitrate) {
+      await this.audit(
+        clientId,
+        context,
+        'governance_cycle.validated',
+        id,
+        {
+          status: existing.status,
+          validatedAt: existing.validatedAt?.toISOString() ?? null,
+          validatedByUserId: existing.validatedByUserId,
+        },
+        {
+          status: updated.status,
+          validatedAt: updated.validatedAt?.toISOString() ?? null,
+          validatedByUserId: updated.validatedByUserId,
+        },
+      );
+    }
+
+    if (transitioningToClosed) {
+      await this.audit(
+        clientId,
+        context,
+        'governance_cycle.closed',
+        id,
+        {
+          status: existing.status,
+          closedAt: existing.closedAt?.toISOString() ?? null,
+        },
+        {
+          status: updated.status,
+          closedAt: updated.closedAt?.toISOString() ?? null,
+        },
+      );
+    }
 
     return this.getCycleById(clientId, id);
   }

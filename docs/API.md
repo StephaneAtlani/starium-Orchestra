@@ -963,7 +963,7 @@ Le `PATCH` reste interdit en `SUBMITTED` et `ARCHIVED`.
 
 ## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001)
 
-Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + **KPI global** `GET …/:id/summary` (B7). **Hors scope actuel** : `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002).
+Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + KPI global `GET …/:id/summary` (B7) + audits / transitions `TO_ARBITRATE` / `CLOSED` (B8). **Hors scope actuel** : `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002 / B9).
 
 **Headers** : `Authorization: Bearer <accessToken>`, **`X-Client-Id`** (client actif). Aucun `clientId` dans les corps write.
 
@@ -1072,8 +1072,20 @@ Cycle sans items : tous les compteurs à `0`, totaux `"0.00"`, `averagePriorityS
 - **Permission** : `governance_cycles.update`
 - **Body** : champs partiels (mêmes types que POST, dates nullable)
 - **Réponse 200** : cycle mis à jour
-- **Erreurs** : **404** (introuvable / hors client), **409** si cycle `ARCHIVED`
-- **Audit** : `governance_cycle.updated`
+- **No-op** : si aucun champ ne change réellement après normalisation (ex. `{ "status": "DRAFT" }` sur un cycle déjà `DRAFT`, ou `name` trimé identique), pas de mise à jour Prisma ni d’audit
+- **Erreurs** :
+  - **404** (introuvable / hors client)
+  - **409** si cycle `ARCHIVED`
+  - **400** — transition vers **`TO_ARBITRATE`** (validation CODIR) refusée si au moins un item a `decisionStatus = CANDIDATE`
+  - **403** — transition vers **`TO_ARBITRATE`** sans contexte utilisateur (`Contexte utilisateur manquant`)
+  - **400** — transition vers **`CLOSED`** refusée si le cycle n’a aucun item, ou si un item est encore `CANDIDATE` ou `TO_ARBITRATE`
+- **Transitions métier `status`** :
+  - **`TO_ARBITRATE`** = validation du cycle pour arbitrage CODIR ; renseigne `validatedAt` et `validatedByUserId` (validateur = utilisateur authentifié)
+  - **`CLOSED`** = clôture du cycle après arbitrage ; renseigne `closedAt` (tous les items doivent être arbitrés — plus de `CANDIDATE` ni `TO_ARBITRATE`)
+- **Audits** :
+  - `governance_cycle.updated` — toute modification réelle
+  - `governance_cycle.validated` — uniquement lors d’une vraie transition vers `TO_ARBITRATE`
+  - `governance_cycle.closed` — uniquement lors d’une vraie transition vers `CLOSED`
 
 ### DELETE /api/governance-cycles/:id
 

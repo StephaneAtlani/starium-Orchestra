@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 **Partiellement implémenté** (backend) — lots **B1–B7** livrés (2026-05-30) : modèles, RBAC, CRUD cycles, CRUD items, audits items, **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Restent **B9** (`by-project`) et frontend **FE-001**.
+🟡 **Partiellement implémenté** (backend) — lots **B1–B8** livrés : modèles, RBAC, CRUD cycles, CRUD items, audits (cycle + items, dont `validated`/`closed`), **scoring `priorityScore`**, **KPI global `GET …/:id/summary`**. Restent **B9** (`by-project`) et frontend **FE-001**.
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots B1–B9).
 
@@ -18,14 +18,15 @@
 | CRUD cycles (5 routes) | ✅ | `GET\|POST /api/governance-cycles`, `GET\|PATCH\|DELETE /api/governance-cycles/:id` — voir [docs/API.md](../API.md) §5.8 |
 | `summary` embarqué par cycle (agrégats items) | ✅ | Champ `summary` sur liste et détail (3 compteurs légers) |
 | `GET …/:id/summary` KPI global (lot B7) | ✅ | `GovernanceCycleGlobalSummaryDto` — voir [API.md](../API.md) §5.8 |
-| Audits cycle `created` / `updated` / `archived` | ✅ | `GovernanceCyclesService` |
+| Audits cycle `created` / `updated` / `archived` / `validated` / `closed` | ✅ | `GovernanceCyclesService` — transitions `TO_ARBITRATE` / `CLOSED` + garde-fous §4.4 |
 | CRUD items (5 routes sous `:id/items`) | ✅ | Lot B5 — détail [API.md](../API.md) §5.8 ; PATCH édition/arbitrage séparés (body mixte → 400) |
 | DTOs items | ✅ | `create-` / `update-` / `list-governance-cycle-items-query` |
 | Audits items | ✅ | `governance_cycle_item.created\|updated\|deleted\|decision_changed` |
-| Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` |
+| Tests unit items (service + controller) | ✅ | `governance-cycles.service.spec.ts`, `governance-cycles.controller.spec.ts` — 78 tests module |
 | Scoring `priorityScore` (§4.5) | ✅ | `governance-cycle-scoring.util.ts` (`computePriorityScore`, `hasScorePatch`) ; recalcul create toujours, update si clé score présente ; DTOs + specs ValidationPipe ; tri `nulls: 'last'` |
 | Tests scoring §6 | ✅ | `governance-cycle-scoring.util.spec.ts`, `governance-cycles.service.spec.ts`, `create-` / `update-governance-cycle-item.dto.spec.ts` |
-| Tests summary KPI B7 §6 | ✅ | `getCycleSummary` — 5 cas service + controller (61 tests module) |
+| Tests summary KPI B7 §6 | ✅ | `getCycleSummary` — 5 cas service + controller |
+| Tests audits cycle validated/closed + items §6 | ✅ | `describe('audits cycle')`, tests `updateItem.updated`, isolation — lot B8 |
 | `GET …/by-project` | ❌ | Lot B9, [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) |
 
 ---
@@ -133,16 +134,22 @@ Agregats :
 - Aucun `clientId` dans les DTO write.
 - Filtrage `clientId` sur toutes les lectures.
 - Refus de modification sur cycle `ARCHIVED`.
-- Refus de cloture d’un cycle vide.
-- Refus de validation si des items sont encore `CANDIDATE`.
+- **PATCH cycle no-op** ✅ : aucune mise à jour Prisma ni audit si les champs normalisés sont identiques à l’existant (ex. `status` inchangé).
+- **Transition `TO_ARBITRATE`** (validation CODIR) ✅ :
+  - renseigne `validatedAt` et `validatedByUserId` (validateur = utilisateur authentifié — **403** si contexte utilisateur absent) ;
+  - refus si au moins un item a encore `decisionStatus = CANDIDATE`.
+- **Transition `CLOSED`** (clôture) ✅ :
+  - renseigne `closedAt` ;
+  - refus si le cycle n’a aucun item ;
+  - refus si un item est encore `CANDIDATE` ou `TO_ARBITRATE`.
 - Verification d’appartenance client pour toutes references (`projectId`, `budgetId`, `budgetLineId`, `riskId` → `ProjectRisk`, `strategicObjectiveId`).
 - Items **MANUAL** : aucune FK dans le body create (presence d’un id source → **400**).
 - **PATCH item** : un seul handler ; champs edition (`title`, `description`, `estimated*`) vs arbitrage (`decisionStatus`, `decisionReason`) — body mixte → **400** ; permissions fines `governance_cycles.update` / `governance_cycles.arbitrate` (entree handler via `RequireAnyPermissions`).
 - Pas de mutation de `Project.status` ni des entites sources.
 - Erreurs:
   - `404` objet inexistant ou hors client
-  - `400` incoherence `sourceType` / identifiants ; body PATCH mixte ; FK sur MANUAL
-  - `403` PATCH sans permission du groupe de champs
+  - `400` incoherence `sourceType` / identifiants ; body PATCH mixte ; FK sur MANUAL ; transitions validate/close invalides
+  - `403` PATCH sans permission du groupe de champs ; validation `TO_ARBITRATE` sans contexte utilisateur
   - `409` doublon fonctionnel (ex: meme projet deja dans le cycle) ; cycle `ARCHIVED`
 
 ### 4.5 Scoring backend ✅ (lot B6 — 2026-05-30)
@@ -193,10 +200,14 @@ Regles :
 - permissions PATCH par groupe de champs ✅
 - calcul `priorityScore` exact ✅ (lot B6 — util, service, specs DTO ValidationPipe)
 - endpoint `summary` global coherent avec les statuts decision ✅ (lot B7)
+- transitions `TO_ARBITRATE` / `CLOSED` + garde-fous items ✅ (lot B8)
+- PATCH no-op (status ou champs identiques) sans audit ✅
+- audits cycle `validated` / `closed` ✅
+- audits item `updated` + pas de `decision_changed` si inchangé ✅
 
 ### Audit
 
-Verifier emission:
+Verifier emission ✅ (tests service lot B8) :
 
 - `governance_cycle.created|updated|archived|validated|closed`
 - `governance_cycle_item.created|updated|deleted|decision_changed`

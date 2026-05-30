@@ -6,7 +6,7 @@
 
 **Plan d’exécution** : [_Plan de développement - Cycles de pilotage.md](./_Plan%20de%20d%C3%A9veloppement%20-%20Cycles%20de%20pilotage.md) (lots F1–F8).
 
-**Prérequis backend (2026-05-30)** : API cycles + items + **scoring §4.5** + **KPI global B7** (`GET …/:id/summary`, `GovernanceCycleGlobalSummaryDto`) opérationnels ([API.md](../API.md) §5.8). L’onglet overview CODIR consomme la route summary dédiée ; le champ `summary` embarqué sur `GET :id` reste utilisable pour le header léger.
+**Prérequis backend (2026-05-30)** : API cycles + items + **scoring §4.5** + **KPI global B7** (`GET …/:id/summary`) + **audits / transitions** `TO_ARBITRATE` / `CLOSED` (lot B8) opérationnels ([API.md](../API.md) §5.8). L’onglet overview CODIR consomme la route summary dédiée ; le champ `summary` embarqué sur `GET :id` reste utilisable pour le header léger.
 
 **Depend de** : [RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md), [RFC-STRAT-003 — Strategic Vision Frontend UI](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md).
 

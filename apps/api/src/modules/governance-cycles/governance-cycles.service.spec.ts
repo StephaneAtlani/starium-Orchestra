@@ -282,6 +282,283 @@ describe('GovernanceCyclesService', () => {
     expect(auditLogs.create).not.toHaveBeenCalled();
   });
 
+  describe('audits cycle', () => {
+    function mockUpdateCycleFetch(updated: typeof baseCycle) {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycle.update.mockResolvedValue(updated);
+      mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });
+    }
+
+    it('updateCycle change le nom audite updated', async () => {
+      const updated = { ...baseCycle, name: 'CODIR T3 2026' };
+      mockUpdateCycleFetch(updated);
+
+      await service.updateCycle(
+        'client-a',
+        'cycle-1',
+        { name: 'CODIR T3 2026' },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycle.update).toHaveBeenCalledWith({
+        where: { id: 'cycle-1' },
+        data: { name: 'CODIR T3 2026' },
+      });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle.updated',
+          resourceType: 'governance_cycle',
+          resourceId: 'cycle-1',
+        }),
+      );
+    });
+
+    it('updateCycle body vide ne déclenche ni Prisma ni audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });
+
+      await service.updateCycle('client-a', 'cycle-1', {});
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('updateCycle PATCH nom identique après trim ne déclenche ni Prisma ni audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });
+
+      await service.updateCycle('client-a', 'cycle-1', {
+        name: '  CODIR T2 2026  ',
+      });
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('updateCycle PATCH status identique ne déclenche ni Prisma ni audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });
+
+      await service.updateCycle('client-a', 'cycle-1', {
+        status: GovernanceCycleStatus.DRAFT,
+      });
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('status → TO_ARBITRATE avec items OK audite updated + validated', async () => {
+      prisma.governanceCycleItem.count.mockResolvedValue(0);
+      const validatedAt = new Date('2026-05-30T12:00:00.000Z');
+      const updated = {
+        ...baseCycle,
+        status: GovernanceCycleStatus.TO_ARBITRATE,
+        validatedAt,
+        validatedByUserId: 'user-1',
+      };
+      mockUpdateCycleFetch(updated);
+
+      await service.updateCycle(
+        'client-a',
+        'cycle-1',
+        { status: GovernanceCycleStatus.TO_ARBITRATE },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.count).toHaveBeenCalledWith({
+        where: {
+          clientId: 'client-a',
+          cycleId: 'cycle-1',
+          decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+        },
+      });
+      expect(prisma.governanceCycle.update).toHaveBeenCalledWith({
+        where: { id: 'cycle-1' },
+        data: expect.objectContaining({
+          status: GovernanceCycleStatus.TO_ARBITRATE,
+          validatedByUserId: 'user-1',
+          validatedAt: expect.any(Date),
+        }),
+      });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'governance_cycle.updated' }),
+      );
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle.validated',
+          newValue: expect.objectContaining({
+            status: GovernanceCycleStatus.TO_ARBITRATE,
+            validatedByUserId: 'user-1',
+          }),
+        }),
+      );
+    });
+
+    it('status → TO_ARBITRATE avec item CANDIDATE refuse sans Prisma ni audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.count.mockResolvedValue(1);
+
+      await expect(
+        service.updateCycle(
+          'client-a',
+          'cycle-1',
+          { status: GovernanceCycleStatus.TO_ARBITRATE },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('status → TO_ARBITRATE sans actorUserId refuse sans Prisma ni audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.count.mockResolvedValue(0);
+
+      await expect(
+        service.updateCycle('client-a', 'cycle-1', {
+          status: GovernanceCycleStatus.TO_ARBITRATE,
+        }),
+      ).rejects.toThrow('Contexte utilisateur manquant');
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('status → CLOSED avec items arbitrés audite updated + closed', async () => {
+      prisma.governanceCycleItem.count.mockImplementation(({ where }) => {
+        if (where.decisionStatus?.in) return Promise.resolve(0);
+        return Promise.resolve(2);
+      });
+      const closedAt = new Date('2026-06-01T00:00:00.000Z');
+      const updated = {
+        ...baseCycle,
+        status: GovernanceCycleStatus.CLOSED,
+        closedAt,
+      };
+      mockUpdateCycleFetch(updated);
+
+      await service.updateCycle(
+        'client-a',
+        'cycle-1',
+        { status: GovernanceCycleStatus.CLOSED },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(prisma.governanceCycleItem.count).toHaveBeenCalledWith({
+        where: { clientId: 'client-a', cycleId: 'cycle-1' },
+      });
+      expect(prisma.governanceCycleItem.count).toHaveBeenCalledWith({
+        where: {
+          clientId: 'client-a',
+          cycleId: 'cycle-1',
+          decisionStatus: {
+            in: [
+              GovernanceCycleItemDecisionStatus.CANDIDATE,
+              GovernanceCycleItemDecisionStatus.TO_ARBITRATE,
+            ],
+          },
+        },
+      });
+      expect(prisma.governanceCycle.update).toHaveBeenCalledWith({
+        where: { id: 'cycle-1' },
+        data: expect.objectContaining({
+          status: GovernanceCycleStatus.CLOSED,
+          closedAt: expect.any(Date),
+        }),
+      });
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'governance_cycle.updated' }),
+      );
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle.closed',
+          newValue: expect.objectContaining({
+            status: GovernanceCycleStatus.CLOSED,
+            closedAt: closedAt.toISOString(),
+          }),
+        }),
+      );
+    });
+
+    it('status → CLOSED cycle vide refuse sans audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.count.mockResolvedValue(0);
+
+      await expect(
+        service.updateCycle(
+          'client-a',
+          'cycle-1',
+          { status: GovernanceCycleStatus.CLOSED },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('status → CLOSED avec item CANDIDATE refuse sans audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.count.mockImplementation(({ where }) => {
+        if (!where.decisionStatus) return Promise.resolve(1);
+        if (where.decisionStatus?.in) return Promise.resolve(1);
+        return Promise.resolve(0);
+      });
+
+      await expect(
+        service.updateCycle(
+          'client-a',
+          'cycle-1',
+          { status: GovernanceCycleStatus.CLOSED },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+
+    it('status → CLOSED avec item TO_ARBITRATE refuse sans audit', async () => {
+      prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
+      prisma.governanceCycleItem.count.mockImplementation(({ where }) => {
+        if (!where.decisionStatus) return Promise.resolve(2);
+        if (where.decisionStatus?.in) return Promise.resolve(1);
+        return Promise.resolve(0);
+      });
+
+      await expect(
+        service.updateCycle(
+          'client-a',
+          'cycle-1',
+          { status: GovernanceCycleStatus.CLOSED },
+          { actorUserId: 'user-1' },
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
+      expect(auditLogs.create).not.toHaveBeenCalled();
+    });
+  });
+
+  it('createCycle puis getCycleById autre client → NotFoundException', async () => {
+    prisma.governanceCycle.create.mockResolvedValue(baseCycle);
+    prisma.governanceCycle.findFirst
+      .mockResolvedValueOnce(baseCycle)
+      .mockResolvedValueOnce(null);
+    mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });
+
+    await service.createCycle(
+      'client-a',
+      { name: 'CODIR T2 2026', cadence: GovernanceCycleCadence.QUARTERLY },
+      { actorUserId: 'user-1' },
+    );
+
+    await expect(service.getCycleById('client-b', 'cycle-1')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
   it('summary agrège accepted et deferred', async () => {
     prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
     prisma.governanceCycleItem.groupBy
@@ -677,6 +954,104 @@ describe('GovernanceCyclesService', () => {
           resourceType: 'governance_cycle_item',
         }),
       );
+    });
+
+    it('updateItem arbitrage sans changement effectif n audite pas decision_changed', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.update.mockResolvedValue(baseItem);
+
+      await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(auditLogs.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.decision_changed',
+        }),
+      );
+    });
+
+    it('updateItem titre seul audite updated sans decision_changed', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(baseItem);
+      prisma.governanceCycleItem.update.mockResolvedValue({
+        ...baseItem,
+        title: 'Nouveau titre',
+      });
+
+      await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { title: 'Nouveau titre' },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.updated',
+          resourceType: 'governance_cycle_item',
+        }),
+      );
+      expect(auditLogs.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.decision_changed',
+        }),
+      );
+    });
+
+    it('updateItem score seul audite updated', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue({
+        ...baseItem,
+        valueScore: 5,
+        alignmentScore: 5,
+        budgetScore: 4,
+        capacityScore: 4,
+        riskScore: 2,
+        priorityScore: 42,
+      });
+      prisma.governanceCycleItem.update.mockImplementation(({ data, include }) =>
+        Promise.resolve({
+          ...baseItem,
+          valueScore: data.valueScore ?? null,
+          alignmentScore: data.alignmentScore ?? null,
+          budgetScore: data.budgetScore ?? null,
+          capacityScore: data.capacityScore ?? null,
+          riskScore: data.riskScore ?? null,
+          priorityScore: data.priorityScore ?? null,
+          include,
+        }),
+      );
+
+      await service.updateItem(
+        'client-a',
+        'cycle-1',
+        'item-1',
+        { valueScore: 3 },
+        { actorUserId: 'user-1' },
+      );
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'governance_cycle_item.updated',
+          resourceType: 'governance_cycle_item',
+        }),
+      );
+    });
+
+    it('getItemById renvoie 404 hors client ou absent', async () => {
+      mockMutableCycle();
+      prisma.governanceCycleItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getItemById('client-a', 'cycle-1', 'item-missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('createItem sur cycle ARCHIVED → ConflictException', async () => {

@@ -132,6 +132,24 @@ describe('GovernanceCyclesController', () => {
     expect(CreateGovernanceCycleDto.prototype).not.toHaveProperty('clientId');
   });
 
+  it('updateCycle délègue au service avec actorUserId et meta', async () => {
+    const controller = new GovernanceCyclesController(
+      serviceMock as unknown as GovernanceCyclesService,
+    );
+    const dto = { status: 'TO_ARBITRATE' as const };
+    const meta = { requestId: 'req-1' };
+    serviceMock.updateCycle.mockResolvedValue({ id: 'cycle-1' });
+
+    await controller.updateCycle('client-a', 'cycle-1', dto, 'user-1', meta);
+
+    expect(serviceMock.updateCycle).toHaveBeenCalledWith(
+      'client-a',
+      'cycle-1',
+      dto,
+      { actorUserId: 'user-1', meta },
+    );
+  });
+
   it('permissions items read / create / update', () => {
     expect(
       Reflect.getMetadata(
