@@ -68,7 +68,8 @@
       "projects.delete",
       "compliance.read",
       "compliance.update",
-      "governance_cycles.read"
+      "governance_cycles.read",
+      "governance_cycles.propose"
     ]
   },
   {
@@ -133,6 +134,7 @@
     "permissionCodes": [
       "governance_cycles.read",
       "governance_cycles.create",
+      "governance_cycles.propose",
       "governance_cycles.update",
       "governance_cycles.delete",
       "governance_cycles.arbitrate",

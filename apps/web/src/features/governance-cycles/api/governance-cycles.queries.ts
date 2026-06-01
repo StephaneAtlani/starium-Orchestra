@@ -17,7 +17,7 @@ import type {
   ListGovernanceCyclesParams,
 } from '../types/governance-cycle.types';
 
-function useGovernanceCyclesReadContext(options?: { enabled?: boolean }) {
+export function useGovernanceCyclesReadContext(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const { has, isSuccess: permsSuccess } = usePermissions();
@@ -120,5 +120,3 @@ export function useGovernanceCycleSummariesForIdsQuery(
     })),
   });
 }
-
-export { useGovernanceCyclesReadContext };

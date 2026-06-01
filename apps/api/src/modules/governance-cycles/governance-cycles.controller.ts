@@ -26,6 +26,7 @@ import { ListGovernanceCycleItemsQueryDto } from './dto/list-governance-cycle-it
 import { ListGovernanceCyclesQueryDto } from './dto/list-governance-cycles-query.dto';
 import { UpdateGovernanceCycleDto } from './dto/update-governance-cycle.dto';
 import { UpdateGovernanceCycleItemDto } from './dto/update-governance-cycle-item.dto';
+import { SubmitProjectToCycleDto } from './dto/submit-project-to-cycle.dto';
 import { GovernanceCyclesService } from './governance-cycles.service';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
@@ -119,6 +120,21 @@ export class GovernanceCyclesController {
     @Query() query: ListGovernanceCycleItemsQueryDto,
   ) {
     return this.service.listItems(clientId!, cycleId, query);
+  }
+
+  @Post('governance-cycles/:id/candidacies')
+  @RequirePermissions('governance_cycles.propose')
+  submitCandidacy(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') cycleId: string,
+    @Body() dto: SubmitProjectToCycleDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: AuditMeta,
+  ) {
+    return this.service.submitProjectCandidacy(clientId!, cycleId, dto, {
+      actorUserId: actorUserId!,
+      meta,
+    });
   }
 
   @Post('governance-cycles/:id/items')

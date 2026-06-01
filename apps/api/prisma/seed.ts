@@ -45,6 +45,7 @@ import { ensureDemoProjectTaskBuckets } from "./seed-project-demo-buckets";
 import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
+import { ensureDemoGovernanceCycles } from "./seed-governance-cycles-demo";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
@@ -1409,6 +1410,7 @@ async function ensureGovernanceCyclesModuleAndPermissions(): Promise<void> {
   const defs: Array<{ code: string; label: string }> = [
     { code: "governance_cycles.read", label: "Cycles de pilotage — lecture" },
     { code: "governance_cycles.create", label: "Cycles de pilotage — création" },
+    { code: "governance_cycles.propose", label: "Cycles de pilotage — proposer un candidat" },
     { code: "governance_cycles.update", label: "Cycles de pilotage — mise à jour" },
     { code: "governance_cycles.delete", label: "Cycles de pilotage — archivage" },
     { code: "governance_cycles.arbitrate", label: "Cycles de pilotage — arbitrage" },
@@ -3621,6 +3623,9 @@ async function ensureDemoProjectsForAllClients(): Promise<void> {
     }
 
     await seedClientDemoProjects(c.slug, c.id, userMap);
+
+    const actorUserId = userMap.values().next().value ?? null;
+    await ensureDemoGovernanceCycles(prisma, c.slug, c.id, actorUserId);
   }
 }
 

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import {
+  GovernanceCycleInstanceStatus,
   GovernanceCycleItemDecisionStatus,
   GovernanceCycleItemSourceType,
   GovernanceCycleStatus,
@@ -54,6 +55,14 @@ import {
   scoresFromDto,
   scoresFromItemRow,
 } from './lib/governance-cycle-scoring.util';
+import {
+  DEFAULT_GOVERNANCE_CYCLE_CONFIG,
+  governanceConfigFromDb,
+  parseAndNormalizeGovernanceConfig,
+} from './lib/governance-cycle-config.schema';
+import { normalizeItemDecisionStatusForRead } from './lib/governance-cycle-item-status.util';
+import { isGovernanceCyclesModuleActive } from './lib/governance-cycles-module.util';
+import { SubmitProjectToCycleDto } from './dto/submit-project-to-cycle.dto';
 
 type GovernanceAuditContext = {
   actorUserId?: string;
@@ -104,9 +113,23 @@ type CycleRow = {
   validatedByUserId: string | null;
   validatedAt: Date | null;
   closedAt: Date | null;
+  governanceConfig: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
 };
+
+const GOVERNANCE_CYCLES_MODULE_INACTIVE = 'GOVERNANCE_CYCLES_MODULE_INACTIVE';
+const GOVERNANCE_CYCLE_ITEM_ALREADY_DECIDED = 'GOVERNANCE_CYCLE_ITEM_ALREADY_DECIDED';
+const GOVERNANCE_CYCLE_ITEM_DECISION_LOCKED_BY_INSTANCE =
+  'GOVERNANCE_CYCLE_ITEM_DECISION_LOCKED_BY_INSTANCE';
+const GOVERNANCE_CYCLES_PROPOSE_FORBIDDEN = 'GOVERNANCE_CYCLES_PROPOSE_FORBIDDEN';
+
+const CANDIDACY_RESUBMIT_STATUSES: GovernanceCycleItemDecisionStatus[] = [
+  GovernanceCycleItemDecisionStatus.CANDIDATE,
+  GovernanceCycleItemDecisionStatus.DEFERRED,
+  GovernanceCycleItemDecisionStatus.NEEDS_INFORMATION,
+  GovernanceCycleItemDecisionStatus.TO_ARBITRATE,
+];
 
 @Injectable()
 export class GovernanceCyclesService {
@@ -223,9 +246,19 @@ export class GovernanceCyclesService {
     return new Date(value);
   }
 
+  private resolveConfig(
+    raw: Prisma.JsonValue | null,
+    allowBudget = false,
+  ) {
+    return governanceConfigFromDb(raw, {
+      allowBudgetGovernancePropagation: allowBudget,
+    });
+  }
+
   private toResponse(
     row: CycleRow,
     summary: GovernanceCycleSummaryDto,
+    allowBudget = false,
   ): GovernanceCycleResponseDto {
     return {
       id: row.id,
@@ -244,6 +277,7 @@ export class GovernanceCyclesService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       summary,
+      governanceConfig: this.resolveConfig(row.governanceConfig, allowBudget),
     };
   }
 
@@ -420,17 +454,59 @@ export class GovernanceCyclesService {
       orderBy: [{ cycle: { updatedAt: 'desc' } }, { updatedAt: 'desc' }],
     });
 
-    const items: GovernanceCycleByProjectItemDto[] = rows.map((row) => ({
-      cycleId: row.cycle.id,
-      cycleName: row.cycle.name,
-      cadence: row.cycle.cadence,
-      periodLabel: buildGovernanceCyclePeriodLabel(
-        row.cycle.startDate,
-        row.cycle.endDate,
-      ),
-      decisionStatus: row.decisionStatus,
-      priorityScore: row.priorityScore,
-    }));
+    const itemIds = rows.map((r) => r.cycle.id);
+    const lastDecisions = await this.prisma.governanceCycleInstanceDecision.findMany({
+      where: {
+        clientId,
+        item: { projectId },
+        instance: {
+          status: GovernanceCycleInstanceStatus.CLOSED,
+          cycleId: { in: itemIds.length ? itemIds : ['__none__'] },
+        },
+      },
+      include: {
+        instance: {
+          select: {
+            id: true,
+            periodLabel: true,
+            scheduledDecisionAt: true,
+            closedAt: true,
+            cycleId: true,
+          },
+        },
+      },
+      orderBy: [{ instance: { closedAt: 'desc' } }, { decidedAt: 'desc' }],
+    });
+
+    const lastByCycle = new Map<
+      string,
+      (typeof lastDecisions)[0]
+    >();
+    for (const d of lastDecisions) {
+      const cycleId = d.instance.cycleId;
+      if (!lastByCycle.has(cycleId)) {
+        lastByCycle.set(cycleId, d);
+      }
+    }
+
+    const items: GovernanceCycleByProjectItemDto[] = rows.map((row) => {
+      const last = lastByCycle.get(row.cycle.id);
+      return {
+        cycleId: row.cycle.id,
+        cycleName: row.cycle.name,
+        cadence: row.cycle.cadence,
+        periodLabel: buildGovernanceCyclePeriodLabel(
+          row.cycle.startDate,
+          row.cycle.endDate,
+        ),
+        decisionStatus: normalizeItemDecisionStatusForRead(row.decisionStatus),
+        priorityScore: row.priorityScore,
+        lastInstanceId: last?.instance.id ?? null,
+        lastInstancePeriodLabel: last?.instance.periodLabel ?? null,
+        lastInstanceScheduledDecisionAt:
+          last?.instance.scheduledDecisionAt?.toISOString() ?? null,
+      };
+    });
 
     return { items };
   }
@@ -543,6 +619,7 @@ export class GovernanceCyclesService {
         objectiveSummary: dto.objectiveSummary?.trim() || null,
         decisionSummary: dto.decisionSummary?.trim() || null,
         createdByUserId: context?.actorUserId ?? null,
+        governanceConfig: DEFAULT_GOVERNANCE_CYCLE_CONFIG as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -614,6 +691,23 @@ export class GovernanceCyclesService {
       if (decisionSummary !== existing.decisionSummary) {
         data.decisionSummary = decisionSummary;
       }
+    }
+
+    if (dto.governanceConfig !== undefined) {
+      const allowBudget =
+        typeof this.prisma.budgetGovernanceDecision?.create === 'function';
+      const normalized = parseAndNormalizeGovernanceConfig(dto.governanceConfig, {
+        allowBudgetGovernancePropagation: allowBudget,
+      });
+      data.governanceConfig = normalized as unknown as Prisma.InputJsonValue;
+      await this.audit(
+        clientId,
+        context,
+        'governance_cycle.config_updated',
+        id,
+        undefined,
+        { governanceConfig: normalized as unknown as Prisma.JsonObject },
+      );
     }
 
     if (Object.keys(data).length === 0) {
@@ -801,7 +895,7 @@ export class GovernanceCyclesService {
       sourceType: row.sourceType,
       title: row.title,
       description: row.description,
-      decisionStatus: row.decisionStatus,
+      decisionStatus: normalizeItemDecisionStatusForRead(row.decisionStatus),
       decisionReason: row.decisionReason,
       valueScore: row.valueScore,
       riskScore: row.riskScore,
@@ -1268,6 +1362,24 @@ export class GovernanceCyclesService {
         context.actorUserId,
         'governance_cycles.arbitrate',
       );
+      const locked = await this.prisma.governanceCycleInstanceAgendaItem.findFirst({
+        where: {
+          clientId,
+          itemId,
+          instance: {
+            cycleId,
+            status: GovernanceCycleInstanceStatus.OPEN,
+          },
+        },
+        select: { id: true },
+      });
+      if (locked) {
+        throw new BadRequestException({
+          code: GOVERNANCE_CYCLE_ITEM_DECISION_LOCKED_BY_INSTANCE,
+          message:
+            'Item decision must be updated via the open governance cycle instance',
+        });
+      }
     }
 
     const data: Prisma.GovernanceCycleItemUncheckedUpdateInput = {};
@@ -1366,5 +1478,90 @@ export class GovernanceCyclesService {
       this.itemAuditSnapshot(existing),
       undefined,
     );
+  }
+
+  async submitProjectCandidacy(
+    clientId: string,
+    cycleId: string,
+    dto: SubmitProjectToCycleDto,
+    context: GovernanceItemMutationContext,
+  ): Promise<GovernanceCycleItemResponseDto> {
+    const active = await isGovernanceCyclesModuleActive(this.prisma, clientId);
+    if (!active) {
+      throw new NotFoundException({
+        code: GOVERNANCE_CYCLES_MODULE_INACTIVE,
+        message: 'Governance cycles module is not active for this client',
+      });
+    }
+
+    await this.assertActorHasPermission(
+      clientId,
+      context.actorUserId,
+      'governance_cycles.propose',
+    );
+
+    await this.findCycleInClient(clientId, cycleId);
+
+    const project = await this.prisma.project.findFirst({
+      where: { id: dto.projectId, clientId },
+      select: { id: true, name: true, code: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found for active client');
+    }
+
+    const existing = await this.prisma.governanceCycleItem.findUnique({
+      where: {
+        cycleId_projectId: { cycleId, projectId: dto.projectId },
+      },
+      include: governanceCycleItemInclude,
+    });
+
+    if (
+      existing &&
+      !CANDIDACY_RESUBMIT_STATUSES.includes(existing.decisionStatus)
+    ) {
+      throw new ConflictException({
+        code: GOVERNANCE_CYCLE_ITEM_ALREADY_DECIDED,
+        message: 'Project already has a final decision on this cycle',
+      });
+    }
+
+    const title =
+      project.code && project.name
+        ? `${project.code} — ${project.name}`
+        : project.name;
+
+    const row = existing
+      ? await this.prisma.governanceCycleItem.update({
+          where: { id: existing.id },
+          data: {
+            decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+            decisionReason: null,
+          },
+          include: governanceCycleItemInclude,
+        })
+      : await this.prisma.governanceCycleItem.create({
+          data: {
+            clientId,
+            cycleId,
+            sourceType: GovernanceCycleItemSourceType.PROJECT,
+            projectId: dto.projectId,
+            title,
+            decisionStatus: GovernanceCycleItemDecisionStatus.CANDIDATE,
+          },
+          include: governanceCycleItemInclude,
+        });
+
+    await this.auditItem(
+      clientId,
+      context,
+      'governance_cycle.candidacy.submitted',
+      row.id,
+      existing ? this.itemAuditSnapshot(existing) : undefined,
+      this.itemAuditSnapshot(row),
+    );
+
+    return this.toItemResponse(row);
   }
 }

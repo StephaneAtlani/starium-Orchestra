@@ -47,6 +47,8 @@ function normalizeCyclePayload(
   if (body.decisionSummary !== undefined) {
     payload.decisionSummary = body.decisionSummary.trim() || null;
   }
+  const cfg = (body as { governanceConfig?: Record<string, unknown> }).governanceConfig;
+  if (cfg !== undefined) payload.governanceConfig = cfg;
   return payload;
 }
 

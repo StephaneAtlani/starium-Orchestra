@@ -4,6 +4,10 @@ import type {
   GovernanceCycleItemSourceType,
   GovernanceCycleStatus,
 } from '../types/governance-cycle.types';
+import type {
+  GovernanceCycleInstanceMode,
+  GovernanceCycleInstanceStatus,
+} from '../types/governance-cycle-instance.types';
 
 const CYCLE_STATUS_LABELS: Record<GovernanceCycleStatus, string> = {
   DRAFT: 'Brouillon',
@@ -74,6 +78,37 @@ export const GOVERNANCE_CYCLE_CADENCE_OPTIONS = (
 
 export const GOVERNANCE_CYCLE_ITEM_DECISION_OPTIONS = (
   Object.entries(ITEM_DECISION_LABELS) as [GovernanceCycleItemDecisionStatus, string][]
+).map(([value, label]) => ({ value, label }));
+
+const INSTANCE_STATUS_LABELS: Record<GovernanceCycleInstanceStatus, string> = {
+  DRAFT: 'Brouillon',
+  PLANNED: 'Programmée',
+  OPEN: 'En cours',
+  CLOSED: 'Clôturée',
+  CANCELLED: 'Annulée',
+  ARCHIVED: 'Archivée',
+};
+
+const INSTANCE_MODE_LABELS: Record<GovernanceCycleInstanceMode, string> = {
+  MEETING: 'Réunion',
+  DECISION_RECORD: 'Décision hors séance',
+  VOTE: 'Vote',
+};
+
+export function getGovernanceCycleInstanceStatusLabel(
+  status: GovernanceCycleInstanceStatus,
+): string {
+  return INSTANCE_STATUS_LABELS[status];
+}
+
+export function getGovernanceCycleInstanceModeLabel(
+  mode: GovernanceCycleInstanceMode,
+): string {
+  return INSTANCE_MODE_LABELS[mode];
+}
+
+export const GOVERNANCE_CYCLE_INSTANCE_MODE_OPTIONS = (
+  Object.entries(INSTANCE_MODE_LABELS) as [GovernanceCycleInstanceMode, string][]
 ).map(([value, label]) => ({ value, label }));
 
 export const GOVERNANCE_CYCLE_ITEM_SOURCE_TYPE_OPTIONS_V1 = (

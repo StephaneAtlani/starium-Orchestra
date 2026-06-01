@@ -105,6 +105,7 @@ function ItemActionsCell({
         <Select
           value={actionKey}
           onValueChange={(v) => {
+            if (!v) return;
             if (v.startsWith('arb:')) {
               void handleArbitration(v.replace('arb:', '') as GovernanceCycleItemDecisionStatus);
             } else if (v === 'scores') {
@@ -152,7 +153,7 @@ export function GovernanceCycleArbitrationTable({ cycleId }: { cycleId: string }
   const items = itemsQuery.data?.items ?? [];
 
   if (itemsQuery.isLoading) {
-    return <LoadingState label="Chargement de la matrice…" />;
+    return <LoadingState rows={6} />;
   }
 
   if (itemsQuery.isError) {
@@ -272,7 +273,7 @@ export function GovernanceCycleItemsReadTable({
   );
 
   if (itemsQuery.isLoading) {
-    return <LoadingState label="Chargement…" />;
+    return <LoadingState rows={4} />;
   }
 
   if (itemsQuery.isError) {

@@ -28,6 +28,7 @@ import {
   computePriorityScore,
   computeRoi,
 } from './calculators/project-sheet-calculators';
+import { deriveLegacyArbitrationStatus } from '../lib/project-arbitration-legacy.util';
 import { SetArbitrationDto } from './dto/set-arbitration.dto';
 import { UpdateProjectSheetDto } from './dto/update-project-sheet.dto';
 import { ProjectSheetDecisionSnapshotsService } from './project-sheet-decision-snapshots.service';
@@ -292,7 +293,7 @@ export class ProjectSheetService {
 
     const legacyArbitration =
       arbitrationMerged != null
-        ? this.deriveLegacyArbitrationStatus(
+        ? deriveLegacyArbitrationStatus(
             arbitrationMerged.metier,
             arbitrationMerged.comite,
             arbitrationMerged.codir,
@@ -414,7 +415,7 @@ export class ProjectSheetService {
     }
 
     const { metier, comite, codir } = this.mapLegacyArbitrationToLevels(dto.status);
-    const legacy = this.deriveLegacyArbitrationStatus(metier, comite, codir);
+    const legacy = deriveLegacyArbitrationStatus(metier, comite, codir);
 
     const updated = await this.prisma.project.update({
       where: { id: projectId },
@@ -676,17 +677,6 @@ export class ProjectSheetService {
       swotThreats,
       towsActions,
     };
-  }
-
-  private deriveLegacyArbitrationStatus(
-    metier: ProjectArbitrationLevelStatus,
-    comite: ProjectArbitrationLevelStatus | null,
-    codir: ProjectArbitrationLevelStatus | null,
-  ): ProjectArbitrationStatus {
-    if (codir === 'REFUSE') return 'REJECTED';
-    if (codir === 'VALIDE') return 'VALIDATED';
-    if (metier === 'VALIDE' || metier === 'SOUMIS_VALIDATION') return 'TO_REVIEW';
-    return 'DRAFT';
   }
 
   private mapLegacyArbitrationToLevels(status: ProjectArbitrationStatus): {

@@ -1,8 +1,8 @@
 # Plan de développement — Cycles de pilotage
 
-> **Dernière révision** : 2026-05-30  
-> **Statut global** : **livré (V1)** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) backend **B1–B9** ; [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) UI `/cycles` ; [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) intégration fiche projet (2026-05-30)  
-> **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer**
+> **Dernière révision** : 2026-06-01  
+> **Statut global** : **V1 + V2 livrés** — [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) **B1–B9** ; [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) ; [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) (2026-05-30) ; [RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) lots **003-A–F** (2026-06-01, hors **003-G**).  
+> **Principe produit** : **Projet = exécuter** · **Cycle = arbitrer** · **Instance = décider à une date**
 
 Ce document est le **plan d’exécution** consolidé. **Tu travailles par numéro de RFC** (fichiers dans `docs/RFC/`) ; les anciens codes « lots » (B1, F3, I1…) restent en **annexe** pour lecture historique uniquement.
 
@@ -17,7 +17,8 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 | **RFC-PROJ-CYCLE-001** | [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) | Backend : Prisma, module Nest, RBAC, API cycles/items, scoring, summary, audits, by-project | ✅ Implémenté (B1–B9, 2026-05-30) |
 | **RFC-FE-PROJ-CYCLE-001** | [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) | UI `/cycles`, matrice, navigation | ✅ Implémenté (2026-05-30) |
 | **RFC-PROJ-CYCLE-002** | [Project Integration for Governance Cycles](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) | `by-project` + bloc fiche projet read-only | ✅ Implémenté (2026-05-30) |
-| [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index 31a-1 → 31a-3 | Statuts index | À jour |
+| **RFC-PROJ-CYCLE-003** | [Governance Cycle Instances and Configurable Propagation](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) | Instances, agenda, clôture, candidature, config, propagation projet/budget, génération trimestres | ✅ Implémenté (003-A–F, 2026-06-01) |
+| [_RFC Liste](./_RFC%20Liste.md) § Phase 1A+ | Index 31a-1 → 31a-4 | Statuts index | À jour (003 ajoutée) |
 | [_Plan legacy Cycle projets](./_%20Plan%20de%20d%C3%A9veloppement%20-%20%20Cycle%20projets.md) | Doublon historique | ⚠️ Ne pas utiliser comme source |
 
 ### 1.2 Écarts doc ↔ code (vérification repo — 2026-05-30)
@@ -44,7 +45,7 @@ Ce document est le **plan d’exécution** consolidé. **Tu travailles par numé
 
 - **Risques** : l’entité métier projet est `ProjectRisk` (pas un modèle `Risk` global) — les FK `riskId` sur `GovernanceCycleItem` doivent pointer vers `ProjectRisk` avec contrôle `project.clientId = client actif.
 - **Endpoint projet** : exposer `GET /api/governance-cycles/by-project/:projectId` côté **governance-cycles** uniquement (**RFC-PROJ-CYCLE-002**), pas sous `/api/projects/...`.
-- **Décision d’arbitrage** : portée par `GovernanceCycleItem.decisionStatus` — **ne jamais** synchroniser vers `Project.status` en V1.
+- **Décision d’arbitrage (V1)** : portée par `GovernanceCycleItem.decisionStatus` — **pas** de sync vers `Project` en V1. **V2 (RFC-003)** : décisions par **instance** + propagation **paramétrable** (`NONE` par défaut) — voir §4.6.
 - **Profils globaux** : ajouter au minimum `governance_cycles.read` aux rôles « Directeur », « Chef de projet », profils Strategic Board selon politique produit ; créer un profil dédié « Gestionnaire cycles de pilotage » si besoin CODIR.
 
 ### 1.4 Écrans complémentaires (proxies historiques)
@@ -67,16 +68,16 @@ Référence manuel : `docs/MANUEL-40-PROJETS-RISQUES-ACTIONS.md` §7.4 (CODIR).
 Couche **transverse de gouvernance** entre les entrées stratégiques / financières et l’exécution projet :
 
 ```text
-Entrées          →  Cycle de pilotage           →  Exécution (module Projets)
-─────────────────────────────────────────────────────────────────────────────
-Vision, objectifs     Arbitrer, prioriser            Tâches, jalons, Gantt
-Budget, capacité      Retenir / différer             Risques projet, budget projet
-Risques               Préparer CODIR                 Scénarios, revues, documents
-                      Vérifier faisabilité
-                      Suivre le cycle de décision
+Entrées          →  Cycle (programme)           →  Instance (décision datée)  →  Exécution
+──────────────────────────────────────────────────────────────────────────────────────────
+Vision, objectifs     Portefeuille candidats         Réunion / vote / PV           Projets, budgets
+Budget, capacité      Projets + budgets              Retenir / différer            (effet aval si config)
+Risques               Scores, matrice                Clôture instance
 ```
 
-**Cadences V1** (enum `GovernanceCycleCadence`) : mensuel, trimestriel, semestriel, annuel, ponctuel, continu, personnalisé — libellés FR en UI, jamais les enums bruts.
+**V1 livré** : un cycle = un dossier plat (matrice continue). **V2 cible (RFC-003)** : cycle = **programme** (ex. arbitrage trimestriel projets + budget) ; **instances** = T1, T2… avec `scheduledDecisionAt` ; à la clôture, décisions figées et **propagation optionnelle** vers projet / budget.
+
+**Cadences** (enum `GovernanceCycleCadence`) : libellé du programme — la **planification** des instances repose sur `governanceConfig.instanceSchedule` (RFC-003), pas sur la cadence seule.
 
 **Types d’items V1** (priorité d’implémentation, **RFC-PROJ-CYCLE-001**) :
 
@@ -100,7 +101,7 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 
 ## 4. Plan d’exécution par RFC (référence principale)
 
-**Ordre recommandé** : finir **RFC-PROJ-CYCLE-001** (backend) → **RFC-FE-PROJ-CYCLE-001** (UI) → **RFC-PROJ-CYCLE-002** (fiche projet). Ne pas commencer **RFC-FE-PROJ-CYCLE-001** avant CRUD cycles **et** items stables (**RFC-PROJ-CYCLE-001** §4.3–4.4).
+**Ordre recommandé** : **RFC-PROJ-CYCLE-001** → **RFC-FE-PROJ-CYCLE-001** → **RFC-PROJ-CYCLE-002** → **RFC-PROJ-CYCLE-003** lots **003-A → 003-F** (**livré** 2026-06-01). Extension ultérieure : lot **003-G** (décideurs nommés).
 
 ### 4.1 RFC-PROJ-CYCLE-001 — Governance Cycles Core Backend
 
@@ -162,21 +163,46 @@ Risques               Préparer CODIR                 Scénarios, revues, docume
 
 ---
 
+### 4.6 RFC-PROJ-CYCLE-003 — Governance Cycle Instances and Configurable Propagation
+
+**Fichier** : [RFC-PROJ-CYCLE-003 — Governance Cycle Instances and Configurable Propagation](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md)
+
+**Prérequis** : **RFC-PROJ-CYCLE-001** à **002** livrés.
+
+**Cas de référence** : cycle « Trimestre — Projets + Budget » → instances T1…T4 → décision à la date → propagation configurable vers fiche projet / budget.
+
+| Lot | Section RFC | Contenu | Critères d’acceptation (résumé) | État |
+| --- | ----------- | ------- | -------------------------------- | ---- |
+| **003-A** | §4.4–4.6 | Prisma + CRUD instances + agenda + `open` / `archive` | `DRAFT`…`ARCHIVED` ; pas de logique clôture en A | ✅ |
+| **003-B** | §4.5–4.6, §6 | `PATCH decisions` + `close` (étapes 1–6) | `InstanceDecision` = historique ; `item.decisionStatus` = dernier état ; sans propagation fiche | ✅ |
+| **003-C** | §4.11.1 | `governance_cycles.propose` + `POST …/candidacies` + bouton fiche | Item `CANDIDATE` ; pas de propagation ni `InstanceDecision` à la candidature | ✅ |
+| **003-D** | §4.2, §4.8, §4.13 | `governanceConfig` + readiness + propagation `WRITE_ARBITRATION_CODIR` | Clôture atomique ; échec propagation → instance `OPEN`, **409** | ✅ |
+| **003-E** | §4.4, §6 | `BudgetGovernanceDecision` + propagation budget | Pas de `Budget.status` ; migration dédiée | ✅ |
+| **003-F** | §4.5, §4.9 | `POST …/instances/generate` + bouton « Générer le trimestre » | `instanceSchedule` sur cycle | ✅ |
+
+**Durée indicative** : 3–4 sprints (backend + frontend), lots parallélisables après 003-A.
+
+**Frontend** : décrit dans RFC-003 §4.7 (onglet Instances, dialogs) — peut être suivi d’un fichier **RFC-FE-PROJ-CYCLE-002** dédié si le découpage doc le nécessite.
+
+---
+
 ### 4.4 Documentation transverse (hors RFC numérotée cycle)
 
 Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC Liste.md` (statuts), [ARCHITECTURE.md](../ARCHITECTURE.md) si nouvelles routes.
 
 ---
 
-### 4.5 Extensions post-MVP (pas de RFC dédiée aujourd’hui)
+### 4.5 Extensions post-003 (hors RFC-003 MVP)
 
-À traiter dans une future RFC ou évolution **RFC-PROJ-CYCLE-001** / **FE-001** :
+À traiter après **RFC-PROJ-CYCLE-003** ou en évolution ultérieure :
 
-- Items `STRATEGIC_OBJECTIVE`, `RISK`, `BUDGET_LINE` (après PROJECT + BUDGET)
-- Transitions de statut cycle (PREPARING → … → CLOSED)
-- Export CODIR / PDF
-- Lien documents GED cycle
+- Items `STRATEGIC_OBJECTIVE`, `RISK`, `BUDGET_LINE` (extension types dans `allowedSourceTypes`)
+- Vote électoral complet (quorum, bulletins, anonymat) — au-delà du mode `VOTE` simplifié
+- Export CODIR / PDF par instance
+- Lien documents GED cycle / instance
 - ACL ressource sur cycles (RFC-ACL)
+- Admin studio : bibliothèque de modèles de cycles (templates client)
+- Sync calendrier (Outlook / Google) pour `scheduledDecisionAt`
 
 ---
 
@@ -190,19 +216,39 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 | 3b | **RFC-PROJ-CYCLE-001** §4.3 route summary + §6 | `GET …/:id/summary` (B7) — KPI global CODIR | ✅ |
 | 4 | **RFC-FE-PROJ-CYCLE-001** §4.1–4.3 | Menu + liste des cycles | ✅ livré (2026-05-30) |
 | 5 | **RFC-FE-PROJ-CYCLE-001** §4.4–4.5 + §6 | Arbitrage CODIR utilisable (matrice scores API) | ✅ livré (2026-05-30) |
-| 6 | **RFC-PROJ-CYCLE-002** + doc | Fiche projet informée |
+| 6 | **RFC-PROJ-CYCLE-002** + doc | Fiche projet informée | ✅ |
+| 7 | **RFC-PROJ-CYCLE-003** lots A–C | Instances, agenda, décisions, candidature fiche | ✅ |
+| 8 | **RFC-PROJ-CYCLE-003** lot **003-D** | Config + readiness + propagation projet | ✅ |
+| 9 | **RFC-PROJ-CYCLE-003** lot **003-E** | `BudgetGovernanceDecision` + propagation budget | ✅ |
+| 10 | **RFC-PROJ-CYCLE-003** lot **003-F** | Génération trimestres (`instanceSchedule`) | ✅ |
 
 ---
 
-## 6. Hors scope V1 (ne pas implémenter)
+## 6. Hors scope
 
-- Modification automatique de `Project.status` selon décision cycle  
-- Gantt / tâches au niveau cycle  
-- Moteur BPM / workflow configurable  
-- IA sur le scoring ou les recommandations  
-- Export PDF / slides intégrés  
-- Duplication des tâches projet dans un cycle  
+### V1 livré (ne pas casser sans migration)
+
 - Endpoint `/api/projects/:id/governance-cycles` (couplage inverse)  
+- Gantt / tâches au niveau cycle  
+- Duplication des tâches projet dans un cycle  
+
+### RFC-003 MVP (ne pas inclure dans les premiers lots)
+
+- Moteur BPM / workflow graphique configurable  
+- IA sur le scoring ou les recommandations  
+- **`WRITE_PROJECT_STATUS`** — **ne pas implémenter** (RFC ultérieure ; rejet config **400** si présent)  
+- Table **`BudgetGovernanceDecision`** hors PR **003-A / 003-B / 003-C / 003-D** (lot **003-E** — migration `20260601130000_budget_governance_decision`)  
+- Export PDF / slides intégrés  
+- Vote électoral juridique complet (au-delà du mode `VOTE` simplifié)  
+
+### Règles V1 maintenues jusqu’à migration 003
+
+- Cycles sans instances : comportement matrice actuel inchangé  
+- Propagation : **`NONE` par défaut** à l’activation de `governanceConfig`  
+
+### Garde-fous implémentation RFC-003 (rappel)
+
+Voir RFC-003 **§8.1** (maintenu en prod) : (1) pas de **`WRITE_PROJECT_STATUS`** ; (2) clôture **tout ou rien**, pas de propagation partielle silencieuse ; (3) **`item.decisionStatus`** = dernier état connu — historique = **`GovernanceCycleInstanceDecision`**.
 
 ---
 
@@ -213,7 +259,7 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 - [x] **RFC-PROJ-CYCLE-001** §4.3–4.4 items — tests CRUD items
 - [x] **RFC-PROJ-CYCLE-001** §4.5 scoring + §6 tests scoring  
 - [x] **RFC-PROJ-CYCLE-001** §4.3 route summary B7 + tests KPI global  
-- [x] **RFC-PROJ-CYCLE-001** §6 audits validated/closed + tests B8–B9 (88 tests module)  
+- [x] **RFC-PROJ-CYCLE-001** §6 audits validated/closed + tests B8–B9 (92 tests module après RFC-003)  
 - [x] **RFC-FE-PROJ-CYCLE-001** livrée + tests frontend  
 - [x] **RFC-PROJ-CYCLE-002** livrée  
 - [x] Seed : module + permissions + profils globaux cohérents  
@@ -221,6 +267,10 @@ Après livraison d’une RFC : `docs/API.md`, `/starium-docs-update`, `_RFC List
 - [x] `_RFC Liste.md` aligné (31a-1 B1–B9 ; 31a-2 FE-001 ; 31a-3 RFC-002)  
 - [x] RFC-PROJ-CYCLE-001 statut « Implémenté » (B9 by-project) ; **RFC-PROJ-CYCLE-002** livrée  
 - [x] Revue conformité multi-client sur CRUD cycles, items et `by-project` ([ARCHITECTURE.md](../ARCHITECTURE.md))  
+- [x] **RFC-PROJ-CYCLE-003** — migrations instances + budget ; API instances/candidacies/close ; **92** tests module  
+- [x] `docs/API.md` §5.8 étendu (instances, candidacies, config, propagation)  
+- [x] `_RFC Liste.md` — 31a-4 RFC-003 ✅ Implémenté  
+- [x] UI : onglet Séances, panneau décisions/clôture, candidature fiche ; config cycle via `PATCH` API (pas de panneau admin config dédié en FE)  
 
 ---
 
@@ -244,10 +294,14 @@ Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 
 > **Livré (2026-05-30)** — ne plus réimplémenter. Référence : `listCyclesByProject` dans `GovernanceCyclesService`, route `GET /api/governance-cycles/by-project/:projectId` (déclarée **avant** `:id`), bloc `ProjectGovernanceCyclesPresenceBlock` sur `/projects/[id]`, [API.md](../API.md) §5.8.
 
+### RFC-PROJ-CYCLE-003 (instances + propagation)
+
+> **Livré** (2026-06-01) : lots **003-A → 003-F** selon [RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md). Hors scope : **003-G**, `WRITE_PROJECT_STATUS`. Garde-fous prod : RFC §8.1.
+
 ### Doc après livraison
 
 ```
-/starium-docs-update — synchronise RFC-PROJ-CYCLE-001, RFC-FE-PROJ-CYCLE-001, RFC-PROJ-CYCLE-002, ce plan et _RFC Liste avec l’état code.
+/starium-docs-update — synchronise RFC-PROJ-CYCLE-001 à 003, RFC-FE-PROJ-CYCLE-001, ce plan et _RFC Liste avec l’état code.
 ```
 
 ---
@@ -269,6 +323,7 @@ Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 | F1–F8 | RFC-FE-PROJ-CYCLE-001 | §4.1–4.5, §6 |
 | I1 | RFC-PROJ-CYCLE-002 | — |
 | I2 | — | doc / skill docs |
+| 003-A–F | RFC-PROJ-CYCLE-003 | §4.2–4.13 (instances, config, propagation, generate) |
 
 ---
 
@@ -278,5 +333,6 @@ Copier-coller en Agent / Composer — **ne pas citer les lots B/F/I**.
 - **RFC-PROJ-CYCLE-001** : [Governance Cycles Core Backend](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md)  
 - **RFC-FE-PROJ-CYCLE-001** : [Governance Cycles Frontend UI](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md)  
 - **RFC-PROJ-CYCLE-002** : [Project Integration](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md)  
+- **RFC-PROJ-CYCLE-003** : [Instances and Configurable Propagation](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) — §4.9 flux Instance CODIR vs décision Projet  
 - Cadrage projets : [RFC-PROJ-001](./RFC-PROJ-001%20%E2%80%94%20Cadrage%20fonctionnel%20du%20module%20Projets.md)  
 - Profils rôles : [default-profiles.md](../default-profiles.md)  

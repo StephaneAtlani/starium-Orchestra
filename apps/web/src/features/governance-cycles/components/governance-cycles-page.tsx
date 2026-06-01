@@ -217,7 +217,7 @@ export function GovernanceCyclesPage() {
             <Select
               value={statusFilter}
               onValueChange={(v) => {
-                setStatusFilter(v);
+                setStatusFilter(v ?? 'all');
                 setOffset(0);
               }}
             >
@@ -239,7 +239,7 @@ export function GovernanceCyclesPage() {
             <Select
               value={cadenceFilter}
               onValueChange={(v) => {
-                setCadenceFilter(v);
+                setCadenceFilter(v ?? 'all');
                 setOffset(0);
               }}
             >
@@ -302,7 +302,7 @@ export function GovernanceCyclesPage() {
       </section>
 
       {listQuery.isLoading ? (
-        <LoadingState label="Chargement des cycles…" />
+        <LoadingState rows={6} />
       ) : listQuery.isError ? (
         <Alert variant="destructive">
           <AlertDescription>

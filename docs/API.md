@@ -593,6 +593,17 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/governance-cycles/:id (GET, PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.update`) |
 | /api/governance-cycles/:id/summary (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — KPI global `GovernanceCycleGlobalSummaryDto` ; isolation `clientId` |
 | /api/governance-cycles/:id (DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.delete`) — archivage logique → **204** sans corps |
+| /api/governance-cycles/:id/candidacies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.propose` — body `{ projectId }` ; upsert item `CANDIDATE` (RFC-PROJ-CYCLE-003-C) ; **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE` |
+| /api/governance-cycles/:cycleId/instances (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` / `create` \| `update` — séances de décision (RFC-003-A) |
+| /api/governance-cycles/:cycleId/instances/generate (POST) | idem | `governance_cycles.update` — génération depuis `governanceConfig.instanceSchedule` (RFC-003-F) |
+| /api/governance-cycles/:cycleId/instances/:instanceId (GET, PATCH) | idem | détail séance ; `periodLabel` + `scheduledDecisionAt` requis si statut ≥ `PLANNED` |
+| /api/governance-cycles/:cycleId/instances/:instanceId/open \| archive (POST) | idem | `update` — transitions `PLANNED`→`OPEN`, `CLOSED`→`ARCHIVED` |
+| /api/governance-cycles/:cycleId/instances/:instanceId/agenda (PUT) | idem | remplacement ordre du jour (`itemId[]`) |
+| /api/governance-cycles/:cycleId/instances/:instanceId/decisions (PATCH) | idem | `governance_cycles.arbitrate` — brouillon `GovernanceCycleInstanceDecision` si `OPEN` |
+| /api/governance-cycles/:cycleId/instances/:instanceId/close (POST) | idem | clôture atomique : figement décisions, MAJ `item.decisionStatus`, readiness + propagation optionnelles (RFC-003-B/D/E) ; **409** si propagation échoue |
+| /api/governance-cycles/:id (PATCH) `governanceConfig` | idem | config normalisée (RFC-003-D) ; `propagation.budget=WRITE_BUDGET_GOVERNANCE_DECISION` uniquement après migration **003-E** |
+
+`GET …/by-project/:projectId` inclut désormais `lastInstanceId`, `lastInstancePeriodLabel`, `lastInstanceScheduledDecisionAt` (dernière instance `CLOSED`).
 
 ---
 

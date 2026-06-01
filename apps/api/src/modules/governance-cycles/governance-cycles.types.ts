@@ -4,6 +4,7 @@ import type {
   GovernanceCycleItemSourceType,
   GovernanceCycleStatus,
 } from '@prisma/client';
+import type { NormalizedGovernanceCycleConfig } from './lib/governance-cycle-config.schema';
 
 export type GovernanceCycleSummaryDto = {
   itemsCount: number;
@@ -45,6 +46,7 @@ export type GovernanceCycleResponseDto = {
   createdAt: string;
   updatedAt: string;
   summary: GovernanceCycleSummaryDto;
+  governanceConfig: NormalizedGovernanceCycleConfig;
 };
 
 export type GovernanceCycleListResponseDto = {
@@ -99,6 +101,9 @@ export type GovernanceCycleByProjectItemDto = {
   periodLabel: string;
   decisionStatus: GovernanceCycleItemDecisionStatus;
   priorityScore: number | null;
+  lastInstanceId: string | null;
+  lastInstancePeriodLabel: string | null;
+  lastInstanceScheduledDecisionAt: string | null;
 };
 
 export type GovernanceCyclesByProjectResponseDto = {

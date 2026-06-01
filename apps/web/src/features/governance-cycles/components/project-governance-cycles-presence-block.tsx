@@ -77,6 +77,9 @@ export function ProjectGovernanceCyclesPresenceBlock({
                     {row.periodLabel}
                     {' · '}
                     {getGovernanceCycleCadenceLabel(row.cadence)}
+                    {row.lastInstancePeriodLabel
+                      ? ` · Dernière séance : ${row.lastInstancePeriodLabel}`
+                      : ''}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">

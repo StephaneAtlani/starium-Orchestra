@@ -73,6 +73,7 @@ export type GovernanceCycleResponseDto = {
   createdAt: string;
   updatedAt: string;
   summary: GovernanceCycleSummaryDto;
+  governanceConfig?: import('./governance-cycle-instance.types').NormalizedGovernanceCycleConfig;
 };
 
 export type GovernanceCycleListResponseDto = {
@@ -144,6 +145,9 @@ export type GovernanceCycleByProjectItemDto = {
   periodLabel: string;
   decisionStatus: GovernanceCycleItemDecisionStatus;
   priorityScore: number | null;
+  lastInstanceId: string | null;
+  lastInstancePeriodLabel: string | null;
+  lastInstanceScheduledDecisionAt: string | null;
 };
 
 export type GovernanceCyclesByProjectResponseDto = {

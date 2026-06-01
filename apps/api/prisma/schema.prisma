@@ -311,8 +311,12 @@ model Client {
   strategicDirectionStrategyObjectiveLinks StrategicDirectionStrategyObjectiveLink[]
   strategicObjectives              StrategicObjective[]
   strategicLinks                   StrategicLink[]
-  governanceCycles                 GovernanceCycle[]
-  governanceCycleItems             GovernanceCycleItem[]
+  governanceCycles                      GovernanceCycle[]
+  governanceCycleItems                  GovernanceCycleItem[]
+  governanceCycleInstances              GovernanceCycleInstance[]
+  governanceCycleInstanceDecisions      GovernanceCycleInstanceDecision[]
+  governanceCycleInstanceAgendaItems    GovernanceCycleInstanceAgendaItem[]
+  budgetGovernanceDecisions             BudgetGovernanceDecision[]
   projectPortfolioCategories       ProjectPortfolioCategory[]
   actionPlans                      ActionPlan[]
   budgetLinePlanningMonths         BudgetLinePlanningMonth[]
@@ -570,6 +574,8 @@ model User {
   platformAuditLogs                    PlatformAuditLog[]
   stariumFeedbackRepliesAuthored       PlatformStariumFeedbackReply[]  @relation("PlatformStariumFeedbackReplyAuthor")
   accessGroupMembers                   AccessGroupMember[]
+  governanceCycleInstancesClosed       GovernanceCycleInstance[]       @relation("GovernanceCycleInstanceClosedBy")
+  governanceCycleInstanceDecisionsMade GovernanceCycleInstanceDecision[] @relation("GovernanceCycleInstanceDecisionDecidedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -2989,6 +2995,7 @@ model Budget {
   budgetImportJobs          BudgetImportJob[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
   governanceCycleItems      GovernanceCycleItem[]
+  budgetGovernanceDecisions BudgetGovernanceDecision[]
 
   @@unique([clientId, code])
   @@unique([versionSetId, versionNumber])
@@ -4768,6 +4775,21 @@ enum GovernanceCycleItemDecisionStatus {
   ACCEPTED_WITH_RESERVE
 }
 
+enum GovernanceCycleInstanceMode {
+  MEETING
+  DECISION_RECORD
+  VOTE
+}
+
+enum GovernanceCycleInstanceStatus {
+  DRAFT
+  PLANNED
+  OPEN
+  CLOSED
+  CANCELLED
+  ARCHIVED
+}
+
 model GovernanceCycle {
   id               String                  @id @default(cuid())
   clientId         String
@@ -4785,11 +4807,13 @@ model GovernanceCycle {
   validatedByUserId String?
   validatedAt      DateTime?
   closedAt         DateTime?
+  governanceConfig Json?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
-  client Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  items  GovernanceCycleItem[]
+  client    Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items     GovernanceCycleItem[]
+  instances GovernanceCycleInstance[]
 
   @@index([clientId])
   @@index([clientId, status])
@@ -4828,6 +4852,9 @@ model GovernanceCycleItem {
   budget             Budget?             @relation(fields: [budgetId], references: [id], onDelete: SetNull)
   budgetLine         BudgetLine?         @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
   risk               ProjectRisk?        @relation(fields: [riskId], references: [id], onDelete: SetNull)
+  instanceDecisions         GovernanceCycleInstanceDecision[]
+  agendaItems               GovernanceCycleInstanceAgendaItem[]
+  budgetGovernanceDecisions BudgetGovernanceDecision[]
 
   @@unique([cycleId, projectId])
   @@index([clientId])
@@ -4837,4 +4864,102 @@ model GovernanceCycleItem {
   @@index([budgetId])
   @@index([budgetLineId])
   @@index([riskId])
+}
+
+model GovernanceCycleInstance {
+  id                  String                        @id @default(cuid())
+  clientId            String
+  cycleId             String
+  periodLabel         String?
+  periodStartDate     DateTime?                     @db.Date
+  periodEndDate       DateTime?                     @db.Date
+  label               String?
+  scheduledDecisionAt DateTime?
+  endsAt              DateTime?
+  mode                GovernanceCycleInstanceMode   @default(MEETING)
+  status              GovernanceCycleInstanceStatus @default(DRAFT)
+  locationLabel       String?
+  meetingUrl          String?
+  decisionSummary     String?
+  openedAt            DateTime?
+  closedAt            DateTime?
+  closedByUserId      String?
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  client    Client                              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  cycle     GovernanceCycle                     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  closedBy  User?                               @relation("GovernanceCycleInstanceClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  decisions                 GovernanceCycleInstanceDecision[]
+  agendaItems               GovernanceCycleInstanceAgendaItem[]
+  budgetGovernanceDecisions BudgetGovernanceDecision[]
+
+  @@index([clientId])
+  @@index([cycleId])
+  @@index([clientId, cycleId, scheduledDecisionAt])
+}
+
+model GovernanceCycleInstanceDecision {
+  id              String                            @id @default(cuid())
+  clientId        String
+  instanceId      String
+  itemId          String
+  decisionStatus  GovernanceCycleItemDecisionStatus
+  decisionReason  String?
+  decidedAt       DateTime?
+  decidedByUserId String?
+  createdAt       DateTime                          @default(now())
+  updatedAt       DateTime                          @updatedAt
+
+  client    Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  instance  GovernanceCycleInstance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  item                    GovernanceCycleItem        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  decidedBy               User?                      @relation("GovernanceCycleInstanceDecisionDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  budgetGovernanceDecision BudgetGovernanceDecision?
+
+  @@unique([instanceId, itemId])
+  @@index([clientId])
+  @@index([itemId])
+}
+
+model GovernanceCycleInstanceAgendaItem {
+  id         String @id @default(cuid())
+  clientId   String
+  instanceId String
+  itemId     String
+  sortOrder  Int    @default(0)
+
+  client   Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  instance GovernanceCycleInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  item     GovernanceCycleItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, itemId])
+  @@index([clientId])
+  @@index([instanceId])
+}
+
+/// RFC-PROJ-CYCLE-003-E — trace décisionnelle budget (ne modifie pas Budget.status)
+model BudgetGovernanceDecision {
+  id              String                            @id @default(cuid())
+  clientId        String
+  budgetId        String
+  instanceId      String
+  itemId          String
+  decisionId      String
+  decisionStatus  GovernanceCycleItemDecisionStatus
+  decisionReason  String?
+  decidedAt       DateTime
+  decidedByUserId String?
+  createdAt       DateTime                          @default(now())
+
+  client   Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  budget   Budget                            @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  instance GovernanceCycleInstance           @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  item     GovernanceCycleItem               @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  decision GovernanceCycleInstanceDecision   @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId])
+  @@index([clientId, budgetId, decidedAt])
+  @@index([instanceId])
+  @@index([itemId])
 }

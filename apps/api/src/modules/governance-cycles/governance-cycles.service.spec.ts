@@ -41,6 +41,9 @@ type PrismaMock = {
   budgetLine: { findFirst: jest.Mock };
   strategicObjective: { findFirst: jest.Mock };
   projectRisk: { findFirst: jest.Mock };
+  governanceCycleInstanceDecision: { findMany: jest.Mock };
+  governanceCycleInstanceAgendaItem: { findFirst: jest.Mock };
+  budgetGovernanceDecision?: { create: jest.Mock };
 };
 
 const baseCycle = {
@@ -59,6 +62,7 @@ const baseCycle = {
   validatedByUserId: null,
   validatedAt: null,
   closedAt: null,
+  governanceConfig: null,
   createdByUserId: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -132,6 +136,13 @@ describe('GovernanceCyclesService', () => {
       budgetLine: { findFirst: jest.fn() },
       strategicObjective: { findFirst: jest.fn() },
       projectRisk: { findFirst: jest.fn() },
+      governanceCycleInstanceDecision: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      governanceCycleInstanceAgendaItem: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      budgetGovernanceDecision: { create: jest.fn() },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     effectivePermissions = {
@@ -353,7 +364,17 @@ describe('GovernanceCyclesService', () => {
   });
 
   describe('audits cycle', () => {
-    function mockUpdateCycleFetch(updated: typeof baseCycle) {
+    type MockCycleRow = Omit<
+      typeof baseCycle,
+      'status' | 'validatedAt' | 'validatedByUserId' | 'closedAt'
+    > & {
+      status: GovernanceCycleStatus;
+      validatedAt: Date | null;
+      validatedByUserId: string | null;
+      closedAt: Date | null;
+    };
+
+    function mockUpdateCycleFetch(updated: MockCycleRow) {
       prisma.governanceCycle.findFirst.mockResolvedValue(baseCycle);
       prisma.governanceCycle.update.mockResolvedValue(updated);
       mockSummaryAggregates('cycle-1', { total: 0, accepted: 0, deferred: 0 });

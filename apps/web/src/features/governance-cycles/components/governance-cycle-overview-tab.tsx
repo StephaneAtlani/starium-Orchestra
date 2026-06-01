@@ -20,7 +20,7 @@ export function GovernanceCycleOverviewTab({
   const summaryQuery = useGovernanceCycleSummaryQuery(cycleId, { enabled });
 
   if (summaryQuery.isLoading) {
-    return <LoadingState label="Chargement de la synthèse…" />;
+    return <LoadingState rows={4} />;
   }
 
   if (summaryQuery.isError || !summaryQuery.data) {

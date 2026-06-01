@@ -5,6 +5,7 @@ import {
 import {
   IsDateString,
   IsEnum,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -56,4 +57,8 @@ export class UpdateGovernanceCycleDto {
   @IsString()
   @MaxLength(8000)
   decisionSummary?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  governanceConfig?: Record<string, unknown>;
 }

@@ -104,6 +104,7 @@ import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query
 import { useProjectScenariosMutations } from '../hooks/use-project-scenarios-mutations';
 import { useProjectScenariosQuery } from '../hooks/use-project-scenarios-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
+import { SubmitProjectToCycleDialog } from '@/features/governance-cycles/components/submit-project-to-cycle-dialog';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
   ProjectArbitrationLevelStatus,
@@ -1058,6 +1059,7 @@ export function ProjectSheetView({
                 }
                 actions={
                   <div className="flex flex-wrap items-center gap-2">
+                    <SubmitProjectToCycleDialog projectId={projectId} />
                     {projectDetailQuery.data ? (
                       <HealthBadge
                         health={projectDetailQuery.data.computedHealth}

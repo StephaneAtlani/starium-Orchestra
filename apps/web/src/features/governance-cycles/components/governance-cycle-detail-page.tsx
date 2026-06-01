@@ -28,9 +28,11 @@ import {
   GovernanceCycleItemsReadTable,
 } from './governance-cycle-arbitration-table';
 import { AddCycleItemDialog } from './add-cycle-item-dialog';
+import { GovernanceCycleInstancesTab } from './governance-cycle-instances-tab';
 
 type TabValue =
   | 'overview'
+  | 'instances'
   | 'arbitration'
   | 'projects'
   | 'budget'
@@ -69,7 +71,7 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
   }
 
   if (detailQuery.isLoading) {
-    return <LoadingState label="Chargement du cycle…" />;
+    return <LoadingState rows={4} />;
   }
 
   if (detailQuery.isError || !detailQuery.data) {
@@ -167,6 +169,7 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
         <TabsList variant="line" className="h-auto min-h-9 w-full flex-wrap justify-start gap-0 p-0">
           <TabsTrigger value="overview">Vue d&apos;ensemble</TabsTrigger>
+          <TabsTrigger value="instances">Séances de décision</TabsTrigger>
           <TabsTrigger value="arbitration">Matrice d&apos;arbitrage</TabsTrigger>
           <TabsTrigger value="projects">Projets candidats</TabsTrigger>
           <TabsTrigger value="budget">Budget &amp; capacité</TabsTrigger>
@@ -177,6 +180,9 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
 
         <TabsContent value="overview" className="mt-4">
           <GovernanceCycleOverviewTab cycleId={cycleId} enabled={tabEnabled('overview')} />
+        </TabsContent>
+        <TabsContent value="instances" className="mt-4">
+          <GovernanceCycleInstancesTab cycleId={cycleId} enabled={tabEnabled('instances')} />
         </TabsContent>
         <TabsContent value="arbitration" className="mt-4">
           <GovernanceCycleArbitrationTable cycleId={cycleId} />

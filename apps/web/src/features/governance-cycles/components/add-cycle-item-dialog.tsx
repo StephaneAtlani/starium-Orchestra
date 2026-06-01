@@ -147,7 +147,9 @@ export function AddCycleItemDialog({
               <Label>Projet</Label>
               <Select
                 value={form.projectId ?? ''}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, projectId: v }))}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, projectId: v || undefined }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choisir un projet…" />
@@ -168,7 +170,9 @@ export function AddCycleItemDialog({
               <Label>Budget</Label>
               <Select
                 value={form.budgetId ?? ''}
-                onValueChange={(v) => setForm((prev) => ({ ...prev, budgetId: v }))}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, budgetId: v || undefined }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Choisir un budget…" />
