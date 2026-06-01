@@ -19,6 +19,10 @@ import {
 } from '../lib/governance-cycle-agenda-candidates';
 import { getGovernanceCycleInstanceStatusLabel } from '../lib/governance-cycle-labels';
 import { InstanceSessionPreparation } from './instance-session-preparation';
+import {
+  GovernanceCycleInstanceConfirmDialog,
+  type GovernanceCycleInstanceConfirmAction,
+} from './governance-cycle-instance-confirm-dialog';
 import { useGovernanceCycleItemsQuery } from '../api/governance-cycles.queries';
 import {
   getApiErrorMessage,
@@ -44,6 +48,14 @@ const EMPTY_CYCLE_ITEMS: GovernanceCycleItemResponseDto[] = [];
 /** API max @see ListGovernanceCycleItemsQueryDto */
 const CYCLE_ITEMS_LIST_PARAMS = { limit: 100, offset: 0 } as const;
 
+const INSTANCE_FINAL_DECISION_STATUSES: GovernanceCycleItemDecisionStatus[] = [
+  'ACCEPTED',
+  'DEFERRED',
+  'REJECTED',
+  'NEEDS_INFORMATION',
+  'ACCEPTED_WITH_RESERVE',
+];
+
 function toDatetimeLocalValue(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -62,6 +74,7 @@ export function InstanceDecisionPanel({
   onClose,
   onCancel,
   cancelPending,
+  closePending,
   getDecisionLabel,
   onGoToArbitration,
 }: {
@@ -74,6 +87,7 @@ export function InstanceDecisionPanel({
   onClose: () => Promise<void>;
   onCancel: () => Promise<void>;
   cancelPending?: boolean;
+  closePending?: boolean;
   getDecisionLabel: (s: GovernanceCycleItemDecisionStatus) => string;
   onGoToArbitration?: () => void;
 }) {
@@ -85,6 +99,8 @@ export function InstanceDecisionPanel({
   const [draftScheduledAt, setDraftScheduledAt] = useState(
     toDatetimeLocalValue(instance.scheduledDecisionAt),
   );
+  const [confirmAction, setConfirmAction] =
+    useState<GovernanceCycleInstanceConfirmAction | null>(null);
 
   const itemsQuery = useGovernanceCycleItemsQuery(cycleId, CYCLE_ITEMS_LIST_PARAMS, {
     eager: true,
@@ -141,16 +157,25 @@ export function InstanceDecisionPanel({
       instance.status === 'PLANNED' ||
       instance.status === 'OPEN');
 
-  function confirmCancelInstance() {
-    const label = instance.periodLabel ?? 'cette séance';
-    if (
-      !window.confirm(
-        `Annuler la séance « ${label} » ?\n\nAucune décision ne sera enregistrée ni propagée.`,
-      )
-    ) {
-      return;
+  const sessionLabel = instance.periodLabel ?? 'Séance sans période';
+
+  const incompleteDecisionCount = useMemo(() => {
+    return agendaEntries.filter((entry) => {
+      const status = decisions[entry.itemId]?.status as
+        | GovernanceCycleItemDecisionStatus
+        | undefined;
+      return !status || !INSTANCE_FINAL_DECISION_STATUSES.includes(status);
+    }).length;
+  }, [agendaEntries, decisions]);
+
+  async function handleConfirmAction() {
+    try {
+      if (confirmAction === 'cancel') await onCancel();
+      else if (confirmAction === 'close') await onClose();
+      setConfirmAction(null);
+    } catch {
+      /* toast géré par le parent */
     }
-    void onCancel();
   }
 
   const persistAgenda = useCallback(
@@ -305,6 +330,27 @@ export function InstanceDecisionPanel({
 
   return (
     <div className="space-y-4">
+      <GovernanceCycleInstanceConfirmDialog
+        open={confirmAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !cancelPending && !closePending) setConfirmAction(null);
+        }}
+        action={confirmAction}
+        sessionLabel={sessionLabel}
+        agendaCount={agendaEntries.length}
+        incompleteDecisionCount={
+          confirmAction === 'close' ? incompleteDecisionCount : undefined
+        }
+        isPending={
+          confirmAction === 'cancel'
+            ? cancelPending
+            : confirmAction === 'close'
+              ? closePending
+              : false
+        }
+        onConfirm={handleConfirmAction}
+      />
+
       <div>
         <h3 className="font-medium">{instance.periodLabel ?? 'Séance'}</h3>
         <p className="text-xs text-muted-foreground">
@@ -417,7 +463,7 @@ export function InstanceDecisionPanel({
             variant="outline"
             className="text-destructive hover:text-destructive"
             disabled={cancelPending}
-            onClick={confirmCancelInstance}
+            onClick={() => setConfirmAction('cancel')}
           >
             Annuler la séance
           </Button>
@@ -472,7 +518,11 @@ export function InstanceDecisionPanel({
             >
               Enregistrer les décisions
             </Button>
-            <Button size="sm" onClick={onClose} disabled={agendaEntries.length === 0}>
+            <Button
+              size="sm"
+              disabled={agendaEntries.length === 0 || closePending}
+              onClick={() => setConfirmAction('close')}
+            >
               Clôturer la séance
             </Button>
           </div>

@@ -238,6 +238,7 @@ export function GovernanceCycleInstancesTab({
               }
             }}
             cancelPending={cancelMutation.isPending}
+            closePending={closeMutation.isPending}
             onClose={async () => {
               try {
                 await closeMutation.mutateAsync(selectedId);
