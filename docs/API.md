@@ -598,7 +598,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/governance-cycles/:cycleId/instances (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` / `create` \| `update` — séances de décision (RFC-003-A) |
 | /api/governance-cycles/:cycleId/instances/generate (POST) | idem | `governance_cycles.update` — génération depuis `governanceConfig.instanceSchedule` (RFC-003-F) |
 | /api/governance-cycles/:cycleId/instances/:instanceId (GET, PATCH) | idem | détail séance ; `periodLabel` + `scheduledDecisionAt` requis si statut ≥ `PLANNED` |
-| /api/governance-cycles/:cycleId/instances/:instanceId/open \| archive (POST) | idem | `update` — transitions `PLANNED`→`OPEN`, `CLOSED`→`ARCHIVED` |
+| /api/governance-cycles/:cycleId/instances/:instanceId/open \| cancel \| archive (POST) | idem | `update` — `PLANNED`→`OPEN` ; annulation `DRAFT`/`PLANNED`/`OPEN`→`CANCELLED` ; `CLOSED`→`ARCHIVED` |
 | /api/governance-cycles/:cycleId/instances/:instanceId/agenda (PUT) | idem | `update` — remplacement ODJ ordonné ; **uniquement** items `PROJECT`/`BUDGET` en statut candidat (`CANDIDATE` ; `TO_ARBITRATE` lu comme candidat) — **400** sinon |
 | /api/governance-cycles/:cycleId/instances/:instanceId/decisions (PATCH) | idem | `governance_cycles.arbitrate` — brouillon `GovernanceCycleInstanceDecision` si `OPEN` |
 | /api/governance-cycles/:cycleId/instances/:instanceId/close (POST) | idem | clôture atomique : figement décisions, MAJ `item.decisionStatus`, readiness + propagation optionnelles (RFC-003-B/D/E) ; **409** si propagation échoue |
@@ -1247,6 +1247,7 @@ Isolation **`clientId`** sur toutes les routes ; `cycleId` et `instanceId` doive
 | `POST` `…/instances/generate` | `update` | Génération depuis `governanceConfig.instanceSchedule` (**003-F**). |
 | `GET` / `PATCH` `…/instances/:instanceId` | `read` / `update` | Détail (+ agenda enrichi, décisions instance). **PATCH** : si `DRAFT` et `periodLabel` + `scheduledDecisionAt` fournis → passage auto **`PLANNED`**. Édition autorisée si statut `DRAFT` ou `PLANNED`. |
 | `POST` `…/open` | `update` | `PLANNED` → `OPEN` ; agenda non vide ; **400** depuis `DRAFT`. |
+| `POST` `…/cancel` | `update` | `DRAFT` / `PLANNED` / `OPEN` → `CANCELLED` ; sans figement ni propagation ; **400** si `CLOSED` / déjà annulée / archivée. |
 | `POST` `…/archive` | `update` | `CLOSED` → `ARCHIVED`. |
 | `PUT` `…/agenda` | `update` | Body `{ items: [{ itemId, sortOrder? }] }` — remplace l’ODJ. Items **PROJECT** ou **BUDGET** en statut candidat uniquement. |
 | `PATCH` `…/decisions` | `arbitrate` | Brouillon décisions séance si `OPEN`. |

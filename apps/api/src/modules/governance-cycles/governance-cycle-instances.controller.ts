@@ -117,6 +117,21 @@ export class GovernanceCycleInstancesController {
     });
   }
 
+  @Post(':instanceId/cancel')
+  @RequirePermissions('governance_cycles.update')
+  cancel(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('cycleId') cycleId: string,
+    @Param('instanceId') instanceId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: AuditMeta,
+  ) {
+    return this.instances.cancelInstance(clientId!, cycleId, instanceId, {
+      actorUserId,
+      meta,
+    });
+  }
+
   @Post(':instanceId/archive')
   @RequirePermissions('governance_cycles.update')
   archive(

@@ -58,6 +58,16 @@ export async function updateGovernanceCycleInstance(
   return res.json() as Promise<GovernanceCycleInstanceResponseDto>;
 }
 
+export async function cancelGovernanceCycleInstance(
+  authFetch: AuthFetch,
+  cycleId: string,
+  instanceId: string,
+): Promise<GovernanceCycleInstanceResponseDto> {
+  const res = await authFetch(`${base(cycleId)}/${instanceId}/cancel`, { method: 'POST' });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<GovernanceCycleInstanceResponseDto>;
+}
+
 export async function openGovernanceCycleInstance(
   authFetch: AuthFetch,
   cycleId: string,

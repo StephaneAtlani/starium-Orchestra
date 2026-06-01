@@ -22,6 +22,7 @@ import {
   useGenerateInstancesMutation,
   useGovernanceCycleInstanceDetailQuery,
   useGovernanceCycleInstancesQuery,
+  useCancelGovernanceCycleInstanceMutation,
   useOpenGovernanceCycleInstanceMutation,
   usePatchInstanceDecisionsMutation,
 } from '../api/governance-cycle-instances.queries';
@@ -65,6 +66,7 @@ export function GovernanceCycleInstancesTab({
   });
   const createMutation = useCreateGovernanceCycleInstanceMutation(cycleId);
   const openMutation = useOpenGovernanceCycleInstanceMutation(cycleId);
+  const cancelMutation = useCancelGovernanceCycleInstanceMutation(cycleId);
   const closeMutation = useCloseGovernanceCycleInstanceMutation(cycleId);
   const generateMutation = useGenerateInstancesMutation(cycleId);
 
@@ -225,6 +227,17 @@ export function GovernanceCycleInstancesTab({
                 toast.error(getApiErrorMessage(e));
               }
             }}
+            onCancel={async () => {
+              try {
+                await cancelMutation.mutateAsync(selectedId);
+                toast.success('Séance annulée');
+                void instancesQuery.refetch();
+                void instanceDetailQuery.refetch();
+              } catch (e) {
+                toast.error(getApiErrorMessage(e));
+              }
+            }}
+            cancelPending={cancelMutation.isPending}
             onClose={async () => {
               try {
                 await closeMutation.mutateAsync(selectedId);

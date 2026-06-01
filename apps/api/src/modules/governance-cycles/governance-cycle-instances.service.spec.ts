@@ -142,6 +142,35 @@ describe('GovernanceCycleInstancesService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('cancel depuis PLANNED → CANCELLED', async () => {
+    prisma.governanceCycleInstance.findFirst.mockResolvedValue({
+      ...baseInstance,
+      agendaItems: [{ itemId: 'item-1' }],
+    });
+    prisma.governanceCycleInstance.update.mockResolvedValue({
+      ...baseInstance,
+      status: GovernanceCycleInstanceStatus.CANCELLED,
+      agendaItems: [{ itemId: 'item-1' }],
+      decisions: [],
+    });
+    const result = await service.cancelInstance('client-a', 'cycle-1', 'inst-1', {
+      actorUserId: 'u1',
+    });
+    expect(result.status).toBe('CANCELLED');
+  });
+
+  it('cancel depuis CLOSED → 400', async () => {
+    prisma.governanceCycleInstance.findFirst.mockResolvedValue({
+      ...baseInstance,
+      status: GovernanceCycleInstanceStatus.CLOSED,
+      agendaItems: [],
+      decisions: [],
+    });
+    await expect(
+      service.cancelInstance('client-a', 'cycle-1', 'inst-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('open depuis PLANNED avec agenda → OK', async () => {
     prisma.governanceCycleInstance.findFirst.mockResolvedValue({
       ...baseInstance,

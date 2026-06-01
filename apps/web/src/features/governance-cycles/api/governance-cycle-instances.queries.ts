@@ -10,6 +10,7 @@ import {
   generateGovernanceCycleInstances,
   getGovernanceCycleInstance,
   listGovernanceCycleInstances,
+  cancelGovernanceCycleInstance,
   openGovernanceCycleInstance,
   updateGovernanceCycleInstance,
   patchGovernanceCycleInstanceDecisions,
@@ -67,6 +68,21 @@ export function useUpdateGovernanceCycleInstanceMutation(cycleId: string, instan
     mutationFn: (body: Record<string, unknown>) =>
       updateGovernanceCycleInstance(authFetch, cycleId, instanceId, body),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: governanceCyclesKeys.instances(clientId, cycleId) });
+      void qc.invalidateQueries({
+        queryKey: governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
+      });
+    },
+  });
+}
+
+export function useCancelGovernanceCycleInstanceMutation(cycleId: string) {
+  const { authFetch, clientId } = useGovernanceCyclesReadContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (instanceId: string) =>
+      cancelGovernanceCycleInstance(authFetch, cycleId, instanceId),
+    onSuccess: (_d, instanceId) => {
       void qc.invalidateQueries({ queryKey: governanceCyclesKeys.instances(clientId, cycleId) });
       void qc.invalidateQueries({
         queryKey: governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),

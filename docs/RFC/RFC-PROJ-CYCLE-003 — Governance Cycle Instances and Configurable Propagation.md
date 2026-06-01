@@ -563,6 +563,7 @@ Tous : guards standards + module `governance_cycles`. Déclarer routes `**instan
 | `PATCH` | `/:cycleId/instances/:instanceId`           | `update`             | Modifier `periodLabel`, dates période, `label`, `scheduledDecisionAt`, mode, lieu si `DRAFT` ou `PLANNED`                                                               |
 | `POST`  | `/:cycleId/instances/:instanceId/open`      | `update`             | `PLANNED` → `OPEN` (`DRAFT` → **400** tant que `scheduledDecisionAt` absent)                                                                                            |
 | `POST`  | `/:cycleId/instances/:instanceId/close`     | `arbitrate`          | **003-B** (étapes 1–6) ; **003-D** (+ readiness/propagation) — voir §4.6 ; **003-A** : route absente ou **501**                                                         |
+| `POST`  | `/:cycleId/instances/:instanceId/cancel`    | `update`             | `DRAFT` / `PLANNED` / `OPEN` → `CANCELLED` (sans décision figée ni propagation)                                                                                         |
 | `POST`  | `/:cycleId/instances/:instanceId/archive`   | `update`             | `CLOSED` → `ARCHIVED`                                                                                                                                                   |
 | `PUT`   | `/:cycleId/instances/:instanceId/agenda`    | `update`             | Remplacer liste `itemId[]` (ordre) — **003-A**                                                                                                                          |
 | `PATCH` | `/:cycleId/instances/:instanceId/decisions` | `arbitrate`          | **003-B** — brouillon `InstanceDecision` pendant `OPEN`                                                                                                                 |
@@ -729,6 +730,7 @@ async applyInTransaction(
   - **ODJ enregistré** : liste ordonnée (libellés métier, badge statut).
   - **Programmée** : **Ouvrir la séance** (`POST open`, ODJ non vide).
   - **Ouverte** : panneau décisions finales + **Clôturer** (`arbitrate`).
+  - **Brouillon / programmée / ouverte** : **Annuler la séance** (`POST cancel` → `CANCELLED`, confirmation) — permission `update`.
 - Permissions : masquer préparation sans `update` ; décisions/clôture sans `arbitrate`.
 - Règles affichage : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) — jamais d’UUID comme libellé principal.
 

@@ -60,6 +60,8 @@ export function InstanceDecisionPanel({
   finalDecisionOptions,
   onOpen,
   onClose,
+  onCancel,
+  cancelPending,
   getDecisionLabel,
   onGoToArbitration,
 }: {
@@ -70,6 +72,8 @@ export function InstanceDecisionPanel({
   finalDecisionOptions: Array<{ value: string; label: string }>;
   onOpen: () => Promise<void>;
   onClose: () => Promise<void>;
+  onCancel: () => Promise<void>;
+  cancelPending?: boolean;
   getDecisionLabel: (s: GovernanceCycleItemDecisionStatus) => string;
   onGoToArbitration?: () => void;
 }) {
@@ -130,6 +134,24 @@ export function InstanceDecisionPanel({
     (instance.status === 'DRAFT' ||
       instance.status === 'PLANNED' ||
       instance.status === 'OPEN');
+
+  const canCancelInstance =
+    canUpdate &&
+    (instance.status === 'DRAFT' ||
+      instance.status === 'PLANNED' ||
+      instance.status === 'OPEN');
+
+  function confirmCancelInstance() {
+    const label = instance.periodLabel ?? 'cette séance';
+    if (
+      !window.confirm(
+        `Annuler la séance « ${label} » ?\n\nAucune décision ne sera enregistrée ni propagée.`,
+      )
+    ) {
+      return;
+    }
+    void onCancel();
+  }
 
   const persistAgenda = useCallback(
     async (ids: string[]) => {
@@ -367,20 +389,40 @@ export function InstanceDecisionPanel({
         <p className="text-xs text-muted-foreground">Mise à jour de l&apos;ordre du jour…</p>
       ) : null}
 
-      {instance.status === 'PLANNED' && canUpdate ? (
-        <Button
-          size="sm"
-          onClick={onOpen}
-          disabled={agendaEntries.length === 0}
-          title={
-            agendaEntries.length === 0
-              ? 'Incluez au moins un candidat à l’ordre du jour'
-              : undefined
-          }
-        >
-          Ouvrir la séance
-        </Button>
+      {instance.status === 'CANCELLED' ? (
+        <p className="text-sm text-muted-foreground rounded-md border border-dashed p-3">
+          Cette séance a été annulée. Aucune décision portefeuille n&apos;a été enregistrée.
+        </p>
       ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {instance.status === 'PLANNED' && canUpdate ? (
+          <Button
+            size="sm"
+            onClick={onOpen}
+            disabled={agendaEntries.length === 0}
+            title={
+              agendaEntries.length === 0
+                ? 'Incluez au moins un candidat à l’ordre du jour'
+                : undefined
+            }
+          >
+            Ouvrir la séance
+          </Button>
+        ) : null}
+        {canCancelInstance ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive"
+            disabled={cancelPending}
+            onClick={confirmCancelInstance}
+          >
+            Annuler la séance
+          </Button>
+        ) : null}
+      </div>
 
       {instance.status === 'OPEN' && canArbitrate ? (
         <div className="space-y-3">

@@ -406,6 +406,42 @@ export class GovernanceCycleInstancesService {
     return this.toInstanceResponse(updated);
   }
 
+  async cancelInstance(
+    clientId: string,
+    cycleId: string,
+    instanceId: string,
+    context?: InstanceAuditContext,
+  ): Promise<GovernanceCycleInstanceResponseDto> {
+    const existing = await this.findInstance(clientId, cycleId, instanceId);
+    const cancellable: GovernanceCycleInstanceStatus[] = [
+      GovernanceCycleInstanceStatus.DRAFT,
+      GovernanceCycleInstanceStatus.PLANNED,
+      GovernanceCycleInstanceStatus.OPEN,
+    ];
+    if (!cancellable.includes(existing.status)) {
+      throw new BadRequestException(
+        'Only DRAFT, PLANNED or OPEN instances can be cancelled',
+      );
+    }
+
+    const updated = await this.prisma.governanceCycleInstance.update({
+      where: { id: instanceId },
+      data: { status: GovernanceCycleInstanceStatus.CANCELLED },
+      include: { agendaItems: true, decisions: true },
+    });
+
+    await this.auditInstance(
+      clientId,
+      context,
+      'governance_cycle_instance.cancelled',
+      instanceId,
+      { status: existing.status },
+      { status: updated.status },
+    );
+
+    return this.toInstanceResponse(updated);
+  }
+
   async archiveInstance(
     clientId: string,
     cycleId: string,
