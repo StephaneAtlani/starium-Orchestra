@@ -60,6 +60,19 @@ describe('CreateGovernanceCycleItemDto — scoring', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('accepte projectId au format cuid (ids Prisma)', async () => {
+    const cuid = 'cmnkqlkcb0003o3a5mumz04sn';
+    const result = await pipe.transform(
+      {
+        sourceType: GovernanceCycleItemSourceType.PROJECT,
+        projectId: cuid,
+      },
+      { type: 'body', metatype: CreateGovernanceCycleItemDto },
+    );
+
+    expect(result.projectId).toBe(cuid);
+  });
+
   it('rejette priorityScore en entrée (forbidNonWhitelisted)', async () => {
     await expect(
       pipe.transform(

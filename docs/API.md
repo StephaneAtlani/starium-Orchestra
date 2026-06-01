@@ -599,7 +599,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/governance-cycles/:cycleId/instances/generate (POST) | idem | `governance_cycles.update` — génération depuis `governanceConfig.instanceSchedule` (RFC-003-F) |
 | /api/governance-cycles/:cycleId/instances/:instanceId (GET, PATCH) | idem | détail séance ; `periodLabel` + `scheduledDecisionAt` requis si statut ≥ `PLANNED` |
 | /api/governance-cycles/:cycleId/instances/:instanceId/open \| archive (POST) | idem | `update` — transitions `PLANNED`→`OPEN`, `CLOSED`→`ARCHIVED` |
-| /api/governance-cycles/:cycleId/instances/:instanceId/agenda (PUT) | idem | remplacement ordre du jour (`itemId[]`) |
+| /api/governance-cycles/:cycleId/instances/:instanceId/agenda (PUT) | idem | `update` — remplacement ODJ ordonné ; **uniquement** items `PROJECT`/`BUDGET` en statut candidat (`CANDIDATE` ; `TO_ARBITRATE` lu comme candidat) — **400** sinon |
 | /api/governance-cycles/:cycleId/instances/:instanceId/decisions (PATCH) | idem | `governance_cycles.arbitrate` — brouillon `GovernanceCycleInstanceDecision` si `OPEN` |
 | /api/governance-cycles/:cycleId/instances/:instanceId/close (POST) | idem | clôture atomique : figement décisions, MAJ `item.decisionStatus`, readiness + propagation optionnelles (RFC-003-B/D/E) ; **409** si propagation échoue |
 | /api/governance-cycles/:id (PATCH) `governanceConfig` | idem | config normalisée (RFC-003-D) ; `propagation.budget=WRITE_BUDGET_GOVERNANCE_DECISION` uniquement après migration **003-E** |
@@ -1178,6 +1178,7 @@ Les items portent l’arbitrage (`decisionStatus`) **sans** modifier `Project.st
 - **403** : champ édition sans `governance_cycles.update`, ou champ arbitrage sans `governance_cycles.arbitrate` (même si l’autre permission est détenue)
 - **400** : tentative de modifier `sourceType` ou une FK après création
 - **Audit** : `governance_cycle_item.updated` (édition) ; `governance_cycle_item.decision_changed` (arbitrage si statut/motif change)
+- **Agenda séances (RFC-003)** : si `decisionStatus` passe à un statut **non candidat**, l’item est retiré des ODJ des instances `DRAFT` / `PLANNED` / `OPEN` du même cycle
 
 #### DELETE /api/governance-cycles/:id/items/:itemId
 
@@ -1235,6 +1236,24 @@ priorityScore =
   "updatedAt": "2026-01-02T00:00:00.000Z"
 }
 ```
+
+### Séances de décision — `/api/governance-cycles/:cycleId/instances` (RFC-PROJ-CYCLE-003)
+
+Isolation **`clientId`** sur toutes les routes ; `cycleId` et `instanceId` doivent appartenir au client actif.
+
+| Route | Permission | Notes |
+| --- | --- | --- |
+| `GET` / `POST` `…/instances` | `read` / `update` (create) | Liste ; création séance (`mode`, `periodLabel`, `scheduledDecisionAt`, …). Statut initial : `DRAFT` si période ou date absente, sinon `PLANNED`. **POST** préremplit l’agenda avec les items cycle éligibles (projets/budgets **candidats**, tri `priorityScore` desc). |
+| `POST` `…/instances/generate` | `update` | Génération depuis `governanceConfig.instanceSchedule` (**003-F**). |
+| `GET` / `PATCH` `…/instances/:instanceId` | `read` / `update` | Détail (+ agenda enrichi, décisions instance). **PATCH** : si `DRAFT` et `periodLabel` + `scheduledDecisionAt` fournis → passage auto **`PLANNED`**. Édition autorisée si statut `DRAFT` ou `PLANNED`. |
+| `POST` `…/open` | `update` | `PLANNED` → `OPEN` ; agenda non vide ; **400** depuis `DRAFT`. |
+| `POST` `…/archive` | `update` | `CLOSED` → `ARCHIVED`. |
+| `PUT` `…/agenda` | `update` | Body `{ items: [{ itemId, sortOrder? }] }` — remplace l’ODJ. Items **PROJECT** ou **BUDGET** en statut candidat uniquement. |
+| `PATCH` `…/decisions` | `arbitrate` | Brouillon décisions séance si `OPEN`. |
+| `POST` `…/close` | `arbitrate` | Clôture atomique (**003-B** + readiness/propagation **003-D/E**). |
+| `POST` `…/candidacies` | `propose` | Body `{ projectId }` — upsert item **CANDIDATE** (**003-C**). |
+
+**UI** (`apps/web/src/features/governance-cycles/`) : onglet Séances — préparation ODJ via `GET …/items?limit=100` (max API) ; libellés métier sur les lignes (pas d’UUID affiché seul). Voir [RFC-PROJ-CYCLE-003](RFC/RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) §4.9.
 
 ---
 

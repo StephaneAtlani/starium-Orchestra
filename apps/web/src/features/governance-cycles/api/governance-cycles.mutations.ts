@@ -135,6 +135,9 @@ export function useCreateGovernanceCycleItemMutation(cycleId: string) {
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.summary(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.detail(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.lists(clientId) }),
+        queryClient.invalidateQueries({
+          queryKey: ['governance-cycles', clientId, 'instances', cycleId],
+        }),
       ]);
     },
   });
@@ -162,6 +165,9 @@ export function usePatchGovernanceCycleItemEditionMutation(cycleId: string) {
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.items(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.summary(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.detail(clientId, cycleId) }),
+        queryClient.invalidateQueries({
+          queryKey: ['governance-cycles', clientId, 'instances', cycleId],
+        }),
       ]);
     },
   });
@@ -190,6 +196,9 @@ export function usePatchGovernanceCycleItemArbitrationMutation(cycleId: string) 
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.summary(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.detail(clientId, cycleId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.lists(clientId) }),
+        queryClient.invalidateQueries({
+          queryKey: ['governance-cycles', clientId, 'instances', cycleId],
+        }),
       ]);
     },
   });

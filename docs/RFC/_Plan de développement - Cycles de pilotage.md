@@ -270,7 +270,7 @@ Voir RFC-003 **§8.1** (maintenu en prod) : (1) pas de **`WRITE_PROJECT_STATUS`*
 - [x] **RFC-PROJ-CYCLE-003** — migrations instances + budget ; API instances/candidacies/close ; **92** tests module  
 - [x] `docs/API.md` §5.8 étendu (instances, candidacies, config, propagation)  
 - [x] `_RFC Liste.md` — 31a-4 RFC-003 ✅ Implémenté  
-- [x] UI : onglet Séances, panneau décisions/clôture, candidature fiche ; config cycle via `PATCH` API (pas de panneau admin config dédié en FE)  
+- [x] UI : onglet Séances (préparation ODJ `instance-session-preparation`, `DRAFT`→`PLANNED`→`OPEN`, clôture), candidature fiche ; config cycle via `PATCH` API (pas de panneau admin config dédié en FE)  
 
 ---
 

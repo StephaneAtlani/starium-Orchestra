@@ -24,6 +24,7 @@ describe('GovernanceCycleInstancesService', () => {
     governanceCycleInstanceAgendaItem: {
       deleteMany: jest.Mock;
       create: jest.Mock;
+      createMany: jest.Mock;
       findFirst: jest.Mock;
     };
     governanceCycleInstanceDecision: { upsert: jest.Mock };
@@ -77,11 +78,18 @@ describe('GovernanceCycleInstancesService', () => {
       governanceCycleInstanceAgendaItem: {
         deleteMany: jest.fn(),
         create: jest.fn(),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
         findFirst: jest.fn().mockResolvedValue(null),
       },
       governanceCycleInstanceDecision: { upsert: jest.fn() },
       governanceCycleItem: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'item-1' }]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'item-1',
+            sourceType: 'PROJECT',
+            decisionStatus: 'CANDIDATE',
+          },
+        ]),
         update: jest.fn(),
       },
       $transaction: jest.fn(async (fn: (tx: typeof prisma) => Promise<void>) => fn(prisma)),
@@ -97,6 +105,28 @@ describe('GovernanceCycleInstancesService', () => {
       readiness as unknown as GovernanceCycleReadinessService,
       propagation as unknown as GovernanceCyclePropagationService,
     );
+  });
+
+  it('createInstance préremplit l’agenda avec les items du cycle', async () => {
+    prisma.governanceCycleInstance.create.mockResolvedValue({
+      ...baseInstance,
+      id: 'inst-new',
+      agendaItems: [],
+    });
+    prisma.governanceCycleInstance.findFirst.mockResolvedValue({
+      ...baseInstance,
+      id: 'inst-new',
+      agendaItems: [{ itemId: 'item-1', sortOrder: 0 }],
+    });
+
+    const result = await service.createInstance('client-a', 'cycle-1', {
+      periodLabel: 'T2',
+      scheduledDecisionAt: '2026-07-01T10:00:00.000Z',
+      mode: 'MEETING',
+    });
+
+    expect(prisma.governanceCycleInstanceAgendaItem.createMany).toHaveBeenCalled();
+    expect(result.agendaCount).toBe(1);
   });
 
   it('open depuis DRAFT sans date → 400', async () => {
@@ -149,7 +179,15 @@ describe('GovernanceCycleInstancesService', () => {
       periodLabel: null,
       scheduledDecisionAt: null,
     });
+    prisma.governanceCycleInstance.findFirst.mockResolvedValue({
+      ...baseInstance,
+      status: GovernanceCycleInstanceStatus.DRAFT,
+      periodLabel: null,
+      scheduledDecisionAt: null,
+      agendaItems: [{ itemId: 'item-1', sortOrder: 0 }],
+    });
     const result = await service.createInstance('client-a', 'cycle-1', {});
     expect(result.status).toBe('DRAFT');
+    expect(prisma.governanceCycleInstanceAgendaItem.createMany).toHaveBeenCalled();
   });
 });

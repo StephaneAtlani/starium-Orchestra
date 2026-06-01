@@ -36,6 +36,7 @@ import {
   isValidInstanceFinalDecision,
   normalizeItemDecisionStatusForRead,
 } from './lib/governance-cycle-item-status.util';
+import { isAgendaSelectableItem } from './lib/governance-cycle-agenda.util';
 
 type InstanceAuditContext = {
   actorUserId?: string;
@@ -116,6 +117,31 @@ export class GovernanceCycleInstancesService {
         'periodLabel and scheduledDecisionAt are required for this instance status',
       );
     }
+  }
+
+  /** Préremplit l’agenda avec tous les items du cycle (tri score desc). */
+  private async seedInstanceAgendaFromCycleItems(
+    clientId: string,
+    cycleId: string,
+    instanceId: string,
+  ): Promise<void> {
+    const items = await this.prisma.governanceCycleItem.findMany({
+      where: { clientId, cycleId },
+      orderBy: [{ priorityScore: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
+      select: { id: true, sourceType: true, decisionStatus: true },
+    });
+    const eligible = items.filter((item) => isAgendaSelectableItem(item));
+    if (eligible.length === 0) return;
+
+    await this.prisma.governanceCycleInstanceAgendaItem.createMany({
+      data: eligible.map((item, index) => ({
+        clientId,
+        instanceId,
+        itemId: item.id,
+        sortOrder: index,
+      })),
+      skipDuplicates: true,
+    });
   }
 
   private async toInstanceResponse(
@@ -227,13 +253,16 @@ export class GovernanceCycleInstancesService {
       include: { agendaItems: true, decisions: true },
     });
 
+    await this.seedInstanceAgendaFromCycleItems(clientId, cycleId, created.id);
+
     await this.auditInstance(clientId, context, 'governance_cycle_instance.created', created.id, undefined, {
       cycleId,
       status: created.status,
       periodLabel: created.periodLabel,
     });
 
-    return this.toInstanceResponse(created);
+    const reloaded = await this.findInstance(clientId, cycleId, created.id);
+    return this.toInstanceResponse(reloaded);
   }
 
   async getInstance(
@@ -419,10 +448,16 @@ export class GovernanceCycleInstancesService {
 
     const items = await this.prisma.governanceCycleItem.findMany({
       where: { clientId, cycleId, id: { in: itemIds } },
-      select: { id: true },
+      select: { id: true, sourceType: true, decisionStatus: true },
     });
     if (items.length !== itemIds.length) {
       throw new BadRequestException('One or more items are not in this cycle');
+    }
+    const ineligible = items.filter((item) => !isAgendaSelectableItem(item));
+    if (ineligible.length > 0) {
+      throw new BadRequestException(
+        'Agenda may only include PROJECT or BUDGET items in CANDIDATE status',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -732,7 +767,9 @@ export class GovernanceCycleInstancesService {
         },
         include: { agendaItems: true, decisions: true },
       });
-      created.push(await this.toInstanceResponse(row));
+      await this.seedInstanceAgendaFromCycleItems(clientId, cycleId, row.id);
+      const reloaded = await this.findInstance(clientId, cycleId, row.id);
+      created.push(await this.toInstanceResponse(reloaded));
       cursor = new Date(cursor);
       cursor.setMonth(cursor.getMonth() + stepMonths);
     }

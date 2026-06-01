@@ -11,6 +11,7 @@ import {
   getGovernanceCycleInstance,
   listGovernanceCycleInstances,
   openGovernanceCycleInstance,
+  updateGovernanceCycleInstance,
   patchGovernanceCycleInstanceDecisions,
   replaceGovernanceCycleInstanceAgenda,
   submitProjectToGovernanceCycle,
@@ -59,6 +60,21 @@ export function useCreateGovernanceCycleInstanceMutation(cycleId: string) {
   });
 }
 
+export function useUpdateGovernanceCycleInstanceMutation(cycleId: string, instanceId: string) {
+  const { authFetch, clientId } = useGovernanceCyclesReadContext();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      updateGovernanceCycleInstance(authFetch, cycleId, instanceId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: governanceCyclesKeys.instances(clientId, cycleId) });
+      void qc.invalidateQueries({
+        queryKey: governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
+      });
+    },
+  });
+}
+
 export function useOpenGovernanceCycleInstanceMutation(cycleId: string) {
   const { authFetch, clientId } = useGovernanceCyclesReadContext();
   const qc = useQueryClient();
@@ -95,9 +111,13 @@ export function useReplaceInstanceAgendaMutation(cycleId: string, instanceId: st
   return useMutation({
     mutationFn: (itemIds: string[]) =>
       replaceGovernanceCycleInstanceAgenda(authFetch, cycleId, instanceId, itemIds),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      qc.setQueryData(
+        governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
+        data,
+      );
       void qc.invalidateQueries({
-        queryKey: governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
+        queryKey: governanceCyclesKeys.instances(clientId, cycleId),
       });
     },
   });
@@ -114,10 +134,11 @@ export function usePatchInstanceDecisionsMutation(cycleId: string, instanceId: s
         decisionReason?: string | null;
       }>,
     ) => patchGovernanceCycleInstanceDecisions(authFetch, cycleId, instanceId, decisions),
-    onSuccess: () => {
-      void qc.invalidateQueries({
-        queryKey: governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
-      });
+    onSuccess: (data) => {
+      qc.setQueryData(
+        governanceCyclesKeys.instanceDetail(clientId, cycleId, instanceId),
+        data,
+      );
     },
   });
 }

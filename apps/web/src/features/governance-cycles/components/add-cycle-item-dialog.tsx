@@ -74,7 +74,10 @@ export function AddCycleItemDialog({
     () =>
       (projectsQuery.data?.items ?? []).map((p) => ({
         value: p.id,
-        label: [p.code, p.name].filter(Boolean).join(' — ') || p.name,
+        label:
+          [p.code, p.name].filter(Boolean).join(' — ') ||
+          p.name ||
+          'Projet sans libellé',
       })),
     [projectsQuery.data?.items],
   );
@@ -83,9 +86,19 @@ export function AddCycleItemDialog({
     () =>
       (budgetsQuery.data?.items ?? []).map((b) => ({
         value: b.id,
-        label: [b.code, b.name].filter(Boolean).join(' — ') || b.name,
+        label: [b.code, b.name].filter(Boolean).join(' — ') || b.name || 'Budget sans libellé',
       })),
     [budgetsQuery.data?.items],
+  );
+
+  const selectedProjectLabel = useMemo(
+    () => projectOptions.find((o) => o.value === form.projectId)?.label,
+    [projectOptions, form.projectId],
+  );
+
+  const selectedBudgetLabel = useMemo(
+    () => budgetOptions.find((o) => o.value === form.budgetId)?.label,
+    [budgetOptions, form.budgetId],
   );
 
   useEffect(() => {
@@ -152,7 +165,9 @@ export function AddCycleItemDialog({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un projet…" />
+                  <SelectValue placeholder="Choisir un projet…">
+                    {selectedProjectLabel}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {projectOptions.map((opt) => (
@@ -175,7 +190,9 @@ export function AddCycleItemDialog({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un budget…" />
+                  <SelectValue placeholder="Choisir un budget…">
+                    {selectedBudgetLabel}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {budgetOptions.map((opt) => (

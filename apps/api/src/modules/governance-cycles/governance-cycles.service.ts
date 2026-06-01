@@ -60,7 +60,10 @@ import {
   governanceConfigFromDb,
   parseAndNormalizeGovernanceConfig,
 } from './lib/governance-cycle-config.schema';
-import { normalizeItemDecisionStatusForRead } from './lib/governance-cycle-item-status.util';
+import {
+  isItemUndecidedForInstanceClose,
+  normalizeItemDecisionStatusForRead,
+} from './lib/governance-cycle-item-status.util';
 import { isGovernanceCyclesModuleActive } from './lib/governance-cycles-module.util';
 import { SubmitProjectToCycleDto } from './dto/submit-project-to-cycle.dto';
 
@@ -345,6 +348,30 @@ export class GovernanceCyclesService {
         deferredItemsCount: 0,
       }
     );
+  }
+
+  /** Retire un item des ordres du jour des séances non clôturées (statut plus « candidat »). */
+  private async pruneItemFromMutableInstanceAgendas(
+    clientId: string,
+    cycleId: string,
+    itemId: string,
+  ): Promise<void> {
+    await this.prisma.governanceCycleInstanceAgendaItem.deleteMany({
+      where: {
+        clientId,
+        itemId,
+        instance: {
+          cycleId,
+          status: {
+            in: [
+              GovernanceCycleInstanceStatus.DRAFT,
+              GovernanceCycleInstanceStatus.PLANNED,
+              GovernanceCycleInstanceStatus.OPEN,
+            ],
+          },
+        },
+      },
+    });
   }
 
   private async findCycleInClient(clientId: string, id: string): Promise<CycleRow> {
@@ -1521,6 +1548,9 @@ export class GovernanceCyclesService {
           decisionReason: updated.decisionReason,
         },
       );
+      if (!isItemUndecidedForInstanceClose(updated.decisionStatus)) {
+        await this.pruneItemFromMutableInstanceAgendas(clientId, cycleId, itemId);
+      }
     }
 
     return this.toItemResponse(updated);

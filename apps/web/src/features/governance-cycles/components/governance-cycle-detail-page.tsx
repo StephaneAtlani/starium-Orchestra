@@ -145,7 +145,11 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
         </TabsContent>
         <TabsContent value="instances" className="mt-4">
           {tab === 'instances' ? (
-            <GovernanceCycleInstancesTab cycleId={cycleId} enabled />
+            <GovernanceCycleInstancesTab
+              cycleId={cycleId}
+              enabled
+              onGoToArbitration={() => setTab('arbitration')}
+            />
           ) : null}
         </TabsContent>
         <TabsContent value="arbitration" className="mt-4">

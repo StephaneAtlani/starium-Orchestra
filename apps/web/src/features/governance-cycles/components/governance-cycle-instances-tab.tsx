@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,7 @@ import {
   useOpenGovernanceCycleInstanceMutation,
   usePatchInstanceDecisionsMutation,
 } from '../api/governance-cycle-instances.queries';
-import { useGovernanceCycleDetailQuery, useGovernanceCycleItemsQuery } from '../api/governance-cycles.queries';
+import { useGovernanceCycleDetailQuery } from '../api/governance-cycles.queries';
 import {
   getGovernanceCycleInstanceModeLabel,
   getGovernanceCycleInstanceStatusLabel,
@@ -47,9 +47,11 @@ const FINAL_DECISIONS: GovernanceCycleItemDecisionStatus[] = [
 export function GovernanceCycleInstancesTab({
   cycleId,
   enabled,
+  onGoToArbitration,
 }: {
   cycleId: string;
   enabled: boolean;
+  onGoToArbitration?: () => void;
 }) {
   const { has } = usePermissions();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -61,8 +63,6 @@ export function GovernanceCycleInstancesTab({
   const instanceDetailQuery = useGovernanceCycleInstanceDetailQuery(cycleId, selectedId, {
     enabled: enabled && Boolean(selectedId),
   });
-  const itemsQuery = useGovernanceCycleItemsQuery(cycleId, { limit: 200 }, { enabled });
-
   const createMutation = useCreateGovernanceCycleInstanceMutation(cycleId);
   const openMutation = useOpenGovernanceCycleInstanceMutation(cycleId);
   const closeMutation = useCloseGovernanceCycleInstanceMutation(cycleId);
@@ -71,14 +71,13 @@ export function GovernanceCycleInstancesTab({
   const scheduleEnabled =
     cycleQuery.data?.governanceConfig?.instanceSchedule?.enabled === true;
 
-  const itemOptions = useMemo(
-    () =>
-      (itemsQuery.data?.items ?? []).map((i) => ({
-        id: i.id,
-        label: i.sourceRef?.label ? `${i.title} (${i.sourceRef.label})` : i.title,
-      })),
-    [itemsQuery.data?.items],
-  );
+  const instances = instancesQuery.data?.items ?? [];
+
+  useEffect(() => {
+    const firstId = instancesQuery.data?.items?.[0]?.id;
+    if (!firstId) return;
+    setSelectedId((current) => current ?? firstId);
+  }, [instancesQuery.data?.items]);
 
   if (!enabled) return null;
 
@@ -93,8 +92,13 @@ export function GovernanceCycleInstancesTab({
         ...(scheduledAt ? { scheduledDecisionAt: new Date(scheduledAt).toISOString() } : {}),
         mode: 'MEETING',
       });
-      toast.success('Séance créée');
+      toast.success(
+        created.agendaCount > 0
+          ? `Séance créée — ${created.agendaCount} point(s) à l’ordre du jour`
+          : 'Séance créée',
+      );
       setSelectedId(created.id);
+      void instanceDetailQuery.refetch();
     } catch (e) {
       toast.error(getApiErrorMessage(e));
     }
@@ -152,14 +156,24 @@ export function GovernanceCycleInstancesTab({
                 />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Renseignez <strong>période</strong> et <strong>date de décision</strong> pour créer une
+              séance programmée (ordre du jour prérempli avec les candidats du cycle).
+            </p>
             <Button size="sm" onClick={handleCreate} disabled={createMutation.isPending}>
               + Séance de décision
             </Button>
           </div>
         </PermissionGate>
 
+        {instances.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucune séance — créez-en une avec le formulaire ci-dessus.
+          </p>
+        ) : null}
+
         <ul className="space-y-2">
-          {(instancesQuery.data?.items ?? []).map((inst) => (
+          {instances.map((inst) => (
             <li key={inst.id}>
               <button
                 type="button"
@@ -197,7 +211,6 @@ export function GovernanceCycleInstancesTab({
           <InstanceDecisionPanel
             cycleId={cycleId}
             instance={instanceDetailQuery.data}
-            itemOptions={itemOptions}
             canUpdate={has('governance_cycles.update')}
             canArbitrate={has('governance_cycles.arbitrate')}
             finalDecisionOptions={GOVERNANCE_CYCLE_ITEM_DECISION_OPTIONS.filter((o) =>
@@ -223,6 +236,7 @@ export function GovernanceCycleInstancesTab({
               }
             }}
             getDecisionLabel={getGovernanceCycleItemDecisionLabel}
+            onGoToArbitration={onGoToArbitration}
           />
         )}
       </div>

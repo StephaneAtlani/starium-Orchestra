@@ -43,6 +43,21 @@ export async function createGovernanceCycleInstance(
   return res.json() as Promise<GovernanceCycleInstanceResponseDto>;
 }
 
+export async function updateGovernanceCycleInstance(
+  authFetch: AuthFetch,
+  cycleId: string,
+  instanceId: string,
+  body: Record<string, unknown>,
+): Promise<GovernanceCycleInstanceResponseDto> {
+  const res = await authFetch(`${base(cycleId)}/${instanceId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<GovernanceCycleInstanceResponseDto>;
+}
+
 export async function openGovernanceCycleInstance(
   authFetch: AuthFetch,
   cycleId: string,

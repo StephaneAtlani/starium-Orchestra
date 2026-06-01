@@ -3,9 +3,10 @@
 ## Statut
 
 **Implémenté** — 2026-06-01 (lots **003-A** à **003-F** livrés ; **003-G** décideurs nommés hors scope).  
+**Dernière synchro doc ↔ code** : 2026-06-01 (préparation séance FE, règles agenda candidats, `PATCH` instance `DRAFT`→`PLANNED`).  
 Évolution V2 du module cycles de pilotage : instances de décision + propagation paramétrable.
 
-**Référence code** : `apps/api/src/modules/governance-cycles/` (`governance-cycle-instances.service.ts`, `governance-cycle-propagation.service.ts`, `governance-cycle-readiness.service.ts`, `lib/governance-cycle-config.schema.ts`) ; migrations `20260601120000_governance_cycle_instances`, `20260601130000_budget_governance_decision` ; UI `apps/web/src/features/governance-cycles/` (onglet Séances, candidature fiche) ; **92** tests Jest module API.
+**Référence code** : `apps/api/src/modules/governance-cycles/` (`governance-cycle-instances.service.ts`, `governance-cycle-propagation.service.ts`, `governance-cycle-readiness.service.ts`, `lib/governance-cycle-config.schema.ts`, `lib/governance-cycle-agenda.util.ts`, `lib/governance-cycle-item-status.util.ts`) ; migrations `20260601120000_governance_cycle_instances`, `20260601130000_budget_governance_decision` ; UI `apps/web/src/features/governance-cycles/` (`governance-cycle-instances-tab.tsx`, `instance-decision-panel.tsx`, `instance-session-preparation.tsx`, `lib/governance-cycle-agenda-candidates.ts`, candidature fiche) ; **92** tests Jest module API.
 
 **Prérequis** : [RFC-PROJ-CYCLE-001](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) (B1–B9 livrés), [RFC-FE-PROJ-CYCLE-001](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md), [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md).
 
@@ -69,13 +70,13 @@
 
 **Backend** : migration Prisma instances/agenda ; `governance-cycle-instances.*` ; DTO create/update instance ; `governance-cycle-instance-labels.util.ts`.
 
-**Frontend** : `governance-cycle-instances-tab.tsx`, `create-instance-dialog.tsx`, API/hooks instances ; extension `governance-cycle-detail-page.tsx` (lecture + agenda + open).
+**Frontend** : `governance-cycle-instances-tab.tsx` (création séance inline, liste, sélection auto première séance), `instance-decision-panel.tsx`, `instance-session-preparation.tsx`, API/hooks `governance-cycle-instances.*` ; extension `governance-cycle-detail-page.tsx` (onglet Séances, lien vers Arbitrage).
 
 ### Lot 003-B — décisions + clôture (sans propagation)
 
 **Backend** : `upsert-instance-item-decisions.dto.ts` ; extension `close` (figement `InstanceDecision`, MAJ `item.decisionStatus`) ; **pas** de `governance-cycle-propagation.service.ts` dans ce lot.
 
-**Frontend** : `instance-decision-panel.tsx` (décisions OPEN, clôture).
+**Frontend** : `instance-decision-panel.tsx` (préparation ODJ + décisions OPEN + clôture).
 
 ### Lot 003-C — candidature fiche uniquement
 
@@ -595,9 +596,16 @@ Tous : guards standards + module `governance_cycles`. Déclarer routes `**instan
 - Requis en `DRAFT` : aucun (tous champs période/date optionnels).
 - Pour créer directement en `PLANNED` : `periodLabel` + `scheduledDecisionAt` obligatoires ; optionnels : `periodStartDate`, `periodEndDate`, `label`, `mode` (défaut config).
 - Statut initial : `DRAFT` si `periodLabel` ou `scheduledDecisionAt` absent ; sinon `PLANNED`.
-- `prefillAgendaFromCycle` : optionnel — n’ajoute **pas** automatiquement les items encore purement candidats hors sélection.
+- **Préremplissage agenda** (`seedInstanceAgendaFromCycleItems`, **003-A**) : à la création (`POST instances`) et à la génération trimestrielle (**003-F**), tous les items du cycle **éligibles** (voir ci-dessous) sont ajoutés à l’ODJ, triés par `priorityScore` desc. L’utilisateur peut ensuite restreindre via `PUT agenda`.
 
-**Passage `DRAFT` → `PLANNED`** (`PATCH`, **003-A**) : exige `periodLabel` **et** `scheduledDecisionAt`.
+**Éligibilité ODJ** (agenda + UI préparation) :
+
+- `sourceType` ∈ `{ PROJECT, BUDGET }` uniquement (pas `MANUAL`, etc.).
+- `decisionStatus` « non décidé » : `CANDIDATE` ; legacy `TO_ARBITRATE` **lu** comme `CANDIDATE` (`normalizeItemDecisionStatusForRead`).
+- `PUT …/agenda` : **400** si un `itemId` n’est pas éligible.
+- Changement de statut item hors candidat (`PATCH …/items/:id` arbitrage) : retrait automatique de l’item des agendas des instances `DRAFT` / `PLANNED` / `OPEN` (`pruneItemFromMutableInstanceAgendas`).
+
+**Passage `DRAFT` → `PLANNED`** (`PATCH`, **003-A**) : dès que `periodLabel` **et** `scheduledDecisionAt` sont renseignés sur une instance `DRAFT`, le service passe le statut à `PLANNED` (pas de transition dédiée côté API).
 
 **Ouverture** (`OPEN`, **003-A**) :
 
@@ -712,15 +720,21 @@ async applyInTransaction(
 
 ### 4.9 Frontend et libellés UI
 
-**Onglet « Instances »** sur `/cycles/[id]` :
+**Onglet « Séances de décision »** sur `/cycles/[cycleId]` (`governance-cycle-instances-tab.tsx`) :
 
-- Liste chronologique : `**periodLabel`** (période arbitrée), **date de décision** (`scheduledDecisionAt`, locale fr-FR), mode, statut badge.
-- Bouton **« + Séance de décision »** : dialog — `periodLabel`, dates période optionnelles, date/heure séance, mode.
-- Action **« Générer le trimestre »** si `instanceSchedule.enabled`.
-- Fiche instance : agenda (multi-select projets/budgets par libellé), panneau décisions, boutons Ouvrir / Clôturer.
-- Permissions : masquer actions selon `arbitrate` / `update`.
+- **Colonne gauche** : formulaire inline **« Nouvelle séance »** (`periodLabel`, `datetime-local` date de décision) ; hint : période + date → séance **programmée** avec ODJ prérempli côté API ; bouton **« Générer le trimestre »** si `governanceConfig.instanceSchedule.enabled` ; liste des séances (libellé période, statut, date, `agendaCount`).
+- **Colonne droite** (`instance-decision-panel.tsx` + `instance-session-preparation.tsx`) :
+  - **Brouillon** : bloc « Programmer la séance » (`PATCH` instance : période + date → `PLANNED`).
+  - **Préparation** (`DRAFT` / `PLANNED` / `OPEN`, permission `update`) : tableau **tous** les projets/budgets du cycle (`GET …/items`, `limit` max **100**) ; colonne ODJ (checkbox) si statut **Candidat** ; action **« Remettre en candidat »** (`PATCH …/items/:id` arbitrage, permission `arbitrate`) sinon ; boutons **Tous les candidats**, **Enregistrer l’ordre du jour** (`PUT agenda`), lien **Matrice d’arbitrage**.
+  - **ODJ enregistré** : liste ordonnée (libellés métier, badge statut).
+  - **Programmée** : **Ouvrir la séance** (`POST open`, ODJ non vide).
+  - **Ouverte** : panneau décisions finales + **Clôturer** (`arbitrate`).
+- Permissions : masquer préparation sans `update` ; décisions/clôture sans `arbitrate`.
+- Règles affichage : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) — jamais d’UUID comme libellé principal.
 
-**Fiche projet** (003-C) : bouton **« Soumettre au cycle de pilotage »** uniquement — pas de clôture ni propagation dans ce lot.
+**Fiche projet** (003-C) : bouton **« Soumettre au cycle de pilotage »** (`submit-project-to-cycle-dialog.tsx`) — pas de clôture ni propagation dans ce lot.
+
+**Hors scope FE livré** : panneau admin dédié `governanceConfig` ; dialog séance séparé (création inline) ; pagination items cycle au-delà de 100 lignes dans l’UI séances (prévoir extension si portefeuilles très larges).
 
 #### Libellés UI (normatifs — FR)
 
@@ -1236,9 +1250,10 @@ flowchart LR
 
 ### Frontend
 
-- Dialog création instance ; libellés FR mode/statut.
+- Onglet Séances : création inline ; préparation ODJ (tableau projets/budgets, candidats, enregistrement agenda) ; transitions `DRAFT`→`PLANNED`→`OPEN`→clôture.
+- Libellés FR mode/statut (`governance-cycle-labels.ts`).
 - Onglet masqué sans `governance_cycles.read`.
-- Clôture désactivée si décisions incomplètes.
+- Clôture désactivée si décisions incomplètes ou ODJ vide.
 - Bloc projet : pas d’ID brut dans le texte principal.
 - **003-C** : module inactif → pas de bouton soumission ; module actif → soumission si `propose` (§4.11.1).
 - **003-B** : clôture sans `arbitrate` masquée.
