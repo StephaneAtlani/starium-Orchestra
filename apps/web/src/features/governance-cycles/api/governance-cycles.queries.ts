@@ -17,17 +17,19 @@ import type {
   ListGovernanceCyclesParams,
 } from '../types/governance-cycle.types';
 
-export function useGovernanceCyclesReadContext(options?: { enabled?: boolean }) {
+export function useGovernanceCyclesReadContext(options?: {
+  enabled?: boolean;
+  /** Requêtes dès que clientId est prêt (en parallèle des permissions). */
+  eager?: boolean;
+}) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const { has, isSuccess: permsSuccess } = usePermissions();
   const clientId = activeClient?.id ?? '';
   const canRead = has('governance_cycles.read');
+  const permissionOk = options?.eager ? !permsSuccess || canRead : permsSuccess && canRead;
   const readEnabled =
-    Boolean(clientId) &&
-    permsSuccess &&
-    canRead &&
-    (options?.enabled !== false);
+    Boolean(clientId) && permissionOk && (options?.enabled !== false);
 
   return { authFetch, clientId, readEnabled, canRead, permsSuccess };
 }
@@ -46,9 +48,14 @@ export function useGovernanceCyclesListQuery(
   });
 }
 
+type GovernanceCyclesQueryOptions = {
+  enabled?: boolean;
+  eager?: boolean;
+};
+
 export function useGovernanceCycleDetailQuery(
   cycleId: string,
-  options?: { enabled?: boolean },
+  options?: GovernanceCyclesQueryOptions,
 ) {
   const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
 
@@ -56,12 +63,13 @@ export function useGovernanceCycleDetailQuery(
     queryKey: governanceCyclesKeys.detail(clientId, cycleId),
     queryFn: () => getGovernanceCycle(authFetch, cycleId),
     enabled: readEnabled && Boolean(cycleId),
+    staleTime: 30_000,
   });
 }
 
 export function useGovernanceCycleSummaryQuery(
   cycleId: string,
-  options?: { enabled?: boolean },
+  options?: GovernanceCyclesQueryOptions,
 ) {
   const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
 

@@ -13,11 +13,13 @@ import { getApiErrorMessage, useGovernanceCycleSummaryQuery } from '../hooks/use
 export function GovernanceCycleOverviewTab({
   cycleId,
   enabled,
+  eager,
 }: {
   cycleId: string;
   enabled: boolean;
+  eager?: boolean;
 }) {
-  const summaryQuery = useGovernanceCycleSummaryQuery(cycleId, { enabled });
+  const summaryQuery = useGovernanceCycleSummaryQuery(cycleId, { enabled, eager });
 
   if (summaryQuery.isLoading) {
     return <LoadingState rows={4} />;

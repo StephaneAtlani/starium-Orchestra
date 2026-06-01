@@ -147,8 +147,18 @@ function ItemActionsCell({
   );
 }
 
-export function GovernanceCycleArbitrationTable({ cycleId }: { cycleId: string }) {
-  const itemsQuery = useGovernanceCycleItemsQuery(cycleId, { limit: 100, offset: 0 });
+export function GovernanceCycleArbitrationTable({
+  cycleId,
+  enabled = true,
+}: {
+  cycleId: string;
+  enabled?: boolean;
+}) {
+  const itemsQuery = useGovernanceCycleItemsQuery(
+    cycleId,
+    { limit: 100, offset: 0 },
+    { enabled },
+  );
   const [scoresItem, setScoresItem] = useState<GovernanceCycleItemResponseDto | null>(null);
   const items = itemsQuery.data?.items ?? [];
 

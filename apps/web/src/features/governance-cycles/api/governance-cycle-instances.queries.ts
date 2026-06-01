@@ -21,11 +21,13 @@ export { getApiErrorMessage };
 
 export function useGovernanceCycleInstancesQuery(
   cycleId: string,
-  options?: { enabled?: boolean; includeArchived?: boolean },
+  options?: { enabled?: boolean; includeArchived?: boolean; eager?: boolean },
 ) {
   const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
   return useQuery({
-    queryKey: [...governanceCyclesKeys.instances(clientId, cycleId), options?.includeArchived],
+    queryKey: governanceCyclesKeys.instances(clientId, cycleId, {
+      includeArchived: options?.includeArchived,
+    }),
     queryFn: () =>
       listGovernanceCycleInstances(authFetch, cycleId, options?.includeArchived),
     enabled: readEnabled && Boolean(cycleId),

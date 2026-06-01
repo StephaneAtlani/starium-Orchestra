@@ -20,5 +20,21 @@ describe('governanceCyclesKeys', () => {
     expect(governanceCyclesKeys.byProject(c1, 'proj-1')).not.toEqual(
       governanceCyclesKeys.byProject(c2, 'proj-1'),
     );
+    expect(typeof governanceCyclesKeys.instances).toBe('function');
+    expect(governanceCyclesKeys.instances(c1, 'cycle-1')).toEqual([
+      'governance-cycles',
+      c1,
+      'instances',
+      'cycle-1',
+      { includeArchived: false },
+    ]);
+    expect(governanceCyclesKeys.instances(c1, 'cycle-1', { includeArchived: true })).toEqual([
+      'governance-cycles',
+      c1,
+      'instances',
+      'cycle-1',
+      { includeArchived: true },
+    ]);
+    expect(governanceCyclesKeys.instanceDetail(c1, 'cycle-1', 'inst-1')).toContain('inst-1');
   });
 });

@@ -11,8 +11,18 @@ export const governanceCyclesKeys = {
     ['governance-cycles', clientId, 'summary', cycleId] as const,
   byProject: (clientId: string, projectId: string) =>
     ['governance-cycles', clientId, 'by-project', projectId] as const,
-  instances: (clientId: string, cycleId: string) =>
-    ['governance-cycles', clientId, 'instances', cycleId] as const,
+  instances: (
+    clientId: string,
+    cycleId: string,
+    filters?: { includeArchived?: boolean },
+  ) =>
+    [
+      'governance-cycles',
+      clientId,
+      'instances',
+      cycleId,
+      { includeArchived: filters?.includeArchived === true },
+    ] as const,
   instanceDetail: (clientId: string, cycleId: string, instanceId: string) =>
     ['governance-cycles', clientId, 'instances', cycleId, instanceId] as const,
 };
