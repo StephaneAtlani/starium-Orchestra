@@ -8,18 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/use-permissions';
-import { toast } from '@/lib/toast';
-import { ChevronLeft, Plus } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import {
   formatGovernanceCycleDateRange,
 } from '../lib/governance-cycle-formatters';
 import { getGovernanceCycleCadenceLabel } from '../lib/governance-cycle-labels';
-import {
-  getApiErrorMessage,
-  useArchiveGovernanceCycleMutation,
-  useGovernanceCycleDetailQuery,
-  useUpdateGovernanceCycleMutation,
-} from '../hooks/use-governance-cycles';
+import { getApiErrorMessage, useGovernanceCycleDetailQuery } from '../hooks/use-governance-cycles';
 import { GovernanceCycleFormDialog } from './governance-cycle-form-dialog';
 import { GovernanceCycleStatusBadge } from './governance-cycle-status-badge';
 import { GovernanceCycleOverviewTab } from './governance-cycle-overview-tab';
@@ -29,6 +23,7 @@ import {
 } from './governance-cycle-arbitration-table';
 import { AddCycleItemDialog } from './add-cycle-item-dialog';
 import { GovernanceCycleInstancesTab } from './governance-cycle-instances-tab';
+import { GovernanceCycleDetailActions } from './governance-cycle-detail-actions';
 
 type TabValue =
   | 'overview'
@@ -47,8 +42,6 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
     enabled: Boolean(cycleId),
     eager: true,
   });
-  const updateMutation = useUpdateGovernanceCycleMutation(cycleId);
-  const archiveMutation = useArchiveGovernanceCycleMutation();
   const [tab, setTab] = useState<TabValue>('overview');
   const [editOpen, setEditOpen] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
@@ -78,27 +71,6 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
     canRead &&
     !headerLoading &&
     (detailQuery.isError || !cycle);
-
-  async function patchStatus(status: 'TO_ARBITRATE' | 'CLOSED') {
-    if (!cycle) return;
-    try {
-      await updateMutation.mutateAsync({ status });
-      toast.success(status === 'TO_ARBITRATE' ? 'Cycle validé pour arbitrage' : 'Cycle clôturé');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
-  }
-
-  async function handleArchive() {
-    if (!cycle) return;
-    if (!window.confirm(`Archiver le cycle « ${cycle.name} » ?`)) return;
-    try {
-      await archiveMutation.mutateAsync(cycle.id);
-      toast.success('Cycle archivé');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -145,34 +117,11 @@ export function GovernanceCycleDetailPage({ cycleId }: { cycleId: string }) {
                 </span>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <PermissionGate permission="governance_cycles.create">
-                <Button variant="outline" onClick={() => setAddItemOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter un élément
-                </Button>
-              </PermissionGate>
-              <PermissionGate permission="governance_cycles.update">
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
-                  Modifier
-                </Button>
-                {cycle.status !== 'TO_ARBITRATE' && cycle.status !== 'CLOSED' ? (
-                  <Button variant="outline" onClick={() => patchStatus('TO_ARBITRATE')}>
-                    Valider pour arbitrage
-                  </Button>
-                ) : null}
-                {cycle.status !== 'CLOSED' && cycle.status !== 'ARCHIVED' ? (
-                  <Button variant="outline" onClick={() => patchStatus('CLOSED')}>
-                    Clôturer
-                  </Button>
-                ) : null}
-              </PermissionGate>
-              <PermissionGate permission="governance_cycles.delete">
-                <Button variant="destructive" onClick={handleArchive}>
-                  Archiver
-                </Button>
-              </PermissionGate>
-            </div>
+            <GovernanceCycleDetailActions
+              cycle={cycle}
+              onEdit={() => setEditOpen(true)}
+              onAddItem={() => setAddItemOpen(true)}
+            />
           </div>
         ) : null}
       </div>

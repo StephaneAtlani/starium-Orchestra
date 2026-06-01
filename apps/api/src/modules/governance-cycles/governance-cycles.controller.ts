@@ -112,6 +112,17 @@ export class GovernanceCyclesController {
     return this.service.archiveCycle(clientId!, id, { actorUserId, meta });
   }
 
+  @Patch('governance-cycles/:id/restore')
+  @RequirePermissions('governance_cycles.update')
+  restoreCycle(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: AuditMeta,
+  ) {
+    return this.service.restoreCycle(clientId!, id, { actorUserId, meta });
+  }
+
   @Get('governance-cycles/:id/items')
   @RequirePermissions('governance_cycles.read')
   listItems(

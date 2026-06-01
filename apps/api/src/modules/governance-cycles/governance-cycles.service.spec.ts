@@ -44,6 +44,7 @@ type PrismaMock = {
   governanceCycleInstanceDecision: { findMany: jest.Mock };
   governanceCycleInstanceAgendaItem: { findFirst: jest.Mock };
   budgetGovernanceDecision?: { create: jest.Mock };
+  auditLog: { findFirst: jest.Mock };
 };
 
 const baseCycle = {
@@ -143,6 +144,7 @@ describe('GovernanceCyclesService', () => {
         findFirst: jest.fn().mockResolvedValue(null),
       },
       budgetGovernanceDecision: { create: jest.fn() },
+      auditLog: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     effectivePermissions = {
@@ -361,6 +363,36 @@ describe('GovernanceCyclesService', () => {
 
     expect(prisma.governanceCycle.update).not.toHaveBeenCalled();
     expect(auditLogs.create).not.toHaveBeenCalled();
+  });
+
+  it('restoreCycle restaure le statut depuis l’audit d’archivage', async () => {
+    prisma.governanceCycle.findFirst.mockResolvedValue({
+      ...baseCycle,
+      status: GovernanceCycleStatus.ARCHIVED,
+    });
+    prisma.auditLog.findFirst.mockResolvedValue({
+      oldValue: { status: GovernanceCycleStatus.TO_ARBITRATE },
+    });
+    prisma.governanceCycle.update.mockResolvedValue({
+      ...baseCycle,
+      status: GovernanceCycleStatus.TO_ARBITRATE,
+    });
+    prisma.governanceCycleItem.groupBy.mockResolvedValue([]);
+    prisma.governanceCycleItem.aggregate.mockResolvedValue({
+      _sum: { estimatedBudgetAmount: null, estimatedCapacityDays: null },
+      _avg: { priorityScore: null },
+    });
+    prisma.governanceCycleItem.count.mockResolvedValue(0);
+
+    await service.restoreCycle('client-a', 'cycle-1', { actorUserId: 'user-1' });
+
+    expect(prisma.governanceCycle.update).toHaveBeenCalledWith({
+      where: { id: 'cycle-1' },
+      data: { status: GovernanceCycleStatus.TO_ARBITRATE },
+    });
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'governance_cycle.restored' }),
+    );
   });
 
   describe('audits cycle', () => {

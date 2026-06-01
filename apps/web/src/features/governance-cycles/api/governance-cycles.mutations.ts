@@ -5,6 +5,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   archiveGovernanceCycle,
+  restoreGovernanceCycle,
   createGovernanceCycle,
   createGovernanceCycleItem,
   deleteGovernanceCycleItem,
@@ -94,6 +95,24 @@ export function useArchiveGovernanceCycleMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.lists(clientId) }),
         queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.detail(clientId, cycleId) }),
+      ]);
+    },
+  });
+}
+
+export function useRestoreGovernanceCycleMutation(cycleId: string) {
+  const authFetch = useAuthenticatedFetch();
+  const queryClient = useQueryClient();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+
+  return useMutation({
+    mutationFn: () => restoreGovernanceCycle(authFetch, cycleId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.lists(clientId) }),
+        queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.detail(clientId, cycleId) }),
+        queryClient.invalidateQueries({ queryKey: governanceCyclesKeys.summary(clientId, cycleId) }),
       ]);
     },
   });

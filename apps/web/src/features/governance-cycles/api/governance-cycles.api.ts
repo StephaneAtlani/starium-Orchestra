@@ -124,6 +124,15 @@ export async function archiveGovernanceCycle(
   if (!res.ok) throw await parseApiFormError(res);
 }
 
+export async function restoreGovernanceCycle(
+  authFetch: AuthFetch,
+  cycleId: string,
+): Promise<GovernanceCycleResponseDto> {
+  const res = await authFetch(`${BASE}/${cycleId}/restore`, { method: 'PATCH' });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<GovernanceCycleResponseDto>;
+}
+
 export async function listGovernanceCycleItems(
   authFetch: AuthFetch,
   cycleId: string,

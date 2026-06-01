@@ -662,7 +662,18 @@ export class GovernanceCyclesService {
       data.cadence = dto.cadence;
     }
     if (dto.status !== undefined && dto.status !== existing.status) {
+      if (dto.status === GovernanceCycleStatus.ARCHIVED) {
+        throw new BadRequestException(
+          'Use DELETE /governance-cycles/:id to archive a cycle',
+        );
+      }
       data.status = dto.status;
+      if (
+        existing.status === GovernanceCycleStatus.CLOSED &&
+        dto.status !== GovernanceCycleStatus.CLOSED
+      ) {
+        data.closedAt = null;
+      }
     }
     if (dto.startDate !== undefined) {
       const startDate = this.parseOptionalDate(dto.startDate) ?? null;
@@ -810,6 +821,62 @@ export class GovernanceCyclesService {
       { status: existing.status },
       { status: updated.status },
     );
+  }
+
+  private async resolveStatusAfterRestore(
+    clientId: string,
+    row: CycleRow,
+  ): Promise<GovernanceCycleStatus> {
+    const archivedLog = await this.prisma.auditLog.findFirst({
+      where: {
+        clientId,
+        resourceType: GOVERNANCE_CYCLE_RESOURCE_TYPE,
+        resourceId: row.id,
+        action: 'governance_cycle.archived',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { oldValue: true },
+    });
+    const previous = archivedLog?.oldValue as { status?: GovernanceCycleStatus } | null;
+    if (
+      previous?.status &&
+      previous.status !== GovernanceCycleStatus.ARCHIVED
+    ) {
+      return previous.status;
+    }
+    if (row.closedAt) return GovernanceCycleStatus.CLOSED;
+    if (row.validatedAt) return GovernanceCycleStatus.TO_ARBITRATE;
+    return GovernanceCycleStatus.DRAFT;
+  }
+
+  async restoreCycle(
+    clientId: string,
+    id: string,
+    context?: GovernanceAuditContext,
+  ): Promise<GovernanceCycleResponseDto> {
+    const existing = await this.findCycleInClient(clientId, id);
+
+    if (existing.status !== GovernanceCycleStatus.ARCHIVED) {
+      return this.getCycleById(clientId, id);
+    }
+
+    const restoredStatus = await this.resolveStatusAfterRestore(clientId, existing);
+
+    const updated = await this.prisma.governanceCycle.update({
+      where: { id },
+      data: { status: restoredStatus },
+    });
+
+    await this.audit(
+      clientId,
+      context,
+      'governance_cycle.restored',
+      id,
+      { status: existing.status },
+      { status: updated.status },
+    );
+
+    return this.getCycleById(clientId, id);
   }
 
   private keysPresent(

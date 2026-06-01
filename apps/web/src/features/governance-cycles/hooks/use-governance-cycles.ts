@@ -12,6 +12,7 @@ export {
   useCreateGovernanceCycleMutation,
   useUpdateGovernanceCycleMutation,
   useArchiveGovernanceCycleMutation,
+  useRestoreGovernanceCycleMutation,
   useCreateGovernanceCycleItemMutation,
   usePatchGovernanceCycleItemEditionMutation,
   usePatchGovernanceCycleItemArbitrationMutation,
