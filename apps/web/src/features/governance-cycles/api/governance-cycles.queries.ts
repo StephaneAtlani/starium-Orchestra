@@ -98,7 +98,7 @@ export function useGovernanceCyclesByProjectQuery(
 export function useGovernanceCycleItemsQuery(
   cycleId: string,
   params?: ListGovernanceCycleItemsParams,
-  options?: { enabled?: boolean },
+  options?: GovernanceCyclesQueryOptions,
 ) {
   const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
   const filters = params ?? {};
