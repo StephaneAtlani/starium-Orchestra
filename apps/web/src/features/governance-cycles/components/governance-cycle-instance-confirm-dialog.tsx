@@ -56,39 +56,41 @@ export function GovernanceCycleInstanceConfirmDialog({
       <DialogContent className="sm:max-w-md" showCloseButton>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription asChild>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                Séance :{' '}
-                <span className="font-medium text-foreground">{sessionLabel}</span>
-              </p>
-              {action === 'cancel' ? (
-                <p>
-                  Cette action est irréversible. Aucune décision portefeuille ne sera enregistrée
-                  ni propagée. L&apos;ordre du jour ({agendaCount} point
-                  {agendaCount > 1 ? 's' : ''}) restera consultable à titre informatif.
-                </p>
-              ) : (
-                <>
-                  <p>
-                    Les décisions de séance seront figées et reportées comme{' '}
-                    <strong>dernière décision connue</strong> sur les éléments du cycle. La
-                    propagation vers les fiches projet ou budget dépend de la configuration du
-                    programme.
-                  </p>
-                  {incompleteDecisionCount > 0 ? (
-                    <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-200">
-                      {incompleteDecisionCount} point
-                      {incompleteDecisionCount > 1 ? 's' : ''} de l&apos;ordre du jour n&apos;a
-                      pas de décision finale enregistrée — la clôture sera refusée par le serveur
-                      si un point est encore au statut Candidat.
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </div>
+          <DialogDescription>
+            {action === 'cancel'
+              ? `Confirmer l’annulation de la séance ${sessionLabel}.`
+              : `Confirmer la clôture de la séance ${sessionLabel}.`}
           </DialogDescription>
         </DialogHeader>
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Séance : <span className="font-medium text-foreground">{sessionLabel}</span>
+          </p>
+          {action === 'cancel' ? (
+            <p>
+              Cette action est irréversible. Aucune décision portefeuille ne sera enregistrée ni
+              propagée. L&apos;ordre du jour ({agendaCount} point
+              {agendaCount > 1 ? 's' : ''}) restera consultable à titre informatif.
+            </p>
+          ) : (
+            <>
+              <p>
+                Les décisions de séance seront figées et reportées comme{' '}
+                <strong className="text-foreground">dernière décision connue</strong> sur les
+                éléments du cycle. La propagation vers les fiches projet ou budget dépend de la
+                configuration du programme.
+              </p>
+              {incompleteDecisionCount > 0 ? (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-200">
+                  {incompleteDecisionCount} point
+                  {incompleteDecisionCount > 1 ? 's' : ''} de l&apos;ordre du jour n&apos;a pas de
+                  décision finale enregistrée — la clôture sera refusée par le serveur si un point
+                  est encore au statut Candidat.
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
         <DialogFooter>
           <Button
             type="button"
