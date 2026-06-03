@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
@@ -587,7 +588,9 @@ function LoginPageContent() {
           <div className="flex items-center justify-center p-6 md:p-8">
             <div className="w-full max-w-sm">
               <div className="mb-6 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Accès cockpit</span>
+                <Link href="/" className="hover:text-foreground">
+                  Accueil
+                </Link>
                 <span className="font-medium">Connexion</span>
               </div>
               <CardTitle className="mb-1 text-2xl font-semibold tracking-tight">

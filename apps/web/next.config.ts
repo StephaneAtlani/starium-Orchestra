@@ -1,8 +1,17 @@
 import type { NextConfig } from 'next';
+import {
+  PUBLIC_HTML_CACHE_HEADER,
+  PUBLIC_HTML_ROUTES,
+  SECURITY_HEADERS,
+} from './src/lib/security-headers';
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   output: 'standalone',
-  transpilePackages: ['@starium-orchestra/budget-exercise-calendar', '@starium-orchestra/rbac-permissions'],
+  transpilePackages: [
+    '@starium-orchestra/budget-exercise-calendar',
+    '@starium-orchestra/rbac-permissions',
+  ],
   async redirects() {
     return [
       { source: '/teams/collaborators', destination: '/resources', permanent: false },
@@ -33,6 +42,20 @@ const nextConfig: NextConfig = {
         { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
       ],
     };
+  },
+  async headers() {
+    const publicRouteHeaders = PUBLIC_HTML_ROUTES.map((source) => ({
+      source,
+      headers: [...SECURITY_HEADERS, PUBLIC_HTML_CACHE_HEADER],
+    }));
+
+    return [
+      ...publicRouteHeaders,
+      {
+        source: '/:path*',
+        headers: SECURITY_HEADERS,
+      },
+    ];
   },
 };
 
