@@ -554,14 +554,6 @@ function LoginPageContent() {
     setError(null);
   }
 
-  if (isLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-primary/32 via-background to-primary/18 px-4">
-        <p className="text-muted-foreground">Chargement…</p>
-      </main>
-    );
-  }
-
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-primary/30 via-background to-primary/16 px-4 py-8">
       <Card className="w-full max-w-4xl">
@@ -597,13 +589,15 @@ function LoginPageContent() {
                 Se connecter
               </CardTitle>
               <CardDescription className="mb-6">
-                {mfaStep === 'none'
-                  ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
-                  : mfaStep === 'totp'
-                    ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
-                    : mfaStep === 'email'
-                      ? 'Saisissez le code à 6 chiffres reçu par email.'
-                      : 'Saisissez un de vos codes de secours à usage unique.'}
+                {isLoading
+                  ? 'Vérification de votre session…'
+                  : mfaStep === 'none'
+                    ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
+                    : mfaStep === 'totp'
+                      ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
+                      : mfaStep === 'email'
+                        ? 'Saisissez le code à 6 chiffres reçu par email.'
+                        : 'Saisissez un de vos codes de secours à usage unique.'}
               </CardDescription>
               {mfaStep === 'none' && (
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -649,6 +643,7 @@ function LoginPageContent() {
                     type="submit"
                     className="mt-2 w-full"
                     disabled={
+                      isLoading ||
                       submitting ||
                       passwordLoginAllowed === false ||
                       checkingPasswordEligibility
@@ -660,7 +655,7 @@ function LoginPageContent() {
                     type="button"
                     variant="outline"
                     className="w-full"
-                    disabled={submitting}
+                    disabled={isLoading || submitting}
                     onClick={() => void handleMicrosoftSsoStart()}
                   >
                     Se connecter avec Microsoft

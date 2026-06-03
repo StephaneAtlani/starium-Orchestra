@@ -38,6 +38,8 @@ export type AuthUser = {
 };
 
 const REFRESH_TOKEN_KEY = 'starium.refreshToken';
+/** Évite un écran « Chargement… » infini si l’API refresh ne répond pas (dev, proxy, réseau). */
+const REFRESH_SESSION_TIMEOUT_MS = 12_000;
 
 function profileToAuthUser(p: MeProfile): AuthUser {
   return {
@@ -151,11 +153,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
     try {
-      const res = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: stored }),
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(
+        () => controller.abort(),
+        REFRESH_SESSION_TIMEOUT_MS,
+      );
+      let res: Response;
+      try {
+        res = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: stored }),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (!res.ok) {
         clearSession();
         setIsLoading(false);
