@@ -606,6 +606,33 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
 `GET …/by-project/:projectId` inclut désormais `lastInstanceId`, `lastInstancePeriodLabel`, `lastInstanceScheduledDecisionAt` (dernière instance `CLOSED`).
 
+### Demandes projet — `/api/project-requests` (RFC-PROJ-INTAKE-001)
+
+Module catalogue **`project_requests`** (distinct de `projects`). ACL ressource **`PROJECT_REQUEST`** via `AccessControlService` (pas AccessDecision V2 dans ce lot).
+
+| Route | Guards / permissions |
+|-------|----------------------|
+| `GET /api/project-requests` | `project_requests.read` + licence lecture |
+| `POST /api/project-requests` | `project_requests.create` + `@RequireWriteLicense()` — transaction : demande + policy `DEFAULT` + ACL auto demandeur/validateur |
+| `GET /api/project-requests/validator-options` | `project_requests.create` |
+| `GET /api/project-requests/:id` | `project_requests.read` + ACL lecture (sinon **404**) |
+| `PATCH /api/project-requests/:id` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + write licence |
+| `POST /api/project-requests/:id/submit` | `create` **ou** `update` + write licence |
+| `POST /api/project-requests/:id/decision` | `read` **ou** `validate` **ou** `update` + write licence — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
+| `POST /api/project-requests/:id/route` | `project_requests.route` + write licence — body `{ target: PILOTING_CYCLE \| DRAFT_PROJECT \| PROJECT_BACKLOG }` |
+| `POST /api/project-requests/:id/cancel` | `create` **ou** `update` + write licence |
+
+Réponses list/detail : `requesterSummary`, `validatorSummary`, `decidedBySummary`, `convertedProjectSummary` (libellés métier, pas d’ID seul en UI). Liste : query `page` + `limit` (pas `offset`) ; filtrage ACL puis pagination en mémoire (MVP).
+
+Audit : `project_request.created|updated|submitted|decision|cancelled|routed|converted_to_project` ; settings : `project_request.workflow_settings.updated`.
+
+### Paramètres workflow demandes — client actif
+
+| Route | Permissions |
+|-------|-------------|
+| `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved }` |
+| `PATCH /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` |
+
 ---
 
 ## 5.0 ACL ressources — `/api/resource-acl` (RFC-ACL-005, RFC-ACL-014, **RFC-ACL-017**)
@@ -641,7 +668,7 @@ Vue consolidée “pourquoi accès autorisé/refusé” sur les couches `license
   - `GET /api/platform/clients/:clientId/access-diagnostics/effective-rights?userId=...&resourceType=...&resourceId=...&operation=read|write|admin`
   - Guards: `JwtAuthGuard` → `PlatformAdminGuard`
 - **Resource types V1 whitelistés**
-  - `PROJECT`, `BUDGET`, `CONTRACT`, `SUPPLIER`, `STRATEGIC_OBJECTIVE`
+  - `PROJECT`, `BUDGET`, `CONTRACT`, `SUPPLIER`, `RISK`, `DOCUMENT`, `GOVERNANCE_CYCLE`, `STRATEGIC_OBJECTIVE`, **`PROJECT_REQUEST`** (RFC-PROJ-INTAKE-001 — demandes projet)
   - hors whitelist => `reasonCode=RESOURCE_TYPE_UNSUPPORTED`
 - **Contrat de check unifié**
   - `{ status: "pass" | "fail" | "not_applicable", reasonCode: string | null, message: string, details?: Record<string, unknown> }`

@@ -10,6 +10,7 @@ import {
   ResourceAclSubjectType,
 } from '@prisma/client';
 import { AccessControlService } from '../access-control/access-control.service';
+import type { ResourceAclCanonicalResourceType } from '../access-control/resource-acl.constants';
 import { ModuleVisibilityService } from '../module-visibility/module-visibility.service';
 import {
   evaluateReadRbacIntent,
@@ -792,7 +793,7 @@ export class AccessDiagnosticsService {
     clientId: string;
     userId: string;
     operation: EffectiveRightsQueryDto['operation'];
-    resourceType: 'PROJECT' | 'BUDGET' | 'CONTRACT' | 'SUPPLIER' | 'STRATEGIC_OBJECTIVE';
+    resourceType: ResourceAclCanonicalResourceType;
     resourceId: string;
     aclRowsOverride?: Array<{
       subjectType: import('@prisma/client').ResourceAclSubjectType;

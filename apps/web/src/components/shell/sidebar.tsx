@@ -258,11 +258,18 @@ export function Sidebar() {
                 if (isProjets) {
                   const projectsChildren = [
                     { label: 'Portefeuille projet', href: '/projects' },
+                    { label: 'Demandes projet', href: '/projects/requests' },
                     { label: 'Option', href: '/projects/options' },
                   ];
 
                   const isProjectsChildActive = (href: string) => {
                     if (!pathname) return false;
+                    if (href === '/projects/requests') {
+                      return (
+                        pathname === '/projects/requests' ||
+                        pathname.startsWith('/projects/requests/')
+                      );
+                    }
                     if (href === '/projects/options') {
                       return pathname === '/projects/options' || pathname.startsWith('/projects/options/');
                     }
@@ -275,6 +282,7 @@ export function Sidebar() {
                     if (href === '/projects') {
                       if (pathname === '/projects') return true;
                       if (pathname.startsWith('/projects/new')) return true;
+                      if (pathname.startsWith('/projects/requests')) return false;
                       if (pathname.startsWith('/projects/options')) return false;
                       if (pathname.startsWith('/projects/committee')) return false;
                       if (pathname.startsWith('/action-plans')) return false;

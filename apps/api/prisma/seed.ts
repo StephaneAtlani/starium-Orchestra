@@ -1396,6 +1396,37 @@ async function ensureStrategicVisionModuleAndPermissions(): Promise<void> {
   }
 }
 
+async function ensureProjectRequestsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "project_requests" },
+    create: {
+      code: "project_requests",
+      name: "Demandes projet",
+      description: "Demandes projet et workflow de validation (RFC-PROJ-INTAKE-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "project_requests.read", label: "Demandes projet — lecture" },
+    { code: "project_requests.create", label: "Demandes projet — création" },
+    { code: "project_requests.update", label: "Demandes projet — mise à jour" },
+    { code: "project_requests.validate", label: "Demandes projet — validation" },
+    { code: "project_requests.route", label: "Demandes projet — routage" },
+    {
+      code: "project_requests.settings.manage",
+      label: "Demandes projet — paramètres workflow",
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
 async function ensureGovernanceCyclesModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "governance_cycles" },
@@ -3706,6 +3737,7 @@ async function main() {
   await ensureComplianceModuleAndPermissions();
   await ensureContractsModuleAndPermissions();
   await ensureStrategicVisionModuleAndPermissions();
+  await ensureProjectRequestsModuleAndPermissions();
   await ensureGovernanceCyclesModuleAndPermissions();
   await ensureStrategicDirectionStrategyModuleAndPermissions();
   await ensureAlertsAndNotificationsModulesAndPermissions();

@@ -105,6 +105,13 @@ export const navigation: NavigationSection[] = [
             requiredPermissions: ['projects.read'],
           },
           {
+            label: 'Demandes projet',
+            href: '/projects/requests',
+            scope: 'client',
+            moduleCode: 'project_requests',
+            requiredPermissions: ['project_requests.read'],
+          },
+          {
             label: 'Option',
             href: '/projects/options',
             scope: 'client',

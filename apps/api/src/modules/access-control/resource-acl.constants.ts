@@ -8,6 +8,7 @@ export const RESOURCE_ACL_RESOURCE_TYPE_WHITELIST = [
   'DOCUMENT',
   'GOVERNANCE_CYCLE',
   'STRATEGIC_OBJECTIVE',
+  'PROJECT_REQUEST',
 ] as const;
 
 export type ResourceAclCanonicalResourceType =
@@ -26,4 +27,5 @@ export const RESOURCE_ACL_RESOURCE_TYPES = {
   CONTRACT: 'CONTRACT',
   SUPPLIER: 'SUPPLIER',
   STRATEGIC_OBJECTIVE: 'STRATEGIC_OBJECTIVE',
+  PROJECT_REQUEST: 'PROJECT_REQUEST',
 } as const satisfies Record<string, ResourceAclCanonicalResourceType>;

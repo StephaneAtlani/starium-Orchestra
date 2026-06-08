@@ -19,6 +19,8 @@ import { ClientTaxSettingsController } from './client-tax-settings.controller';
 import { ClientTaxSettingsService } from './client-tax-settings.service';
 import { ClientBudgetWorkflowSettingsController } from './client-budget-workflow-settings.controller';
 import { ClientBudgetWorkflowSettingsService } from './client-budget-workflow-settings.service';
+import { ClientProjectRequestWorkflowSettingsController } from './client-project-request-workflow-settings.controller';
+import { ClientProjectRequestWorkflowSettingsService } from './client-project-request-workflow-settings.service';
 import { ClientResourceTimesheetSettingsController } from './client-resource-timesheet-settings.controller';
 import { ClientResourceTimesheetSettingsService } from './client-resource-timesheet-settings.service';
 import { ClientUiBadgesController } from './client-ui-badges.controller';
@@ -47,6 +49,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientModulesController,
     ClientTaxSettingsController,
     ClientBudgetWorkflowSettingsController,
+    ClientProjectRequestWorkflowSettingsController,
     ClientResourceTimesheetSettingsController,
     ClientUiBadgesController,
     PlatformUiBadgeSettingsController,
@@ -58,6 +61,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     PlatformAdminGuard,
     ClientTaxSettingsService,
     ClientBudgetWorkflowSettingsService,
+    ClientProjectRequestWorkflowSettingsService,
     ClientResourceTimesheetSettingsService,
     ClientUiBadgesService,
     PlatformUiBadgeSettingsService,
@@ -72,6 +76,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientMembershipService,
     ClientModulesService,
     ClientBudgetWorkflowSettingsService,
+    ClientProjectRequestWorkflowSettingsService,
   ],
 })
 export class ClientsModule {}

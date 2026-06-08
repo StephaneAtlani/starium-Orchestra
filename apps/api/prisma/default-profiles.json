@@ -9,7 +9,8 @@
       "compliance.read",
       "collaborators.read",
       "strategic_vision.read",
-      "governance_cycles.read"
+      "governance_cycles.read",
+      "project_requests.read"
     ]
   },
   {
@@ -69,7 +70,11 @@
       "compliance.read",
       "compliance.update",
       "governance_cycles.read",
-      "governance_cycles.propose"
+      "governance_cycles.propose",
+      "project_requests.read",
+      "project_requests.create",
+      "project_requests.update",
+      "project_requests.validate"
     ]
   },
   {

@@ -2,7 +2,7 @@
 
 ## Statut
 
-**À valider** — 2026-06-03
+**Implémenté (MVP)** — 2026-06-03
 
 ## Priorité
 
@@ -47,14 +47,14 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 - Le modèle **`Project`** possède un statut **`DRAFT`** (`enum ProjectStatus`) — utilisable pour la conversion « brouillon projet » sans nouvel enum projet.
 - Champs projet utiles à la conversion : `name`, `description`, `estimatedCost` (aligné `ProjectRequest.estimatedBudget`).
 - La création projet (`ProjectsService.create`) exige aujourd’hui des champs structurels (`code`, `type`, `priority`, `criticality`, etc.) — la conversion depuis une demande devra **dériver des valeurs par défaut client-safe** documentées en §I.4 (pas de formulaire projet complet côté demandeur).
-- **Aucune** entité `ProjectRequest` ni routes `/api/project-requests` dans le dépôt (état au 2026-06-03).
+- **Livré (MVP 2026-06-03)** : entités `ProjectRequest`, `ProjectRequestWorkflowSettings`, `ProjectRequestAutoAclGrant` ; routes `/api/project-requests` ; paramètres `GET|PATCH /api/clients/active/project-request-workflow-settings` ; module catalogue **`project_requests`** (distinct de `projects` pour `ModuleAccessGuard`).
 - **Cycles de pilotage** : `GovernanceCycleInstance` existe ; candidature projet via `POST …/candidacies` ([RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md)). Le routage `PILOTING_CYCLE` de cette RFC **prépare** l’état métier sans créer d’instance ni item cycle dans le MVP.
 - **Paramètres workflow par client** : précédent fonctionnel sur `Client.budgetWorkflowConfig` + service dédié (`client-budget-workflow-settings.service.ts`) — même pattern recommandé avec table dédiée `ProjectRequestWorkflowSettings` (listes d’IDs, enums typés).
 
 ### Frontend
 
-- Navigation projets : `/projects`, fiche `/projects/[projectId]`, pas d’écran « demandes ».
-- Administration client : pages sous `/client/administration/*` (organisation, budget workflow, etc.) — accueillir `/client/administration/project-request-workflow`.
+- Navigation projets : `/projects`, fiche `/projects/[projectId]`, **demandes** `/projects/requests` (+ `/new`, `/[id]`) — `moduleCode: 'project_requests'`, permission `project_requests.read`.
+- Administration client : `/client/administration/project-request-workflow` (cible après approbation, validateurs).
 - Règle produit : **afficher demandeur / validateur / statut en libellé métier**, jamais UUID seul ([FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md)).
 
 ### Sécurité
@@ -86,7 +86,8 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | ------- | ------ |
 | `apps/api/prisma/schema.prisma` | Modèles `ProjectRequest`, `ProjectRequestWorkflowSettings`, enums §5 |
 | `apps/api/prisma/migrations/<timestamp>_project_requests/` | Migration |
-| `apps/api/prisma/seed.ts` | Permissions `project_requests.*` rattachées au module `projects` |
+| `apps/api/prisma/seed.ts` | `ensureProjectRequestsModuleAndPermissions()` — module catalogue `project_requests` + 6 permissions |
+| `apps/api/prisma/migrations/20260603120000_rfc_proj_intake_001_project_requests/` | Migration livrée |
 | `apps/api/prisma/default-profiles.json` | Profils démo (lecteur / contributeur / validateur PMO selon besoin produit) |
 
 ### Backend — module `project-requests` (nouveau)
@@ -97,8 +98,10 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | `apps/api/src/modules/project-requests/project-requests.controller.ts` | CRUD + routes workflow |
 | `apps/api/src/modules/project-requests/project-requests.service.ts` | Règles métier, transitions |
 | `apps/api/src/modules/project-requests/project-request-workflow.service.ts` | Application `defaultApprovedTarget`, routage |
-| `apps/api/src/modules/project-requests/project-request-validator-options.service.ts` | `GET …/validator-options` |
-| `apps/api/src/modules/project-requests/project-request-audit.constants.ts` | Actions audit |
+| `apps/api/src/modules/project-requests/project-request-access.helpers.ts` | Wrappers `AccessControlService` (`PROJECT_REQUEST`) |
+| `apps/api/src/modules/project-requests/project-request-acl.bootstrap.ts` | Policy DEFAULT + ACL auto demandeur/validateur |
+| `apps/api/src/modules/project-requests/project-request-membership.util.ts` | Garde-fous licence (`evaluateLicenseGate`) |
+| `apps/api/src/modules/project-requests/project-request-user.util.ts` | `toUserSummary` pour réponses API |
 | `apps/api/src/modules/project-requests/dto/*.ts` | create, update, submit, decision, route, cancel, list query |
 | `apps/api/src/modules/project-requests/project-requests.service.spec.ts` | Unit tests transitions / validateurs |
 | `apps/api/src/modules/project-requests/project-requests.controller.spec.ts` | Controller + isolation client |
@@ -130,11 +133,11 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 
 | Fichier | Action |
 | ------- | ------ |
-| `apps/web/src/app/(app)/projects/requests/page.tsx` | Liste |
-| `apps/web/src/app/(app)/projects/requests/new/page.tsx` | Création |
-| `apps/web/src/app/(app)/projects/requests/[id]/page.tsx` | Détail |
-| `apps/web/src/app/(app)/client/administration/project-request-workflow/page.tsx` | Paramètres |
-| `apps/web/src/features/project-requests/` | API client, hooks, composants liste / formulaire / détail / settings |
+| `apps/web/src/app/(protected)/projects/requests/page.tsx` | Liste |
+| `apps/web/src/app/(protected)/projects/requests/new/page.tsx` | Création |
+| `apps/web/src/app/(protected)/projects/requests/[id]/page.tsx` | Détail |
+| `apps/web/src/app/(protected)/client/administration/project-request-workflow/page.tsx` | Paramètres |
+| `apps/web/src/features/project-requests/` | `api/`, `components/`, `constants/` (libellés statuts) |
 | Navigation shell (sidebar projets) | Entrée « Demandes projet » si `project_requests.read` |
 
 ---
@@ -644,7 +647,7 @@ project_requests.settings.manage
 | `project_requests.route` | Router une demande approuvée |
 | `project_requests.settings.manage` | Paramètres workflow client |
 
-Seed dans le module **`projects`** (sous-ensemble fonctionnel `project_requests` dans le catalogue permissions).
+Seed : module catalogue **`project_requests`** (`Module.code = 'project_requests'`) — requis pour `ModuleAccessGuard` sur les routes `project_requests.*` (indépendant du module Nest `projects` et de la conversion projet).
 
 ---
 
@@ -661,9 +664,11 @@ Réponses liste/détail : inclure `requesterSummary`, `validatorSummary`, `decid
 | `GET` | `/api/project-requests` | `project_requests.read` |
 | `POST` | `/api/project-requests` | `project_requests.create` |
 | `GET` | `/api/project-requests/:id` | `project_requests.read` |
-| `PATCH` | `/api/project-requests/:id` | `project_requests.update` ou demandeur si `DRAFT` / `NEEDS_MORE_INFO` |
+| `PATCH` | `/api/project-requests/:id` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + `@RequireWriteLicense()` ; demandeur si `DRAFT` / `NEEDS_MORE_INFO` ou admin |
 
-Query liste : `status`, `routingTarget`, `requesterUserId`, `validatorUserId`, `search`, `limit`, `offset`.
+Query liste : `status`, `validatorUserId`, `search`, `page`, `limit` (défaut 20). Filtre ACL post-query (MVP : pagination en mémoire sur IDs lisibles).
+
+Isolation : `clientId` actif ; lecture hors périmètre → **404**. ACL type **`PROJECT_REQUEST`** via `AccessControlService` uniquement (pas AccessDecision V2). Licence : lecture `READ_ONLY` ou `READ_WRITE` ; mutations `READ_WRITE` + `@RequireWriteLicense()`.
 
 Champs interdits en PATCH direct : `status`, `routingStatus`, `routingTarget`, `convertedProjectId`, `decidedByUserId`, `decidedAt`.
 
@@ -671,10 +676,10 @@ Champs interdits en PATCH direct : `status`, `routingStatus`, `routingTarget`, `
 
 | Méthode | Route | Notes |
 | ------- | ----- | ----- |
-| `POST` | `/api/project-requests/:id/submit` | `create` ou demandeur |
-| `POST` | `/api/project-requests/:id/decision` | Body `{ decision, comment }` |
-| `POST` | `/api/project-requests/:id/route` | Body `{ routingTarget, comment }` |
-| `POST` | `/api/project-requests/:id/cancel` | Body `{ comment? }` |
+| `POST` | `/api/project-requests/:id/submit` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + write licence |
+| `POST` | `/api/project-requests/:id/decision` | `@RequireAnyPermissions('project_requests.read', 'project_requests.validate', 'project_requests.update')` — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
+| `POST` | `/api/project-requests/:id/route` | `project_requests.route` — body `{ target: PILOTING_CYCLE \| DRAFT_PROJECT \| PROJECT_BACKLOG }` |
+| `POST` | `/api/project-requests/:id/cancel` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` — body `{ comment? }` |
 
 ### 8.3 Paramètres workflow client
 
@@ -732,9 +737,7 @@ Sections : mode après validation, mode sélection validateur, listes users/rôl
 project_request.created
 project_request.updated
 project_request.submitted
-project_request.approved
-project_request.rejected
-project_request.more_info_requested
+project_request.decision          # outcome APPROVED | REJECTED | NEEDS_MORE_INFO
 project_request.cancelled
 project_request.routed
 project_request.converted_to_project
@@ -894,19 +897,16 @@ Couche amont au module Projets : formulation, validation, routage configurable. 
 
 # Partie III — Livraison
 
-## III.1 Plan d’implémentation (lots suggérés)
+## III.1 Plan d’implémentation (lots — livré MVP 2026-06-03)
 
-| Lot | Contenu | Dépendances |
-| --- | ------- | ----------- |
-| **INTAKE-A** | Prisma + migration + seed permissions | — |
-| **INTAKE-B** | Module API CRUD + list + validator-options | A |
-| **INTAKE-C** | Actions submit / decision / cancel + audits | B |
-| **INTAKE-D** | Settings client GET/PATCH | A |
-| **INTAKE-E** | Workflow auto post-approve + route + conversion projet | C, D, ProjectsService |
-| **INTAKE-F** | UI liste + formulaire + détail | B–E |
-| **INTAKE-G** | UI paramètres admin + navigation | D, F |
+| Lot | Contenu | Statut |
+| --- | ------- | ------ |
+| **INTAKE-A** | Prisma + migration `20260603120000_*` + seed `project_requests` + ACL `PROJECT_REQUEST` | ✅ |
+| **INTAKE-B/C/E** | Module `project-requests` (CRUD, workflow, conversion, validator-options) | ✅ |
+| **INTAKE-D** | Settings client GET/PATCH | ✅ |
+| **INTAKE-F/G** | UI `/projects/requests`, admin workflow, navigation | ✅ MVP (filtres liste / admin listes users-rôles : partiels) |
 
-Une PR = un lot. Ne pas mélanger settings et conversion projet dans la même PR si possible.
+**Hors MVP livré** : notifications §11 ; intégration cycle (`POST candidacies`) ; UI routage manuelle complète ; AccessDecision V2 sur `PROJECT_REQUEST` ; pagination SQL post-filtre ACL.
 
 ---
 
@@ -916,7 +916,8 @@ Une PR = un lot. Ne pas mélanger settings et conversion projet dans la même PR
 | ------- | -------- |
 | Entités | `ProjectRequest`, `ProjectRequestWorkflowSettings` |
 | API | `/api/project-requests/*`, `/api/clients/active/project-request-workflow-settings` |
-| Permissions | 6 codes `project_requests.*` dans module `projects` |
+| Permissions | 6 codes `project_requests.*` ; module catalogue `project_requests` |
+| ACL | `PROJECT_REQUEST` ; policy **DEFAULT** à la création ; ACL auto WRITE demandeur/validateur (`ProjectRequestAutoAclGrant`) |
 | Projet créé | Uniquement `DRAFT_PROJECT` (auto ou route) |
 | Cycle | Flag routage seulement |
 | Backlog | Filtre UI + statuts routage |

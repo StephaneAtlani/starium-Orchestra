@@ -17,6 +17,7 @@ import {
   Eye,
   KeyRound,
   Network,
+  ClipboardList,
 } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
@@ -203,6 +204,21 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Taxonomie des risques</h3>
                 <p className="text-sm text-muted-foreground">
                   Domaines et types pour les risques projets (réservé admin client)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/project-request-workflow">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <ClipboardList className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Workflow demandes projet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Validateurs, routage après approbation
                 </p>
               </div>
             </CardContent>

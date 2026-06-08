@@ -1,0 +1,50 @@
+import { ProjectRequestUrgency } from '@prisma/client';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateProjectRequestDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  validatorUserId?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRequestUrgency)
+  urgency?: ProjectRequestUrgency;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedBudget?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  expectedBenefits?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  businessContext?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  riskIfNotDone?: string;
+}
