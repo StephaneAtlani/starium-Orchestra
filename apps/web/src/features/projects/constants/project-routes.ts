@@ -1,5 +1,17 @@
-export function projectsList(): string {
-  return '/projects';
+export type ProjectsListUrlFilters = {
+  status?: string;
+  computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
+  atRiskOnly?: boolean;
+};
+
+export function projectsList(filters?: ProjectsListUrlFilters): string {
+  if (!filters) return '/projects';
+  const search = new URLSearchParams();
+  if (filters.status) search.set('status', filters.status);
+  if (filters.computedHealth) search.set('computedHealth', filters.computedHealth);
+  if (filters.atRiskOnly) search.set('atRiskOnly', '1');
+  const q = search.toString();
+  return q ? `/projects?${q}` : '/projects';
 }
 
 /** Frise Gantt portefeuille (tous les projets filtrés). */

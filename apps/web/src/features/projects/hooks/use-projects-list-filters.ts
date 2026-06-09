@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export const PROJECTS_DEFAULT_PAGE = 1;
 export const PROJECTS_DEFAULT_LIMIT = 20;
@@ -59,13 +60,40 @@ function parseSortOrder(value: string | null): 'asc' | 'desc' {
   return value === 'desc' ? 'desc' : 'asc';
 }
 
+function parseFiltersFromSearchParams(
+  searchParams: URLSearchParams,
+): Partial<ProjectsListFilters> {
+  const out: Partial<ProjectsListFilters> = {};
+  const status = searchParams.get('status');
+  if (status) out.status = status;
+  const computedHealth = searchParams.get('computedHealth');
+  if (
+    computedHealth === 'GREEN' ||
+    computedHealth === 'ORANGE' ||
+    computedHealth === 'RED'
+  ) {
+    out.computedHealth = computedHealth;
+  }
+  const atRiskOnly = searchParams.get('atRiskOnly');
+  if (atRiskOnly === '1' || atRiskOnly === 'true') {
+    out.atRiskOnly = true;
+  }
+  return out;
+}
+
 export function useProjectsListFilters(): {
   filters: ProjectsListFilters;
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
   reset: () => void;
   apiParams: Record<string, string | number | boolean | undefined>;
 } {
-  const [filters, setFiltersState] = useState<ProjectsListFilters>({
+  const searchParams = useSearchParams();
+  const urlFilters = useMemo(
+    () => parseFiltersFromSearchParams(searchParams),
+    [searchParams],
+  );
+
+  const [filters, setFiltersState] = useState<ProjectsListFilters>(() => ({
     search: undefined,
     kind: undefined,
     status: undefined,
@@ -83,7 +111,16 @@ export function useProjectsListFilters(): {
     sortOrder: 'asc',
     atRiskOnly: false,
     myProjectsOnly: false,
-  });
+    ...urlFilters,
+  }));
+
+  useEffect(() => {
+    setFiltersState((prev) => ({
+      ...prev,
+      ...urlFilters,
+      page: PROJECTS_DEFAULT_PAGE,
+    }));
+  }, [urlFilters]);
 
   const setFilters = useCallback(
     (updates: Partial<ProjectsListFilters>) => {

@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { dashboardSupplierKpiHref } from '../lib/dashboard-card-links';
 import { useDashboardWidgets } from '../hooks/use-dashboard-widgets';
 import {
   DASHBOARD_SUPPLIER_KPI_OPTIONS,
@@ -76,39 +77,55 @@ function SupplierKpiStat({
   title,
   valueTone,
   Icon,
+  href,
 }: {
   label: string;
   valueStr: string;
   title?: string;
   valueTone: ValueTone;
   Icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  href?: string;
 }) {
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm',
-        'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
-      )}
-    >
-      <div className="flex gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="size-5" aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p
-            className={cn(
-              'text-2xl font-semibold tabular-nums tracking-tight',
-              valueToneClass[valueTone],
-            )}
-            title={title}
-          >
-            {valueStr}
-          </p>
-        </div>
+  const shellClassName = cn(
+    'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm',
+    'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
+    href &&
+      'cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  );
+
+  const content = (
+    <div className="flex gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p
+          className={cn(
+            'text-2xl font-semibold tabular-nums tracking-tight',
+            valueToneClass[valueTone],
+          )}
+          title={title}
+        >
+          {valueStr}
+        </p>
       </div>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn(shellClassName, 'group block')}
+        aria-label={`${label} — voir le détail`}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={shellClassName}>{content}</div>;
 }
 
 function KpiSkeleton() {
@@ -170,6 +187,7 @@ function SupplierKpiCards({
             valueStr={valueForKey(k, stats, loading)}
             valueTone={toneForKey(k)}
             Icon={Icon}
+            href={dashboardSupplierKpiHref(k)}
           />
         );
       })}

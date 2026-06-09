@@ -57,6 +57,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import {
+  dashboardBudgetAlertsHref,
+  dashboardBudgetKpiHref,
+} from '../lib/dashboard-card-links';
 import { useDashboardWidgets } from '../hooks/use-dashboard-widgets';
 import {
   DASHBOARD_BUDGET_KPI_OPTIONS,
@@ -108,12 +112,16 @@ function BudgetKpiCardsByKeys({
   defaultTaxRate,
   keys,
   animateKpiNumbers,
+  exerciseId,
+  budgetId,
 }: {
   data: BudgetCockpitResponse;
   taxDisplayMode: TaxDisplayMode;
   defaultTaxRate: number | null;
   keys: DashboardBudgetKpiKey[];
   animateKpiNumbers: boolean;
+  exerciseId: string;
+  budgetId: string;
 }) {
   const kpiPayload = getCockpitKpiData(data);
   if (!kpiPayload) return null;
@@ -157,6 +165,9 @@ function BudgetKpiCardsByKeys({
   const gapTone: BudgetKpiAmountTone =
     ecartForecast > 0 ? 'warning' : ecartForecast < 0 ? 'success' : 'default';
 
+  const kpiHref = (key: DashboardBudgetKpiKey) =>
+    dashboardBudgetKpiHref(key, exerciseId, budgetId);
+
   const cards: Record<DashboardBudgetKpiKey, React.ReactNode> = {
     revised: (
       <BudgetKpiCard
@@ -173,6 +184,7 @@ function BudgetKpiCardsByKeys({
         amountDisplayValue={num(kpis.totalBudget, kpis.totalBudgetTtc)}
         animateAmount={animateKpiNumbers}
         icon={Wallet}
+        href={kpiHref('revised')}
         dataTestId="dashboard-kpi-total-budget"
       />
     ),
@@ -191,6 +203,7 @@ function BudgetKpiCardsByKeys({
         amountDisplayValue={num(kpis.committed, kpis.committedTtc)}
         animateAmount={animateKpiNumbers}
         icon={Waypoints}
+        href={kpiHref('committed')}
         dataTestId="dashboard-kpi-committed"
       />
     ),
@@ -209,6 +222,7 @@ function BudgetKpiCardsByKeys({
         amountDisplayValue={num(kpis.consumed, kpis.consumedTtc)}
         animateAmount={animateKpiNumbers}
         icon={ArrowDownRight}
+        href={kpiHref('consumed')}
         dataTestId="dashboard-kpi-consumed"
       />
     ),
@@ -228,6 +242,7 @@ function BudgetKpiCardsByKeys({
         animateAmount={animateKpiNumbers}
         icon={PiggyBank}
         amountTone={remainingTone}
+        href={kpiHref('remaining')}
         dataTestId="dashboard-kpi-remaining"
       />
     ),
@@ -246,6 +261,7 @@ function BudgetKpiCardsByKeys({
         amountDisplayValue={num(kpis.forecast, kpis.forecastTtc)}
         animateAmount={animateKpiNumbers}
         icon={Scale}
+        href={kpiHref('forecast')}
         dataTestId="dashboard-kpi-forecast"
       />
     ),
@@ -260,6 +276,7 @@ function BudgetKpiCardsByKeys({
         animateAmount={animateKpiNumbers}
         icon={TrendingDown}
         amountTone={gapTone}
+        href={kpiHref('forecastGap')}
         dataTestId="dashboard-kpi-forecast-gap"
       />
     ),
@@ -619,12 +636,18 @@ export function DashboardBudgetKpiWidget() {
                 {data.exercise.code ? ` (${data.exercise.code})` : null}
               </span>
               {alertCount > 0 ? (
-                <Badge
-                  variant="outline"
-                  className="border-destructive/25 bg-destructive/10 text-destructive shrink-0"
+                <Link
+                  href={dashboardBudgetAlertsHref(data.exercise.id, data.budget.id)}
+                  className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`${alertCount} alerte${alertCount > 1 ? 's' : ''} budget — voir le détail`}
                 >
-                  {alertCount} alerte{alertCount > 1 ? 's' : ''}
-                </Badge>
+                  <Badge
+                    variant="outline"
+                    className="border-destructive/25 bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15"
+                  >
+                    {alertCount} alerte{alertCount > 1 ? 's' : ''}
+                  </Badge>
+                </Link>
               ) : (
                 <Badge
                   variant="secondary"
@@ -739,6 +762,8 @@ export function DashboardBudgetKpiWidget() {
           defaultTaxRate={defaultTaxRate}
           keys={config.budgetKpis.kpis}
           animateKpiNumbers={config.budgetKpis.animateKpiNumbers !== false}
+          exerciseId={data.exercise.id}
+          budgetId={data.budget.id}
         />
       ) : null}
     </section>

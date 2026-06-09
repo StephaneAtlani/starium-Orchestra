@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -126,6 +127,8 @@ export function BudgetKpiCard({
   amountTone = 'default',
   amountDisplayValue,
   animateAmount,
+  href,
+  linkAriaLabel,
 }: {
   label: string;
   /** Sous-titre court sous le libellé (optionnel) */
@@ -138,53 +141,76 @@ export function BudgetKpiCard({
   amountTone?: BudgetKpiAmountTone;
   amountDisplayValue?: number;
   animateAmount?: boolean;
+  /** Si défini, la carte devient un lien cliquable vers le détail. */
+  href?: string;
+  linkAriaLabel?: string;
 }) {
   const shell = variantShell[variant];
+  const shellClassName = cn(
+    'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm transition-shadow hover:shadow-md',
+    href &&
+      'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    shell.ring,
+  );
+  const ariaLabel =
+    linkAriaLabel ??
+    (href ? `${label}${description ? ` — ${description}` : ''} — voir le détail` : undefined);
 
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm transition-shadow hover:shadow-md',
-        shell.ring,
-      )}
-      data-testid={dataTestId}
-    >
-      <div className="flex gap-3">
-        {Icon ? (
-          <div
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-              shell.iconWrap,
-            )}
-            aria-hidden
-          >
-            <Icon className={cn('h-5 w-5', shell.icon)} strokeWidth={1.75} />
-          </div>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium leading-snug text-foreground">
-              {label}
+  const content = (
+    <div className="flex gap-3">
+      {Icon ? (
+        <div
+          className={cn(
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+            shell.iconWrap,
+          )}
+          aria-hidden
+        >
+          <Icon className={cn('h-5 w-5', shell.icon)} strokeWidth={1.75} />
+        </div>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium leading-snug text-foreground">
+            {label}
+          </span>
+          {description ? (
+            <span className="text-xs leading-relaxed text-muted-foreground">
+              {description}
             </span>
-            {description ? (
-              <span className="text-xs leading-relaxed text-muted-foreground">
-                {description}
-              </span>
-            ) : null}
-          </div>
-          <KpiAmountBlock
-            parts={parts}
-            amountTone={amountTone}
-            amountDisplayValue={amountDisplayValue}
-            animateAmount={animateAmount}
-          />
-          {subtext ? (
-            <p className="mt-2 border-t border-border/60 pt-2 text-xs leading-relaxed text-muted-foreground">
-              {subtext}
-            </p>
           ) : null}
         </div>
+        <KpiAmountBlock
+          parts={parts}
+          amountTone={amountTone}
+          amountDisplayValue={amountDisplayValue}
+          animateAmount={animateAmount}
+        />
+        {subtext ? (
+          <p className="mt-2 border-t border-border/60 pt-2 text-xs leading-relaxed text-muted-foreground">
+            {subtext}
+          </p>
+        ) : null}
       </div>
+    </div>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn(shellClassName, 'group block')}
+        data-testid={dataTestId}
+        aria-label={ariaLabel}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={shellClassName} data-testid={dataTestId}>
+      {content}
     </div>
   );
 }
