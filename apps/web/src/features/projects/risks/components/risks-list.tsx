@@ -27,26 +27,57 @@ import {
 } from '@/components/ui/select';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
 import type { ProjectListItem, RiskTaxonomyDomainApi } from '../../types/project.types';
-import { PROJECT_RISK_CRITICALITY_LABEL, RISK_STATUS_LABEL } from '../../constants/project-enum-labels';
+import { PROJECT_RISK_CRITICALITY_LABEL, RISK_PI_SCALE_LABEL } from '../../constants/project-enum-labels';
 import type { ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import { RISKS_REGISTRY_HORS_PROJET, type RisksRegistryFiltersState } from './risk-filters';
 import type { RisksRegistrySortKey } from '../lib/risks-registry-table-sort';
 import { cn } from '@/lib/utils';
 import { RiskLevelBadge } from './risk-level-badge';
-import { RiskStatusBadge } from './risk-status-badge';
 
 const ALL = 'all';
 
-const STATUS_KEYS = Object.keys(RISK_STATUS_LABEL) as (keyof typeof RISK_STATUS_LABEL)[];
 const CRIT_KEYS = Object.keys(PROJECT_RISK_CRITICALITY_LABEL) as (keyof typeof PROJECT_RISK_CRITICALITY_LABEL)[];
 
-function formatDate(iso: string | null) {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString('fr-FR');
-  } catch {
-    return '—';
+function piScaleShort(n: number): string {
+  const full = RISK_PI_SCALE_LABEL[String(n)];
+  if (!full) return String(n);
+  const dash = full.indexOf('—');
+  return dash >= 0 ? full.slice(dash + 2).trim() : full;
+}
+
+function RegistryTextCell({
+  value,
+  canEdit,
+  onEdit,
+}: {
+  value: string | null | undefined;
+  canEdit: boolean;
+  onEdit?: () => void;
+}) {
+  const text = value?.trim();
+  const display = text && text !== '—' ? text : '—';
+  if (canEdit && onEdit) {
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className={cn(
+          'w-full rounded-sm text-left text-sm transition-colors',
+          'hover:bg-muted/60 hover:text-primary',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+      >
+        <span className="line-clamp-3 block" title={display}>
+          {display}
+        </span>
+      </button>
+    );
   }
+  return (
+    <span className="line-clamp-3 text-sm" title={display}>
+      {display}
+    </span>
+  );
 }
 
 const PAGE_SIZE = 25;
@@ -180,97 +211,71 @@ export function RisksRegistryTable({
   filters,
   onFiltersPatch,
   projectItems,
-  ownerOptions,
+  ownerOptions: _ownerOptions,
   taxonomyDomains,
   filtersDisabled,
 }: TableProps) {
-  const typesForSelectedDomain =
-    filters.domainId === ALL
-      ? []
-      : taxonomyDomains.find((d) => d.id === filters.domainId)?.types ?? [];
-
   const selectTriggerClass = 'h-8 w-full max-w-[11rem] text-xs';
 
   return (
-    <Table className="min-w-[68rem]">
+    <Table className="min-w-[96rem]">
       <TableHeader>
         <TableRow>
-          <TableHead className="min-w-[10rem]">
-            <SortHeader
-              label="Titre"
-              columnKey="title"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
-          <TableHead className="min-w-[9rem]">
-            <SortHeader
-              label="Projet"
-              columnKey="projectName"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
-          <TableHead className="min-w-[9rem]">
-            <SortHeader
-              label="Domaine"
-              columnKey="domain"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
-          <TableHead className="min-w-[9rem]">
-            <SortHeader
-              label="Type"
-              columnKey="riskType"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
-          <TableHead className="min-w-[7rem]">
-            <SortHeader
-              label="Statut"
-              columnKey="status"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
-          <TableHead className="min-w-[7rem]">
-            <SortHeader
-              label="Criticité"
-              columnKey="criticality"
-              activeKey={sortKey}
-              order={sortOrder}
-              onSort={onSort}
-            />
-          </TableHead>
           <TableHead className="min-w-[8rem]">
+            <SortHeader label="Domaine" columnKey="domain" activeKey={sortKey} order={sortOrder} onSort={onSort} />
+          </TableHead>
+          <TableHead className="min-w-[11rem]">
             <SortHeader
-              label="Propriétaire"
-              columnKey="owner"
+              label="Événement redouté"
+              columnKey="fearedEvent"
               activeKey={sortKey}
               order={sortOrder}
               onSort={onSort}
             />
           </TableHead>
-          <TableHead className="min-w-[6rem]">
+          <TableHead className="min-w-[9rem]">
             <SortHeader
-              label="Revue"
-              columnKey="reviewDate"
+              label="Source de risque"
+              columnKey="threatSource"
               activeKey={sortKey}
               order={sortOrder}
               onSort={onSort}
             />
           </TableHead>
+          <TableHead className="min-w-[12rem]">
+            <SortHeader label="Scénario de risque" columnKey="scenario" activeKey={sortKey} order={sortOrder} onSort={onSort} />
+          </TableHead>
           <TableHead className="min-w-[6rem]">
+            <SortHeader label="Gravité" columnKey="impact" activeKey={sortKey} order={sortOrder} onSort={onSort} />
+          </TableHead>
+          <TableHead className="min-w-[6rem]">
+            <SortHeader label="Vraisemblance" columnKey="probability" activeKey={sortKey} order={sortOrder} onSort={onSort} />
+          </TableHead>
+          <TableHead className="min-w-[7rem]">
+            <SortHeader label="Risque initial" columnKey="initialRisk" activeKey={sortKey} order={sortOrder} onSort={onSort} />
+          </TableHead>
+          <TableHead className="min-w-[11rem]">
             <SortHeader
-              label="Échéance"
-              columnKey="dueDate"
+              label="Mesures existantes / préventives"
+              columnKey="existingMeasures"
+              activeKey={sortKey}
+              order={sortOrder}
+              onSort={onSort}
+            />
+          </TableHead>
+          <TableHead className="min-w-[11rem]">
+            <SortHeader
+              label="Traitement / mesures complémentaires"
+              columnKey="complementaryTreatment"
+              activeKey={sortKey}
+              order={sortOrder}
+              onSort={onSort}
+            />
+          </TableHead>
+          <TableHead className="min-w-[7rem]">
+            <SortHeader
+              label="Risque résiduel cible"
+              columnKey="residualTarget"
               activeKey={sortKey}
               order={sortOrder}
               onSort={onSort}
@@ -278,46 +283,24 @@ export function RisksRegistryTable({
           </TableHead>
         </TableRow>
         <TableRow className="border-b border-border/60 bg-muted/40 hover:bg-muted/40 [&_tr]:border-b-0">
-          <TableHead className="min-w-[10rem] p-1.5 align-top">
-            <div className="relative w-full max-w-[14rem]">
+          <TableHead className="p-1.5 align-top" colSpan={4}>
+            <div className="relative w-full max-w-md">
               <Search
                 className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
               />
               <Input
                 className="h-8 pl-8 text-xs"
-                placeholder="Titre ou code…"
+                placeholder="Événement, source, scénario, titre ou code…"
                 value={filters.search}
                 onChange={(e) => onFiltersPatch({ search: e.target.value })}
                 disabled={filtersDisabled}
                 autoComplete="off"
-                aria-label="Filtrer par titre ou code"
+                aria-label="Filtrer le registre EBIOS"
               />
             </div>
           </TableHead>
-          <TableHead className="p-1.5 align-top">
-            <Select
-              value={filters.projectId}
-              onValueChange={(v) =>
-                onFiltersPatch({ projectId: v as RisksRegistryFiltersState['projectId'] })
-              }
-              disabled={filtersDisabled}
-            >
-              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par projet">
-                <SelectValue placeholder="Tous les projets" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous les projets</SelectItem>
-                <SelectItem value={RISKS_REGISTRY_HORS_PROJET}>Hors projet</SelectItem>
-                {projectItems.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </TableHead>
-          <TableHead className="min-w-[9rem] p-1.5 align-top">
+          <TableHead className="p-1.5 align-top" colSpan={2}>
             <Select
               value={filters.domainId}
               onValueChange={(v) =>
@@ -341,56 +324,6 @@ export function RisksRegistryTable({
               </SelectContent>
             </Select>
           </TableHead>
-          <TableHead className="min-w-[9rem] p-1.5 align-top">
-            <Select
-              value={filters.riskTypeId}
-              onValueChange={(v) =>
-                onFiltersPatch({ riskTypeId: v as RisksRegistryFiltersState['riskTypeId'] })
-              }
-              disabled={filtersDisabled}
-            >
-              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par type">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous les types</SelectItem>
-                {filters.domainId === ALL
-                  ? taxonomyDomains.flatMap((d) =>
-                      d.types.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {d.familyLabel ? `${d.familyLabel} — ${d.name} — ${t.name}` : `${d.name} — ${t.name}`}
-                        </SelectItem>
-                      )),
-                    )
-                  : typesForSelectedDomain.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
-          </TableHead>
-          <TableHead className="p-1.5 align-top">
-            <Select
-              value={filters.status}
-              onValueChange={(v) =>
-                onFiltersPatch({ status: v as RisksRegistryFiltersState['status'] })
-              }
-              disabled={filtersDisabled}
-            >
-              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par statut">
-                <SelectValue placeholder="Tous" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Tous</SelectItem>
-                {STATUS_KEYS.map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {RISK_STATUS_LABEL[k]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </TableHead>
           <TableHead className="p-1.5 align-top">
             <Select
               value={filters.criticality}
@@ -399,11 +332,11 @@ export function RisksRegistryTable({
               }
               disabled={filtersDisabled}
             >
-              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par criticité">
-                <SelectValue placeholder="Toutes" />
+              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par risque initial">
+                <SelectValue placeholder="Tous niveaux" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Toutes</SelectItem>
+                <SelectItem value={ALL}>Tous niveaux</SelectItem>
                 {CRIT_KEYS.map((k) => (
                   <SelectItem key={k} value={k}>
                     {PROJECT_RISK_CRITICALITY_LABEL[k]}
@@ -412,116 +345,87 @@ export function RisksRegistryTable({
               </SelectContent>
             </Select>
           </TableHead>
-          <TableHead className="p-1.5 align-top">
+          <TableHead className="p-1.5 align-top" colSpan={3}>
             <Select
-              value={filters.ownerUserId}
+              value={filters.projectId}
               onValueChange={(v) =>
-                onFiltersPatch({ ownerUserId: v as RisksRegistryFiltersState['ownerUserId'] })
+                onFiltersPatch({ projectId: v as RisksRegistryFiltersState['projectId'] })
               }
               disabled={filtersDisabled}
             >
-              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par propriétaire">
-                <SelectValue placeholder="Tous" />
+              <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par projet">
+                <SelectValue placeholder="Tous les projets" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Tous</SelectItem>
-                {ownerOptions.map((o) => (
-                  <SelectItem key={o.userId} value={o.userId}>
-                    {o.label}
+                <SelectItem value={ALL}>Tous les projets</SelectItem>
+                <SelectItem value={RISKS_REGISTRY_HORS_PROJET}>Hors projet</SelectItem>
+                {projectItems.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </TableHead>
-          <TableHead className="p-1.5 align-top text-[0.65rem] text-muted-foreground">—</TableHead>
-          <TableHead className="p-1.5 align-top text-[0.65rem] text-muted-foreground">—</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {pageRows.map((r) => (
-          <TableRow key={r.id}>
-            <TableCell className="max-w-[min(100%,280px)] font-medium">
-              {canEdit && onEditRisk ? (
-                <button
-                  type="button"
-                  onClick={() => onEditRisk(r)}
-                  className={cn(
-                    'w-full rounded-sm text-left transition-colors',
-                    'hover:bg-muted/60 hover:text-primary',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  )}
-                >
-                  <span className="line-clamp-2 block" title={r.title}>
-                    {r.title}
+        {pageRows.map((r) => {
+          const openEdit = canEdit && onEditRisk ? () => onEditRisk(r) : undefined;
+          const fearedLabel = r.fearedEvent?.trim() && r.fearedEvent !== '—' ? r.fearedEvent : r.title;
+          return (
+            <TableRow key={r.id}>
+              <TableCell className="max-w-[10rem] text-sm text-muted-foreground">
+                {r.riskType?.domain?.name ? (
+                  <span className="line-clamp-2" title={r.riskType.domain.name}>
+                    {r.riskType.domain.name}
                   </span>
-                </button>
-              ) : (
-                <span className="line-clamp-2" title={r.title}>
-                  {r.title}
-                </span>
-              )}
-              <div className="mt-0.5 font-mono text-[0.65rem] text-muted-foreground">{r.code}</div>
-            </TableCell>
-            <TableCell className="max-w-[200px]">
-              <span className="line-clamp-2" title={r.projectName}>
-                {r.projectName}
-              </span>
-            </TableCell>
-            <TableCell className="max-w-[10rem] text-sm text-muted-foreground">
-              {r.riskType?.domain?.name ? (
-                <span
-                  className="line-clamp-2"
-                  title={
-                    r.riskType.domain.name +
-                    (!r.riskType.domain.isActive ? ' (domaine inactif)' : '')
-                  }
-                >
-                  {r.riskType.domain.name}
-                  {!r.riskType.domain.isActive ? (
-                    <span className="text-muted-foreground/90"> (inactif)</span>
-                  ) : null}
-                </span>
-              ) : (
-                '—'
-              )}
-            </TableCell>
-            <TableCell className="max-w-[10rem] text-sm text-muted-foreground">
-              {r.riskType?.name || r.category?.trim() ? (
-                <span
-                  className="line-clamp-2"
-                  title={
-                    (r.riskType?.name ?? r.category ?? '') +
-                    (r.riskType && !r.riskType.isActive ? ' (type inactif)' : '')
-                  }
-                >
-                  {r.riskType?.name ?? r.category?.trim()}
-                  {r.riskType && !r.riskType.isActive ? (
-                    <span className="text-muted-foreground/90"> (inactif)</span>
-                  ) : null}
-                </span>
-              ) : (
-                '—'
-              )}
-            </TableCell>
-            <TableCell>
-              <RiskStatusBadge status={r.status} />
-            </TableCell>
-            <TableCell>
-              <RiskLevelBadge level={r.criticalityLevel} />
-            </TableCell>
-            <TableCell className="max-w-[160px]">
-              <span className="line-clamp-2" title={r.ownerDisplayLabel}>
-                {r.ownerDisplayLabel}
-              </span>
-            </TableCell>
-            <TableCell className="whitespace-nowrap text-sm tabular-nums">
-              {formatDate(r.reviewDate)}
-            </TableCell>
-            <TableCell className="whitespace-nowrap text-sm tabular-nums">
-              {formatDate(r.dueDate)}
-            </TableCell>
-          </TableRow>
-        ))}
+                ) : (
+                  '—'
+                )}
+              </TableCell>
+              <TableCell className="max-w-[14rem] font-medium">
+                <RegistryTextCell value={fearedLabel} canEdit={Boolean(openEdit)} onEdit={openEdit} />
+                <div className="mt-0.5 font-mono text-[0.65rem] text-muted-foreground">{r.code}</div>
+              </TableCell>
+              <TableCell className="max-w-[11rem]">
+                <RegistryTextCell value={r.threatSource} canEdit={Boolean(openEdit)} onEdit={openEdit} />
+              </TableCell>
+              <TableCell className="max-w-[14rem]">
+                <RegistryTextCell value={r.description} canEdit={Boolean(openEdit)} onEdit={openEdit} />
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-sm tabular-nums" title={RISK_PI_SCALE_LABEL[String(r.impact)]}>
+                {r.impact} — {piScaleShort(r.impact)}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-sm tabular-nums" title={RISK_PI_SCALE_LABEL[String(r.probability)]}>
+                {r.probability} — {piScaleShort(r.probability)}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-0.5">
+                  <span className="tabular-nums text-sm font-medium">{r.criticalityScore}</span>
+                  <RiskLevelBadge level={r.criticalityLevel} />
+                </div>
+              </TableCell>
+              <TableCell className="max-w-[12rem]">
+                <RegistryTextCell value={r.existingSecurityMeasures} canEdit={Boolean(openEdit)} onEdit={openEdit} />
+              </TableCell>
+              <TableCell className="max-w-[12rem]">
+                <RegistryTextCell
+                  value={r.complementaryTreatmentMeasures}
+                  canEdit={Boolean(openEdit)}
+                  onEdit={openEdit}
+                />
+              </TableCell>
+              <TableCell>
+                {r.residualRiskLevel ? (
+                  <RiskLevelBadge level={r.residualRiskLevel} />
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );

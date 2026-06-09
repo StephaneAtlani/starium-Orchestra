@@ -144,6 +144,7 @@ export class ClientScopedRisksService {
       title: dto.title.trim(),
       description: dto.description.trim(),
       category: dto.category?.trim() ?? null,
+      fearedEvent: dto.fearedEvent.trim(),
       threatSource: dto.threatSource.trim(),
       businessImpact: dto.businessImpact.trim(),
       likelihoodJustification: dto.likelihoodJustification?.trim() ?? null,
@@ -152,6 +153,7 @@ export class ClientScopedRisksService {
       impact: dto.impact,
       criticalityScore,
       criticalityLevel,
+      existingSecurityMeasures: dto.existingSecurityMeasures?.trim() ?? null,
       mitigationPlan: dto.mitigationPlan?.trim() ?? null,
       contingencyPlan: dto.contingencyPlan?.trim() ?? null,
       ...(dto.ownerUserId ? { owner: { connect: { id: dto.ownerUserId } } } : {}),
@@ -229,8 +231,11 @@ export class ClientScopedRisksService {
     if (dto.description !== undefined && dto.description.trim() === '') {
       throw new BadRequestException('Le scénario structuré ne peut pas être vide.');
     }
+    if (dto.fearedEvent !== undefined && dto.fearedEvent.trim() === '') {
+      throw new BadRequestException('L’événement redouté ne peut pas être vide.');
+    }
     if (dto.threatSource !== undefined && dto.threatSource.trim() === '') {
-      throw new BadRequestException('La source de menace ne peut pas être vide.');
+      throw new BadRequestException('La source de risque ne peut pas être vide.');
     }
     if (dto.businessImpact !== undefined && dto.businessImpact.trim() === '') {
       throw new BadRequestException('L’impact métier ne peut pas être vide.');
@@ -281,10 +286,28 @@ export class ClientScopedRisksService {
         ...(dto.category !== undefined && {
           category: dto.category?.trim() ?? null,
         }),
+        ...(dto.fearedEvent !== undefined && {
+          fearedEvent: dto.fearedEvent.trim(),
+        }),
+        ...(dto.threatSource !== undefined && {
+          threatSource: dto.threatSource.trim(),
+        }),
+        ...(dto.businessImpact !== undefined && {
+          businessImpact: dto.businessImpact.trim(),
+        }),
+        ...(dto.likelihoodJustification !== undefined && {
+          likelihoodJustification: dto.likelihoodJustification?.trim() ?? null,
+        }),
+        ...(dto.impactCategory !== undefined && {
+          impactCategory: dto.impactCategory ?? null,
+        }),
         ...(dto.probability !== undefined && { probability: dto.probability }),
         ...(dto.impact !== undefined && { impact: dto.impact }),
         criticalityScore,
         criticalityLevel,
+        ...(dto.existingSecurityMeasures !== undefined && {
+          existingSecurityMeasures: dto.existingSecurityMeasures?.trim() ?? null,
+        }),
         ...(dto.mitigationPlan !== undefined && {
           mitigationPlan: dto.mitigationPlan?.trim() ?? null,
         }),

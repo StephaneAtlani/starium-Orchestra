@@ -2725,8 +2725,12 @@ model ProjectRisk {
   description String?
   category    String?
 
-  /// RFC-PROJ-018 — origine de la menace (ex. cyberattaque, fournisseur).
+  /// Événement redouté (EBIOS RM) — ce qui est craint pour l’organisation.
+  fearedEvent             String                     @default("—")
+  /// RFC-PROJ-018 — source de risque (ex. cyberattaque, fournisseur, erreur humaine).
   threatSource            String                     @default("—")
+  /// Mesures de sécurité existantes / préventives déjà en place.
+  existingSecurityMeasures String?
   /// RFC-PROJ-018 — conséquences pour l’organisation.
   businessImpact          String                     @default("—")
   /// Justification du score de probabilité (optionnel).

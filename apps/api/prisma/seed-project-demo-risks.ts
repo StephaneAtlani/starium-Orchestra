@@ -28,7 +28,9 @@ type DemoRiskSeed = {
   owner?: OwnerKey;
   /** Surcharges optionnelles pour une fiche risque EBIOS complète en démo */
   category?: string;
+  fearedEvent?: string;
   threatSource?: string;
+  existingSecurityMeasures?: string;
   businessImpact?: string;
   likelihoodJustification?: string;
   impactCategory?: ProjectRiskImpactCategory;
@@ -175,9 +177,15 @@ function buildDemoRiskFieldData(
       seed.description ??
       `Si les causes du scénario se matérialisent, le livrable « ${seed.title} » subit une dérive de délai, de coût ou de qualité, avec effet sur les utilisateurs ou la conformité.`,
     category: seed.category ?? "Pilotage & dépendances",
+    fearedEvent:
+      seed.fearedEvent ??
+      `Événement redouté lié à « ${seed.title} » : dérive du livrable (délai, coût, qualité) avec impact utilisateurs ou conformité.`,
     threatSource:
       seed.threatSource ??
       "Environnement projet : dépendances techniques, organisationnelles ou contractuelles non entièrement maîtrisées.",
+    existingSecurityMeasures:
+      seed.existingSecurityMeasures ??
+      "Revue de risques projet, suivi CODIR, points d’avancement et contrôles qualité déjà planifiés.",
     businessImpact:
       seed.businessImpact ??
       `Impact possible sur le périmètre « ${seed.title} » : retard de mise en service, surcoût, dégradation du service ou exposition conformité / réputation.`,

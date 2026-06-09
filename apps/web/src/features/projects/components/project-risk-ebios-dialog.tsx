@@ -97,6 +97,7 @@ function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
   const o = {
     projectId: p.projectId ?? '',
     title: p.title,
+    fearedEvent: p.fearedEvent,
     threatSource: p.threatSource,
     description: p.description,
     businessImpact: p.businessImpact,
@@ -104,6 +105,7 @@ function stableRiskSnapshot(p: CreateProjectRiskPayload): string {
     likelihoodJustification: p.likelihoodJustification ?? '',
     probability: p.probability,
     impact: p.impact,
+    existingSecurityMeasures: p.existingSecurityMeasures ?? '',
     mitigationPlan: p.mitigationPlan ?? '',
     contingencyPlan: p.contingencyPlan ?? '',
     status: p.status ?? 'OPEN',
@@ -124,6 +126,7 @@ function snapshotFromRisk(r: ProjectRiskApi): string {
   return stableRiskSnapshot({
     projectId: r.projectId ?? undefined,
     title: r.title.trim(),
+    fearedEvent: r.fearedEvent.trim(),
     threatSource: r.threatSource.trim(),
     description: (r.description ?? '').trim(),
     businessImpact: r.businessImpact.trim(),
@@ -131,6 +134,7 @@ function snapshotFromRisk(r: ProjectRiskApi): string {
     likelihoodJustification: r.likelihoodJustification?.trim() || undefined,
     probability: r.probability,
     impact: r.impact,
+    existingSecurityMeasures: r.existingSecurityMeasures?.trim() || undefined,
     mitigationPlan: r.mitigationPlan?.trim() || undefined,
     contingencyPlan: r.contingencyPlan?.trim() || undefined,
     status: r.status,
@@ -181,6 +185,47 @@ const selectTriggerLabelClass =
   'min-w-0 flex-1 truncate text-left text-sm leading-none';
 
 const requiredAsteriskClass = 'ml-1 text-destructive';
+
+function InitialRiskSummary({
+  probability,
+  impact,
+  savedScore,
+  savedLevel,
+  piChanged,
+}: {
+  probability: number;
+  impact: number;
+  savedScore?: number;
+  savedLevel?: string;
+  piChanged?: boolean;
+}) {
+  const score = probability * impact;
+  const level = criticalityLevelFromPiScore(score);
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-sm shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
+      )}
+    >
+      <span className="font-medium text-foreground">Risque initial</span>
+      <span className="text-muted-foreground">(P×I)</span>
+      <span className="tabular-nums font-semibold text-foreground">{score}</span>
+      <span className="hidden text-muted-foreground sm:inline" aria-hidden>
+        ·
+      </span>
+      <Badge variant="outline" className={cn('font-normal', criticalityBadgeClass(level))}>
+        {PROJECT_RISK_CRITICALITY_LABEL[level] ?? level}
+      </Badge>
+      {piChanged && savedScore != null && savedLevel ? (
+        <span className="text-xs text-amber-700 dark:text-amber-400">
+          Enregistré : {savedScore} (
+          {PROJECT_RISK_CRITICALITY_LABEL[savedLevel as ProjectRiskCriticalityLevel] ?? savedLevel}
+          ) — enregistrez pour recalculer.
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function criticalityBadgeClass(level: string): string {
   switch (level) {
@@ -456,6 +501,7 @@ export function ProjectRiskEbiosDialog({
   });
 
   const [title, setTitle] = useState('');
+  const [fearedEvent, setFearedEvent] = useState('');
   const [threatSource, setThreatSource] = useState('');
   const [description, setDescription] = useState('');
   const [businessImpact, setBusinessImpact] = useState('');
@@ -466,6 +512,7 @@ export function ProjectRiskEbiosDialog({
   const [probability, setProbability] = useState(3);
   const [impact, setImpact] = useState(3);
   const [likelihoodJustification, setLikelihoodJustification] = useState('');
+  const [existingSecurityMeasures, setExistingSecurityMeasures] = useState('');
   const [mitigationPlan, setMitigationPlan] = useState('');
   const [contingencyPlan, setContingencyPlan] = useState('');
   const [treatmentStrategy, setTreatmentStrategy] =
@@ -511,6 +558,7 @@ export function ProjectRiskEbiosDialog({
     if (mode === 'edit' && riskResolved) {
       const r = riskResolved;
       setTitle(r.title);
+      setFearedEvent(r.fearedEvent ?? r.title);
       setThreatSource(r.threatSource ?? '');
       setDescription(r.description ?? '');
       setBusinessImpact(r.businessImpact ?? '');
@@ -520,6 +568,7 @@ export function ProjectRiskEbiosDialog({
       setProbability(r.probability);
       setImpact(r.impact);
       setLikelihoodJustification(r.likelihoodJustification ?? '');
+      setExistingSecurityMeasures(r.existingSecurityMeasures ?? '');
       setMitigationPlan(r.mitigationPlan ?? '');
       setContingencyPlan(r.contingencyPlan ?? '');
       setTreatmentStrategy(r.treatmentStrategy ?? 'REDUCE');
@@ -538,6 +587,7 @@ export function ProjectRiskEbiosDialog({
     if (mode === 'create') {
       setLinkedProjectId(PROJECT_NONE);
       setTitle('');
+      setFearedEvent('');
       setThreatSource('');
       setDescription('');
       setBusinessImpact('');
@@ -546,6 +596,7 @@ export function ProjectRiskEbiosDialog({
       setProbability(3);
       setImpact(3);
       setLikelihoodJustification('');
+      setExistingSecurityMeasures('');
       setMitigationPlan('');
       setContingencyPlan('');
       setTreatmentStrategy('REDUCE');
@@ -598,6 +649,8 @@ export function ProjectRiskEbiosDialog({
 
   const buildPayload = useCallback((): CreateProjectRiskPayload | null => {
     const t = title.trim();
+    const fe =
+      mode === 'create' ? fearedEvent.trim() || t : fearedEvent.trim();
     const ts =
       mode === 'create' ? threatSource.trim() || t : threatSource.trim();
     const sc =
@@ -608,12 +661,13 @@ export function ProjectRiskEbiosDialog({
       mode === 'create'
         ? businessImpact.trim() || 'Impact métier à qualifier'
         : businessImpact.trim();
-    if (!t || !ts || !sc || !bi || !treatmentStrategy) return null;
+    if (!t || !fe || !ts || !sc || !bi || !treatmentStrategy) return null;
     const effectiveRiskTypeId =
       riskTypeId !== NONE ? riskTypeId : mode === 'create' ? fallbackRiskTypeId : null;
     if (!effectiveRiskTypeId) return null;
     const payload: CreateProjectRiskPayload = {
       title: t,
+      fearedEvent: fe,
       threatSource: ts,
       description: sc,
       businessImpact: bi,
@@ -621,6 +675,7 @@ export function ProjectRiskEbiosDialog({
       likelihoodJustification: likelihoodJustification.trim() || undefined,
       probability,
       impact,
+      existingSecurityMeasures: existingSecurityMeasures.trim() || undefined,
       mitigationPlan: mitigationPlan.trim() || undefined,
       contingencyPlan: contingencyPlan.trim() || undefined,
       status,
@@ -642,6 +697,7 @@ export function ProjectRiskEbiosDialog({
     riskApiScope,
     linkedProjectId,
     title,
+    fearedEvent,
     threatSource,
     description,
     businessImpact,
@@ -649,6 +705,7 @@ export function ProjectRiskEbiosDialog({
     likelihoodJustification,
     probability,
     impact,
+    existingSecurityMeasures,
     mitigationPlan,
     contingencyPlan,
     status,
@@ -780,6 +837,7 @@ export function ProjectRiskEbiosDialog({
 
   const canSubmit =
     Boolean(title.trim()) &&
+    Boolean(fearedEvent.trim()) &&
     Boolean(threatSource.trim()) &&
     Boolean(description.trim()) &&
     Boolean(businessImpact.trim()) &&
@@ -1111,8 +1169,8 @@ export function ProjectRiskEbiosDialog({
 
           <Alert className="border-primary/30 bg-primary/5">
             <AlertDescription className="text-xs text-foreground">
-              <span className="font-medium">Champs obligatoires :</span> Titre, Source de menace,
-              Scénario, Impact métier, Type de risque, Stratégie de traitement.
+              <span className="font-medium">Champs obligatoires :</span> Titre, Événement redouté,
+              Source de risque, Scénario, Impact métier, Type de risque, Stratégie de traitement.
             </AlertDescription>
           </Alert>
 
@@ -1120,7 +1178,7 @@ export function ProjectRiskEbiosDialog({
             <EbiosSection
               step={1}
               title="Identification du scénario"
-              hint="Titre court pour les listes ; scénario structuré « Si X alors Y » (complémentaires)."
+              hint="Domaine (via type), événement redouté, source de risque et scénario « Si X alors Y »."
               headerExtra={
                 mode === 'edit' && riskResolved ? (
                   <Badge variant="outline" className="font-mono text-xs font-normal">
@@ -1130,23 +1188,28 @@ export function ProjectRiskEbiosDialog({
               }
             >
               <div className="space-y-2">
-                <Label htmlFor="ebios-title">
-                  Titre du risque (registre)
+                <Label htmlFor="ebios-feared">
+                  Événement redouté
                   <span className={requiredAsteriskClass}>*</span>
                 </Label>
-                <Input
-                  id="ebios-title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                <textarea
+                  id="ebios-feared"
+                  value={fearedEvent}
+                  onChange={(e) => setFearedEvent(e.target.value)}
                   disabled={isPending}
-                  maxLength={500}
-                  placeholder="ex. Vulnérabilité résiduelle post cut-over"
+                  rows={2}
+                  placeholder="ex. Indisponibilité prolongée du SI métier, fuite de données personnelles…"
+                  className={cn(
+                    'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
+                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ebios-threat">
-                  Source de menace
+                  Source de risque
                   <span className={requiredAsteriskClass}>*</span>
                 </Label>
                 <Input
@@ -1155,13 +1218,13 @@ export function ProjectRiskEbiosDialog({
                   onChange={(e) => setThreatSource(e.target.value)}
                   disabled={isPending}
                   maxLength={300}
-                  placeholder="ex. cyberattaque, fournisseur, erreur humaine"
+                  placeholder="ex. cyberattaque, fournisseur, erreur humaine, défaillance technique"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ebios-scenario">
-                  Scénario (Si X alors Y)
+                  Scénario de risque (Si X alors Y)
                   <span className={requiredAsteriskClass}>*</span>
                 </Label>
                 <textarea
@@ -1176,6 +1239,21 @@ export function ProjectRiskEbiosDialog({
                     'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ebios-title">
+                  Titre court (registre / listes)
+                  <span className={requiredAsteriskClass}>*</span>
+                </Label>
+                <Input
+                  id="ebios-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  disabled={isPending}
+                  maxLength={500}
+                  placeholder="ex. Indisponibilité SI post cut-over"
                   required
                 />
               </div>
@@ -1398,37 +1476,13 @@ export function ProjectRiskEbiosDialog({
                   )}
                 />
               </div>
-              {mode === 'edit' && riskResolved ? (
-                <div
-                  className={cn(
-                    'flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-sm shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
-                  )}
-                >
-                  <span className="text-muted-foreground">Criticité enregistrée</span>
-                  <span className="tabular-nums font-semibold text-foreground">
-                    {riskResolved.criticalityScore}
-                  </span>
-                  <span className="hidden text-muted-foreground sm:inline" aria-hidden>
-                    ·
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={cn('font-normal', criticalityBadgeClass(riskResolved.criticalityLevel))}
-                  >
-                    {PROJECT_RISK_CRITICALITY_LABEL[riskResolved.criticalityLevel as ProjectRiskCriticalityLevel] ??
-                      riskResolved.criticalityLevel}
-                  </Badge>
-                  {piChanged ? (
-                    <span className="text-xs text-amber-700 dark:text-amber-400">
-                      P×I modifiés — enregistrez pour recalculer la criticité.
-                    </span>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Après création, le serveur enregistre le score P×I et le niveau de criticité dérivés.
-                </p>
-              )}
+              <InitialRiskSummary
+                probability={probability}
+                impact={impact}
+                savedScore={mode === 'edit' && riskResolved ? riskResolved.criticalityScore : undefined}
+                savedLevel={mode === 'edit' && riskResolved ? riskResolved.criticalityLevel : undefined}
+                piChanged={Boolean(piChanged)}
+              />
             </EbiosSection>
 
             <EbiosSection
@@ -1461,7 +1515,7 @@ export function ProjectRiskEbiosDialog({
             <EbiosSection
               step={4}
               title="Traitement du risque"
-              hint="Stratégie obligatoire ; plans optionnels."
+              hint="Mesures existantes, stratégie et plans de traitement."
               headerExtra={treatmentHeaderExtra}
             >
               <div className="space-y-2">
@@ -1490,14 +1544,32 @@ export function ProjectRiskEbiosDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-mitigation">Plan de réduction / mesures (optionnel)</Label>
+                <Label htmlFor="ebios-existing-measures">
+                  Mesures de sécurité existantes / préventives (optionnel)
+                </Label>
+                <textarea
+                  id="ebios-existing-measures"
+                  value={existingSecurityMeasures}
+                  onChange={(e) => setExistingSecurityMeasures(e.target.value)}
+                  disabled={isPending}
+                  rows={3}
+                  placeholder="Contrôles, procédures ou dispositifs déjà en place avant traitement complémentaire…"
+                  className={cn(
+                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
+                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ebios-mitigation">Plan de réduction (mesures à mettre en œuvre, optionnel)</Label>
                 <textarea
                   id="ebios-mitigation"
                   value={mitigationPlan}
                   onChange={(e) => setMitigationPlan(e.target.value)}
                   disabled={isPending}
                   rows={3}
-                  placeholder="Actions pour réduire la vraisemblance ou l’impact…"
+                  placeholder="Actions futures pour réduire la vraisemblance ou l’impact…"
                   className={cn(
                     'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
                     'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
@@ -1521,12 +1593,30 @@ export function ProjectRiskEbiosDialog({
                   )}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="ebios-complementary">
+                  Traitement / mesures complémentaires (optionnel)
+                </Label>
+                <textarea
+                  id="ebios-complementary"
+                  value={complementaryTreatmentMeasures}
+                  onChange={(e) => setComplementaryTreatmentMeasures(e.target.value)}
+                  disabled={isPending}
+                  rows={3}
+                  placeholder="Actions ou garde-fous additionnels (surveillance, renforts, revues…)"
+                  className={cn(
+                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
+                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                  )}
+                />
+              </div>
             </EbiosSection>
 
             <EbiosSection
               step={5}
               title="Risque résiduel"
-              hint="Niveau résiduel après traitement ; cohérent avec la criticité initiale (indicatif). Mesures complémentaires si besoin."
+              hint="Niveau cible après traitement ; cohérent avec le risque initial (indicatif)."
             >
               {residualSoftWarning ? (
                 <Alert className="border-amber-500/40 bg-amber-500/[0.06]">
@@ -1537,7 +1627,7 @@ export function ProjectRiskEbiosDialog({
                 </Alert>
               ) : null}
               <div className="space-y-2">
-                <Label>Niveau de risque résiduel (optionnel)</Label>
+                <Label>Risque résiduel cible (optionnel)</Label>
                 <Select
                   value={residualRiskLevel}
                   onValueChange={(v) => setResidualRiskLevel(v ?? NONE)}
@@ -1576,24 +1666,6 @@ export function ProjectRiskEbiosDialog({
                   placeholder="Pourquoi ce niveau résiduel est accepté…"
                   className={cn(
                     'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-resid-complementary">
-                  Traitement / mesures complémentaires (optionnel)
-                </Label>
-                <textarea
-                  id="ebios-resid-complementary"
-                  value={complementaryTreatmentMeasures}
-                  onChange={(e) => setComplementaryTreatmentMeasures(e.target.value)}
-                  disabled={isPending}
-                  rows={3}
-                  placeholder="Actions ou garde-fous additionnels après évaluation du résiduel (surveillance, renforts, revues…)"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
                     'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                   )}

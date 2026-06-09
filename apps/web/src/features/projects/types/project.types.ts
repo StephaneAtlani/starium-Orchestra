@@ -396,8 +396,10 @@ export type ProjectRiskApi = {
   title: string;
   description: string | null;
   category: string | null;
+  fearedEvent: string;
   threatSource: string;
   businessImpact: string;
+  existingSecurityMeasures: string | null;
   likelihoodJustification: string | null;
   impactCategory: ProjectRiskImpactCategory | null;
   riskTypeId: string;

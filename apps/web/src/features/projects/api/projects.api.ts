@@ -520,8 +520,10 @@ export type CreateProjectRiskPayload = {
   code?: string;
   category?: string;
   riskTypeId: string;
+  fearedEvent: string;
   threatSource: string;
   businessImpact: string;
+  existingSecurityMeasures?: string | null;
   likelihoodJustification?: string;
   impactCategory?: string | null;
   probability: number;

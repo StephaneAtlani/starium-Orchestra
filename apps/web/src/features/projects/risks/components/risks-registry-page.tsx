@@ -72,7 +72,10 @@ function applyFilters(rows: ProjectRiskRegistryRow[], f: RisksRegistryFiltersSta
     if (q) {
       const inTitle = r.title.toLowerCase().includes(q);
       const inCode = r.code.toLowerCase().includes(q);
-      if (!inTitle && !inCode) return false;
+      const inFeared = (r.fearedEvent ?? '').toLowerCase().includes(q);
+      const inThreat = (r.threatSource ?? '').toLowerCase().includes(q);
+      const inScenario = (r.description ?? '').toLowerCase().includes(q);
+      if (!inTitle && !inCode && !inFeared && !inThreat && !inScenario) return false;
     }
     return true;
   });
@@ -91,7 +94,7 @@ function hasActiveFilters(f: RisksRegistryFiltersState): boolean {
 }
 
 function isDefaultRegistrySort(s: { key: RisksRegistrySortKey; order: 'asc' | 'desc' }) {
-  return s.key === 'criticality' && s.order === 'asc';
+  return s.key === 'initialRisk' && s.order === 'asc';
 }
 
 export function RisksRegistryPage() {
@@ -113,7 +116,7 @@ export function RisksRegistryPage() {
 
   const [filters, setFilters] = useState<RisksRegistryFiltersState>(() => defaultRisksRegistryFilters());
   const [sort, setSort] = useState<{ key: RisksRegistrySortKey; order: 'asc' | 'desc' }>({
-    key: 'criticality',
+    key: 'initialRisk',
     order: 'asc',
   });
   const [page, setPage] = useState(1);
@@ -257,7 +260,7 @@ export function RisksRegistryPage() {
 
   const resetFilters = () => {
     setFilters(defaultRisksRegistryFilters());
-    setSort({ key: 'criticality', order: 'asc' });
+    setSort({ key: 'initialRisk', order: 'asc' });
     setPage(1);
   };
 
@@ -276,7 +279,7 @@ export function RisksRegistryPage() {
       <PageContainer>
         <PageHeader
           title="Gestion des risques"
-          description="Cockpit registre — identification, priorisation et suivi des risques pour le client actif."
+          description="Registre EBIOS RM — domaine, événement redouté, évaluation P×I, mesures et risque résiduel cible."
           actions={
             <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
               {listEnabled ? (

@@ -42,6 +42,10 @@ export class CreateProjectRiskDto {
 
   @IsString()
   @MinLength(1)
+  fearedEvent!: string;
+
+  @IsString()
+  @MinLength(1)
   threatSource!: string;
 
   @IsString()
@@ -67,6 +71,10 @@ export class CreateProjectRiskDto {
   @Min(1)
   @Max(5)
   impact!: number;
+
+  @IsOptional()
+  @IsString()
+  existingSecurityMeasures?: string;
 
   @IsOptional()
   @IsString()

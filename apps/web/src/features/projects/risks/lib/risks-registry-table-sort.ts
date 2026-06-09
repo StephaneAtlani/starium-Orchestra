@@ -1,16 +1,18 @@
 import type { ProjectRiskCriticalityLevel } from '../../types/project.types';
 import type { ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 
+/** Colonnes registre EBIOS RM (vue tableau). */
 export type RisksRegistrySortKey =
-  | 'title'
-  | 'projectName'
   | 'domain'
-  | 'riskType'
-  | 'status'
-  | 'criticality'
-  | 'owner'
-  | 'reviewDate'
-  | 'dueDate';
+  | 'fearedEvent'
+  | 'threatSource'
+  | 'scenario'
+  | 'impact'
+  | 'probability'
+  | 'initialRisk'
+  | 'existingMeasures'
+  | 'complementaryTreatment'
+  | 'residualTarget';
 
 const CRIT_ORDER: Record<ProjectRiskCriticalityLevel, number> = {
   CRITICAL: 0,
@@ -21,12 +23,6 @@ const CRIT_ORDER: Record<ProjectRiskCriticalityLevel, number> = {
 
 function domainLabel(r: ProjectRiskRegistryRow): string {
   return r.riskType?.domain?.name?.trim() ?? '';
-}
-
-/** Libellé type taxonomique, sinon catégorie héritée. */
-function riskTypeLabel(r: ProjectRiskRegistryRow): string {
-  if (r.riskType?.name) return r.riskType.name.trim();
-  return r.category?.trim() ?? '';
 }
 
 function compareDateNullable(a: string | null, b: string | null): number {
@@ -41,9 +37,14 @@ function compareDateNullable(a: string | null, b: string | null): number {
   return ta - tb;
 }
 
-/** Ordre par défaut lorsqu’on active une nouvelle colonne (premier clic après changement de colonne). */
+function textOrDash(value: string | null | undefined): string {
+  const t = value?.trim();
+  return t && t !== '—' ? t : '';
+}
+
+/** Ordre par défaut lorsqu’on active une nouvelle colonne (premier clic). */
 export function defaultSortOrderForKey(key: RisksRegistrySortKey): 'asc' | 'desc' {
-  if (key === 'reviewDate' || key === 'dueDate') return 'desc';
+  if (key === 'initialRisk') return 'asc';
   return 'asc';
 }
 
@@ -56,42 +57,69 @@ export function sortRisksRegistryRows(
   return [...rows].sort((a, b) => {
     let cmp = 0;
     switch (sortKey) {
-      case 'title':
-        cmp = a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' });
-        break;
-      case 'projectName':
-        cmp = a.projectName.localeCompare(b.projectName, 'fr', { sensitivity: 'base' });
-        break;
       case 'domain':
         cmp = domainLabel(a).localeCompare(domainLabel(b), 'fr', { sensitivity: 'base' });
         break;
-      case 'riskType':
-        cmp = riskTypeLabel(a).localeCompare(riskTypeLabel(b), 'fr', { sensitivity: 'base' });
-        break;
-      case 'status':
-        cmp = a.status.localeCompare(b.status, 'fr');
-        break;
-      case 'criticality': {
-        const ca = CRIT_ORDER[a.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
-        const cb = CRIT_ORDER[b.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
-        cmp = ca - cb;
-        break;
-      }
-      case 'owner':
-        cmp = a.ownerDisplayLabel.localeCompare(b.ownerDisplayLabel, 'fr', {
+      case 'fearedEvent':
+        cmp = textOrDash(a.fearedEvent).localeCompare(textOrDash(b.fearedEvent), 'fr', {
           sensitivity: 'base',
         });
         break;
-      case 'reviewDate':
-        cmp = compareDateNullable(a.reviewDate, b.reviewDate);
+      case 'threatSource':
+        cmp = textOrDash(a.threatSource).localeCompare(textOrDash(b.threatSource), 'fr', {
+          sensitivity: 'base',
+        });
         break;
-      case 'dueDate':
-        cmp = compareDateNullable(a.dueDate, b.dueDate);
+      case 'scenario':
+        cmp = textOrDash(a.description).localeCompare(textOrDash(b.description), 'fr', {
+          sensitivity: 'base',
+        });
         break;
+      case 'impact':
+        cmp = a.impact - b.impact;
+        break;
+      case 'probability':
+        cmp = a.probability - b.probability;
+        break;
+      case 'initialRisk': {
+        const ca = CRIT_ORDER[a.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
+        const cb = CRIT_ORDER[b.criticalityLevel as ProjectRiskCriticalityLevel] ?? 99;
+        cmp = ca - cb;
+        if (cmp === 0) cmp = a.criticalityScore - b.criticalityScore;
+        break;
+      }
+      case 'existingMeasures':
+        cmp = textOrDash(a.existingSecurityMeasures).localeCompare(
+          textOrDash(b.existingSecurityMeasures),
+          'fr',
+          { sensitivity: 'base' },
+        );
+        break;
+      case 'complementaryTreatment':
+        cmp = textOrDash(a.complementaryTreatmentMeasures).localeCompare(
+          textOrDash(b.complementaryTreatmentMeasures),
+          'fr',
+          { sensitivity: 'base' },
+        );
+        break;
+      case 'residualTarget': {
+        const ra = a.residualRiskLevel
+          ? (CRIT_ORDER[a.residualRiskLevel as ProjectRiskCriticalityLevel] ?? 99)
+          : 99;
+        const rb = b.residualRiskLevel
+          ? (CRIT_ORDER[b.residualRiskLevel as ProjectRiskCriticalityLevel] ?? 99)
+          : 99;
+        cmp = ra - rb;
+        break;
+      }
       default:
         cmp = 0;
     }
     if (cmp !== 0) return mul * cmp;
-    return a.title.localeCompare(b.title, 'fr', { sensitivity: 'base' });
+    return textOrDash(a.fearedEvent || a.title).localeCompare(
+      textOrDash(b.fearedEvent || b.title),
+      'fr',
+      { sensitivity: 'base' },
+    );
   });
 }
