@@ -498,4 +498,154 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       });
     });
   });
+
+  describe('list — tagIds filter (RFC-PROJ-017)', () => {
+    const TAG_A = 'cmnkqlkcb0003o3a5mumz04sn';
+    const TAG_B = 'cmnkqlkcb0003o3a5mumz04so';
+    const TAG_UNKNOWN = 'cmnkqlkcb0003o3a5mumz9999';
+    const PROJ_A = 'cmnkqlkcb0003o3a5mumz04aa';
+
+    function listProjectRow(
+      overrides: Record<string, unknown> & {
+        tagAssignments?: Array<{ tag: { id: string; name: string; color: string | null } }>;
+      } = {},
+    ) {
+      const { tagAssignments = [], ...rest } = overrides;
+      return {
+        ...withInclude(baseProject(rest)),
+        tagAssignments,
+        portfolioCategory: null,
+        teamMembers: [],
+        ownerOrgUnit: null,
+        steward: null,
+        ...rest,
+      };
+    }
+
+    beforeEach(() => {
+      prisma.project.findMany = jest.fn().mockResolvedValue([]);
+      prisma.user = { findUnique: jest.fn().mockResolvedValue(null) };
+    });
+
+    function expectTagIdsWhere(tagIds: string[]) {
+      expect(prisma.project.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              {
+                tagAssignments: {
+                  some: { tagId: { in: tagIds }, clientId },
+                },
+              },
+            ]),
+          }),
+        }),
+      );
+    }
+
+    it('GET /projects — filtre 1 tag connu dans le where Prisma', async () => {
+      const row = listProjectRow({
+        id: PROJ_A,
+        name: 'Projet Ops',
+        tagAssignments: [{ tag: { id: TAG_A, name: 'Ops', color: '#111111' } }],
+      });
+      prisma.project.findMany.mockResolvedValue([row]);
+
+      const result = await service.list(clientId, { tagIds: [TAG_A] });
+
+      expectTagIdsWhere([TAG_A]);
+      expect(result.total).toBe(1);
+      expect(result.items[0]?.tags).toEqual([
+        { id: TAG_A, name: 'Ops', color: '#111111' },
+      ]);
+    });
+
+    it('GET /projects — 2 tags en logique OR (clause in)', async () => {
+      await service.list(clientId, { tagIds: [TAG_A, TAG_B] });
+      expectTagIdsWhere([TAG_A, TAG_B]);
+    });
+
+    it('GET /projects — 2 tags en logique ET (AND par étiquette)', async () => {
+      await service.list(clientId, {
+        tagIds: [TAG_A, TAG_B],
+        tagIdsMatch: 'all',
+      });
+      expect(prisma.project.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              {
+                AND: [
+                  { tagAssignments: { some: { tagId: TAG_A, clientId } } },
+                  { tagAssignments: { some: { tagId: TAG_B, clientId } } },
+                ],
+              },
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('GET /projects — tag inconnu seul retourne vide', async () => {
+      prisma.project.findMany.mockResolvedValue([]);
+      const result = await service.list(clientId, { tagIds: [TAG_UNKNOWN] });
+      expectTagIdsWhere([TAG_UNKNOWN]);
+      expect(result.total).toBe(0);
+      expect(result.items).toEqual([]);
+    });
+
+    it('GET /projects — mélange tag connu + inconnu utilise les deux dans le filtre OR', async () => {
+      const row = listProjectRow({
+        id: PROJ_A,
+        tagAssignments: [{ tag: { id: TAG_A, name: 'Ops', color: null } }],
+      });
+      prisma.project.findMany.mockResolvedValue([row]);
+
+      const result = await service.list(clientId, {
+        tagIds: [TAG_A, TAG_UNKNOWN],
+      });
+
+      expectTagIdsWhere([TAG_A, TAG_UNKNOWN]);
+      expect(result.total).toBe(1);
+    });
+
+    it('GET /portfolio-gantt — applique tagIds comme la liste', async () => {
+      await service.getPortfolioGantt(clientId, { tagIds: [TAG_A] });
+      expectTagIdsWhere([TAG_A]);
+    });
+
+    it('GET /portfolio-gantt — payload tags[] peuplé pour le regroupement frontend', async () => {
+      const row = listProjectRow({
+        id: PROJ_A,
+        name: 'Projet tagué',
+        tagAssignments: [
+          { tag: { id: TAG_A, name: 'Ops', color: '#aabbcc' } },
+          { tag: { id: TAG_B, name: 'Finance', color: null } },
+        ],
+      });
+      prisma.project.findMany
+        .mockResolvedValueOnce([row])
+        .mockResolvedValueOnce([
+          {
+            id: PROJ_A,
+            startDate: new Date('2025-03-01'),
+            arbitrationStatus: null,
+            arbitrationMetierStatus: null,
+            arbitrationComiteStatus: null,
+            arbitrationCodirStatus: null,
+            businessProblem: null,
+            sponsor: null,
+            teamMembers: [],
+          },
+        ]);
+
+      const result = await service.getPortfolioGantt(clientId, {});
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.tags).toEqual([
+        { id: TAG_A, name: 'Ops', color: '#aabbcc' },
+        { id: TAG_B, name: 'Finance', color: null },
+      ]);
+    });
+  });
 });

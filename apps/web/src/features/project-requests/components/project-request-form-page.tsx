@@ -92,7 +92,7 @@ export function ProjectRequestFormPage() {
               {validatorsLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Select value={validatorUserId} onValueChange={setValidatorUserId}>
+                <Select value={validatorUserId} onValueChange={(v) => setValidatorUserId(v ?? '')}>
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir un validateur" />
                   </SelectTrigger>

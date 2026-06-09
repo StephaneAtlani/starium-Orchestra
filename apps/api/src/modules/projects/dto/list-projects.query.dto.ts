@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -6,16 +6,27 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 import {
   ProjectCriticality,
   ProjectPriority,
   ProjectStatus,
 } from '@prisma/client';
+import { RESOURCE_ACL_CUID_REGEX } from '../../access-control/resource-acl.constants';
+
+function parseTagIdsQuery(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parts = String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  if (parts.length === 0) return undefined;
+  return Array.from(new Set(parts));
+}
 
 export class ListProjectsQueryDto {
   @IsOptional()
@@ -105,4 +116,23 @@ export class ListProjectsQueryDto {
   @IsString()
   @MinLength(1)
   ownerOrgUnitId?: string;
+
+  /** RFC-PROJ-017 — filtre par étiquettes portefeuille (`tagIds=id1,id2`). */
+  @IsOptional()
+  @Transform(({ value }) => parseTagIdsQuery(value))
+  @IsString({ each: true })
+  @MinLength(1, { each: true })
+  @Matches(RESOURCE_ACL_CUID_REGEX, {
+    each: true,
+    message: 'each value in tagIds must be a valid CUID',
+  })
+  tagIds?: string[];
+
+  /**
+   * Mode de combinaison des étiquettes : `any` = OU (défaut), `all` = ET.
+   * Ignoré si un seul `tagIds` ou si `tagIds` absent.
+   */
+  @IsOptional()
+  @IsIn(['any', 'all'])
+  tagIdsMatch?: 'any' | 'all';
 }

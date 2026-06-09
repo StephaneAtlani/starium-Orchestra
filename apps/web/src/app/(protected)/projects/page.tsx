@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
-import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import {
   Card,
@@ -256,7 +255,7 @@ export default function ProjectsPortfolioPage() {
                   onViewModeChange={handleViewModeChange}
                   embedded
                 />
-                {data && data.items.length > 0 ? (
+                {data ? (
                   <>
                     <CardContent
                       className={cn(
@@ -317,24 +316,7 @@ export default function ProjectsPortfolioPage() {
                   <CardContent className="py-8">
                     <LoadingState rows={4} />
                   </CardContent>
-                ) : (
-                  <CardContent className="py-10">
-                    <EmptyState
-                      title="Aucun projet"
-                      description="Aucun projet ne correspond à ce périmètre. Élargissez les filtres ou créez un nouveau projet."
-                      action={
-                        has('projects.create') ? (
-                          <Link
-                            href={projectNew()}
-                            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-                          >
-                            Nouveau projet
-                          </Link>
-                        ) : undefined
-                      }
-                    />
-                  </CardContent>
-                )}
+                ) : null}
               </Card>
             )}
           </>

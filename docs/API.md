@@ -2762,9 +2762,10 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 ### Projets — `/api/projects`
 
 - **GET /api/projects** — Liste **paginée et enrichie** (pilotage calculé côté serveur : `derivedProgressPercent`, `computedHealth`, `signals`, `warnings`, compteurs).  
-  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
-  Réponse : `{ items, total, page, limit }`. Permission **`projects.read`**.
-- **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste). Permission **`projects.read`**.
+  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `kind`, `portfolioCategoryId`, `computedHealth`, `myRole`, `ownerUserId`, `myProjectsOnly`, `tagIds` (format `id1,id2`, CUID validés), `tagIdsMatch` (`any` = OU défaut, `all` = ET — pertinent à partir de 2 étiquettes), `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent` \| `owner`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
+  Réponse : `{ items, total, page, limit }` ; chaque item inclut `tags: [{ id, name, color }]`. Permission **`projects.read`**.
+- **GET /api/projects/portfolio-gantt** — Frise portefeuille : **mêmes filtres query** que `GET /api/projects` (dont `tagIds`), sans pagination ; une ligne par projet avec `startDate`, `targetEndDate`, `tags`, etc. Permission **`projects.read`**.
+- **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste, **non filtré** par `tagIds`). Permission **`projects.read`**.
 - **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
 - **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, etc.). Permission **`projects.create`**.
 - **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.). Permission **`projects.read`**.

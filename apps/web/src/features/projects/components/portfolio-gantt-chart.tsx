@@ -20,8 +20,11 @@ import {
   PORTFOLIO_GANTT_ROW_PX,
   flattenPortfolioGanttLayout,
   groupPortfolioGanttByCategory,
+  groupPortfolioGanttByTag,
   portfolioGanttBodyHeightPx,
 } from '../lib/portfolio-gantt-group';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 import { portfolioGanttBarSegmentClasses } from '../lib/portfolio-gantt-bar-styles';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { PortfolioGanttProjectTooltip } from './portfolio-gantt-project-tooltip';
@@ -208,6 +211,7 @@ export function PortfolioGanttChart({
   onTimeZoomChange,
   tooltipsEnabled = true,
   inlineInfosEnabled = true,
+  groupByTags = false,
 }: {
   items: PortfolioGanttRow[];
   timeZoom: number;
@@ -216,6 +220,8 @@ export function PortfolioGanttChart({
   tooltipsEnabled?: boolean;
   /** Si false, masque les infos textuelles affichées à droite des barres. */
   inlineInfosEnabled?: boolean;
+  /** Regroupement par étiquette au lieu de catégorie portefeuille. */
+  groupByTags?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -229,8 +235,11 @@ export function PortfolioGanttChart({
   const [isPanning, setIsPanning] = useState(false);
   const [viewportW, setViewportW] = useState(960);
   const layoutRows = useMemo(
-    () => flattenPortfolioGanttLayout(groupPortfolioGanttByCategory(items)),
-    [items],
+    () =>
+      flattenPortfolioGanttLayout(
+        groupByTags ? groupPortfolioGanttByTag(items) : groupPortfolioGanttByCategory(items),
+      ),
+    [items, groupByTags],
   );
 
   useLayoutEffect(() => {
@@ -388,7 +397,7 @@ export function PortfolioGanttChart({
                 style={{ width: GANTT_SIDEBAR_PX, minWidth: GANTT_SIDEBAR_PX }}
               >
                 <span className="text-muted-foreground text-xs font-medium">
-                  Projet par catégorie
+                  {groupByTags ? 'Projet par étiquette' : 'Projet par catégorie'}
                 </span>
               </div>
               <div
@@ -460,8 +469,17 @@ export function PortfolioGanttChart({
                               minWidth: GANTT_SIDEBAR_PX,
                             }}
                           >
-                            <span className="line-clamp-2 min-w-0">
-                              {lr.label}
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              {groupByTags ? (
+                                <RegistryBadge
+                                  className="shrink-0 text-[10px]"
+                                  style={projectTagBadgeStyle(lr.tagColor)}
+                                >
+                                  {lr.label}
+                                </RegistryBadge>
+                              ) : (
+                                <span className="line-clamp-2 min-w-0">{lr.label}</span>
+                              )}
                             </span>
                           </div>
                           <div
@@ -477,7 +495,7 @@ export function PortfolioGanttChart({
                         </div>
                       ) : (
                         <div
-                          key={`row:${lr.row.id}`}
+                          key={`row:${lr.row.id}:${lr.sectionTag?.id ?? 'default'}`}
                           className="flex shrink-0"
                           style={{ height: PORTFOLIO_GANTT_ROW_PX }}
                         >
@@ -499,15 +517,25 @@ export function PortfolioGanttChart({
                               tooltipsEnabled={tooltipsEnabled}
                               triggerClassName="block min-w-0 flex-1 text-left"
                             >
-                              <Link
-                                href={projectDetail(lr.row.id)}
-                                className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
-                              >
-                                <span className="text-muted-foreground">
-                                  {lr.row.code}
-                                </span>{' '}
-                                · {lr.row.name}
-                              </Link>
+                              <div className="min-w-0 space-y-0.5">
+                                {lr.sectionTag ? (
+                                  <RegistryBadge
+                                    className="text-[10px]"
+                                    style={projectTagBadgeStyle(lr.sectionTag.color)}
+                                  >
+                                    {lr.sectionTag.name}
+                                  </RegistryBadge>
+                                ) : null}
+                                <Link
+                                  href={projectDetail(lr.row.id)}
+                                  className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
+                                >
+                                  <span className="text-muted-foreground">
+                                    {lr.row.code}
+                                  </span>{' '}
+                                  · {lr.row.name}
+                                </Link>
+                              </div>
                             </PortfolioGanttProjectTooltip>
                           </div>
                           {renderProjectTimelineRow(

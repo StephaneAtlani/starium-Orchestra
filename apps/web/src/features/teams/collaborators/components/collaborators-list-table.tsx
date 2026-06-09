@@ -25,6 +25,13 @@ export function CollaboratorsListTable({ items }: { items: CollaboratorListItem[
         </TableRow>
       </TableHeader>
       <TableBody>
+        {items.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+              Aucun collaborateur ne correspond aux filtres.
+            </TableCell>
+          </TableRow>
+        ) : null}
         {items.map((item) => (
           <TableRow key={item.id}>
             <TableCell>

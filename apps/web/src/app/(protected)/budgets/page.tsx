@@ -60,11 +60,7 @@ export default function BudgetsListPage() {
           <BudgetEmptyState title="Aucun budget à afficher" description="" />
         )}
 
-        {!isLoading && !error && data && data.items.length === 0 && (
-          <BudgetEmptyState title="Aucun budget à afficher" description="" />
-        )}
-
-        {!isLoading && !error && data && data.items.length > 0 && (
+        {!isLoading && !error && data && (
           <>
             <BudgetsTable data={data.items} exerciseOptions={exerciseOptions} />
             <div className="mt-3 flex items-center justify-between">

@@ -19,7 +19,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { EmptyState } from '@/components/feedback/empty-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
 import { useCollaboratorsList } from '@/features/teams/collaborators/hooks/use-collaborators-list';
@@ -187,21 +186,16 @@ export default function CollaboratorsPage() {
               </Alert>
             )}
 
-            {!listQuery.error && data && data.items.length === 0 && (
-              <EmptyState
-                title="Aucun collaborateur"
-                description="Aucun collaborateur ne correspond aux filtres."
-              />
-            )}
-
-            {!listQuery.error && data && data.items.length > 0 && (
+            {!listQuery.error && data && (
               <Card size="sm" className="overflow-hidden">
                 <CardContent className="p-0 overflow-auto">
                   <CollaboratorsListTable items={data.items} />
                 </CardContent>
                 <CardFooter className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
-                    {offset + 1}–{Math.min(offset + limit, total)} sur {total}
+                    {total === 0
+                      ? '0 résultat'
+                      : `${offset + 1}–${Math.min(offset + limit, total)} sur ${total}`}
                   </p>
                   <div className="flex items-center gap-2">
                     <Button

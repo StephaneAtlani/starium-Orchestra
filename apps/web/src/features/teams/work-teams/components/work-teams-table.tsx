@@ -25,6 +25,13 @@ export function WorkTeamsTable({ items }: { items: WorkTeamDto[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
+        {items.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+              Aucune équipe ne correspond à la recherche.
+            </TableCell>
+          </TableRow>
+        ) : null}
         {items.map((t) => (
           <TableRow key={t.id}>
             <TableCell>

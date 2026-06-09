@@ -50,6 +50,7 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { listProjectPortfolioCategories, listAssignableUsers } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
+import { ProjectTagsFilter } from './project-tags-filter';
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -61,6 +62,7 @@ function formatDate(iso: string | null) {
 }
 
 const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
+const PROJECT_LIST_COLUMN_COUNT = 12;
 const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   name: 'Nom',
   targetEndDate: 'Échéance',
@@ -532,12 +534,31 @@ export function ProjectsListTable({
           <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
             —
           </TableHead>
-          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
-            —
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
+            <ProjectTagsFilter
+              compact
+              value={filters.tagIds ?? []}
+              matchMode={filters.tagIdsMatch ?? 'any'}
+              onMatchModeChange={(tagIdsMatch) => setFilters({ tagIdsMatch })}
+              onChange={(tagIds) =>
+                setFilters({ tagIds: tagIds.length > 0 ? tagIds : undefined })
+              }
+            />
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
+        {items.length === 0 ? (
+          <TableRow>
+            <TableCell
+              colSpan={PROJECT_LIST_COLUMN_COUNT}
+              className="py-10 text-center text-sm text-muted-foreground"
+            >
+              Aucun projet ne correspond à ce périmètre. Élargissez les filtres ou créez un nouveau
+              projet.
+            </TableCell>
+          </TableRow>
+        ) : null}
         {items.map((p) => (
           <TableRow key={p.id} className="group">
             <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))] whitespace-normal break-words min-w-[11rem] max-w-[15rem]">

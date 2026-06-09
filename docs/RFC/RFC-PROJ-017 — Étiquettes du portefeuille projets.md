@@ -109,6 +109,14 @@ sur :
 ### Liste portefeuille
 
 - Colonne dédiée `Étiquettes` avec badges colorés.
+- **Filtre multi-sélection** par étiquettes dans l’en-tête du tableau `/projects` et dans la barre de filtres du Gantt portefeuille.
+- Mode **OU / ET** (`tagIdsMatch=any|all`) dès que 2 étiquettes ou plus sont sélectionnées.
+- Query API partagée : `tagIds=id1,id2` (+ `tagIdsMatch` optionnel) sur `GET /api/projects` et `GET /api/projects/portfolio-gantt`.
+
+### Gantt portefeuille
+
+- Toggle optionnel **« Regrouper par étiquettes »** (désactivé par défaut) : regroupe les lignes par `tag.name` au lieu de la catégorie portefeuille.
+- Un projet multi-étiquettes peut apparaître sous plusieurs sections (N:N) ; l’UI signale ce comportement.
 
 ---
 
@@ -118,6 +126,8 @@ Validé côté backend :
 
 - tests service tags (CRUD, refus inter-client, idempotence assignation),
 - test transactionnel suppression tag + cleanup assignations,
+- tests filtre `tagIds` sur `list()` et `getPortfolioGantt()` (OR, tag hors client, payload `tags[]` Gantt),
+- validation DTO `tagIds` (format CSV, CUID),
 - typecheck API.
 
 ---

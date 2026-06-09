@@ -22,6 +22,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { listProjectPortfolioCategories } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { ProjectTagsFilter } from './project-tags-filter';
 
 const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   name: 'Nom',
@@ -56,6 +57,11 @@ export interface ProjectsPortfolioFiltersBarProps {
     enabled: boolean;
     onEnabledChange: (enabled: boolean) => void;
   };
+  /** Gantt portefeuille : regroupement optionnel par étiquettes. */
+  portfolioGanttGroupByTags?: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+  };
 }
 
 export function ProjectsPortfolioFiltersBar({
@@ -65,6 +71,7 @@ export function ProjectsPortfolioFiltersBar({
   portfolioGanttZoom,
   portfolioGanttTooltips,
   portfolioGanttInlineInfos,
+  portfolioGanttGroupByTags,
 }: ProjectsPortfolioFiltersBarProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -253,6 +260,18 @@ export function ProjectsPortfolioFiltersBar({
           </Select>
         </div>
 
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Étiquettes</Label>
+          <ProjectTagsFilter
+            value={filters.tagIds ?? []}
+            matchMode={filters.tagIdsMatch ?? 'any'}
+            onMatchModeChange={(tagIdsMatch) => setFilters({ tagIdsMatch })}
+            onChange={(tagIds) =>
+              setFilters({ tagIds: tagIds.length > 0 ? tagIds : undefined })
+            }
+          />
+        </div>
+
         <div className="space-y-1.5">
           <Label className="text-xs">Trier par</Label>
           <Select
@@ -377,6 +396,20 @@ export function ProjectsPortfolioFiltersBar({
               onChange={(e) => portfolioGanttInlineInfos.onEnabledChange(e.target.checked)}
             />
             <span>Infos ligne Gantt</span>
+          </label>
+        ) : null}
+        {portfolioGanttGroupByTags ? (
+          <label
+            className="flex cursor-pointer items-center gap-2 text-xs"
+            title="Un projet avec plusieurs étiquettes peut apparaître sous chaque section correspondante."
+          >
+            <input
+              type="checkbox"
+              className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+              checked={portfolioGanttGroupByTags.enabled}
+              onChange={(e) => portfolioGanttGroupByTags.onEnabledChange(e.target.checked)}
+            />
+            <span>Regrouper par étiquettes</span>
           </label>
         ) : null}
       </div>

@@ -805,6 +805,26 @@ export class ProjectsService {
       });
     }
 
+    if (query.tagIds?.length) {
+      const tagIds = query.tagIds;
+      const matchAll = query.tagIdsMatch === 'all' && tagIds.length > 1;
+      andFilters.push(
+        matchAll
+          ? {
+              AND: tagIds.map((tagId) => ({
+                tagAssignments: {
+                  some: { tagId, clientId },
+                },
+              })),
+            }
+          : {
+              tagAssignments: {
+                some: { tagId: { in: tagIds }, clientId },
+              },
+            },
+      );
+    }
+
     if (andFilters.length > 0) {
       where.AND = andFilters;
     }

@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
@@ -161,7 +162,11 @@ function LoginPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  type SubmitAction = 'password' | 'microsoft' | 'mfa' | null;
+  const [submitAction, setSubmitAction] = useState<SubmitAction>(null);
+  const formBusy =
+    submitAction === 'password' || submitAction === 'microsoft';
+  const mfaBusy = submitAction === 'mfa';
   const [mfaStep, setMfaStep] = useState<'none' | 'totp' | 'email' | 'recovery'>('none');
   const [mfaChallengeId, setMfaChallengeId] = useState<string | null>(null);
   const [mfaOtp, setMfaOtp] = useState('');
@@ -174,8 +179,6 @@ function LoginPageContent() {
   const [passwordLoginAllowed, setPasswordLoginAllowed] = useState<
     boolean | null
   >(null);
-  const [checkingPasswordEligibility, setCheckingPasswordEligibility] =
-    useState(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -220,7 +223,7 @@ function LoginPageContent() {
 
     didHandleMicrosoftCallback.current = true;
     ssoFlowInProgress.current = true;
-    setSubmitting(true);
+    setSubmitAction('microsoft');
     void completeMicrosoftSso(accessToken, refreshToken)
       .then(async ({ user: loggedInUser, accessToken: token }) => {
         const res = await fetch('/api/me/clients', {
@@ -258,7 +261,7 @@ function LoginPageContent() {
       })
       .finally(() => {
         ssoFlowInProgress.current = false;
-        setSubmitting(false);
+        setSubmitAction(null);
       });
   }, [completeMicrosoftSso, router, searchParams, setActiveClient]);
 
@@ -268,37 +271,37 @@ function LoginPageContent() {
       setPasswordLoginAllowed(null);
       return;
     }
-    setCheckingPasswordEligibility(true);
     try {
       const { passwordLoginAllowed: allowed } =
         await fetchPasswordLoginEligibilityApi(trimmed);
       setPasswordLoginAllowed(allowed);
-    } finally {
-      setCheckingPasswordEligibility(false);
+    } catch {
+      setPasswordLoginAllowed(null);
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (formBusy) return;
+    setError(null);
+    setSubmitAction('password');
     let allowed = passwordLoginAllowed;
     if (looksLikeEmail(email) && allowed === null) {
-      setCheckingPasswordEligibility(true);
       try {
         const r = await fetchPasswordLoginEligibilityApi(email.trim());
         allowed = r.passwordLoginAllowed;
         setPasswordLoginAllowed(allowed);
-      } finally {
-        setCheckingPasswordEligibility(false);
+      } catch {
+        allowed = true;
       }
     }
     if (allowed === false) {
       setError(
         'Connexion par mot de passe désactivée pour ce compte. Utilisez « Se connecter avec Microsoft ».',
       );
+      setSubmitAction(null);
       return;
     }
-    setError(null);
-    setSubmitting(true);
     didLoginThisSession.current = true;
     try {
       const outcome = await login(email, password);
@@ -308,7 +311,7 @@ function LoginPageContent() {
         setMfaOtp('');
         setMfaEmailCode('');
         setTrustThisDevice(true);
-        setSubmitting(false);
+        setSubmitAction(null);
         return;
       }
       const { user: loggedInUser, accessToken } = outcome;
@@ -349,18 +352,18 @@ function LoginPageContent() {
       router.replace(resolution.to);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
-    } finally {
-      setSubmitting(false);
+      setSubmitAction(null);
     }
   }
 
   async function handleMicrosoftSsoStart() {
+    if (formBusy) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitAction('microsoft');
     const result = await startMicrosoftSso();
     if (!result.ok) {
       setError(result.message);
-      setSubmitting(false);
+      setSubmitAction(null);
     }
   }
 
@@ -368,7 +371,7 @@ function LoginPageContent() {
     e.preventDefault();
     if (!mfaChallengeId) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitAction('mfa');
     try {
       const { user: loggedInUser, accessToken } = await completeMfaTotp(
         mfaChallengeId,
@@ -414,8 +417,7 @@ function LoginPageContent() {
       router.replace(resolution.to);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code MFA invalide');
-    } finally {
-      setSubmitting(false);
+      setSubmitAction(null);
     }
   }
 
@@ -439,7 +441,7 @@ function LoginPageContent() {
     e.preventDefault();
     if (!mfaChallengeId) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitAction('mfa');
     try {
       const { user: loggedInUser, accessToken } = await completeMfaEmail(
         mfaChallengeId,
@@ -485,8 +487,7 @@ function LoginPageContent() {
       router.replace(resolution.to);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code invalide');
-    } finally {
-      setSubmitting(false);
+      setSubmitAction(null);
     }
   }
 
@@ -494,7 +495,7 @@ function LoginPageContent() {
     e.preventDefault();
     if (!mfaChallengeId) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitAction('mfa');
     try {
       const { user: loggedInUser, accessToken } = await completeMfaRecovery(
         mfaChallengeId,
@@ -540,8 +541,7 @@ function LoginPageContent() {
       router.replace(resolution.to);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code de secours invalide');
-    } finally {
-      setSubmitting(false);
+      setSubmitAction(null);
     }
   }
 
@@ -589,15 +589,13 @@ function LoginPageContent() {
                 Se connecter
               </CardTitle>
               <CardDescription className="mb-6">
-                {isLoading
-                  ? 'Vérification de votre session…'
-                  : mfaStep === 'none'
-                    ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
-                    : mfaStep === 'totp'
-                      ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
-                      : mfaStep === 'email'
-                        ? 'Saisissez le code à 6 chiffres reçu par email.'
-                        : 'Saisissez un de vos codes de secours à usage unique.'}
+                {mfaStep === 'none'
+                  ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
+                  : mfaStep === 'totp'
+                    ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
+                    : mfaStep === 'email'
+                      ? 'Saisissez le code à 6 chiffres reçu par email.'
+                      : 'Saisissez un de vos codes de secours à usage unique.'}
               </CardDescription>
               {mfaStep === 'none' && (
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -613,6 +611,7 @@ function LoginPageContent() {
                         setPasswordLoginAllowed(null);
                       }}
                       onBlur={() => void refreshPasswordEligibility()}
+                      disabled={formBusy}
                       required
                     />
                   </div>
@@ -630,7 +629,7 @@ function LoginPageContent() {
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      disabled={passwordLoginAllowed === false}
+                      disabled={formBusy || passwordLoginAllowed === false}
                       required={passwordLoginAllowed !== false}
                     />
                   </div>
@@ -642,23 +641,40 @@ function LoginPageContent() {
                   <Button
                     type="submit"
                     className="mt-2 w-full"
-                    disabled={
-                      isLoading ||
-                      submitting ||
-                      passwordLoginAllowed === false ||
-                      checkingPasswordEligibility
-                    }
+                    disabled={formBusy}
+                    aria-busy={submitAction === 'password'}
                   >
-                    {submitting ? 'Connexion…' : 'Se connecter'}
+                    {submitAction === 'password' ? (
+                      <>
+                        <Loader2
+                          className="size-4 animate-spin"
+                          aria-hidden
+                        />
+                        Connexion…
+                      </>
+                    ) : (
+                      'Se connecter'
+                    )}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full"
-                    disabled={isLoading || submitting}
+                    disabled={formBusy}
+                    aria-busy={submitAction === 'microsoft'}
                     onClick={() => void handleMicrosoftSsoStart()}
                   >
-                    Se connecter avec Microsoft
+                    {submitAction === 'microsoft' ? (
+                      <>
+                        <Loader2
+                          className="size-4 animate-spin"
+                          aria-hidden
+                        />
+                        Redirection…
+                      </>
+                    ) : (
+                      'Se connecter avec Microsoft'
+                    )}
                   </Button>
                 </form>
               )}
@@ -699,15 +715,26 @@ function LoginPageContent() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={submitting}
+                      disabled={mfaBusy || emailSending}
+                      aria-busy={mfaBusy}
                     >
-                      {submitting ? 'Vérification…' : 'Valider'}
+                      {mfaBusy ? (
+                        <>
+                          <Loader2
+                            className="size-4 animate-spin"
+                            aria-hidden
+                          />
+                          Vérification…
+                        </>
+                      ) : (
+                        'Valider'
+                      )}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       className="w-full"
-                      disabled={emailSending || submitting}
+                      disabled={emailSending || mfaBusy}
                       onClick={() => void handleSendEmailOtp()}
                     >
                       {emailSending
@@ -774,9 +801,20 @@ function LoginPageContent() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={submitting}
+                      disabled={mfaBusy || emailSending}
+                      aria-busy={mfaBusy}
                     >
-                      {submitting ? 'Vérification…' : 'Valider le code'}
+                      {mfaBusy ? (
+                        <>
+                          <Loader2
+                            className="size-4 animate-spin"
+                            aria-hidden
+                          />
+                          Vérification…
+                        </>
+                      ) : (
+                        'Valider le code'
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -850,9 +888,20 @@ function LoginPageContent() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={submitting}
+                      disabled={mfaBusy || emailSending}
+                      aria-busy={mfaBusy}
                     >
-                      {submitting ? 'Vérification…' : 'Valider le code de secours'}
+                      {mfaBusy ? (
+                        <>
+                          <Loader2
+                            className="size-4 animate-spin"
+                            aria-hidden
+                          />
+                          Vérification…
+                        </>
+                      ) : (
+                        'Valider le code de secours'
+                      )}
                     </Button>
                     <Button
                       type="button"

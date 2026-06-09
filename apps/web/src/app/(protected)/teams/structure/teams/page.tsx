@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { WorkTeamFormDialog } from '@/features/teams/work-teams/components/work-team-form-dialog';
@@ -140,18 +139,7 @@ export default function WorkTeamsListPage() {
             </Alert>
           )}
 
-          {view === 'table' && !listQuery.error && data && data.items.length === 0 && (
-            <EmptyState
-              title="Aucune équipe"
-              description={
-                includeArchived
-                  ? 'Aucune équipe ne correspond à la recherche.'
-                  : 'Créez une équipe ou incluez les archives.'
-              }
-            />
-          )}
-
-          {view === 'table' && !listQuery.error && data && data.items.length > 0 && (
+          {view === 'table' && !listQuery.error && data && (
             <Card size="sm" className="overflow-hidden">
               <CardContent className="p-0 overflow-auto">
                 <WorkTeamsTable items={data.items} />

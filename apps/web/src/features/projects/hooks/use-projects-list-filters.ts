@@ -32,6 +32,10 @@ export type ProjectsListFilters = {
   myRole?: string;
   /** Filtre par chef de projet (utilisateur client). */
   ownerUserId?: string;
+  /** RFC-PROJ-017 — filtre par étiquettes portefeuille. */
+  tagIds?: string[];
+  /** `any` = OU (défaut), `all` = ET — pertinent à partir de 2 étiquettes. */
+  tagIdsMatch?: 'any' | 'all';
   sortBy: ProjectsSortBy;
   sortOrder: 'asc' | 'desc';
   atRiskOnly: boolean;
@@ -71,6 +75,8 @@ export function useProjectsListFilters(): {
     computedHealth: undefined,
     myRole: undefined,
     ownerUserId: undefined,
+    tagIds: undefined,
+    tagIdsMatch: 'any',
     page: PROJECTS_DEFAULT_PAGE,
     limit: PROJECTS_DEFAULT_LIMIT,
     sortBy: 'targetEndDate',
@@ -93,6 +99,8 @@ export function useProjectsListFilters(): {
             'computedHealth' in updates ||
             'myRole' in updates ||
             'ownerUserId' in updates ||
+            'tagIds' in updates ||
+            'tagIdsMatch' in updates ||
             'sortBy' in updates ||
             'sortOrder' in updates ||
             'atRiskOnly' in updates ||
@@ -118,6 +126,8 @@ export function useProjectsListFilters(): {
       computedHealth: undefined,
       myRole: undefined,
       ownerUserId: undefined,
+      tagIds: undefined,
+      tagIdsMatch: 'any',
       page: PROJECTS_DEFAULT_PAGE,
       limit: PROJECTS_DEFAULT_LIMIT,
       sortBy: 'targetEndDate',
@@ -142,6 +152,11 @@ export function useProjectsListFilters(): {
       ...(filters.computedHealth && { computedHealth: filters.computedHealth }),
       ...(filters.myRole && { myRole: filters.myRole }),
       ...(filters.ownerUserId && { ownerUserId: filters.ownerUserId }),
+      ...(filters.tagIds?.length && {
+        tagIds: filters.tagIds.join(','),
+        ...(filters.tagIds.length > 1 &&
+          filters.tagIdsMatch === 'all' && { tagIdsMatch: 'all' as const }),
+      }),
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       ...(filters.atRiskOnly && { atRiskOnly: true }),

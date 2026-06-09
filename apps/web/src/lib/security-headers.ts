@@ -18,7 +18,12 @@ function buildConnectSrc(): string {
 }
 
 export function buildContentSecurityPolicy(): string {
-  return [
+  const isDev = process.env.NODE_ENV === 'development';
+  // Next.js dev (react-refresh / webpack) requiert unsafe-eval ; interdit en prod.
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
+  const directives = [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
@@ -27,10 +32,13 @@ export function buildContentSecurityPolicy(): string {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "script-src 'self' 'unsafe-inline'",
+    scriptSrc,
     `connect-src ${buildConnectSrc()}`,
-    'upgrade-insecure-requests',
-  ].join('; ');
+  ];
+  if (!isDev) {
+    directives.push('upgrade-insecure-requests');
+  }
+  return directives.join('; ');
 }
 
 export const SECURITY_HEADERS: HeaderEntry[] = [

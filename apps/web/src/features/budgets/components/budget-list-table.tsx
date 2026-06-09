@@ -36,13 +36,6 @@ export function BudgetListTable<T>({
   emptyMessage = 'Aucune donnée',
   'data-testid': dataTestId = 'budget-list-table',
 }: BudgetListTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <div className="py-8 text-center text-sm text-muted-foreground" data-testid={`${dataTestId}-empty`}>
-        {emptyMessage}
-      </div>
-    );
-  }
   return (
     <Table data-testid={dataTestId}>
       <TableHeader>
@@ -55,15 +48,26 @@ export function BudgetListTable<T>({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((row) => (
-          <TableRow key={keyExtractor(row)}>
-            {columns.map((col) => (
-              <TableCell key={col.key} className={col.className}>
-                {col.render(row)}
-              </TableCell>
-            ))}
+        {data.length === 0 ? (
+          <TableRow data-testid={`${dataTestId}-empty`}>
+            <TableCell
+              colSpan={columns.length}
+              className="py-8 text-center text-sm text-muted-foreground"
+            >
+              {emptyMessage}
+            </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          data.map((row) => (
+            <TableRow key={keyExtractor(row)}>
+              {columns.map((col) => (
+                <TableCell key={col.key} className={col.className}>
+                  {col.render(row)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );

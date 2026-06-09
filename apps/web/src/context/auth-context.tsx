@@ -171,7 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (!res.ok) {
         clearSession();
-        setIsLoading(false);
         return null;
       }
       const data = (await res.json()) as {
@@ -180,14 +179,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       window.localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
       setAccessToken(data.accessToken);
-      const profile = await getMe(data.accessToken);
+      const profile = await Promise.race([
+        getMe(data.accessToken),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error('Profil utilisateur indisponible')),
+            REFRESH_SESSION_TIMEOUT_MS,
+          );
+        }),
+      ]);
       setUser(profileToAuthUser(profile));
-      setIsLoading(false);
       return data.accessToken;
     } catch {
       clearSession();
-      setIsLoading(false);
       return null;
+    } finally {
+      setIsLoading(false);
     }
   }, [clearSession]);
 
@@ -343,11 +350,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const stored = window.localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (stored) {
-      void refreshSession();
-    } else {
+    const onLoginPage = window.location.pathname.startsWith('/login');
+    if (!stored) {
+      setIsLoading(false);
+      return;
+    }
+    if (onLoginPage) {
+      // Ne pas bloquer le formulaire login pendant un refresh en arrière-plan.
       setIsLoading(false);
     }
+    void refreshSession();
   }, [refreshSession]);
 
   const value: AuthContextValue = {
