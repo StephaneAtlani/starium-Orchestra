@@ -903,6 +903,10 @@ export class ProjectsService {
       );
     }
 
+    if (query.lateOnly) {
+      enriched = enriched.filter((item) => item.signals.isLate);
+    }
+
     const sortBy = query.sortBy ?? 'targetEndDate';
     const order = query.sortOrder ?? 'asc';
     const mult = order === 'desc' ? -1 : 1;

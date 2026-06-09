@@ -55,3 +55,16 @@ describe('ListProjectsQueryDto — tagIds', () => {
     expect(errors.some((e) => e.property === 'tagIdsMatch')).toBe(true);
   });
 });
+
+describe('ListProjectsQueryDto — filtres booléens', () => {
+  it('parse lateOnly et atRiskOnly depuis 1 ou true', async () => {
+    const dto = plainToInstance(ListProjectsQueryDto, {
+      lateOnly: '1',
+      atRiskOnly: 'true',
+    });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.lateOnly).toBe(true);
+    expect(dto.atRiskOnly).toBe(true);
+  });
+});

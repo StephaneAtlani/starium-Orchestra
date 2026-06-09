@@ -91,6 +91,7 @@ export async function getPortfolioGantt(
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;
+    lateOnly?: boolean;
     myProjectsOnly?: boolean;
   },
 ): Promise<PortfolioGanttResponse> {
@@ -118,6 +119,7 @@ export async function listProjects(
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     atRiskOnly?: boolean;
+    lateOnly?: boolean;
     myProjectsOnly?: boolean;
   },
 ): Promise<ProjectsListResponse> {

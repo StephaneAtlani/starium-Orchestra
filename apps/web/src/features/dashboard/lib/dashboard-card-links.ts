@@ -54,7 +54,7 @@ export function dashboardProjectKpiHref(key: DashboardProjectKpiKey): string {
     case 'completedProjects':
       return projectsList({ status: 'COMPLETED' });
     case 'lateProjects':
-      return projectsList({ atRiskOnly: true });
+      return projectsList({ lateOnly: true });
     case 'criticalProjects':
       return projectsList({ computedHealth: 'RED' });
     case 'blockedProjects':

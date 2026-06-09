@@ -40,6 +40,8 @@ export type ProjectsListFilters = {
   sortBy: ProjectsSortBy;
   sortOrder: 'asc' | 'desc';
   atRiskOnly: boolean;
+  /** Projets en retard (`signals.isLate`) — aligné KPI dashboard. */
+  lateOnly: boolean;
   myProjectsOnly: boolean;
 };
 
@@ -78,6 +80,10 @@ function parseFiltersFromSearchParams(
   if (atRiskOnly === '1' || atRiskOnly === 'true') {
     out.atRiskOnly = true;
   }
+  const lateOnly = searchParams.get('lateOnly');
+  if (lateOnly === '1' || lateOnly === 'true') {
+    out.lateOnly = true;
+  }
   return out;
 }
 
@@ -110,6 +116,7 @@ export function useProjectsListFilters(): {
     sortBy: 'targetEndDate',
     sortOrder: 'asc',
     atRiskOnly: false,
+    lateOnly: false,
     myProjectsOnly: false,
     ...urlFilters,
   }));
@@ -117,7 +124,10 @@ export function useProjectsListFilters(): {
   useEffect(() => {
     setFiltersState((prev) => ({
       ...prev,
-      ...urlFilters,
+      status: urlFilters.status,
+      computedHealth: urlFilters.computedHealth,
+      atRiskOnly: urlFilters.atRiskOnly ?? false,
+      lateOnly: urlFilters.lateOnly ?? false,
       page: PROJECTS_DEFAULT_PAGE,
     }));
   }, [urlFilters]);
@@ -141,6 +151,7 @@ export function useProjectsListFilters(): {
             'sortBy' in updates ||
             'sortOrder' in updates ||
             'atRiskOnly' in updates ||
+            'lateOnly' in updates ||
             'myProjectsOnly' in updates) &&
           updates.page === undefined
         ) {
@@ -170,6 +181,7 @@ export function useProjectsListFilters(): {
       sortBy: 'targetEndDate',
       sortOrder: 'asc',
       atRiskOnly: false,
+      lateOnly: false,
       myProjectsOnly: false,
     });
   }, []);
@@ -197,6 +209,7 @@ export function useProjectsListFilters(): {
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       ...(filters.atRiskOnly && { atRiskOnly: true }),
+      ...(filters.lateOnly && { lateOnly: true }),
       ...(filters.myProjectsOnly && { myProjectsOnly: true }),
     };
   }, [filters]);

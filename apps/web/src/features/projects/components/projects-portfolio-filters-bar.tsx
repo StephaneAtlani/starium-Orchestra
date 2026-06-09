@@ -365,8 +365,21 @@ export function ProjectsPortfolioFiltersBar({
           <input
             type="checkbox"
             className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+            checked={filters.lateOnly}
+            onChange={(e) =>
+              setFilters({ lateOnly: e.target.checked, atRiskOnly: false })
+            }
+          />
+          <span>En retard (date cible dépassée)</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
             checked={filters.atRiskOnly}
-            onChange={(e) => setFilters({ atRiskOnly: e.target.checked })}
+            onChange={(e) =>
+              setFilters({ atRiskOnly: e.target.checked, lateOnly: false })
+            }
           />
           <span>À risque (santé ≠ bon ou bloqué / retard)</span>
         </label>

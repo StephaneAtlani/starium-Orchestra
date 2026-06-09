@@ -86,6 +86,18 @@ export function ProjectsToolbar({
           ) : null}
           <Button
             type="button"
+            variant={filters.lateOnly ? 'default' : 'outline'}
+            size="sm"
+            className="shrink-0"
+            onClick={() =>
+              setFilters({ lateOnly: !filters.lateOnly, atRiskOnly: false })
+            }
+            title="Date cible dépassée (signal retard)"
+          >
+            En retard
+          </Button>
+          <Button
+            type="button"
             variant={filters.myProjectsOnly ? 'default' : 'outline'}
             size="sm"
             className="shrink-0"

@@ -18,6 +18,16 @@ import {
 } from '@prisma/client';
 import { RESOURCE_ACL_CUID_REGEX } from '../../access-control/resource-acl.constants';
 
+function parseBooleanQuery(value: unknown): boolean | undefined {
+  if (value === true || value === 'true' || value === '1' || value === 1) {
+    return true;
+  }
+  if (value === false || value === 'false' || value === '0' || value === 0) {
+    return false;
+  }
+  return undefined;
+}
+
 function parseTagIdsQuery(value: unknown): string[] | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   const parts = String(value)
@@ -82,12 +92,18 @@ export class ListProjectsQueryDto {
   sortOrder?: 'asc' | 'desc' = 'asc';
 
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
+  @Transform(({ value }) => parseBooleanQuery(value))
   @IsBoolean()
   atRiskOnly?: boolean;
 
+  /** Projets dont la date cible est dépassée (signal `isLate`). */
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
+  @Transform(({ value }) => parseBooleanQuery(value))
+  @IsBoolean()
+  lateOnly?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => parseBooleanQuery(value))
   @IsBoolean()
   myProjectsOnly?: boolean;
 

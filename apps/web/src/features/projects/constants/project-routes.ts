@@ -2,6 +2,8 @@ export type ProjectsListUrlFilters = {
   status?: string;
   computedHealth?: 'GREEN' | 'ORANGE' | 'RED';
   atRiskOnly?: boolean;
+  /** Aligné sur le KPI portefeuille `lateProjects` (`signals.isLate`). */
+  lateOnly?: boolean;
 };
 
 export function projectsList(filters?: ProjectsListUrlFilters): string {
@@ -10,6 +12,7 @@ export function projectsList(filters?: ProjectsListUrlFilters): string {
   if (filters.status) search.set('status', filters.status);
   if (filters.computedHealth) search.set('computedHealth', filters.computedHealth);
   if (filters.atRiskOnly) search.set('atRiskOnly', '1');
+  if (filters.lateOnly) search.set('lateOnly', '1');
   const q = search.toString();
   return q ? `/projects?${q}` : '/projects';
 }
