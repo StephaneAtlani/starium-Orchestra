@@ -218,7 +218,7 @@ export default async function ClientAdministrationPage() {
               <div>
                 <h3 className="font-semibold">Workflow demandes projet</h3>
                 <p className="text-sm text-muted-foreground">
-                  Validateurs, routage après approbation
+                  Destination après validation : projet immédiat, pool cycle de pilotage…
                 </p>
               </div>
             </CardContent>

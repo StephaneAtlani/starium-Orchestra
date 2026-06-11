@@ -17,6 +17,9 @@ export type ProjectRequestDto = {
   status: string;
   urgency: string | null;
   estimatedBudget: number | null;
+  expectedBenefits: string | null;
+  businessContext: string | null;
+  riskIfNotDone: string | null;
   requesterSummary: UserSummaryDto;
   validatorSummary: UserSummaryDto | null;
   decidedBySummary: UserSummaryDto | null;
@@ -40,9 +43,22 @@ export type WorkflowSettingsResponse = {
   stored: Record<string, unknown>;
   resolved: {
     defaultApprovedTarget: string;
+    defaultGovernanceCycleId: string | null;
     validatorSelectionMode: string;
     allowRequesterToSelectValidator: boolean;
     allowValidatorToChooseRoutingTarget: boolean;
+  };
+  options: {
+    governanceCyclesModuleEnabled: boolean;
+    governanceCycles: Array<{
+      id: string;
+      name: string;
+      code: string | null;
+      status: string;
+      activeForProjectRequestPool: boolean;
+    }>;
+    pilotingCycleTargetAvailable: boolean;
+    selectedGovernanceCycleActive: boolean;
   };
 };
 

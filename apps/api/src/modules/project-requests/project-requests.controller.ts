@@ -117,11 +117,7 @@ export class ProjectRequestsController {
   }
 
   @Post(':id/decision')
-  @RequireAnyPermissions(
-    'project_requests.read',
-    'project_requests.validate',
-    'project_requests.update',
-  )
+  @RequirePermissions('project_requests.validate')
   @RequireWriteLicense()
   decision(
     @ActiveClientId() clientId: string | undefined,

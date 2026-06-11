@@ -38,6 +38,25 @@ const ALL = 'all';
 
 const CRIT_KEYS = Object.keys(PROJECT_RISK_CRITICALITY_LABEL) as (keyof typeof PROJECT_RISK_CRITICALITY_LABEL)[];
 
+function domainFilterLabel(
+  domainId: RisksRegistryFiltersState['domainId'],
+  domains: RiskTaxonomyDomainApi[],
+): string {
+  if (domainId === ALL) return 'Tous les domaines';
+  const d = domains.find((x) => x.id === domainId);
+  if (!d) return 'Domaine (filtre obsolète — réinitialiser)';
+  return d.familyLabel ? `${d.familyLabel} — ${d.name}` : d.name;
+}
+
+function projectFilterLabel(
+  projectId: RisksRegistryFiltersState['projectId'],
+  projects: ProjectListItem[],
+): string {
+  if (projectId === ALL) return 'Tous les projets';
+  if (projectId === RISKS_REGISTRY_HORS_PROJET) return 'Hors projet';
+  return projects.find((p) => p.id === projectId)?.name ?? 'Projet (filtre obsolète — réinitialiser)';
+}
+
 function piScaleShort(n: number): string {
   const full = RISK_PI_SCALE_LABEL[String(n)];
   if (!full) return String(n);
@@ -312,7 +331,9 @@ export function RisksRegistryTable({
               disabled={filtersDisabled}
             >
               <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par domaine">
-                <SelectValue placeholder="Domaine" />
+                <span className="line-clamp-1 text-left text-sm">
+                  {domainFilterLabel(filters.domainId, taxonomyDomains)}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Tous les domaines</SelectItem>
@@ -354,7 +375,9 @@ export function RisksRegistryTable({
               disabled={filtersDisabled}
             >
               <SelectTrigger className={selectTriggerClass} aria-label="Filtrer par projet">
-                <SelectValue placeholder="Tous les projets" />
+                <span className="line-clamp-1 text-left text-sm">
+                  {projectFilterLabel(filters.projectId, projectItems)}
+                </span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Tous les projets</SelectItem>

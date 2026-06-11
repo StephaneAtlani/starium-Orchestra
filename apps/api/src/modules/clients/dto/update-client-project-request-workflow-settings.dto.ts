@@ -51,4 +51,8 @@ export class UpdateClientProjectRequestWorkflowSettingsDto {
   @IsOptional()
   @IsBoolean()
   allowValidatorToChooseRoutingTarget?: boolean;
+
+  @IsOptional()
+  @IsString()
+  defaultGovernanceCycleId?: string | null;
 }

@@ -28,6 +28,7 @@ import { ClientUiBadgesService } from './client-ui-badges.service';
 import { PlatformUiBadgeSettingsController } from './platform-ui-badge-settings.controller';
 import { PlatformUiBadgeSettingsService } from './platform-ui-badge-settings.service';
 import { ClientAdminGuard } from '../../common/guards/client-admin.guard';
+import { ClientAdminOrPlatformAdminGuard } from '../../common/guards/client-admin-or-platform-admin.guard';
 import { RiskTaxonomyModule } from '../risk-taxonomy/risk-taxonomy.module';
 import { ActivityTypesModule } from '../activity-types/activity-types.module';
 import { ProcurementModule } from '../procurement/procurement.module';
@@ -66,6 +67,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientUiBadgesService,
     PlatformUiBadgeSettingsService,
     ClientAdminGuard,
+    ClientAdminOrPlatformAdminGuard,
     ActiveClientGuard,
     ModuleAccessGuard,
     PermissionsGuard,

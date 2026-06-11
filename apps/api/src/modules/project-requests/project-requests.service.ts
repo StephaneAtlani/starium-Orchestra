@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import {
   ClientUserStatus,
+  NotificationStatus,
+  NotificationType,
   Prisma,
   ProjectRequest,
   ProjectRequestRoutingTarget,
@@ -24,6 +26,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { AccessControlService } from '../access-control/access-control.service';
 import { ClientProjectRequestWorkflowSettingsService } from '../clients/client-project-request-workflow-settings.service';
+import { EmailService } from '../email/email.service';
 import {
   assertMembershipLicense,
   type MembershipWithSubscription,
@@ -46,6 +49,7 @@ import { ProjectRequestCancelDto } from './dto/project-request-cancel.dto';
 import { toUserSummary } from './project-request-user.util';
 import { ProjectRequestWorkflowService } from './project-request-workflow.service';
 import { ProjectRequestToProjectConverter } from './project-request-to-project.converter';
+import { ProjectRequestPilotingCycleRoutingService } from './project-request-piloting-cycle-routing.service';
 
 const userSelect = {
   select: { id: true, email: true, firstName: true, lastName: true },
@@ -70,6 +74,8 @@ export class ProjectRequestsService {
     private readonly workflowSettings: ClientProjectRequestWorkflowSettingsService,
     private readonly workflow: ProjectRequestWorkflowService,
     private readonly converter: ProjectRequestToProjectConverter,
+    private readonly emailService: EmailService,
+    private readonly pilotingCycleRouting: ProjectRequestPilotingCycleRoutingService,
   ) {}
 
   private async loadMembership(
@@ -690,21 +696,160 @@ export class ProjectRequestsService {
       requestId: context?.meta?.requestId,
     });
 
+    await this.notifyValidatorOnSubmit(clientId, existing, actorUserId);
+
     return this.getById(clientId, actorUserId, id);
   }
 
-  private async assertCanDecide(
-    request: ProjectRequest,
-    actorUserId: string,
-    codes: Set<string>,
-  ): Promise<void> {
-    const isValidator = request.validatorUserId === actorUserId;
-    const canUpdate = this.hasPerm(codes, 'project_requests.update');
-    if (!isValidator && !canUpdate) {
+  private assertCanDecide(request: ProjectRequest, actorUserId: string): void {
+    if (request.validatorUserId !== actorUserId) {
       throw new ForbiddenException(
-        'Seul le validateur désigné ou un administrateur peut décider',
+        'Seul le validateur désigné peut décider sur cette demande',
       );
     }
+  }
+
+  private async notifyValidatorOnSubmit(
+    clientId: string,
+    request: ProjectRequest,
+    actorUserId: string,
+  ): Promise<void> {
+    const validatorUserId = request.validatorUserId;
+    if (!validatorUserId) return;
+
+    const [validator, requester] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: validatorUserId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      }),
+    ]);
+    if (!validator?.email) return;
+
+    const requesterLabel = requester
+      ? toUserSummary(requester).displayName
+      : 'Un demandeur';
+    const title = 'Demande projet à valider';
+    const message = `${requesterLabel} a soumis la demande « ${request.title} » pour votre validation.`;
+    const actionUrl = `/projects/requests/${request.id}`;
+
+    await this.prisma.notification.create({
+      data: {
+        clientId,
+        userId: validator.id,
+        type: NotificationType.INFO,
+        title,
+        message,
+        status: NotificationStatus.UNREAD,
+        entityType: 'project_request',
+        entityId: request.id,
+        entityLabel: request.title,
+        actionUrl,
+      },
+    });
+
+    await this.emailService.queueEmail({
+      clientId,
+      createdByUserId: actorUserId,
+      recipient: validator.email,
+      templateKey: 'generic_notification',
+      title,
+      message,
+      actionUrl,
+    });
+  }
+
+  private async notifyRequesterOnDecision(
+    clientId: string,
+    requestId: string,
+    actorUserId: string,
+    outcome: 'APPROVED' | 'REJECTED' | 'NEEDS_MORE_INFO',
+    comment?: string | null,
+  ): Promise<void> {
+    const request = await this.prisma.projectRequest.findFirst({
+      where: { id: requestId, clientId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        routingStatus: true,
+        requesterUserId: true,
+        convertedProject: { select: { code: true } },
+      },
+    });
+    if (!request) return;
+
+    const requesterUserId = request.requesterUserId;
+    if (requesterUserId === actorUserId) return;
+
+    const [requester, validator] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: requesterUserId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { email: true, firstName: true, lastName: true },
+      }),
+    ]);
+    if (!requester?.email) return;
+
+    const validatorLabel = validator
+      ? toUserSummary({ ...validator, id: actorUserId }).displayName
+      : 'Le validateur';
+    const actionUrl = `/projects/requests/${request.id}`;
+    const commentSuffix = comment?.trim()
+      ? ` Commentaire : ${comment.trim()}`
+      : '';
+
+    let title: string;
+    let message: string;
+
+    if (outcome === 'REJECTED') {
+      title = 'Demande projet refusée';
+      message = `${validatorLabel} a refusé votre demande « ${request.title} ».${commentSuffix}`;
+    } else if (outcome === 'NEEDS_MORE_INFO') {
+      title = 'Compléments demandés sur votre demande projet';
+      message = `${validatorLabel} demande des précisions sur « ${request.title} ».${commentSuffix}`;
+    } else if (request.status === ProjectRequestStatus.CONVERTED_TO_PROJECT) {
+      const projectCode = request.convertedProject?.code ?? 'projet brouillon';
+      title = 'Demande projet approuvée — projet créé';
+      message = `${validatorLabel} a approuvé « ${request.title} ». Un projet brouillon (${projectCode}) a été créé dans le portefeuille.${commentSuffix}`;
+    } else if (request.routingStatus === 'ROUTED_TO_PILOTING_CYCLE') {
+      title = 'Demande projet approuvée — pool cycle de pilotage';
+      message = `${validatorLabel} a approuvé « ${request.title} ». Elle a été ajoutée au pool du cycle de pilotage configuré.${commentSuffix}`;
+    } else {
+      title = 'Demande projet approuvée';
+      message = `${validatorLabel} a approuvé « ${request.title} ». Elle est en attente de routage vers le portefeuille.${commentSuffix}`;
+    }
+
+    await this.prisma.notification.create({
+      data: {
+        clientId,
+        userId: requester.id,
+        type: NotificationType.INFO,
+        title,
+        message,
+        status: NotificationStatus.UNREAD,
+        entityType: 'project_request',
+        entityId: request.id,
+        entityLabel: request.title,
+        actionUrl,
+      },
+    });
+
+    await this.emailService.queueEmail({
+      clientId,
+      createdByUserId: actorUserId,
+      recipient: requester.email,
+      templateKey: 'generic_notification',
+      title,
+      message,
+      actionUrl,
+    });
   }
 
   async decision(
@@ -715,7 +860,6 @@ export class ProjectRequestsService {
     context?: AuditContext,
   ) {
     await this.assertWriteLicense(clientId, actorUserId);
-    const codes = await this.permissionCodes(clientId, actorUserId);
     const existing = await this.findInClientOrThrow(clientId, id);
     await this.assertCanWrite(clientId, actorUserId, id);
 
@@ -723,7 +867,7 @@ export class ProjectRequestsService {
       throw new BadRequestException('Décision possible uniquement sur demande soumise');
     }
 
-    await this.assertCanDecide(existing, actorUserId, codes);
+    this.assertCanDecide(existing, actorUserId);
 
     const now = new Date();
 
@@ -759,8 +903,11 @@ export class ProjectRequestsService {
         },
       });
       const refreshed = await this.findInClientOrThrow(clientId, id);
+      const membership = await this.loadMembership(clientId, actorUserId);
       await this.workflow.applyAfterApproval(clientId, refreshed, settings, {
         actorUserId,
+        meta: context?.meta,
+        membership,
       });
     }
 
@@ -775,6 +922,14 @@ export class ProjectRequestsService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+
+    await this.notifyRequesterOnDecision(
+      clientId,
+      id,
+      actorUserId,
+      dto.outcome,
+      dto.comment,
+    );
 
     return this.getById(clientId, actorUserId, id);
   }
@@ -803,6 +958,29 @@ export class ProjectRequestsService {
         id,
         { actorUserId, meta: context?.meta, membership },
       );
+      return this.getById(clientId, actorUserId, updated.id);
+    }
+
+    if (dto.target === ProjectRequestRoutingTarget.PILOTING_CYCLE) {
+      const { stored: settings } = await this.workflowSettings.getActive(clientId);
+      const updated =
+        await this.pilotingCycleRouting.routeApprovedToPilotingCycleIfEligible(
+          clientId,
+          existing,
+          settings,
+          { actorUserId, meta: context?.meta, membership },
+        );
+      await this.auditLogs.create({
+        clientId,
+        userId: actorUserId,
+        action: 'project_request.routed',
+        resourceType: 'project_request',
+        resourceId: id,
+        newValue: { target: dto.target },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
       return this.getById(clientId, actorUserId, updated.id);
     }
 

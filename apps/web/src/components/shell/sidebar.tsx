@@ -256,11 +256,20 @@ export function Sidebar() {
 
                 const isProjets = item.label === 'Projets';
                 if (isProjets) {
-                  const projectsChildren = [
+                  const projectsChildren: { label: string; href: string }[] = [
                     { label: 'Portefeuille projet', href: '/projects' },
-                    { label: 'Demandes projet', href: '/projects/requests' },
                     { label: 'Option', href: '/projects/options' },
                   ];
+                  if (
+                    permsSuccess &&
+                    has('project_requests.read') &&
+                    isModuleVisible('project_requests')
+                  ) {
+                    projectsChildren.splice(1, 0, {
+                      label: 'Demandes projet',
+                      href: '/projects/requests',
+                    });
+                  }
 
                   const isProjectsChildActive = (href: string) => {
                     if (!pathname) return false;

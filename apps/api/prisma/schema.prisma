@@ -1654,12 +1654,17 @@ model ProjectRequestWorkflowSettings {
   allowRequesterToSelectValidator       Boolean @default(true)
   allowValidatorToChooseRoutingTarget   Boolean @default(true)
 
+  /// Cycle de pilotage cible quand defaultApprovedTarget = PILOTING_CYCLE
+  defaultGovernanceCycleId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client              Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultGovernanceCycle GovernanceCycle? @relation(fields: [defaultGovernanceCycleId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
+  @@index([defaultGovernanceCycleId])
 }
 
 /// Trace des ACL auto (demandeur / validateur) pour révocation prudente au changement de validateur.
@@ -4953,6 +4958,7 @@ model GovernanceCycle {
   client    Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   items     GovernanceCycleItem[]
   instances GovernanceCycleInstance[]
+  projectRequestWorkflowSettings ProjectRequestWorkflowSettings[]
 
   @@index([clientId])
   @@index([clientId, status])

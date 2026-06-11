@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
   ClientUserLicenseType,
   ClientUserStatus,
@@ -11,7 +11,9 @@ import { AccessControlService } from '../access-control/access-control.service';
 import { ClientProjectRequestWorkflowSettingsService } from '../clients/client-project-request-workflow-settings.service';
 import { ProjectRequestWorkflowService } from './project-request-workflow.service';
 import { ProjectRequestToProjectConverter } from './project-request-to-project.converter';
+import { ProjectRequestPilotingCycleRoutingService } from './project-request-piloting-cycle-routing.service';
 import { ProjectRequestsService } from './project-requests.service';
+import { EmailService } from '../email/email.service';
 
 describe('ProjectRequestsService', () => {
   const clientId = 'client-a';
@@ -27,6 +29,8 @@ describe('ProjectRequestsService', () => {
     };
     permission: { findFirst: jest.Mock };
     userRole: { findMany: jest.Mock };
+    user: { findUnique: jest.Mock };
+    notification: { create: jest.Mock };
     $transaction: jest.Mock;
   };
   let accessControl: {
@@ -37,6 +41,12 @@ describe('ProjectRequestsService', () => {
   let effectivePermissions: { resolvePermissionCodesForRequest: jest.Mock };
   let workflowSettings: { getActive: jest.Mock };
   let auditLogs: { create: jest.Mock };
+  let emailService: { queueEmail: jest.Mock };
+  let pilotingCycleRouting: {
+    routeApprovedToPilotingCycleIfEligible: jest.Mock;
+    markManualApproved: jest.Mock;
+    markBacklogApproved: jest.Mock;
+  };
 
   let service: ProjectRequestsService;
 
@@ -90,6 +100,28 @@ describe('ProjectRequestsService', () => {
       userRole: {
         findMany: jest.fn().mockResolvedValue([{ userId: 'validator-1' }]),
       },
+      user: {
+        findUnique: jest.fn().mockImplementation(({ where }: { where: { id: string } }) => {
+          if (where.id === 'validator-1') {
+            return Promise.resolve({
+              id: 'validator-1',
+              email: 'validator@test.com',
+              firstName: 'Val',
+              lastName: 'Idator',
+            });
+          }
+          if (where.id === actorUserId) {
+            return Promise.resolve({
+              id: actorUserId,
+              email: 'a@test.com',
+              firstName: 'A',
+              lastName: 'B',
+            });
+          }
+          return Promise.resolve(null);
+        }),
+      },
+      notification: { create: jest.fn().mockResolvedValue({ id: 'notif-1' }) },
       $transaction: jest.fn(),
     };
     accessControl = {
@@ -113,6 +145,12 @@ describe('ProjectRequestsService', () => {
       }),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    emailService = { queueEmail: jest.fn().mockResolvedValue(undefined) };
+    pilotingCycleRouting = {
+      routeApprovedToPilotingCycleIfEligible: jest.fn(),
+      markManualApproved: jest.fn(),
+      markBacklogApproved: jest.fn(),
+    };
 
     service = new ProjectRequestsService(
       prisma as unknown as PrismaService,
@@ -122,6 +160,8 @@ describe('ProjectRequestsService', () => {
       workflowSettings as unknown as ClientProjectRequestWorkflowSettingsService,
       {} as ProjectRequestWorkflowService,
       {} as ProjectRequestToProjectConverter,
+      emailService as unknown as EmailService,
+      pilotingCycleRouting as unknown as ProjectRequestPilotingCycleRoutingService,
     );
   });
 
@@ -180,5 +220,73 @@ describe('ProjectRequestsService', () => {
       }),
     );
     expect(result.status).toBe(ProjectRequestStatus.SUBMITTED);
+    expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'validator-1',
+          entityType: 'project_request',
+          entityId: requestId,
+        }),
+      }),
+    );
+    expect(emailService.queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: 'validator@test.com',
+        templateKey: 'generic_notification',
+      }),
+    );
+  });
+
+  it('decision refuse un utilisateur qui nest pas le validateur désigné', async () => {
+    prisma.projectRequest.findFirst.mockResolvedValue({
+      ...baseRequest,
+      status: ProjectRequestStatus.SUBMITTED,
+      validatorUserId: 'validator-1',
+    });
+
+    await expect(
+      service.decision(clientId, actorUserId, requestId, { outcome: 'APPROVED' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('decision notifie le demandeur (refus)', async () => {
+    prisma.projectRequest.findFirst
+      .mockResolvedValueOnce({
+        ...baseRequest,
+        status: ProjectRequestStatus.SUBMITTED,
+        validatorUserId: 'validator-1',
+      })
+      .mockResolvedValueOnce({
+        ...baseRequest,
+        status: ProjectRequestStatus.REJECTED,
+        requesterUserId: actorUserId,
+        convertedProject: null,
+      });
+    jest.spyOn(service, 'getById').mockResolvedValue({
+      ...baseRequest,
+      status: ProjectRequestStatus.REJECTED,
+    } as never);
+
+    await service.decision(
+      'validator-1',
+      'validator-1',
+      requestId,
+      { outcome: 'REJECTED', comment: 'Hors périmètre' },
+    );
+
+    expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: actorUserId,
+          title: 'Demande projet refusée',
+        }),
+      }),
+    );
+    expect(emailService.queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: 'a@test.com',
+        title: 'Demande projet refusée',
+      }),
+    );
   });
 });

@@ -33,7 +33,7 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | Multi-client | [ARCHITECTURE.md](../ARCHITECTURE.md) §4 |
 | UI (libellés, pas ID) | [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) |
 
-**Hors scope immédiat (RFCs futures)** : lien instance cycle ↔ demande ([§12](#12-intégration-avec-le-cycle-de-pilotage)), validation multi-niveaux, règles budgétaires automatiques, notifications avancées au-delà du socle existant ([RFC-038](./RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md)).
+**Hors scope immédiat (RFCs futures)** : lien instance cycle ↔ demande (ODJ séance), validation multi-niveaux, règles budgétaires automatiques, notifications avancées (règles configurables admin) au-delà du socle RFC-038.
 
 ---
 
@@ -48,13 +48,14 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 - Champs projet utiles à la conversion : `name`, `description`, `estimatedCost` (aligné `ProjectRequest.estimatedBudget`).
 - La création projet (`ProjectsService.create`) exige aujourd’hui des champs structurels (`code`, `type`, `priority`, `criticality`, etc.) — la conversion depuis une demande devra **dériver des valeurs par défaut client-safe** documentées en §I.4 (pas de formulaire projet complet côté demandeur).
 - **Livré (MVP 2026-06-03)** : entités `ProjectRequest`, `ProjectRequestWorkflowSettings`, `ProjectRequestAutoAclGrant` ; routes `/api/project-requests` ; paramètres `GET|PATCH /api/clients/active/project-request-workflow-settings` ; module catalogue **`project_requests`** (distinct de `projects` pour `ModuleAccessGuard`).
-- **Cycles de pilotage** : `GovernanceCycleInstance` existe ; candidature projet via `POST …/candidacies` ([RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md)). Le routage `PILOTING_CYCLE` de cette RFC **prépare** l’état métier sans créer d’instance ni item cycle dans le MVP.
+- **Compléments (2026-06-09)** : notifications in-app + e-mail (socle RFC-038) à la soumission (validateur) et à la décision (demandeur) ; décision **réservée au validateur désigné** ; intégration **pool cycle de pilotage** (`GovernanceCycleItem` CANDIDATE + projet brouillon lié) si module `governance_cycles` actif et cycle configuré actif ; paramètre client `defaultGovernanceCycleId` ; PATCH settings réservé **CLIENT_ADMIN** ; UI création en modale avec champs métier (`expectedBenefits`, etc.).
+- **Cycles de pilotage** : candidature projet via `POST …/candidacies` ([RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md)). Le routage `PILOTING_CYCLE` **crée** désormais un `GovernanceCycleItem` en statut `CANDIDATE` sur le cycle configuré (`defaultGovernanceCycleId`) **si** le module et le cycle sont actifs au moment de l’approbation ; sinon la demande reste `APPROVED` en attente (`NOT_ROUTED`).
 - **Paramètres workflow par client** : précédent fonctionnel sur `Client.budgetWorkflowConfig` + service dédié (`client-budget-workflow-settings.service.ts`) — même pattern recommandé avec table dédiée `ProjectRequestWorkflowSettings` (listes d’IDs, enums typés).
 
 ### Frontend
 
-- Navigation projets : `/projects`, fiche `/projects/[projectId]`, **demandes** `/projects/requests` (+ `/new`, `/[id]`) — `moduleCode: 'project_requests'`, permission `project_requests.read`.
-- Administration client : `/client/administration/project-request-workflow` (cible après approbation, validateurs).
+- Navigation projets : `/projects`, fiche `/projects/[projectId]`, **demandes** `/projects/requests` (+ `/new` legacy → modale, `/[id]`) — entrée sidebar « Demandes projet » si `project_requests.read` **et** module visible (pas pour tous les détenteurs de `projects.read` seul).
+- Administration client : `/client/administration/project-request-workflow` — **CLIENT_ADMIN** : cible après approbation + cycle de pilotage cible si option « pool cycle ».
 - Règle produit : **afficher demandeur / validateur / statut en libellé métier**, jamais UUID seul ([FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md)).
 
 ### Sécurité
@@ -72,7 +73,7 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 - Le validateur MVP est **une seule personne** désignée (`validatorUserId`) ; pas de file d’approbation.
 - Les listes `authorizedValidatorUserIds` / `authorizedRoutingUserIds` vides signifient « pas de restriction par liste » **mais** la permission `project_requests.validate` / `project_requests.route` reste un chemin d’éligibilité.
 - Si **aucun** validateur éligible n’existe au moment de la soumission → erreur métier explicite (`PROJECT_REQUEST_VALIDATOR_REQUIRED`).
-- Notifications ([§11](#11-notifications)) : best-effort via le socle alertes ; échec notification **ne bloque pas** la transition.
+- Notifications ([§11](#11-notifications)) : best-effort via socle **RFC-038** (`Notification` + e-mail) ; échec **ne bloque pas** la transition.
 - Champ optionnel `pilotingCycleInstanceId` sur `ProjectRequest` : **non créé** dans le MVP ; branchement cycle = RFC dédiée après accord produit.
 - Conversion projet : transaction Prisma `$transaction` ; en cas d’échec, rollback complet de la demande.
 
@@ -88,6 +89,7 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | `apps/api/prisma/migrations/<timestamp>_project_requests/` | Migration |
 | `apps/api/prisma/seed.ts` | `ensureProjectRequestsModuleAndPermissions()` — module catalogue `project_requests` + 6 permissions |
 | `apps/api/prisma/migrations/20260603120000_rfc_proj_intake_001_project_requests/` | Migration livrée |
+| `apps/api/prisma/migrations/20260609130000_project_request_workflow_governance_cycle/` | `defaultGovernanceCycleId` sur settings |
 | `apps/api/prisma/default-profiles.json` | Profils démo (lecteur / contributeur / validateur PMO selon besoin produit) |
 
 ### Backend — module `project-requests` (nouveau)
@@ -98,6 +100,8 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | `apps/api/src/modules/project-requests/project-requests.controller.ts` | CRUD + routes workflow |
 | `apps/api/src/modules/project-requests/project-requests.service.ts` | Règles métier, transitions |
 | `apps/api/src/modules/project-requests/project-request-workflow.service.ts` | Application `defaultApprovedTarget`, routage |
+| `apps/api/src/modules/project-requests/project-request-piloting-cycle-routing.service.ts` | Pool cycle : projet brouillon lié + `GovernanceCycleItem` CANDIDATE |
+| `apps/api/src/modules/project-requests/project-request-governance-cycle.util.ts` | Module `governance_cycles` actif + cycle « ouvert » au pool |
 | `apps/api/src/modules/project-requests/project-request-access.helpers.ts` | Wrappers `AccessControlService` (`PROJECT_REQUEST`) |
 | `apps/api/src/modules/project-requests/project-request-acl.bootstrap.ts` | Policy DEFAULT + ACL auto demandeur/validateur |
 | `apps/api/src/modules/project-requests/project-request-membership.util.ts` | Garde-fous licence (`evaluateLicenseGate`) |
@@ -134,10 +138,10 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 | Fichier | Action |
 | ------- | ------ |
 | `apps/web/src/app/(protected)/projects/requests/page.tsx` | Liste |
-| `apps/web/src/app/(protected)/projects/requests/new/page.tsx` | Création |
+| `apps/web/src/app/(protected)/projects/requests/new/page.tsx` | Création (redirige modale) |
 | `apps/web/src/app/(protected)/projects/requests/[id]/page.tsx` | Détail |
-| `apps/web/src/app/(protected)/client/administration/project-request-workflow/page.tsx` | Paramètres |
-| `apps/web/src/features/project-requests/` | `api/`, `components/`, `constants/` (libellés statuts) |
+| `apps/web/src/app/(protected)/client/administration/project-request-workflow/page.tsx` | Paramètres CLIENT_ADMIN |
+| `apps/web/src/features/project-requests/` | `api/`, `components/` (`create-project-request-dialog`, `project-request-workflow-settings-page`, …), `constants/` |
 | Navigation shell (sidebar projets) | Entrée « Demandes projet » si `project_requests.read` |
 
 ---
@@ -353,10 +357,14 @@ model ProjectRequestWorkflowSettings {
   allowRequesterToSelectValidator Boolean @default(true)
   allowValidatorToChooseRoutingTarget Boolean @default(true)
 
+  /// Cycle cible si defaultApprovedTarget = PILOTING_CYCLE
+  defaultGovernanceCycleId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultGovernanceCycle GovernanceCycle? @relation(fields: [defaultGovernanceCycleId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
 }
@@ -476,7 +484,9 @@ Une fois soumise, la demande n’est plus modifiable par le demandeur sauf retou
 
 ### 6.4 Décision du validateur
 
-Le validateur affecté peut prendre une décision si la demande est en statut :
+**Seul le validateur désigné** (`validatorUserId === actorUserId`) peut décider sur une demande `SUBMITTED`. Permission route : `project_requests.validate` (+ licence write). Un administrateur avec `project_requests.update` **ne peut pas** décider à la place du validateur.
+
+La demande doit être en statut :
 
 ```text
 SUBMITTED
@@ -535,17 +545,22 @@ MANUAL_DECISION
 
 #### Cas 1 — `PILOTING_CYCLE`
 
-La demande est préparée pour envoi vers le cycle de pilotage.
+Requiert `defaultGovernanceCycleId` configuré (settings client) et module **`governance_cycles`** activé pour le client.
 
-Effets :
+**Si le cycle est actif** (statut hors `CLOSED` / `ARCHIVED`) au moment de l’approbation :
 
 ```text
+status = APPROVED
 routingTarget = PILOTING_CYCLE
 routingStatus = ROUTED_TO_PILOTING_CYCLE
+convertedProjectId = <project.id>   # projet brouillon créé pour la candidature
 routedAt = now()
++ GovernanceCycleItem (sourceType PROJECT, decisionStatus CANDIDATE) sur le cycle configuré
 ```
 
-La demande ne crée pas immédiatement de projet.
+**Si le cycle n’est pas actif** (ou module inactif) : demande `APPROVED`, `routingStatus = NOT_ROUTED` — pas de candidature forcée.
+
+Audit complémentaire : `project_request.routed_to_piloting_cycle`.
 
 #### Cas 2 — `DRAFT_PROJECT`
 
@@ -677,7 +692,7 @@ Champs interdits en PATCH direct : `status`, `routingStatus`, `routingTarget`, `
 | Méthode | Route | Notes |
 | ------- | ----- | ----- |
 | `POST` | `/api/project-requests/:id/submit` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + write licence |
-| `POST` | `/api/project-requests/:id/decision` | `@RequireAnyPermissions('project_requests.read', 'project_requests.validate', 'project_requests.update')` — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
+| `POST` | `/api/project-requests/:id/decision` | `project_requests.validate` + write licence — **validateur désigné uniquement** — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
 | `POST` | `/api/project-requests/:id/route` | `project_requests.route` — body `{ target: PILOTING_CYCLE \| DRAFT_PROJECT \| PROJECT_BACKLOG }` |
 | `POST` | `/api/project-requests/:id/cancel` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` — body `{ comment? }` |
 
@@ -685,8 +700,8 @@ Champs interdits en PATCH direct : `status`, `routingStatus`, `routingTarget`, `
 
 | Méthode | Route | Permission |
 | ------- | ----- | ---------- |
-| `GET` | `/api/clients/active/project-request-workflow-settings` | `settings.manage` ou `read` (lecture seule UI) |
-| `PATCH` | `/api/clients/active/project-request-workflow-settings` | `settings.manage` |
+| `GET` | `/api/clients/active/project-request-workflow-settings` | `settings.manage` ou `read` — `{ stored, resolved, options }` ; `options` inclut cycles éligibles et `pilotingCycleTargetAvailable` |
+| `PATCH` | `/api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** ou **PLATFORM_ADMIN** (`ClientAdminOrPlatformAdminGuard`) — body : `defaultApprovedTarget`, `defaultGovernanceCycleId`, listes validateurs/routeurs, etc. |
 
 Réponse `{ stored, resolved }` — valider `userIds` / `roleIds` membres du client actif.
 
@@ -715,9 +730,9 @@ Filtres : statut, validateur, demandeur, destination, recherche.
 
 ### 9.3 Formulaire
 
-Champs MVP + actions : brouillon, soumettre, annuler.
+Champs MVP + **enjeu métier** (`expectedBenefits` obligatoire UI, `businessContext`, `riskIfNotDone`, urgence, budget) ; création via **modale** depuis la liste (`CreateProjectRequestDialog`) ; route `/projects/requests/new` ouvre la même modale.
 
-Validateur : combobox **nom affiché** (`displayName`), pas UUID.
+Validateur : combobox **nom affiché** (`displayName`), si `allowRequesterToSelectValidator` ; masqué si workflow client désactive le choix demandeur.
 
 ### 9.4 Détail
 
@@ -727,7 +742,13 @@ Actions conditionnelles par droits.
 
 ### 9.5 Paramètres workflow
 
-Sections : mode après validation, mode sélection validateur, listes users/rôles validateurs et routeurs.
+Réservé **CLIENT_ADMIN** (page + PATCH API).
+
+Sections livrées :
+
+* **Cible après approbation** : `MANUAL_DECISION` | `DRAFT_PROJECT` | `PROJECT_BACKLOG` | `PILOTING_CYCLE` ;
+* **Cycle de pilotage cible** (`defaultGovernanceCycleId`) — requis si `PILOTING_CYCLE` ; liste des cycles actifs (module `governance_cycles` activé) ;
+* (partiel) mode sélection validateur, listes users/rôles validateurs et routeurs — backend prêt, UI admin listes : partiel.
 
 ---
 
@@ -740,6 +761,7 @@ project_request.submitted
 project_request.decision          # outcome APPROVED | REJECTED | NEEDS_MORE_INFO
 project_request.cancelled
 project_request.routed
+project_request.routed_to_piloting_cycle
 project_request.converted_to_project
 project_request.workflow_settings.updated
 ```
@@ -752,25 +774,26 @@ Conversion : inclure `convertedProjectId` dans `newValue`.
 
 ## 11. Notifications
 
-MVP minimal (non bloquant) :
+Livré (2026-06-09) — best-effort via socle **RFC-038** (`Notification` in-app + `EmailService.queueEmail`, template `generic_notification`) ; échec **ne bloque pas** la transition.
 
-* validateur ← soumission ;
-* demandeur ← décision / complément demandé.
+| Événement | Destinataire | Canaux |
+|-----------|--------------|--------|
+| Soumission (`SUBMITTED`) | Validateur désigné | Cloche + e-mail |
+| Décision (`APPROVED` / `REJECTED` / `NEEDS_MORE_INFO`) | Demandeur | Cloche + e-mail |
+
+`actionUrl` : `/projects/requests/:id`. Permission lecture notifications : `notifications.read` (cloche shell).
 
 ---
 
 ## 12. Intégration avec le cycle de pilotage
 
-MVP : uniquement
+Livré (2026-06-09) pour le **pool candidatures** :
 
-```text
-routingTarget = PILOTING_CYCLE
-routingStatus = ROUTED_TO_PILOTING_CYCLE
-```
+* Settings : `defaultGovernanceCycleId` + validation module/cycle actif ;
+* À l’approbation ou routage manuel `PILOTING_CYCLE` : projet brouillon lié + `GovernanceCycleItem` `CANDIDATE` ;
+* Cycle « actif pour pool » : statuts `DRAFT`, `PREPARING`, `TO_ARBITRATE`, `ARBITRATED`, `IN_EXECUTION` (exclut `CLOSED`, `ARCHIVED`).
 
-**Ne pas** ajouter `pilotingCycleInstanceId` dans cette RFC.
-
-RFC future : rattachement instance + candidature automatique item cycle.
+**Hors scope** : rattachement automatique à une `GovernanceCycleInstance` / ODJ séance — voir RFC cycle instances.
 
 ---
 
@@ -823,7 +846,7 @@ Implémentation : `BadRequestException` / `ForbiddenException` avec code stable 
 * [ ] `DRAFT_PROJECT` crée projet + `convertedProjectId`
 * [ ] Pas de double conversion
 * [ ] `PROJECT_BACKLOG` sans projet
-* [ ] `PILOTING_CYCLE` sans projet
+* [ ] `PILOTING_CYCLE` : candidature cycle + projet brouillon lié si cycle actif ; sinon attente
 * [ ] Settings client GET/PATCH
 * [ ] Audits sensibles
 * [ ] Isolation multi-tenant (tests e2e)
@@ -871,7 +894,7 @@ Implémentation : `BadRequestException` / `ForbiddenException` avec code stable 
 * Validateur manuel MVP.
 * Workflow client post-approbation.
 * Statut demande ≠ destination.
-* Cycle : préparation seulement.
+* Cycle : pool candidatures `GovernanceCycleItem` si module + cycle actifs ; sinon attente.
 * Backlog = vue filtrée.
 * Conversion transactionnelle.
 
@@ -905,8 +928,11 @@ Couche amont au module Projets : formulation, validation, routage configurable. 
 | **INTAKE-B/C/E** | Module `project-requests` (CRUD, workflow, conversion, validator-options) | ✅ |
 | **INTAKE-D** | Settings client GET/PATCH | ✅ |
 | **INTAKE-F/G** | UI `/projects/requests`, admin workflow, navigation | ✅ MVP (filtres liste / admin listes users-rôles : partiels) |
+| **INTAKE-H** | Notifications RFC-038, pool cycle pilotage, `defaultGovernanceCycleId`, décision validateur strict, modale création, PATCH settings CLIENT_ADMIN | ✅ 2026-06-09 |
 
-**Hors MVP livré** : notifications §11 ; intégration cycle (`POST candidacies`) ; UI routage manuelle complète ; AccessDecision V2 sur `PROJECT_REQUEST` ; pagination SQL post-filtre ACL.
+**Hors MVP / partiel** : UI routage manuelle complète ; admin listes users/rôles validateurs en UI ; AccessDecision V2 sur `PROJECT_REQUEST` ; pagination SQL post-filtre ACL ; rattachement instance cycle (ODJ séance).
+
+**Livré post-MVP (2026-06-09)** : notifications §11 ; pool cycle `GovernanceCycleItem` ; paramétrage CLIENT_ADMIN + `defaultGovernanceCycleId` ; décision validateur strict ; modale création enrichie.
 
 ---
 
@@ -918,10 +944,10 @@ Couche amont au module Projets : formulation, validation, routage configurable. 
 | API | `/api/project-requests/*`, `/api/clients/active/project-request-workflow-settings` |
 | Permissions | 6 codes `project_requests.*` ; module catalogue `project_requests` |
 | ACL | `PROJECT_REQUEST` ; policy **DEFAULT** à la création ; ACL auto WRITE demandeur/validateur (`ProjectRequestAutoAclGrant`) |
-| Projet créé | Uniquement `DRAFT_PROJECT` (auto ou route) |
-| Cycle | Flag routage seulement |
-| Backlog | Filtre UI + statuts routage |
-| UI | 4 routes sous `/projects/requests` et admin client |
+| Projet créé | `DRAFT_PROJECT` (auto ou route) ; aussi projet brouillon **lié** pour `PILOTING_CYCLE` (statut demande reste `APPROVED`) |
+| Cycle | Pool `GovernanceCycleItem` CANDIDATE si module + cycle actifs ; sinon attente |
+| Settings PATCH | **CLIENT_ADMIN** / platform admin |
+| UI | Liste + modale création ; admin workflow (cible + cycle) |
 
 ---
 
@@ -932,6 +958,6 @@ Couche amont au module Projets : formulation, validation, routage configurable. 
 3. **Distinction** `APPROVED` vs `CONVERTED_TO_PROJECT` : une demande peut être approuvée mais en backlog ou cycle sans projet.
 4. **UI** : validateur, demandeur, projet converti en **libellés** ; IDs uniquement en valeur technique des selects.
 5. **Concurrence** : verrouiller conversion (check `convertedProjectId` dans la transaction).
-6. **Cycles** : ne pas appeler `governance-cycles` candidacy depuis cette RFC sans spec dédiée — éviter effets de bord sur `Project.status`.
-7. **Permissions** : `project_requests.validate` élargit le pool validateurs — bien documenter en admin client.
+6. **Cycles** : candidature via service interne `ProjectRequestPilotingCycleRoutingService` (pas d’appel HTTP `POST candidacies` depuis le demandeur) ; vérifier module `governance_cycles` + statut cycle avant pool.
+7. **Permissions** : seul le **validateur désigné** décide ; `project_requests.validate` requis sur la route decision.
 8. **Admin selects** : charger users/rôles du client avec libellés (`displayName`, `role.name`), pas listes d’UUID nues.

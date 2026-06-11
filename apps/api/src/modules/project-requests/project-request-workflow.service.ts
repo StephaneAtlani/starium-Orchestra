@@ -6,60 +6,56 @@ import {
   ProjectRequestStatus,
   ProjectRequestWorkflowSettings,
 } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { ProjectRequestToProjectConverter } from './project-request-to-project.converter';
+import { ProjectRequestPilotingCycleRoutingService } from './project-request-piloting-cycle-routing.service';
+import {
+  assertMembershipLicense,
+  type MembershipWithSubscription,
+} from './project-request-membership.util';
+
+type ApprovalContext = {
+  actorUserId?: string;
+  meta?: RequestMeta;
+  membership?: MembershipWithSubscription;
+};
 
 @Injectable()
 export class ProjectRequestWorkflowService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly converter: ProjectRequestToProjectConverter,
+    private readonly pilotingCycleRouting: ProjectRequestPilotingCycleRoutingService,
   ) {}
 
   async applyAfterApproval(
     clientId: string,
     request: ProjectRequest,
     settings: ProjectRequestWorkflowSettings,
-    context?: { actorUserId?: string },
+    context?: ApprovalContext,
   ): Promise<ProjectRequest> {
     const target = settings.defaultApprovedTarget;
 
     if (target === ProjectRequestRoutingTarget.MANUAL_DECISION) {
-      return this.prisma.projectRequest.update({
-        where: { id: request.id },
-        data: {
-          status: ProjectRequestStatus.APPROVED,
-          routingTarget: ProjectRequestRoutingTarget.MANUAL_DECISION,
-          routingStatus: ProjectRequestRoutingStatus.NOT_ROUTED,
-        },
-      });
+      return this.pilotingCycleRouting.markManualApproved(request.id);
     }
 
     if (target === ProjectRequestRoutingTarget.PROJECT_BACKLOG) {
-      return this.prisma.projectRequest.update({
-        where: { id: request.id },
-        data: {
-          status: ProjectRequestStatus.APPROVED,
-          routingTarget: ProjectRequestRoutingTarget.PROJECT_BACKLOG,
-          routingStatus: ProjectRequestRoutingStatus.ROUTED_TO_PROJECT_BACKLOG,
-          routedAt: new Date(),
-        },
-      });
+      return this.pilotingCycleRouting.markBacklogApproved(request.id);
     }
 
     if (target === ProjectRequestRoutingTarget.PILOTING_CYCLE) {
-      return this.prisma.projectRequest.update({
-        where: { id: request.id },
-        data: {
-          status: ProjectRequestStatus.APPROVED,
-          routingTarget: ProjectRequestRoutingTarget.PILOTING_CYCLE,
-          routingStatus: ProjectRequestRoutingStatus.ROUTED_TO_PILOTING_CYCLE,
-          routedAt: new Date(),
-        },
-      });
+      return this.pilotingCycleRouting.routeApprovedToPilotingCycleIfEligible(
+        clientId,
+        request,
+        settings,
+        context,
+      );
     }
 
     if (target === ProjectRequestRoutingTarget.DRAFT_PROJECT) {
+      if (context?.membership) {
+        assertMembershipLicense(context.membership, 'write');
+      }
       return this.converter.convertToDraftProject(clientId, request.id, context);
     }
 

@@ -618,20 +618,24 @@ Module catalogue **`project_requests`** (distinct de `projects`). ACL ressource 
 | `GET /api/project-requests/:id` | `project_requests.read` + ACL lecture (sinon **404**) |
 | `PATCH /api/project-requests/:id` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + write licence |
 | `POST /api/project-requests/:id/submit` | `create` **ou** `update` + write licence |
-| `POST /api/project-requests/:id/decision` | `read` **ou** `validate` **ou** `update` + write licence — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
+| `POST /api/project-requests/:id/decision` | `project_requests.validate` + write licence — **validateur désigné uniquement** (`validatorUserId === userId`) — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
 | `POST /api/project-requests/:id/route` | `project_requests.route` + write licence — body `{ target: PILOTING_CYCLE \| DRAFT_PROJECT \| PROJECT_BACKLOG }` |
 | `POST /api/project-requests/:id/cancel` | `create` **ou** `update` + write licence |
 
 Réponses list/detail : `requesterSummary`, `validatorSummary`, `decidedBySummary`, `convertedProjectSummary` (libellés métier, pas d’ID seul en UI). Liste : query `page` + `limit` (pas `offset`) ; filtrage ACL puis pagination en mémoire (MVP).
 
-Audit : `project_request.created|updated|submitted|decision|cancelled|routed|converted_to_project` ; settings : `project_request.workflow_settings.updated`.
+Audit : `project_request.created|updated|submitted|decision|cancelled|routed|routed_to_piloting_cycle|converted_to_project` ; settings : `project_request.workflow_settings.updated`.
+
+**Notifications (RFC-038, 2026-06-09)** : à la soumission → validateur (cloche + e-mail `generic_notification`) ; à la décision → demandeur. Best-effort, n’annule pas la transition.
+
+**Routage `PILOTING_CYCLE`** : si module `governance_cycles` actif et `defaultGovernanceCycleId` pointe vers un cycle ouvert → projet brouillon lié + `GovernanceCycleItem` `CANDIDATE` ; sinon demande `APPROVED` / `NOT_ROUTED`.
 
 ### Paramètres workflow demandes — client actif
 
 | Route | Permissions |
 |-------|-------------|
-| `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved }` |
-| `PATCH /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` |
+| `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved, options }` (`options.governanceCycles`, `pilotingCycleTargetAvailable`) |
+| `PATCH /api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** ou **PLATFORM_ADMIN** (`ClientAdminOrPlatformAdminGuard`) — body inclut `defaultApprovedTarget`, `defaultGovernanceCycleId`, listes validateurs/routeurs |
 
 ---
 

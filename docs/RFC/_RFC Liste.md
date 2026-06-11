@@ -220,7 +220,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 | Ordre | RFC | Nom | Description | État | Commentaire |
 | ----- | --- | --- | --- | --- | --- |
-| 31a-5 | **RFC-PROJ-INTAKE-001** | Demandes projet et workflow de validation configurable | Entité `ProjectRequest`, validation manuelle, routage (cycle / brouillon projet / backlog / manuel), paramètres client, conversion transactionnelle vers `Project` (`DRAFT`) | 🟢 Implémenté (MVP) | [RFC](./RFC-PROJ-INTAKE-001%20%E2%80%94%20Demandes%20projet%20et%20workflow%20de%20validation%20configurable.md) — module `project_requests`, ACL `PROJECT_REQUEST`, UI `/projects/requests` |
+| 31a-5 | **RFC-PROJ-INTAKE-001** | Demandes projet et workflow de validation configurable | Entité `ProjectRequest`, validation manuelle (validateur désigné), routage (pool cycle `GovernanceCycleItem` / brouillon projet / backlog / manuel), paramètres CLIENT_ADMIN + `defaultGovernanceCycleId`, notifications RFC-038, conversion transactionnelle vers `Project` (`DRAFT`) | 🟢 Implémenté (MVP + 2026-06-09) | [RFC](./RFC-PROJ-INTAKE-001%20%E2%80%94%20Demandes%20projet%20et%20workflow%20de%20validation%20configurable.md) — module `project_requests`, ACL `PROJECT_REQUEST`, UI `/projects/requests` |
 
 ---
 

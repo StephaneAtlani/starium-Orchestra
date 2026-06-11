@@ -24,6 +24,7 @@
     "rollout:access-v2": "ts-node --transpile-only scripts/rollout-access-v2.ts",
     "migrate:access-v2": "ts-node --transpile-only scripts/rollout-access-v2.ts --migrate",
     "verify:smtp": "ts-node --transpile-only scripts/verify-smtp.ts",
+    "import:it-governance-risks": "ts-node --transpile-only scripts/import-it-governance-risks.ts",
     "predeploy": "pnpm run build && pnpm run typecheck && pnpm exec jest --testPathPatterns=modules/email --passWithNoTests"
   },
   "prisma": {

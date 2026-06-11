@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  GovernanceCycleStatus,
   ProjectRequestRoutingTarget,
   ProjectRequestValidatorSelectionMode,
   ProjectRequestWorkflowSettings,
@@ -17,9 +18,22 @@ import {
 } from '../audit-logs/audit-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { UpdateClientProjectRequestWorkflowSettingsDto } from './dto/update-client-project-request-workflow-settings.dto';
+import {
+  isGovernanceCycleActiveForProjectRequestPool,
+  isGovernanceCyclesModuleActive,
+} from '../project-requests/project-request-governance-cycle.util';
+
+export type GovernanceCycleOptionDto = {
+  id: string;
+  name: string;
+  code: string | null;
+  status: GovernanceCycleStatus;
+  activeForProjectRequestPool: boolean;
+};
 
 export type ProjectRequestWorkflowSettingsResolved = {
   defaultApprovedTarget: ProjectRequestRoutingTarget;
+  defaultGovernanceCycleId: string | null;
   validatorSelectionMode: ProjectRequestValidatorSelectionMode;
   authorizedValidatorUserIds: string[];
   authorizedValidatorRoleIds: string[];
@@ -29,9 +43,17 @@ export type ProjectRequestWorkflowSettingsResolved = {
   allowValidatorToChooseRoutingTarget: boolean;
 };
 
+export type ProjectRequestWorkflowSettingsOptions = {
+  governanceCyclesModuleEnabled: boolean;
+  governanceCycles: GovernanceCycleOptionDto[];
+  pilotingCycleTargetAvailable: boolean;
+  selectedGovernanceCycleActive: boolean;
+};
+
 export type ClientProjectRequestWorkflowSettingsResponse = {
   stored: ProjectRequestWorkflowSettings;
   resolved: ProjectRequestWorkflowSettingsResolved;
+  options: ProjectRequestWorkflowSettingsOptions;
 };
 
 function toResolved(
@@ -39,6 +61,7 @@ function toResolved(
 ): ProjectRequestWorkflowSettingsResolved {
   return {
     defaultApprovedTarget: row.defaultApprovedTarget,
+    defaultGovernanceCycleId: row.defaultGovernanceCycleId ?? null,
     validatorSelectionMode: row.validatorSelectionMode,
     authorizedValidatorUserIds: row.authorizedValidatorUserIds ?? [],
     authorizedValidatorRoleIds: row.authorizedValidatorRoleIds ?? [],
@@ -66,6 +89,63 @@ export class ClientProjectRequestWorkflowSettingsService {
     });
   }
 
+  private async buildOptions(
+    clientId: string,
+    stored: ProjectRequestWorkflowSettings,
+  ): Promise<ProjectRequestWorkflowSettingsOptions> {
+    const governanceCyclesModuleEnabled = await isGovernanceCyclesModuleActive(
+      this.prisma,
+      clientId,
+    );
+
+    const cycles = governanceCyclesModuleEnabled
+      ? await this.prisma.governanceCycle.findMany({
+          where: {
+            clientId,
+            status: { not: GovernanceCycleStatus.ARCHIVED },
+          },
+          select: { id: true, name: true, code: true, status: true },
+          orderBy: [{ updatedAt: 'desc' }],
+        })
+      : [];
+
+    const governanceCycles: GovernanceCycleOptionDto[] = cycles.map((c) => ({
+      id: c.id,
+      name: c.name,
+      code: c.code,
+      status: c.status,
+      activeForProjectRequestPool: isGovernanceCycleActiveForProjectRequestPool(
+        c.status,
+      ),
+    }));
+
+    const selected = stored.defaultGovernanceCycleId
+      ? governanceCycles.find((c) => c.id === stored.defaultGovernanceCycleId)
+      : undefined;
+
+    const pilotingCycleTargetAvailable =
+      governanceCyclesModuleEnabled &&
+      governanceCycles.some((c) => c.activeForProjectRequestPool);
+
+    return {
+      governanceCyclesModuleEnabled,
+      governanceCycles,
+      pilotingCycleTargetAvailable,
+      selectedGovernanceCycleActive: selected?.activeForProjectRequestPool ?? false,
+    };
+  }
+
+  private async composeResponse(
+    clientId: string,
+    stored: ProjectRequestWorkflowSettings,
+  ): Promise<ClientProjectRequestWorkflowSettingsResponse> {
+    return {
+      stored,
+      resolved: toResolved(stored),
+      options: await this.buildOptions(clientId, stored),
+    };
+  }
+
   async getActive(
     clientId: string,
   ): Promise<ClientProjectRequestWorkflowSettingsResponse> {
@@ -77,7 +157,7 @@ export class ClientProjectRequestWorkflowSettingsService {
       throw new NotFoundException('Client not found');
     }
     const stored = await this.ensureRow(clientId);
-    return { stored, resolved: toResolved(stored) };
+    return this.composeResponse(clientId, stored);
   }
 
   private async assertActiveClientUsers(
@@ -114,6 +194,38 @@ export class ClientProjectRequestWorkflowSettingsService {
     }
   }
 
+  private async assertPilotingCycleConfiguration(
+    clientId: string,
+    cycleId: string | null | undefined,
+  ): Promise<void> {
+    if (!cycleId) {
+      throw new BadRequestException(
+        'Un cycle de pilotage doit être sélectionné pour cette cible après approbation',
+      );
+    }
+    const moduleEnabled = await isGovernanceCyclesModuleActive(
+      this.prisma,
+      clientId,
+    );
+    if (!moduleEnabled) {
+      throw new BadRequestException(
+        'Le module Cycles de pilotage doit être activé pour ce client',
+      );
+    }
+    const cycle = await this.prisma.governanceCycle.findFirst({
+      where: { id: cycleId, clientId },
+      select: { id: true, status: true },
+    });
+    if (!cycle) {
+      throw new BadRequestException('Cycle de pilotage introuvable pour ce client');
+    }
+    if (!isGovernanceCycleActiveForProjectRequestPool(cycle.status)) {
+      throw new BadRequestException(
+        'Le cycle sélectionné doit être actif (non clôturé ni archivé)',
+      );
+    }
+  }
+
   async updateActive(
     clientId: string,
     dto: UpdateClientProjectRequestWorkflowSettingsDto,
@@ -147,6 +259,21 @@ export class ClientProjectRequestWorkflowSettingsService {
       await this.assertClientRoles(clientId, routingRoleIds);
     }
 
+    const nextTarget =
+      dto.defaultApprovedTarget ?? before.defaultApprovedTarget;
+    const nextCycleId =
+      dto.defaultGovernanceCycleId !== undefined
+        ? dto.defaultGovernanceCycleId
+        : before.defaultGovernanceCycleId;
+
+    if (nextTarget === ProjectRequestRoutingTarget.PILOTING_CYCLE) {
+      await this.assertPilotingCycleConfiguration(clientId, nextCycleId);
+    }
+
+    const clearCycleId =
+      dto.defaultApprovedTarget !== undefined &&
+      dto.defaultApprovedTarget !== ProjectRequestRoutingTarget.PILOTING_CYCLE;
+
     const updated = await this.prisma.projectRequestWorkflowSettings.update({
       where: { clientId },
       data: {
@@ -175,6 +302,10 @@ export class ClientProjectRequestWorkflowSettingsService {
           allowValidatorToChooseRoutingTarget:
             dto.allowValidatorToChooseRoutingTarget,
         }),
+        ...(dto.defaultGovernanceCycleId !== undefined && {
+          defaultGovernanceCycleId: dto.defaultGovernanceCycleId,
+        }),
+        ...(clearCycleId && { defaultGovernanceCycleId: null }),
       },
     });
 
@@ -192,6 +323,6 @@ export class ClientProjectRequestWorkflowSettingsService {
     };
     await this.auditLogs.create(auditInput);
 
-    return { stored: updated, resolved: toResolved(updated) };
+    return this.composeResponse(clientId, updated);
   }
 }

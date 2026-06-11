@@ -8,6 +8,7 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/auth-context';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -16,7 +17,10 @@ import {
   postProjectRequestDecision,
   submitProjectRequest,
 } from '../api/project-requests.api';
-import { PROJECT_REQUEST_STATUS_LABELS } from '../constants/project-request-labels';
+import {
+  PROJECT_REQUEST_STATUS_LABELS,
+  PROJECT_REQUEST_URGENCY_LABELS,
+} from '../constants/project-request-labels';
 
 export function ProjectRequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,11 +28,10 @@ export function ProjectRequestDetailPage() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const qc = useQueryClient();
+  const { user } = useAuth();
   const { has } = usePermissions();
   const canSubmit =
     has('project_requests.create') || has('project_requests.update');
-  const canDecide =
-    has('project_requests.validate') || has('project_requests.update');
 
   const decisionMutation = useMutation({
     mutationFn: (outcome: 'APPROVED' | 'REJECTED' | 'NEEDS_MORE_INFO') =>
@@ -82,6 +85,40 @@ export function ProjectRequestDetailPage() {
               {data.description ? (
                 <p className="whitespace-pre-wrap">{data.description}</p>
               ) : null}
+              {data.expectedBenefits ? (
+                <div>
+                  <p className="text-muted-foreground">Gain métier attendu</p>
+                  <p className="whitespace-pre-wrap">{data.expectedBenefits}</p>
+                </div>
+              ) : null}
+              {data.businessContext ? (
+                <div>
+                  <p className="text-muted-foreground">Contexte métier</p>
+                  <p className="whitespace-pre-wrap">{data.businessContext}</p>
+                </div>
+              ) : null}
+              {data.riskIfNotDone ? (
+                <div>
+                  <p className="text-muted-foreground">Risque si non réalisé</p>
+                  <p className="whitespace-pre-wrap">{data.riskIfNotDone}</p>
+                </div>
+              ) : null}
+              {data.urgency ? (
+                <p>
+                  <span className="text-muted-foreground">Urgence : </span>
+                  {PROJECT_REQUEST_URGENCY_LABELS[data.urgency] ?? data.urgency}
+                </p>
+              ) : null}
+              {data.estimatedBudget != null ? (
+                <p>
+                  <span className="text-muted-foreground">Budget estimé : </span>
+                  {new Intl.NumberFormat('fr-FR', {
+                    style: 'currency',
+                    currency: 'EUR',
+                    maximumFractionDigits: 0,
+                  }).format(data.estimatedBudget)}
+                </p>
+              ) : null}
               {data.convertedProjectSummary ? (
                 <p>
                   <span className="text-muted-foreground">Projet : </span>
@@ -103,7 +140,9 @@ export function ProjectRequestDetailPage() {
                     Soumettre pour validation
                   </Button>
                 )}
-              {data.status === 'SUBMITTED' && canDecide && (
+              {data.status === 'SUBMITTED' &&
+                user?.id != null &&
+                data.validatorSummary?.id === user.id && (
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button
                     size="sm"

@@ -65,6 +65,53 @@ export class ProjectRequestToProjectConverter {
     projectRequestId: string,
     context?: { actorUserId?: string; meta?: RequestMeta; membership?: MembershipWithSubscription },
   ): Promise<ProjectRequest> {
+    return this.convertToDraftProjectInternal(clientId, projectRequestId, {
+      ...context,
+      finalizeAsConverted: true,
+      routingTarget: ProjectRequestRoutingTarget.DRAFT_PROJECT,
+      routingStatus: ProjectRequestRoutingStatus.ROUTED_TO_DRAFT_PROJECT,
+    });
+  }
+
+  /**
+   * Crée ou réutilise un projet brouillon lié sans clôturer la demande (ex. pool cycle).
+   */
+  async ensureDraftProjectLinkedForRouting(
+    clientId: string,
+    projectRequestId: string,
+    context?: { actorUserId?: string; meta?: RequestMeta; membership?: MembershipWithSubscription },
+  ): Promise<ProjectRequest> {
+    const existing = await this.prisma.projectRequest.findFirst({
+      where: { id: projectRequestId, clientId },
+      select: { convertedProjectId: true },
+    });
+    if (existing?.convertedProjectId) {
+      return this.prisma.projectRequest.findFirstOrThrow({
+        where: { id: projectRequestId, clientId },
+      });
+    }
+    return this.convertToDraftProjectInternal(clientId, projectRequestId, {
+      ...context,
+      finalizeAsConverted: false,
+      preserveStatus: ProjectRequestStatus.APPROVED,
+      routingTarget: ProjectRequestRoutingTarget.PILOTING_CYCLE,
+      routingStatus: ProjectRequestRoutingStatus.NOT_ROUTED,
+    });
+  }
+
+  private async convertToDraftProjectInternal(
+    clientId: string,
+    projectRequestId: string,
+    context?: {
+      actorUserId?: string;
+      meta?: RequestMeta;
+      membership?: MembershipWithSubscription;
+      finalizeAsConverted?: boolean;
+      preserveStatus?: ProjectRequestStatus;
+      routingTarget?: ProjectRequestRoutingTarget;
+      routingStatus?: ProjectRequestRoutingStatus;
+    },
+  ): Promise<ProjectRequest> {
     const request = await this.prisma.projectRequest.findFirst({
       where: { id: projectRequestId, clientId },
     });
@@ -123,29 +170,37 @@ export class ProjectRequestToProjectConverter {
         });
       }
 
+      const finalizeAsConverted = context?.finalizeAsConverted !== false;
       const updated = await tx.projectRequest.update({
         where: { id: request.id },
         data: {
           convertedProjectId: project.id,
-          status: ProjectRequestStatus.CONVERTED_TO_PROJECT,
-          routingTarget: ProjectRequestRoutingTarget.DRAFT_PROJECT,
-          routingStatus: ProjectRequestRoutingStatus.ROUTED_TO_DRAFT_PROJECT,
-          routedAt: new Date(),
+          status: finalizeAsConverted
+            ? ProjectRequestStatus.CONVERTED_TO_PROJECT
+            : (context?.preserveStatus ?? ProjectRequestStatus.APPROVED),
+          routingTarget:
+            context?.routingTarget ?? ProjectRequestRoutingTarget.DRAFT_PROJECT,
+          routingStatus:
+            context?.routingStatus ??
+            ProjectRequestRoutingStatus.ROUTED_TO_DRAFT_PROJECT,
+          routedAt: finalizeAsConverted ? new Date() : undefined,
         },
       });
 
-      const auditInput: CreateAuditLogInput = {
-        clientId,
-        userId: actorUserId,
-        action: 'project_request.converted_to_project',
-        resourceType: 'project_request',
-        resourceId: request.id,
-        newValue: { convertedProjectId: project.id, projectCode: dto.code },
-        ipAddress: context?.meta?.ipAddress,
-        userAgent: context?.meta?.userAgent,
-        requestId: context?.meta?.requestId,
-      };
-      await this.auditLogs.create(auditInput);
+      if (finalizeAsConverted) {
+        const auditInput: CreateAuditLogInput = {
+          clientId,
+          userId: actorUserId,
+          action: 'project_request.converted_to_project',
+          resourceType: 'project_request',
+          resourceId: request.id,
+          newValue: { convertedProjectId: project.id, projectCode: dto.code },
+          ipAddress: context?.meta?.ipAddress,
+          userAgent: context?.meta?.userAgent,
+          requestId: context?.meta?.requestId,
+        };
+        await this.auditLogs.create(auditInput);
+      }
 
       return updated;
     });
