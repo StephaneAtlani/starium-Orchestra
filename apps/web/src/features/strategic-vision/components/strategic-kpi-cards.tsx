@@ -1,6 +1,7 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Crosshair, AlertTriangle, Unlink, Activity } from 'lucide-react';
+import { KpiCard } from '@/components/ui/kpi-card';
 import type { StrategicVisionKpisResponseDto } from '../types/strategic-vision.types';
 
 function formatAlignmentRate(rate: number): string {
@@ -32,47 +33,37 @@ export function StrategicKpiCards({
 }) {
   const objectivesAtRisk = formatObjectivesAtRisk(kpis);
   const strategicDrift = buildStrategicDriftIndicator(kpis);
+  const driftLabel =
+    strategicDrift.level === 'High'
+      ? 'Élevée'
+      : strategicDrift.level === 'Medium'
+        ? 'Moyenne'
+        : 'Faible';
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Strategic Alignment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{formatAlignmentRate(kpis.projectAlignmentRate)}</p>
-        </CardContent>
-      </Card>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Objectives at Risk</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{objectivesAtRisk}</p>
-          <p className="text-xs text-muted-foreground">
-            {kpis.objectivesAtRiskCount} AT_RISK + {kpis.objectivesOffTrackCount} OFF_TRACK
-          </p>
-        </CardContent>
-      </Card>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Unaligned Projects</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{kpis.unalignedProjectsCount}</p>
-        </CardContent>
-      </Card>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Strategic Drift</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{strategicDrift.level}</p>
-          <p className="text-xs text-muted-foreground">
-            Composite UI: {strategicDrift.visualScore}/100 (base KPI existants)
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <KpiCard
+        title="Alignement des projets"
+        value={formatAlignmentRate(kpis.projectAlignmentRate)}
+        icon={<Crosshair />}
+      />
+      <KpiCard
+        title="Objectifs à risque"
+        value={String(objectivesAtRisk)}
+        subtitle={`${kpis.objectivesAtRiskCount} à risque · ${kpis.objectivesOffTrackCount} hors trajectoire`}
+        icon={<AlertTriangle />}
+      />
+      <KpiCard
+        title="Projets non alignés"
+        value={String(kpis.unalignedProjectsCount)}
+        icon={<Unlink />}
+      />
+      <KpiCard
+        title="Dérive stratégique"
+        value={driftLabel}
+        subtitle={`Score composite ${strategicDrift.visualScore}/100`}
+        icon={<Activity />}
+      />
     </div>
   );
 }

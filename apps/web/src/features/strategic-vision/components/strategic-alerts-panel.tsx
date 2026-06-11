@@ -7,11 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { StrategicVisionAlertsResponseDto } from '../types/strategic-vision.types';
 import { getAlertSeverityLabel, getAlertTypeLabel } from '../lib/strategic-vision-labels';
 
-const severityClassName: Record<string, string> = {
-  LOW: 'bg-slate-100 text-slate-800',
-  MEDIUM: 'bg-amber-100 text-amber-900',
-  HIGH: 'bg-orange-100 text-orange-900',
-  CRITICAL: 'bg-red-100 text-red-900',
+const severityDotClassName: Record<string, string> = {
+  LOW: 'bg-muted-foreground/50',
+  MEDIUM: 'bg-[color:var(--state-warning)]',
+  HIGH: 'bg-[color:var(--state-warning)]',
+  CRITICAL: 'bg-[color:var(--state-danger)]',
 };
 
 export function formatAlertDate(iso: string): string {
@@ -55,31 +55,32 @@ export function StrategicAlertsPanel({
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Alertes de desalignement</h2>
-      <div className="grid gap-3">
-        {items.map((alert) => (
-          <Card key={alert.id} size="sm">
-            <CardHeader className="gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base">{alert.targetLabel}</CardTitle>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${severityClassName[alert.severity] ?? severityClassName.MEDIUM}`}
-                >
-                  {getAlertSeverityLabel(alert.severity)}
-                </span>
+    <Card>
+      <CardHeader>
+        <CardTitle>Alertes de désalignement</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <ul className="divide-y divide-border">
+          {items.map((alert) => (
+            <li key={alert.id} className="flex items-start gap-3 py-3 first:pt-0">
+              <span
+                aria-hidden
+                className={`mt-[7px] size-2 shrink-0 rounded-full ${severityDotClassName[alert.severity] ?? severityDotClassName.MEDIUM}`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {alert.targetLabel}
+                </p>
+                <p className="mt-0.5 text-sm text-muted-foreground">{alert.message}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {getAlertSeverityLabel(alert.severity)} · {alert.directionName} ·{' '}
+                  {getAlertTypeLabel(alert.type)} · {formatAlertDate(alert.createdAt)}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <p>{alert.message}</p>
-              <p className="text-muted-foreground">Direction: {alert.directionName}</p>
-              <p className="text-muted-foreground">
-                {getAlertTypeLabel(alert.type)} - {formatAlertDate(alert.createdAt)}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </section>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

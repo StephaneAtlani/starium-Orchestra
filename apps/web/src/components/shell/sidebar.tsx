@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -97,7 +98,15 @@ export function Sidebar() {
         )}
       >
       <SidebarDropdownContext.Provider value={contextValue}>
-        <div className="starium-sidebar-header flex h-12 min-w-0 shrink-0 items-center gap-1.5 border-b border-white/10 px-3 md:px-3.5">
+        <div className="starium-sidebar-header flex h-12 min-w-0 shrink-0 items-center gap-2 border-b border-white/10 px-3 md:px-3.5">
+          <Image
+            src="/brand/icon-starium-white.png"
+            alt="Starium"
+            width={20}
+            height={20}
+            priority
+            className="h-5 w-5 shrink-0 object-contain"
+          />
           <div className="min-w-0 flex flex-1 flex-col leading-snug">
             <span
               className="starium-sidebar-brand truncate text-xs font-semibold tracking-tight"

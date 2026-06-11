@@ -88,17 +88,11 @@ function formatDashboardDataAge(updatedAtMs: number): string {
 
 function KpiSkeleton() {
   return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm',
-        'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
-      )}
-    >
-      <div className="flex gap-3">
-        <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-1)]">
+      <div className="flex items-center gap-[18px]">
+        <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1 space-y-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-3 w-28" />
           <Skeleton className="h-9 w-36" />
         </div>
       </div>

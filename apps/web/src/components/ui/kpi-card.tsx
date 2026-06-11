@@ -29,44 +29,41 @@ export function KpiCard({
   return (
     <Card
       className={cn(
-        'flex flex-col transition-shadow hover:shadow-md',
-        dense ? 'gap-1.5 p-3 shadow-sm' : 'gap-2 p-5',
+        'transition-shadow hover:shadow-[var(--shadow-2)]',
+        dense ? 'p-3' : 'p-5',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className={cn(
-            'font-medium leading-tight text-muted-foreground',
-            dense ? 'text-xs' : 'text-sm',
-          )}
-        >
-          {title}
-        </span>
+      <div className={cn('flex items-center', dense ? 'gap-3' : 'gap-[18px]')}>
         {icon && (
           <div
             className={cn(
-              'flex shrink-0 items-center justify-center rounded-lg bg-accent text-primary',
-              dense ? 'h-7 w-7 [&_svg]:size-3.5' : 'h-9 w-9',
+              'flex shrink-0 items-center justify-center text-[color:var(--brand-gold)]',
+              dense ? '[&_svg]:size-7' : '[&_svg]:size-[38px] [&_svg]:[stroke-width:1.5]',
             )}
           >
             {icon}
           </div>
         )}
+        <div className="min-w-0 flex-1">
+          <span className="block text-[13px] leading-tight text-muted-foreground">
+            {title}
+          </span>
+          <div
+            className={cn(
+              'tracking-tight tabular-nums text-foreground',
+              dense ? 'text-xl font-bold' : 'text-3xl font-bold',
+            )}
+          >
+            {value}
+          </div>
+          {subtitle && (
+            <div className="text-xs text-muted-foreground">{subtitle}</div>
+          )}
+          {trend && (
+            <div className="text-xs text-[color:var(--state-success)]">{trend}</div>
+          )}
+        </div>
       </div>
-      <div
-        className={cn(
-          'tracking-tight tabular-nums text-foreground',
-          dense ? 'text-xl font-semibold' : 'text-3xl font-bold',
-        )}
-      >
-        {value}
-      </div>
-      {subtitle && (
-        <div className="text-xs text-muted-foreground">{subtitle}</div>
-      )}
-      {trend && (
-        <div className="text-xs text-emerald-600 dark:text-emerald-500">{trend}</div>
-      )}
     </Card>
   );
 }

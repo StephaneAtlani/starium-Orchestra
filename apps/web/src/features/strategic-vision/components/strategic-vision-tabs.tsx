@@ -20,7 +20,8 @@ import { StrategicVisionEnterpriseTab } from './strategic-vision-enterprise-tab'
 import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
-import { StrategicAlignmentScoreCard } from './strategic-alignment-score-card';
+import { StrategicAlignmentTrendCard } from './strategic-alignment-trend-card';
+import { StrategicLinkedDocsCard } from './strategic-linked-docs-card';
 import { StrategicDirectionsTab } from './strategic-directions-tab';
 import { StrategicKpiCards } from './strategic-kpi-cards';
 
@@ -167,20 +168,20 @@ export function StrategicVisionTabs({
 
   const tabClass = (isActive: boolean) =>
     cn(
-      'rounded-lg border px-3 py-2 text-sm transition-colors whitespace-nowrap',
+      '-mb-px border-b-2 px-1 py-3 text-sm transition-colors whitespace-nowrap',
       isActive
-        ? 'border-[#DB9801]/50 bg-[#DB9801]/15 font-medium text-[#1B1B1B]'
-        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground',
+        ? 'border-[color:var(--brand-gold)] font-semibold text-[color:var(--brand-gold-700)]'
+        : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
     );
 
   return (
     <div className="space-y-5">
       <div
-        className="rounded-xl border bg-card p-2 sm:p-2.5"
+        className="border-b border-border"
         aria-label="Onglets strategic vision"
         data-testid="strategic-tabs-container"
       >
-        <nav className="flex min-h-12 flex-wrap items-center gap-1 pb-1">
+        <nav className="flex flex-wrap items-center gap-6 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveMenu('overview')}
@@ -272,7 +273,12 @@ export function StrategicVisionTabs({
             />
           </div>
           <div className="space-y-6 lg:col-span-1">
-            <StrategicAlignmentScoreCard
+            <StrategicAlertsPanel
+              alerts={alerts}
+              isLoading={queryStates.alerts.isLoading}
+              isError={queryStates.alerts.isError}
+            />
+            <StrategicAlignmentTrendCard
               kpis={
                 directionFilter === 'ALL' || !selectedDirectionRow
                   ? kpis
@@ -288,11 +294,7 @@ export function StrategicVisionTabs({
               isLoading={queryStates.kpis.isLoading}
               isError={queryStates.kpis.isError}
             />
-            <StrategicAlertsPanel
-              alerts={alerts}
-              isLoading={queryStates.alerts.isLoading}
-              isError={queryStates.alerts.isError}
-            />
+            <StrategicLinkedDocsCard objectives={filteredObjectives} />
           </div>
         </div>
             </div>

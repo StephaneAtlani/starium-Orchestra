@@ -2,67 +2,70 @@
 @import '../styles/tokens.css';
 
 /*
- * Starium Orchestra — couleurs en dur pour garantir le rendu.
- * Pas de chaîne var() : chaque variable sémantique = hex direct.
+ * Starium Orchestra — Design System v1 (Apple-inspired + signature dorée).
+ * Couleurs en dur (hex) pour garantir le rendu, dérivées de docs/design-system/.
  */
 :root {
-  /* Palette officielle (hex) */
-  --starium-primary: #6F4BB8;
-  --starium-primary-hover: #5E3FA3;
-  --starium-primary-soft: #EFE7FB;
-  --starium-sidebar-bg: #6F4BB8;
-  --starium-sidebar-hover: #5E3FA3;
-  --starium-sidebar-text: #FFFFFF;
-  --starium-background: #F8F9FC;
-  --starium-surface: #FFFFFF;
-  --starium-surface-muted: #F3F4F8;
-  --starium-border: #E6E8EF;
-  --starium-text: #1B1B1B;
-  --starium-text-muted: #6B7280;
-  /** Avertissement ambre (ex. champ obligatoire manquant) — lisible sur fond clair */
-  --starium-warning-emphasis: #451a03;
+  /* Marque (or ambré) */
+  --starium-primary: #e8a317;
+  --starium-primary-hover: #cc8e0e;
+  --starium-primary-soft: #fbeab5;
+  /* Sidebar = ink (fixe) ; l'accent actif suit la marque (or) */
+  --starium-sidebar-bg: #0e0e10;
+  --starium-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --starium-sidebar-text: #fffffd;
+  /* Neutres chauds (papier) */
+  --starium-background: #faf9f7;
+  --starium-surface: #ffffff;
+  --starium-surface-muted: #f4f2ee;
+  --starium-border: #e9e6e0;
+  --starium-text: #0e0e10;
+  --starium-text-muted: #8c8579;
+  /** Texte sur tint doré (lisible sur fond clair) */
+  --starium-warning-emphasis: #5f3f00;
 
-  /* Shadcn/semantic = même valeur (direct) */
-  --background: #F8F9FC;
-  --foreground: #1B1B1B;
-  --card: #FFFFFF;
-  --card-foreground: #1B1B1B;
-  --popover: #FFFFFF;
-  --popover-foreground: #1B1B1B;
-  --primary: #6F4BB8;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F3F4F8;
-  --secondary-foreground: #1B1B1B;
-  --muted: #F3F4F8;
-  --muted-foreground: #6B7280;
-  --accent: #EFE7FB;
-  --accent-foreground: #6F4BB8;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #E6E8EF;
-  --input: #E6E8EF;
-  --ring: #6F4BB8;
+  /* Shadcn/semantic */
+  --background: #faf9f7;
+  --foreground: #0e0e10;
+  --card: #ffffff;
+  --card-foreground: #0e0e10;
+  --popover: #ffffff;
+  --popover-foreground: #0e0e10;
+  --primary: #e8a317;
+  --primary-foreground: #0e0e10;
+  --secondary: #f4f2ee;
+  --secondary-foreground: #0e0e10;
+  --muted: #f4f2ee;
+  --muted-foreground: #8c8579;
+  --accent: #fbeab5;
+  --accent-foreground: #5f3f00;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #e9e6e0;
+  --input: #e9e6e0;
+  --ring: #e8a317;
 
-  --sidebar: #4a2f7a;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #6F4BB8;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #5E3FA3;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-active-bg: #EFE7FB;
-  --sidebar-active-foreground: #1B1B1B;
-  --sidebar-border: rgba(255, 255, 255, 0.12);
+  /* Sidebar ink + accent actif doré */
+  --sidebar: #0e0e10;
+  --sidebar-foreground: #fffffd;
+  --sidebar-primary: #e8a317;
+  --sidebar-primary-foreground: #0e0e10;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
+  --sidebar-accent-foreground: #fffffd;
+  --sidebar-active-bg: #e8a317;
+  --sidebar-active-foreground: #0e0e10;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --starium-warning-emphasis: #d97706;
+    --starium-warning-emphasis: #e8a317;
   }
 }
 
 /* Thème sombre explicite (classe sur <html>, ex. next-themes) */
 html.dark {
-  --starium-warning-emphasis: #d97706;
+  --starium-warning-emphasis: #e8a317;
 }
 
 /* Texte d’avertissement ambre (plus foncé que les tons “alerte” clairs) */
@@ -78,7 +81,6 @@ html.dark {
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--sidebar);
-  /* Dégradé violet (marque) — étiré sur toute la hauteur de l’aside */
   background-size: 100% 100%;
   background-repeat: no-repeat;
   color: var(--sidebar-foreground);
@@ -154,7 +156,7 @@ html.dark {
 }
 .starium-dropdown-link:hover {
   background-color: var(--starium-primary-soft);
-  color: var(--starium-primary);
+  color: var(--starium-warning-emphasis);
 }
 .starium-dropdown-link-active {
   background-color: var(--sidebar-active-bg);
@@ -199,8 +201,9 @@ html.dark {
 .starium-card {
   background-color: var(--starium-surface);
   border: 1px solid var(--starium-border);
+  border-radius: var(--radius-lg);
   color: var(--starium-text);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  box-shadow: var(--shadow-1);
 }
 .starium-text {
   color: var(--starium-text);
@@ -212,14 +215,14 @@ html.dark {
   border-color: var(--starium-border);
 }
 .starium-primary {
-  color: var(--starium-primary);
+  color: var(--starium-warning-emphasis);
 }
 .starium-bg-muted {
   background-color: var(--starium-surface-muted);
 }
 .starium-avatar {
   background-color: var(--starium-primary);
-  color: var(--sidebar-foreground);
+  color: var(--brand-ink);
 }
 
 html,
@@ -233,33 +236,265 @@ body {
   color: var(--starium-text);
   font-size: 0.875rem;
   font-feature-settings: 'rlig' 1, 'calt' 1;
-  font-family: 'Geist', 'Geist Fallback', system-ui, -apple-system,
+  font-family: var(--font-manrope), 'Manrope', system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Bordures par défaut = neutre chaud DS (#e9e6e0), jamais le gris/noir Tailwind générique */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
+}
+
+::selection {
+  background: var(--brand-gold-100);
+  color: var(--brand-ink);
 }
 
 @theme inline {
-  --color-background: #F8F9FC;
-  --color-foreground: #1B1B1B;
-  --color-card: #FFFFFF;
+  --font-sans: var(--font-manrope), 'Manrope', system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace,
+    SFMono-Regular, Menlo, monospace;
+
+  --color-background: #faf9f7;
+  --color-foreground: #0e0e10;
+  --color-card: #ffffff;
+  --color-card-foreground: #0e0e10;
   /* Aligné sur :root --popover ; sans ça, bg-popover ne colore pas le panneau (Select, etc.). */
-  --color-popover: #FFFFFF;
-  --color-popover-foreground: #1B1B1B;
-  --color-primary: #6F4BB8;
-  --color-primary-foreground: #FFFFFF;
-  --color-muted: #F3F4F8;
-  --color-muted-foreground: #6B7280;
-  --color-accent: #EFE7FB;
-  --color-accent-foreground: #6F4BB8;
-  --color-border: #E6E8EF;
-  --color-input: #E6E8EF;
-  --color-ring: #6F4BB8;
-  --color-destructive: #EF4444;
-  --color-destructive-foreground: #FFFFFF;
-  --color-sidebar: #6F4BB8;
-  --color-sidebar-foreground: #FFFFFF;
-  --color-sidebar-border: rgba(255, 255, 255, 0.12);
-  --color-sidebar-accent: #5E3FA3;
-  --color-sidebar-primary: #6F4BB8;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0e0e10;
+  --color-primary: #e8a317;
+  --color-primary-foreground: #0e0e10;
+  --color-secondary: #f4f2ee;
+  --color-secondary-foreground: #0e0e10;
+  --color-muted: #f4f2ee;
+  --color-muted-foreground: #8c8579;
+  --color-accent: #fbeab5;
+  --color-accent-foreground: #5f3f00;
+  --color-border: #e9e6e0;
+  --color-input: #e9e6e0;
+  --color-ring: #e8a317;
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #ffffff;
+  --color-sidebar: #0e0e10;
+  --color-sidebar-foreground: #fffffd;
+  --color-sidebar-border: rgba(255, 255, 255, 0.1);
+  --color-sidebar-accent: rgba(255, 255, 255, 0.1);
+  --color-sidebar-accent-foreground: #fffffd;
+  --color-sidebar-primary: #e8a317;
+  --color-sidebar-primary-foreground: #0e0e10;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+/*
+ * Harmonisation globale Design System Starium.
+ * On remappe les rampes Tailwind génériques vers la palette DS pour que TOUTE
+ * l'app (badges, alertes, KPI, tableaux…) parle la même langue chromatique,
+ * sans éditer chaque composant.
+ *  - slate / gray / zinc  → neutres chauds (papier) — le DS bannit le gris froid
+ *  - green / emerald / teal → success  #1F8A5B
+ *  - amber / yellow / orange → warning #C77A00
+ *  - red / rose            → danger   #B42318
+ *  - sky / blue            → info     #2A6FDB
+ *  - violet / purple / indigo / pink / fuchsia : laissés catégoriels (data-viz).
+ */
+@theme {
+  /* ---- Neutres chauds (remplacent slate/gray/zinc) ---- */
+  --color-slate-50: #faf9f7;
+  --color-slate-100: #f4f2ee;
+  --color-slate-200: #e9e6e0;
+  --color-slate-300: #d6d2ca;
+  --color-slate-400: #b6b0a4;
+  --color-slate-500: #8c8579;
+  --color-slate-600: #5f5a52;
+  --color-slate-700: #403d38;
+  --color-slate-800: #26241f;
+  --color-slate-900: #14130f;
+  --color-slate-950: #0e0e10;
+
+  --color-gray-50: #faf9f7;
+  --color-gray-100: #f4f2ee;
+  --color-gray-200: #e9e6e0;
+  --color-gray-300: #d6d2ca;
+  --color-gray-400: #b6b0a4;
+  --color-gray-500: #8c8579;
+  --color-gray-600: #5f5a52;
+  --color-gray-700: #403d38;
+  --color-gray-800: #26241f;
+  --color-gray-900: #14130f;
+  --color-gray-950: #0e0e10;
+
+  --color-zinc-50: #faf9f7;
+  --color-zinc-100: #f4f2ee;
+  --color-zinc-200: #e9e6e0;
+  --color-zinc-300: #d6d2ca;
+  --color-zinc-400: #b6b0a4;
+  --color-zinc-500: #8c8579;
+  --color-zinc-600: #5f5a52;
+  --color-zinc-700: #403d38;
+  --color-zinc-800: #26241f;
+  --color-zinc-900: #14130f;
+  --color-zinc-950: #0e0e10;
+
+  --color-neutral-50: #faf9f7;
+  --color-neutral-100: #f4f2ee;
+  --color-neutral-200: #e9e6e0;
+  --color-neutral-300: #d6d2ca;
+  --color-neutral-400: #b6b0a4;
+  --color-neutral-500: #8c8579;
+  --color-neutral-600: #5f5a52;
+  --color-neutral-700: #403d38;
+  --color-neutral-800: #26241f;
+  --color-neutral-900: #14130f;
+  --color-neutral-950: #0e0e10;
+
+  --color-stone-50: #faf9f7;
+  --color-stone-100: #f4f2ee;
+  --color-stone-200: #e9e6e0;
+  --color-stone-300: #d6d2ca;
+  --color-stone-400: #b6b0a4;
+  --color-stone-500: #8c8579;
+  --color-stone-600: #5f5a52;
+  --color-stone-700: #403d38;
+  --color-stone-800: #26241f;
+  --color-stone-900: #14130f;
+  --color-stone-950: #0e0e10;
+
+  /* ---- Success (green / emerald / teal) → #1F8A5B ---- */
+  --color-green-50: #e6f4ed;
+  --color-green-100: #d0eadd;
+  --color-green-200: #a6d8bf;
+  --color-green-300: #74c29d;
+  --color-green-400: #45a87c;
+  --color-green-500: #1f8a5b;
+  --color-green-600: #1b7b51;
+  --color-green-700: #176844;
+  --color-green-800: #125236;
+  --color-green-900: #0d3e29;
+  --color-green-950: #072619;
+
+  --color-emerald-50: #e6f4ed;
+  --color-emerald-100: #d0eadd;
+  --color-emerald-200: #a6d8bf;
+  --color-emerald-300: #74c29d;
+  --color-emerald-400: #45a87c;
+  --color-emerald-500: #1f8a5b;
+  --color-emerald-600: #1b7b51;
+  --color-emerald-700: #176844;
+  --color-emerald-800: #125236;
+  --color-emerald-900: #0d3e29;
+  --color-emerald-950: #072619;
+
+  --color-teal-50: #e6f4ed;
+  --color-teal-100: #d0eadd;
+  --color-teal-200: #a6d8bf;
+  --color-teal-300: #74c29d;
+  --color-teal-400: #45a87c;
+  --color-teal-500: #1f8a5b;
+  --color-teal-600: #1b7b51;
+  --color-teal-700: #176844;
+  --color-teal-800: #125236;
+  --color-teal-900: #0d3e29;
+  --color-teal-950: #072619;
+
+  /* ---- Warning (amber / yellow / orange) → #C77A00 ---- */
+  --color-amber-50: #fff1dc;
+  --color-amber-100: #fde7c4;
+  --color-amber-200: #f8cd8a;
+  --color-amber-300: #efae4e;
+  --color-amber-400: #db9213;
+  --color-amber-500: #c77a00;
+  --color-amber-600: #a66600;
+  --color-amber-700: #855200;
+  --color-amber-800: #653e00;
+  --color-amber-900: #4a2e00;
+  --color-amber-950: #2e1c00;
+
+  --color-yellow-50: #fff1dc;
+  --color-yellow-100: #fde7c4;
+  --color-yellow-200: #f8cd8a;
+  --color-yellow-300: #efae4e;
+  --color-yellow-400: #db9213;
+  --color-yellow-500: #c77a00;
+  --color-yellow-600: #a66600;
+  --color-yellow-700: #855200;
+  --color-yellow-800: #653e00;
+  --color-yellow-900: #4a2e00;
+  --color-yellow-950: #2e1c00;
+
+  --color-orange-50: #fff1dc;
+  --color-orange-100: #fde7c4;
+  --color-orange-200: #f8cd8a;
+  --color-orange-300: #efae4e;
+  --color-orange-400: #db9213;
+  --color-orange-500: #c77a00;
+  --color-orange-600: #a66600;
+  --color-orange-700: #855200;
+  --color-orange-800: #653e00;
+  --color-orange-900: #4a2e00;
+  --color-orange-950: #2e1c00;
+
+  /* ---- Danger (red / rose) → #B42318 ---- */
+  --color-red-50: #fbe8e6;
+  --color-red-100: #f8d3cf;
+  --color-red-200: #f0aaa3;
+  --color-red-300: #e67a6f;
+  --color-red-400: #d24a3d;
+  --color-red-500: #b42318;
+  --color-red-600: #9e1f15;
+  --color-red-700: #831a11;
+  --color-red-800: #66140d;
+  --color-red-900: #4c0f0a;
+  --color-red-950: #2e0906;
+
+  --color-rose-50: #fbe8e6;
+  --color-rose-100: #f8d3cf;
+  --color-rose-200: #f0aaa3;
+  --color-rose-300: #e67a6f;
+  --color-rose-400: #d24a3d;
+  --color-rose-500: #b42318;
+  --color-rose-600: #9e1f15;
+  --color-rose-700: #831a11;
+  --color-rose-800: #66140d;
+  --color-rose-900: #4c0f0a;
+  --color-rose-950: #2e0906;
+
+  /* ---- Info (sky / blue) → #2A6FDB ---- */
+  --color-sky-50: #e3eefb;
+  --color-sky-100: #cfe0f8;
+  --color-sky-200: #a6c5f1;
+  --color-sky-300: #73a3e8;
+  --color-sky-400: #4585e0;
+  --color-sky-500: #2a6fdb;
+  --color-sky-600: #235ebc;
+  --color-sky-700: #1d4d9c;
+  --color-sky-800: #173c79;
+  --color-sky-900: #122d5b;
+  --color-sky-950: #0b1c3a;
+
+  --color-blue-50: #e3eefb;
+  --color-blue-100: #cfe0f8;
+  --color-blue-200: #a6c5f1;
+  --color-blue-300: #73a3e8;
+  --color-blue-400: #4585e0;
+  --color-blue-500: #2a6fdb;
+  --color-blue-600: #235ebc;
+  --color-blue-700: #1d4d9c;
+  --color-blue-800: #173c79;
+  --color-blue-900: #122d5b;
+  --color-blue-950: #0b1c3a;
 }
 
 /* Notifications (remplace Sonner) — entrée / sortie */

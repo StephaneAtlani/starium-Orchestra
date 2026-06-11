@@ -10,7 +10,7 @@ import {
   type MultiLineSeries,
 } from '@/features/budgets/forecast/components/comparison-charts-svg';
 
-const PALETTE = ['#6F4BB8', '#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EC4899'] as const;
+const PALETTE = ['#E8A317', '#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EC4899'] as const;
 
 function truncate(s: string, max: number): string {
   const t = s.trim();

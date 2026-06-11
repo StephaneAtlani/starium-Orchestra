@@ -18,12 +18,12 @@ import {
 } from '@/features/budgets/forecast/components/comparison-charts-svg';
 
 const C = {
-  left: '#6F4BB8',
+  left: '#E8A317',
   right: '#2563EB',
-  ok: '#22C55E',
-  warn: '#F59E0B',
-  crit: '#EF4444',
-  pie: ['#6F4BB8', '#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EC4899', '#8B5CF6', '#64748B'],
+  ok: '#1F8A5B',
+  warn: '#C77A00',
+  crit: '#B42318',
+  pie: ['#E8A317', '#2563EB', '#0EA5E9', '#14B8A6', '#F59E0B', '#EC4899', '#8B5CF6', '#64748B'],
 } as const;
 
 const TOP_LINES_PIE = 7;

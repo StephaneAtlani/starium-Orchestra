@@ -102,17 +102,17 @@ export function StrategicVisionPage() {
         }}
       />
 
-      <section className="space-y-2 rounded-xl border bg-card p-4 sm:p-5">
+      <section className="space-y-2 rounded-xl border border-border bg-card p-4 sm:p-5">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Gouvernance / Vision stratégique
         </p>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-[#1B1B1B]">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 {pageTitle}
               </h1>
-              <span className="inline-flex items-center rounded-full border border-[#DB9801]/40 bg-[#DB9801]/10 px-2.5 py-0.5 text-xs font-medium text-[#1B1B1B]">
+              <span className="inline-flex items-center rounded-full bg-[color:var(--brand-gold-100)] px-2.5 py-0.5 text-xs font-semibold text-[color:var(--brand-gold-700)]">
                 {statusLabel}
               </span>
             </div>

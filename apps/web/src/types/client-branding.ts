@@ -10,10 +10,10 @@ export type ClientBranding = {
   dashboardPreset?: 'standard' | 'executive' | 'dense';
 };
 
-/** Thème par défaut plateforme (tokens Starium Orchestra). */
+/** Thème par défaut plateforme (Design System Starium — signature dorée). */
 export const DEFAULT_PLATFORM_BRANDING: ClientBranding = {
-  primaryColor: '#6F4BB8',
-  primarySoftColor: '#EFE7FB',
+  primaryColor: '#E8A317',
+  primarySoftColor: '#FBEAB5',
   sidebarStyle: 'solid',
   dashboardPreset: 'standard',
 };
