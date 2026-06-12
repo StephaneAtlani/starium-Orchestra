@@ -614,7 +614,7 @@ export function DashboardBudgetKpiWidget() {
   }
 
   return (
-    <section className="starium-section space-y-4">
+    <section className="starium-module space-y-4">
       <div className="flex flex-col gap-3">
         <div className="w-full min-w-0 space-y-1">
           <h2 className="starium-section-title">

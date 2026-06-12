@@ -30,10 +30,7 @@ export function CockpitSection({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h2
-            id={id}
-            className="text-lg font-semibold tracking-tight text-foreground"
-          >
+          <h2 id={id} className="starium-section-title">
             {title}
           </h2>
           {description ? (

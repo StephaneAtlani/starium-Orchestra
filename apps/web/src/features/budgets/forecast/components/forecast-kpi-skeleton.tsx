@@ -1,8 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-
 export function ForecastKpiSkeleton({ count = 5 }: { count?: number }) {
   return (
     <div
@@ -10,14 +8,10 @@ export function ForecastKpiSkeleton({ count = 5 }: { count?: number }) {
       data-testid="forecast-kpi-skeleton"
     >
       {Array.from({ length: count }).map((_, i) => (
-        <Card key={i}>
-          <CardHeader className="pb-1">
-            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-          </CardHeader>
-          <CardContent>
-            <div className="h-8 w-32 animate-pulse rounded bg-muted" />
-          </CardContent>
-        </Card>
+        <div key={i} className="starium-kpi-card space-y-2">
+          <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+          <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+        </div>
       ))}
     </div>
   );

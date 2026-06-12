@@ -115,11 +115,8 @@ export function SuppliersDashboardPage() {
       ) : null}
 
       {/* Bloc KPI principal — variant default = grands chiffres (FRONTEND_UI-UX §6) */}
-      <section className="space-y-3" aria-labelledby="suppliers-kpi-heading">
-        <h2
-          id="suppliers-kpi-heading"
-          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-        >
+      <section className="starium-module space-y-4" aria-labelledby="suppliers-kpi-heading">
+        <h2 id="suppliers-kpi-heading" className="starium-section-title">
           Indicateurs clés
         </h2>
 

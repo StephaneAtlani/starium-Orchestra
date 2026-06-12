@@ -97,8 +97,8 @@
   /* ----------------------------------------------------------------------
    * Primitives composants — LA charte structurelle centrale.
    * Modifier ici = changer partout (cartes, sections, KPI, titres).
-   * Consommées par les classes .starium-section / .starium-kpi-card /
-   * .starium-section-title / .starium-kpi-* dans globals.css.
+   * Consommées par .starium-module (groupe sans cadre) / .starium-section (bloc cartonné)
+   * / .starium-kpi-card / .starium-section-title / .starium-kpi-* dans globals.css.
    * -------------------------------------------------------------------- */
   --ds-card-radius: var(--radius-lg);
   --ds-card-pad: 1.25rem;

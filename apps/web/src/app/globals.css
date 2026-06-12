@@ -233,7 +233,15 @@ html.dark {
  * Tailwind posés dans le JSX gardent la priorité (override ponctuel).
  * -------------------------------------------------------------------- */
 @layer components {
-  /* Section / module cartonné (surface + padding standard) */
+  /*
+   * Module de page — titre + contenu sur le fond app (#FAF9F7), SANS cadre.
+   * Pattern DS (dashboard, grilles KPI) : starium-module + starium-kpi-card × N.
+   */
+  .starium-module {
+    /* séparation visuelle = espacement vertical uniquement (space-y-* dans le JSX) */
+  }
+
+  /* Bloc cartonné unique (vision, tableau, formulaire) — un seul niveau de cadre */
   .starium-section {
     background-color: var(--card);
     border: 1px solid var(--border);

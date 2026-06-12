@@ -350,7 +350,7 @@ export function DashboardSuppliersKpiWidget() {
   }
 
   return (
-    <section className="starium-section space-y-4">
+    <section className="starium-module space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1">
           <h2 className="starium-section-title">

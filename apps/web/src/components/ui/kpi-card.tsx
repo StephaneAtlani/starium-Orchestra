@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export interface KpiCardProps {
@@ -27,10 +26,10 @@ export function KpiCard({
 }: KpiCardProps) {
   const dense = variant === 'dense';
   return (
-    <Card
+    <div
       className={cn(
-        'transition-shadow hover:shadow-[var(--shadow-2)]',
-        dense ? 'p-3' : 'p-5',
+        'starium-kpi-card transition-shadow hover:shadow-[var(--ds-card-shadow-hover)]',
+        dense && '!p-3',
       )}
     >
       <div className={cn('flex items-center', dense ? 'gap-3' : 'gap-[18px]')}>
@@ -62,6 +61,6 @@ export function KpiCard({
           )}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
