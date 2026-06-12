@@ -13,10 +13,12 @@ export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
 /** Classe ciblée par CSS `:fullscreen` pour étaler le contenu sur toute la largeur (ex. Gantt portefeuille). */
 const WORKSPACE_INNER = 'starium-workspace-inner';
 
-/** Contenu centré, même largeur pour header et main (alignement vertical). */
-const CONTENT_WRAPPER_NARROW = `mx-auto w-full max-w-7xl px-8 sm:px-10 lg:px-12 ${WORKSPACE_INNER}`;
-/** Présentation comité : toute la largeur utile à droite de la sidebar (pas de cap max-w-7xl). */
-const CONTENT_WRAPPER_WIDE = `w-full min-w-0 max-w-none px-8 sm:px-10 lg:px-12 ${WORKSPACE_INNER}`;
+/** Pleine largeur utile — léger gutter horizontal (ne colle pas aux bords). */
+const CONTENT_WRAPPER_GUTTER = `w-full min-w-0 px-4 sm:px-5 ${WORKSPACE_INNER}`;
+/** Contenu standard (dashboard, modules) : même gutter que le header. */
+const CONTENT_WRAPPER_NARROW = CONTENT_WRAPPER_GUTTER;
+/** Présentation comité : pleine largeur, même gutter. */
+const CONTENT_WRAPPER_WIDE = CONTENT_WRAPPER_GUTTER;
 
 interface AppShellProps {
   children: React.ReactNode;

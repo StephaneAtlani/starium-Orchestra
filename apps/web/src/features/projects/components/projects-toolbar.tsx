@@ -57,13 +57,13 @@ export function ProjectsToolbar({
 
   const content = (
     <>
-      <CardHeader className="flex flex-col gap-2 border-b border-border/60 pb-2 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="starium-toolbar-header flex flex-col gap-2 pb-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <CardTitle className="text-sm font-medium">Filtrer et trier</CardTitle>
+          <CardTitle>Filtrer et trier</CardTitle>
         </div>
         <div className="flex items-center gap-2 self-start">
           {onViewModeChange ? (
-            <div className="inline-flex items-center gap-1 rounded-md border bg-background p-1">
+            <div className="inline-flex items-center gap-0.5 rounded-[10px] bg-muted p-0.5">
               <Button
                 type="button"
                 variant={viewMode === 'table' ? 'default' : 'ghost'}
@@ -143,7 +143,7 @@ export function ProjectsToolbar({
   return (
     <Card
       size="sm"
-      className="shadow-sm"
+      className="starium-panel"
       role="search"
       aria-label="Filtrer et trier la liste des projets"
     >

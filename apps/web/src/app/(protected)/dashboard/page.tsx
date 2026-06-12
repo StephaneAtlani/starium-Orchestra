@@ -37,9 +37,6 @@ export default function DashboardPage() {
         <CriticalAlertsPanel />
 
         <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Documents
-          </h2>
           <Card>
             <CardHeader>
               <CardTitle>Documents</CardTitle>

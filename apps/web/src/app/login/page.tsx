@@ -558,7 +558,7 @@ function LoginPageContent() {
     <main className="flex min-h-screen items-center justify-center bg-[#EBEBE9] px-4 py-8">
       <Card className="w-full max-w-4xl">
         <div className="grid gap-0 md:grid-cols-2">
-          <div className="relative hidden flex-col justify-between bg-muted/40 p-8 md:flex">
+          <div className="relative hidden flex-col items-center justify-center bg-muted/40 p-8 md:flex">
             <Image
               src="/login-hero.svg"
               alt=""
@@ -571,12 +571,12 @@ function LoginPageContent() {
             <Image
               src="/brand/logo-horizontal.png"
               alt="Starium Orchestra"
-              width={150}
-              height={28}
+              width={320}
+              height={60}
               priority
-              className="relative h-7 w-auto object-contain"
+              className="relative h-16 w-auto object-contain"
             />
-            <div className="mt-8 text-xs text-muted-foreground">
+            <div className="absolute inset-x-8 bottom-8 text-xs text-muted-foreground">
               <p className="font-medium">
                 « Votre cockpit de gouvernance IT, finance et opérations. »
               </p>

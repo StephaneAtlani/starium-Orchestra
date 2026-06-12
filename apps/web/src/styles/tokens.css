@@ -93,4 +93,32 @@
   --container-max: 1280px;
   --sidebar-width: 248px;
   --topbar-height: 64px;
+
+  /* ----------------------------------------------------------------------
+   * Primitives composants — LA charte structurelle centrale.
+   * Modifier ici = changer partout (cartes, sections, KPI, titres).
+   * Consommées par les classes .starium-section / .starium-kpi-card /
+   * .starium-section-title / .starium-kpi-* dans globals.css.
+   * -------------------------------------------------------------------- */
+  --ds-card-radius: var(--radius-lg);
+  --ds-card-pad: 1.25rem;
+  --ds-card-shadow: var(--shadow-1);
+  --ds-card-shadow-elevated: var(--shadow-2);
+  --ds-card-shadow-hover: var(--shadow-2);
+
+  --ds-table-head-py: 10px;
+  --ds-table-head-px: 14px;
+  --ds-table-cell-py: 10px;
+  --ds-table-cell-px: 14px;
+
+  --ds-section-title-size: 1rem;
+  --ds-section-title-weight: 600;
+
+  --ds-kpi-pad: 1.25rem;
+  --ds-kpi-icon-size: 38px;
+  --ds-kpi-icon-color: var(--brand-gold);
+  --ds-kpi-label-size: 0.8125rem;
+  --ds-kpi-value-size: 2.125rem;
+  --ds-kpi-value-size-dense: 1.25rem;
+  --ds-kpi-value-weight: 700;
 }

@@ -246,7 +246,7 @@ export default function ProjectsPortfolioPage() {
             )}
 
             {!error && (
-              <Card size="sm" className="max-h-[min(75vh,800px)] overflow-hidden shadow-sm">
+              <Card size="sm" className="starium-panel max-h-[min(75vh,800px)] overflow-hidden">
                 <ProjectsToolbar
                   filters={filters}
                   setFilters={setFilters}

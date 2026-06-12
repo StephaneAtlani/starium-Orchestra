@@ -91,25 +91,17 @@ function SupplierKpiStat({
   href?: string;
 }) {
   const shellClassName = cn(
-    'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-1)]',
-    href &&
-      'cursor-pointer transition-shadow hover:shadow-[var(--shadow-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'starium-kpi-card',
+    href && 'starium-kpi-card--interactive',
   );
 
   const content = (
     <div className="flex items-center gap-[18px]">
-      <Icon
-        className="size-[38px] shrink-0 text-[color:var(--brand-gold)]"
-        strokeWidth={1.5}
-        aria-hidden
-      />
+      <Icon className="starium-kpi-icon" strokeWidth={1.5} aria-hidden />
       <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="text-[13px] text-muted-foreground">{label}</p>
+        <p className="starium-kpi-label">{label}</p>
         <p
-          className={cn(
-            'text-[34px] font-bold leading-[1.1] tabular-nums tracking-tight',
-            valueToneClass[valueTone],
-          )}
+          className={cn('starium-kpi-value', valueToneClass[valueTone])}
           title={title}
         >
           {valueStr}
@@ -135,7 +127,7 @@ function SupplierKpiStat({
 
 function KpiSkeleton() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-1)]">
+    <div className="starium-kpi-card">
       <div className="flex items-center gap-[18px]">
         <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1 space-y-2">
@@ -358,10 +350,10 @@ export function DashboardSuppliersKpiWidget() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="starium-section space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="starium-section-title">
             Fournisseurs
           </h2>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

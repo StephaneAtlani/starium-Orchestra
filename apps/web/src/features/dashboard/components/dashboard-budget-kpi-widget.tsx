@@ -88,7 +88,7 @@ function formatDashboardDataAge(updatedAtMs: number): string {
 
 function KpiSkeleton() {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-1)]">
+    <div className="starium-kpi-card">
       <div className="flex items-center gap-[18px]">
         <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1 space-y-2">
@@ -614,10 +614,10 @@ export function DashboardBudgetKpiWidget() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="starium-section space-y-4">
       <div className="flex flex-col gap-3">
         <div className="w-full min-w-0 space-y-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="starium-section-title">
             Budget
           </h2>
           {data ? (

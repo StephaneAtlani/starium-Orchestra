@@ -16,10 +16,9 @@ type ValueTone = 'default' | 'info' | 'success' | 'warning' | 'danger';
 
 const valueToneClass: Record<ValueTone, string> = {
   default: 'text-foreground',
-  info: 'text-primary',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  /** Jaune plus net (palette yellow vs amber) */
-  warning: 'text-yellow-800 dark:text-yellow-400',
+  info: 'text-[color:var(--brand-gold-700)]',
+  success: 'text-[color:var(--state-success)]',
+  warning: 'text-[color:var(--state-warning)]',
   danger: 'text-destructive',
 };
 
@@ -48,12 +47,12 @@ function Stat({
 }) {
   return (
     <div className="min-w-0" title={title}>
-      <div className="truncate text-center text-[0.62rem] font-medium leading-tight text-muted-foreground sm:text-left sm:text-[0.65rem]">
+      <div className="starium-kpi-label truncate text-center sm:text-left">
         {label}
       </div>
       <div
         className={cn(
-          'text-center text-base font-semibold tabular-nums tracking-tight sm:text-left sm:text-lg',
+          'starium-kpi-value starium-kpi-value--dense text-center sm:text-left',
           valueToneClass[valueTone],
         )}
       >
@@ -80,7 +79,7 @@ function KpiGroup({
     >
       <h2
         id={headingId}
-        className="mb-1.5 border-b border-border/70 pb-1 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground"
+        className="starium-overline mb-1.5 border-b border-border pb-1"
       >
         {label}
       </h2>
@@ -98,9 +97,9 @@ export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
   const v = (n: number | undefined) => val(n, loading);
 
   return (
-    <Card size="sm" className="overflow-hidden border-border shadow-sm" data-testid="projects-portfolio-kpi">
-      <CardHeader className="border-b border-border/60 pb-2 pt-3 sm:pb-2.5">
-        <CardTitle className="text-sm font-medium leading-tight">
+    <Card size="sm" className="starium-panel overflow-hidden border-border" data-testid="projects-portfolio-kpi">
+      <CardHeader className="starium-toolbar-header pb-3 pt-3 sm:pb-3">
+        <CardTitle>
           Indicateurs portefeuille
         </CardTitle>
         <CardDescription className="text-xs leading-snug text-muted-foreground">

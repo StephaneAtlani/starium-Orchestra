@@ -124,9 +124,8 @@ export function BudgetKpiCard({
 }) {
   const shell = variantShell[variant];
   const shellClassName = cn(
-    'relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-1)] transition-shadow hover:shadow-[var(--shadow-2)]',
-    href &&
-      'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'starium-kpi-card',
+    href && 'starium-kpi-card--interactive',
   );
   const ariaLabel =
     linkAriaLabel ??

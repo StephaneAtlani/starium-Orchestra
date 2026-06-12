@@ -61,7 +61,6 @@ function formatDate(iso: string | null) {
   }
 }
 
-const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
 const PROJECT_LIST_COLUMN_COUNT = 12;
 const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   name: 'Nom',
@@ -242,23 +241,17 @@ export function ProjectsListTable({
   return (
     <TooltipProvider delay={250}>
       <Table noWrapper className="min-w-[64rem] text-sm">
-      <TableHeader className="sticky top-0 z-50 bg-muted [&_tr]:border-b-0">
+      <TableHeader className="sticky top-0 z-50 bg-card [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
           <TableHead
-            className={cn(
-              th,
-              'sticky left-0 z-[52] min-w-[11rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
-            )}
+            className="sticky left-0 z-[52] min-w-[11rem] bg-card pl-4 starium-table-sticky-edge"
           >
             <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
               Categorie
             </HeaderTip>
           </TableHead>
           <TableHead
-            className={cn(
-              th,
-              'sticky left-[11rem] z-[52] min-w-[12rem] bg-muted pl-4 shadow-[1px_0_0_0_hsl(var(--border))]',
-            )}
+            className="sticky left-[11rem] z-[52] min-w-[12rem] bg-card pl-4 starium-table-sticky-edge"
           >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
               <SortHeaderButton
@@ -269,12 +262,12 @@ export function ProjectsListTable({
               />
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'w-[5.5rem]')}>
+          <TableHead className="w-[5.5rem]">
             <HeaderTip tip="Projet structuré (livrables, jalons) ou activité de suivi plus léger.">
               Nature
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'w-[6.5rem]')}>
+          <TableHead className="w-[6.5rem]">
             <HeaderTip tip="Indicateur de santé calculé (retards, risques, jalons, blocages…).">
               <SortHeaderButton
                 label="Santé"
@@ -284,7 +277,7 @@ export function ProjectsListTable({
               />
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[7rem]')}>
+          <TableHead className="min-w-[7rem]">
             <HeaderTip tip="Statut métier du projet dans son cycle de vie (ex. brouillon, en cours, terminé).">
               <SortHeaderButton
                 label="Statut"
@@ -294,12 +287,12 @@ export function ProjectsListTable({
               />
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[9rem]')}>
+          <TableHead className="min-w-[9rem]">
             <HeaderTip tip="Rôle de l'utilisateur connecté sur ce projet.">
               Mon rôle
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[10rem]')}>
+          <TableHead className="min-w-[10rem]">
             <HeaderTip tip="Responsable du projet (chef de projet) — utilisateur client ou identité nom libre.">
               <SortHeaderButton
                 label="Chef de projets"
@@ -309,7 +302,7 @@ export function ProjectsListTable({
               />
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'w-[7.5rem] text-right')}>
+          <TableHead className="w-[7.5rem] text-right">
             <div className="flex w-full justify-end">
               <HeaderTip
                 tip="Premier pourcentage : avancement saisi manuellement. Second : avancement dérivé des tâches."
@@ -330,7 +323,7 @@ export function ProjectsListTable({
               </HeaderTip>
             </div>
           </TableHead>
-          <TableHead className={cn(th, 'w-[6.5rem]')}>
+          <TableHead className="w-[6.5rem]">
             <HeaderTip tip="Date cible de fin du projet ou de l’activité.">
               <SortHeaderButton
                 label="Échéance"
@@ -340,7 +333,7 @@ export function ProjectsListTable({
               />
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'w-[5rem] text-center')}>
+          <TableHead className="w-[5rem] text-center">
             <div className="flex justify-center">
               <HeaderTip
                 tip="Tâches ouvertes / risques ouverts / jalons en retard."
@@ -351,20 +344,20 @@ export function ProjectsListTable({
               </HeaderTip>
             </div>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[10rem] pr-4')}>
+          <TableHead className="min-w-[10rem] pr-4">
             <HeaderTip tip="Pastilles de pilotage : retard, bloqué, critique, absence de risque enregistré, etc.">
               Signaux
             </HeaderTip>
           </TableHead>
-          <TableHead className={cn(th, 'min-w-[10rem] pr-4')}>
+          <TableHead className="min-w-[10rem] pr-4">
             <HeaderTip tip="Etiquettes associees au projet.">
               Etiquettes
             </HeaderTip>
           </TableHead>
         </TableRow>
-        <TableRow className="border-t border-border/50 bg-muted/35 pt-0 hover:bg-muted/35">
+        <TableRow className="border-t border-border bg-neutral-50 pt-0 hover:bg-neutral-50">
           {/* CATEGORIE */}
-          <TableHead className="sticky left-0 z-[52] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 pl-3 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-0 z-[52] h-auto min-h-0 bg-neutral-50 px-2 pb-2 pt-0 pl-3 starium-table-sticky-edge">
             <Select
               value={categoryKey}
               onValueChange={(v) =>
@@ -401,7 +394,7 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* PROJET */}
-          <TableHead className="sticky left-[11rem] z-[52] h-auto min-h-0 bg-muted px-2 pb-2 pt-0 shadow-[1px_0_0_0_hsl(var(--border))]">
+          <TableHead className="sticky left-[11rem] z-[52] h-auto min-h-0 bg-neutral-50 px-2 pb-2 pt-0 starium-table-sticky-edge">
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
@@ -522,16 +515,16 @@ export function ProjectsListTable({
             </Select>
           </TableHead>
           {/* AVANCEMENT / ECHEANCE / T·R·J / SIGNAUX / ETIQUETTES */}
-          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-muted-foreground">
             —
           </TableHead>
-          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-muted-foreground">
             —
           </TableHead>
-          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-muted-foreground">
             —
           </TableHead>
-          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-[0.65rem] text-muted-foreground">
+          <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0 text-center text-muted-foreground">
             —
           </TableHead>
           <TableHead className="h-auto min-h-0 px-2 pb-2 pt-0">
@@ -561,7 +554,7 @@ export function ProjectsListTable({
         ) : null}
         {items.map((p) => (
           <TableRow key={p.id} className="group">
-            <TableCell className="sticky left-0 z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))] whitespace-normal break-words min-w-[11rem] max-w-[15rem]">
+            <TableCell className="sticky left-0 z-20 align-top bg-card py-3 pl-4 starium-table-sticky-edge whitespace-normal break-words min-w-[11rem] max-w-[15rem]">
               {p.portfolioCategory ? (
                 <CellTip
                   wrap
@@ -585,7 +578,7 @@ export function ProjectsListTable({
                 <span className="text-xs text-muted-foreground">—</span>
               )}
             </TableCell>
-            <TableCell className="sticky left-[11rem] z-20 align-top bg-background py-3 pl-4 shadow-[1px_0_0_0_hsl(var(--border))]">
+            <TableCell className="sticky left-[11rem] z-20 align-top bg-card py-3 pl-4 starium-table-sticky-edge">
               <Link
                 href={`/projects/${p.id}`}
                 className="font-medium text-primary hover:underline"

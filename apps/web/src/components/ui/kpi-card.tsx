@@ -45,13 +45,11 @@ export function KpiCard({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <span className="block text-[13px] leading-tight text-muted-foreground">
-            {title}
-          </span>
+          <span className="starium-kpi-label block">{title}</span>
           <div
             className={cn(
-              'tracking-tight tabular-nums text-foreground',
-              dense ? 'text-xl font-bold' : 'text-3xl font-bold',
+              'starium-kpi-value text-foreground',
+              dense && 'starium-kpi-value--dense',
             )}
           >
             {value}

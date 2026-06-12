@@ -169,7 +169,7 @@ html.dark {
 
 /*
  * Plein écran navigateur : `ProjectsToolbar` appelle requestFullscreen sur #starium-app-workspace.
- * Sans ça, max-w-7xl + gros px laissent des bandes vides alors que la zone est déjà plein viewport.
+ * Sans ça, le cap de largeur laisserait des bandes vides alors que la zone est déjà plein viewport.
  */
 #starium-app-workspace:fullscreen,
 #starium-app-workspace:-webkit-full-screen {
@@ -223,6 +223,102 @@ html.dark {
 .starium-avatar {
   background-color: var(--starium-primary);
   color: var(--brand-ink);
+}
+
+/* ----------------------------------------------------------------------
+ * Primitives de structure (Design System) — définies UNE fois ici.
+ * Les composants utilisent ces classes au lieu de répéter des chaînes
+ * d'utilitaires. Pour changer la charte → éditer ces règles ou les
+ * tokens --ds-* dans tokens.css. @layer components : les utilitaires
+ * Tailwind posés dans le JSX gardent la priorité (override ponctuel).
+ * -------------------------------------------------------------------- */
+@layer components {
+  /* Section / module cartonné (surface + padding standard) */
+  .starium-section {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius);
+    box-shadow: var(--ds-card-shadow);
+    padding: var(--ds-card-pad);
+  }
+
+  /* Carte KPI (même surface, padding KPI) */
+  .starium-kpi-card {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius);
+    box-shadow: var(--ds-card-shadow);
+    padding: var(--ds-kpi-pad);
+  }
+  .starium-kpi-card--interactive {
+    cursor: pointer;
+    transition: box-shadow var(--duration-base) var(--ease-standard);
+  }
+  .starium-kpi-card--interactive:hover {
+    box-shadow: var(--ds-card-shadow-hover);
+  }
+  .starium-kpi-card--interactive:focus-visible {
+    outline: none;
+    box-shadow: var(--ds-card-shadow-hover), 0 0 0 2px var(--ring);
+  }
+
+  /* Titre de section / de carte */
+  .starium-section-title {
+    font-size: var(--ds-section-title-size);
+    line-height: 1.375;
+    font-weight: var(--ds-section-title-weight);
+    color: var(--foreground);
+  }
+
+  /* Typo KPI */
+  .starium-kpi-label {
+    font-size: var(--ds-kpi-label-size);
+    line-height: 1.25rem;
+    color: var(--muted-foreground);
+  }
+  .starium-kpi-value {
+    font-size: var(--ds-kpi-value-size);
+    line-height: 1.1;
+    font-weight: var(--ds-kpi-value-weight);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .starium-kpi-value--dense {
+    font-size: var(--ds-kpi-value-size-dense);
+  }
+  .starium-kpi-icon {
+    flex-shrink: 0;
+    width: var(--ds-kpi-icon-size);
+    height: var(--ds-kpi-icon-size);
+    color: var(--ds-kpi-icon-color);
+  }
+
+  /* Panneau de données (tableau, liste filtrable) — élévation DS shadow-2 */
+  .starium-panel {
+    box-shadow: var(--ds-card-shadow-elevated);
+  }
+
+  /* En-tête de barre d'outils dans un panneau */
+  .starium-toolbar-header {
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  /* Overline (libellés de section, groupes KPI compacts) */
+  .starium-overline {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.25rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  /* Séparateur colonne sticky (tableaux larges) */
+  .starium-table-sticky-edge {
+    box-shadow: 1px 0 0 0 var(--border);
+  }
 }
 
 html,
