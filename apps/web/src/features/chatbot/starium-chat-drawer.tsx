@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -755,15 +756,26 @@ export function StariumChatDrawer() {
           }}
           className={cn(
             'absolute z-[500] flex h-14 w-14 items-center justify-center rounded-full',
-            'bg-primary text-primary-foreground shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35)]',
-            'ring-4 ring-background transition-transform hover:scale-[1.06] active:scale-95',
+            'bg-transparent transition-transform hover:scale-[1.04] active:scale-95',
             'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2',
             'bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6',
             'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
             'motion-safe:slide-in-from-bottom-6 motion-safe:slide-in-from-right-6 motion-safe:duration-500 motion-safe:fill-mode-both',
           )}
         >
-          <Sparkles className="starium-chat-fab-icon-float h-6 w-6" aria-hidden />
+          <span className="starium-chat-fab-glow block h-full w-full rounded-full">
+            <span className="block h-full w-full overflow-hidden rounded-full">
+              <Image
+                src="/brand/chatbot-launcher.png"
+                alt=""
+                width={56}
+                height={56}
+                priority
+                className="h-full w-full scale-[1.42] object-cover"
+                aria-hidden
+              />
+            </span>
+          </span>
         </button>
       )}
 
