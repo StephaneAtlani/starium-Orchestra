@@ -1149,16 +1149,15 @@ body {
 
 **Structure UX**
 
-1. **PageHeader** — titre « Projets », description courte, action primaire : `Link` + `buttonVariants({ variant: 'default', size: 'sm' })` « Nouveau projet » (même pattern que les pages RBAC client) derrière `PermissionGate` (`projects.create`).
+1. **PageHeader** — titre « Projets », description `Portefeuille · pilotage et signaux client` ; actions secondaires **Présentation CODIR** et **Gantt portefeuille** en `buttonVariants({ variant: 'outline' })` ; **Nouveau projet** en `variant: 'default'` (or) derrière `PermissionGate` (`projects.create`).
 2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
-   * **`starium-module`** + **neuf score cards** denses (`.starium-kpi-card !p-3`, grille 3 / 5 / 9 colonnes) ;
-   * couleurs sémantiques sur les chiffres — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
+   * **`.starium-kpi-strip`** — une carte, 3 groupes (Volume / Risques & Échéances / Complétude), 9 indicateurs, valeurs 28px — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
    * données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
-3. **Filtres + liste** — `ProjectsToolbar` **embedded** dans une `Card` **`starium-panel`** ; filtres inline sous les en-têtes du tableau (**§7** FRONTEND_UI-UX) ; pas de seconde carte filtres au-dessus.
-4. **Liste** — `CardContent` en `p-0` + `ProjectsListTable` (`Table noWrapper`, en-têtes DS, `starium-table-sticky-edge` sur colonnes figées).
-5. **Tableau** — `HealthBadge` **`compact`** ; colonne Avancement ; **T · R · J** ; `ProjectPortfolioBadges` ; tooltips `HeaderTip` / `CellTip`.
+3. **Filtres + liste** — `ProjectsToolbar` **embedded** (`.starium-filter-bar`, chips + tab-group) dans une `Card` **`starium-panel`** ; filtres inline sous les en-têtes du tableau (**§7** FRONTEND_UI-UX) ; pas de seconde carte filtres au-dessus.
+4. **Liste** — `CardContent` en `p-0` + `ProjectsListTable` (`Table noWrapper`, classe `starium-projects-table`, barres d’avancement, `starium-table-sticky-edge` sur colonnes figées).
+5. **Tableau** — `HealthBadge` **`compact`** ; colonne Avancement (barres manuel / dérivé) ; **T · R · J** ; `ProjectPortfolioBadges` **`stacked`** ; tooltips `HeaderTip` / `CellTip`.
 6. **États** — `LoadingState`, erreur API, `EmptyState`.
-7. **Pagination** — `CardFooter` + `PaginationSummary`.
+7. **Pagination** — `CardFooter` **`.starium-table-footer`** + `PaginationSummary` + boutons `.starium-filter-chip`.
 
 **Création** (`/projects/new`) — `ProjectCreateForm` : grille **deux colonnes** `lg` ; responsable via **`GET /api/projects/assignable-users`** (`useProjectAssignableUsersQuery`).
 

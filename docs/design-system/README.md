@@ -396,8 +396,9 @@ font-weight: 600;
 | Artefact | Rôle |
 |----------|------|
 | `apps/web/src/styles/tokens.css` | Tokens DS + `--ds-*` (rayon, ombre, KPI) |
-| `apps/web/src/app/globals.css` | Pont shadcn, `.starium-card`, `.starium-module`, `.starium-kpi-card`, `.starium-panel`, remap `@theme` |
-| `apps/web/src/components/ui/kpi-card.tsx` | Score card KPI partagée |
+| `apps/web/src/app/globals.css` | Pont shadcn, `.starium-card`, `.starium-module`, `.starium-kpi-card`, `.starium-kpi-strip`, `.starium-filter-bar` / `.starium-filter-chip`, `.starium-panel`, `.starium-projects-table`, remap `@theme` |
+| `apps/web/src/components/ui/kpi-card.tsx` | Score card KPI partagée (dashboard, budgets) |
+| `features/projects/components/projects-portfolio-kpi.tsx` | Bandeau KPI portefeuille (consomme `.starium-kpi-strip`) |
 | [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §2.1 | Règles « pas de cadre dans cadre » et patterns cockpit |
 
 ---

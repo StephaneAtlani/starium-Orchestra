@@ -360,8 +360,8 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.
 - `projects-list-table` - `features/projects/components/projects-list-table.tsx` - affiche un tableau pour projets.
 - `projects-portfolio-filters-bar` - `features/projects/components/projects-portfolio-filters-bar.tsx` - centralise les actions et filtres pour projets portefeuille.
-- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - gere l'interface de projets portefeuille kpi.
-- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - centralise les actions et filtres pour projets.
+- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - bandeau KPI portefeuille (`.starium-kpi-strip`, 3 groupes).
+- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - barre « Filtrer et trier » (`.starium-filter-bar`, chips, tab-group Tableau/Kanban).
 - `task-form-dialog-fields` - `features/projects/components/task-form-dialog-fields.tsx` - ouvre un dialogue pour tache fields.
 
 ## Projets / Scénarios cockpit — RFC-FE-PROJ-SC-002 (8)
