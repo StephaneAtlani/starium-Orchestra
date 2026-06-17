@@ -51,6 +51,7 @@ import {
 import { humanizeFetchErrorMessage } from '@/lib/humanize-fetch-error';
 import { stariumApiPath } from '@/lib/starium-api-base';
 import { cn } from '@/lib/utils';
+import { useChatUnreadBadge } from './use-chat-unread-badge';
 
 type ChatLine = {
   role: 'USER' | 'ASSISTANT';
@@ -301,6 +302,7 @@ export function StariumChatDrawer() {
   const [readerStack, setReaderStack] = useState<ReaderFrame[]>([]);
   const [readerBody, setReaderBody] = useState<ReaderBody | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
+  const unreadCount = useChatUnreadBadge(open, lines);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fetchAuth = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -748,7 +750,11 @@ export function StariumChatDrawer() {
       {!open && (
         <button
           type="button"
-          aria-label="Ouvrir Cursor Starium"
+          aria-label={
+            unreadCount > 0
+              ? `Ouvrir Cursor Starium, ${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`
+              : 'Ouvrir Cursor Starium'
+          }
           title="Cursor Starium — aide et base de connaissance"
           onClick={() => {
             reset();
@@ -763,7 +769,12 @@ export function StariumChatDrawer() {
             'motion-safe:slide-in-from-bottom-6 motion-safe:slide-in-from-right-6 motion-safe:duration-500 motion-safe:fill-mode-both',
           )}
         >
-          <span className="starium-chat-fab-glow block h-full w-full rounded-full">
+          <span
+            className={cn(
+              'starium-chat-fab-glow relative block h-full w-full rounded-full',
+              unreadCount > 0 && 'starium-chat-fab-glow--unread',
+            )}
+          >
             <span className="block h-full w-full overflow-hidden rounded-full">
               <Image
                 src="/brand/chatbot-launcher.png"
@@ -775,6 +786,14 @@ export function StariumChatDrawer() {
                 aria-hidden
               />
             </span>
+            {unreadCount > 0 ? (
+              <span
+                className="starium-chat-fab-badge absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold leading-none text-white ring-2 ring-background"
+                aria-hidden
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            ) : null}
           </span>
         </button>
       )}
