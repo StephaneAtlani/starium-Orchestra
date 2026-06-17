@@ -4,7 +4,11 @@
 
 ## Statut
 
-📝 Draft
+🔄 En cours — implémentation code + tests livrés (juin 2026) ; passage à **Implémenté** après validation et merge de la PR.
+
+## Référence Design System
+
+Guide UI détaillé : [docs/FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §1.1, §11.3, §11.3.1, §12 et sous-section « États UI ».
 
 ## Priorité
 
@@ -72,115 +76,121 @@ Fichier : `apps/web/src/components/ui/button.tsx`
 
 Fichier : `apps/web/src/components/layout/page-header.tsx`
 
-- `h1` en `text-3xl` fixe → titres lourds et risque de débordement sur 320px.
+- ~~`h1` en `text-3xl` fixe~~ → corrigé : **`text-2xl`** (DS §12).
 
 ---
+
+## 1.3 Problèmes résolus par le Lot 0 (juin 2026)
+
+Les constats §1.2 sont adressés par l’implémentation §4 : bottom-sheet + `DialogBody`, `prefers-reduced-motion` global, `Button`/`IconButton` 44 px mobile, `PageHeader` `text-2xl`. Migration des modales legacy et QA manuelle §6.2 restent en cours.
 
 # 2. Hypothèses éventuelles
 
 - **H1** — Le bottom-sheet mobile pour les modales centrées n'entre pas en conflit avec les ~100 dialogs existants : aucun ne surcharge le positionnement `fixed top-1/2` du mode modal (vérification par grep sur `DialogContent className` avec classes de position).
 - **H2** — Les modales très larges (`sm:max-w-lg`, `sm:max-w-2xl`…) restent compatibles avec `max-w-[calc(100%-2rem)]` mobile déjà en place.
-- **H3** — Augmenter la taille tactile des boutons `icon` sur mobile (`min-h-11 min-w-11` sous `md`) n'altère pas significativement les layouts desktop.
+- **H3** — Cibles tactiles `icon*` : `h-11 w-11` mobile + `md:size-*` desktop — validé en tests ; desktop inchangé visuellement.
 - **H4** — Aucune modification backend ni Prisma n'est requise (RFC purement frontend).
 
 ---
 
-# 3. Liste des fichiers à créer / modifier
+# 3. Liste des fichiers créés / modifiés
 
 | Fichier | Action |
 | ------- | ------ |
-| `apps/web/src/components/ui/dialog.tsx` | Modifier — modal mobile bottom-sheet + scroll interne |
-| `apps/web/src/app/globals.css` | Modifier — règle globale `prefers-reduced-motion` |
-| `apps/web/src/components/ui/button.tsx` | Modifier — cibles tactiles mobile variantes `icon*` |
-| `apps/web/src/components/layout/page-header.tsx` | Modifier — titre responsive |
-| `apps/web/src/components/ui/dialog.spec.tsx` | Créer — tests classes layout mobile/desktop |
-| `apps/web/src/components/layout/page-header.spec.tsx` | Créer ou étendre — classes responsive titre |
-| `docs/RFC/RFC-FE-MOB-001 — Fondations mobile-first transverses.md` | Ce document |
-| `docs/RFC/_RFC Liste.md` | Mettre à jour — section mobile-first |
+| `apps/web/src/components/ui/dialog.tsx` | Normaliser — bottom-sheet mobile, prop `size`, `DialogBody`, scroll unique |
+| `apps/web/src/components/ui/icon-button.tsx` | **Créer** — wrapper sémantique sur `Button` |
+| `apps/web/src/components/ui/button.tsx` | Normaliser variants `icon*` (`h-11 w-11` mobile, `md:size-*` desktop) |
+| `apps/web/src/components/layout/page-header.tsx` | `text-2xl` strict (DS §12) |
+| `apps/web/src/app/globals.css` | Règle globale `prefers-reduced-motion` |
+| `apps/web/src/components/ui/dialog.spec.tsx` | **Créer** — modal / sidePanel / chatWidget / size / twMerge |
+| `apps/web/src/components/ui/icon-button.spec.tsx` | **Créer** — variants icon + `IconButton` |
+| `apps/web/src/components/layout/page-header.spec.tsx` | **Créer** — `text-2xl` |
+| `docs/FRONTEND_UI-UX.md` | §11.3, états UI obligatoires |
+| `docs/RFC/_RFC Liste.md` | Section mobile-first |
+| `apps/web/src/app/(protected)/layout.tsx` | **Hors scope Lot 0** — bootstrap `LoadingState` (optionnel) |
 
 ---
 
-# 4. Implémentation complète
+# 4. Implémentation (état livré)
 
-## 4.1 `DialogContent` — modal centré responsive
+## 4.1 `Dialog` — socle normalisé
 
-### Comportement cible
+Fichier : `apps/web/src/components/ui/dialog.tsx`.
 
-| Viewport | Layout modal centré |
-| -------- | ------------------- |
-| `< sm` (mobile) | **Bottom sheet** : ancré en bas, pleine largeur (`inset-x-0 bottom-0`), coins supérieurs arrondis (`rounded-t-2xl`), hauteur max `min(92dvh, …)`, contenu scrollable |
-| `≥ sm` | Comportement actuel : centré `top-1/2`, `max-w-sm` par défaut (ou surcharge consommateur) |
+### Variants de layout
 
-### Classes proposées (`dialogContentModalClass`)
+| Variant | Prop | État |
+| ------- | ---- | ---- |
+| Modal (défaut) | — | Bottom-sheet `< sm`, centré `sm+`, prop **`size`** |
+| Side panel | `sidePanel` | **Inchangé** |
+| Chat widget | `chatWidget` | **Inchangé** |
 
-Remplacer la classe actuelle par une composition du type :
+### Prop `size` (modal uniquement)
 
-```text
-/* commun */
-fixed z-[81] grid w-full gap-4 border border-border/60 bg-background/95 text-sm shadow-lg outline-none
+| `size` | Desktop (`sm+`) |
+| ------ | --------------- |
+| `sm` (défaut) | `sm:max-w-sm` |
+| `md` | `sm:max-w-md` |
+| `lg` | `sm:max-w-lg` |
+| `xl` | `sm:max-w-4xl` |
+| `full` | `sm:max-w-[calc(100%_-_2rem)]` |
 
-/* mobile : bottom sheet */
-inset-x-0 bottom-0 max-h-[min(92dvh,100dvh-1rem)] translate-y-0 rounded-t-2xl border-b-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]
-overflow-y-auto overscroll-contain
+`className` consommateur fusionné en dernier via `cn(..., className)` / `tailwind-merge` — surcharge `size` et overflow legacy.
 
-/* sm+ : modal centré */
-sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:max-w-[calc(100%-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4
+### Stratégie de scroll
+
+| Composant | Rôle |
+| --------- | ---- |
+| `DialogContent` (modal) | Conteneur `flex flex-col`, `overflow-x-hidden overflow-y-hidden`, `max-h` socle — **pas de scroll** |
+| `DialogHeader` | `shrink-0` — bandeau stable |
+| **`DialogBody`** (nouveau) | **Seule zone scrollable** : `flex-1 min-h-0 overflow-y-auto overscroll-contain` |
+| `DialogFooter` | `shrink-0` — pied stable |
+
+Structure cible des **nouvelles** modales :
+
+```tsx
+<DialogContent size="xl">
+  <DialogHeader>...</DialogHeader>
+  <DialogBody>...</DialogBody>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
 ```
 
-Conserver les animations existantes ; elles seront neutralisées par §4.2 si `prefers-reduced-motion`.
+### Compatibilité modales legacy (~100 usages)
 
-### Invariants
+Modales sans `DialogBody` : `className="overflow-y-auto"` sur `DialogContent` **surcharge** `overflow-y-hidden` du socle (`tailwind-merge`). Pas de migration module par module en Lot 0.
 
-- `sidePanel` et `chatWidget` : **inchangés**.
-- `DialogFooter` : déjà en `flex-col-reverse sm:flex-row` — compatible bottom sheet.
-- Focus trap Radix/Base UI : inchangé.
-- Fermeture `Escape` et clic overlay : inchangés.
+### Classes socle modal (extrait)
+
+- Mobile : `inset-x-0 bottom-0`, `rounded-t-2xl`, `max-h-[min(92dvh,calc(100dvh_-_1rem))]`, `pb-[max(1rem,env(safe-area-inset-bottom))]`
+- Desktop : `sm:top-1/2`, `sm:w-[calc(100%_-_2rem)]`, `sm:max-h-[calc(100dvh_-_2rem)]`, `sm:rounded-xl`
+- Tokens §11.3 conservés ; animations neutralisées si `prefers-reduced-motion` (§4.2)
 
 ## 4.2 `prefers-reduced-motion` global
 
-Ajouter dans `globals.css` :
+Ajout en fin de `apps/web/src/app/globals.css` — règle `*` / `::before` / `::after` (durées animation/transition → `0.01ms`, `scroll-behavior: auto`). Règles locales chat FAB / charts conservées (redondantes).
 
-```css
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-```
+## 4.3 `Button` et `IconButton`
 
-**Exception** : conserver les règles déjà présentes pour chat FAB / charts si un comportement « off » explicite est préférable (redondant avec la règle globale — acceptable).
+Fichiers : `button.tsx`, `icon-button.tsx`.
 
-## 4.3 Cibles tactiles — `Button`
+Variants `icon`, `icon-sm`, `icon-xs`, `icon-lg` :
 
-Modifier les variantes `icon`, `icon-sm`, `icon-xs`, `icon-lg` :
+- Mobile : **`h-11 w-11`** (cible 44 px réelle)
+- Desktop : **`md:size-8`**, `md:size-7`, `md:size-6`, `md:size-9` (rendu inchangé)
 
-```text
-min-h-11 min-w-11 md:min-h-0 md:min-w-0
-/* puis tailles existantes size-8, size-7, etc. à partir de md: */
-md:size-8  (pour icon)
-```
+`IconButton` : alias sémantique déléguant à `Button` ; `aria-label` obligatoire.
 
-Alternative si régression visuelle : nouvelle variante `icon-touch` réservée au header/sidebar — **non retenue** par défaut (préférer le bump global mobile sur `icon*`).
+## 4.4 `PageHeader`
 
-## 4.4 `PageHeader` — titre responsive
+Fichier : `page-header.tsx`.
 
-```diff
-- text-3xl font-bold
-+ text-2xl font-bold sm:text-3xl
-```
+- `text-3xl` → **`text-2xl`** strict — arbitrage [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) **§12** (pas de `sm:text-3xl`).
+- `PageHeader` = seule source de vérité pour les titres de page cockpit.
 
-Conserver `min-w-0` et `truncate` sur les zones à risque de débordement (déjà en place sur le header workspace).
+## 4.5 Bootstrap loading (hors scope Lot 0)
 
-## 4.5 États de chargement bootstrap
-
-Fichier : `apps/web/src/app/(protected)/layout.tsx`
-
-Amélioration optionnelle Lot 0 : remplacer le `<p>Chargement…</p>` par `LoadingState` + `aria-live="polite"` — **recommandé** mais peut être décalé en Lot 0.1 si hors temps.
+Fichier : `apps/web/src/app/(protected)/layout.tsx` — remplacement `<p>Chargement…</p>` par `LoadingState` + `aria-live="polite"` : **non livré** ; report Lot 0.1 si besoin.
 
 ---
 
@@ -192,13 +202,15 @@ Aucune.
 
 # 6. Tests
 
-## 6.1 Tests unitaires / composant
+## 6.1 Tests unitaires / composant (livré)
 
-| Test | Assertion |
-| ---- | --------- |
-| `dialog.spec.tsx` | `DialogContent` mode modal inclut classes bottom-sheet sans `sidePanel` |
-| `dialog.spec.tsx` | `sidePanel` / `chatWidget` n'incluent pas les classes bottom-sheet |
-| `page-header.spec.tsx` | `h1` contient `text-2xl` et `sm:text-3xl` |
+| Fichier | Couverture |
+| ------- | ---------- |
+| `dialog.spec.tsx` | Modal bottom-sheet ; `flex flex-col` + `overflow-x-hidden overflow-y-hidden` ; `DialogBody` scroll ; `sidePanel` / `chatWidget` inchangés ; `size` sm/md/xl/full ; twMerge `max-w` et `overflow-y-auto` legacy |
+| `icon-button.spec.tsx` | Variants `icon*` mobile/desktop ; `IconButton` + `aria-label` |
+| `page-header.spec.tsx` | `h1` en `text-2xl` ; absence `text-3xl` / `sm:text-3xl` |
+
+Commande : `npx vitest run src/components/ui/dialog.spec.tsx src/components/ui/icon-button.spec.tsx src/components/layout/page-header.spec.tsx`
 
 ## 6.2 Tests manuels (checklist Lot 0)
 
@@ -218,18 +230,21 @@ Aucune.
 
 # 7. Récapitulatif final
 
-Ce lot pose les **fondations transverses** mobile-first sur 4 fichiers UI centraux. Un seul PR débloque l'usage mobile des ~100 dialogs et aligne motion + tactile + titres sur les standards by-design, **sans migration module par module**.
+Socle UI transversal mobile-first livré sur **Dialog** (bottom-sheet, `size`, `DialogBody`), **Button** / **IconButton**, **PageHeader**, **motion** globale et **tests** composant. Un PR débloque l’usage mobile des ~100 dialogs via compatibilité `className` legacy, **sans migration module par module**.
 
-Effort estimé : **0,5–1 jour** dev + 0,5 jour QA manuelle multi-viewports.
+**Hors scope Lot 0** : migration modales vers `DialogBody`, bootstrap `LoadingState`, checklist QA manuelle §6.2.
+
+**Prochaines étapes** : [RFC-FE-MOB-002](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) (DataTable), [RFC-FE-MOB-003](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) (FilterBar).
 
 ---
 
 # 8. Points de vigilance
 
-- Vérifier les dialogs qui passent `className` avec `max-h-*` ou `overflow-*` custom — ne pas doubler les conflits.
-- Bottom sheet : prévoir `safe-area-inset-bottom` pour iPhone avec encoche/barre home.
-- Ne pas réduire la taille desktop des boutons icône — le bump tactile est **mobile-only** (`md:` reset).
-- Les tableaux denses et toolbars sont traités dans **RFC-FE-MOB-002** et **RFC-FE-MOB-003**.
+- Modales legacy sans `DialogBody` ni `overflow-y-auto` en `className` : risque de contenu non scrollable — migration progressive vers `DialogBody` ou ajout `className="overflow-y-auto"`.
+- `tailwind-merge` : `className` consommateur doit rester **en dernier** dans `cn(dialogContentModalClass, sizeClass, className)`.
+- Modales avec `overflow-hidden` ou layouts `flex-col` internes en `className` : comportement inchangé (dernière classe gagne).
+- Bottom sheet : `safe-area-inset-bottom` sur mobile ; smoke-test `contract-form-dialog`, `project-risk-ebios-dialog`, `new-supplier-dialog` avant merge.
+- Tableaux denses et toolbars : **RFC-FE-MOB-002** et **RFC-FE-MOB-003**.
 
 ---
 
@@ -252,8 +267,8 @@ Effort estimé : **0,5–1 jour** dev + 0,5 jour QA manuelle multi-viewports.
 ## Design System
 
 - Tokens existants (`border-border`, `bg-background`, `rounded-xl`) — pas de hex en dur.
-- Réutilisation `Dialog`, `Button`, `PageHeader` — pas de nouveau composant modal parallèle.
-- Cohérence avec `docs/FRONTEND_UI-UX.md` §1.1 (mobile).
+- Réutilisation / extension : `Dialog` (+ `DialogBody`), `Button`, `IconButton`, `PageHeader` — pas de composant modal métier parallèle.
+- États UI : `LoadingState`, `EmptyState`, `ErrorState`, `Alert` — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §1.1.
 
 ## Sécurité
 

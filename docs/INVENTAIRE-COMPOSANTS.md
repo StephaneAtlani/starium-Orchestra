@@ -2,7 +2,7 @@
 
 Document genere a partir des composants React trouves dans `apps/web/src` (`.tsx`, hors routes `app/` et hors tests).
 
-Total inventorie : **291 composants**.
+Total inventorie : **292 composants**.
 
 ## Lecture rapide
 
@@ -14,13 +14,14 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `PermissionGate` - `components/PermissionGate.tsx` - controle l'acces a permission.
 - `RequireActiveClient` - `components/RequireActiveClient.tsx` - gere l'interface de require active client.
 
-## UI partagee (16)
+## UI partagee (17)
 
 - `alert` - `components/ui/alert.tsx` - gere l'interface de alerte.
 - `badge` - `components/ui/badge.tsx` - affiche un badge ou un etat pour badge.
 - `button` - `components/ui/button.tsx` - gere l'interface de button.
 - `card` - `components/ui/card.tsx` - affiche une carte de synthese pour carte.
-- `dialog` - `components/ui/dialog.tsx` - ouvre un dialogue pour dialogue.
+- `dialog` - `components/ui/dialog.tsx` - dialogue modal (bottom-sheet mobile, `size`, `DialogBody` scroll) ; exports `DialogHeader`, `DialogBody`, `DialogFooter`.
+- `icon-button` - `components/ui/icon-button.tsx` - bouton icone (wrapper `Button`, `aria-label` requis).
 - `input` - `components/ui/input.tsx` - gere l'interface de input.
 - `kpi-card` - `components/ui/kpi-card.tsx` - affiche une carte de synthese pour kpi.
 - `label` - `components/ui/label.tsx` - gere l'interface de label.
