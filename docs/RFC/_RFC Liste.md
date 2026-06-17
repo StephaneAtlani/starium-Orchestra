@@ -296,6 +296,28 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ---
 
+## UX / Design System (socle frontend)
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-014** | Admin Studio | 📝 Draft / partiel | [RFC](./RFC-014%20%E2%80%94%20Admin%20Studio.md) |
+| **RFC-014-1** | UX/UI et Design System de l’application | 📝 Draft | Design system, layout, patterns pages — [RFC](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md) |
+| **RFC-014-2** | Login, bootstrap, navigation par rôle | 📝 Draft / partiel | Shell auth + navigation — [RFC](./RFC-014-2%20%E2%80%94%20Login%2C%20bootstrap%20applicatif%2C%20navigation%20et%20affichage%20par%20r%C3%B4le.md) |
+
+---
+
+## Frontend — mobile-first & by-design
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-FE-MOB-001** | Fondations mobile-first transverses | 📝 Draft | Lot 0 : `DialogContent` bottom-sheet mobile + scroll, `prefers-reduced-motion` global, cibles tactiles `Button` icon ≥ 44px mobile, `PageHeader` titre responsive ; voir [RFC](./RFC-FE-MOB-001%20%E2%80%94%20Fondations%20mobile-first%20transverses.md) |
+| **RFC-FE-MOB-002** | DataTable responsive et listes denses | 📝 Draft | Cartes empilées `< md` sur `DataTable` générique ; colonnes `mobilePriority` / `mobileLabel` ; tables métier denses (explorer, Gantt) = scroll horizontal V1 ; voir [RFC](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) |
+| **RFC-FE-MOB-003** | FilterBar, toolbars et plan de migration modules | 📝 Draft | Composant `FilterBar` mobile-first, lots 0→4 (Contrats, Projets, Budgets, Fournisseurs, admin, nettoyage hex DS) ; voir [RFC](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) |
+
+Références transverses : [RFC-014-1](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md), [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §1.1, `.cursor/rules/by-design-standards.mdc`.
+
+---
+
 ## Licences, abonnements et ACL
 
 | RFC | Nom | État | Commentaire |
