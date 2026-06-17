@@ -391,6 +391,15 @@ font-weight: 600;
 4. **Utiliser les variables CSS** — elles fonctionnent nativement dans tous les frameworks modernes
 5. Pour Tailwind, demander à Claude Code de générer un `tailwind.config.js` depuis `tokens.css`
 
+### Implémentation Orchestra (`apps/web`)
+
+| Artefact | Rôle |
+|----------|------|
+| `apps/web/src/styles/tokens.css` | Tokens DS + `--ds-*` (rayon, ombre, KPI) |
+| `apps/web/src/app/globals.css` | Pont shadcn, `.starium-card`, `.starium-module`, `.starium-kpi-card`, `.starium-panel`, remap `@theme` |
+| `apps/web/src/components/ui/kpi-card.tsx` | Score card KPI partagée |
+| [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §2.1 | Règles « pas de cadre dans cadre » et patterns cockpit |
+
 ---
 
 *Starium Design System v1.0 · Confidentiel*

@@ -809,37 +809,27 @@ Palette de base :
 * **Texte sur fond sombre** : jaune très clair (or désaturé)
 * **Accent / primaire** : or clair sur fond sombre, slate-900 sur fond clair
 
-### Tokens CSS
+### Tokens CSS (Design System v1)
 
-Implémentation dans `apps/web/src/styles/tokens.css` :
+Implémentation : `apps/web/src/styles/tokens.css` (échelle marque or + neutres chauds, `--ds-*` structurels) et `apps/web/src/app/globals.css` (pont shadcn, classes `.starium-*`, remap Tailwind `@theme`). Référence produit : [docs/design-system/README.md](./design-system/README.md).
+
+Extrait (`tokens.css`) :
 
 ```css
 :root {
-  /* Fond / surfaces */
-  --color-bg-app: #f3f4f6;        /* gray-100 */
-  --color-bg-card: #ffffff;
-  --color-bg-sidebar: #020817;    /* slate-950 */
-
-  /* Texte */
-  --color-text-primary: #0f172a;  /* slate-900 */
-  --color-text-inverse: #fefce8;  /* jaune très clair */
-  --color-text-muted: #6b7280;    /* gray-500 */
-
-  /* Bordures */
-  --color-border-default: #e5e7eb; /* gray-200 */
-
-  /* Couleurs principales */
-  --color-primary: #facc15;             /* or clair (amber-400) */
-  --color-primary-foreground: #f9fafb;  /* gray-50 */
-
-  /* Tokens génériques */
-  --radius: 0.75rem;
-  --shadow-card: 0 18px 30px -15px rgba(15, 23, 42, 0.25);
-  --color-hover: rgba(15, 23, 42, 0.06);
+  --brand-gold: #e8a317;
+  --neutral-50: #faf9f7;   /* fond app — jamais blanc pur */
+  --neutral-200: #e9e6e0;  /* bordures */
+  --ds-card-radius: var(--radius-lg);
+  --ds-card-shadow: var(--shadow-1);
+  --ds-card-shadow-elevated: var(--shadow-2);
+  --ds-kpi-icon-color: var(--brand-gold);
 }
 ```
 
-Ces tokens sont mappés sur les variables shadcn (`--background`, `--card`, `--sidebar`, etc.) dans `globals.css` et utilisés partout via les composants `components/ui/*`.
+Primitives structurelles (`globals.css`, `@layer components`) : `.starium-module` (groupe sans cadre), `.starium-kpi-card`, `.starium-section`, `.starium-panel`. Détail UX : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §2.1.
+
+Ces tokens sont mappés sur les variables shadcn (`--background`, `--card`, `--sidebar`, etc.) dans `globals.css`.
 
 ### Règle
 
@@ -849,7 +839,7 @@ Aucune couleur métier ne doit être codée en dur dans les composants hors desi
 
 Les pages doivent utiliser **uniquement** les composants des dossiers suivants :
 
-* `components/ui/*` — composants shadcn (dont `KpiCard` pour les indicateurs dashboard — prop `variant="dense"` pour les grilles multi-KPI cockpit)
+* `components/ui/*` — composants shadcn (dont `KpiCard` → `.starium-kpi-card` ; grilles cockpit dans `.starium-module` — voir [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §2.1, §6)
 * `components/layout/*` — PageContainer, PageHeader, TableToolbar
 * `components/feedback/*` — LoadingState, EmptyState, ErrorState
 * `components/data-table/*` — DataTable
@@ -1161,14 +1151,14 @@ body {
 
 1. **PageHeader** — titre « Projets », description courte, action primaire : `Link` + `buttonVariants({ variant: 'default', size: 'sm' })` « Nouveau projet » (même pattern que les pages RBAC client) derrière `PermissionGate` (`projects.create`).
 2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
-   * **pas** de `KpiCard` : trois bandeaux compacts (`Stat`) regroupés en sections (`Volume`, `Risques & échéances`, `Complétude`) ;
-   * **couleurs sémantiques sur les chiffres** (`text-primary`, `emerald`, `yellow-800` / `dark:yellow-400`, `destructive`) — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
-   * données issues de `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
-3. **Filtres** — `ProjectsToolbar` dans un **panneau** `rounded-xl border border-border/80 bg-muted/30`, titre « Filtres & tri », `role="search"` ; grille **quatre colonnes** sur `lg` incluant **Nature** (projet / activité, paramètre URL `kind`) ; autres filtres synchronisés URL (`useProjectsListFilters`).
-4. **Liste** — `Card size="sm"` : `CardHeader` (titre + description), **`CardContent` en `p-0`** + `ProjectsListTable` — le composant **`Table`** porte déjà `overflow-x-auto` / `data-slot="table-container"` : **ne pas** ajouter un second wrapper scroll.
-5. **Tableau** — `HealthBadge` avec **`compact`** en liste ; colonne **Avancement** fusionnée (manuel + dérivé) ; **T · R · J** ; signaux via `ProjectPortfolioBadges` **sans** ligne de texte répétant les `warnings` ; tooltips : helpers **`HeaderTip` / `CellTip`** + `TooltipProvider` dans `projects-list-table.tsx`.
-6. **États** — `LoadingState`, bloc d’erreur API (codes HTTP), **`EmptyState`** si liste vide (CTA création si `projects.create`).
-7. **Pagination** — `CardFooter` + `PaginationSummary` (feature budgets) + boutons Précédent / Suivant.
+   * **`starium-module`** + **neuf score cards** denses (`.starium-kpi-card !p-3`, grille 3 / 5 / 9 colonnes) ;
+   * couleurs sémantiques sur les chiffres — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
+   * données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
+3. **Filtres + liste** — `ProjectsToolbar` **embedded** dans une `Card` **`starium-panel`** ; filtres inline sous les en-têtes du tableau (**§7** FRONTEND_UI-UX) ; pas de seconde carte filtres au-dessus.
+4. **Liste** — `CardContent` en `p-0` + `ProjectsListTable` (`Table noWrapper`, en-têtes DS, `starium-table-sticky-edge` sur colonnes figées).
+5. **Tableau** — `HealthBadge` **`compact`** ; colonne Avancement ; **T · R · J** ; `ProjectPortfolioBadges` ; tooltips `HeaderTip` / `CellTip`.
+6. **États** — `LoadingState`, erreur API, `EmptyState`.
+7. **Pagination** — `CardFooter` + `PaginationSummary`.
 
 **Création** (`/projects/new`) — `ProjectCreateForm` : grille **deux colonnes** `lg` ; responsable via **`GET /api/projects/assignable-users`** (`useProjectAssignableUsersQuery`).
 
