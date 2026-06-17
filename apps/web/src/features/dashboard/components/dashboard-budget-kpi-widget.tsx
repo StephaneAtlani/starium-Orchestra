@@ -575,11 +575,12 @@ export function DashboardBudgetKpiWidget() {
             Le widget <span className="font-medium text-foreground">Budget</span>{' '}
             est masqué.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               type="button"
               size="sm"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setBudgetKpisVisible(true)}
             >
               Afficher le widget
@@ -588,9 +589,10 @@ export function DashboardBudgetKpiWidget() {
               type="button"
               size="sm"
               variant="ghost"
+              className="w-full sm:w-auto"
               onClick={() => setSettingsOpen(true)}
             >
-              <Settings2 className="mr-1 size-4" />
+              <Settings2 className="mr-1 size-4" aria-hidden />
               Personnaliser
             </Button>
           </div>
@@ -615,98 +617,128 @@ export function DashboardBudgetKpiWidget() {
 
   return (
     <section className="starium-module space-y-4">
-      <div className="flex flex-col gap-3">
-        <div className="w-full min-w-0 space-y-1">
-          <h2 className="starium-section-title">
-            Budget
-          </h2>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="starium-section-title shrink-0">Budget</h2>
           {data ? (
-            <div className="flex w-full min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto text-sm text-muted-foreground [scrollbar-width:thin]">
-              <span className="shrink-0 font-medium text-foreground">
-                {data.budget.name}
-              </span>
-              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
-                · {data.exercise.name}
-                {data.exercise.code ? ` (${data.exercise.code})` : null}
-              </span>
-              {alertCount > 0 ? (
-                <Link
-                  href={dashboardBudgetAlertsHref(data.exercise.id, data.budget.id)}
-                  className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  aria-label={`${alertCount} alerte${alertCount > 1 ? 's' : ''} budget — voir le détail`}
-                >
-                  <Badge
-                    variant="outline"
-                    className="border-destructive/25 bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15"
-                  >
-                    {alertCount} alerte{alertCount > 1 ? 's' : ''}
-                  </Badge>
-                </Link>
-              ) : (
+            alertCount > 0 ? (
+              <Link
+                href={dashboardBudgetAlertsHref(data.exercise.id, data.budget.id)}
+                className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label={`${alertCount} alerte${alertCount > 1 ? 's' : ''} budget — voir le détail`}
+              >
                 <Badge
-                  variant="secondary"
-                  className="shrink-0 font-normal text-muted-foreground"
+                  variant="outline"
+                  className="border-destructive/25 bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15"
                 >
-                  0 alerte
+                  {alertCount} alerte{alertCount > 1 ? 's' : ''}
                 </Badge>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Synthèse du budget actif pour ce client.
-            </p>
-          )}
+              </Link>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="shrink-0 font-normal text-muted-foreground"
+              >
+                0 alerte
+              </Badge>
+            )
+          ) : null}
         </div>
-        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 justify-end">
-          {data && dataUpdatedAt > 0 ? (
-            <span
-              className="text-xs text-muted-foreground tabular-nums"
-              title={new Date(dataUpdatedAt).toLocaleString('fr-FR')}
+
+        {data ? (
+          <div className="min-w-0 space-y-0.5">
+            <p className="truncate text-sm font-medium text-foreground">{data.budget.name}</p>
+            <p className="text-sm text-muted-foreground">
+              {data.exercise.name}
+              {data.exercise.code ? ` (${data.exercise.code})` : null}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Synthèse du budget actif pour ce client.
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between sm:border-t-0 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {data && dataUpdatedAt > 0 ? (
+              <span
+                className="tabular-nums"
+                title={new Date(dataUpdatedAt).toLocaleString('fr-FR')}
+              >
+                Mis à jour {formatDashboardDataAge(dataUpdatedAt)}
+              </span>
+            ) : null}
+            {taxLoading ? <span>TVA…</span> : null}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden"
+                disabled={query.isFetching}
+                onClick={() => void refetchDashboard()}
+                aria-label="Actualiser les indicateurs budget"
+              >
+                <RefreshCw
+                  className={cn('size-4', isRefetching && 'animate-spin')}
+                  aria-hidden
+                />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="hidden gap-2 md:inline-flex"
+                disabled={query.isFetching}
+                onClick={() => void refetchDashboard()}
+                aria-label="Actualiser les indicateurs budget"
+              >
+                <RefreshCw
+                  className={cn('size-4 shrink-0', isRefetching && 'animate-spin')}
+                  aria-hidden
+                />
+                Actualiser
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Personnaliser le widget budget"
+              >
+                <Settings2 className="size-4" aria-hidden />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="hidden md:inline-flex"
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Personnaliser le widget budget"
+              >
+                <Settings2 className="size-4" aria-hidden />
+                Personnaliser
+              </Button>
+            </div>
+            <Link
+              href={
+                data
+                  ? budgetDashboardForBudget(data.exercise.id, data.budget.id)
+                  : budgetDashboard()
+              }
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'sm' }),
+                'w-full justify-center sm:w-auto',
+              )}
             >
-              Mis à jour {formatDashboardDataAge(dataUpdatedAt)}
-            </span>
-          ) : null}
-          {taxLoading ? (
-            <span className="text-xs text-muted-foreground">TVA…</span>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="inline-flex whitespace-nowrap gap-2"
-            disabled={query.isFetching}
-            onClick={() => void refetchDashboard()}
-            aria-label="Actualiser les indicateurs budget"
-          >
-            <RefreshCw
-              className={cn('size-4 shrink-0', isRefetching && 'animate-spin')}
-            />
-            Actualiser
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="whitespace-nowrap"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Personnaliser le widget budget"
-          >
-            <Settings2 className="size-4" />
-            Personnaliser
-          </Button>
-          <Link
-            href={
-              data
-                ? budgetDashboardForBudget(data.exercise.id, data.budget.id)
-                : budgetDashboard()
-            }
-            className={cn(
-              buttonVariants({ variant: 'outline', size: 'sm' }),
-              'whitespace-nowrap',
-            )}
-          >
-            Dashboard budget
-          </Link>
+              Dashboard budget
+            </Link>
+          </div>
         </div>
       </div>
 

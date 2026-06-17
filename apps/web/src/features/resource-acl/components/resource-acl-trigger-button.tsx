@@ -53,11 +53,12 @@ export function ResourceAclTriggerButton({
         variant={variant}
         size={size}
         className={className}
+        aria-label={label}
         onClick={() => setOpen(true)}
         data-testid="resource-acl-trigger-button"
       >
         <ShieldIcon className="size-4" aria-hidden="true" />
-        <span className="ml-2">{label}</span>
+        <span className="ml-2 max-md:sr-only">{label}</span>
       </Button>
       {open && (
         <ResourceAclDialog

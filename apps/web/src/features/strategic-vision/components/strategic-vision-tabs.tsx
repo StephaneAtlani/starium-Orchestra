@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type {
   StrategicAxisDto,
@@ -58,6 +66,20 @@ export function parseMenuKey(value: string | null): StrategicVisionMenuKey | nul
 
 export const STRATEGIC_VISION_HISTORY_PLACEHOLDER_MESSAGE =
   "L'historique détaillé sera disponible dans une prochaine version. Cette V1 n'inclut pas encore de source backend dédiée.";
+
+export const STRATEGIC_VISION_TABS: ReadonlyArray<{
+  key: StrategicVisionMenuKey;
+  label: string;
+}> = [
+  { key: 'overview', label: "Vue d'ensemble" },
+  { key: 'enterprise', label: 'Vision entreprise' },
+  { key: 'directions', label: 'Directions' },
+  { key: 'axes', label: 'Axes stratégiques' },
+  { key: 'objectives', label: 'Objectifs' },
+  { key: 'alignment', label: 'Alignement' },
+  { key: 'alerts', label: 'Alertes' },
+  { key: 'history', label: 'Historique' },
+] as const;
 
 function QueryStateBlock({
   loadingLabel,
@@ -177,89 +199,76 @@ export function StrategicVisionTabs({
   return (
     <div className="space-y-5">
       <div
-        className="border-b border-border"
+        className="border-b border-border pb-3 md:pb-0"
         aria-label="Onglets strategic vision"
         data-testid="strategic-tabs-container"
       >
-        <nav className="flex flex-wrap items-center gap-6 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveMenu('overview')}
-            className={tabClass(activeMenu === 'overview')}
+        {/* Mobile : sélecteur compact (évite le wrap sur 8 onglets) */}
+        <div className="md:hidden">
+          <Label htmlFor="strategic-vision-tab-select" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Section
+          </Label>
+          <Select
+            value={activeMenu}
+            onValueChange={(value) => {
+              const next = parseMenuKey(value);
+              if (next) setActiveMenu(next);
+            }}
           >
-            Vue d&apos;ensemble
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('enterprise')}
-            className={tabClass(activeMenu === 'enterprise')}
-          >
-            Vision entreprise
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('directions')}
-            className={tabClass(activeMenu === 'directions')}
-          >
-            Directions
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('axes')}
-            className={tabClass(activeMenu === 'axes')}
-          >
-            Axes stratégiques
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('objectives')}
-            className={tabClass(activeMenu === 'objectives')}
-          >
-            Objectifs
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('alignment')}
-            className={tabClass(activeMenu === 'alignment')}
-          >
-            Alignement
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('alerts')}
-            className={tabClass(activeMenu === 'alerts')}
-          >
-            Alertes
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveMenu('history')}
-            className={tabClass(activeMenu === 'history')}
-          >
-            Historique
-          </button>
+            <SelectTrigger
+              id="strategic-vision-tab-select"
+              className="h-11 w-full min-h-11"
+              aria-label="Choisir une section de la vision stratégique"
+            >
+              <SelectValue placeholder="Choisir une section" />
+            </SelectTrigger>
+            <SelectContent>
+              {STRATEGIC_VISION_TABS.map((tab) => (
+                <SelectItem key={tab.key} value={tab.key}>
+                  {tab.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop : onglets ligne */}
+        <nav
+          className="hidden flex-nowrap items-center gap-6 overflow-x-auto md:flex"
+          aria-label="Sections vision stratégique"
+        >
+          {STRATEGIC_VISION_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveMenu(tab.key)}
+              className={tabClass(activeMenu === tab.key)}
+              aria-current={activeMenu === tab.key ? 'page' : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
       </div>
-
-      {queryStates.kpis.isLoading ? (
-        <Alert>
-          <AlertDescription>Chargement des KPI stratégiques...</AlertDescription>
-        </Alert>
-      ) : queryStates.kpis.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>Impossible de charger les KPI stratégiques.</AlertDescription>
-        </Alert>
-      ) : kpis ? (
-        <StrategicKpiCards kpis={kpis} />
-      ) : (
-        <Alert>
-          <AlertDescription>Aucun KPI stratégique disponible.</AlertDescription>
-        </Alert>
-      )}
 
       <section className="space-y-4">
           {activeMenu === 'overview' ? (
             <div className="space-y-4">
+        {queryStates.kpis.isLoading ? (
+          <Alert>
+            <AlertDescription>Chargement des KPI stratégiques...</AlertDescription>
+          </Alert>
+        ) : queryStates.kpis.isError ? (
+          <Alert variant="destructive">
+            <AlertDescription>Impossible de charger les KPI stratégiques.</AlertDescription>
+          </Alert>
+        ) : kpis ? (
+          <StrategicKpiCards kpis={kpis} />
+        ) : (
+          <Alert>
+            <AlertDescription>Aucun KPI stratégique disponible.</AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <StrategicVisionOverviewTab

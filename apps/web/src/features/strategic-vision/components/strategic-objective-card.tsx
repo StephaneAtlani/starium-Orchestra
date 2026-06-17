@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+import { Pencil } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ObjectiveStatusBadge } from './objective-status-badge';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +26,15 @@ function formatDate(value: string | null): string {
   }
 }
 
+function MetaField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
 export function StrategicObjectiveCard({
   objective,
   axisName,
@@ -41,74 +52,90 @@ export function StrategicObjectiveCard({
     (link: StrategicLinkDto) => link.linkType === 'PROJECT',
   );
 
+  const directionLabel = objective.direction?.name
+    ? `${objective.direction.name} (${objective.direction.code})`
+    : 'Non affecté';
+
   return (
     <Card size="sm">
-      <CardHeader className="gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle>{objective.title}</CardTitle>
-          <div className="flex shrink-0 items-center gap-2">
+      <CardHeader className="gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <CardTitle className="text-base leading-snug">{objective.title}</CardTitle>
+            <ObjectiveStatusBadge status={objective.status} />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 sm:max-w-[50%] sm:shrink-0 sm:justify-end md:gap-2">
             <ResourceAclTriggerButton
               resourceType="STRATEGIC_OBJECTIVE"
               resourceId={objective.id}
               resourceLabel={objective.title}
               size="sm"
+              className="max-md:size-11 max-md:px-2.5"
             />
             <AccessExplainerPopover
               resourceType="STRATEGIC_OBJECTIVE"
               resourceId={objective.id}
               resourceLabel={objective.title}
               intent="READ"
+              triggerClassName="size-11 shrink-0 px-0 md:size-auto md:h-8 md:px-2"
             />
             {canUpdate && onEdit ? (
-              <Button size="sm" variant="outline" onClick={() => onEdit(objective)}>
-                Modifier
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="md:hidden"
+                  aria-label={`Modifier l'objectif ${objective.title}`}
+                  onClick={() => onEdit(objective)}
+                >
+                  <Pencil className="size-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="hidden md:inline-flex"
+                  onClick={() => onEdit(objective)}
+                >
+                  Modifier
+                </Button>
+              </>
             ) : null}
           </div>
         </div>
-        <ObjectiveStatusBadge status={objective.status} />
       </CardHeader>
-      <CardContent className="space-y-2">
-        {objective.description ? (
-          <p className="text-sm text-muted-foreground">{objective.description}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">Aucune description.</p>
-        )}
-        {showAxis && axisName ? (
-          <p className="text-sm">
-            Axe: <span className="font-medium">{axisName}</span>
-          </p>
-        ) : null}
-        <p className="text-sm">
-          Responsable:{' '}
-          <span className="font-medium">{objective.ownerLabel ?? 'Non assigne'}</span>
+      <CardContent className="space-y-4">
+        <p className="line-clamp-3 text-sm text-muted-foreground md:line-clamp-none">
+          {objective.description ?? 'Aucune description.'}
         </p>
-        <p className="text-sm">
-          Direction stratégique:{' '}
-          <span className="font-medium">
-            {objective.direction?.name
-              ? `${objective.direction.name} (${objective.direction.code})`
-              : 'Non affecté'}
-          </span>
-        </p>
-        <p className="text-sm">
-          Direction propriétaire:{' '}
-          <span className="font-medium">{formatOwnerOrgSummary(objective.ownerOrgUnitSummary)}</span>
-        </p>
+
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+          {showAxis && axisName ? <MetaField label="Axe" value={axisName} /> : null}
+          <MetaField label="Responsable" value={objective.ownerLabel ?? 'Non assigne'} />
+          <MetaField label="Direction stratégique" value={directionLabel} />
+          <MetaField
+            label="Direction propriétaire"
+            value={formatOwnerOrgSummary(objective.ownerOrgUnitSummary)}
+          />
+          <MetaField label="Échéance" value={formatDate(objective.deadline)} />
+        </dl>
+
         {!objective.ownerOrgUnitSummary ? <OwnerOrgUnitNullWarning /> : null}
-        <p className="text-sm">
-          Echeance: <span className="font-medium">{formatDate(objective.deadline)}</span>
-        </p>
-        <div className="flex flex-wrap gap-1">
-          {projectLinks.length === 0 ? (
-            <span className="text-xs text-muted-foreground">Aucun lien projet.</span>
-          ) : (
-            projectLinks.map((link) => (
-              <Badge key={link.id} variant="outline" className="text-xs">
-                Projet: {link.targetLabelSnapshot}
-              </Badge>
-            ))
-          )}
+
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Projets liés</p>
+          <div className="flex flex-wrap gap-1">
+            {projectLinks.length === 0 ? (
+              <span className="text-xs text-muted-foreground">Aucun lien projet.</span>
+            ) : (
+              projectLinks.map((link) => (
+                <Badge key={link.id} variant="outline" className="max-w-full truncate text-xs">
+                  {link.targetLabelSnapshot}
+                </Badge>
+              ))
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

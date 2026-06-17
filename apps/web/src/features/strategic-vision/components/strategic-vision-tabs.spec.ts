@@ -8,6 +8,7 @@ describe('strategic-vision-tabs config', () => {
   it('accepte tous les onglets RFC V1', () => {
     expect(parseMenuKey('overview')).toBe('overview');
     expect(parseMenuKey('enterprise')).toBe('enterprise');
+    expect(parseMenuKey('directions')).toBe('directions');
     expect(parseMenuKey('axes')).toBe('axes');
     expect(parseMenuKey('objectives')).toBe('objectives');
     expect(parseMenuKey('alignment')).toBe('alignment');

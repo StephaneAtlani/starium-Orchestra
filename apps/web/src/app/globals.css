@@ -75,9 +75,7 @@ html.dark {
 
 /* Shell : classes sémantiques (variables :root) */
 .starium-sidebar {
-  width: 11rem;
-  min-width: 11rem;
-  /* Colonne gauche : même fond du haut au bas (y compris scroll long) */
+  /* largeur : Tailwind dans sidebar.tsx (mobile ~18rem, desktop w-44) */
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--sidebar);
@@ -147,6 +145,19 @@ html.dark {
   color: #ffffff;
 }
 .starium-dropdown-panel--sidebar .starium-dropdown-link-active {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-weight: 600;
+}
+/* Accordéon mobile inline (même palette que le flyout sidebar) */
+.starium-sidebar-inline-submenu .starium-dropdown-link {
+  color: rgba(255, 255, 255, 0.92);
+}
+.starium-sidebar-inline-submenu .starium-dropdown-link:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+.starium-sidebar-inline-submenu .starium-dropdown-link-active {
   background-color: rgba(255, 255, 255, 0.2);
   color: #ffffff;
   font-weight: 600;

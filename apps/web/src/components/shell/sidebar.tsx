@@ -91,43 +91,44 @@ export function Sidebar() {
       <aside
         id="starium-app-sidebar"
         className={cn(
-          'starium-sidebar flex h-full min-h-0 w-44 flex-col border-r border-white/10 bg-background',
+          'starium-sidebar flex h-full min-h-0 w-[min(18rem,calc(100vw-2rem))] flex-col border-r border-white/10 bg-background',
           'fixed inset-y-0 left-0 z-[60] transition-transform duration-200 ease-out',
-          'md:relative md:z-10 md:translate-x-0',
-          mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0',
+          'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+          'md:relative md:z-10 md:w-44 md:translate-x-0 md:pb-0',
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0',
         )}
       >
       <SidebarDropdownContext.Provider value={contextValue}>
-        <div className="starium-sidebar-header flex h-12 min-w-0 shrink-0 items-center gap-2 border-b border-white/10 px-3 md:px-3.5">
+        <div className="starium-sidebar-header flex h-14 min-h-14 min-w-0 shrink-0 items-center gap-2.5 border-b border-white/10 px-4 md:h-12 md:min-h-12 md:gap-2 md:px-3.5">
           <Image
             src="/brand/icon-starium-white.png"
             alt="Starium"
-            width={20}
-            height={20}
+            width={24}
+            height={24}
             priority
-            className="h-5 w-5 shrink-0 object-contain"
+            className="h-6 w-6 shrink-0 object-contain md:h-5 md:w-5"
           />
           <div className="min-w-0 flex flex-1 flex-col leading-snug">
             <span
-              className="starium-sidebar-brand truncate text-xs font-semibold tracking-tight"
+              className="starium-sidebar-brand truncate text-sm font-semibold tracking-tight md:text-xs"
               title={activeClient?.name?.trim() || undefined}
             >
               {activeClient?.name?.trim() || 'Starium Orchestra'}
             </span>
-            <span className="starium-sidebar-brand-muted text-[10px] leading-tight">Cockpit</span>
+            <span className="starium-sidebar-brand-muted text-[11px] leading-tight md:text-[10px]">Cockpit</span>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 md:hidden"
+            className="h-11 w-11 shrink-0 text-sidebar-foreground hover:bg-white/10 md:hidden"
             aria-label="Fermer le menu"
             onClick={closeMobile}
           >
-            <X className="h-4 w-4" />
+            <X className="size-6" strokeWidth={2.25} />
           </Button>
         </div>
-        <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
+        <nav className="starium-sidebar-nav min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 md:space-y-4 md:px-3 md:py-3">
         {navigation.map((section) => {
           const items = section.items.filter((item) =>
             visible(

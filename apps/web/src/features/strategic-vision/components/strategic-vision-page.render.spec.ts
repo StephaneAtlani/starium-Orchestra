@@ -103,14 +103,14 @@ describe('StrategicVisionPage render', () => {
     expect(html).toContain('Historique');
   });
 
-  it('respecte l’ordre structurel tabs → header', () => {
+  it('respecte l’ordre structurel header → tabs', () => {
     const html = renderToStaticMarkup(React.createElement(StrategicVisionPage));
     const titleIndex = html.indexOf('Vision stratégique 2026');
     const tabsIndex = html.indexOf('Onglets strategic vision');
     const historyTabIndex = html.indexOf('Historique');
 
     expect(titleIndex).toBeGreaterThan(-1);
-    expect(tabsIndex).toBeLessThan(titleIndex);
+    expect(titleIndex).toBeLessThan(tabsIndex);
     expect(historyTabIndex).toBeGreaterThan(tabsIndex);
   });
 

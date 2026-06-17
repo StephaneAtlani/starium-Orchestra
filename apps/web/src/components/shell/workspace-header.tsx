@@ -123,24 +123,31 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     <header className="starium-header sticky top-0 z-10 shrink-0 border-b border-border">
       <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       <div
-        className={`flex min-h-14 flex-col gap-2 py-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-0 ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
+        className={`flex h-14 min-h-14 items-center justify-between gap-1 min-w-0 sm:gap-3 ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1 sm:max-w-[55%] sm:flex-1 sm:gap-2">
+          <span className="sr-only sm:hidden">
+            {activeClient?.name ? `${activeClient.name} — Dashboard` : 'Dashboard'}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 md:hidden starium-text hover:starium-bg-muted"
+            className="shrink-0 md:hidden starium-text hover:starium-bg-muted [&_svg]:!size-6"
             aria-label={mobileOpen ? 'Fermer le menu de navigation' : 'Ouvrir le menu de navigation'}
             aria-expanded={mobileOpen}
             aria-controls="starium-app-sidebar"
             onClick={toggleMobile}
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? (
+              <X className="size-6" strokeWidth={2.25} />
+            ) : (
+              <Menu className="size-6" strokeWidth={2.25} />
+            )}
           </Button>
           <nav
             aria-label="Fil d’Ariane"
-            className="flex min-w-0 flex-1 items-center gap-1 text-xs starium-text sm:gap-2 sm:text-sm"
+            className="hidden min-w-0 flex-1 items-center gap-1 overflow-hidden text-xs starium-text sm:flex sm:gap-2 sm:text-sm"
           >
             <a href="/dashboard" className="shrink-0 starium-text hover:underline">
               Home
@@ -190,8 +197,8 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
           </nav>
         </div>
 
-        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2 md:pl-2">
-          <div className="flex items-center gap-0.5">
+        <div className="flex min-w-0 shrink items-center justify-end gap-0.5 sm:gap-2 md:pl-2">
+          <div className="flex shrink-0 items-center gap-0.5">
             {accessToken && activeClient ? (
               <Button
                 type="button"
@@ -207,7 +214,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             <NotificationBell />
           </div>
           {accessToken && (
-            <div className="min-w-0 max-w-[min(11rem,calc(100vw-8rem))] sm:max-w-[16rem]">
+            <div className="min-w-0 max-w-[min(9rem,calc(100vw-11rem))] sm:max-w-[16rem]">
               <ClientSwitcher accessToken={accessToken} className="w-full min-w-0" />
             </div>
           )}

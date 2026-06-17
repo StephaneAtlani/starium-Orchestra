@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ export function AccessExplainerPopover(props: {
   intent?: MyEffectiveRightsIntent;
   /** Libellé ressource affiché en en-tête (valeur métier, pas l’ID). */
   resourceLabel: string;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const intent = props.intent ?? 'READ';
@@ -94,13 +96,16 @@ export function AccessExplainerPopover(props: {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-8 gap-1 px-2 text-muted-foreground"
+        className={cn(
+          'h-8 gap-1 px-2 text-muted-foreground',
+          props.triggerClassName,
+        )}
         aria-label="Comprendre mes droits sur cette ressource"
         data-testid="access-explainer-trigger"
         onClick={() => setOpen(true)}
       >
         <Info className="size-4" aria-hidden />
-        <span className="text-xs">Pourquoi ce niveau d’accès ?</span>
+        <span className="text-xs max-md:sr-only">Pourquoi ce niveau d’accès ?</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">

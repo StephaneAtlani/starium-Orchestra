@@ -94,9 +94,9 @@ export function StrategicObjectivesTab({
           <AlertDescription>Aucun objectif strategique disponible.</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 min-h-11 rounded-md border border-input bg-background px-3 text-sm md:h-9 md:min-h-0"
           value={axisFilter}
           onChange={(event) => setAxisFilter(event.target.value)}
         >
@@ -108,7 +108,7 @@ export function StrategicObjectivesTab({
           ))}
         </select>
         <select
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-11 min-h-11 rounded-md border border-input bg-background px-3 text-sm md:h-9 md:min-h-0"
           value={statusFilter}
           onChange={(event) =>
             setStatusFilter(event.target.value as 'ALL' | StrategicObjectiveStatus)
@@ -122,11 +122,12 @@ export function StrategicObjectivesTab({
           ))}
         </select>
         <Input
+          className="h-11 min-h-11 md:h-9 md:min-h-0"
           placeholder="Rechercher un objectif..."
           value={searchFilter}
           onChange={(event) => setSearchFilter(event.target.value)}
         />
-        <label className="flex items-center gap-2 rounded-md border border-input px-3 text-sm">
+        <label className="flex min-h-11 items-center gap-2 rounded-md border border-input px-3 text-sm md:min-h-0">
           <input
             type="checkbox"
             checked={overdueOnly}
