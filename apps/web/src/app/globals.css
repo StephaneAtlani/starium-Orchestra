@@ -327,6 +327,266 @@ html.dark {
   .starium-table-sticky-edge {
     box-shadow: 1px 0 0 0 var(--border);
   }
+
+  /* Barre KPI portefeuille (3 groupes dans une seule carte — mockup Projets) */
+  .starium-kpi-strip {
+    overflow: hidden;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius);
+    box-shadow: var(--ds-card-shadow);
+    margin-bottom: 20px;
+  }
+  .starium-kpi-strip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 767px) {
+    .starium-kpi-strip-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-kpi-strip-group {
+    padding: 20px 24px;
+    border-right: 1px solid var(--neutral-100, var(--border));
+  }
+  .starium-kpi-strip-group:last-child {
+    border-right: none;
+  }
+  @media (max-width: 767px) {
+    .starium-kpi-strip-group {
+      border-right: none;
+      border-bottom: 1px solid var(--neutral-100, var(--border));
+    }
+    .starium-kpi-strip-group:last-child {
+      border-bottom: none;
+    }
+  }
+  .starium-kpi-strip-group-label {
+    margin-bottom: 16px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .starium-kpi-strip-items {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 24px 32px;
+  }
+  .starium-kpi-strip-item-label {
+    margin-bottom: 3px;
+    font-size: 11.5px;
+    line-height: 1.2;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+  .starium-kpi-strip-item-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .starium-kpi-strip-item-value--ok {
+    color: var(--state-success);
+  }
+  .starium-kpi-strip-item-value--warn {
+    color: var(--state-warning);
+  }
+  .starium-kpi-strip-item-value--danger {
+    color: var(--destructive);
+  }
+  .starium-kpi-strip-item-value--muted {
+    color: var(--muted-foreground);
+  }
+
+  /* Filter bar (panneau tableau projets) */
+  .starium-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--neutral-100, var(--border));
+  }
+  .starium-filter-bar-title {
+    flex-shrink: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--foreground);
+    white-space: nowrap;
+  }
+  .starium-filter-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .starium-tab-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border-radius: var(--radius-md, 10px);
+    background-color: var(--muted);
+  }
+  .starium-tab-btn {
+    padding: 6px 13px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background 120ms, color 120ms, box-shadow 120ms;
+    white-space: nowrap;
+  }
+  .starium-tab-btn:hover:not(.starium-tab-btn--active) {
+    background: color-mix(in srgb, var(--card) 60%, transparent);
+    color: var(--foreground);
+  }
+  .starium-tab-btn--active {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: var(--ds-card-shadow);
+  }
+  .starium-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md, 10px);
+    background: var(--card);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms;
+    white-space: nowrap;
+  }
+  .starium-filter-chip:hover {
+    background: var(--muted);
+    border-color: color-mix(in srgb, var(--border) 80%, var(--foreground));
+  }
+  .starium-filter-chip--active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .starium-filter-chip--muted {
+    color: var(--muted-foreground);
+    border-color: transparent;
+    background: transparent;
+  }
+  .starium-filter-chip--muted:hover {
+    background: var(--muted);
+    border-color: var(--border);
+  }
+  .starium-filter-chip svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+  }
+
+  /* Tableau projets (densité mockup) */
+  .starium-projects-table thead tr:first-child {
+    background: var(--muted);
+  }
+  .starium-projects-table thead tr:first-child th {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    border-bottom: 1.5px solid var(--border);
+  }
+  .starium-projects-table .starium-col-filter {
+    height: 1.75rem;
+    width: 100%;
+    font-size: 11.5px;
+  }
+  .starium-projects-table tbody tr:hover {
+    background: color-mix(in srgb, var(--muted) 50%, transparent);
+  }
+  .starium-proj-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-gold-700, var(--primary));
+  }
+  .starium-proj-name:hover {
+    color: var(--brand-gold-600, var(--primary));
+    text-decoration: underline;
+  }
+  .starium-proj-code {
+    margin-top: 2px;
+    font-family: ui-monospace, 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--foreground);
+  }
+  .starium-proj-priority {
+    margin-top: 1px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .starium-cell-category-group {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+  .starium-cell-category-sub {
+    font-size: 10.5px;
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+  .starium-progress-track {
+    width: 4rem;
+    height: 5px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .starium-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+  }
+  .starium-progress-fill--ok {
+    background: var(--state-success);
+  }
+  .starium-progress-fill--warn {
+    background: var(--state-warning);
+  }
+  .starium-progress-fill--danger {
+    background: var(--destructive);
+  }
+  .starium-progress-fill--muted {
+    background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+  }
+  .starium-signals-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .starium-table-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--neutral-100, var(--border));
+  }
 }
 
 html,

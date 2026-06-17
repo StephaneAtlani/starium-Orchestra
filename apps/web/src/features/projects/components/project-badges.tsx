@@ -105,15 +105,18 @@ function legacyVariantForKey(key: ProjectPortfolioSignalKey): keyof typeof legac
 export function ProjectPortfolioBadges({
   signals,
   merged,
+  stacked = false,
 }: {
   signals: ProjectSignals;
   merged?: MergedUiBadges | null;
+  /** Colonne signaux tableau portefeuille (empilé à droite). */
+  stacked?: boolean;
 }) {
   const visible = portfolioItems.filter((i) => i.show(signals));
   if (visible.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className={cn('flex gap-1', stacked ? 'flex-col items-end' : 'flex-wrap')}>
       {visible.map((i) => {
         const label = merged
           ? merged.projectPortfolioSignal[i.key].label

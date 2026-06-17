@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { ProjectListItem } from '../types/project.types';
+import type { ComputedHealth, ProjectListItem } from '../types/project.types';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
   PROJECT_KIND_LABEL,
@@ -59,6 +59,56 @@ function formatDate(iso: string | null) {
   } catch {
     return '—';
   }
+}
+
+function progressFillTone(
+  percent: number | null,
+  health: ComputedHealth,
+  variant: 'manual' | 'derived',
+): 'ok' | 'warn' | 'danger' | 'muted' {
+  if (percent == null) return 'muted';
+  if (variant === 'derived') return percent >= 100 ? 'ok' : 'muted';
+  if (percent >= 100) return 'ok';
+  if (health === 'RED') return 'danger';
+  if (health === 'ORANGE') return 'warn';
+  return 'ok';
+}
+
+function ProjectProgressRow({
+  percent,
+  health,
+  variant,
+}: {
+  percent: number | null;
+  health: ComputedHealth;
+  variant: 'manual' | 'derived';
+}) {
+  if (percent == null) {
+    return <span className="text-sm text-muted-foreground/50">—</span>;
+  }
+  const tone = progressFillTone(percent, health, variant);
+  const clamped = Math.min(100, Math.max(0, percent));
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="starium-progress-track">
+        <div
+          className={cn('starium-progress-fill', `starium-progress-fill--${tone}`)}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span
+        className={cn(
+          'text-[11.5px] font-semibold tabular-nums',
+          variant === 'derived' && 'font-normal text-muted-foreground',
+          variant === 'manual' && tone === 'ok' && 'text-[color:var(--state-success)]',
+          variant === 'manual' && tone === 'warn' && 'text-[color:var(--state-warning)]',
+          variant === 'manual' && tone === 'danger' && 'text-destructive',
+        )}
+      >
+        {percent} %
+      </span>
+    </div>
+  );
 }
 
 const PROJECT_LIST_COLUMN_COUNT = 12;
@@ -240,18 +290,18 @@ export function ProjectsListTable({
   ).sort((a, b) => a.localeCompare(b));
   return (
     <TooltipProvider delay={250}>
-      <Table noWrapper className="min-w-[64rem] text-sm">
-      <TableHeader className="sticky top-0 z-50 bg-card [&_tr]:border-b-0">
+      <Table noWrapper className="starium-projects-table min-w-[64rem] text-[12.5px]">
+      <TableHeader className="sticky top-0 z-50 [&_tr]:border-b-0">
         <TableRow className="border-0 hover:bg-transparent">
           <TableHead
-            className="sticky left-0 z-[52] min-w-[11rem] bg-card pl-4 starium-table-sticky-edge"
+            className="sticky left-0 z-[52] min-w-[11rem] bg-muted pl-4 starium-table-sticky-edge"
           >
             <HeaderTip tip="Categorie portefeuille rattachee au projet (racine / sous-categorie).">
               Categorie
             </HeaderTip>
           </TableHead>
           <TableHead
-            className="sticky left-[11rem] z-[52] min-w-[12rem] bg-card pl-4 starium-table-sticky-edge"
+            className="sticky left-[11rem] z-[52] min-w-[12rem] bg-muted pl-4 starium-table-sticky-edge"
           >
             <HeaderTip tip="Nom du projet, code interne, criticité et responsable. Cliquez sur le nom pour ouvrir la fiche.">
               <SortHeaderButton
@@ -364,7 +414,7 @@ export function ProjectsListTable({
                 setFilters({ portfolioCategoryId: !v || v === '__all__' ? undefined : v })
               }
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>
                   {categoryKey === '__all__'
                     ? 'Toutes catégories'
@@ -398,8 +448,8 @@ export function ProjectsListTable({
             <Input
               value={filters.search ?? ''}
               onChange={(e) => setFilters({ search: e.target.value || undefined })}
-              placeholder="Rechercher..."
-              className="h-7 text-xs"
+              placeholder="Rechercher…"
+              className="starium-col-filter h-7"
             />
           </TableHead>
           {/* NATURE */}
@@ -408,7 +458,7 @@ export function ProjectsListTable({
               value={kindKey}
               onValueChange={(v) => setFilters({ kind: !v || v === '__all__' ? undefined : v })}
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>
                   {kindKey === '__all__' ? 'Toutes' : PROJECT_KIND_LABEL[kindKey] ?? kindKey}
                 </SelectValue>
@@ -430,7 +480,7 @@ export function ProjectsListTable({
                 })
               }
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>
                   {healthKey === '__all__'
                     ? 'Toutes'
@@ -455,7 +505,7 @@ export function ProjectsListTable({
               value={statusKey}
               onValueChange={(v) => setFilters({ status: !v || v === '__all__' ? undefined : v })}
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>
                   {statusKey === '__all__' ? 'Tous' : PROJECT_STATUS_LABEL[statusKey] ?? statusKey}
                 </SelectValue>
@@ -476,7 +526,7 @@ export function ProjectsListTable({
               value={myRoleKey}
               onValueChange={(v) => setFilters({ myRole: !v || v === '__all__' ? undefined : v })}
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>{myRoleKey === '__all__' ? 'Tous rôles' : myRoleKey}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -497,7 +547,7 @@ export function ProjectsListTable({
                 setFilters({ ownerUserId: !v || v === '__all__' ? undefined : v })
               }
             >
-              <SelectTrigger size="sm" className="h-7 w-full text-xs">
+              <SelectTrigger size="sm" className="starium-col-filter h-7 w-full">
                 <SelectValue>
                   {ownerKey === '__all__'
                     ? 'Tous chefs'
@@ -564,32 +614,30 @@ export function ProjectsListTable({
                       : p.portfolioCategory.name
                   }
                 >
-                  <span className="text-xs leading-snug text-foreground">
+                  <div>
                     {p.portfolioCategory.parentName ? (
                       <>
-                        <span className="text-muted-foreground">{p.portfolioCategory.parentName}</span>
-                        <span className="mx-1 text-border">/</span>
+                        <div className="starium-cell-category-group">
+                          {p.portfolioCategory.parentName}
+                        </div>
+                        <div className="starium-cell-category-sub">{p.portfolioCategory.name}</div>
                       </>
-                    ) : null}
-                    <span>{p.portfolioCategory.name}</span>
-                  </span>
+                    ) : (
+                      <div className="starium-cell-category-group">{p.portfolioCategory.name}</div>
+                    )}
+                  </div>
                 </CellTip>
               ) : (
-                <span className="text-xs text-muted-foreground">—</span>
+                <span className="text-sm text-muted-foreground/50">—</span>
               )}
             </TableCell>
             <TableCell className="sticky left-[11rem] z-20 align-top bg-card py-3 pl-4 starium-table-sticky-edge">
-              <Link
-                href={`/projects/${p.id}`}
-                className="font-medium text-primary hover:underline"
-              >
+              <Link href={`/projects/${p.id}`} className="starium-proj-name">
                 {p.name}
               </Link>
-              {p.code && (
-                <div className="mt-0.5 font-mono text-xs text-muted-foreground">{p.code}</div>
-              )}
-              <div className="mt-1.5 flex flex-wrap gap-x-1.5 gap-y-0.5 text-[0.65rem] text-muted-foreground">
-                <span>{PROJECT_CRITICALITY_LABEL[p.criticality] ?? p.criticality}</span>
+              {p.code && <div className="starium-proj-code">{p.code}</div>}
+              <div className="starium-proj-priority">
+                {PROJECT_CRITICALITY_LABEL[p.criticality] ?? p.criticality}
               </div>
             </TableCell>
             <TableCell className="align-top py-3">
@@ -647,46 +695,66 @@ export function ProjectsListTable({
                 <span className="text-xs text-muted-foreground">—</span>
               )}
             </TableCell>
-            <TableCell className="align-top py-3 text-sm">
+            <TableCell className="align-top py-3 text-sm font-semibold text-foreground">
               {p.ownerDisplayName ? (
                 <CellTip wrap tip={p.ownerDisplayName}>
                   <span className="block truncate">{p.ownerDisplayName}</span>
                 </CellTip>
               ) : (
-                <span className="text-xs text-muted-foreground">—</span>
+                <span className="text-sm text-muted-foreground/50">—</span>
               )}
             </TableCell>
-            <TableCell className="align-top py-3 text-right">
+            <TableCell className="align-top py-3">
               <CellTip
-                className="flex-col items-end justify-end"
+                className="flex flex-col items-end"
                 tip="Ligne du haut : avancement saisi à la main. Ligne du bas : calculé à partir des tâches."
               >
-                <div className="inline-flex flex-col items-end gap-0.5 tabular-nums">
-                  <span>
-                    {p.progressPercent != null ? `${p.progressPercent} %` : '—'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {p.derivedProgressPercent != null ? `${p.derivedProgressPercent} %` : '—'}
-                  </span>
+                <div className="inline-flex w-full flex-col items-end gap-0.5">
+                  <ProjectProgressRow
+                    percent={p.progressPercent}
+                    health={p.computedHealth}
+                    variant="manual"
+                  />
+                  <ProjectProgressRow
+                    percent={p.derivedProgressPercent}
+                    health={p.computedHealth}
+                    variant="derived"
+                  />
                 </div>
               </CellTip>
             </TableCell>
-            <TableCell className="align-top py-3 tabular-nums text-sm">
-              {formatDate(p.targetEndDate)}
+            <TableCell className="align-top py-3 tabular-nums">
+              <span
+                className={cn(
+                  'text-xs text-muted-foreground',
+                  p.signals.isLate && 'font-semibold text-destructive',
+                )}
+              >
+                {formatDate(p.targetEndDate)}
+              </span>
             </TableCell>
-            <TableCell className="align-top py-3 text-center text-xs tabular-nums text-muted-foreground">
+            <TableCell className="align-top py-3 text-center text-xs tabular-nums">
               <CellTip
                 className="justify-center"
                 tip={`Tâches ouvertes : ${p.openTasksCount} · Risques ouverts : ${p.openRisksCount} · Jalons en retard : ${p.delayedMilestonesCount}`}
               >
-                <span>
-                  <span className="text-foreground">{p.openTasksCount}</span>
-                  <span className="mx-0.5 text-border">/</span>
-                  <span className="text-foreground">{p.openRisksCount}</span>
-                  <span className="mx-0.5 text-border">/</span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-muted-foreground">{p.openTasksCount}</span>
+                  <span className="text-[9px] text-muted-foreground/70">·</span>
                   <span
                     className={cn(
-                      p.delayedMilestonesCount > 0 && 'font-medium text-amber-800 dark:text-amber-300',
+                      p.openRisksCount > 0 && 'font-semibold text-destructive',
+                      p.openRisksCount === 0 && 'text-muted-foreground',
+                    )}
+                  >
+                    {p.openRisksCount}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/70">·</span>
+                  <span
+                    className={cn(
+                      p.delayedMilestonesCount > 0
+                        ? 'font-semibold text-[color:var(--state-warning)]'
+                        : 'text-muted-foreground/60',
                     )}
                   >
                     {p.delayedMilestonesCount}
@@ -695,9 +763,7 @@ export function ProjectsListTable({
               </CellTip>
             </TableCell>
             <TableCell className="align-top py-3 pr-4">
-              <div className="max-w-[18rem]">
-                <ProjectPortfolioBadges signals={p.signals} merged={badgeMerged} />
-              </div>
+              <ProjectPortfolioBadges signals={p.signals} merged={badgeMerged} stacked />
             </TableCell>
             <TableCell className="align-top py-3 pr-4">
               {(p.tags ?? []).length > 0 ? (

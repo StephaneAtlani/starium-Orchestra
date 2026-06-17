@@ -1,28 +1,17 @@
 'use client';
 
-import {
-  AlertTriangle,
-  Ban,
-  CheckCircle2,
-  Clock,
-  Flag,
-  Layers,
-  PlayCircle,
-  ShieldAlert,
-  UserX,
-} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ProjectsPortfolioSummary } from '../types/project.types';
 
-type ValueTone = 'default' | 'info' | 'success' | 'warning' | 'danger';
+type ValueTone = 'default' | 'ok' | 'warn' | 'danger' | 'muted';
 
 const valueToneClass: Record<ValueTone, string> = {
-  default: 'text-foreground',
-  info: 'text-[color:var(--brand-gold-700)]',
-  success: 'text-[color:var(--state-success)]',
-  warning: 'text-[color:var(--state-warning)]',
-  danger: 'text-destructive',
+  default: '',
+  ok: 'starium-kpi-strip-item-value--ok',
+  warn: 'starium-kpi-strip-item-value--warn',
+  danger: 'starium-kpi-strip-item-value--danger',
+  muted: 'starium-kpi-strip-item-value--muted',
 };
 
 type PortfolioKpiKey = keyof Pick<
@@ -38,34 +27,53 @@ type PortfolioKpiKey = keyof Pick<
   | 'noMilestoneProjects'
 >;
 
-const KPI_DEFS: {
+type KpiItemDef = {
   key: PortfolioKpiKey;
   label: string;
   title?: string;
   tone: ValueTone;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}[] = [
-  { key: 'totalProjects', label: 'Projets', tone: 'info', icon: Layers },
-  { key: 'inProgressProjects', label: 'En cours', tone: 'info', icon: PlayCircle },
-  { key: 'completedProjects', label: 'Terminés', tone: 'success', icon: CheckCircle2 },
-  { key: 'lateProjects', label: 'En retard', tone: 'warning', icon: Clock },
-  { key: 'criticalProjects', label: 'Critiques', tone: 'danger', icon: AlertTriangle },
-  { key: 'blockedProjects', label: 'Bloqués', tone: 'danger', icon: Ban },
+};
+
+type KpiGroupDef = {
+  label: string;
+  items: KpiItemDef[];
+};
+
+const KPI_GROUPS: KpiGroupDef[] = [
   {
-    key: 'noRiskProjects',
-    label: 'Sans étude de risque',
-    title: 'Aucune étude de risque enregistrée',
-    tone: 'warning',
-    icon: ShieldAlert,
+    label: 'Volume',
+    items: [
+      { key: 'totalProjects', label: 'Total', tone: 'default' },
+      { key: 'inProgressProjects', label: 'En cours', tone: 'warn' },
+      { key: 'completedProjects', label: 'Terminés', tone: 'ok' },
+    ],
   },
   {
-    key: 'noOwnerProjects',
-    label: 'Sans responsable',
-    title: 'Sans chef de projet ou responsable',
-    tone: 'warning',
-    icon: UserX,
+    label: 'Risques & Échéances',
+    items: [
+      { key: 'lateProjects', label: 'En retard', tone: 'warn' },
+      { key: 'criticalProjects', label: 'Critiques', tone: 'danger' },
+      { key: 'blockedProjects', label: 'Bloqués', tone: 'danger' },
+    ],
   },
-  { key: 'noMilestoneProjects', label: 'Sans jalons', tone: 'warning', icon: Flag },
+  {
+    label: 'Complétude',
+    items: [
+      {
+        key: 'noRiskProjects',
+        label: 'Sans étude risque',
+        title: 'Aucune étude de risque enregistrée',
+        tone: 'warn',
+      },
+      {
+        key: 'noOwnerProjects',
+        label: 'Sans resp.',
+        title: 'Sans chef de projet ou responsable',
+        tone: 'danger',
+      },
+      { key: 'noMilestoneProjects', label: 'Sans jalons', tone: 'muted' },
+    ],
+  },
 ];
 
 type Props = {
@@ -73,60 +81,54 @@ type Props = {
   isLoading: boolean;
 };
 
-function ScoreCard({
+function KpiItem({
   label,
   valueStr,
   title,
-  valueTone,
-  Icon,
+  tone,
 }: {
   label: string;
   valueStr: string;
   title?: string;
-  valueTone: ValueTone;
-  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  tone: ValueTone;
 }) {
   return (
-    <div className="starium-kpi-card !p-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Icon
-          className="size-7 shrink-0 text-[color:var(--brand-gold)]"
-          strokeWidth={1.5}
-          aria-hidden
-        />
-        <div className="min-w-0 flex-1">
-          <p className="starium-kpi-label truncate text-[12px] leading-tight">{label}</p>
-          <p
-            className={cn(
-              'starium-kpi-value starium-kpi-value--dense leading-none',
-              valueToneClass[valueTone],
-            )}
-            title={title}
-          >
-            {valueStr}
-          </p>
-        </div>
+    <div>
+      <div className="starium-kpi-strip-item-label">{label}</div>
+      <div
+        className={cn('starium-kpi-strip-item-value', valueToneClass[tone])}
+        title={title}
+      >
+        {valueStr}
       </div>
     </div>
   );
 }
 
-function ScoreCardSkeleton() {
+function KpiStripSkeleton() {
   return (
-    <div className="starium-kpi-card !p-3">
-      <div className="flex items-center gap-2.5">
-        <Skeleton className="size-7 shrink-0 rounded-lg" />
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Skeleton className="h-2.5 w-16" />
-          <Skeleton className="h-6 w-10" />
-        </div>
+    <div className="starium-kpi-strip" data-testid="projects-portfolio-kpi">
+      <div className="starium-kpi-strip-grid">
+        {KPI_GROUPS.map((group) => (
+          <div key={group.label} className="starium-kpi-strip-group">
+            <Skeleton className="mb-4 h-2.5 w-20" />
+            <div className="starium-kpi-strip-items">
+              {group.items.map((item) => (
+                <div key={item.key} className="space-y-1.5">
+                  <Skeleton className="h-3 w-14" />
+                  <Skeleton className="h-8 w-10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 /**
- * Synthèse portefeuille — score cards DS (icône or + libellé + valeur).
+ * Synthèse portefeuille — une carte, 3 groupes (mockup Projets-Starium).
  */
 export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
   const valueFor = (key: PortfolioKpiKey) => {
@@ -134,31 +136,29 @@ export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
     return String(summary?.[key] ?? 0);
   };
 
-  return (
-    <section className="starium-module space-y-4" data-testid="projects-portfolio-kpi">
-      <div className="space-y-1">
-        <h2 className="starium-section-title">Indicateurs portefeuille</h2>
-        <p className="text-sm text-muted-foreground">
-          Synthèse client actif (serveur).
-        </p>
-      </div>
+  if (isLoading && !summary) {
+    return <KpiStripSkeleton />;
+  }
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 min-[960px]:grid-cols-9">
-        {isLoading && !summary
-          ? KPI_DEFS.map((def) => <ScoreCardSkeleton key={def.key} />)
-          : KPI_DEFS.map((def) => {
-              const Icon = def.icon;
-              return (
-                <ScoreCard
-                  key={def.key}
-                  label={def.label}
-                  title={def.title}
-                  valueStr={valueFor(def.key)}
-                  valueTone={def.tone}
-                  Icon={Icon}
+  return (
+    <section className="starium-kpi-strip" data-testid="projects-portfolio-kpi">
+      <div className="starium-kpi-strip-grid">
+        {KPI_GROUPS.map((group) => (
+          <div key={group.label} className="starium-kpi-strip-group">
+            <div className="starium-kpi-strip-group-label">{group.label}</div>
+            <div className="starium-kpi-strip-items">
+              {group.items.map((item) => (
+                <KpiItem
+                  key={item.key}
+                  label={item.label}
+                  title={item.title}
+                  valueStr={valueFor(item.key)}
+                  tone={item.tone}
                 />
-              );
-            })}
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );

@@ -103,27 +103,21 @@ export default function ProjectsPortfolioPage() {
       <PageContainer>
         <PageHeader
           title="Projets"
-          description="Cockpit portefeuille — pilotage et signaux pour le client actif."
+          description="Portefeuille · pilotage et signaux client"
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {permsSuccess && canReadProjects && (
                 <>
                   <Link
                     href={projectsCommitteeCodir()}
-                    className={cn(
-                      buttonVariants({ variant: 'default', size: 'sm' }),
-                      'gap-1.5',
-                    )}
+                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
                   >
                     <Presentation className="size-4" />
                     Présentation CODIR
                   </Link>
                   <Link
                     href={projectsPortfolioGantt()}
-                    className={cn(
-                      buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'gap-1.5 border-primary/45 text-primary hover:border-primary/70 hover:bg-primary/10 hover:text-primary',
-                    )}
+                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
                   >
                     <CalendarRange className="size-4" />
                     Gantt portefeuille
@@ -286,29 +280,40 @@ export default function ProjectsPortfolioPage() {
                         />
                       )}
                     </CardContent>
-                    <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
+                    <CardFooter className="starium-table-footer p-0">
+                      <PaginationSummary
+                        offset={offset}
+                        limit={data.limit}
+                        total={data.total}
+                        className="text-xs text-muted-foreground"
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
                           disabled={currentPage <= 1}
                           onClick={() => setFilters({ page: currentPage - 1 })}
                           data-testid="projects-pagination-prev"
                         >
-                          <ChevronLeft className="size-4" />
+                          <ChevronLeft className="size-3.5" aria-hidden />
                           Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        </button>
+                        <span className="starium-filter-chip starium-filter-chip--active px-2.5 py-1 text-[11.5px]">
+                          {currentPage}
+                        </span>
+                        {totalPages > 1 ? (
+                          <span className="px-1 text-xs text-muted-foreground">/ {totalPages}</span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
                           disabled={currentPage >= totalPages}
                           onClick={() => setFilters({ page: currentPage + 1 })}
                           data-testid="projects-pagination-next"
                         >
                           Suivant
-                          <ChevronRight className="size-4" />
-                        </Button>
+                          <ChevronRight className="size-3.5" aria-hidden />
+                        </button>
                       </div>
                     </CardFooter>
                   </>
