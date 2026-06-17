@@ -2,6 +2,28 @@ Voici le **schéma fonctionnel mis à jour**, aligné avec ton architecture actu
 
 ---
 
+## 0. Standards by design (obligatoires)
+
+Toute évolution (RFC, module, API, écran) intègre dès la conception les 5 axes **non négociables** — détail : `.cursor/rules/by-design-standards.mdc`, synthèse `.cursorrules` (*Standards "by design"*), UI : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §1.1.
+
+| Axe | Implications architecture |
+| --- | --- |
+| **RGPD** | Minimisation des DCP ; finalité documentée par entité ; commentaires Prisma sur champs perso ; droits (accès, rectification, effacement/anonymisation, export) ; rétention + jobs de purge ; pas de DCP en clair dans les logs ; scope client sur toute DCP. |
+| **RGAA** | Sémantique HTML, clavier, ARIA ciblé, contrastes WCAG 2.1 AA ; formulaires labellisés ; contenu dynamique annoncé (`aria-live`). Principalement frontend — voir [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §1.1. |
+| **Design System** | Tokens et composants partagés (`apps/web`) ; pas de valeurs UI en dur ; patterns loading/empty/error ; [RFC-014-1](./RFC/RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md), [INVENTAIRE-COMPOSANTS.md](./INVENTAIRE-COMPOSANTS.md). |
+| **Sécurité** | Pipeline guards (§3) sur chaque route métier ; `clientId` dérivé du scope JWT, jamais du payload brut ; DTO + class-validator ; Prisma seul ; audit log actions sensibles ([RFC-013-1](./RFC/RFC-013-1%20%E2%80%94%20Security%20logs.md)) ; whitelist des réponses API ; secrets en env. |
+| **Interface mobile** | Mobile-first côté web ; layouts fluides ; tableaux exploitables sur petit écran ; navigation et client switcher accessibles au tactile. |
+
+**Checklist DoD architecture** :
+
+- [ ] Isolation client vérifiée (lecture + écriture)
+- [ ] Permissions et guards documentés pour les nouveaux endpoints
+- [ ] DCP identifiées + rétention/effacement prévus si applicable
+- [ ] Audit log sur mutations sensibles
+- [ ] Contrat API expose les libellés nécessaires à l’UI (pas d’ID seul en affichage)
+
+---
+
 # Schéma fonctionnel global — version mise à jour
 
 ## 1. Vue d’ensemble produit

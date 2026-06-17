@@ -28,6 +28,18 @@ Tech stack target:
 
 ---
 
+## Standards "by design" (non négociables)
+
+Détail complet et checklists : voir la règle `.cursor/rules/by-design-standards.mdc`. Ces 5 exigences s'appliquent dès la conception (PRD/RFC), pas en correctif a posteriori :
+
+1. **RGPD / Privacy by design** — minimisation des données, finalité documentée, identification des DCP, droits (accès/rectification/effacement/portabilité), rétention + purge/anonymisation, chiffrement, pas de DCP en clair dans les logs, scope client.
+2. **RGAA / Accessibilité (WCAG 2.1 AA)** — HTML sémantique, navigation clavier + `focus-visible`, labels de formulaire, contrastes (≥ 4.5:1), info jamais portée par la couleur seule, `aria-live` pour le dynamique, `prefers-reduced-motion`.
+3. **Design System** — suivre `docs/FRONTEND_UI-UX.md` et `docs/RFC/RFC-014-1`, réutiliser shadcn/ui + composants existants (`docs/INVENTAIRE-COMPOSANTS.md`), tokens du thème, **aucune valeur en dur**, états loading/empty/error.
+4. **Sécurité by design** — authz + RBAC client-aware + isolation tenant sur chaque endpoint, `clientId` validé depuis le scope, DTO + class-validator, secrets en env, audit log des actions sensibles, pas de sur-exposition de champs.
+5. **Interface mobile (mobile-first)** — responsive testé dès 320px, layouts fluides, cibles tactiles ≥ 44px, tableaux exploitables sur mobile, pas de dépendance au hover.
+
+---
+
 ## Core architecture principles
 
 1. API-first
@@ -600,6 +612,10 @@ A task is done only if:
 * API behavior is documented enough
 * no unrelated files were modified unnecessarily
 * code matches project conventions
+* RGPD respected (DCP minimisées, effacement/rétention prévus, pas de DCP en clair dans les logs)
+* RGAA respected (clavier, labels, contrastes AA, focus visible, dynamique annoncé)
+* Design System respected (composants/tokens existants, aucune valeur en dur, états loading/empty/error)
+* mobile/responsive validated (dès 320px, cibles tactiles ≥ 44px, tables exploitables sur mobile)
 
 ---
 
@@ -614,3 +630,4 @@ A task is done only if:
 7. Clear API design
 8. Multi-client fractional CIO workflow
 9. **Inputs et référentiels** : toujours afficher une valeur métier lisible ; jamais un ID brut en UI (voir section *Frontend rules* — *Inputs et référentiels*).
+10. **Standards "by design"** : RGPD, RGAA, Design System, Sécurité et interface mobile intégrés dès la conception (voir section *Standards "by design"* et `.cursor/rules/by-design-standards.mdc`).

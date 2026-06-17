@@ -2,6 +2,8 @@
 
 Ce document **complète** [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md) (routing, multi-client, données). Ici : **patterns visuels**, **composants obligatoires** et **extraits de code** alignés sur l’implémentation actuelle dans `apps/web`.
 
+**Standards by design** : toute UI doit respecter dès la conception les 5 axes **RGPD**, **RGAA**, **Design System**, **Sécurité** et **interface mobile** (détail : `.cursor/rules/by-design-standards.mdc`, synthèse **§1.1** ci-dessous).
+
 ---
 
 ## 1. Stack UI
@@ -17,6 +19,28 @@ Ce document **complète** [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md)
 
 
 Fichiers clés : `apps/web/src/app/globals.css`, `apps/web/src/styles/tokens.css`.
+
+---
+
+## 1.1 Standards by design (obligatoires)
+
+Ces exigences s’appliquent à **chaque écran, composant et RFC frontend**. Référence complète : `.cursor/rules/by-design-standards.mdc` et [RFC-014-1](./RFC/RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md).
+
+| Axe | Exigences UI concrètes |
+| --- | --- |
+| **RGPD** | Ne pas afficher de DCP superflues ; masquer/pseudonymiser dans les logs client ; exports et effacements prévus côté API ; pas de tracking sans consentement. |
+| **RGAA** | HTML sémantique ; navigation clavier complète ; `<label>` sur chaque champ ; erreurs via `aria-invalid` + `aria-describedby` ; contrastes AA ; `aria-live` sur toasts/chargements ; `prefers-reduced-motion`. |
+| **Design System** | Tokens + classes `.starium-*` (§2.1) ; composants `components/ui/*` et inventaire [INVENTAIRE-COMPOSANTS.md](./INVENTAIRE-COMPOSANTS.md) ; états loading/empty/error systématiques ; **valeur métier affichée, jamais l’ID** (select, table, badge). |
+| **Sécurité** | L’UI ne remplace jamais l’authz backend (masquer/désactiver seulement) ; pas de secrets en dur ; `clientId` dans les query keys ; pas de données d’un autre client. |
+| **Mobile** | Mobile-first (`sm` → `xl`) ; test ≥ 320px ; cibles tactiles ≥ 44×44 px ; tableaux avec stratégie mobile (cartes, colonnes prioritaires, scroll contrôlé) ; modales/drawers plein écran ou bottom sheet. |
+
+**Checklist DoD UI** (en plus des règles §2) :
+
+- [ ] Responsive validé 320px / mobile / desktop
+- [ ] Clavier + focus visible sur actions et formulaires
+- [ ] Libellés métier partout (pas d’UUID visible)
+- [ ] Tokens DS uniquement (pas de couleur/espacement en dur)
+- [ ] États loading / empty / error explicites et annoncés si dynamiques
 
 ---
 
