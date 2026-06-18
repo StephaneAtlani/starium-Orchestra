@@ -4,8 +4,12 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, AlertTriangle, LayoutGrid, Network } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { WorkTeamFormDialog } from '@/features/teams/work-teams/components/work-team-form-dialog';
@@ -100,35 +104,41 @@ export default function WorkTeamsListPage() {
                 Arborescence
               </Button>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={includeArchived}
-                onChange={(e) => {
-                  setIncludeArchived(e.target.checked);
-                  setOffset(0);
-                }}
-              />
-              Inclure les équipes archivées
-            </label>
+            <FilterBarField id="wt-include-archived" label="Archivées">
+              {({ labelId }) => (
+                <div className="flex min-h-11 items-center gap-2">
+                  <Switch
+                    aria-labelledby={labelId}
+                    aria-label="Inclure les équipes archivées"
+                    checked={includeArchived}
+                    onCheckedChange={(checked) => {
+                      setIncludeArchived(checked);
+                      setOffset(0);
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">Inclure les équipes archivées</span>
+                </div>
+              )}
+            </FilterBarField>
           </div>
 
           {view === 'table' && (
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground" htmlFor="wt-search">
-                Recherche (nom ou code)
-              </label>
-              <input
-                id="wt-search"
-                className="flex h-9 max-w-md rounded-lg border border-input bg-transparent px-3 text-sm"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setOffset(0);
-                }}
-                placeholder="Filtrer…"
-              />
-            </div>
+            <FilterBar aria-label="Recherche équipes" asSearch>
+              <FilterBarField id="wt-search" label="Recherche (nom ou code)">
+                {({ controlId }) => (
+                  <Input
+                    id={controlId}
+                    className="w-full"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setOffset(0);
+                    }}
+                    placeholder="Filtrer…"
+                  />
+                )}
+              </FilterBarField>
+            </FilterBar>
           )}
 
           {view === 'table' && listQuery.isLoading && !data && <LoadingState rows={5} />}

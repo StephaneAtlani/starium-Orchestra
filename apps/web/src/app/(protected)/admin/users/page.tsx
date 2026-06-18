@@ -5,6 +5,8 @@ import { useQueries, useQuery } from '@tanstack/react-query';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { TableToolbar } from '@/components/layout/table-toolbar';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -257,20 +259,27 @@ export default function AdminUsersPage() {
 
   const columns: DataTableColumn<AdminPlatformUserSummary>[] = useMemo(
     () => [
-      { key: 'email', header: 'Email' },
+      {
+        key: 'email',
+        header: 'Email',
+        mobilePriority: 'primary',
+      },
       {
         key: 'firstName',
         header: 'Prénom',
+        mobilePriority: 'secondary',
         cell: (row) => row.firstName ?? '—',
       },
       {
         key: 'lastName',
         header: 'Nom',
+        mobilePriority: 'secondary',
         cell: (row) => row.lastName ?? '—',
       },
       {
         key: 'licenses',
         header: 'Licences',
+        mobilePriority: 'secondary',
         cell: (row) => (
           <LicensesCell
             row={row}
@@ -282,14 +291,16 @@ export default function AdminUsersPage() {
       {
         key: 'createdAt',
         header: 'Créé le',
+        mobilePriority: 'secondary',
         cell: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
         className: 'text-muted-foreground',
       },
       {
         key: 'actions',
         header: 'Actions',
+        mobilePriority: 'actions',
         cell: (row) => (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             {row.platformRole !== 'PLATFORM_ADMIN' && (
               <>
                 <ManageUserClientsDialog user={row} />
@@ -326,98 +337,117 @@ export default function AdminUsersPage() {
         description="Liste des utilisateurs globaux de la plateforme."
       />
       <TableToolbar>
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[220px] sm:max-w-sm">
-            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher par email, prénom, nom…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 pr-8 text-xs"
-              aria-label="Rechercher un utilisateur"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Effacer la recherche"
-              >
-                <XIcon className="size-3.5" />
-              </button>
-            )}
-          </div>
-
-          <Select
-            value={roleFilter}
-            onValueChange={(v) => setRoleFilter(v as RoleFilter)}
+        <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <FilterBar
+            aria-label="Filtres utilisateurs plateforme"
+            asSearch
+            className="flex-1"
+            desktopColumns="auto"
           >
-            <SelectTrigger size="sm" className="h-8 w-[260px] text-xs">
-              <SelectValue>{ROLE_FILTER_LABEL[roleFilter]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(ROLE_FILTER_LABEL) as RoleFilter[]).map((key) => (
-                <SelectItem key={key} value={key}>
-                  {ROLE_FILTER_LABEL[key]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={clientFilter}
-            onValueChange={(v) => setClientFilter(v ?? 'ALL')}
-          >
-            <SelectTrigger size="sm" className="h-8 w-[240px] text-xs">
-              <SelectValue>{clientFilterLabel}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Tous les clients</SelectItem>
-              <SelectItem value="NONE">Sans client rattaché</SelectItem>
-              {sortedClients.length > 0 && <SelectSeparator />}
-              {sortedClients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={licenseFilter}
-            onValueChange={(v) => setLicenseFilter(v as LicenseModeFilter)}
-          >
-            <SelectTrigger size="sm" className="h-8 w-[200px] text-xs">
-              <SelectValue>{LICENSE_FILTER_LABEL[licenseFilter]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">{LICENSE_FILTER_LABEL.ALL}</SelectItem>
-              <SelectItem value="NO_LICENSE">
-                {LICENSE_FILTER_LABEL.NO_LICENSE}
-              </SelectItem>
-              <SelectSeparator />
-              {(
-                [
-                  'CLIENT_BILLABLE',
-                  'NON_BILLABLE',
-                  'EXTERNAL_BILLABLE',
-                  'PLATFORM_INTERNAL',
-                  'EVALUATION',
-                ] as LicenseModeFilter[]
-              ).map((m) => (
-                <SelectItem key={m} value={m}>
-                  {LICENSE_FILTER_LABEL[m]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasFilters && (
+            <FilterBarField id="admin-users-search" label="Recherche">
+              {({ controlId }) => (
+                <div className="relative w-full">
+                  <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id={controlId}
+                    placeholder="Rechercher par email, prénom, nom…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-8 pr-8 text-xs"
+                  />
+                  {search ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      aria-label="Effacer la recherche"
+                    >
+                      <XIcon className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </FilterBarField>
+            <FilterBarField id="admin-users-role" label="Rôle">
+              {({ controlId, labelId }) => (
+                <Select
+                  value={roleFilter}
+                  onValueChange={(v) => setRoleFilter(v as RoleFilter)}
+                >
+                  <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full text-xs">
+                    <SelectValue>{ROLE_FILTER_LABEL[roleFilter]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ROLE_FILTER_LABEL) as RoleFilter[]).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {ROLE_FILTER_LABEL[key]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FilterBarField>
+            <FilterBarField id="admin-users-client" label="Client">
+              {({ controlId, labelId }) => (
+                <Select
+                  value={clientFilter}
+                  onValueChange={(v) => setClientFilter(v ?? 'ALL')}
+                >
+                  <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full text-xs">
+                    <SelectValue>{clientFilterLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Tous les clients</SelectItem>
+                    <SelectItem value="NONE">Sans client rattaché</SelectItem>
+                    {sortedClients.length > 0 && <SelectSeparator />}
+                    {sortedClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FilterBarField>
+            <FilterBarField id="admin-users-license" label="Licence">
+              {({ controlId, labelId }) => (
+                <Select
+                  value={licenseFilter}
+                  onValueChange={(v) => setLicenseFilter(v as LicenseModeFilter)}
+                >
+                  <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full text-xs">
+                    <SelectValue>{LICENSE_FILTER_LABEL[licenseFilter]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">{LICENSE_FILTER_LABEL.ALL}</SelectItem>
+                    <SelectItem value="NO_LICENSE">
+                      {LICENSE_FILTER_LABEL.NO_LICENSE}
+                    </SelectItem>
+                    <SelectSeparator />
+                    {(
+                      [
+                        'CLIENT_BILLABLE',
+                        'NON_BILLABLE',
+                        'EXTERNAL_BILLABLE',
+                        'PLATFORM_INTERNAL',
+                        'EVALUATION',
+                      ] as LicenseModeFilter[]
+                    ).map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {LICENSE_FILTER_LABEL[m]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FilterBarField>
+          </FilterBar>
+          {hasFilters ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 text-xs"
+              className="w-full text-xs sm:w-auto"
               onClick={() => {
                 setSearch('');
                 setRoleFilter('ALL');
@@ -427,7 +457,7 @@ export default function AdminUsersPage() {
             >
               Réinitialiser
             </Button>
-          )}
+          ) : null}
         </div>
 
         <p className="text-xs text-muted-foreground">
@@ -446,6 +476,7 @@ export default function AdminUsersPage() {
             isLoading={isLoading}
             error={error ?? null}
             getRowId={(row) => row.id}
+            mobileCardsAriaLabel="Liste des utilisateurs plateforme"
             emptyTitle={
               hasFilters ? 'Aucun résultat' : 'Aucun utilisateur'
             }

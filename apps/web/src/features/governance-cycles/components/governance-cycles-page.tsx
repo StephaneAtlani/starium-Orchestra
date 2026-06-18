@@ -6,7 +6,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -14,14 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/feedback/empty-state';
@@ -135,6 +129,147 @@ export function GovernanceCyclesPage() {
 
   const pageSummary = computePageSummary(visibleItems);
 
+  async function handleArchive(cycle: GovernanceCycleResponseDto) {
+    if (!window.confirm(`Archiver le cycle « ${cycle.name} » ?`)) return;
+    try {
+      await archiveMutation.mutateAsync(cycle.id);
+      toast.success('Cycle archivé');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  }
+
+  const cycleColumns = useMemo<DataTableColumn<GovernanceCycleResponseDto>[]>(() => {
+    return [
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (cycle) => (
+          <div>
+            <div className="font-medium">
+              <Link href={`/cycles/${cycle.id}`} className="hover:underline">
+                {cycle.name}
+              </Link>
+            </div>
+            {cycle.code ? (
+              <div className="text-xs text-muted-foreground">{cycle.code}</div>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        key: 'cadence',
+        header: 'Cadence',
+        mobilePriority: 'secondary',
+        cell: (cycle) => getGovernanceCycleCadenceLabel(cycle.cadence),
+      },
+      {
+        key: 'period',
+        header: 'Période',
+        mobilePriority: 'secondary',
+        cell: (cycle) => (
+          <span className="whitespace-nowrap text-sm">
+            {formatGovernanceCycleDateRange(cycle.startDate, cycle.endDate)}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (cycle) => <GovernanceCycleStatusBadge status={cycle.status} />,
+      },
+      {
+        key: 'items',
+        header: 'Items',
+        className: 'text-right tabular-nums',
+        mobilePriority: 'secondary',
+        cell: (cycle) => cycle.summary.itemsCount,
+      },
+      {
+        key: 'toArbitrate',
+        header: 'À arbitrer',
+        className: 'text-right tabular-nums',
+        mobilePriority: 'secondary',
+        cell: (cycle) => {
+          const summary = summaryByCycleId.get(cycle.id);
+          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          return summaryFailed || !summary ? '—' : summary.toArbitrateCount;
+        },
+      },
+      {
+        key: 'budget',
+        header: 'Budget est.',
+        className: 'text-right tabular-nums',
+        mobilePriority: 'secondary',
+        cell: (cycle) => {
+          const summary = summaryByCycleId.get(cycle.id);
+          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          return summaryFailed || !summary
+            ? '—'
+            : formatGovernanceDecimalAmount(summary.estimatedBudgetTotal);
+        },
+      },
+      {
+        key: 'capacity',
+        header: 'Capacité est.',
+        className: 'text-right tabular-nums',
+        mobilePriority: 'secondary',
+        cell: (cycle) => {
+          const summary = summaryByCycleId.get(cycle.id);
+          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          return summaryFailed || !summary
+            ? '—'
+            : formatGovernanceCapacityDays(summary.estimatedCapacityDaysTotal);
+        },
+      },
+      {
+        key: 'updatedAt',
+        header: 'Dernière MAJ',
+        mobilePriority: 'hidden-mobile',
+        cell: (cycle) => (
+          <span className="whitespace-nowrap text-sm text-muted-foreground">
+            {formatGovernanceCycleDateTime(cycle.updatedAt)}
+          </span>
+        ),
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (cycle) => (
+          <div className="flex flex-wrap justify-end gap-1">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/cycles/${cycle.id}`}>Ouvrir</Link>
+            </Button>
+            <PermissionGate permission="governance_cycles.update">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Modifier"
+                onClick={() => setEditCycle(cycle)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="governance_cycles.delete">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Archiver"
+                onClick={() => handleArchive(cycle)}
+                disabled={archiveMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </PermissionGate>
+          </div>
+        ),
+      },
+    ];
+  }, [archiveMutation.isPending, summaryByCycleId, summaryQueries, visibleIds]);
+
   if (!canRead && permsSuccess) {
     return (
       <PageContainer>
@@ -145,16 +280,6 @@ export function GovernanceCyclesPage() {
         </Alert>
       </PageContainer>
     );
-  }
-
-  async function handleArchive(cycle: GovernanceCycleResponseDto) {
-    if (!window.confirm(`Archiver le cycle « ${cycle.name} » ?`)) return;
-    try {
-      await archiveMutation.mutateAsync(cycle.id);
-      toast.success('Cycle archivé');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
   }
 
   const total = listQuery.data?.total ?? 0;
@@ -198,22 +323,28 @@ export function GovernanceCyclesPage() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-xl border bg-card p-4">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <Label htmlFor="cycles-search">Recherche</Label>
+      <FilterBar
+        aria-label="Filtres cycles de pilotage"
+        asSearch
+        desktopColumns={4}
+        className="space-y-0"
+      >
+        <FilterBarField id="cycles-search" label="Recherche">
+          {({ controlId }) => (
             <Input
-              id="cycles-search"
+              id={controlId}
               placeholder="Nom ou code…"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setOffset(0);
               }}
+              className="w-full"
             />
-          </div>
-          <div className="space-y-1">
-            <Label>Statut</Label>
+          )}
+        </FilterBarField>
+        <FilterBarField id="cycles-status" label="Statut">
+          {({ controlId, labelId }) => (
             <Select
               value={statusFilter}
               onValueChange={(v) => {
@@ -221,7 +352,7 @@ export function GovernanceCyclesPage() {
                 setOffset(0);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
                 <SelectValue placeholder="Tous" />
               </SelectTrigger>
               <SelectContent>
@@ -233,9 +364,10 @@ export function GovernanceCyclesPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Cadence</Label>
+          )}
+        </FilterBarField>
+        <FilterBarField id="cycles-cadence" label="Cadence">
+          {({ controlId, labelId }) => (
             <Select
               value={cadenceFilter}
               onValueChange={(v) => {
@@ -243,7 +375,7 @@ export function GovernanceCyclesPage() {
                 setOffset(0);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
                 <SelectValue placeholder="Toutes" />
               </SelectTrigger>
               <SelectContent>
@@ -255,9 +387,10 @@ export function GovernanceCyclesPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Inclure archivés</Label>
+          )}
+        </FilterBarField>
+        <FilterBarField id="cycles-archived" label="Inclure archivés">
+          {({ controlId, labelId }) => (
             <Select
               value={includeArchived ? 'yes' : 'no'}
               onValueChange={(v) => {
@@ -265,7 +398,7 @@ export function GovernanceCyclesPage() {
                 setOffset(0);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -273,33 +406,36 @@ export function GovernanceCyclesPage() {
                 <SelectItem value="yes">Oui</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="period-start">Période — page affichée (début)</Label>
+          )}
+        </FilterBarField>
+        <FilterBarField
+          id="period-start"
+          label="Période — page affichée (début)"
+          description="Filtre local sur les cycles déjà chargés sur cette page."
+        >
+          {({ controlId, descriptionId }) => (
             <Input
-              id="period-start"
+              id={controlId}
               type="date"
+              aria-describedby={descriptionId}
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
+              className="w-full"
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="period-end">Période — page affichée (fin)</Label>
+          )}
+        </FilterBarField>
+        <FilterBarField id="period-end" label="Période — page affichée (fin)">
+          {({ controlId }) => (
             <Input
-              id="period-end"
+              id={controlId}
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
+              className="w-full"
             />
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Le filtre période s&apos;applique uniquement aux cycles déjà chargés sur cette page, pas à
-          l&apos;ensemble paginé côté serveur.
-        </p>
-      </section>
+          )}
+        </FilterBarField>
+      </FilterBar>
 
       {listQuery.isLoading ? (
         <LoadingState rows={6} />
@@ -316,98 +452,12 @@ export function GovernanceCyclesPage() {
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Cadence</TableHead>
-                  <TableHead>Période</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Items</TableHead>
-                  <TableHead className="text-right">À arbitrer</TableHead>
-                  <TableHead className="text-right">Budget est.</TableHead>
-                  <TableHead className="text-right">Capacité est.</TableHead>
-                  <TableHead>Dernière MAJ</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleItems.map((cycle) => {
-                  const summary = summaryByCycleId.get(cycle.id);
-                  const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
-                  return (
-                    <TableRow key={cycle.id}>
-                      <TableCell>
-                        <div className="font-medium">
-                          <Link href={`/cycles/${cycle.id}`} className="hover:underline">
-                            {cycle.name}
-                          </Link>
-                        </div>
-                        {cycle.code ? (
-                          <div className="text-xs text-muted-foreground">{cycle.code}</div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{getGovernanceCycleCadenceLabel(cycle.cadence)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-sm">
-                        {formatGovernanceCycleDateRange(cycle.startDate, cycle.endDate)}
-                      </TableCell>
-                      <TableCell>
-                        <GovernanceCycleStatusBadge status={cycle.status} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {cycle.summary.itemsCount}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {summaryFailed || !summary ? '—' : summary.toArbitrateCount}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {summaryFailed || !summary
-                          ? '—'
-                          : formatGovernanceDecimalAmount(summary.estimatedBudgetTotal)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {summaryFailed || !summary
-                          ? '—'
-                          : formatGovernanceCapacityDays(summary.estimatedCapacityDaysTotal)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {formatGovernanceCycleDateTime(cycle.updatedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/cycles/${cycle.id}`}>Ouvrir</Link>
-                          </Button>
-                          <PermissionGate permission="governance_cycles.update">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Modifier"
-                              onClick={() => setEditCycle(cycle)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </PermissionGate>
-                          <PermissionGate permission="governance_cycles.delete">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Archiver"
-                              onClick={() => handleArchive(cycle)}
-                              disabled={archiveMutation.isPending}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </PermissionGate>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={cycleColumns}
+            data={visibleItems}
+            getRowId={(cycle) => cycle.id}
+            mobileCardsAriaLabel="Liste des cycles de pilotage"
+          />
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               {total} cycle{total > 1 ? 's' : ''} au total

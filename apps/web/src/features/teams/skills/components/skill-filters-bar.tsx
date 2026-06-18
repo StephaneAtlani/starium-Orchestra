@@ -1,7 +1,6 @@
 'use client';
 
 import { Search } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -11,12 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import type { SkillCategoryOption } from '../types/skill.types';
 import type { SkillReferenceLevel, SkillStatus, SkillsListParams } from '../types/skill.types';
 import { skillReferenceLevelLabel } from '../lib/skill-label-mappers';
 
 const STATUSES: SkillStatus[] = ['ACTIVE', 'DRAFT', 'ARCHIVED'];
 const LEVELS: SkillReferenceLevel[] = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'];
+
+const STATUS_LABELS: Record<SkillStatus, string> = {
+  ACTIVE: 'Actif',
+  DRAFT: 'Brouillon',
+  ARCHIVED: 'Archivé',
+};
 
 type SkillFiltersBarProps = {
   filters: SkillsListParams;
@@ -29,16 +36,30 @@ export function SkillFiltersBar({
   setFilters,
   categoryOptions,
 }: SkillFiltersBarProps) {
+  const categoryLabel =
+    !filters.categoryId
+      ? 'Toutes les catégories'
+      : categoryOptions.find((c) => c.id === filters.categoryId)?.name ?? 'Catégorie';
+
+  const statusKey = filters.status?.[0] ?? '__all__';
+  const statusLabel =
+    statusKey === '__all__' ? 'Tous les statuts' : STATUS_LABELS[statusKey as SkillStatus] ?? statusKey;
+
+  const levelKey = filters.referenceLevel?.[0] ?? '__all__';
+  const levelLabel =
+    levelKey === '__all__'
+      ? 'Tous les niveaux'
+      : skillReferenceLevelLabel(levelKey as SkillReferenceLevel);
+
   return (
-    <div className="space-y-4 rounded-lg border border-border/70 bg-muted/30 p-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="skill-search">Recherche</Label>
-          <div className="relative">
+    <FilterBar aria-label="Filtres compétences" asSearch desktopColumns="auto">
+      <FilterBarField id="skill-search" label="Recherche">
+        {({ controlId }) => (
+          <div className="relative w-full">
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
-              id="skill-search"
-              className="pl-9"
+              id={controlId}
+              className="w-full pl-9"
               placeholder="Nom ou description…"
               value={filters.search ?? ''}
               onChange={(e) =>
@@ -46,9 +67,10 @@ export function SkillFiltersBar({
               }
             />
           </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Catégorie</Label>
+        )}
+      </FilterBarField>
+      <FilterBarField id="skill-category" label="Catégorie">
+        {({ controlId, labelId }) => (
           <Select
             value={filters.categoryId ?? '__all__'}
             onValueChange={(v) =>
@@ -59,8 +81,8 @@ export function SkillFiltersBar({
               })
             }
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Toutes" />
+            <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+              <SelectValue>{categoryLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Toutes les catégories</SelectItem>
@@ -71,11 +93,12 @@ export function SkillFiltersBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Statut</Label>
+        )}
+      </FilterBarField>
+      <FilterBarField id="skill-status" label="Statut">
+        {({ controlId, labelId }) => (
           <Select
-            value={filters.status?.[0] ?? '__all__'}
+            value={statusKey}
             onValueChange={(v) =>
               setFilters({
                 ...filters,
@@ -84,25 +107,24 @@ export function SkillFiltersBar({
               })
             }
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Tous" />
+            <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+              <SelectValue>{statusLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tous les statuts</SelectItem>
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s === 'ACTIVE' ? 'Actif' : s === 'DRAFT' ? 'Brouillon' : 'Archivé'}
+                  {STATUS_LABELS[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-2">
-          <Label>Niveau de référence</Label>
+        )}
+      </FilterBarField>
+      <FilterBarField id="skill-level" label="Niveau de référence">
+        {({ controlId, labelId }) => (
           <Select
-            value={filters.referenceLevel?.[0] ?? '__all__'}
+            value={levelKey}
             onValueChange={(v) =>
               setFilters({
                 ...filters,
@@ -111,8 +133,8 @@ export function SkillFiltersBar({
               })
             }
           >
-            <SelectTrigger className="w-[min(100%,220px)]">
-              <SelectValue placeholder="Tous" />
+            <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+              <SelectValue>{levelLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Tous les niveaux</SelectItem>
@@ -123,22 +145,27 @@ export function SkillFiltersBar({
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex items-center gap-2 pb-0.5">
-          <Switch
-            aria-label="Inclure les compétences archivées"
-            checked={filters.includeArchived === true}
-            onCheckedChange={(checked) =>
-              setFilters({
-                ...filters,
-                includeArchived: checked,
-                offset: 0,
-              })
-            }
-          />
-          <span className="text-sm text-muted-foreground">Inclure les compétences archivées</span>
-        </div>
-      </div>
-    </div>
+        )}
+      </FilterBarField>
+      <FilterBarField id="skill-include-archived" label="Archivées">
+        {({ labelId }) => (
+          <div className="flex min-h-11 items-center gap-2">
+            <Switch
+              aria-labelledby={labelId}
+              aria-label="Inclure les compétences archivées"
+              checked={filters.includeArchived === true}
+              onCheckedChange={(checked) =>
+                setFilters({
+                  ...filters,
+                  includeArchived: checked,
+                  offset: 0,
+                })
+              }
+            />
+            <span className="text-sm text-muted-foreground">Inclure les compétences archivées</span>
+          </div>
+        )}
+      </FilterBarField>
+    </FilterBar>
   );
 }

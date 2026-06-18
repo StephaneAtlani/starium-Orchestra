@@ -3,6 +3,15 @@
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -53,6 +62,13 @@ export function StrategicVisionPage() {
   const axesFromVision = getAxesFromVision(activeVision);
   const axes = axesFromVision.length > 0 ? axesFromVision : (axesFallbackQ.data ?? []);
   const objectives = objectivesQ.data ?? [];
+  const directions = directionsQ.data ?? [];
+  const directionFilterLabel =
+    directionFilter === 'ALL'
+      ? 'Toutes les directions'
+      : directionFilter === 'UNASSIGNED'
+        ? 'Non affectés'
+        : directions.find((d) => d.id === directionFilter)?.name ?? 'Direction';
   const pageTitle = activeVision?.title?.trim() || 'Vision stratégique 2026';
   const pageSubtitle =
     activeVision?.statement?.trim() ||
@@ -100,12 +116,33 @@ export function StrategicVisionPage() {
         }
       />
 
+      <FilterBar aria-label="Filtre direction cockpit">
+        <FilterBarField id="sv-direction" label="Direction (cockpit)">
+          {({ controlId, labelId }) => (
+            <Select value={directionFilter} onValueChange={(v) => setDirectionFilter(v ?? 'ALL')}>
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                <SelectValue>{directionFilterLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Toutes les directions</SelectItem>
+                <SelectItem value="UNASSIGNED">Non affectés</SelectItem>
+                {directions.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+      </FilterBar>
+
       <StrategicVisionTabs
         vision={activeVision}
         visions={visionsQ.data ?? []}
         axes={axes}
         objectives={objectives}
-        directions={directionsQ.data ?? []}
+        directions={directions}
         directionFilter={directionFilter}
         kpis={kpisQ.data}
         kpisByDirection={kpisByDirectionQ.data}

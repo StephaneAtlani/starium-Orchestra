@@ -1010,7 +1010,7 @@ export function ProjectReviewEditorDialog({
               {(!!projectQuery.data?.warnings?.length || actionFormAlerts.length > 0) && (
                 <div className="space-y-2">
                   {projectQuery.data?.warnings?.map((w) => (
-                    <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
+                    <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
                       <AlertTriangle className="size-4" aria-hidden />
                       <AlertDescription className="text-sm">
                         {WARNING_CODE_LABEL[w] ?? w}

@@ -4,6 +4,8 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { TableToolbar } from '@/components/layout/table-toolbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
@@ -29,39 +31,49 @@ export default function AdminClientsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const columns: DataTableColumn<AdminClientSummary>[] = [
-    { key: 'name', header: 'Nom' },
-    { key: 'slug', header: 'Slug', className: 'text-muted-foreground' },
-    {
-      key: 'createdAt',
-      header: 'Créé le',
-      cell: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
-      className: 'text-muted-foreground',
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      cell: (row) => (
-        <div className="flex min-w-[200px] flex-wrap items-center justify-end gap-2">
-          <Link
-            href={`/admin/clients/${row.id}/subscriptions`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Abonnements
-          </Link>
-          <Link
-            href={`/admin/clients/${row.id}/licenses`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Licences
-          </Link>
-          <MigrateClientProcurementS3Dialog client={row} />
-          <EditClientDialog client={row} />
-        </div>
-      ),
-      className: 'text-right align-top',
-    },
-  ];
+  const columns: DataTableColumn<AdminClientSummary>[] = useMemo(
+    () => [
+      { key: 'name', header: 'Nom', mobilePriority: 'primary' },
+      {
+        key: 'slug',
+        header: 'Slug',
+        className: 'text-muted-foreground',
+        mobilePriority: 'secondary',
+      },
+      {
+        key: 'createdAt',
+        header: 'Créé le',
+        cell: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
+        className: 'text-muted-foreground',
+        mobilePriority: 'hidden-mobile',
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (row) => (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href={`/admin/clients/${row.id}/subscriptions`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Abonnements
+            </Link>
+            <Link
+              href={`/admin/clients/${row.id}/licenses`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Licences
+            </Link>
+            <MigrateClientProcurementS3Dialog client={row} />
+            <EditClientDialog client={row} />
+          </div>
+        ),
+        className: 'text-right align-top',
+      },
+    ],
+    [],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -104,18 +116,23 @@ export default function AdminClientsPage() {
           </div>
         }
       />
+      <FilterBar aria-label="Filtres clients" asSearch className="mb-4">
+        <FilterBarField id="clients-search" label="Recherche">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              placeholder="Rechercher (nom, slug, id)…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full"
+            />
+          )}
+        </FilterBarField>
+      </FilterBar>
       <TableToolbar>
-        <div className="flex flex-1 items-center gap-2">
-          <Input
-            placeholder="Rechercher (nom, slug, id)…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="max-w-sm"
-          />
-        </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground hidden sm:inline">
             {totalItems} résultat{totalItems > 1 ? 's' : ''}

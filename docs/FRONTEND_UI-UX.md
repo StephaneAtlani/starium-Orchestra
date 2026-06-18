@@ -703,6 +703,16 @@ Implémentation : `app/(protected)/resources/page.tsx`.
 - **Édition** : le nom de ressource est un bouton textuel (`text-primary hover:underline`) uniquement si `resources.update`.
 - **Tokens** : pas de `border-white/`* sur cette liste ; utiliser les tokens de surface/bordure (`border-border/60`, `bg-card`, `text-muted-foreground`).
 
+### 12.4.1 Barre de filtres liste (`FilterBar` / `FilterBarField`)
+
+Composants : `components/layout/filter-bar.tsx`, `filter-bar-field.tsx` (RFC-FE-MOB-003).
+
+- **Grille mobile-first** : `grid-cols-1` par défaut, champs `w-full min-w-0` — **jamais** de `min-w-[200px]` sur les contrôles.
+- **Landmark** : `<section aria-label="Filtres …">` ; `role="search"` uniquement si recherche/filtrage principal (`asSearch`).
+- **Champ accessible** : `FilterBarField` avec render props `{ controlId, labelId, descriptionId }` — Input natif `id={controlId}` ; Select/Radix `aria-labelledby={labelId}` sur le trigger.
+- **Toolbar actions** : pattern inline `flex-col gap-3 lg:flex-row` — boutons `w-full sm:w-auto` à côté du `FilterBar`.
+- **Listes** : associer `DataTable` cartes mobile ; `mobilePriority` explicite (`actions`, `secondary` pour montants).
+
 ---
 
 ## 13. Liens utiles

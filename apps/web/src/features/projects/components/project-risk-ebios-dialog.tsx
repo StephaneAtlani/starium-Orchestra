@@ -282,6 +282,7 @@ function CriticalityMatrix({
         Même grille que le serveur : score = vraisemblance × gravité. Cliquez une case pour
         appliquer P et I.
       </p>
+      {/* Matrice P×I dense : scroll horizontal contrôlé, exception RFC-FE-MOB-003 (pas DataTable). */}
       <div className="overflow-x-auto rounded-lg border border-border/60 bg-muted/10 p-2">
         <table className="w-full min-w-[280px] border-collapse text-center text-xs">
           <thead>

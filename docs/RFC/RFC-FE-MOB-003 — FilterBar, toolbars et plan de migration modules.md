@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémenté — juin 2026 (FilterBar, migration Lots 1–4, exceptions documentées : grilles denses Gantt/comité/feuilles de temps, matrices EBIOS, export print action-plans, palettes SVG charts et couleurs configurables tags/planner/branding).
 
 ## Priorité
 

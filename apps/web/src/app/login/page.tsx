@@ -555,7 +555,7 @@ function LoginPageContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#EBEBE9] px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-8">
       <Card className="w-full max-w-4xl">
         <div className="grid gap-0 md:grid-cols-2">
           <div className="relative hidden flex-col items-center justify-center bg-muted/40 p-8 md:flex">
@@ -944,7 +944,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#EBEBE9] p-6">
+        <main className="flex min-h-screen items-center justify-center bg-stone-100 p-6">
           <p className="text-sm text-muted-foreground">Chargement…</p>
         </main>
       }

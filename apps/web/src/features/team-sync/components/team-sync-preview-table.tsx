@@ -1,6 +1,14 @@
 'use client';
 
 import type { DirectorySyncPreview } from '../types/team-sync.types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type Props = {
   preview: DirectorySyncPreview | null;
@@ -25,53 +33,53 @@ export function TeamSyncPreviewTable({ preview }: Props) {
       )}
 
       <div className="mt-4 overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[920px] text-sm">
-          <thead className="bg-muted/40">
-            <tr className="text-left">
-              <th className="p-2 font-medium">Id</th>
-              <th className="p-2 font-medium">Nom</th>
-              <th className="p-2 font-medium">Prenom</th>
-              <th className="p-2 font-medium">Email</th>
-              <th className="p-2 font-medium">Login</th>
-              <th className="p-2 font-medium">Departement</th>
-              <th className="p-2 font-medium">Statut AD</th>
-              <th className="p-2 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="min-w-[920px] text-sm">
+          <TableHeader className="bg-muted/40">
+            <TableRow>
+              <TableHead>Id</TableHead>
+              <TableHead>Nom</TableHead>
+              <TableHead>Prenom</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Login</TableHead>
+              <TableHead>Departement</TableHead>
+              <TableHead>Statut AD</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {preview.items.map((item) => (
-              <tr key={item.externalDirectoryId} className="border-t border-border">
-                <td className="p-2">{item.externalDirectoryId}</td>
-                <td className="p-2">{item.lastName ?? '-'}</td>
-                <td className="p-2">{item.firstName ?? '-'}</td>
-                <td className="p-2 text-muted-foreground">{item.email ?? '-'}</td>
-                <td className="p-2 text-muted-foreground">{item.username ?? '-'}</td>
-                <td className="p-2 text-muted-foreground">{item.department ?? '-'}</td>
-                <td className="p-2">
+              <TableRow key={item.externalDirectoryId}>
+                <TableCell>{item.externalDirectoryId}</TableCell>
+                <TableCell>{item.lastName ?? '-'}</TableCell>
+                <TableCell>{item.firstName ?? '-'}</TableCell>
+                <TableCell className="text-muted-foreground">{item.email ?? '-'}</TableCell>
+                <TableCell className="text-muted-foreground">{item.username ?? '-'}</TableCell>
+                <TableCell className="text-muted-foreground">{item.department ?? '-'}</TableCell>
+                <TableCell>
                   {item.isActive ? (
                     <span className="text-emerald-700">Actif</span>
                   ) : (
                     <span className="text-amber-700">Inactif</span>
                   )}
-                </td>
-                <td className="p-2">
+                </TableCell>
+                <TableCell>
                   {item.action === 'create' ? (
                     <span className="font-medium text-emerald-700">Creation</span>
                   ) : (
                     <span className="font-medium text-blue-700">Mise a jour</span>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
             {preview.items.length === 0 && (
-              <tr className="border-t border-border">
-                <td colSpan={8} className="p-3 text-center text-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Aucun objet a synchroniser.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -79,9 +87,9 @@ export function TeamSyncPreviewTable({ preview }: Props) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded bg-muted/40 p-3">
-      <p className="text-muted-foreground">{label}</p>
-      <p className="text-base font-semibold">{value}</p>
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
     </div>
   );
 }

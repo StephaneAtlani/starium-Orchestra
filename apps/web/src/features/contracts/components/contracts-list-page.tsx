@@ -14,18 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageContainer } from '@/components/layout/page-container';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -35,7 +31,7 @@ import {
 } from '../api/contracts.api';
 import { useContractsListQuery } from '../hooks/use-contracts-queries';
 import { contractKindLabel, contractStatusLabel } from '../lib/contracts-labels';
-import type { SupplierContractStatus } from '../types/contract.types';
+import type { SupplierContractStatus, Contract } from '../types/contract.types';
 import { ContractFormDialog } from './contract-form-dialog';
 
 function formatDate(iso: string | null): string {
@@ -46,6 +42,52 @@ function formatDate(iso: string | null): string {
     return '—';
   }
 }
+
+const contractColumns: DataTableColumn<Contract>[] = [
+  {
+    key: 'reference',
+    header: 'Référence',
+    mobilePriority: 'primary',
+    cell: (c) => (
+      <Link
+        href={`/contracts/${c.id}`}
+        className="font-medium text-primary underline-offset-4 hover:underline"
+      >
+        {c.reference}
+      </Link>
+    ),
+  },
+  {
+    key: 'title',
+    header: 'Titre',
+    mobilePriority: 'secondary',
+    cell: (c) => <span className="whitespace-normal break-words">{c.title}</span>,
+  },
+  {
+    key: 'supplier',
+    header: 'Fournisseur',
+    mobilePriority: 'secondary',
+    cell: (c) => c.supplier.name,
+  },
+  {
+    key: 'kind',
+    header: 'Type',
+    mobilePriority: 'secondary',
+    cell: (c) => contractKindLabel(c.kind, c.kindLabel),
+  },
+  {
+    key: 'status',
+    header: 'Statut',
+    mobilePriority: 'secondary',
+    cell: (c) => contractStatusLabel(c.status),
+  },
+  {
+    key: 'effectiveEnd',
+    header: 'Fin effet',
+    mobilePriority: 'secondary',
+    cell: (c) => formatDate(c.effectiveEnd),
+  },
+];
 
 export function ContractsListPage() {
   const searchParams = useSearchParams();
@@ -150,91 +192,103 @@ export function ContractsListPage() {
         }
       />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/70 bg-muted/15 p-4">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <label htmlFor="contracts-search" className="text-xs font-medium text-muted-foreground">
-            Recherche
-          </label>
-          <Input
-            id="contracts-search"
-            placeholder="Titre, référence, fournisseur…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-md border-input"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <span className="block text-xs font-medium text-muted-foreground">Statut</span>
-          <Select
-            value={status || '__all'}
-            onValueChange={(v) => setStatus(v === '__all' || v == null ? '' : v)}
-          >
-            <SelectTrigger className="w-[min(100%,220px)] min-w-[200px] border-input">
-              <SelectValue placeholder="Tous statuts">
-                {status === ''
-                  ? 'Tous statuts'
-                  : contractStatusLabel(status as SupplierContractStatus)}
-              </SelectValue>
-            </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all">Tous statuts</SelectItem>
-            {(
-              [
-                'DRAFT',
-                'ACTIVE',
-                'SUSPENDED',
-                'NOTICE',
-                'EXPIRED',
-                'TERMINATED',
-              ] as SupplierContractStatus[]
-            ).map((s) => (
-              <SelectItem key={s} value={s}>
-                {contractStatusLabel(s)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        </div>
-        <div className="space-y-1.5">
-          <span className="block text-xs font-medium text-muted-foreground">Fournisseur</span>
-          <Select
-            value={supplierIdFromUrl ? supplierIdFromUrl : '__all'}
-            onValueChange={(v) => setSupplierFilter(v === '__all' || v == null ? '' : v)}
-          >
-            <SelectTrigger className="w-[min(100%,280px)] min-w-[220px] border-input">
-              <SelectValue placeholder="Tous les fournisseurs">{supplierSelectLabel}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">Tous les fournisseurs</SelectItem>
-              {supplierFilterLabelQ.data &&
-                !suppliersSorted.some((s) => s.id === supplierFilterLabelQ.data!.id) && (
-                  <SelectItem value={supplierFilterLabelQ.data.id}>
-                    {supplierFilterLabelQ.data.name}
-                    {supplierFilterLabelQ.data.code ? ` · ${supplierFilterLabelQ.data.code}` : ''}
+      <FilterBar aria-label="Filtres contrats" asSearch desktopColumns="auto">
+        <FilterBarField id="contracts-search" label="Recherche">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              placeholder="Titre, référence, fournisseur…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border-input"
+            />
+          )}
+        </FilterBarField>
+        <FilterBarField id="contracts-status" label="Statut">
+          {({ controlId, labelId }) => (
+            <Select
+              value={status || '__all'}
+              onValueChange={(v) => setStatus(v === '__all' || v == null ? '' : v)}
+            >
+              <SelectTrigger
+                id={controlId}
+                aria-labelledby={labelId}
+                className="w-full border-input"
+              >
+                <SelectValue placeholder="Tous statuts">
+                  {status === ''
+                    ? 'Tous statuts'
+                    : contractStatusLabel(status as SupplierContractStatus)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Tous statuts</SelectItem>
+                {(
+                  [
+                    'DRAFT',
+                    'ACTIVE',
+                    'SUSPENDED',
+                    'NOTICE',
+                    'EXPIRED',
+                    'TERMINATED',
+                  ] as SupplierContractStatus[]
+                ).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {contractStatusLabel(s)}
                   </SelectItem>
-                )}
-              {suppliersSorted.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                  {s.code ? ` · ${s.code}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="contracts-expires-before" className="block text-xs font-medium text-muted-foreground">
-            Expire au plus tard le
-          </label>
-          <Input
-            id="contracts-expires-before"
-            type="date"
-            value={expiresBefore}
-            onChange={(e) => setExpiresBefore(e.target.value)}
-            className="w-[160px] border-input"
-          />
-        </div>
-      </div>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="contracts-supplier" label="Fournisseur">
+          {({ controlId, labelId }) => (
+            <Select
+              value={supplierIdFromUrl ? supplierIdFromUrl : '__all'}
+              onValueChange={(v) => setSupplierFilter(v === '__all' || v == null ? '' : v)}
+            >
+              <SelectTrigger
+                id={controlId}
+                aria-labelledby={labelId}
+                className="w-full border-input"
+              >
+                <SelectValue placeholder="Tous les fournisseurs">
+                  {supplierSelectLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">Tous les fournisseurs</SelectItem>
+                {supplierFilterLabelQ.data &&
+                  !suppliersSorted.some((s) => s.id === supplierFilterLabelQ.data!.id) && (
+                    <SelectItem value={supplierFilterLabelQ.data.id}>
+                      {supplierFilterLabelQ.data.name}
+                      {supplierFilterLabelQ.data.code
+                        ? ` · ${supplierFilterLabelQ.data.code}`
+                        : ''}
+                    </SelectItem>
+                  )}
+                {suppliersSorted.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                    {s.code ? ` · ${s.code}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="contracts-expires-before" label="Expire au plus tard le">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              type="date"
+              value={expiresBefore}
+              onChange={(e) => setExpiresBefore(e.target.value)}
+              className="w-full border-input"
+            />
+          )}
+        </FilterBarField>
+      </FilterBar>
 
       {supplierIdFromUrl && (
         <p className="text-sm text-muted-foreground">
@@ -271,46 +325,15 @@ export function ContractsListPage() {
               ? 'Aucun contrat ne correspond aux filtres.'
               : `${q.data.total} contrat${q.data.total === 1 ? '' : 's'}`}
           </p>
-          <div className="rounded-lg border border-border/70 bg-card shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Référence</TableHead>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Fournisseur</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Fin effet</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {q.data.items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                      Aucun contrat à afficher. Créez un contrat ou élargissez les filtres.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  q.data.items.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell>
-                        <Link
-                          href={`/contracts/${c.id}`}
-                          className="font-medium text-primary underline-offset-4 hover:underline"
-                        >
-                          {c.reference}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">{c.title}</TableCell>
-                      <TableCell>{c.supplier.name}</TableCell>
-                      <TableCell>{contractKindLabel(c.kind, c.kindLabel)}</TableCell>
-                      <TableCell>{contractStatusLabel(c.status)}</TableCell>
-                      <TableCell>{formatDate(c.effectiveEnd)}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+          <div className="rounded-lg border border-border/70 bg-card p-2 shadow-sm sm:p-4">
+            <DataTable
+              columns={contractColumns}
+              data={q.data.items}
+              getRowId={(row) => row.id}
+              mobileCardsAriaLabel="Liste des contrats"
+              emptyTitle="Aucun contrat à afficher"
+              emptyDescription="Créez un contrat ou élargissez les filtres."
+            />
           </div>
         </>
       )}

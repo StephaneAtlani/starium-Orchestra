@@ -45,6 +45,8 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `page-container` - `components/layout/page-container.tsx` - compose la page pour container.
 - `page-header` - `components/layout/page-header.tsx` - compose la page pour page en-tete.
 - `table-toolbar` - `components/layout/table-toolbar.tsx` - affiche un tableau pour tableau barre.
+- `filter-bar` - `components/layout/filter-bar.tsx` - grille responsive de filtres liste (`section` + `grid-cols-1` mobile). Props : `desktopColumns`, `aria-label`, `asSearch` (optionnel).
+- `filter-bar-field` - `components/layout/filter-bar-field.tsx` - champ filtre accessible : `id`, `label`, `description?`, `children` en render props `{ controlId, labelId, descriptionId }` pour câbler Input/Select/Radix.
 
 ## Shell applicatif (7)
 
@@ -58,7 +60,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 
 ## Tableaux (1)
 
-- `data-table` - `components/data-table/data-table.tsx` - affiche un tableau pour data.
+- `data-table` - `components/data-table/data-table.tsx` - tableau générique avec double rendu : table desktop (`≥ md`) et cartes empilées mobile (`< md`, `ul > li > article`). Colonnes configurables via `mobilePriority` / `mobileLabel`. **Vigilance** : `cell(row)` appelée 2× par ligne (double mount DOM) — cellules pures, pas d'id fixe ni modale montée au render.
 
 ## Notifications (1)
 

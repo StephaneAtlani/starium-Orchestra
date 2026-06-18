@@ -2,7 +2,7 @@
 
 ## Statut
 
-📝 Draft
+🔄 En cours — implémentation code + tests livrés (juin 2026) ; passage à **Implémenté** après validation et merge de la PR.
 
 ## Priorité
 

@@ -17,6 +17,7 @@ import {
   type LinePoint,
 } from '@/features/budgets/forecast/components/comparison-charts-svg';
 
+/** Palette SVG inline documentée (RFC-FE-MOB-003 lot 4 — charts). */
 const C = {
   left: '#E8A317',
   right: '#2563EB',

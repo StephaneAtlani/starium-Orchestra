@@ -331,7 +331,7 @@ function ProjectDetailTabbedContent({
       show: project.signals.hasPlanningDrift,
       label: 'Dérive planning',
       className:
-        'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+        'border-amber-300/80 bg-amber-50 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90',
     },
   ];
   const visiblePlanningSignals = planningSignalChips.filter((s) => s.show);
@@ -1201,7 +1201,7 @@ function ProjectDetailTabbedContent({
                 <span
                   className={cn(
                     'inline-flex min-h-[1.375rem] items-center rounded-md border px-2 py-0.5 text-xs font-medium leading-none',
-                    'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+                    'border-amber-300/80 bg-amber-50 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90',
                   )}
                 >
                   Sans étude de risque enregistrée

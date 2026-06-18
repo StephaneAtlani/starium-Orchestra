@@ -7,6 +7,10 @@ import { AlertCircle, Plus, Search } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -320,6 +324,53 @@ export default function SuppliersPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactForm.firstName, contactForm.lastName]);
+
+  const supplierColumns = useMemo<DataTableColumn<Supplier>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (supplier) => (
+          <button
+            type="button"
+            className="cursor-pointer text-left text-primary hover:underline"
+            onClick={() => {
+              setReadSupplierId(supplier.id);
+              setReadSupplierModalOpen(true);
+            }}
+          >
+            {supplier.name}
+          </button>
+        ),
+      },
+      {
+        key: 'code',
+        header: 'Code',
+        mobilePriority: 'secondary',
+        cell: (supplier) => supplier.code ?? '—',
+      },
+      {
+        key: 'vatNumber',
+        header: 'TVA',
+        mobilePriority: 'secondary',
+        cell: (supplier) => supplier.vatNumber ?? '—',
+      },
+      {
+        key: 'category',
+        header: 'Categorie',
+        mobilePriority: 'secondary',
+        cell: (supplier) => supplier.supplierCategory?.name ?? '—',
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (supplier) => supplier.status,
+      },
+    ],
+    [],
+  );
 
   const categoriesQuery = useQuery({
     queryKey: ['procurement', clientId, 'supplier-categories'],
@@ -1585,41 +1636,52 @@ export default function SuppliersPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-4">
-                <div className="relative max-w-md">
-                  <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Rechercher un fournisseur"
-                    className="pl-8"
-                  />
-                </div>
-                <div className="max-w-sm">
-                  <Select
-                    value={supplierCategoryFilter}
-                    onValueChange={(value) => setSupplierCategoryFilter(value ?? 'all')}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue>
-                        {supplierCategoryFilter === 'all'
-                          ? 'Toutes les categories'
-                          : categoriesQuery.data?.items.find(
-                              (item) => item.id === supplierCategoryFilter,
-                            )?.name ?? 'Categorie'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Toutes les categories</SelectItem>
-                      {(categoriesQuery.data?.items ?? []).map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <FilterBar aria-label="Filtres fournisseurs" asSearch desktopColumns={2}>
+                <FilterBarField id="suppliers-search" label="Recherche">
+                  {({ controlId }) => (
+                    <div className="relative w-full">
+                      <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
+                      <Input
+                        id={controlId}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Rechercher un fournisseur"
+                        className="w-full pl-8"
+                      />
+                    </div>
+                  )}
+                </FilterBarField>
+                <FilterBarField id="suppliers-category" label="Catégorie">
+                  {({ controlId, labelId }) => (
+                    <Select
+                      value={supplierCategoryFilter}
+                      onValueChange={(value) => setSupplierCategoryFilter(value ?? 'all')}
+                    >
+                      <SelectTrigger
+                        id={controlId}
+                        aria-labelledby={labelId}
+                        className="w-full"
+                      >
+                        <SelectValue>
+                          {supplierCategoryFilter === 'all'
+                            ? 'Toutes les categories'
+                            : categoriesQuery.data?.items.find(
+                                (item) => item.id === supplierCategoryFilter,
+                              )?.name ?? 'Categorie'}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes les categories</SelectItem>
+                        {(categoriesQuery.data?.items ?? []).map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </FilterBarField>
+              </FilterBar>
               {suppliersQuery.isError ? (
                 <Alert variant="destructive">
                   <AlertCircle className="size-4" />
@@ -1630,45 +1692,15 @@ export default function SuppliersPage() {
                 </Alert>
               ) : suppliersQuery.isLoading ? (
                 <LoadingState rows={5} />
-              ) : (suppliersQuery.data?.items.length ?? 0) === 0 ? (
-                <EmptyState
-                  title="Aucun fournisseur"
-                  description="Aucun fournisseur ne correspond à votre recherche ou filtre."
-                />
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nom</TableHead>
-                      <TableHead>Code</TableHead>
-                      <TableHead>TVA</TableHead>
-                      <TableHead>Categorie</TableHead>
-                      <TableHead>Statut</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(suppliersQuery.data?.items ?? []).map((supplier) => (
-                      <TableRow key={supplier.id}>
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="cursor-pointer text-left text-primary hover:underline"
-                            onClick={() => {
-                              setReadSupplierId(supplier.id);
-                              setReadSupplierModalOpen(true);
-                            }}
-                          >
-                            {supplier.name}
-                          </button>
-                        </TableCell>
-                        <TableCell>{supplier.code ?? '—'}</TableCell>
-                        <TableCell>{supplier.vatNumber ?? '—'}</TableCell>
-                        <TableCell>{supplier.supplierCategory?.name ?? '—'}</TableCell>
-                        <TableCell>{supplier.status}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataTable
+                  columns={supplierColumns}
+                  data={suppliersQuery.data?.items ?? []}
+                  getRowId={(row) => row.id}
+                  mobileCardsAriaLabel="Liste des fournisseurs"
+                  emptyTitle="Aucun fournisseur"
+                  emptyDescription="Aucun fournisseur ne correspond à votre recherche ou filtre."
+                />
               )}
             </CardContent>
           </Card>

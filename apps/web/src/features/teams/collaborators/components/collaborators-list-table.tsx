@@ -1,63 +1,76 @@
+'use client';
+
 import Link from 'next/link';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { useMemo } from 'react';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import type { CollaboratorListItem } from '../types/collaborator.types';
 import { CollaboratorStatusBadge } from './collaborator-status-badge';
 import { CollaboratorSourceBadge } from './collaborator-source-badge';
 
 export function CollaboratorsListTable({ items }: { items: CollaboratorListItem[] }) {
+  const columns = useMemo<DataTableColumn<CollaboratorListItem>[]>(
+    () => [
+      {
+        key: 'displayName',
+        header: 'Collaborateur',
+        mobilePriority: 'primary',
+        cell: (item) => (
+          <div>
+            <div className="font-medium">{item.displayName}</div>
+            <div className="text-xs text-muted-foreground">{item.email ?? '—'}</div>
+          </div>
+        ),
+      },
+      {
+        key: 'jobTitle',
+        header: 'Fonction',
+        mobilePriority: 'secondary',
+        cell: (item) => item.jobTitle ?? '—',
+      },
+      {
+        key: 'manager',
+        header: 'Manager',
+        mobilePriority: 'secondary',
+        cell: (item) => item.managerDisplayName ?? '—',
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (item) => <CollaboratorStatusBadge status={item.status} />,
+      },
+      {
+        key: 'source',
+        header: 'Source',
+        mobilePriority: 'secondary',
+        cell: (item) => <CollaboratorSourceBadge source={item.source} />,
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (item) => (
+          <Link
+            href={`/teams/collaborators/${item.id}`}
+            className="inline-flex min-h-11 items-center text-primary hover:underline"
+          >
+            Voir / Editer
+          </Link>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <Table className="min-w-[64rem]">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Collaborateur</TableHead>
-          <TableHead>Fonction</TableHead>
-          <TableHead>Manager</TableHead>
-          <TableHead>Statut</TableHead>
-          <TableHead>Source</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-              Aucun collaborateur ne correspond aux filtres.
-            </TableCell>
-          </TableRow>
-        ) : null}
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell>
-              <div className="font-medium">{item.displayName}</div>
-              <div className="text-xs text-muted-foreground">{item.email ?? '—'}</div>
-            </TableCell>
-            <TableCell>{item.jobTitle ?? '—'}</TableCell>
-            <TableCell>{item.managerDisplayName ?? '—'}</TableCell>
-            <TableCell>
-              <CollaboratorStatusBadge status={item.status} />
-            </TableCell>
-            <TableCell>
-              <CollaboratorSourceBadge source={item.source} />
-            </TableCell>
-            <TableCell className="text-right">
-              <Link
-                href={`/teams/collaborators/${item.id}`}
-                className="text-primary hover:underline"
-              >
-                Voir / Editer
-              </Link>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(item) => item.id}
+      mobileCardsAriaLabel="Liste des collaborateurs"
+      emptyTitle="Aucun collaborateur"
+      emptyDescription="Aucun collaborateur ne correspond aux filtres."
+    />
   );
 }
-

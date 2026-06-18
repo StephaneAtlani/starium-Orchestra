@@ -3,7 +3,17 @@
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { StrategicObjectiveCard } from './strategic-objective-card';
 import { StrategicObjectiveEditDialog } from './strategic-objective-edit-dialog';
 import { StrategicObjectiveCreateDialog } from './strategic-objective-create-dialog';
@@ -53,6 +63,16 @@ export function StrategicObjectivesTab({
     [axisOptions],
   );
 
+  const axisLabel =
+    axisFilter === 'ALL'
+      ? 'Tous les axes'
+      : axisOptions.find((a) => a.id === axisFilter)?.name ?? 'Axe';
+
+  const statusLabel =
+    statusFilter === 'ALL'
+      ? 'Tous les statuts'
+      : STRATEGIC_OBJECTIVE_STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label ?? statusFilter;
+
   const filteredObjectives = useMemo(() => {
     const search = normalizeSearch(searchFilter);
     return objectives.filter((objective) => {
@@ -85,6 +105,7 @@ export function StrategicObjectivesTab({
         <Button
           onClick={() => setCreatingObjective(true)}
           disabled={!canCreate || axisOptions.length === 0}
+          className="min-h-11"
         >
           Nouvel objectif
         </Button>
@@ -94,48 +115,71 @@ export function StrategicObjectivesTab({
           <AlertDescription>Aucun objectif strategique disponible.</AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <select
-          className="h-11 min-h-11 rounded-md border border-input bg-background px-3 text-sm md:h-9 md:min-h-0"
-          value={axisFilter}
-          onChange={(event) => setAxisFilter(event.target.value)}
-        >
-          <option value="ALL">Tous les axes</option>
-          {axisOptions.map((axis) => (
-            <option key={axis.id} value={axis.id}>
-              {axis.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-11 min-h-11 rounded-md border border-input bg-background px-3 text-sm md:h-9 md:min-h-0"
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as 'ALL' | StrategicObjectiveStatus)
-          }
-        >
-          <option value="ALL">Tous les statuts</option>
-          {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <Input
-          className="h-11 min-h-11 md:h-9 md:min-h-0"
-          placeholder="Rechercher un objectif..."
-          value={searchFilter}
-          onChange={(event) => setSearchFilter(event.target.value)}
-        />
-        <label className="flex min-h-11 items-center gap-2 rounded-md border border-input px-3 text-sm md:min-h-0">
-          <input
-            type="checkbox"
-            checked={overdueOnly}
-            onChange={(event) => setOverdueOnly(event.target.checked)}
-          />
-          En retard uniquement
-        </label>
-      </div>
+
+      <FilterBar aria-label="Filtres objectifs stratégiques" asSearch desktopColumns={4}>
+        <FilterBarField id="objectives-axis" label="Axe">
+          {({ controlId, labelId }) => (
+            <Select value={axisFilter} onValueChange={(v) => setAxisFilter(v ?? 'ALL')}>
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                <SelectValue>{axisLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tous les axes</SelectItem>
+                {axisOptions.map((axis) => (
+                  <SelectItem key={axis.id} value={axis.id}>
+                    {axis.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="objectives-status" label="Statut">
+          {({ controlId, labelId }) => (
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter((v ?? 'ALL') as 'ALL' | StrategicObjectiveStatus)}
+            >
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                <SelectValue>{statusLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tous les statuts</SelectItem>
+                {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="objectives-search" label="Recherche">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              className="w-full"
+              placeholder="Rechercher un objectif..."
+              value={searchFilter}
+              onChange={(event) => setSearchFilter(event.target.value)}
+            />
+          )}
+        </FilterBarField>
+        <FilterBarField id="objectives-overdue" label="En retard">
+          {({ labelId }) => (
+            <div className="flex min-h-11 items-center gap-2">
+              <Switch
+                aria-labelledby={labelId}
+                aria-label="En retard uniquement"
+                checked={overdueOnly}
+                onCheckedChange={setOverdueOnly}
+              />
+              <span className="text-sm text-muted-foreground">En retard uniquement</span>
+            </div>
+          )}
+        </FilterBarField>
+      </FilterBar>
+
       {directionFilter !== 'ALL' ? (
         <p className="text-xs text-muted-foreground">
           Filtre cockpit actif :{' '}

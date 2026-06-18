@@ -1,15 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import type { SkillListItem } from '../types/skill.types';
 import { SkillReferenceLevelBadge } from './skill-reference-level-badge';
 import { SkillStatusBadge } from './skill-status-badge';
@@ -43,87 +38,103 @@ export function SkillsListTable({
   onRestore,
   onOpenCollaborators,
 }: SkillsListTableProps) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Compétence</TableHead>
-          <TableHead>Catégorie</TableHead>
-          <TableHead>Niveau attendu</TableHead>
-          <TableHead>Statut</TableHead>
-          <TableHead className="hidden md:table-cell">Mise à jour</TableHead>
-          <TableHead className="w-[100px] text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell className="font-medium">
-              <div>{row.name}</div>
-              {row.description ? (
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                  {row.description}
-                </p>
-              ) : null}
-            </TableCell>
-            <TableCell>{row.categoryName}</TableCell>
-            <TableCell>
-              <SkillReferenceLevelBadge level={row.referenceLevel} />
-            </TableCell>
-            <TableCell>
-              <SkillStatusBadge status={row.status} />
-            </TableCell>
-            <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-              {formatDate(row.updatedAt)}
-            </TableCell>
-            <TableCell className="text-right">
-              <div className="flex flex-wrap justify-end gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8"
-                  aria-label="Voir les collaborateurs"
-                  onClick={() => onOpenCollaborators(row)}
-                >
-                  <Users className="size-4" />
+  const columns = useMemo<DataTableColumn<SkillListItem>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Compétence',
+        mobilePriority: 'primary',
+        cell: (row) => (
+          <div>
+            <div>{row.name}</div>
+            {row.description ? (
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{row.description}</p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        key: 'category',
+        header: 'Catégorie',
+        mobilePriority: 'secondary',
+        cell: (row) => row.categoryName,
+      },
+      {
+        key: 'level',
+        header: 'Niveau attendu',
+        mobilePriority: 'secondary',
+        cell: (row) => <SkillReferenceLevelBadge level={row.referenceLevel} />,
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (row) => <SkillStatusBadge status={row.status} />,
+      },
+      {
+        key: 'updatedAt',
+        header: 'Mise à jour',
+        mobilePriority: 'hidden-mobile',
+        cell: (row) => formatDate(row.updatedAt),
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (row) => (
+          <div className="flex flex-wrap gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Voir les collaborateurs"
+              onClick={() => onOpenCollaborators(row)}
+            >
+              <Users className="size-4" />
+            </Button>
+            {canUpdate ? (
+              <>
+                <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => onEdit(row)}>
+                  Modifier
                 </Button>
-                {canUpdate ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(row)}
-                    >
-                      Modifier
-                    </Button>
-                    {row.status !== 'ARCHIVED' ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onArchive(row)}
-                      >
-                        Archiver
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRestore(row)}
-                      >
-                        Restaurer
-                      </Button>
-                    )}
-                  </>
-                ) : null}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+                {row.status !== 'ARCHIVED' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11"
+                    onClick={() => onArchive(row)}
+                  >
+                    Archiver
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11"
+                    onClick={() => onRestore(row)}
+                  >
+                    Restaurer
+                  </Button>
+                )}
+              </>
+            ) : null}
+          </div>
+        ),
+      },
+    ],
+    [canUpdate, onArchive, onEdit, onOpenCollaborators, onRestore],
+  );
+
+  return (
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(row) => row.id}
+      mobileCardsAriaLabel="Liste des compétences"
+      emptyTitle="Aucune compétence"
+      emptyDescription="Aucune compétence ne correspond aux filtres."
+    />
   );
 }

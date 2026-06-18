@@ -1,58 +1,66 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { useMemo } from 'react';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import { WorkTeamStatusBadge } from './work-team-status-badge';
 import type { WorkTeamDto } from '../types/work-team.types';
 
 export function WorkTeamsTable({ items }: { items: WorkTeamDto[] }) {
+  const columns = useMemo<DataTableColumn<WorkTeamDto>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (t) => (
+          <Link
+            href={`/teams/structure/teams/${t.id}`}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            {t.name}
+          </Link>
+        ),
+      },
+      {
+        key: 'code',
+        header: 'Code',
+        mobilePriority: 'secondary',
+        cell: (t) => <span className="text-muted-foreground">{t.code ?? '—'}</span>,
+      },
+      {
+        key: 'path',
+        header: 'Chemin',
+        mobilePriority: 'secondary',
+        cell: (t) => (
+          <span className="whitespace-normal break-words text-muted-foreground">{t.pathLabel}</span>
+        ),
+      },
+      {
+        key: 'lead',
+        header: 'Responsable',
+        mobilePriority: 'secondary',
+        cell: (t) => t.leadDisplayName ?? '—',
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (t) => <WorkTeamStatusBadge status={t.status} />,
+      },
+    ],
+    [],
+  );
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Nom</TableHead>
-          <TableHead>Code</TableHead>
-          <TableHead>Chemin</TableHead>
-          <TableHead>Responsable</TableHead>
-          <TableHead>Statut</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-              Aucune équipe ne correspond à la recherche.
-            </TableCell>
-          </TableRow>
-        ) : null}
-        {items.map((t) => (
-          <TableRow key={t.id}>
-            <TableCell>
-              <Link
-                href={`/teams/structure/teams/${t.id}`}
-                className="font-medium text-primary underline-offset-4 hover:underline"
-              >
-                {t.name}
-              </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">{t.code ?? '—'}</TableCell>
-            <TableCell className="max-w-[240px] truncate text-muted-foreground" title={t.pathLabel}>
-              {t.pathLabel}
-            </TableCell>
-            <TableCell>{t.leadDisplayName ?? '—'}</TableCell>
-            <TableCell>
-              <WorkTeamStatusBadge status={t.status} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns}
+      data={items}
+      getRowId={(t) => t.id}
+      mobileCardsAriaLabel="Liste des équipes organisationnelles"
+      emptyTitle="Aucune équipe"
+      emptyDescription="Aucune équipe ne correspond à la recherche."
+    />
   );
 }

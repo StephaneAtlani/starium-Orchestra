@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { BudgetListTable } from './budget-list-table';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import { BudgetStatusBadge } from './budget-status-badge';
 import { budgetExerciseDetail, budgetListWithExercise } from '../constants/budget-routes';
 import type { BudgetExerciseSummary } from '../types/budget-list.types';
@@ -25,67 +26,82 @@ export function BudgetExercisesTable({
   data,
   dataTestId = 'budget-exercises-table',
 }: BudgetExercisesTableProps) {
+  const columns = useMemo<DataTableColumn<BudgetExerciseSummary>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (row) => (
+          <Link
+            href={budgetExerciseDetail(row.id)}
+            className="font-medium text-primary hover:underline"
+          >
+            {row.name}
+          </Link>
+        ),
+      },
+      {
+        key: 'code',
+        header: 'Code',
+        mobilePriority: 'secondary',
+        cell: (row) => row.code ?? '—',
+      },
+      {
+        key: 'period',
+        header: 'Période',
+        mobilePriority: 'secondary',
+        cell: (row) => `${formatDate(row.startDate)} → ${formatDate(row.endDate)}`,
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (row) => <BudgetStatusBadge status={row.status} />,
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (row) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={budgetListWithExercise(row.id)}
+              className={cn(
+                'inline-flex min-h-11 items-center gap-1 rounded-md px-2 py-1.5 text-sm',
+                'hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <List className="size-4" />
+              Voir les budgets
+            </Link>
+            <Link
+              href={budgetExerciseDetail(row.id)}
+              className={cn(
+                'inline-flex min-h-11 items-center gap-1 rounded-md px-2 py-1.5 text-sm',
+                'hover:bg-muted hover:text-foreground',
+              )}
+            >
+              <ExternalLink className="size-4" />
+              Ouvrir
+            </Link>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <Card>
-      <CardContent className="p-0">
-        <BudgetListTable<BudgetExerciseSummary>
-          data-testid={dataTestId}
-          columns={[
-            {
-              key: 'name',
-              header: 'Nom',
-              render: (row) => (
-                <Link
-                  href={budgetExerciseDetail(row.id)}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {row.name}
-                </Link>
-              ),
-            },
-            { key: 'code', header: 'Code', render: (row) => row.code ?? '—' },
-            {
-              key: 'period',
-              header: 'Période',
-              render: (row) => `${formatDate(row.startDate)} → ${formatDate(row.endDate)}`,
-            },
-            {
-              key: 'status',
-              header: 'Statut',
-              render: (row) => <BudgetStatusBadge status={row.status} />,
-            },
-            {
-              key: 'actions',
-              header: 'Actions',
-              render: (row) => (
-                <div className="flex items-center gap-1">
-                  <Link
-                    href={budgetListWithExercise(row.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm',
-                      'hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <List className="size-4" />
-                    Voir les budgets
-                  </Link>
-                  <Link
-                    href={budgetExerciseDetail(row.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm',
-                      'hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <ExternalLink className="size-4" />
-                    Ouvrir
-                  </Link>
-                </div>
-              ),
-            },
-          ]}
+    <Card data-testid={dataTestId}>
+      <CardContent className="p-2 sm:p-4">
+        <DataTable
+          columns={columns}
           data={data}
-          keyExtractor={(row) => row.id}
-          emptyMessage="Aucun exercice."
+          getRowId={(row) => row.id}
+          mobileCardsAriaLabel="Liste des exercices budgétaires"
+          emptyTitle="Aucun exercice"
+          emptyDescription="Aucun exercice ne correspond aux filtres."
         />
       </CardContent>
     </Card>

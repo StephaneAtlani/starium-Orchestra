@@ -922,6 +922,7 @@ export default function ResourceTimeEntriesPage() {
           )}
 
           {!listQuery.isLoading && gridRows.length > 0 && (
+            {/* Grille feuille de temps dense : scroll horizontal, exception RFC-FE-MOB-003. */}
             <div className="overflow-x-auto rounded-md border border-border bg-card shadow-sm">
               <table className="border-collapse text-xs table-fixed">
                 <colgroup>

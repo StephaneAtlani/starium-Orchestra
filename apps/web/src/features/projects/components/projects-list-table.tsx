@@ -233,6 +233,11 @@ function CellTip({
   );
 }
 
+/**
+ * Liste projets portefeuille — table dense (colonnes sticky, filtres en-tête).
+ * RFC-FE-MOB-003 Lot 1 : exception documentée — scroll horizontal conservé sur mobile,
+ * pas de FilterBar ni cartes DataTable (cf. RFC-FE-MOB-002 §4.5).
+ */
 export function ProjectsListTable({
   items,
   filters,
