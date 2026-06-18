@@ -5,7 +5,10 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { SidebarNavProvider } from './sidebar-nav-context';
 import { WorkspaceHeader } from './workspace-header';
+import { ChatDrawerProvider } from '@/features/chatbot/chat-drawer-context';
 import { StariumChatDrawer } from '@/features/chatbot/starium-chat-drawer';
+import { MobileBottomNav } from './mobile-bottom-nav';
+import { MobileNavMenu } from './mobile-nav-menu';
 
 /** Élément DOM pour le plein écran « sans sidebar » : colonne header + main (+ drawer). */
 export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
@@ -30,21 +33,25 @@ export function AppShell({ children }: AppShellProps) {
   const contentWrapper = wideMain ? CONTENT_WRAPPER_WIDE : CONTENT_WRAPPER_NARROW;
 
   return (
-    <SidebarNavProvider>
-      <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
-        <Sidebar />
-        <div
-          id={STARIUM_APP_WORKSPACE_DOM_ID}
-          className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-        >
-          <WorkspaceHeader contentClassName={contentWrapper} />
-          <main className="starium-main min-h-0 flex-1 overflow-auto">
-            <div className={`${contentWrapper} py-6 sm:py-8`}>{children}</div>
-          </main>
-          <StariumChatDrawer />
+    <ChatDrawerProvider>
+      <SidebarNavProvider>
+        <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
+          <Sidebar />
+          <div
+            id={STARIUM_APP_WORKSPACE_DOM_ID}
+            className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--starium-background)]"
+          >
+            <WorkspaceHeader contentClassName={contentWrapper} />
+            <main className="starium-main starium-workspace-sheet min-h-0 flex-1 overflow-auto md:pb-0">
+              <div className={`${contentWrapper} min-h-full py-6 sm:py-8 max-md:pt-5 md:pt-6`}>{children}</div>
+            </main>
+            <MobileBottomNav />
+            <MobileNavMenu />
+            <StariumChatDrawer />
+          </div>
         </div>
-      </div>
-    </SidebarNavProvider>
+      </SidebarNavProvider>
+    </ChatDrawerProvider>
   );
 }
 

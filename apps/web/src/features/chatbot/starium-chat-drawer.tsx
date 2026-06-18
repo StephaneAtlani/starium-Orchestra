@@ -20,7 +20,6 @@ import {
   Megaphone,
   MessageCircle,
   Search,
-  Sparkles,
 } from 'lucide-react';
 import {
   Dialog,
@@ -48,10 +47,17 @@ import {
   STARIUM_FEEDBACK_CATEGORY_LABEL,
   type StariumFeedbackCategoryCode,
 } from './starium-feedback-categories';
+import {
+  ORION_PRODUCT_NAME,
+  ORION_SUBTITLE,
+  resolveOrionPersonality,
+} from '@/lib/orion-assets';
+import { OrionAvatar } from './orion-avatar';
 import { humanizeFetchErrorMessage } from '@/lib/humanize-fetch-error';
 import { stariumApiPath } from '@/lib/starium-api-base';
 import { cn } from '@/lib/utils';
 import { useChatUnreadBadge } from './use-chat-unread-badge';
+import { useChatDrawer } from './chat-drawer-context';
 
 type ChatLine = {
   role: 'USER' | 'ASSISTANT';
@@ -270,7 +276,7 @@ function ExploreKnowledgeSections({
 type TabId = 'home' | 'conversations' | 'help' | 'feedback';
 
 export function StariumChatDrawer() {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, registerOpenFresh, setUnreadCount } = useChatDrawer();
   const [tab, setTab] = useState<TabId>('home');
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [input, setInput] = useState('');
@@ -303,6 +309,10 @@ export function StariumChatDrawer() {
   const [readerBody, setReaderBody] = useState<ReaderBody | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
   const unreadCount = useChatUnreadBadge(open, lines);
+
+  useEffect(() => {
+    setUnreadCount(unreadCount);
+  }, [unreadCount, setUnreadCount]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fetchAuth = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -620,6 +630,13 @@ export function StariumChatDrawer() {
     setReaderLoading(false);
   };
 
+  useEffect(() => {
+    return registerOpenFresh(() => {
+      reset();
+      setOpen(true);
+    });
+  }, [registerOpenFresh, setOpen]);
+
   const submitFeedback = useCallback(async () => {
     const msg = feedbackText.trim();
     if (msg.length < 10) {
@@ -729,6 +746,46 @@ export function StariumChatDrawer() {
 
   const recent = conversations[0] ?? null;
 
+  const orionContext = useMemo(
+    () => ({
+      tab,
+      status,
+      feedbackStatus,
+      remoteArticleLoading,
+      readerLoading,
+      hasConversationActivity:
+        tab === 'conversations' && (lines.length > 0 || conversationId !== null),
+      hasRecentConversation: Boolean(recent),
+      hasUnread: unreadCount > 0,
+    }),
+    [
+      tab,
+      status,
+      feedbackStatus,
+      remoteArticleLoading,
+      readerLoading,
+      lines.length,
+      conversationId,
+      recent,
+      unreadCount,
+    ],
+  );
+
+  const launcherPersonality = useMemo(
+    () => resolveOrionPersonality({ ...orionContext, launcher: true }),
+    [orionContext],
+  );
+
+  const conversationPersonality = useMemo(
+    () =>
+      resolveOrionPersonality({
+        ...orionContext,
+        tab: 'conversations',
+        hasConversationActivity: lines.length > 0 || conversationId !== null,
+      }),
+    [orionContext, lines.length, conversationId],
+  );
+
   const openSupportFeedback = (userQuestion?: string) => {
     setTab('feedback');
     setFeedbackCategory('CHATBOT');
@@ -752,16 +809,16 @@ export function StariumChatDrawer() {
           type="button"
           aria-label={
             unreadCount > 0
-              ? `Ouvrir Cursor Starium, ${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`
-              : 'Ouvrir Cursor Starium'
+              ? `Ouvrir ${ORION_PRODUCT_NAME}, ${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`
+              : `Ouvrir ${ORION_PRODUCT_NAME}`
           }
-          title="Cursor Starium — aide et base de connaissance"
+          title={`${ORION_PRODUCT_NAME} — aide et base de connaissance`}
           onClick={() => {
             reset();
             setOpen(true);
           }}
           className={cn(
-            'absolute z-[500] flex h-14 w-14 items-center justify-center rounded-full',
+            'absolute z-[500] hidden h-14 w-14 items-center justify-center rounded-full md:flex',
             'bg-transparent transition-transform hover:scale-[1.04] active:scale-95',
             'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-2',
             'bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6',
@@ -776,15 +833,7 @@ export function StariumChatDrawer() {
             )}
           >
             <span className="block h-full w-full overflow-hidden rounded-full">
-              <Image
-                src="/brand/chatbot-launcher.png"
-                alt=""
-                width={56}
-                height={56}
-                priority
-                className="h-full w-full scale-[1.42] object-cover"
-                aria-hidden
-              />
+              <OrionAvatar personality={launcherPersonality} size="launch" priority />
             </span>
             {unreadCount > 0 ? (
               <span
@@ -810,14 +859,15 @@ export function StariumChatDrawer() {
         }}
       >
         <DialogContent
+          id="starium-orion-drawer"
           chatWidget
           showCloseButton
           overlayClassName="z-[500]"
           className="z-[501]"
         >
-          <DialogTitle className="sr-only">Cursor Starium</DialogTitle>
+          <DialogTitle className="sr-only">{ORION_PRODUCT_NAME}</DialogTitle>
           <DialogDescription className="sr-only">
-            Assistant à réponses configurées — style accueil support.
+            {ORION_SUBTITLE} — réponses configurées par votre administrateur.
           </DialogDescription>
 
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -937,27 +987,29 @@ export function StariumChatDrawer() {
             {/* ——— Accueil ——— */}
             {tab === 'home' && (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <div className="relative bg-gradient-to-b from-primary via-primary to-primary/85 px-5 pb-14 pt-4 text-primary-foreground">
-                  <div className="flex items-center gap-2 pr-10">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30">
-                      <Sparkles className="h-5 w-5 text-white" aria-hidden />
+                <div className="starium-orion-drawer-hero relative px-5 pb-14 pt-4">
+                  <div className="relative flex items-start gap-3 pr-8">
+                    <div className="min-w-0 flex-1 pt-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                        {ORION_PRODUCT_NAME}
+                      </p>
+                      <p className="mt-0.5 text-[0.65rem] text-white/75">{ORION_SUBTITLE}</p>
+                      <h2 className="mt-4 text-[1.35rem] font-bold leading-tight tracking-tight text-white">
+                        Bonjour {greetingName} 👋
+                      </h2>
+                      <p className="mt-1 text-sm text-white/90">
+                        Comment pouvons-nous vous aider ?
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold tracking-wide text-white">Cursor Starium</p>
-                      <p className="text-[0.65rem] text-white/80">Support &amp; base de connaissance</p>
-                    </div>
+                    <OrionAvatar personality="normal" size="lg" priority onDark />
                   </div>
-                  <h2 className="mt-5 text-[1.35rem] font-bold leading-tight tracking-tight text-white drop-shadow-sm">
-                    Bonjour {greetingName} 👋
-                  </h2>
-                  <p className="mt-1 text-sm text-white/90">Comment pouvons-nous vous aider ?</p>
                 </div>
 
                 <div className="relative z-[1] -mt-8 flex flex-col gap-3 px-3 pb-3">
                   {status === 'unauthorized' && (
                     <Alert variant="destructive" className="border-destructive/50">
                       <AlertDescription>
-                        Sélectionnez un client actif pour utiliser le chatbot.
+                        Sélectionnez un client actif pour utiliser {ORION_PRODUCT_NAME}.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -1043,7 +1095,9 @@ export function StariumChatDrawer() {
             {/* ——— Conversations (fil + saisie) ——— */}
             {tab === 'conversations' && (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-muted/20 px-3 py-2">
+                <div className="flex shrink-0 items-center gap-2.5 border-b border-border/60 bg-muted/20 px-3 py-2">
+                  <OrionAvatar personality={conversationPersonality} size="sm" />
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Button
                     type="button"
                     variant="ghost"
@@ -1068,6 +1122,7 @@ export function StariumChatDrawer() {
                       Nouvelle
                     </Button>
                   )}
+                  </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto bg-muted/15 px-3 py-3">
                   {conversations.length > 0 && !conversationId && lines.length === 0 && (
@@ -1101,9 +1156,13 @@ export function StariumChatDrawer() {
                   {lines.length === 0 && conversationId === null && (
                     <>
                       {articleHintsWhileTyping === null ? (
-                        <p className="py-6 text-center text-xs text-muted-foreground">
-                          Écrivez votre question ci-dessous. La réponse provient uniquement de la base configurée.
-                        </p>
+                        <div className="flex flex-col items-center gap-3 py-6 text-center">
+                          <OrionAvatar personality="message" size="lg" />
+                          <p className="max-w-[16rem] text-xs text-muted-foreground">
+                            Écrivez votre question ci-dessous. La réponse provient uniquement de la base
+                            configurée.
+                          </p>
+                        </div>
                       ) : (
                         <div className="space-y-2 py-2">
                           <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
@@ -1198,13 +1257,9 @@ export function StariumChatDrawer() {
                     );
                   })}
                   {status === 'loading' && (
-                    <div className="flex justify-start">
-                      <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
-                        <span className="flex gap-1">
-                          <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-                          <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.08s]" />
-                          <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
-                        </span>
+                    <div className="mb-2 flex items-end gap-2">
+                      <OrionAvatar personality="thinking" size="xs" />
+                      <div className="rounded-2xl rounded-bl-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
                         Réponse…
                       </div>
                     </div>
@@ -1293,8 +1348,8 @@ export function StariumChatDrawer() {
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
                 <h3 className="text-sm font-semibold text-foreground">Aide</h3>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  Cursor Starium affiche uniquement des réponses préconfigurées par votre administrateur plateforme. Aucune
-                  génération par IA à partir de vos données métier.
+                  {ORION_PRODUCT_NAME} affiche uniquement des réponses préconfigurées par votre administrateur
+                  plateforme. Aucune génération par IA à partir de vos données métier.
                 </p>
                 <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Base de connaissance
@@ -1411,7 +1466,7 @@ export function StariumChatDrawer() {
           {/* Barre navigation façon widget support */}
           <nav
             className="flex shrink-0 border-t border-border/70 bg-card px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.08)]"
-            aria-label="Navigation chatbot"
+            aria-label={`Navigation ${ORION_PRODUCT_NAME}`}
           >
             {(
               [

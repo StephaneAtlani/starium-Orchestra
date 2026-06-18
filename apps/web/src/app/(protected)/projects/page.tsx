@@ -102,6 +102,7 @@ export default function ProjectsPortfolioPage() {
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
+          eyebrow="Pilotage › Projets"
           title="Projets"
           description="Portefeuille · pilotage et signaux client"
           actions={

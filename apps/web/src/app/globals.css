@@ -209,6 +209,172 @@ html.dark {
   background-color: var(--starium-surface);
   border-bottom: 1px solid var(--starium-border);
 }
+
+@media (max-width: 767px) {
+  .starium-header {
+    background-color: transparent;
+    border-bottom: none;
+  }
+}
+
+/* Barre globale mobile — fond ink, marque or */
+.starium-header-mobile {
+  background-color: var(--starium-sidebar-bg);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.starium-header-mobile__brand-icon {
+  background-color: transparent;
+  border: none;
+}
+
+.starium-header-mobile__client-pill {
+  display: inline-flex;
+  max-width: 7.5rem;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.08);
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--starium-primary);
+}
+
+.starium-header-mobile__client-select {
+  max-width: 7.5rem;
+  cursor: pointer;
+  appearance: none;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.08);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e8a317' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding: 0.3125rem 1.5rem 0.3125rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--starium-primary);
+  box-shadow: none;
+  outline: none;
+}
+
+.starium-header-mobile__client-select:focus-visible {
+  outline: 2px solid var(--starium-primary);
+  outline-offset: 2px;
+}
+
+.starium-notification-bell--inverse {
+  height: 2.5rem;
+  width: 2.5rem;
+  border-radius: var(--radius-lg, 12px);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.starium-notification-bell--inverse:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.starium-header-mobile__account-menu {
+  background-color: var(--starium-surface);
+  border: 1px solid var(--starium-border);
+}
+
+/* Contenu page — carte blanche (mobile : chevauche la barre ink ; desktop : panneau sur fond papier) */
+.starium-workspace-sheet {
+  position: relative;
+  z-index: 0;
+  background-color: var(--starium-surface);
+}
+
+@media (max-width: 767px) {
+  .starium-workspace-sheet {
+    margin-top: -0.75rem;
+    border-top-left-radius: var(--radius-xl, 16px);
+    border-top-right-radius: var(--radius-xl, 16px);
+    box-shadow: 0 -6px 24px rgba(14, 14, 16, 0.12);
+  }
+}
+
+@media (min-width: 768px) {
+  .starium-workspace-sheet {
+    border-top-left-radius: var(--radius-xl, 16px);
+    border-top-right-radius: var(--radius-xl, 16px);
+    box-shadow: var(--shadow-1);
+  }
+}
+
+/* En-tête de page cockpit */
+.starium-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.starium-page-header__eyebrow {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--starium-primary);
+}
+
+.starium-page-header__back {
+  border-color: var(--starium-border);
+}
+
+.starium-page-header__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .starium-page-header__body {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+}
+
+.starium-page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+  padding-bottom: 0.125rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.starium-page-header__actions::-webkit-scrollbar {
+  display: none;
+}
+
+.starium-page-header__actions > * {
+  flex-shrink: 0;
+}
+
+@media (min-width: 640px) {
+  .starium-page-header__actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    overflow-x: visible;
+    max-width: min(100%, 40rem);
+  }
+}
+
+.starium-header-desktop {
+  background-color: var(--starium-surface);
+}
+
 .starium-card {
   background-color: var(--starium-surface);
   border: 1px solid var(--starium-border);
@@ -901,6 +1067,288 @@ body {
 
 .starium-notification--leave {
   animation: starium-notification-out 0.28s ease-in both;
+}
+
+/* Barre de navigation mobile — flottante, sans fond plein */
+.starium-mobile-bottom-nav {
+  --starium-mobile-nav-inner: 3.75rem;
+  position: relative;
+  z-index: 2;
+  background-color: transparent;
+  border-top: none;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  box-shadow:
+    0 -8px 32px -10px color-mix(in srgb, var(--starium-text) 18%, transparent),
+    0 -2px 12px -4px color-mix(in srgb, var(--starium-text) 10%, transparent);
+  min-height: calc(var(--starium-mobile-nav-inner) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: visible;
+}
+
+.starium-mobile-bottom-nav__list {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0;
+  margin: 0;
+  padding: 0.375rem 0.5rem 0;
+  list-style: none;
+}
+
+.starium-mobile-tab {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  min-height: var(--starium-mobile-nav-inner);
+  padding: 0.375rem 0.125rem 0.375rem;
+  border: none;
+  border-radius: var(--radius-lg, 12px);
+  background: transparent;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  color: var(--starium-text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.starium-mobile-tab:active:not(.starium-mobile-tab--active) {
+  background-color: color-mix(in srgb, var(--starium-surface-muted) 65%, transparent);
+}
+
+.starium-mobile-tab:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.starium-mobile-tab__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.starium-mobile-tab__icon {
+  width: 1.3125rem;
+  height: 1.3125rem;
+  flex-shrink: 0;
+  stroke-width: 1.75;
+}
+
+.starium-mobile-tab__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.125rem;
+}
+
+.starium-mobile-tab__orion {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.starium-mobile-tab--active::before {
+  content: '';
+  position: absolute;
+  top: 0.125rem;
+  left: 50%;
+  width: 1.5rem;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: var(--starium-primary);
+  transform: translateX(-50%);
+  opacity: 0.95;
+}
+
+.starium-mobile-tab--active {
+  color: var(--starium-primary);
+  font-weight: 600;
+}
+
+.starium-mobile-tab--active .starium-mobile-tab__icon-wrap {
+  background-color: color-mix(in srgb, var(--starium-primary) 11%, var(--starium-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--starium-primary) 18%, transparent);
+}
+
+.starium-mobile-tab--active .starium-mobile-tab__icon {
+  color: var(--starium-primary);
+  stroke: var(--starium-primary);
+  stroke-width: 2;
+}
+
+/* Orion : pas de halo — le logo inclut déjà son disque */
+.starium-mobile-tab--orion.starium-mobile-tab--active .starium-mobile-tab__icon-wrap {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.starium-mobile-tab__badge {
+  position: absolute;
+  top: -0.125rem;
+  right: -0.125rem;
+  display: flex;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--destructive);
+  padding: 0 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--destructive-foreground);
+  box-shadow: 0 0 0 2px var(--starium-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starium-mobile-tab,
+  .starium-mobile-tab__icon-wrap {
+    transition: none;
+  }
+}
+
+/* Menu navigation mobile (hamburger) — plein écran, thème clair */
+.starium-mobile-nav-dialog {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 81 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  transform: none !important;
+  translate: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  background-color: var(--starium-surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.starium-mobile-nav-menu {
+  background-color: var(--starium-surface);
+  color: var(--foreground);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-nav {
+  background-color: var(--starium-surface);
+}
+
+.starium-mobile-nav-menu__header {
+  background-color: var(--starium-surface);
+  border-color: var(--starium-border);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-section-title {
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding-top: 0.5rem;
+}
+
+.starium-mobile-nav-menu .starium-sidebar-item {
+  color: var(--foreground);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-item:hover {
+  background-color: color-mix(in srgb, var(--muted) 65%, transparent);
+  color: var(--foreground);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-item-active,
+.starium-mobile-nav-menu .starium-sidebar-item-active:hover {
+  background-color: color-mix(in srgb, var(--starium-primary) 10%, var(--starium-surface));
+  color: var(--brand-ink);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--starium-primary);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-chevron {
+  color: var(--muted-foreground);
+}
+
+.starium-mobile-nav-menu .starium-sidebar-inline-submenu {
+  border-left-color: var(--starium-border) !important;
+}
+
+.starium-mobile-nav-menu .starium-dropdown-link {
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.starium-mobile-nav-menu .starium-dropdown-link:hover {
+  background-color: color-mix(in srgb, var(--muted) 65%, transparent);
+  color: var(--foreground);
+}
+
+.starium-mobile-nav-menu .starium-dropdown-link-active,
+.starium-mobile-nav-menu .starium-dropdown-link-active:hover {
+  background-color: color-mix(in srgb, var(--starium-primary) 10%, var(--starium-surface));
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+/* Header accueil drawer Orion — fond ink + halo or */
+.starium-orion-drawer-hero {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--starium-sidebar-bg);
+  color: var(--starium-surface);
+}
+
+.starium-orion-drawer-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 75% 90% at 92% 18%,
+      color-mix(in srgb, var(--starium-primary) 28%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 50% 60% at 8% 100%,
+      color-mix(in srgb, var(--starium-primary) 12%, transparent),
+      transparent 55%
+    );
+}
+
+.starium-orion-drawer-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Launcher chatbot — halo lumineux doré pulsé (léger, pas de mouvement) */

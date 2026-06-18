@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
 import { useActiveClientEmailDisplay } from '../../hooks/use-active-client-email-display';
+import { useMeClientsQuery } from '@/features/account/hooks/use-me-email-queries';
 import { ClientSwitcher } from '../ClientSwitcher';
 import { Button } from '../ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { ChevronDown, Menu, Search, UserCircle, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { GlobalSearchDialog } from '@/features/global-search/global-search-dialog';
+import { MobileWorkspaceHeaderBar } from './mobile-workspace-header-bar';
+import { AccountMenuDropdown } from './account-menu-dropdown';
 
 interface WorkspaceHeaderProps {
   contentClassName?: string;
@@ -23,11 +25,15 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
   const { activeClient, setActiveClient } = useActiveClient();
+  const { data: meClients } = useMeClientsQuery();
   const { identity: defaultEmail, clientsLoaded: emailClientsLoaded } =
     useActiveClientEmailDisplay();
-  const accountMenuRef = useRef<HTMLDetailsElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const activeClientCount =
+    meClients?.filter((client) => client.status === 'ACTIVE').length ?? 0;
+  const multiClient = activeClientCount > 1;
 
   useEffect(() => {
     if (!accessToken || !user?.hasAvatar) {
@@ -58,34 +64,6 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
       cancelled = true;
     };
   }, [accessToken, user?.hasAvatar, user]);
-
-  useEffect(() => {
-    const el = accountMenuRef.current;
-    if (!el) return;
-
-    const closeIfOpen = () => {
-      if (el.open) el.open = false;
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (!el.open) return;
-      const target = e.target as Node | null;
-      if (target && el.contains(target)) return;
-      closeIfOpen();
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || !el.open) return;
-      closeIfOpen();
-    };
-
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -120,34 +98,28 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
         : '';
 
   return (
-    <header className="starium-header sticky top-0 z-10 shrink-0 border-b border-border">
+    <header className="starium-header sticky top-0 z-10 shrink-0">
       <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+
+      <MobileWorkspaceHeaderBar
+        mobileOpen={mobileOpen}
+        onToggleMenu={toggleMobile}
+        accessToken={accessToken}
+        activeClient={activeClient}
+        multiClient={multiClient}
+        user={user}
+        avatarPreview={avatarPreview}
+        avatarInitials={avatarInitials}
+        onLogout={() => void handleLogout()}
+      />
+
       <div
-        className={`flex h-14 min-h-14 items-center justify-between gap-1 min-w-0 sm:gap-3 ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
+        className={`starium-header-desktop hidden border-b border-border md:block ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
       >
-        <div className="flex min-w-0 items-center gap-1 sm:max-w-[55%] sm:flex-1 sm:gap-2">
-          <span className="sr-only sm:hidden">
-            {activeClient?.name ? `${activeClient.name} — Dashboard` : 'Dashboard'}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 md:hidden starium-text hover:starium-bg-muted [&_svg]:!size-6"
-            aria-label={mobileOpen ? 'Fermer le menu de navigation' : 'Ouvrir le menu de navigation'}
-            aria-expanded={mobileOpen}
-            aria-controls="starium-app-sidebar"
-            onClick={toggleMobile}
-          >
-            {mobileOpen ? (
-              <X className="size-6" strokeWidth={2.25} />
-            ) : (
-              <Menu className="size-6" strokeWidth={2.25} />
-            )}
-          </Button>
+        <div className="flex h-14 min-h-14 items-center justify-between gap-3">
           <nav
             aria-label="Fil d’Ariane"
-            className="hidden min-w-0 flex-1 items-center gap-1 overflow-hidden text-xs starium-text sm:flex sm:gap-2 sm:text-sm"
+            className="flex min-w-0 max-w-[55%] flex-1 items-center gap-2 overflow-hidden text-sm starium-text"
           >
             <a href="/dashboard" className="shrink-0 starium-text hover:underline">
               Home
@@ -190,80 +162,45 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             ) : null}
             <span className="shrink-0 font-medium starium-text">Dashboard</span>
             {user?.platformRole === 'PLATFORM_ADMIN' && (
-              <RegistryBadge className="ml-1 hidden shrink-0 border border-border px-2 py-0.5 text-[0.65rem] sm:inline-flex starium-border starium-primary">
+              <RegistryBadge className="ml-1 shrink-0 border border-border px-2 py-0.5 text-[0.65rem] starium-border starium-primary">
                 Admin
               </RegistryBadge>
             )}
           </nav>
-        </div>
 
-        <div className="flex min-w-0 shrink items-center justify-end gap-0.5 sm:gap-2 md:pl-2">
-          <div className="flex shrink-0 items-center gap-0.5">
-            {accessToken && activeClient ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="starium-text hover:starium-bg-muted"
-                aria-label="Recherche globale"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            ) : null}
-            <NotificationBell />
-          </div>
-          {accessToken && (
-            <div className="min-w-0 max-w-[min(9rem,calc(100vw-11rem))] sm:max-w-[16rem]">
-              <ClientSwitcher accessToken={accessToken} className="w-full min-w-0" />
-            </div>
-          )}
-          {user && (
-            <details ref={accountMenuRef} className="group/details relative shrink-0">
-              <summary className="list-none flex cursor-pointer items-center gap-0.5 sm:gap-1">
-                <span className="starium-avatar flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium">
-                  {avatarPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- URL objet blob
-                    <img
-                      src={avatarPreview}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    avatarInitials
-                  )}
-                </span>
-                <ChevronDown className="hidden h-4 w-4 starium-text sm:block" aria-hidden />
-              </summary>
-              <div className="starium-dropdown-panel absolute right-0 mt-1 min-w-[180px] rounded-lg py-1 text-sm shadow-lg pointer-events-none opacity-0 translate-y-1 scale-95 transition-all duration-150 ease-out group-open/details:pointer-events-auto group-open/details:opacity-100 group-open/details:translate-y-0 group-open/details:scale-100">
-                <Link
-                  href="/account"
-                  onClick={() => {
-                    const d = accountMenuRef.current;
-                    if (d) d.open = false;
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm starium-text hover:bg-accent"
-                >
-                  <UserCircle className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Compte
-                </Link>
-                <button
+          <div className="flex min-w-0 shrink items-center justify-end gap-2 pl-2">
+            <div className="flex shrink-0 items-center gap-0.5">
+              {accessToken && activeClient ? (
+                <Button
                   type="button"
-                  className="flex w-full items-center px-3 py-2 text-left text-sm starium-text hover:bg-accent"
-                  onClick={() => {
-                    const d = accountMenuRef.current;
-                    if (d) d.open = false;
-                    void handleLogout();
-                  }}
+                  variant="ghost"
+                  size="icon-sm"
+                  className="starium-text hover:starium-bg-muted"
+                  aria-label="Recherche globale"
+                  onClick={() => setSearchOpen(true)}
                 >
-                  Déconnexion
-                </button>
+                  <Search className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <NotificationBell />
+            </div>
+            {accessToken && (
+              <div className="min-w-0 max-w-[16rem]">
+                <ClientSwitcher accessToken={accessToken} className="w-full min-w-0" />
               </div>
-            </details>
-          )}
+            )}
+            {user && (
+              <AccountMenuDropdown
+                avatarPreview={avatarPreview}
+                avatarInitials={avatarInitials}
+                onLogout={() => void handleLogout()}
+                triggerClassName="justify-start gap-0.5"
+                showChevron
+              />
+            )}
+          </div>
         </div>
       </div>
     </header>
   );
 }
-

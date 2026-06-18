@@ -44,7 +44,7 @@ function severityBadge(severity: NotificationItem['alertSeverity']) {
   );
 }
 
-export function NotificationBell() {
+export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inverse' }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const { data, isLoading, isError, error, refetch } = useNotificationsQuery();
   const markRead = useMarkNotificationReadMutation();
@@ -85,15 +85,31 @@ export function NotificationBell() {
       {/* Pas de <button> dans <summary> : le clic ne basculerait pas <details>. */}
       <summary
         className={cn(
-          buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-          'list-none starium-text hover:starium-bg-muted relative cursor-pointer [&::-webkit-details-marker]:hidden group-open/details:bg-muted group-open/details:text-foreground',
+          buttonVariants({ variant: 'ghost', size: tone === 'inverse' ? 'icon' : 'icon-sm' }),
+          'list-none relative cursor-pointer [&::-webkit-details-marker]:hidden',
+          tone === 'inverse'
+            ? 'starium-notification-bell--inverse group-open/details:bg-white/20 group-open/details:text-white'
+            : 'starium-text hover:starium-bg-muted group-open/details:bg-muted group-open/details:text-foreground',
         )}
         aria-label="Notifications"
       >
         <Bell className="h-4 w-4 transition-transform duration-200 group-open/details:scale-105" />
         {unread > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold tabular-nums text-primary-foreground shadow-sm ring-2 ring-background">
-            {unread > 99 ? '99+' : unread}
+          <span
+            className={cn(
+              'absolute flex items-center justify-center rounded-full font-bold tabular-nums shadow-sm',
+              tone === 'inverse'
+                ? '-right-0.5 -top-0.5 h-2.5 w-2.5 bg-[var(--starium-primary)] ring-2 ring-[var(--starium-sidebar-bg)]'
+                : '-right-0.5 -top-0.5 h-4 min-w-4 bg-primary px-1 text-[10px] text-primary-foreground ring-2 ring-background',
+            )}
+            aria-hidden={tone === 'inverse'}
+          >
+            {tone === 'inverse' ? null : unread > 99 ? '99+' : unread}
+          </span>
+        ) : null}
+        {unread > 0 && tone === 'inverse' ? (
+          <span className="sr-only">
+            {unread} non lue{unread > 1 ? 's' : ''}
           </span>
         ) : null}
       </summary>
@@ -101,6 +117,7 @@ export function NotificationBell() {
       <div
         className={cn(
           'pointer-events-none absolute right-0 z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] origin-top-right',
+          'max-md:fixed max-md:inset-x-4 max-md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] max-md:mt-0 max-md:w-auto max-md:max-w-none',
           'rounded-xl border border-border bg-card text-card-foreground shadow-lg ring-1 ring-black/5 dark:ring-white/10',
           'opacity-0 transition-[opacity,transform] duration-200 ease-out',
           'translate-y-1 scale-[0.98]',
@@ -138,7 +155,7 @@ export function NotificationBell() {
           </Button>
         </header>
 
-        <div className="max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain">
+        <div className="max-h-[min(24rem,70dvh)] overflow-y-auto overscroll-contain max-md:max-h-[min(28rem,calc(100dvh-5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)))]">
           {isLoading ? (
             <div className="space-y-3 p-4">
               {[1, 2, 3].map((i) => (

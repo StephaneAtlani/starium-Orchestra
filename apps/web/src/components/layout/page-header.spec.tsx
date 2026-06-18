@@ -11,4 +11,18 @@ describe('PageHeader', () => {
     expect(h1?.className).not.toContain('text-3xl');
     expect(h1?.className).not.toContain('sm:text-3xl');
   });
+
+  it('rend eyebrow et actions scrollables', () => {
+    render(
+      <PageHeader
+        eyebrow="Pilotage › Projets"
+        title="Projets"
+        actions={<button type="button">Action</button>}
+      />,
+    );
+    expect(document.querySelector('.starium-page-header__eyebrow')).toHaveTextContent(
+      'Pilotage › Projets',
+    );
+    expect(document.querySelector('.starium-page-header__actions')).toBeTruthy();
+  });
 });
