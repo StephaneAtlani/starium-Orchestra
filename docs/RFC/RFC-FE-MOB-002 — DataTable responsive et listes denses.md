@@ -2,7 +2,7 @@
 
 ## Statut
 
-🔄 En cours — implémentation code + tests livrés (juin 2026) ; passage à **Implémenté** après validation et merge de la PR.
+✅ Implémenté — juin 2026 (`DataTable` double rendu CSS, `DataTableCard`, `mobilePriority` / `mobileLabel`, `data-table.spec.tsx` ; migration listes via [RFC-FE-MOB-003](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md)).
 
 ## Priorité
 
@@ -224,9 +224,11 @@ Aucune.
 
 # 7. Récapitulatif final
 
-`RFC-FE-MOB-002` introduit un **pattern transverse** pour rendre les listes tabulaires exploitables sur mobile via des **cartes empilées** sous `md`, sans casser le rendu table desktop. La migration est **incrémentale** : chaque écran `DataTable` active le comportement par défaut dès merge du composant ; les tables métier denses gardent le scroll horizontal en V1.
+`RFC-FE-MOB-002` introduit un **pattern transverse** pour rendre les listes tabulaires exploitables sur mobile via des **cartes empilées** sous `md`, sans casser le rendu table desktop.
 
-Effort estimé : **1–2 jours** composant + tests ; **3–5 jours** migration P0 (4 modules).
+**Livré (juin 2026)** : `data-table.tsx`, `data-table-card.tsx`, `data-table.types.ts`, `data-table.spec.tsx` (11 tests). Migration écrans listes via RFC-FE-MOB-003. Tables métier denses (explorer budget, Gantt, liste projets dense) : scroll horizontal conservé.
+
+Effort initial composant : **1–2 jours** ; migration P0+P1 réalisée dans le cadre RFC-FE-MOB-003.
 
 ---
 

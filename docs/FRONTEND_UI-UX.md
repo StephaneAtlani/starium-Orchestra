@@ -720,6 +720,7 @@ Composants : `components/layout/filter-bar.tsx`, `filter-bar-field.tsx` (RFC-FE-
 
 | Sujet                                     | Document                                                                                                                                          |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mobile-first (série RFC)                  | [RFC-FE-MOB-001](./RFC/RFC-FE-MOB-001%20%E2%80%94%20Fondations%20mobile-first%20transverses.md), [RFC-FE-MOB-002](./RFC/RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md), [RFC-FE-MOB-003](./RFC/RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) |
 | Architecture complète                     | [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md)                                                                                            |
 | Module Projets (structure, query keys)    | §30.6 dans FRONTEND_ARCHITECTURE.md                                                                                                               |
 | Budget frontend                           | [docs/modules/budget-frontend.md](./modules/budget-frontend.md)                                                                                   |
@@ -728,4 +729,4 @@ Composants : `components/layout/filter-bar.tsx`, `filter-bar-field.tsx` (RFC-FE-
 
 ---
 
-*Dernière mise à jour : refonte UI portefeuille Projets (mockup Projets-Starium) — `.starium-kpi-strip`, `.starium-filter-bar` / chips, tableau `.starium-projects-table` §6.1–§7 ; primitives §2.1 ; shell pleine largeur ; score cards KPI dashboard §6 ; §11.3.1 modale dense ; sidebar §3.1 ; fiche projet §11.2.*
+*Dernière mise à jour : juin 2026 — chantier mobile-first (`RFC-FE-MOB-*`) : `FilterBar` §12.4.1, `DataTable` cartes ; refonte UI portefeuille Projets — `.starium-kpi-strip`, `.starium-filter-bar` / chips, tableau `.starium-projects-table` §6.1–§7.*

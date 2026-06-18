@@ -4,7 +4,7 @@
 
 ## Statut
 
-🔄 En cours — implémentation code + tests livrés (juin 2026) ; passage à **Implémenté** après validation et merge de la PR.
+✅ Implémenté — juin 2026 (`Dialog` bottom-sheet / `size` / `DialogBody`, `Button` / `IconButton`, `PageHeader`, `prefers-reduced-motion`, tests composant §6.1).
 
 ## Référence Design System
 
@@ -234,7 +234,7 @@ Socle UI transversal mobile-first livré sur **Dialog** (bottom-sheet, `size`, `
 
 **Hors scope Lot 0** : migration modales vers `DialogBody`, bootstrap `LoadingState`, checklist QA manuelle §6.2.
 
-**Prochaines étapes** : [RFC-FE-MOB-002](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) (DataTable), [RFC-FE-MOB-003](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) (FilterBar).
+**Prochaines étapes** (hors scope livré) : migration progressive modales legacy vers `DialogBody` ; QA manuelle §6.2 ; E2E viewport mobile optionnel.
 
 ---
 

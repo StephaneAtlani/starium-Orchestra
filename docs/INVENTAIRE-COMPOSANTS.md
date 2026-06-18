@@ -61,6 +61,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 ## Tableaux (1)
 
 - `data-table` - `components/data-table/data-table.tsx` - tableau générique avec double rendu : table desktop (`≥ md`) et cartes empilées mobile (`< md`, `ul > li > article`). Colonnes configurables via `mobilePriority` / `mobileLabel`. **Vigilance** : `cell(row)` appelée 2× par ligne (double mount DOM) — cellules pures, pas d'id fixe ni modale montée au render.
+- `data-table-card` - `components/data-table/data-table-card.tsx` - carte mobile d'une ligne (`article` + `dl`/`dt`/`dd`, zone actions). Consommé par `DataTable` ; ne pas utiliser seul sauf cas exceptionnel.
 
 ## Notifications (1)
 

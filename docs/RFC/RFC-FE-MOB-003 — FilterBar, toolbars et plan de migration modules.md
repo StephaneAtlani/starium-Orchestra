@@ -103,17 +103,21 @@ Chaque module implémente sa propre barre de filtres, en général :
 interface FilterBarProps {
   children: React.ReactNode;
   className?: string;
-  /** Nombre de colonnes max desktop (défaut : auto-fit) */
-  desktopColumns?: 2 | 3 | 4 | 'auto';
-  /** aria-label du formulaire de filtres */
-  'aria-label'?: string;
+  desktopColumns?: 2 | 3 | 4 | 'auto'; // défaut : 3
+  'aria-label'?: string; // défaut : « Filtres »
+  asSearch?: boolean; // role="search" si recherche principale
 }
 
 interface FilterBarFieldProps {
-  label: string;
-  htmlFor?: string;
-  children: React.ReactNode;
+  id: string;
+  label: React.ReactNode;
+  description?: React.ReactNode;
   className?: string;
+  children: React.ReactNode | ((props: {
+    controlId: string;
+    labelId: string;
+    descriptionId?: string;
+  }) => React.ReactNode);
 }
 ```
 
@@ -182,7 +186,7 @@ Composant : `FilterBarCollapsible` — extension optionnelle, non requise pour L
 | Module | Routes / composants | DataTable cartes | FilterBar |
 | ------ | ------------------- | ---------------- | --------- |
 | **Contrats** | `/contracts` | ✅ | ✅ |
-| **Projets** | `/projects`, `/projects/requests` | ✅ | ✅ |
+| **Projets** | `/projects`, `/projects/requests` | ✅ (cartes) | ✅ toolbar ; **liste dense** `projects-list-table` = scroll horizontal (exception) |
 | **Budgets** | `/budgets`, `/budgets/exercises` | ✅ | ✅ |
 | **Fournisseurs** | `/suppliers`, `/suppliers/contacts` | ✅ | ✅ |
 | **Procurement** | PO / factures listes | ✅ | ✅ |
@@ -193,13 +197,13 @@ Composant : `FilterBarCollapsible` — extension optionnelle, non requise pour L
 
 ### Lot 2 — Admin client & Équipes
 
-| Module | Routes | Priorité |
-| ------ | ------ | -------- |
-| RBAC client | `/client/members`, `/client/roles` | Haute |
-| Organisation | `/client/administration/organization` | Moyenne |
-| Équipes | `/teams/collaborators`, `/teams/skills`, structure | Haute |
-| Licences cockpit | `/client/administration/licenses-cockpit` | Moyenne |
-| Access groups | `/client/access-groups` | Moyenne |
+| Module | Routes | FilterBar / DataTable | Note |
+| ------ | ------ | --------------------- | ---- |
+| RBAC client | `/client/members`, `/client/roles` | ✅ DataTable | — |
+| Organisation | `/client/administration/organization` | — | Arbre unités : `Table` hiérarchique (exception) |
+| Équipes | `/teams/collaborators`, `/teams/skills`, structure | ✅ | `skill-filters-bar`, `collaborator-filters-bar`, tables skills/categories/work-teams |
+| Licences cockpit | `/client/administration/licenses-cockpit` | ✅ FilterBar | — |
+| Access groups | `/client/access-groups` | ✅ DataTable | `access-model-issues-table` |
 
 ---
 
@@ -207,24 +211,24 @@ Composant : `FilterBarCollapsible` — extension optionnelle, non requise pour L
 
 | Module | Routes | Note |
 | ------ | ------ | ---- |
-| Admin users/clients | `/admin/*` | Tables larges |
-| Strategic vision | `/strategic-vision` | Onglets + tables |
-| Governance cycles | `/cycles` | Matrices |
-| Budget explorer / forecast | `/budgets/[id]`, reporting | Scroll horizontal **conservé** ; FilterBar partiel |
-| Gantt / comité | `/projects/portfolio-gantt`, committee | Wide layout existant |
+| Admin users/clients | `/admin/*` | ✅ FilterBar + DataTable (`mobilePriority`) |
+| Strategic vision | `/strategic-vision` | ✅ filtre direction cockpit + `FilterBar` objectifs ; directions → DataTable |
+| Governance cycles | `/cycles` | ✅ FilterBar + DataTable |
+| Budget explorer / forecast | `/budgets/[id]`, reporting | Scroll horizontal **conservé** ; `budget-explorer-toolbar` → FilterBar partiel |
+| Gantt / comité | `/projects/portfolio-gantt`, committee | Wide layout + scroll **conservé** (exception) |
 
 ---
 
 ### Lot 4 — Nettoyage Design System
 
-| Action | Périmètre |
-| ------ | --------- |
-| Hex → tokens | `projects/options`, charts budget, badges |
-| Audit contrastes AA | Badges statut custom |
-| `hover:` seul | Vérifier info non portée par couleur (icône/texte) |
-| Tables `<table>` brutes | Migrer 8 fichiers vers `Table` |
+| Action | Périmètre | État |
+| ------ | --------- | ---- |
+| Hex → tokens | badges projet, cockpit budget, login, review editor | ✅ UI principale |
+| Palettes SVG / configurables | charts budget, `planner-task-label-colors`, tags, branding | Documenté (hors scope tokens) |
+| Tables `<table>` brutes | 8 fichiers ciblés | ✅ migrés vers `Table`/`DataTable` sauf exceptions |
+| Exceptions documentées | feuille de temps, matrice EBIOS, export print action-plans, org tree | Scroll / sémantique métier conservés |
 
-**Critère de sortie** : grep `#([0-9a-f]{3,6})` dans `apps/web/src` → 0 hors charts SVG inline documentés.
+**Critère de sortie** : grep `#([0-9a-f]{3,6})` dans `apps/web/src` → résidus limités aux palettes SVG inline documentées et couleurs utilisateur/config.
 
 ---
 
@@ -274,14 +278,15 @@ Pour chaque module P0 :
 
 # 7. Récapitulatif final
 
-Cette RFC formalise le **plan de migration incrémental** de toute l'application vers le mobile-first / by-design :
+Chantier **mobile-first / by-design** livré en trois RFC :
 
-1. **Lot 0** — fondations transverses (1 PR).
-2. **Lot 1** — 5 modules métier + `DataTable` + `FilterBar` (2–3 PR).
-3. **Lots 2–3** — admin et modules denses (PR par domaine).
-4. **Lot 4** — dette DS (hex, hover, tables brutes).
+1. **RFC-FE-MOB-001** — fondations transverses (modales, boutons, motion).
+2. **RFC-FE-MOB-002** — `DataTable` responsive (cartes `< md`).
+3. **RFC-FE-MOB-003** — `FilterBar` + migration lots 1–4.
 
-Durée indicative totale : **3–4 semaines** calendrier (1 dev), parallélisable par module.
+**Tests automatisés** : `filter-bar.spec.tsx`, `data-table.spec.tsx` (17 tests). QA manuelle 320px recommandée §6.2 de chaque RFC avant release.
+
+**Hors scope / exceptions** : grilles denses (Gantt, comité, budget explorer, feuille de temps), arbre organisation, matrice EBIOS, export HTML action-plans ; palettes couleur utilisateur (tags, planner, branding).
 
 ---
 
@@ -326,16 +331,17 @@ Durée indicative totale : **3–4 semaines** calendrier (1 dev), parallélisabl
 
 # Annexe A — Inventaire fichiers `min-w-[…px]` prioritaires (migration FilterBar)
 
-| Fichier | Champs concernés |
-| ------- | ---------------- |
-| `contracts-list-page.tsx` | Select statut, fournisseur, date |
-| `budgets-toolbar.tsx` | Select exercice, statut |
-| `budget-exercises-toolbar.tsx` | Statut |
-| `budget-explorer-toolbar.tsx` | Multiples (Lot 3 partiel) |
-| `admin/users/page.tsx` | Filtres rôle/client |
-| `purchase-orders-list-page.tsx` | Statut, fournisseur |
-| `invoices-list-page.tsx` | Statut, dates |
-| `governance-cycles-page.tsx` | Cycle, statut |
+| Fichier | Champs concernés | État |
+| ------- | ---------------- | ---- |
+| `contracts-list-page.tsx` | Select statut, fournisseur, date | ✅ |
+| `budgets-toolbar.tsx` | Select exercice, statut | ✅ |
+| `budget-exercises-toolbar.tsx` | Statut | ✅ |
+| `budget-explorer-toolbar.tsx` | Multiples | ✅ partiel (table explorer inchangée) |
+| `admin/users/page.tsx` | Filtres rôle/client | ✅ |
+| `admin/clients/page.tsx` | Recherche | ✅ |
+| `purchase-orders-list-page.tsx` | Statut, fournisseur | ✅ |
+| `invoices-list-page.tsx` | Statut, dates | ✅ |
+| `governance-cycles-page.tsx` | Cycle, statut, période | ✅ |
 
 ---
 

@@ -310,9 +310,9 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
-| **RFC-FE-MOB-001** | Fondations mobile-first transverses | 🔄 En cours | Code + tests livrés : `Dialog` (bottom-sheet, `size`, `DialogBody`), `Button`/`IconButton`, `PageHeader` `text-2xl`, `prefers-reduced-motion` ; QA manuelle §6.2 RFC avant merge → statut **Implémenté** ; voir [RFC](./RFC-FE-MOB-001%20%E2%80%94%20Fondations%20mobile-first%20transverses.md) |
-| **RFC-FE-MOB-002** | DataTable responsive et listes denses | 📝 Draft | Cartes empilées `< md` sur `DataTable` générique ; colonnes `mobilePriority` / `mobileLabel` ; tables métier denses (explorer, Gantt) = scroll horizontal V1 ; voir [RFC](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) |
-| **RFC-FE-MOB-003** | FilterBar, toolbars et plan de migration modules | 📝 Draft | Composant `FilterBar` mobile-first, lots 0→4 (Contrats, Projets, Budgets, Fournisseurs, admin, nettoyage hex DS) ; voir [RFC](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) |
+| **RFC-FE-MOB-001** | Fondations mobile-first transverses | ✅ Implémenté | `Dialog` (bottom-sheet, `size`, `DialogBody`), `Button`/`IconButton`, `PageHeader`, `prefers-reduced-motion` ; tests §6.1 — [RFC](./RFC-FE-MOB-001%20%E2%80%94%20Fondations%20mobile-first%20transverses.md) |
+| **RFC-FE-MOB-002** | DataTable responsive et listes denses | ✅ Implémenté | Cartes `< md`, `mobilePriority`/`mobileLabel`, `data-table-card.tsx` ; tables denses = scroll horizontal — [RFC](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) |
+| **RFC-FE-MOB-003** | FilterBar, toolbars et plan de migration modules | ✅ Implémenté | `FilterBar`/`FilterBarField`, lots 1–4, exceptions grilles denses documentées — [RFC](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) |
 
 Références transverses : [RFC-014-1](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md), [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §1.1, `.cursor/rules/by-design-standards.mdc`.
 
