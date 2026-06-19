@@ -61,6 +61,10 @@ export type ProjectListItem = {
   warnings: string[];
   tags: ProjectTag[];
   portfolioCategory: ProjectPortfolioCategoryAssignment | null;
+  /** Budget cible (fiche projet). */
+  targetBudgetAmount?: string | null;
+  /** Consommé agrégé des lignes budgétaires liées (FIXED). */
+  consumedBudgetAmount?: string | null;
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;

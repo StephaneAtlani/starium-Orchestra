@@ -362,10 +362,15 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-task-planning-section` - `features/projects/components/project-task-planning-section.tsx` - regroupe une section dediee a projet tache planning.
 - `project-team-matrix` - `features/projects/components/project-team-matrix.tsx` - gere l'interface de projet equipe matrice.
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.
-- `projects-list-table` - `features/projects/components/projects-list-table.tsx` - affiche un tableau pour projets.
-- `projects-portfolio-filters-bar` - `features/projects/components/projects-portfolio-filters-bar.tsx` - centralise les actions et filtres pour projets portefeuille.
-- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - bandeau KPI portefeuille (`.starium-kpi-strip`, 3 groupes).
-- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - barre « Filtrer et trier » (`.starium-filter-bar`, chips, tab-group Tableau/Kanban).
+- `projects-list-table` - `features/projects/components/projects-list-table.tsx` - orchestre la liste projets (mobile cartes / desktop tableau).
+- `projects-list-table-desktop` - `features/projects/components/projects-list-table-desktop.tsx` - tableau portefeuille desktop (densité basic | extended).
+- `projects-list-mobile-view` - `features/projects/components/projects-list-mobile-view.tsx` - liste cartes mobile + bottom sheet filtres.
+- `projects-list-project-card` - `features/projects/components/projects-list-project-card.tsx` - carte projet (statut, progression, budget, responsable).
+- `projects-list-budget-summary` - `features/projects/components/projects-list-budget-summary.tsx` - affichage Budget cible + Consommé (liste).
+- `projects-list-row-actions-menu` - `features/projects/components/projects-list-row-actions-menu.tsx` - menu actions ligne/carte projet.
+- `projects-portfolio-filters-bar` - `features/projects/components/projects-portfolio-filters-bar.tsx` - filtres portefeuille (desktop inline / mobile sheet).
+- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - KPI portefeuille (`.starium-module` + 4 × `KpiCard` dense).
+- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - barre « Filtrer et trier » desktop (`.starium-filter-bar`, chips, tab-group, densité colonnes).
 - `task-form-dialog-fields` - `features/projects/components/task-form-dialog-fields.tsx` - ouvre un dialogue pour tache fields.
 
 ## Projets / Scénarios cockpit — RFC-FE-PROJ-SC-002 (8)

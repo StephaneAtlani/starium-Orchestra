@@ -179,7 +179,7 @@ Pour les tables **non** passées par `DataTable` :
 | Priorité | Écran / composant | Module |
 | -------- | ----------------- | ------ |
 | P0 | `contracts-list-page.tsx` | Contrats |
-| P0 | `projects-list-table.tsx` | Projets |
+| P0 | `projects-list-table.tsx` (+ `projects-list-mobile-view`, `projects-list-table-desktop`) | Projets — **mobile** : cartes custom (exception `DataTable`) ; **desktop** : tableau dense scroll horizontal |
 | P0 | `budget-list-table.tsx` | Budgets |
 | P0 | `suppliers/page.tsx` | Fournisseurs |
 | P1 | `members-list.tsx`, `roles-list.tsx` | RBAC client |

@@ -58,8 +58,8 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 
 - Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages.
 - **Bordures / cadres** : ne jamais se contenter de la classe `**border`** seule — sans couleur explicite, Tailwind applique souvent une couleur de bordure **trop contrastée** (effet « noir » sur fond clair). Toujours combiner avec un token : `**border-border`**, `**border-border/60**`, `**border-border/70**`, `**border-input**` (champs), ou `**border-dashed border-border/80**` (zones vides). Les `**Card**` utilisent déjà `.starium-card` (`var(--starium-border)`). Pour un **sous-bloc** dans une carte (formulaire, encart), préférer par ex. `rounded-lg border border-border/70 bg-muted/30 p-4` — filet **gris** cohérent avec le reste de l’UI, pas un trait noir.
-- **Cadres imbriqués** : **ne pas** envelopper une grille de KPI dans une `Card` / `.starium-section` — pattern DS dashboard : **`.starium-module`** (titre + actions, fond app visible) + **`.starium-kpi-card`** par indicateur ; pattern DS **portefeuille Projets** : **`.starium-kpi-strip`** (une carte, groupes en colonnes — **§6.1**). Réserver **`.starium-section`** / **`.starium-panel`** à un **seul** bloc (tableau, citation, formulaire). Détail : **§2.1**.
-- **Cartes « synthèse »** (fiche projet, arbitrage) : sous-blocs avec accent latéral possible — voir fiche projet **§11.2**. Les **score cards KPI** (dashboard, budgets) utilisent **§2.1** / **§6** ; le **bandeau KPI portefeuille Projets** utilise **§6.1** (strip), pas le bandeau coloré latéral fiche projet.
+- **Cadres imbriqués** : **ne pas** envelopper une grille de KPI dans une `Card` / `.starium-section` — pattern DS dashboard : **`.starium-module`** (titre + actions, fond app visible) + **`.starium-kpi-card`** par indicateur ; **portefeuille `/projects`** : **`.starium-module`** + grille **4 × `KpiCard` `variant="dense"`** (pastilles icônes sémantiques — **§6.1**). La classe **`.starium-kpi-strip`** reste disponible en CSS pour d’autres écrans (ex. présentation CODIR) mais n’est plus le pattern du bandeau KPI liste projets. Réserver **`.starium-section`** / **`.starium-panel`** à un **seul** bloc (tableau, citation, formulaire). Détail : **§2.1**.
+- **Cartes « synthèse »** (fiche projet, arbitrage) : sous-blocs avec accent latéral possible — voir fiche projet **§11.2**. Les **score cards KPI** (dashboard, budgets) utilisent **§2.1** / **§6** ; le **bandeau KPI portefeuille Projets** utilise **§6.1** (4 × `KpiCard` dense dans `.starium-module`), pas le bandeau coloré latéral fiche projet.
 - Structure : **pas de HTML “layout” bricolé** ; utiliser `components/ui/*`, `components/layout/*`, `components/feedback/*`, `components/shell/*`.
 - Chaque écran de données : états **loading**, **error**, **empty**, **success** explicites.
 - **Query keys** métier : toujours inclure `clientId` (voir architecture).
@@ -76,7 +76,7 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-module` | Groupe de page : titre + description + contenu (ex. bloc KPI dashboard, widgets Budget/Projets) | **Non** — fond app `#FAF9F7` |
 | `.starium-kpi-card` | **Une** score card KPI (icône or + libellé + valeur) — dashboard, budgets | **Oui** — `shadow-1`, `radius-lg` |
 | `.starium-kpi-card--interactive` | Variante cliquable (lien) | idem + hover `shadow-2` |
-| `.starium-kpi-strip` | **Bandeau KPI** : une carte, grille 3 colonnes (groupes Volume / Risques / Complétude) — portefeuille `/projects` | **Oui** — un seul cadre |
+| `.starium-kpi-strip` | **Bandeau KPI** historique : une carte, grille 3 colonnes (groupes Volume / Risques / Complétude) — **présentation CODIR** ou écrans legacy ; **pas** le bandeau `/projects` actuel | **Oui** — un seul cadre |
 | `.starium-kpi-strip-*` | Sous-éléments du strip (`-grid`, `-group`, `-group-label`, `-items`, `-item-label`, `-item-value`, modificateurs `--ok` / `--warn` / `--danger` / `--muted`) | — |
 | `.starium-section` | Bloc cartonné **unique** (vision, encart) | **Oui** |
 | `.starium-panel` | Panneau données (liste + toolbar) — élévation `shadow-2` sur une `Card` | **Oui** (un niveau) |
@@ -88,9 +88,9 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-table-footer` | Pied pagination panneau liste (mockup Projets) | — |
 | `.starium-overline` | Libellé uppercase 11px (groupes compacts) | — |
 
-**Règle anti « cadre dans cadre »** : grille de N KPI dashboard → `starium-module` + N × `starium-kpi-card`. **Interdit** : `starium-section` > grille de `starium-kpi-card`. Portefeuille Projets : **un** `.starium-kpi-strip` (pas de `starium-module` autour).
+**Règle anti « cadre dans cadre »** : grille de N KPI dashboard → `starium-module` + N × `starium-kpi-card`. **Interdit** : `starium-section` > grille de `starium-kpi-card`. Portefeuille Projets : **`starium-module`** + **4 × `KpiCard` dense** (`projects-portfolio-kpi.tsx`) — pas de `Card` parent autour des KPI.
 
-**Composants** : `KpiCard` (`components/ui/kpi-card.tsx`) et `BudgetKpiCard` consomment `.starium-kpi-card`. `ProjectsPortfolioKpi` consomme `.starium-kpi-strip` (feature, pas encore de composant UI générique). `Card` / `.starium-card` restent pour tableaux, modales, contenus non-KPI.
+**Composants** : `KpiCard` (`components/ui/kpi-card.tsx`, prop `iconWrapperClassName` pour pastilles colorées) et `BudgetKpiCard` consomment `.starium-kpi-card`. `ProjectsPortfolioKpi` consomme `.starium-module` + `KpiCard`. `Card` / `.starium-card` restent pour tableaux, modales, contenus non-KPI.
 
 **Modifier la charte globalement** : ajuster les tokens `--ds-card-*`, `--ds-kpi-*` dans `tokens.css` ou les règles `.starium-*` dans `globals.css` — pas les chaînes Tailwind répétées dans chaque feature.
 
@@ -141,24 +141,28 @@ export function PageContainer({ children, className }: PageContainerProps) {
 
 ## 4. En-tête de page
 
-Titres en **tokens** sémantiques (pas de `#1B1B1B`).
+Titres en **tokens** sémantiques (pas de `#1B1B1B`). Composant : `components/layout/page-header.tsx` — **carte blanche** (`.starium-page-header` : fond `var(--card)`, bordure, ombre DS).
+
+- **Titre** : `text-xl font-bold sm:text-2xl` (mobile-first).
+- **Eyebrow** optionnel (ex. « Pilotage › Projets ») : `.starium-page-header__eyebrow`.
+- **Actions** : zone `.starium-page-header__actions` — sur mobile, empilées sous le titre (pleine largeur) ; sur `sm+`, alignées à droite du titre.
+- **Actions responsives** (référence `/projects`) : liens secondaires en **icônes seules** + `aria-label` sous `md` ; libellés complets sur `sm+` ; CTA primaire raccourci (« Nouveau ») sur très petit écran.
 
 ```tsx
-// apps/web/src/components/layout/page-header.tsx
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
-  return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-        {description && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {actions && <div className="flex items-center gap-2 mt-2 sm:mt-0">{actions}</div>}
+// apps/web/src/components/layout/page-header.tsx (structure simplifiée)
+<header className="starium-page-header">
+  {eyebrow ? <div className="starium-page-header__eyebrow">{eyebrow}</div> : null}
+  <div className="starium-page-header__main flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 className="text-xl font-bold sm:text-2xl">{title}</h1>
+      {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
     </div>
-  );
-}
+    {actions ? <div className="starium-page-header__actions">{actions}</div> : null}
+  </div>
+</header>
 ```
+
+Fond de page app : `.starium-workspace-sheet` → `var(--starium-background)` (`#FAF9F7`) ; la liste projets mobile n’utilise pas de « feuille blanche » supplémentaire sur la `Card` liste (`max-md:border-0 max-md:bg-transparent`).
 
 ---
 
@@ -263,36 +267,32 @@ import { FolderKanban } from 'lucide-react';
 
 ### 6.1 KPI portefeuille Projets (`/projects`)
 
-Fichier : `features/projects/components/projects-portfolio-kpi.tsx`. Référence visuelle : mockup **Projets-Starium** (bandeau KPI unique).
+Fichier : `features/projects/components/projects-portfolio-kpi.tsx`.
 
-- **Une carte** (`.starium-kpi-strip`) — **pas** de grille de score cards ni d’icônes.
-- **Trois groupes** en colonnes (`.starium-kpi-strip-grid` → `.starium-kpi-strip-group`) :
-  - **Volume** — Total, En cours, Terminés ;
-  - **Risques & Échéances** — En retard, Critiques, Bloqués ;
-  - **Complétude** — Sans étude risque, Sans resp., Sans jalons.
-- Chaque groupe : overline (`.starium-kpi-strip-group-label`), puis ligne d’indicateurs (`.starium-kpi-strip-items`) — libellé 11.5px + valeur **28px** bold (`.starium-kpi-strip-item-value`).
-- Tons sémantiques sur les chiffres : modificateurs `--ok`, `--warn`, `--danger`, `--muted` (tokens `--state-success`, `--state-warning`, `destructive`, `muted-foreground`).
-- Données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`). Même composant réutilisé sur la **présentation CODIR** (`codir-committee-presentation.tsx`).
-- **Évolution prévue** : extraire un composant UI générique `StariumKpiStrip` si d’autres modules adoptent ce layout ; aujourd’hui le markup vit dans la feature + classes `globals.css`.
+- **Conteneur** : `.starium-module` (fond app visible, **pas** de `Card` parent).
+- **Grille** : `grid-cols-2 sm:grid-cols-4` — **4 indicateurs** via **`KpiCard` `variant="dense"`** :
+  - Projets actifs, En cours d'exécution, En retard, Terminés ce trimestre.
+- **Icônes** : pastilles sémantiques (`iconWrapperClassName` sur `KpiCard`) — or Starium, warning, destructive, success.
+- Données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
+- **Note** : la classe **`.starium-kpi-strip`** (9 indicateurs / 3 groupes) reste en CSS pour d’autres écrans ; le cockpit liste `/projects` n’utilise plus ce markup.
 
 ---
 
 ## 7. Filtres — cockpit portefeuille Projets (référence)
 
-L’écran **`/projects`** regroupe **filtres, tableau et pagination dans une seule** `Card size="sm"` avec **`starium-panel`** (`overflow-hidden`, élévation DS `shadow-2`) : le bandeau d’actions ne répète pas une deuxième carte pour les critères — les **filtres par colonne** vivent **dans le tableau**, sous les libellés d’en-tête.
+L’écran **`/projects`** regroupe **filtres, liste et pagination** dans une **`Card size="sm"`** avec **`starium-panel`** (`overflow-hidden`) sur **desktop** ; sur **mobile** (`max-md`), la carte liste est **transparente** (pas de double cadre) — voir **§7.4**.
 
-### 7.1 Barre « Filtrer et trier » (`ProjectsToolbar`)
+### 7.1 Barre « Filtrer et trier » (`ProjectsToolbar`) — desktop uniquement
 
 - Fichier : `apps/web/src/features/projects/components/projects-toolbar.tsx`.
-- Rendu avec **`embedded`** : barre seule (pas de `Card` racine) — le parent est la `Card` de la page.
-- Conteneur : **`.starium-filter-bar`** — titre **« Filtrer et trier »** (`.starium-filter-bar-title`) à gauche ; actions à droite (`.starium-filter-bar-actions`).
-- **Actions** :
-  - **Tableau / Kanban** — `.starium-tab-group` + `.starium-tab-btn` (actif : fond or, `.starium-tab-btn--active`).
-  - **En retard**, **Mes projets** — `.starium-filter-chip` toggle ; état actif : `.starium-filter-chip--active` (or).
-  - **Plein écran** — bascule `requestFullscreen` sur `#starium-app-workspace` (`STARIUM_APP_WORKSPACE_DOM_ID`) puis `exitFullscreen` (icônes `Maximize2` / `Minimize`).
-  - **Réinitialiser** — `.starium-filter-chip--muted`, `onReset` (`use-projects-list-filters`).
-- **Pas** de `CardHeader` / `Button` shadcn sur cette barre — boutons natifs + classes DS (cohérent mockup Projets).
-- Conteneur sémantique : `role="search"` + `aria-label="Filtrer et trier la liste des projets"`.
+- Rendu **`embedded`** dans la `Card` liste ; **`hidden md:block`** sur la page (la barre desktop n’apparaît pas sur mobile).
+- Conteneur : **`.starium-filter-bar`** — titre **« Filtrer et trier »**.
+- **Actions** (`.starium-filter-bar-chips`) :
+  - **Tableau / Kanban** — `.starium-tab-group` (Kanban **desktop seulement**).
+  - **En retard**, **Mes projets** — `.starium-filter-chip` toggle.
+  - **Plein écran** — `requestFullscreen` sur `#starium-app-workspace`.
+  - **Toutes les colonnes** / **Colonnes de base** — bascule densité tableau (`columnDensity` : `basic` | `extended`, persistance `localStorage` clé `starium.projects.tableColumnDensity`) ; visible uniquement en mode **Tableau**.
+  - **Réinitialiser** — `.starium-filter-chip--muted`.
 
 ### 7.1.1 Portals en plein écran (Select / Tooltip / Dialog)
 
@@ -305,43 +305,41 @@ Quand `/projects` est en plein écran, les popups Base UI (`Select`, `Tooltip`, 
 
 Effet attendu : les filtres inline du tableau Projets (ligne 2 des en-têtes) restent utilisables en mode plein écran.
 
-### 7.2 Tableau : double ligne d’en-tête + filtres inline (`ProjectsListTable`)
+### 7.2 Tableau desktop — double ligne d’en-tête + filtres inline (`ProjectsListTableDesktop`)
 
-- Fichier : `apps/web/src/features/projects/components/projects-list-table.tsx`.
-- **`TooltipProvider delay={250}`** autour du `Table` pour les infobulles d’en-tête et de cellules.
-- Classe racine : **`starium-projects-table`** (`Table noWrapper`, `min-w-[64rem]`, typo ~12.5px).
-- **Première ligne** (`TableHeader` → `TableRow`) : en-têtes via `TableHead` (overline DS 9.5px, fond `bg-muted` sticky).
-  - **`HeaderTip`** : libellé souligné en pointillés + `cursor-help`, tooltip explicatif (pas de répétition du contenu en dessous).
-  - **`SortHeaderButton`** : tri sur colonnes concernées (`sortBy` / `sortOrder` dans les filtres) ; icônes `ArrowUp` / `ArrowDown` / `ArrowUpDown`.
-  - Colonnes typiques : **Catégorie**, **Projet** (tri nom), **Nature**, **Santé** (tri), **Statut** (tri), **Mon rôle**, **Avancement** (sous-titre « manuel / dérivé » + tri), **Échéance** (tri), **T · R · J**, **Signaux**, **Étiquettes**.
-- **Deuxième ligne** (`TableRow` avec `border-t border-border bg-neutral-50`) : **contrôles de filtre** alignés sur les colonnes — `Select` / `Input` en `size="sm"`, classe **`.starium-col-filter`**, `h-7`.
-  - **Catégorie** — `Select` groupé par racine (`SelectGroup` / `SelectLabel`), option « Toutes catégories » ; données `listProjectPortfolioCategories`.
-  - **Projet** — `Input` recherche texte (`search`), placeholder « Rechercher… ».
-  - **Nature** — `kind` : Projet / Activité (`PROJECT_KIND_LABEL`).
-  - **Santé** — `computedHealth` : Bon / Attention / Critique.
-  - **Statut** — `status` (`PROJECT_STATUS_LABEL`).
-  - **Mon rôle** — options dérivées des rôles présents dans les lignes affichées.
-  - Colonnes sans filtre sur cette ligne : **em dash** (`—`) centré en `text-muted-foreground` pour garder l’alignement visuel.
-- **Lignes de données** :
-  - **Catégorie** — deux lignes (groupe parent / sous-catégorie) : `.starium-cell-category-group` / `.starium-cell-category-sub`.
-  - **Projet** — lien `.starium-proj-name` (or), code `.starium-proj-code`, priorité `.starium-proj-priority`.
-  - **Avancement** — barres `.starium-progress-track` / `.starium-progress-fill` (manuel + dérivé) ; helper local `ProjectProgressRow`.
-  - **Échéance** — date en rouge si `signals.isLate`.
-  - **T · R · J** — séparateurs `·` ; risques en rouge si &gt; 0.
-  - **Signaux** — `ProjectPortfolioBadges` avec prop **`stacked`** (colonne alignée à droite).
-- **Colonnes sticky** (catégorie + projet) : `sticky left-0` / `left-[11rem]`, `z-20` / `z-52`, `starium-table-sticky-edge` pour le défilement horizontal.
-- **Largeur minimale** : `min-w-[64rem]` sur le `Table`.
+- Orchestrateur : `apps/web/src/features/projects/components/projects-list-table.tsx` — **`md:hidden`** → `ProjectsListMobileView` ; **`hidden md:block`** → `ProjectsListTableDesktop`.
+- Fichier tableau dense : `apps/web/src/features/projects/components/projects-list-table-desktop.tsx`.
+- **Densité colonnes** (`columnDensity`, défaut `basic`, persistance `localStorage`) :
+  - **`basic`** (7 colonnes) : Projet (icône catégorie + nom), Statut, Avancement (1 barre), Échéance, Budget (`ProjectsListBudgetSummary` : cible + consommé), **Responsable projet**, Actions.
+  - **`extended`** (12 colonnes) : tableau historique dense — Catégorie, Projet (code + criticité), Nature, Santé, Statut, Mon rôle, Chef de projets, Avancement manuel/dérivé, Échéance, T · R · J, Signaux, Étiquettes ; double ligne d’en-tête + filtres inline (détail ci-dessous).
+- Bascule **Toutes les colonnes** / **Colonnes de base** dans `ProjectsToolbar` (mode Tableau uniquement).
+- **`TooltipProvider delay={250}`** ; classe racine **`starium-projects-table`** (`Table noWrapper`, `min-w-[64rem]` en mode extended).
+- **Mode extended** — première ligne d’en-tête : `HeaderTip`, `SortHeaderButton` ; colonnes Catégorie, Projet, Nature, Santé, Statut, Mon rôle, Avancement, Échéance, T · R · J, Signaux, Étiquettes.
+- **Mode extended** — deuxième ligne : filtres `Select` / `Input` (`.starium-col-filter`, `h-7`) alignés sur les colonnes ; em dash `—` sur colonnes sans filtre.
+- **Lignes** : catégorie deux lignes ; lien projet `.starium-proj-name` ; barres `.starium-progress-track` / `.starium-progress-fill` ; `ProjectPortfolioBadges` `stacked` ; colonnes sticky catégorie + projet (`starium-table-sticky-edge`).
+
+### 7.4 Liste mobile — cartes (`ProjectsListMobileView`)
+
+- Fichier : `apps/web/src/features/projects/components/projects-list-mobile-view.tsx`.
+- **Barre locale** : champ recherche (`search`) + bouton **Filtrer** (ouvre bottom sheet `Dialog`).
+- **Chips rapides** : Mes projets, En retard, À risque (`atRiskOnly`).
+- **Bottom sheet** : `ProjectsPortfolioFiltersBar` avec prop `mobileSheet` ; footer **Réinitialiser** / **Appliquer** (pas de bascule Kanban sur mobile).
+- **Cartes** : `ProjectsListProjectCard` — barre statut colorée, progression, pied Fin / Budget+Consommé / Responsable ; menu `⋯` via `ProjectsListRowActionsMenu`.
+- **Toolbar desktop** (`ProjectsToolbar`) masquée sur mobile (`hidden md:block` sur la page).
+- Helpers partagés : `features/projects/lib/projects-list-display.ts` ; budget : `projects-list-budget-summary.tsx`.
 
 ### 7.3 Page — assemblage
 
 ```text
 PageContainer
-  PageHeader  (description : « Portefeuille · pilotage et signaux client »)
-  ProjectsPortfolioKpi   (.starium-kpi-strip)
+  PageHeader  (carte blanche ; actions responsives — §4)
+  ProjectsPortfolioKpi   (.starium-module + 4 × KpiCard dense)
   LoadingState / Alert erreur
-  Card starium-panel (liste, max-h + overflow-hidden)
-    ProjectsToolbar embedded   (.starium-filter-bar)
-    CardContent (scroll + useTablePan) → ProjectsListTable   (si données)
+  Card starium-panel (liste ; max-md: transparente)
+    ProjectsToolbar embedded   (hidden md:block — .starium-filter-bar)
+    CardContent (scroll + useTablePan) → ProjectsListTable
+      md:hidden → ProjectsListMobileView (cartes + bottom sheet filtres)
+      hidden md:block → ProjectsListTableDesktop (basic | extended)
     CardFooter starium-table-footer → PaginationSummary + chips Précédent / Suivant
     ou CardContent → EmptyState / LoadingState
 ```
@@ -397,12 +395,18 @@ Tables : composants `Table`, `TableHeader`, `TableBody`, etc. depuis `@/componen
 
 ### 8.1 Liste projets — `ProjectsListTable`
 
-Implémentation : `features/projects/components/projects-list-table.tsx`.
+Orchestrateur : `features/projects/components/projects-list-table.tsx`.
 
-- **Colonnes** : Projet (nom, code mono, criticité, responsable), **Nature** (badge), **Santé** (`HealthBadge` avec prop `**compact`** : libellés courts Bon / Attention / Critique), **Statut**, **Avancement** (une colonne : manuel au-dessus, dérivé en dessous), **Échéance**, **T · R · J** (tâches ouvertes / risques ouverts / jalons en retard), **Signaux** (`ProjectPortfolioBadges` uniquement — pas de répétition textuelle des `warnings` sous les pastilles).
-- **Largeur** : `min-w-[56rem]` sur la table pour scroll horizontal sur petits écrans.
-- **Tooltips** : `TooltipProvider` (délai ~250 ms) ; en-têtes via `**HeaderTip`** (libellés avec soulignement pointillé + `cursor-help`) ; cellules **Nature**, **Avancement** et **T · R · J** via `**CellTip`** (Base UI : `TooltipTrigger` avec `render={<span … />}` comme ailleurs dans l’app).
-- **Couleurs des chiffres** (KPI au-dessus de la liste, §6.1) : voir tonalités `text-primary`, `emerald`, `yellow`, `destructive` — documentées dans §6.1.
+**Mobile (`md:hidden`)** — `ProjectsListMobileView` + `ProjectsListProjectCard` : cartes empilées (RFC-FE-MOB-002), pas de `DataTable` générique ; recherche + bottom sheet filtres (§7.4).
+
+**Desktop (`hidden md:block`)** — `ProjectsListTableDesktop` :
+
+- **Densité `basic` (défaut)** : 7 colonnes — Projet, Statut, Avancement, Échéance, Budget (cible fiche + **consommé** agrégé liens FIXED via API `consumedBudgetAmount`), **Responsable projet** (libellé métier, avatar), Actions.
+- **Densité `extended`** : 12 colonnes — tableau dense historique avec double en-tête, filtres inline, colonnes sticky, `min-w-[64rem]` (scroll horizontal contrôlé — exception documentée RFC-FE-MOB-003).
+- **Budget / consommé** : composant partagé `ProjectsListBudgetSummary` ; consommé = somme des `budgetLine.consumedAmount` des liens projet ↔ ligne en mode **FIXED** (`projects.service.ts` → `consumedBudgetAmountsByProjectId`).
+- **Tooltips** : `TooltipProvider` (~250 ms) ; `HeaderTip` / `CellTip` en mode extended.
+- **Santé / signaux** : `HealthBadge` `compact` ; `ProjectPortfolioBadges` `stacked` (mode extended) ; pas de répétition textuelle des `warnings` sous les pastilles.
+- **Persistance UI** : `starium.projects.tableColumnDensity` (`basic` | `extended`) — `features/projects/lib/projects-table-column-density.ts`.
 
 ### 8.2 Fiche détail, fiche décisionnelle, éditeur de point — signaux et alertes
 
@@ -534,11 +538,11 @@ Liste vide : préférer une `**Card size="sm"**` autour de `EmptyState` (`CardCo
 
 Ordre recommandé dans `PageContainer` :
 
-1. `PageHeader` (titre « Projets », description `Portefeuille · pilotage et signaux client`, actions : CODIR + Gantt en `outline`, **Nouveau projet** en primaire or)
-2. **`ProjectsPortfolioKpi`** — bandeau **`.starium-kpi-strip`** (**§6.1**)
-3. **Une** `Card` liste : **`ProjectsToolbar` embedded** + **`ProjectsListTable`** (filtres inline sous les en-têtes — **§7**) + pagination en `CardFooter` **`.starium-table-footer`** ; pas de seconde carte « filtres » au-dessus du tableau sur cet écran.
+1. `PageHeader` (carte blanche §4 ; actions CODIR/Gantt responsives, **Nouveau projet** primaire)
+2. **`ProjectsPortfolioKpi`** — **`.starium-module`** + **4 × `KpiCard` dense** (**§6.1**)
+3. **Une** `Card` liste (transparente sur mobile) : **`ProjectsToolbar`** desktop + **`ProjectsListTable`** (cartes mobile §7.4 / tableau desktop §7.2) + pagination **`.starium-table-footer`**
 4. `LoadingState` / `**Alert` erreur API** (§9) / `**Card` + `EmptyState`**
-5. Détail tableau et colonnes : **§8** / **§8.1**
+5. Détail colonnes et budget : **§8** / **§8.1**
 
 Route : `app/(protected)/projects/page.tsx`.  
 Feature : `features/projects/` (hooks, `project-query-keys`, API).
@@ -729,4 +733,4 @@ Composants : `components/layout/filter-bar.tsx`, `filter-bar-field.tsx` (RFC-FE-
 
 ---
 
-*Dernière mise à jour : juin 2026 — chantier mobile-first (`RFC-FE-MOB-*`) : `FilterBar` §12.4.1, `DataTable` cartes ; refonte UI portefeuille Projets — `.starium-kpi-strip`, `.starium-filter-bar` / chips, tableau `.starium-projects-table` §6.1–§7.*
+*Dernière mise à jour : juin 2026 — portefeuille `/projects` mobile-first (cartes + bottom sheet filtres, RFC-FE-MOB-002/003) ; KPI 4 × `KpiCard` dense ; tableau desktop densité `basic`/`extended` + budget/consommé ; `PageHeader` carte blanche responsive.*

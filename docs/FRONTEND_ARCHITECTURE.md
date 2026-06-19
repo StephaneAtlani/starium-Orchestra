@@ -1149,13 +1149,15 @@ body {
 
 **Structure UX**
 
-1. **PageHeader** — titre « Projets », description `Portefeuille · pilotage et signaux client` ; actions secondaires **Présentation CODIR** et **Gantt portefeuille** en `buttonVariants({ variant: 'outline' })` ; **Nouveau projet** en `variant: 'default'` (or) derrière `PermissionGate` (`projects.create`).
+1. **PageHeader** — carte blanche (`.starium-page-header`) ; titre « Projets », description `Portefeuille · pilotage et signaux client` ; actions **Présentation CODIR** et **Gantt portefeuille** (icônes seules + `aria-label` sous `md`) ; **Nouveau projet** en `variant: 'default'` derrière `PermissionGate` (`projects.create`).
 2. **KPI** — `features/projects/components/projects-portfolio-kpi.tsx` :
-   * **`.starium-kpi-strip`** — une carte, 3 groupes (Volume / Risques & Échéances / Complétude), 9 indicateurs, valeurs 28px — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
+   * **`.starium-module`** + grille **4 × `KpiCard` `variant="dense"`** (pastilles icônes sémantiques) — détail [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §6.1 ;
    * données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
-3. **Filtres + liste** — `ProjectsToolbar` **embedded** (`.starium-filter-bar`, chips + tab-group) dans une `Card` **`starium-panel`** ; filtres inline sous les en-têtes du tableau (**§7** FRONTEND_UI-UX) ; pas de seconde carte filtres au-dessus.
-4. **Liste** — `CardContent` en `p-0` + `ProjectsListTable` (`Table noWrapper`, classe `starium-projects-table`, barres d’avancement, `starium-table-sticky-edge` sur colonnes figées).
-5. **Tableau** — `HealthBadge` **`compact`** ; colonne Avancement (barres manuel / dérivé) ; **T · R · J** ; `ProjectPortfolioBadges` **`stacked`** ; tooltips `HeaderTip` / `CellTip`.
+3. **Filtres + liste** — `ProjectsToolbar` **embedded** (`.starium-filter-bar`, **`hidden md:block`**) dans une `Card` **`starium-panel`** ; sur mobile, filtres via `ProjectsListMobileView` (bottom sheet) — **§7.4** FRONTEND_UI-UX.
+4. **Liste** — `ProjectsListTable` orchestre :
+   * **mobile** : `ProjectsListMobileView` + `ProjectsListProjectCard` ;
+   * **desktop** : `ProjectsListTableDesktop` (`Table noWrapper`, `starium-projects-table`, densité `basic` | `extended`, persistance `localStorage`).
+5. **Tableau desktop** — mode `basic` : budget/consommé (`ProjectsListBudgetSummary`, champs API `targetBudgetAmount` / `consumedBudgetAmount`) ; mode `extended` : `HealthBadge` **`compact`**, barres avancement, **T · R · J**, `ProjectPortfolioBadges` **`stacked`**, filtres inline, tooltips `HeaderTip` / `CellTip`.
 6. **États** — `LoadingState`, erreur API, `EmptyState`.
 7. **Pagination** — `CardFooter` **`.starium-table-footer`** + `PaginationSummary` + boutons `.starium-filter-chip`.
 
@@ -1179,12 +1181,21 @@ features/projects/
 ├── components/
 │   ├── projects-portfolio-kpi.tsx
 │   ├── projects-toolbar.tsx
-│   ├── projects-list-table.tsx
+│   ├── projects-list-table.tsx          # orchestrateur mobile + desktop
+│   ├── projects-list-table-desktop.tsx
+│   ├── projects-list-mobile-view.tsx
+│   ├── projects-list-project-card.tsx
+│   ├── projects-list-budget-summary.tsx
+│   ├── projects-list-row-actions-menu.tsx
+│   ├── projects-portfolio-filters-bar.tsx
 │   ├── project-badges.tsx          # HealthBadge, ProjectPortfolioBadges
 │   ├── project-create-form.tsx
 │   └── project-detail-view.tsx
 ├── types/project.types.ts
-├── lib/project-query-keys.ts
+├── lib/
+│   ├── projects-list-display.ts
+│   ├── projects-table-column-density.ts
+│   └── project-query-keys.ts
 └── constants/project-routes.ts
 ```
 

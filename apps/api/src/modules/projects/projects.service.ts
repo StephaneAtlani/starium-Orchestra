@@ -11,6 +11,7 @@ import {
   OrgUnitType,
   Prisma,
   Project,
+  ProjectBudgetAllocationType,
   ProjectMilestone,
   ProjectRisk,
   ProjectStatus,
@@ -146,6 +147,9 @@ export type ProjectListItemDto = {
   ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
   stewardResourceId: string | null;
   stewardSummary: StewardSummaryDto;
+  targetBudgetAmount: string | null;
+  /** Somme des `consumedAmount` des lignes liées en allocation FIXED. */
+  consumedBudgetAmount: string | null;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -614,7 +618,39 @@ export class ProjectsService {
       ownerOrgUnitSummary: toOwnerOrgUnitSummary(project.ownerOrgUnit),
       stewardResourceId: project.stewardResourceId ?? null,
       stewardSummary: toStewardSummary(project.steward),
+      targetBudgetAmount: project.targetBudgetAmount?.toString() ?? null,
+      consumedBudgetAmount: null,
     };
+  }
+
+  /** Consommé portefeuille : somme des consommations des lignes budgétaires (liens FIXED). */
+  private async consumedBudgetAmountsByProjectId(
+    clientId: string,
+    projectIds: string[],
+  ): Promise<Map<string, string>> {
+    if (projectIds.length === 0) return new Map();
+
+    const links = await this.prisma.projectBudgetLink.findMany({
+      where: {
+        clientId,
+        projectId: { in: projectIds },
+        allocationType: ProjectBudgetAllocationType.FIXED,
+      },
+      select: {
+        projectId: true,
+        budgetLine: { select: { consumedAmount: true } },
+      },
+    });
+
+    const sums = new Map<string, Prisma.Decimal>();
+    for (const link of links) {
+      const prev = sums.get(link.projectId) ?? new Prisma.Decimal(0);
+      sums.set(link.projectId, prev.add(link.budgetLine.consumedAmount));
+    }
+
+    return new Map(
+      [...sums.entries()].map(([projectId, total]) => [projectId, total.toString()]),
+    );
   }
 
   async assertProjectPortfolioSubCategory(
@@ -906,6 +942,15 @@ export class ProjectsService {
     if (query.lateOnly) {
       enriched = enriched.filter((item) => item.signals.isLate);
     }
+
+    const consumedByProjectId = await this.consumedBudgetAmountsByProjectId(
+      clientId,
+      enriched.map((item) => item.id),
+    );
+    enriched = enriched.map((item) => ({
+      ...item,
+      consumedBudgetAmount: consumedByProjectId.get(item.id) ?? null,
+    }));
 
     const sortBy = query.sortBy ?? 'targetEndDate';
     const order = query.sortOrder ?? 'asc';

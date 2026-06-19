@@ -84,6 +84,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - **Statuts « actifs »** pour plusieurs signaux (ex. absence de tâches / jalons / risques) : `PLANNED`, `IN_PROGRESS`, `ON_HOLD` (aligné sur la RFC plan « projet actif »).
 - **`isBlocked` / `BLOCKED`** : **`ON_HOLD` uniquement**. Les risques `OPEN` à criticité HIGH/CRITICAL influencent la **santé** (`RED`) et `isCritical`, mais ne déclenchent plus l’alerte « Bloqué ».
 - **Warnings** : codes `NO_OWNER`, `NO_TASKS`, `NO_RISKS`, `NO_MILESTONES`, `PLANNING_DRIFT`, `BLOCKED`.
+- **Budget liste** : chaque item de `GET /projects` expose **`targetBudgetAmount`** (budget cible fiche) et **`consumedBudgetAmount`** (agrégat consommé des liens **FIXED** — `consumedBudgetAmountsByProjectId` dans `projects.service.ts`).
 - **Détail des règles** (santé RED/ORANGE/GREEN, chaque booléen `signals`, correspondance pastilles vs alertes) : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.3.
 
 ---
@@ -94,7 +95,7 @@ Détail des corps et réponses : [docs/API.md](../API.md) §21.
 - **Routes** : `apps/web/src/app/(protected)/projects/` — `/projects`, `/projects/new`, `/projects/[projectId]`, `/projects/[projectId]/options`, `/projects/[projectId]/planning`, `/projects/[projectId]/sheet`, `/projects/options` (entrée sidebar **Option** module — placeholder ou paramètres globaux module)
 - **Navigation** : `apps/web/src/config/navigation.ts` — entrée **Projets** en sous-menu (survol, même principe que Budgets) : **Portefeuille projet** → `/projects`, **Option** → `/projects/options` ; implémentation `apps/web/src/components/shell/sidebar.tsx`. `moduleCode: 'projects'`, `requiredPermissions: ['projects.read']`
 - **Sécurité UI** : `RequireActiveClient`, `PermissionGate`, données via `authFetch` + TanStack Query — **pas** de calcul cockpit de santé côté client (affichage des champs renvoyés par l’API)
-- **Cockpit liste** : filtres incluant **nature** (`kind`) ; KPI portefeuille en **bandeau strip** (`.starium-kpi-strip`, 3 groupes / 9 indicateurs) ; barre **Filtrer et trier** (`.starium-filter-bar`) + tableau dense — [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6.1, §7.
+- **Cockpit liste** : **mobile** — cartes `ProjectsListMobileView` + bottom sheet filtres (RFC-FE-MOB-002/003) ; **desktop** — `ProjectsToolbar` + tableau `ProjectsListTableDesktop` (densité colonnes `basic` | `extended`, budget/consommé §4) ; KPI **4 × `KpiCard` dense** dans `.starium-module` — [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6.1, §7, §8.1.
 - **Signaux / alertes (détail & fiches)** : même jeu `computedHealth` + `signals` + `warnings` qu’en liste ; éviter la surcharge du header — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.2.
 - **Création** : formulaire **deux colonnes** sur grand écran ; responsable désigné soit via compte client, soit via identité nom libre (**Interne/Externe**) depuis le répertoire **`GET /api/projects/assignable-users`** (`users` + `freePersons`), pas l’endpoint admin global utilisateurs.
 

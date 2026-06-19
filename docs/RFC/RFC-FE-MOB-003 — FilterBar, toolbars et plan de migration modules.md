@@ -186,7 +186,7 @@ Composant : `FilterBarCollapsible` — extension optionnelle, non requise pour L
 | Module | Routes / composants | DataTable cartes | FilterBar |
 | ------ | ------------------- | ---------------- | --------- |
 | **Contrats** | `/contracts` | ✅ | ✅ |
-| **Projets** | `/projects`, `/projects/requests` | ✅ (cartes) | ✅ toolbar ; **liste dense** `projects-list-table` = scroll horizontal (exception) |
+| **Projets** | `/projects`, `/projects/requests` | ✅ cartes custom (`ProjectsListMobileView` / `ProjectsListProjectCard` — **pas** `DataTable` générique) | ✅ toolbar desktop (`hidden md:block`) ; bottom sheet filtres mobile ; **liste dense desktop** `projects-list-table-desktop` = scroll horizontal + densité `basic`/`extended` (exception) |
 | **Budgets** | `/budgets`, `/budgets/exercises` | ✅ | ✅ |
 | **Fournisseurs** | `/suppliers`, `/suppliers/contacts` | ✅ | ✅ |
 | **Procurement** | PO / factures listes | ✅ | ✅ |

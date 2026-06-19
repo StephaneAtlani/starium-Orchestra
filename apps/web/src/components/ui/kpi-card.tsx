@@ -9,6 +9,8 @@ export interface KpiCardProps {
   /** Évolution positive (ex. "+5 %") — affiché en vert. */
   trend?: string;
   icon?: React.ReactNode;
+  /** Remplace le wrapper or par défaut (pastille colorée, etc.). */
+  iconWrapperClassName?: string;
   /**
    * `dense` — grilles cockpit multi-KPI (portefeuille projets, tableaux de bord compacts).
    * `default` — carte hero (dashboard, détail budget).
@@ -22,6 +24,7 @@ export function KpiCard({
   subtitle,
   trend,
   icon,
+  iconWrapperClassName,
   variant = 'default',
 }: KpiCardProps) {
   const dense = variant === 'dense';
@@ -36,8 +39,13 @@ export function KpiCard({
         {icon && (
           <div
             className={cn(
-              'flex shrink-0 items-center justify-center text-[color:var(--brand-gold)]',
-              dense ? '[&_svg]:size-7' : '[&_svg]:size-[38px] [&_svg]:[stroke-width:1.5]',
+              'flex shrink-0 items-center justify-center',
+              iconWrapperClassName ?? 'text-[color:var(--brand-gold)]',
+              dense
+                ? iconWrapperClassName
+                  ? '[&_svg]:size-5'
+                  : '[&_svg]:size-7'
+                : '[&_svg]:size-[38px] [&_svg]:[stroke-width:1.5]',
             )}
           >
             {icon}
