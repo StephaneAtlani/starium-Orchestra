@@ -31,6 +31,22 @@ export function formatProjectDateLong(iso: string | null) {
   }
 }
 
+/** Date + heure locale (fiche / synthèse — pas de « Aujourd'hui » relatif). */
+export function formatProjectDateTimeFr(iso: string | null) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
+
 export function projectOwnerInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';

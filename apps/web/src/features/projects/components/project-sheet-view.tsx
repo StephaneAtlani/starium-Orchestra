@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -96,7 +96,7 @@ import { CreateScenarioDialog } from '../scenarios/CreateScenarioDialog';
 import { ScenarioWorkspacePage } from '../scenario-workspace/ScenarioWorkspacePage';
 import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectTeamMatrix } from './project-team-matrix';
-import { ProjectWorkspaceTabs } from './project-workspace-tabs';
+import { ProjectWorkspaceShell } from './project-workspace-shell';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { computeRoiFromCostGain } from '../lib/project-sheet-priority-preview';
 import { mapAuditPayloadToProjectSheet } from '../lib/map-audit-payload-to-project-sheet';
@@ -971,22 +971,34 @@ export function ProjectSheetView({
     );
   }
 
+  const pageShell = (content: ReactNode) =>
+    embedMode === 'page' ? (
+      <ProjectWorkspaceShell
+        projectId={projectId}
+        bannerExtraActions={<SubmitProjectToCycleDialog projectId={projectId} />}
+      >
+        {content}
+      </ProjectWorkspaceShell>
+    ) : (
+      content
+    );
+
   if (!sheetReadOnlyOverride) {
     if (isLoading) {
-      return <LoadingState rows={6} />;
+      return pageShell(<LoadingState rows={6} />);
     }
 
     if (error || !querySheet) {
-      return (
+      return pageShell(
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           Fiche introuvable ou accès refusé.
-        </div>
+        </div>,
       );
     }
   }
 
   if (!sheet) {
-    return <LoadingState rows={6} />;
+    return pageShell(<LoadingState rows={6} />);
   }
 
   const fmtRoi = (n: number | null) =>
@@ -1029,121 +1041,8 @@ export function ProjectSheetView({
           ? 'ROI non calculable (coût nul ou données insuffisantes)'
           : null;
 
-  return (
+  const sheetBody = (
     <div className={cn('space-y-6', projectSheetChromeClass)}>
-      {embedMode === 'page' ? (
-        <div className="space-y-5">
-          <header className="flex flex-col gap-5">
-            <div className="space-y-3">
-              <Link
-                href={projectsList()}
-                className={cn(
-                  buttonVariants({ variant: 'ghost', size: 'sm' }),
-                  '-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <ChevronLeft className="size-4" />
-                Portefeuille projets
-              </Link>
-              <PageHeader
-                title={
-                  projectDetailQuery.data?.name ??
-                  (projectName.trim() || sheet.name)
-                }
-                description={
-                  projectDetailQuery.data?.code
-                    ? `Code : ${projectDetailQuery.data.code}`
-                    : sheet.code
-                      ? `Code : ${sheet.code}`
-                      : undefined
-                }
-                actions={
-                  <div className="flex flex-wrap items-center gap-2">
-                    <SubmitProjectToCycleDialog projectId={projectId} />
-                    {projectDetailQuery.data ? (
-                      <HealthBadge
-                        health={projectDetailQuery.data.computedHealth}
-                        merged={badgeMerged}
-                      />
-                    ) : projectDetailQuery.isLoading ? (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        aria-live="polite"
-                      >
-                        Chargement santé…
-                      </span>
-                    ) : null}
-                  </div>
-                }
-              />
-            </div>
-
-            {projectDetailQuery.data ? (
-              <>
-                <div className="min-w-0">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Signaux portefeuille
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <ProjectPortfolioBadges
-                      signals={projectDetailQuery.data.signals}
-                      merged={badgeMerged}
-                    />
-                  </div>
-                </div>
-                {projectDetailQuery.data.warnings.length > 0 ? (
-                  <Alert
-                    className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-600"
-                    role="status"
-                  >
-                    <AlertTriangle
-                      className="text-amber-800 dark:text-amber-600"
-                      aria-hidden
-                    />
-                    <AlertTitle className="font-semibold text-amber-950 dark:text-amber-600">
-                      Alertes projet
-                    </AlertTitle>
-                    <AlertDescription className="text-amber-950/95 dark:text-amber-600/95">
-                      {projectDetailQuery.data.warnings
-                        .map((w) => WARNING_CODE_LABEL[w] ?? w)
-                        .join(' · ')}
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
-              </>
-            ) : null}
-          </header>
-
-          <Suspense
-            fallback={
-              <Card
-                size="sm"
-                data-workspace-tabs=""
-                className="min-w-0 overflow-hidden py-0 shadow-sm"
-                aria-hidden
-              >
-                <CardHeader className="space-y-0 border-b border-border/60 bg-muted/35 px-3 py-3.5 sm:px-5">
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-muted/60 ring-1 ring-border/50" />
-                </CardHeader>
-              </Card>
-            }
-          >
-            <Card
-              size="sm"
-              data-workspace-tabs=""
-              className="min-w-0 overflow-hidden py-0 shadow-sm"
-            >
-                <CardHeader className="space-y-0 border-b border-border/60 bg-muted/35 px-3 py-3.5 sm:px-5">
-                  <ProjectWorkspaceTabs
-                  projectId={projectId}
-                  projectStatus={projectDetailQuery.data?.status ?? projectStatus}
-                />
-              </CardHeader>
-            </Card>
-          </Suspense>
-        </div>
-      ) : null}
-
       {embedMode === 'page' ? <ProjectTeamMatrix projectId={projectId} /> : null}
 
       {/* A — Équipes impliquées */}
@@ -2842,4 +2741,10 @@ export function ProjectSheetView({
       )}
     </div>
   );
+
+  if (embedMode === 'page') {
+    return pageShell(sheetBody);
+  }
+
+  return sheetBody;
 }

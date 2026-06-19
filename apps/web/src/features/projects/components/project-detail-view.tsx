@@ -1,9 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
@@ -19,12 +18,9 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
-import { AccessExplainerPopover } from '@/features/access-diagnostics/components/access-explainer-popover';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
-import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import {
   MILESTONE_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -36,19 +32,15 @@ import {
   RISK_TIER_LABEL,
   WARNING_CODE_LABEL,
 } from '../constants/project-enum-labels';
-import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
+import { ProjectPortfolioBadges } from './project-badges';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
-import { projectDetail, projectsList, projectPlanning, projectSheet } from '../constants/project-routes';
+import { projectPlanning, projectSheet } from '../constants/project-routes';
 import { cn } from '@/lib/utils';
 import {
-  AlertCircle,
   AlertTriangle,
   CalendarRange,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
   Flag,
   GanttChart,
   Kanban,
@@ -58,8 +50,8 @@ import {
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectGovernanceCyclesPresenceBlock } from '@/features/governance-cycles/components/project-governance-cycles-presence-block';
 import { ProjectReviewsTab } from './project-reviews-tab';
-import { ProjectWorkspaceTabs } from './project-workspace-tabs';
-import type { ProjectDetail } from '../types/project.types';
+import { ProjectSynthesisOverviewCards } from './project-synthesis-overview-cards';
+import { ProjectWorkspaceShell } from './project-workspace-shell';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -74,11 +66,6 @@ import {
   removeStrategicObjectiveLink,
 } from '@/features/strategic-vision/api/strategic-vision.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import {
-  findDraftPostMortemReview,
-  hasFinalizedPostMortemReview,
-  isPostMortemEligibleProjectStatus,
-} from '../lib/project-review-post-mortem';
 import { formatCurrencyAmountFr } from '@/lib/currency-format';
 import { usePermissions } from '@/hooks/use-permissions';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
@@ -108,33 +95,8 @@ function formatOwnerOrgSummary(summary: OwnerOrgUnitSummary | undefined): string
   return `${summary.name}${code}`;
 }
 
-function KpiTile({
-  label,
-  value,
-  title,
-}: {
-  label: string;
-  value: ReactNode;
-  title?: string;
-}) {
-  return (
-    <div
-      className="rounded-lg border border-border/60 bg-muted/15 px-2.5 py-2"
-      title={title}
-    >
-      <p className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <div className="mt-1 min-h-[1.25rem] text-base font-semibold tabular-nums leading-tight text-foreground">
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function ProjectDetailTabbedContent({
   projectId,
-  project,
   risks,
   badgeMerged,
   canReadStrategicVision,
@@ -142,13 +104,13 @@ function ProjectDetailTabbedContent({
   canUpdateProject,
 }: {
   projectId: string;
-  project: ProjectDetail;
   risks: ReturnType<typeof useProjectRisksQuery>;
   badgeMerged: MergedUiBadges;
   canReadStrategicVision: boolean;
   canManageStrategicLinks: boolean;
   canUpdateProject: boolean;
 }) {
+  const { data: project } = useProjectDetailQuery(projectId);
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const { activeClient } = useActiveClient();
@@ -156,15 +118,11 @@ function ProjectDetailTabbedContent({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [tagToAdd, setTagToAdd] = useState<string>('');
   const [showTagPicker, setShowTagPicker] = useState(false);
-  const [editableType, setEditableType] = useState(project.type);
-  const [editableStatus, setEditableStatus] = useState(project.status);
-  const [editablePortfolioCategoryId, setEditablePortfolioCategoryId] = useState<string>(
-    project.portfolioCategory?.id ?? '__none__',
-  );
+  const [editableType, setEditableType] = useState('');
+  const [editableStatus, setEditableStatus] = useState('');
+  const [editablePortfolioCategoryId, setEditablePortfolioCategoryId] = useState<string>('__none__');
   const [editableStrategicObjectiveId, setEditableStrategicObjectiveId] = useState<string>('__none__');
-  const [editableOwnerOrgUnitId, setEditableOwnerOrgUnitId] = useState<string | null>(
-    project.ownerOrgUnitId ?? null,
-  );
+  const [editableOwnerOrgUnitId, setEditableOwnerOrgUnitId] = useState<string | null>(null);
   const [activeInlineEdit, setActiveInlineEdit] = useState<
     'type' | 'status' | 'portfolioCategory' | 'strategicObjective' | 'ownerOrgUnit' | null
   >(null);
@@ -177,14 +135,16 @@ function ProjectDetailTabbedContent({
     enabled: canReadStrategicVision,
   });
   useEffect(() => {
+    if (!project) return;
     setSelectedTagIds(project.tags.map((tag) => tag.id));
-  }, [project.tags]);
+  }, [project]);
   useEffect(() => {
+    if (!project) return;
     setEditableType(project.type);
     setEditableStatus(project.status);
     setEditablePortfolioCategoryId(project.portfolioCategory?.id ?? '__none__');
     setEditableOwnerOrgUnitId(project.ownerOrgUnitId ?? null);
-  }, [project.type, project.status, project.portfolioCategory?.id, project.ownerOrgUnitId]);
+  }, [project]);
 
   useEffect(() => {
     if (searchParams.get('focus') === 'ownership' && canUpdateProject) {
@@ -263,9 +223,9 @@ function ProjectDetailTabbedContent({
           await addStrategicObjectiveLink(authFetch, nextObjectiveId, {
             linkType: 'PROJECT',
             targetId: projectId,
-            targetLabelSnapshot: project.code
+            targetLabelSnapshot: project?.code
               ? `${project.code} - ${project.name}`
-              : project.name,
+              : project?.name ?? '',
           });
         }
       }
@@ -285,7 +245,7 @@ function ProjectDetailTabbedContent({
     rootId: root.id,
     rootName: root.name,
     children: (root.children ?? [])
-      .filter((child) => child.isActive || child.id === project.portfolioCategory?.id)
+      .filter((child) => child.isActive || child.id === project?.portfolioCategory?.id)
       .map((child) => ({
         id: child.id,
         label: child.name,
@@ -299,9 +259,9 @@ function ProjectDetailTabbedContent({
     editablePortfolioCategoryId === '__none__'
       ? 'Non definie'
       : categoryOptions.find((option) => option.id === editablePortfolioCategoryId)?.label ??
-        (project.portfolioCategory?.parentName
+        (project?.portfolioCategory?.parentName
           ? `${project.portfolioCategory.parentName} / ${project.portfolioCategory.name}`
-          : project.portfolioCategory?.name ?? 'Non definie');
+          : project?.portfolioCategory?.name ?? 'Non definie');
   const selectedTypeLabel = PROJECT_TYPE_LABEL[editableType] ?? editableType;
   const selectedStatusLabel = PROJECT_STATUS_LABEL[editableStatus] ?? editableStatus;
 
@@ -311,24 +271,24 @@ function ProjectDetailTabbedContent({
   };
 
   const planningProgressPct =
-    project.derivedProgressPercent ?? project.progressPercent ?? null;
+    project?.derivedProgressPercent ?? project?.progressPercent ?? null;
   const planningSignalChips: {
     show: boolean;
     label: string;
     className: string;
   }[] = [
     {
-      show: project.signals.hasNoTasks,
+      show: project?.signals.hasNoTasks ?? false,
       label: 'Aucune tâche',
       className: 'border-border bg-muted/60 text-muted-foreground',
     },
     {
-      show: project.signals.hasNoMilestones,
+      show: project?.signals.hasNoMilestones ?? false,
       label: 'Aucun jalon',
       className: 'border-border bg-muted/60 text-muted-foreground',
     },
     {
-      show: project.signals.hasPlanningDrift,
+      show: project?.signals.hasPlanningDrift ?? false,
       label: 'Dérive planning',
       className:
         'border-amber-300/80 bg-amber-50 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90',
@@ -361,13 +321,6 @@ function ProjectDetailTabbedContent({
     [risks.data],
   );
 
-  const milestonesTotal = useMemo(() => {
-    const m = milestonesQuery.data;
-    if (!m) return 0;
-    return m.total ?? m.items.length;
-  }, [milestonesQuery.data]);
-
-  const kpiProgressPct = project.derivedProgressPercent ?? project.progressPercent;
   const strategicObjectivesForProject = useMemo(() => {
     const objectives = strategicObjectivesQuery.data ?? [];
     return objectives.filter((objective) =>
@@ -421,28 +374,31 @@ function ProjectDetailTabbedContent({
     setEditableStrategicObjectiveId(strategicObjectivesForProject[0]?.id ?? '__none__');
   }, [strategicObjectivesForProject]);
 
+  if (!project) {
+    return <LoadingState rows={6} />;
+  }
+
   return (
-    <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
-      <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-        <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
-      </CardHeader>
-      <CardContent
-        className={
-          showPoints
-            ? 'p-4 sm:p-6'
-            : 'flex w-full min-w-0 flex-col gap-6 p-4 sm:p-6'
-        }
-      >
-        {showPoints ? (
-          <Suspense fallback={<LoadingState rows={4} />}>
-            <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
-          </Suspense>
-        ) : (
-          <>
-        <div className="grid gap-4 lg:grid-cols-3">
+    <>
+      {showPoints ? (
+        <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
+          <CardContent className="p-4 sm:p-6">
+            <Suspense fallback={<LoadingState rows={4} />}>
+              <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
+            </Suspense>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex w-full min-w-0 flex-col gap-6">
+          <ProjectSynthesisOverviewCards
+            projectId={projectId}
+            project={project}
+            badgeMerged={badgeMerged}
+          />
+
           <section
             className={cn(
-              'min-w-0 rounded-xl border border-border/70 bg-card p-4 shadow-sm lg:col-span-2',
+              'min-w-0 rounded-xl border border-border/70 bg-card p-4 shadow-sm',
               'border-l-[3px] border-l-sky-500/70',
             )}
             aria-labelledby="project-detail-info-heading"
@@ -916,76 +872,9 @@ function ProjectDetailTabbedContent({
             </div>
           </section>
 
-          <section
-            className="min-w-0 rounded-lg border border-border bg-transparent px-3 py-2.5 lg:col-span-1"
-            aria-labelledby="project-detail-kpi-heading"
-          >
-            <h2
-              id="project-detail-kpi-heading"
-              className="mb-2 border-b border-border/70 pb-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground"
-            >
-              Indicateurs
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="col-span-2 rounded-lg border border-border/60 bg-muted/15 px-2.5 py-2">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Santé
-                </p>
-                <div className="mt-1.5">
-                  <HealthBadge
-                    health={project.computedHealth}
-                    compact
-                    merged={badgeMerged}
-                  />
-                </div>
-              </div>
-              <KpiTile
-                label="Avancement"
-                title="Dérivé des tâches, sinon saisie manuelle"
-                value={
-                  kpiProgressPct != null ? (
-                    <span>{Math.round(kpiProgressPct)}&nbsp;%</span>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )
-                }
-              />
-              <KpiTile
-                label="Criticité"
-                value={
-                  PROJECT_CRITICALITY_LABEL[project.criticality] ?? project.criticality
-                }
-              />
-              <KpiTile
-                label="Tâches ouv."
-                title="Tâches non terminées"
-                value={project.openTasksCount}
-              />
-              <KpiTile
-                label="Risques ouv."
-                title="Risques non clôturés"
-                value={project.openRisksCount}
-              />
-              <KpiTile
-                label="Risques crit."
-                title="Risques P×I élevée (criticité HAUTE)"
-                value={criticalRisksCount}
-              />
-              <KpiTile label="Jalons" title="Nombre de jalons" value={milestonesTotal} />
-              <KpiTile
-                label="Jalons ret."
-                title="Jalons en retard"
-                value={project.delayedMilestonesCount}
-              />
-              <KpiTile
-                label="Priorité"
-                value={PROJECT_PRIORITY_LABEL[project.priority] ?? project.priority}
-              />
-            </div>
-          </section>
+        <div id="project-budget" className="scroll-mt-24">
+          <ProjectBudgetSection projectId={projectId} />
         </div>
-
-        <ProjectBudgetSection projectId={projectId} />
 
         <ProjectGovernanceCyclesPresenceBlock projectId={projectId} />
 
@@ -1307,192 +1196,36 @@ function ProjectDetailTabbedContent({
           </CardContent>
         </Card>
 
-          </>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </>
   );
 }
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
-  const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
   const risks = useProjectRisksQuery(projectId);
   const { merged: badgeMerged } = useClientUiBadgeConfig();
   const { has } = usePermissions();
   const canUpdateProject = has('projects.update');
   const canReadStrategicVision = has('strategic_vision.read');
   const canManageStrategicLinks = has('strategic_vision.manage_links');
-  const showPostMortemHeaderCta =
-    project != null &&
-    isPostMortemEligibleProjectStatus(project.status) &&
-    canUpdateProject;
-
-  const reviewsForRexCta = useProjectReviewsQuery(projectId, {
-    enabled: showPostMortemHeaderCta,
-  });
-  const draftRexForHeader = useMemo(
-    () => findDraftPostMortemReview(reviewsForRexCta.data),
-    [reviewsForRexCta.data],
-  );
-  const rexHeaderHref = useMemo(
-    () =>
-      draftRexForHeader
-        ? `${projectDetail(projectId)}?tab=points&openReview=${draftRexForHeader.id}`
-        : `${projectDetail(projectId)}?tab=points&createRetourExperience=1`,
-    [projectId, draftRexForHeader],
-  );
-
-  /** Masquer le lien si un REX est figé, sauf s’il reste un brouillon à reprendre. */
-  const hidePostMortemHeaderCtaBecauseFinalized =
-    reviewsForRexCta.isSuccess &&
-    hasFinalizedPostMortemReview(reviewsForRexCta.data) &&
-    !findDraftPostMortemReview(reviewsForRexCta.data);
-
-  if (!projectId) {
-    return (
-      <p className="text-sm text-destructive">Identifiant de projet manquant.</p>
-    );
-  }
-
-  if (isLoading) {
-    return <LoadingState rows={6} />;
-  }
-
-  if (error || !project) {
-    return (
-      <Alert variant="destructive" className="border-destructive/40">
-        <AlertCircle aria-hidden />
-        <AlertTitle>Projet introuvable</AlertTitle>
-        <AlertDescription>
-          Vous n’avez pas accès à ce projet ou il n’existe plus.
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   return (
-    <>
-      <header className="flex flex-col gap-5">
-        <div className="space-y-3">
-          <Link
-            href={projectsList()}
-            className={cn(
-              buttonVariants({ variant: 'ghost', size: 'sm' }),
-              '-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <ChevronLeft className="size-4" />
-            Portefeuille projets
-          </Link>
-          <PageHeader
-            title={project.name}
-            description={project.code ? `Code : ${project.code}` : undefined}
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <HealthBadge health={project.computedHealth} merged={badgeMerged} />
-                <ResourceAclTriggerButton
-                  resourceType="PROJECT"
-                  resourceId={project.id}
-                  resourceLabel={project.name}
-                  size="sm"
-                />
-                <AccessExplainerPopover
-                  resourceType="PROJECT"
-                  resourceId={project.id}
-                  resourceLabel={project.name}
-                  intent="READ"
-                />
-              </div>
-            }
-          />
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Signaux portefeuille</p>
-            <div className="flex flex-wrap gap-2">
-              <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
-            </div>
-          </div>
-          {showPostMortemHeaderCta && !hidePostMortemHeaderCtaBecauseFinalized ? (
-            <div className="shrink-0 w-full sm:max-w-sm">
-              {reviewsForRexCta.isLoading ? (
-                <div
-                  className="flex h-14 w-full animate-pulse rounded-lg border border-violet-500/30 bg-muted/40 dark:border-violet-400/25"
-                  aria-hidden
-                />
-              ) : (
-                <Link
-                  href={rexHeaderHref}
-                  scroll={false}
-                  className={cn(
-                    'group flex w-full items-center gap-2 rounded-lg border px-3 py-2 shadow-sm transition-all',
-                    'border-violet-500/50 bg-gradient-to-br from-violet-500/15 via-violet-500/[0.07] to-card',
-                    'dark:border-violet-400/45 dark:from-violet-400/20 dark:via-violet-500/10 dark:to-card',
-                    'hover:border-violet-500/70 hover:shadow-md hover:from-violet-500/20',
-                    'dark:hover:border-violet-400/60',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2',
-                  )}
-                >
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white shadow-sm dark:bg-violet-500"
-                    aria-hidden
-                  >
-                    <ClipboardList className="size-4" strokeWidth={2.25} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-left">
-                    <span className="block text-sm font-semibold leading-tight tracking-tight text-foreground">
-                      {draftRexForHeader
-                        ? "Continuer le retour d'expérience"
-                        : "Créer un retour d'expérience"}
-                    </span>
-                    <span className="mt-0.5 block text-[0.7rem] leading-snug text-muted-foreground">
-                      {draftRexForHeader
-                        ? 'Reprendre le brouillon en cours'
-                        : 'Objectifs, écarts, leçons — clôture de projet'}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    className="size-4 shrink-0 text-violet-600 opacity-70 transition-transform group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-violet-400"
-                    aria-hidden
-                  />
-                </Link>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        {project.warnings.length > 0 && (
-          <Alert
-            className="border-amber-500/35 bg-amber-500/5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-600"
-            role="status"
-          >
-            <AlertTriangle className="text-amber-800 dark:text-amber-600" aria-hidden />
-            <AlertTitle className="font-semibold text-amber-950 dark:text-amber-600">
-              Alertes projet
-            </AlertTitle>
-            <AlertDescription className="text-amber-950/95 dark:text-amber-600/95">
-              {project.warnings.map((w) => WARNING_CODE_LABEL[w] ?? w).join(' · ')}
-            </AlertDescription>
-          </Alert>
-        )}
-      </header>
-
+    <ProjectWorkspaceShell projectId={projectId}>
       <Suspense
         fallback={
-          <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
-            <CardHeader className="border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-              <LoadingState rows={1} />
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <LoadingState rows={6} />
-            </CardContent>
-          </Card>
+          <div className="flex flex-col gap-6">
+            <LoadingState rows={2} />
+            <Card size="sm" className="overflow-hidden shadow-sm">
+              <CardContent className="p-4 sm:p-6">
+                <LoadingState rows={6} />
+              </CardContent>
+            </Card>
+          </div>
         }
       >
         <ProjectDetailTabbedContent
           projectId={projectId}
-          project={project}
           risks={risks}
           badgeMerged={badgeMerged}
           canReadStrategicVision={canReadStrategicVision}
@@ -1500,6 +1233,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           canUpdateProject={canUpdateProject}
         />
       </Suspense>
-    </>
+    </ProjectWorkspaceShell>
   );
 }

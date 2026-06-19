@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import { ChevronLeft, Plus } from 'lucide-react';
-import { PageHeader } from '@/components/layout/page-header';
+import { Plus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -29,7 +27,6 @@ import {
   updateProjectRisk,
   type CreateProjectRiskPayload,
 } from '../api/projects.api';
-import { projectsList } from '../constants/project-routes';
 import {
   PROJECT_RISK_CRITICALITY_LABEL,
   RISK_STATUS_LABEL,
@@ -37,8 +34,8 @@ import {
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
-import { ProjectWorkspaceTabs } from './project-workspace-tabs';
 import { ProjectRiskEbiosDialog } from './project-risk-ebios-dialog';
+import { ProjectWorkspaceShell } from './project-workspace-shell';
 import type { ProjectRiskApi } from '../types/project.types';
 
 function criticalityBadgeClass(level: string): string {
@@ -62,7 +59,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
 
-  const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
+  const { data: project } = useProjectDetailQuery(projectId);
   const risksQuery = useProjectRisksQuery(projectId);
 
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
@@ -126,8 +123,8 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     setRiskDialogOpen(true);
   };
 
-  const openEditDialog = (r: ProjectRiskApi) => {
-    setEditingRisk(r);
+  const openEditDialog = (risk: ProjectRiskApi) => {
+    setEditingRisk(risk);
     setRiskDialogMode('edit');
     setRiskDialogOpen(true);
   };
@@ -150,10 +147,14 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
   };
 
   if (!projectId) {
-    return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;
+    return (
+      <p className="text-sm text-destructive">Identifiant de projet manquant.</p>
+    );
   }
 
-  if (!initialized) return <LoadingState rows={6} />;
+  if (!initialized) {
+    return <LoadingState rows={4} />;
+  }
 
   if (!clientId) {
     return (
@@ -166,47 +167,12 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
     );
   }
 
-  if (isLoading) return <LoadingState rows={6} />;
-
-  if (error || !project) {
-    return (
-      <Alert variant="destructive" className="border-destructive/40">
-        <AlertTitle>Projet introuvable</AlertTitle>
-        <AlertDescription>
-          Vous n’avez pas accès à ce projet ou il n’existe plus.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   const dialogPending =
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
-    <>
-      <header className="flex flex-col gap-5">
-        <div className="space-y-3">
-          <Link
-            href={projectsList()}
-            className={cn(
-              buttonVariants({ variant: 'ghost', size: 'sm' }),
-              '-ml-2 w-fit gap-1 text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <ChevronLeft className="size-4" />
-            Portefeuille projets
-          </Link>
-          <PageHeader
-            title={project.name}
-            description="Registre des risques — fiche type EBIOS RM (vraisemblance × impact, traitement, risque résiduel)"
-          />
-        </div>
-      </header>
-
-      <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-3 py-3.5 sm:px-5">
-          <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
-        </CardHeader>
+    <ProjectWorkspaceShell projectId={projectId}>
+      <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
         <CardContent className="flex flex-col gap-6 p-4 sm:p-6">
           {canEdit ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -231,7 +197,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
           ) : (
             <RisksTable
               risks={risksQuery.data ?? []}
-              projectCode={project.code}
+              projectCode={project?.code ?? ''}
               canEdit={canEdit}
               onEdit={openEditDialog}
             />
@@ -254,7 +220,7 @@ export function ProjectRisksView({ projectId }: { projectId: string }) {
         onDelete={handleDeleteRisk}
         isDeleting={deleteMutation.isPending}
       />
-    </>
+    </ProjectWorkspaceShell>
   );
 }
 

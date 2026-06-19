@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { SendHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -28,8 +30,10 @@ import { formatGovernanceCycleDateRange } from '../lib/governance-cycle-formatte
 
 export function SubmitProjectToCycleDialog({
   projectId,
+  className,
 }: {
   projectId: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [cycleId, setCycleId] = useState('');
@@ -58,8 +62,17 @@ export function SubmitProjectToCycleDialog({
 
   return (
     <PermissionGate permission="governance_cycles.propose">
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Soumettre au cycle de pilotage
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={cn('min-h-10 gap-1.5', className)}
+        aria-label="Soumettre au cycle de pilotage"
+        onClick={() => setOpen(true)}
+      >
+        <SendHorizontal className="size-4 shrink-0" aria-hidden />
+        <span className="hidden sm:inline">Soumettre au cycle de pilotage</span>
+        <span className="sm:hidden">Soumettre</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
