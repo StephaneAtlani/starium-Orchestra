@@ -65,9 +65,29 @@ export type ProjectListItem = {
   targetBudgetAmount?: string | null;
   /** Consommé agrégé des lignes budgétaires liées (FIXED). */
   consumedBudgetAmount?: string | null;
+  /** Faits concrets pour infobulles T·R·J et signaux. */
+  pilotageSnapshot?: ProjectListPilotageSnapshot;
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+};
+
+export type ProjectListPilotageItem = {
+  name: string;
+  targetDate?: string;
+  status?: string;
+};
+
+export type ProjectListPilotageSnapshot = {
+  delayedMilestones: ProjectListPilotageItem[];
+  nextMilestone: ProjectListPilotageItem | null;
+  openTasks: ProjectListPilotageItem[];
+  openRisks: Array<{ title: string }>;
+  ok: string[];
+  issues: string[];
+  moreOpenTasks: number;
+  moreOpenRisks: number;
+  moreDelayedMilestones: number;
 };
 
 export type ProjectsListResponse = {
@@ -79,14 +99,21 @@ export type ProjectsListResponse = {
 
 export type ProjectsPortfolioSummary = {
   totalProjects: number;
+  activeProjects: number;
   inProgressProjects: number;
   completedProjects: number;
+  completedThisQuarter: number;
+  completedPreviousQuarter: number;
   lateProjects: number;
   criticalProjects: number;
   blockedProjects: number;
   noRiskProjects: number;
   noOwnerProjects: number;
   noMilestoneProjects: number;
+  totalTargetBudgetAmount: string | null;
+  totalConsumedBudgetAmount: string | null;
+  projectsCreatedThisMonth: number;
+  projectsCreatedPreviousMonth: number;
 };
 
 export type ProjectDetail = ProjectListItem & {
@@ -98,6 +125,9 @@ export type ProjectDetail = ProjectListItem & {
   pilotNotes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Dernier audit sur l’entité projet (fiche / pilotage). */
+  lastModifiedAt: string | null;
+  lastModifiedByDisplayName: string | null;
 };
 
 export type ProjectTag = {
@@ -127,6 +157,10 @@ export type ProjectPortfolioCategoryAssignment = {
   name: string;
   parentId: string | null;
   parentName: string | null;
+  /** Couleur configurée (sous-catégorie ou racine). */
+  color: string | null;
+  /** Clé d’icône Lucide configurée (sous-catégorie ou racine). */
+  icon: string | null;
 };
 
 /** GET /api/projects/portfolio-gantt — une barre par projet (dates début / fin cible). */

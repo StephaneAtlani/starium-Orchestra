@@ -19,6 +19,7 @@ import type {
   ProjectTaskPhaseApi,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
+  ProjectListPilotageSnapshot,
   ProjectsListResponse,
   PortfolioGanttResponse,
   ProjectsPortfolioSummary,
@@ -126,6 +127,15 @@ export async function listProjects(
   const res = await authFetch(`${BASE}${qs(params)}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectsListResponse>;
+}
+
+export async function getProjectPilotageSnapshot(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectListPilotageSnapshot> {
+  const res = await authFetch(`${BASE}/${projectId}/pilotage-snapshot`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectListPilotageSnapshot>;
 }
 
 export async function getProject(

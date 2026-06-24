@@ -66,7 +66,10 @@ export function ProjectsListRowActionsMenu({ project }: { project: ProjectListIt
   ] as const;
 
   return (
-    <details ref={menuRef} className="group/details relative shrink-0">
+    <details
+      ref={menuRef}
+      className="group/details relative shrink-0 group-open/details:z-[120]"
+    >
       <summary
         className="inline-flex size-8 list-none cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden"
         aria-label={`Actions pour ${project.name}`}
@@ -75,7 +78,7 @@ export function ProjectsListRowActionsMenu({ project }: { project: ProjectListIt
       </summary>
       <div
         className={cn(
-          'starium-dropdown-panel absolute right-0 z-50 mt-1 min-w-[13rem] rounded-xl py-1.5 text-base shadow-lg',
+          'starium-dropdown-panel starium-dropdown-panel--floating absolute right-0 z-[120] mt-1 min-w-[13rem] rounded-xl py-1.5 text-base shadow-lg',
           'pointer-events-none translate-y-1 scale-[0.98] opacity-0 transition-all duration-150 ease-out',
           'group-open/details:pointer-events-auto group-open/details:translate-y-0 group-open/details:scale-100 group-open/details:opacity-100',
         )}

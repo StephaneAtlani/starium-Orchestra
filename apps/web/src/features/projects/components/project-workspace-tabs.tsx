@@ -45,15 +45,11 @@ export type WorkspaceTabId =
 function tabLinkClass(active: boolean, presentation: 'default' | 'bar') {
   if (presentation === 'bar') {
     return cn(
-      'relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-center transition-colors',
-      'md:flex-row md:gap-1.5 md:px-2.5 md:py-3 md:text-left lg:px-3',
+      'starium-project-workspace-tab flex min-h-11 min-w-0 flex-row items-center justify-center gap-1.5 px-2 py-2.5 text-center transition-colors',
+      'md:px-2.5 md:py-3 lg:px-3',
       'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-      'after:absolute after:inset-x-0.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:transition-opacity md:after:inset-x-1',
-      active
-        ? 'font-semibold text-[color:var(--brand-gold-700)] after:opacity-100'
-        : 'text-muted-foreground after:opacity-0',
-      '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-      active ? '[&_svg]:text-[color:var(--brand-gold-700)]' : '[&_svg]:text-muted-foreground',
+      active && 'starium-project-workspace-tab--active',
+      '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
     );
   }
 
@@ -72,7 +68,7 @@ const tablistClassNameDefault =
 
 const barTabLabelClass = 'max-w-full truncate text-xs font-medium leading-tight lg:text-sm';
 
-const tablistClassNameBar = 'hidden w-full grid-cols-8 border-b border-border/60 md:grid';
+const tablistClassNameBar = 'hidden w-full grid-cols-4 md:grid lg:grid-cols-8';
 
 export type ProjectWorkspaceTabState = {
   isSheet: boolean;
@@ -230,7 +226,7 @@ function ProjectWorkspaceTabsMobileSelect({
   const ActiveIcon = activeTab.icon;
 
   return (
-    <div className="border-b border-border/60 p-3 md:hidden">
+    <div className="border-b border-border p-3 md:hidden">
       <Label htmlFor="project-workspace-tab-select" className="sr-only">
         Section du projet
       </Label>
@@ -249,7 +245,7 @@ function ProjectWorkspaceTabsMobileSelect({
         >
           <SelectValue>
             <span className="flex items-center gap-2">
-              <ActiveIcon className="size-4 shrink-0 text-primary" aria-hidden />
+              <ActiveIcon className="starium-synthesis-icon size-4 shrink-0" aria-hidden />
               <span className="truncate">{activeTab.label}</span>
             </span>
           </SelectValue>
@@ -303,7 +299,7 @@ export function ProjectWorkspaceTabs({
   if (presentation === 'bar') {
     return (
       <nav
-        className="starium-panel overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+        className="starium-project-workspace-tabs relative z-0 overflow-hidden"
         aria-label="Navigation projet"
       >
         <ProjectWorkspaceTabsMobileSelect tabs={tabs} activeTabId={activeTabId} />

@@ -73,6 +73,56 @@ html.dark {
   color: var(--starium-warning-emphasis);
 }
 
+/* Icônes accent synthèse projet (#5f3f00 = --brand-gold-700) */
+.starium-synthesis-icon {
+  color: var(--brand-gold-700);
+}
+.starium-synthesis-icon-well {
+  background-color: color-mix(in srgb, var(--brand-gold-700) 10%, transparent);
+  color: var(--brand-gold-700);
+}
+
+/* Navigation projet (bandeau onglets) */
+.starium-project-workspace-tabs {
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--ds-card-shadow, 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent));
+}
+.starium-project-workspace-tab {
+  position: relative;
+  color: var(--muted-foreground);
+  transition: color 120ms ease;
+}
+.starium-project-workspace-tab:hover {
+  color: var(--foreground);
+}
+.starium-project-workspace-tab--active {
+  color: var(--brand-gold-700);
+  font-weight: 600;
+}
+.starium-project-workspace-tab--active svg {
+  color: var(--brand-gold-700);
+}
+.starium-project-workspace-tab--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 76%;
+  height: 5px;
+  transform: translateX(-50%);
+  background-color: var(--primary);
+  pointer-events: none;
+  /* Sourire : extrémités relevées, creux au centre (collé au bord bas) */
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0 1.1 Q50 5.9 100 1.1 L100 6 0 6 Z' fill='white'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0 1.1 Q50 5.9 100 1.1 L100 6 0 6 Z' fill='white'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+}
+
 /* Shell : classes sémantiques (variables :root) */
 .starium-sidebar {
   /* largeur : Tailwind dans sidebar.tsx (mobile ~18rem, desktop w-44) */
@@ -129,6 +179,11 @@ html.dark {
     0 4px 6px -1px rgb(0 0 0 / 0.06),
     0 10px 24px -8px rgb(15 23 42 / 0.12);
   color: var(--starium-text);
+}
+.starium-dropdown-panel--floating {
+  z-index: 120;
+  border: 1px solid var(--border);
+  background-color: var(--card);
 }
 /* Sous-menu latéral (ex. Budget) : même univers violet que la sidebar, sans fond/bordure gris. */
 .starium-dropdown-panel--sidebar {
@@ -466,6 +521,12 @@ html.dark {
   .starium-kpi-value--dense {
     font-size: var(--ds-kpi-value-size-dense);
   }
+  .starium-kpi-value--portfolio {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
   .starium-kpi-icon {
     flex-shrink: 0;
     width: var(--ds-kpi-icon-size);
@@ -575,13 +636,121 @@ html.dark {
   }
 
   /* Filter bar (panneau tableau projets) — mobile-first */
+  .starium-projects-toolbar-shell .starium-filter-bar {
+    background: transparent;
+    border: none;
+    padding: 0;
+    gap: 10px;
+    overflow: hidden;
+    width: 100%;
+    min-width: 0;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-left {
+    flex: 1 1 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-view {
+    flex-shrink: 0;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-chips {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 34px;
+    align-items: center;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-chips .starium-filter-chip {
+    flex-shrink: 0;
+    min-height: 34px;
+    min-width: 34px;
+    padding: 7px 12px;
+    font-size: 13px;
+    gap: 7px;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-chips .starium-filter-chip svg {
+    width: 14px;
+    height: 14px;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-right {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+  }
+  .starium-projects-toolbar-shell .starium-filter-bar-search {
+    flex: 0 0 9.5rem;
+    width: 9.5rem;
+    min-width: 8.5rem;
+    max-width: 9.5rem;
+  }
   .starium-filter-bar {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--neutral-100, var(--border));
+    padding: 10px 14px;
+    background-color: var(--muted);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  }
+  .starium-filter-bar-left {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    min-width: 0;
+  }
+  .starium-filter-bar-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .starium-filter-bar-search {
+    position: relative;
+    flex: 1 1 12rem;
+    min-width: 0;
+  }
+  .starium-filter-bar-search-icon {
+    pointer-events: none;
+    position: absolute;
+    z-index: 1;
+    left: 0.625rem;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    color: var(--muted-foreground);
+  }
+  .starium-filter-bar-search-input {
+    height: 34px !important;
+    width: 100%;
+    border-radius: var(--radius-md, 10px);
+    padding-left: 2.25rem !important;
+    padding-right: 0.625rem !important;
+    font-size: 12.5px;
+    border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+    background: var(--card);
+    box-shadow: none;
+    color: var(--foreground);
+  }
+  .starium-filter-bar-search-input::placeholder {
+    color: var(--muted-foreground);
+  }
+  .starium-filter-bar-search-input:focus-visible {
+    border-color: color-mix(in srgb, var(--foreground) 22%, var(--border));
+    outline: none;
+    box-shadow: none;
+    --tw-ring-shadow: 0 0 #0000;
   }
   .starium-filter-bar-header {
     display: flex;
@@ -636,10 +805,30 @@ html.dark {
   @media (min-width: 768px) {
     .starium-filter-bar {
       flex-direction: row;
+      flex-wrap: nowrap;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 20px;
+      padding: 10px 14px;
+    }
+    .starium-filter-bar-left {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .starium-filter-bar-right {
+      flex: 0 0 auto;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+    }
+    .starium-filter-bar-search {
+      flex: 0 1 10rem;
+      width: 10rem;
+      min-width: 8.5rem;
+      max-width: 10rem;
     }
     .starium-filter-bar-body {
       flex-direction: row;
@@ -663,9 +852,8 @@ html.dark {
     }
     .starium-filter-bar-chips {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
-      justify-content: flex-end;
       gap: 6px;
       width: auto;
     }
@@ -675,6 +863,70 @@ html.dark {
     }
     .starium-filter-bar-chips .starium-filter-chip--wide {
       grid-column: auto;
+    }
+
+    /*
+     * Portefeuille projets — une seule ligne, zone droite réservée (recherche + Filtres).
+     * Règles en fin de bloc md pour écraser width: auto des chips génériques.
+     */
+    .starium-projects-toolbar-shell .starium-filter-bar {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      padding: 0;
+    }
+    .starium-projects-toolbar-shell .starium-filter-bar-left {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 0%;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .starium-projects-toolbar-shell .starium-filter-bar-chips {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 0%;
+      min-width: 0;
+      width: auto;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .starium-projects-toolbar-shell .starium-filter-bar-right {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      padding-left: 6px;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--background) 10px,
+        var(--background) 100%
+      );
+    }
+    .starium-projects-toolbar-shell .starium-filter-bar-search {
+      flex: 0 0 8.5rem;
+      width: 8.5rem;
+      min-width: 8.5rem;
+      max-width: 8.5rem;
     }
   }
   .starium-filter-bar-actions {
@@ -687,12 +939,17 @@ html.dark {
   .starium-tab-group {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
     padding: 3px;
     border-radius: var(--radius-md, 10px);
-    background-color: var(--muted);
+    background-color: color-mix(in srgb, var(--muted-foreground) 8%, var(--muted));
+    border: none;
+    box-shadow: none;
   }
   .starium-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 13px;
     border: none;
     border-radius: 7px;
@@ -704,47 +961,97 @@ html.dark {
     transition: background 120ms, color 120ms, box-shadow 120ms;
     white-space: nowrap;
   }
+  .starium-tab-btn svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+  }
   .starium-tab-btn:hover:not(.starium-tab-btn--active) {
     background: color-mix(in srgb, var(--card) 60%, transparent);
     color: var(--foreground);
   }
   .starium-tab-btn--active {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    box-shadow: var(--ds-card-shadow);
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent);
   }
   .starium-filter-chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border: 1.5px solid var(--border);
+    padding: 6px 11px;
+    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     border-radius: var(--radius-md, 10px);
     background: var(--card);
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--muted-foreground);
+    color: color-mix(in srgb, var(--foreground) 72%, var(--muted-foreground));
     cursor: pointer;
-    transition: background 120ms, border-color 120ms;
+    transition: background 120ms, border-color 120ms, color 120ms;
     white-space: nowrap;
+    box-shadow: none;
+    outline: none;
+  }
+  .starium-filter-chip:focus-visible {
+    border-color: color-mix(in srgb, var(--foreground) 22%, var(--border));
+    outline: none;
+    box-shadow: none;
   }
   .starium-filter-chip:hover {
-    background: var(--muted);
-    border-color: color-mix(in srgb, var(--border) 80%, var(--foreground));
+    background: var(--card);
+    border-color: color-mix(in srgb, var(--foreground) 16%, var(--border));
+    color: var(--foreground);
   }
   .starium-filter-chip--active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: var(--primary-foreground);
+    background: var(--card);
+    border-color: color-mix(in srgb, var(--foreground) 20%, var(--border));
+    color: var(--foreground);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
   }
-  .starium-filter-chip--muted {
-    color: var(--muted-foreground);
-    border-color: transparent;
+  .starium-filter-chip--danger {
+    color: color-mix(in srgb, var(--foreground) 72%, var(--muted-foreground));
+    border-color: color-mix(in srgb, var(--border) 92%, transparent);
+  }
+  .starium-filter-chip--danger svg {
+    color: var(--destructive);
+  }
+  .starium-filter-chip--danger.starium-filter-chip--active {
+    background: var(--card);
+    border-color: color-mix(in srgb, var(--destructive) 28%, var(--border));
+    color: var(--foreground);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+  }
+  .starium-filter-chip--danger.starium-filter-chip--active svg {
+    color: var(--destructive);
+  }
+  .starium-filter-chip--reset {
+    color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
+    border-color: color-mix(in srgb, var(--border) 70%, transparent);
     background: transparent;
   }
-  .starium-filter-chip--muted:hover {
-    background: var(--muted);
-    border-color: var(--border);
+  .starium-filter-chip--reset:hover {
+    color: var(--muted-foreground);
+    background: transparent;
+  }
+  .starium-filter-chip-chevron {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    opacity: 0.55;
+  }
+  .starium-filter-chip-badge {
+    display: inline-flex;
+    min-width: 1rem;
+    height: 1rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--foreground) 88%, transparent);
+    padding: 0 4px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--card);
   }
   .starium-filter-chip svg {
     width: 13px;
@@ -755,20 +1062,54 @@ html.dark {
 
   /* Tableau projets (densité mockup) */
   .starium-projects-table thead tr:first-child {
-    background: var(--muted);
+    background: var(--card);
   }
   .starium-projects-table thead tr:first-child th {
+    background: var(--card);
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--muted-foreground);
+    border-bottom: none;
+  }
+  .starium-projects-table thead tr:first-child th[rowspan] {
+    vertical-align: top;
+  }
+  .starium-projects-table thead tr.starium-projects-table-filter-row th {
+    background: var(--card);
+    border-top: 1.5px solid var(--border);
     border-bottom: 1.5px solid var(--border);
+    padding-top: 0 !important;
+    vertical-align: bottom;
+  }
+  .starium-projects-table-project-head .border-b {
+    border-bottom-width: 1.5px;
   }
   .starium-projects-table .starium-col-filter {
-    height: 1.75rem;
+    height: 1.5rem;
     width: 100%;
-    font-size: 11.5px;
+    padding-inline: 0.375rem;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .starium-projects-table .starium-col-filter [data-slot='select-value'] {
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .starium-projects-table .starium-col-filter svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+  .starium-trj-badge {
+    box-shadow: none;
+  }
+  .starium-signal-icon {
+    background: transparent;
+    box-shadow: none;
+  }
+  .starium-signal-icon--warning svg {
+    fill: none;
   }
   .starium-projects-table tbody tr:hover {
     background: color-mix(in srgb, var(--muted) 50%, transparent);
@@ -812,6 +1153,21 @@ html.dark {
     overflow: hidden;
     border-radius: 999px;
     background: var(--border);
+  }
+  .starium-budget-summary__track {
+    position: relative;
+    width: 100%;
+    height: 6px;
+  }
+  .starium-budget-summary__overrun-marker {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 3px;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--destructive);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--destructive) 35%, transparent);
   }
   .starium-progress-fill {
     height: 100%;
@@ -1575,5 +1931,62 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Portefeuille projets — layout toolbar une ligne (hors @layer, priorité max) */
+@media (min-width: 768px) {
+  .starium-projects-toolbar-shell [role='search'] {
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .starium-projects-toolbar-shell .starium-filter-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .starium-projects-toolbar-shell .starium-filter-bar-left {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+
+  .starium-projects-toolbar-shell .starium-filter-bar-chips {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .starium-projects-toolbar-shell .starium-filter-bar-right {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .starium-projects-toolbar-shell .starium-filter-bar-search {
+    flex: 0 0 10rem !important;
+    width: 10rem !important;
+    min-width: 10rem !important;
+    max-width: 10rem !important;
   }
 }

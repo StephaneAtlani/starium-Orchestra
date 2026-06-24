@@ -76,7 +76,7 @@ function BannerStat({
   valueClassName?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-3 border-border/60 px-2 py-1 sm:border-l sm:px-4 first:sm:border-l-0 first:sm:pl-0">
+    <div className="flex min-w-0 items-center gap-3 px-4 py-3.5 sm:px-5">
       <div
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-full [&_svg]:size-4',
@@ -125,14 +125,14 @@ export function ProjectSynthesisBanner({
 
   return (
     <section
-      className="starium-panel overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+      className="starium-panel relative z-10 overflow-visible rounded-xl border border-border bg-card shadow-sm"
       aria-labelledby="project-synthesis-banner-title"
     >
       <div className="space-y-5 p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 gap-3 sm:gap-4">
             <div
-              className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary sm:size-14"
+              className="starium-synthesis-icon-well flex size-12 shrink-0 items-center justify-center rounded-xl border border-[color:var(--brand-gold-700)]/20 sm:size-14"
               aria-hidden
             >
               <CategoryIcon className="size-6 sm:size-7" />
@@ -207,32 +207,34 @@ export function ProjectSynthesisBanner({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 border-t border-border/60 pt-4 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-between">
-          <BannerStat
-            icon={<UserRound />}
-            iconClassName="bg-primary/15 text-primary"
-            label="Chef de projet"
-            value={ownerLabel}
-          />
-          <BannerStat
-            icon={<DollarSign />}
-            iconClassName="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-            label="Budget"
-            value={budgetLabel}
-          />
-          <BannerStat
-            icon={<Calendar />}
-            iconClassName="bg-sky-500/15 text-sky-700 dark:text-sky-400"
-            label="Échéance"
-            value={formatProjectDateLong(project.targetEndDate)}
-          />
-          <BannerStat
-            icon={<Flag />}
-            iconClassName="bg-destructive/10 text-destructive"
-            label="Priorité"
-            value={priorityLabel}
-            valueClassName={priorityTextClass(project.priority)}
-          />
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4 sm:divide-y-0">
+            <BannerStat
+              icon={<UserRound />}
+              iconClassName="starium-synthesis-icon-well"
+              label="Chef de projet"
+              value={ownerLabel}
+            />
+            <BannerStat
+              icon={<DollarSign />}
+              iconClassName="bg-emerald-500/15 text-emerald-800 dark:text-emerald-400"
+              label="Budget"
+              value={budgetLabel}
+            />
+            <BannerStat
+              icon={<Calendar />}
+              iconClassName="bg-sky-500/15 text-sky-800 dark:text-sky-300"
+              label="Échéance"
+              value={formatProjectDateLong(project.targetEndDate)}
+            />
+            <BannerStat
+              icon={<Flag />}
+              iconClassName="bg-destructive/10 text-destructive"
+              label="Priorité"
+              value={priorityLabel}
+              valueClassName={priorityTextClass(project.priority)}
+            />
+          </div>
         </div>
       </div>
     </section>

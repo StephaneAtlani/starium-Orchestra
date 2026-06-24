@@ -20,22 +20,14 @@ import { cn } from '@/lib/utils';
 import { HealthBadge } from './project-badges';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
+import { UserInitialsAvatarStack } from '@/components/ui/user-initials-avatar';
 import {
   formatProjectDateLong,
   formatProjectDateTimeFr,
   projectListProgressPercent,
-  projectOwnerInitials,
 } from '../lib/projects-list-display';
 import { projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
-
-const AVATAR_COLORS = [
-  'bg-rose-500/90 text-white',
-  'bg-emerald-600/90 text-white',
-  'bg-sky-600/90 text-white',
-  'bg-violet-500/90 text-white',
-  'bg-amber-600/90 text-white',
-] as const;
 
 function InsightCard({
   title,
@@ -55,7 +47,7 @@ function InsightCard({
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 border-b border-border/50 pb-3">
         <CardTitle className="text-sm font-semibold">{title}</CardTitle>
         <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-primary [&_svg]:size-4"
+          className="starium-synthesis-icon flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4"
           aria-hidden
         >
           {icon}
@@ -103,10 +95,8 @@ export function ProjectSynthesisOverviewCards({
   const visibleTeam = teamMembers.slice(0, 4);
   const progressPct = Math.round(projectListProgressPercent(project));
 
-  const updateSummary = useMemo(
-    () => `Dernière modification enregistrée. Avancement affiché : ${progressPct} %.`,
-    [progressPct],
-  );
+  const lastModificationAt = project.lastModifiedAt ?? project.updatedAt;
+  const lastModifiedBy = project.lastModifiedByDisplayName?.trim() || null;
 
   const insightCardFooterLinkClass = cn(
     buttonVariants({ variant: 'outline', size: 'sm' }),
@@ -129,7 +119,7 @@ export function ProjectSynthesisOverviewCards({
         ) : nextMilestone ? (
           <div className="flex flex-col items-center gap-3 text-center">
             <div
-              className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary"
+              className="starium-synthesis-icon-well flex size-16 items-center justify-center rounded-full"
               aria-hidden
             >
               <Flag className="size-7" />
@@ -165,21 +155,16 @@ export function ProjectSynthesisOverviewCards({
           <LoadingState rows={2} />
         ) : visibleTeam.length > 0 ? (
           <div className="flex justify-center">
-            <ul className="flex -space-x-2" aria-label={`${teamMembers.length} membres de l’équipe`}>
-              {visibleTeam.map((member, index) => (
-                <li key={member.id}>
-                  <span
-                    className={cn(
-                      'flex size-10 items-center justify-center rounded-full border-2 border-card text-xs font-semibold',
-                      AVATAR_COLORS[index % AVATAR_COLORS.length],
-                    )}
-                    title={member.displayName}
-                  >
-                    {projectOwnerInitials(member.displayName)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <UserInitialsAvatarStack
+              members={visibleTeam.map((member) => ({
+                id: member.id,
+                displayName: member.displayName,
+                seed: member.userId ?? member.id,
+              }))}
+              max={4}
+              size="md"
+              listLabel={`${teamMembers.length} membres de l’équipe`}
+            />
           </div>
         ) : (
           <p className="text-center text-sm text-muted-foreground">
@@ -196,7 +181,7 @@ export function ProjectSynthesisOverviewCards({
           </li>
           <li className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
                 <TrendingUp className="size-3.5" aria-hidden />
               </span>
               Avancement global
@@ -205,7 +190,7 @@ export function ProjectSynthesisOverviewCards({
           </li>
           <li className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="flex size-7 items-center justify-center rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-400">
+              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
                 <CheckSquare className="size-3.5" aria-hidden />
               </span>
               Tâches ouvertes
@@ -214,7 +199,7 @@ export function ProjectSynthesisOverviewCards({
           </li>
           <li className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="flex size-7 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
                 <AlertTriangle className="size-3.5" aria-hidden />
               </span>
               Risques ouverts
@@ -223,7 +208,7 @@ export function ProjectSynthesisOverviewCards({
           </li>
           <li className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="flex size-7 items-center justify-center rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-400">
+              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
                 <Flag className="size-3.5" aria-hidden />
               </span>
               Jalons en retard
@@ -234,7 +219,7 @@ export function ProjectSynthesisOverviewCards({
       </InsightCard>
 
       <InsightCard
-        title="Dernière mise à jour"
+        title="Dernière modification fiche"
         icon={<Clock />}
         footer={
           <Link href={projectSheet(projectId)} className={insightCardFooterLinkClass}>
@@ -245,15 +230,21 @@ export function ProjectSynthesisOverviewCards({
       >
         <div className="space-y-3 text-center">
           <div
-            className="mx-auto flex size-12 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-400"
+            className="starium-synthesis-icon-well mx-auto flex size-12 items-center justify-center rounded-xl"
             aria-hidden
           >
             <Clock className="size-5" />
           </div>
-          <p className="text-sm font-semibold text-sky-800 dark:text-sky-300">
-            {formatProjectDateTimeFr(project.updatedAt)}
-          </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">{updateSummary}</p>
+          <time
+            dateTime={lastModificationAt}
+            className="starium-synthesis-icon block text-sm font-semibold"
+          >
+            {formatProjectDateTimeFr(lastModificationAt)}
+          </time>
+          {lastModifiedBy ? (
+            <p className="text-sm font-medium text-foreground">Par {lastModifiedBy}</p>
+          ) : null}
+          <p className="text-sm text-muted-foreground">Fiche et champs de pilotage</p>
         </div>
       </InsightCard>
     </div>

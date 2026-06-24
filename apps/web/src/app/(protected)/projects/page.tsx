@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -47,6 +48,9 @@ import {
   readProjectsTableColumnDensity,
   type ProjectsTableColumnDensity,
 } from '@/features/projects/lib/projects-table-column-density';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { listAssignableUsers } from '@/features/projects/api/projects.api';
+import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 
 const PROJECTS_VIEW_MODE_STORAGE_KEY = 'starium.projects.viewMode';
 
@@ -71,6 +75,22 @@ export default function ProjectsPortfolioPage() {
   const { data, isLoading, error, refetch, isRefetching } = useProjectsListQuery(apiParams, {
     enabled: listEnabled,
   });
+  const authFetch = useAuthenticatedFetch();
+  const assignableUsersQuery = useQuery({
+    queryKey: projectQueryKeys.assignableUsers(clientId),
+    queryFn: () => listAssignableUsers(authFetch),
+    enabled: listEnabled,
+  });
+  const ownerOptions = useMemo(
+    () =>
+      (assignableUsersQuery.data?.users ?? [])
+        .map((user) => {
+          const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+          return { id: user.id, label: name || user.email };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr-FR')),
+    [assignableUsersQuery.data?.users],
+  );
   const updateStatusMutation = useUpdateProjectStatus(apiParams);
   const { data: summary, isLoading: summaryLoading } = usePortfolioSummaryQuery({
     enabled: listEnabled,
@@ -286,11 +306,8 @@ export default function ProjectsPortfolioPage() {
             )}
 
             {!error && (
-              <Card
-                size="sm"
-                className="starium-panel max-md:max-h-none max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden md:max-h-[min(75vh,800px)]"
-              >
-                <div className="hidden md:block">
+              <>
+                <div className="starium-projects-toolbar-shell hidden w-full min-w-0 overflow-hidden md:block">
                   <ProjectsToolbar
                     filters={filters}
                     setFilters={setFilters}
@@ -299,9 +316,16 @@ export default function ProjectsPortfolioPage() {
                     onViewModeChange={handleViewModeChange}
                     columnDensity={columnDensity}
                     onColumnDensityChange={handleColumnDensityChange}
+                    portfolioItems={data?.items ?? []}
+                    ownerOptions={ownerOptions}
                     embedded
                   />
                 </div>
+
+                <Card
+                  size="sm"
+                  className="starium-panel max-md:max-h-none max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden md:max-h-[min(75vh,800px)]"
+                >
                 {data ? (
                   <>
                     <CardContent
@@ -377,7 +401,8 @@ export default function ProjectsPortfolioPage() {
                     <LoadingState rows={4} />
                   </CardContent>
                 ) : null}
-              </Card>
+                </Card>
+              </>
             )}
           </>
         )}
