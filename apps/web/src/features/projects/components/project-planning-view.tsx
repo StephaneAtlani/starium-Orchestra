@@ -5,16 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { projectPlanning } from '../constants/project-routes';
 import { ProjectWorkspaceShell } from './project-workspace-shell';
-import { ProjectPlanningTasksTab } from './project-planning-tasks-tab';
 import { ProjectPlanningMilestonesTab } from './project-planning-milestones-tab';
-import { ProjectPlanningKanbanTab } from './project-planning-kanban-tab';
 import { ProjectGanttPanel } from './project-gantt-panel';
 
 const SUB_TABS = [
-  { id: 'tasks' as const, label: 'Tâches' },
-  { id: 'milestones' as const, label: 'Jalons' },
   { id: 'gantt' as const, label: 'Planning / Gantt' },
-  { id: 'kanban' as const, label: 'Kanban' },
+  { id: 'milestones' as const, label: 'Jalons' },
 ];
 
 function PlanningSubTabs({
@@ -22,7 +18,7 @@ function PlanningSubTabs({
   active,
 }: {
   projectId: string;
-  active: 'tasks' | 'milestones' | 'gantt' | 'kanban';
+  active: 'milestones' | 'gantt';
 }) {
   return (
     <div
@@ -56,10 +52,7 @@ function PlanningSubTabs({
 export function ProjectPlanningView({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
   const subRaw = searchParams.get('sub');
-  const sub: 'tasks' | 'milestones' | 'gantt' | 'kanban' =
-    subRaw === 'milestones' || subRaw === 'gantt' || subRaw === 'kanban'
-      ? subRaw
-      : 'tasks';
+  const sub: 'milestones' | 'gantt' = subRaw === 'milestones' ? 'milestones' : 'gantt';
 
   if (!projectId) {
     return (
@@ -70,10 +63,8 @@ export function ProjectPlanningView({ projectId }: { projectId: string }) {
   return (
     <ProjectWorkspaceShell projectId={projectId}>
       <PlanningSubTabs projectId={projectId} active={sub} />
-      {sub === 'tasks' && <ProjectPlanningTasksTab projectId={projectId} />}
-      {sub === 'milestones' && <ProjectPlanningMilestonesTab projectId={projectId} />}
       {sub === 'gantt' && <ProjectGanttPanel projectId={projectId} />}
-      {sub === 'kanban' && <ProjectPlanningKanbanTab projectId={projectId} />}
+      {sub === 'milestones' && <ProjectPlanningMilestonesTab projectId={projectId} />}
     </ProjectWorkspaceShell>
   );
 }

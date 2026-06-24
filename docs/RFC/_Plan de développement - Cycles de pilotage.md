@@ -175,8 +175,8 @@ Risques               Scores, matrice                Clôture instance
 | --- | ----------- | ------- | -------------------------------- | ---- |
 | **003-A** | §4.4–4.6 | Prisma + CRUD instances + agenda + `open` / `archive` | `DRAFT`…`ARCHIVED` ; pas de logique clôture en A | ✅ |
 | **003-B** | §4.5–4.6, §6 | `PATCH decisions` + `close` (étapes 1–6) | `InstanceDecision` = historique ; `item.decisionStatus` = dernier état ; sans propagation fiche | ✅ |
-| **003-C** | §4.11.1 | `governance_cycles.propose` + `POST …/candidacies` + bouton fiche | Item `CANDIDATE` ; pas de propagation ni `InstanceDecision` à la candidature | ✅ |
-| **003-D** | §4.2, §4.8, §4.13 | `governanceConfig` + readiness + propagation `WRITE_ARBITRATION_CODIR` | Clôture atomique ; échec propagation → instance `OPEN`, **409** | ✅ |
+| **003-C** | §4.11.1 | `governance_cycles.propose` + `POST …/candidacies` + select fiche **Soumis à validation** | Item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` ; pas de propagation ni `InstanceDecision` à la candidature | ✅ |
+| **003-D** | §4.2, §4.8, §4.13 | `governanceConfig` + readiness + propagation `WRITE_ARBITRATION_CODIR` → `arbitrationMetierStatus` | Clôture atomique ; échec propagation → instance `OPEN`, **409** | ✅ |
 | **003-E** | §4.4, §6 | `BudgetGovernanceDecision` + propagation budget | Pas de `Budget.status` ; migration dédiée | ✅ |
 | **003-F** | §4.5, §4.9 | `POST …/instances/generate` + bouton « Générer le trimestre » | `instanceSchedule` sur cycle | ✅ |
 
@@ -270,7 +270,7 @@ Voir RFC-003 **§8.1** (maintenu en prod) : (1) pas de **`WRITE_PROJECT_STATUS`*
 - [x] **RFC-PROJ-CYCLE-003** — migrations instances + budget ; API instances/candidacies/close ; **92** tests module  
 - [x] `docs/API.md` §5.8 étendu (instances, candidacies, config, propagation)  
 - [x] `_RFC Liste.md` — 31a-4 RFC-003 ✅ Implémenté  
-- [x] UI : onglet Séances (préparation ODJ `instance-session-preparation`, `DRAFT`→`PLANNED`→`OPEN`, clôture), candidature fiche ; config cycle via `PATCH` API (pas de panneau admin config dédié en FE)  
+- [x] UI : onglet Séances (préparation ODJ `instance-session-preparation`, `DRAFT`→`PLANNED`→`OPEN`, clôture), candidature fiche via select **Soumis à validation** + dialog cycle ; config cycle via `PATCH` API (pas de panneau admin config dédié en FE)  
 
 ---
 

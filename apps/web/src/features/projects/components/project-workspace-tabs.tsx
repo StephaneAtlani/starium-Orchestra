@@ -9,6 +9,7 @@ import {
   ClipboardList,
   LayoutGrid,
   Layers3,
+  ListChecks,
   ListTodo,
   Lock,
   Settings,
@@ -27,6 +28,7 @@ import {
   projectBudget,
   projectDetail,
   projectPlanning,
+  projectTasks,
   projectScenarios,
   projectProjectOptions,
   projectSheet,
@@ -36,6 +38,7 @@ import {
 export type WorkspaceTabId =
   | 'synth'
   | 'sheet'
+  | 'tasks'
   | 'planning'
   | 'risks'
   | 'budget'
@@ -69,6 +72,7 @@ const barTabLabelClass = 'max-w-full truncate';
 
 export type ProjectWorkspaceTabState = {
   isSheet: boolean;
+  isTasks: boolean;
   isRisks: boolean;
   isPlanning: boolean;
   isBudget: boolean;
@@ -83,6 +87,7 @@ export function deriveProjectWorkspaceTabState(
   tab: string | null,
 ): ProjectWorkspaceTabState {
   const isSheet = Boolean(pathname?.includes('/sheet'));
+  const isTasks = Boolean(pathname?.includes('/tasks'));
   const isRisks = Boolean(pathname?.includes('/risks'));
   const isPlanning = Boolean(pathname?.includes('/planning'));
   const isBudget = Boolean(pathname?.includes('/budget'));
@@ -91,6 +96,7 @@ export function deriveProjectWorkspaceTabState(
   const isPoints = tab === 'points';
   const isSynth =
     !isSheet &&
+    !isTasks &&
     !isRisks &&
     !isPoints &&
     !isPlanning &&
@@ -99,6 +105,7 @@ export function deriveProjectWorkspaceTabState(
     !isOptions;
   return {
     isSheet,
+    isTasks,
     isRisks,
     isPlanning,
     isBudget,
@@ -111,6 +118,7 @@ export function deriveProjectWorkspaceTabState(
 
 export function getActiveWorkspaceTabId(tabState: ProjectWorkspaceTabState): WorkspaceTabId {
   if (tabState.isSheet) return 'sheet';
+  if (tabState.isTasks) return 'tasks';
   if (tabState.isPlanning) return 'planning';
   if (tabState.isRisks) return 'risks';
   if (tabState.isBudget) return 'budget';
@@ -151,6 +159,13 @@ function buildWorkspaceTabs(
       href: projectSheet(projectId),
       icon: Layers3,
       isActive: (s) => s.isSheet,
+    },
+    {
+      id: 'tasks',
+      label: 'Tâches',
+      href: projectTasks(projectId),
+      icon: ListChecks,
+      isActive: (s) => s.isTasks,
     },
     {
       id: 'planning',

@@ -66,7 +66,7 @@ import type {
 } from '../api/projects.api';
 import { cn } from '@/lib/utils';
 import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
-import { TaskFormDialogFields } from './task-form-dialog-fields';
+import { ProjectTaskFormDialog } from './project-task-form-dialog';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { toast } from '@/lib/toast';
 import {
@@ -1681,57 +1681,31 @@ export const ProjectTaskPlanningSection = forwardRef<
         </>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent
-          className="max-w-[min(80vw,72rem)] sm:max-w-[min(80vw,72rem)]"
-          showCloseButton
-        >
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier la tâche' : 'Nouvelle tâche'}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? 'Mettre à jour les informations de la tâche, le planning et les dépendances.'
-                : 'Créer une nouvelle tâche dans le planning du projet.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[min(65vh,520px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
-            <TaskFormDialogFields
-              form={createForm}
-              onPatch={(patch) =>
-                setCreateForm((prev) => ({
-                  ...prev,
-                  ...patch,
-                }))
-              }
-              phaseOptions={phaseOptions}
-              tasksForDepends={tasksForDepends}
-              assignableOptions={assignableOptions}
-              bucketOptions={bucketOptions}
-              taskLabelOptions={taskLabelOptions}
-              syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
-              canCreateTaskLabels={canCreateTaskLabels}
-              onCreateTaskLabel={onCreateTaskLabel}
-              canCreatePhase={canEdit}
-              onCreatePhase={onCreatePhase}
-              fieldIdPrefix="planning-task"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              disabled={
-                !createForm.name.trim() || createMut.isPending || updateMut.isPending
-              }
-            >
-              {editing ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProjectTaskFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={!!editing}
+        form={createForm}
+        onPatch={(patch) =>
+          setCreateForm((prev) => ({
+            ...prev,
+            ...patch,
+          }))
+        }
+        onSubmit={submit}
+        isSubmitting={createMut.isPending || updateMut.isPending}
+        phaseOptions={phaseOptions}
+        tasksForDepends={tasksForDepends}
+        assignableOptions={assignableOptions}
+        bucketOptions={bucketOptions}
+        taskLabelOptions={taskLabelOptions}
+        syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
+        canCreateTaskLabels={canCreateTaskLabels}
+        onCreateTaskLabel={onCreateTaskLabel}
+        canCreatePhase={canEdit}
+        onCreatePhase={onCreatePhase}
+        fieldIdPrefix="gantt-task"
+      />
 
       <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
         <DialogContent className="sm:max-w-lg" showCloseButton>

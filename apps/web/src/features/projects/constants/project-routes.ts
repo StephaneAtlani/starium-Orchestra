@@ -44,13 +44,23 @@ export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }
 
-/** Cockpit Planning : tâches, jalons, Gantt (RFC-PROJ-012). */
+/** Tâches projet : liste/table + Kanban (RFC-PROJ-012). */
+export function projectTasks(
+  projectId: string,
+  sub?: 'tasks' | 'kanban',
+): string {
+  const base = `/projects/${projectId}/tasks`;
+  if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
+  return `${base}?sub=${sub}`;
+}
+
+/** Cockpit Planning : jalons, Gantt (RFC-PROJ-012). */
 export function projectPlanning(
   projectId: string,
-  sub?: 'tasks' | 'milestones' | 'gantt' | 'kanban',
+  sub?: 'milestones' | 'gantt',
 ): string {
   const base = `/projects/${projectId}/planning`;
-  if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
+  if (!sub || sub === 'gantt') return `${base}?sub=gantt`;
   return `${base}?sub=${sub}`;
 }
 

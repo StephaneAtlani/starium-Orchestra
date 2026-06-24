@@ -1,17 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
+import { Calendar, Check } from 'lucide-react';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { cn } from '@/lib/utils';
+import { useTablePan } from '@/hooks/use-table-pan';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import { useProjectTaskBucketsQuery } from '../hooks/use-project-task-buckets-query';
@@ -28,11 +22,16 @@ import type {
   UpdateProjectTaskPayload,
 } from '../api/projects.api';
 import type { ProjectTaskApi } from '../types/project.types';
-import { TaskFormDialogFields } from './task-form-dialog-fields';
+import { ProjectTaskFormDialog } from './project-task-form-dialog';
 import {
   TASK_PRIORITY_LABEL,
-  TASK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
+import {
+  taskAssigneeDisplayName,
+  taskProgressFillClass,
+  taskStatusBadgeClass,
+  taskStatusBadgeLabel,
+} from '../lib/project-task-display';
 import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
 
 type BucketKey = string | '__none__';
@@ -68,20 +67,50 @@ function sanitizeChecklistForSubmit(
     .filter((c) => c.title.length > 0);
 }
 
-function formatFrDate(iso: string | null | undefined): string {
+function formatFrDateShort(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? '—'
-    : d.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
+
+function priorityTagClass(priority: string): string {
+  if (priority === 'HIGH' || priority === 'CRITICAL') return 'starium-kcard-tag--danger';
+  if (priority === 'LOW') return 'starium-kcard-tag--neutral';
+  return 'starium-kcard-tag--gold';
+}
+
+function priorityStripeColor(priority: string): string {
+  if (priority === 'HIGH' || priority === 'CRITICAL') return 'var(--state-danger)';
+  if (priority === 'LOW') return 'var(--state-success)';
+  return 'var(--brand-gold)';
+}
+
+const COLUMN_DOT_COLORS = [
+  'var(--neutral-400)',
+  'var(--state-info)',
+  'var(--purple)',
+  'var(--state-success)',
+  'var(--brand-gold)',
+] as const;
 
 type KanbanColumn = {
   bucketId: string | null;
   label: string;
 };
 
-export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
+export type ProjectPlanningKanbanTabHandle = {
+  openCreate: () => void;
+};
+
+export const ProjectPlanningKanbanTab = forwardRef<
+  ProjectPlanningKanbanTabHandle,
+  { projectId: string; showChecklists?: boolean; showDescriptions?: boolean }
+>(function ProjectPlanningKanbanTab(
+  { projectId, showChecklists = false, showDescriptions = false },
+  ref,
+) {
   const { has } = usePermissions();
   const canEdit = has('projects.update');
   const canListProjectLabels = has('projects.read') || canEdit;
@@ -133,12 +162,15 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
   const [dragOverBucketKey, setDragOverBucketKey] = useState<BucketKey | null>(
     null,
   );
+  const kanbanPan = useTablePan();
 
   const openCreate = useCallback(() => {
     setEditing(null);
     setCreateForm(emptyCreateForm());
     setDialogOpen(true);
   }, []);
+
+  useImperativeHandle(ref, () => ({ openCreate }), [openCreate]);
 
   const openEdit = useCallback((t: ProjectTaskApi) => {
     setEditing(t);
@@ -226,7 +258,13 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
   };
 
   const isLoading = tasksQuery.isLoading || bucketsQuery.isLoading;
-  if (isLoading) return <LoadingState rows={8} />;
+  if (isLoading) {
+    return (
+      <div className="starium-tablecard p-6">
+        <LoadingState rows={8} />
+      </div>
+    );
+  }
 
   const handleDropOnBucket = (targetBucketId: string | null) => {
     if (!canEdit) return;
@@ -243,36 +281,52 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
     });
   };
 
-  return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          Vue Kanban : regroupement par colonnes Kanban / Planner.
-        </p>
-        {canEdit && (
-          <Button type="button" onClick={openCreate}>
-            Nouvelle tâche
-          </Button>
-        )}
-      </div>
+  const toggleChecklistItem = (
+    task: ProjectTaskApi,
+    itemId: string,
+    isChecked: boolean,
+  ) => {
+    if (!canEdit) return;
+    const next = (task.checklistItems ?? []).map((c) =>
+      c.id === itemId ? { ...c, isChecked } : c,
+    );
+    updateMut.mutate({
+      taskId: task.id,
+      body: {
+        checklistItems: next.map((c, i) => ({
+          id: c.id,
+          title: c.title,
+          isChecked: c.isChecked,
+          sortOrder: c.sortOrder ?? i,
+        })),
+      },
+      silentToast: true,
+    });
+  };
 
-      <div className="flex min-w-0 gap-4 overflow-x-auto pb-2">
-        {columns.map((col) => {
-          const colTasks = items
-            .filter((t) => (t.bucketId ?? null) === col.bucketId);
+  return (
+    <>
+      <div
+        ref={kanbanPan.scrollRef}
+        className={cn(
+          'starium-kanban-scroll',
+          kanbanPan.isPanning && 'starium-kanban-scroll--panning',
+        )}
+        onMouseDown={kanbanPan.onMouseDown}
+        aria-label="Colonnes Kanban — faites glisser horizontalement pour parcourir"
+      >
+        <div className="starium-kanban" role="list" aria-label="Vue Kanban des tâches">
+        {columns.map((col, colIndex) => {
+          const colTasks = items.filter((t) => (t.bucketId ?? null) === col.bucketId);
           const colKey = bucketIdToKey(col.bucketId);
           const isOver =
             canEdit && dragOverBucketKey !== null && dragOverBucketKey === colKey;
+          const dotColor = COLUMN_DOT_COLORS[colIndex % COLUMN_DOT_COLORS.length];
 
           return (
             <div
               key={col.bucketId ?? 'none'}
-              className={cn(
-                'w-[22rem] min-w-[22rem] rounded-lg border bg-muted/20 p-3',
-                isOver
-                  ? 'border-primary/60 ring-1 ring-primary/30'
-                  : 'border-border/60',
-              )}
+              className={cn('starium-kcol', isOver && 'starium-kcol--over')}
               onDragOver={(e) => {
                 if (!canEdit) return;
                 e.preventDefault();
@@ -298,135 +352,207 @@ export function ProjectPlanningKanbanTab({ projectId }: { projectId: string }) {
                 setDraggingTaskId(null);
               }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{col.label}</div>
+              <div className="starium-kcol-head">
+                <div className="starium-kcol-title">
+                  <span
+                    className="starium-kcol-dot"
+                    style={{ background: dotColor }}
+                    aria-hidden
+                  />
+                  {col.label}
                 </div>
-                <div className="shrink-0 text-xs text-muted-foreground">
-                  {colTasks.length}
-                </div>
+                <span className="starium-kcol-count">{colTasks.length}</span>
               </div>
 
-              <div className="mt-3 space-y-2">
-                {colTasks.map((t) => {
-                  const statusLabel = TASK_STATUS_LABEL[t.status] ?? t.status;
-                  const priorityLabel = TASK_PRIORITY_LABEL[t.priority] ?? t.priority;
+              {colTasks.map((t, taskIndex) => {
+                const isDone = t.status === 'DONE';
+                const isLate = t.isLate ?? false;
+                const progress = Math.min(100, Math.max(0, Math.round(t.progress ?? 0)));
+                const assigneeName = taskAssigneeDisplayName(t);
+                const showProgress = t.status === 'IN_PROGRESS' && progress > 0;
+                const checklist = [...(t.checklistItems ?? [])].sort(
+                  (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+                );
+                const showCardChecklist = showChecklists && checklist.length > 0;
+                const checkedCount = checklist.filter((c) => c.isChecked).length;
+                const descriptionText = t.description?.trim() ?? '';
+                const showCardDescription = showDescriptions && descriptionText.length > 0;
 
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className={cn(
-                        'w-full rounded-lg border border-border/50 bg-background p-2 text-left',
-                        'hover:border-border/80 hover:bg-muted/40',
-                      )}
-                      onClick={() => canEdit && openEdit(t)}
-                      disabled={!canEdit}
-                      draggable={canEdit}
-                      onDragStart={(e) => {
-                        if (!canEdit) return;
-                        setDraggingTaskId(t.id);
-                        e.dataTransfer.setData('text/plain', t.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                      onDragEnd={() => {
-                        setDraggingTaskId(null);
-                        setDragOverBucketKey(null);
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">{t.name}</div>
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="starium-kcard"
+                    onClick={() => canEdit && openEdit(t)}
+                    disabled={!canEdit}
+                    draggable={canEdit}
+                    onDragStart={(e) => {
+                      if (!canEdit) return;
+                      setDraggingTaskId(t.id);
+                      e.dataTransfer.setData('text/plain', t.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragEnd={() => {
+                      setDraggingTaskId(null);
+                      setDragOverBucketKey(null);
+                    }}
+                  >
+                    <div className="flex">
+                      <div
+                        className="starium-kprio"
+                        style={{ background: priorityStripeColor(t.priority) }}
+                        aria-hidden
+                      />
+                      <div className={cn('min-w-0 flex-1', isDone && 'opacity-80')}>
+                        <div className="starium-kcard-top">
+                          <span
+                            className={cn(
+                              'starium-ds-badge starium-kcard-status',
+                              taskStatusBadgeClass(t.status, isLate),
+                            )}
+                          >
+                            {taskStatusBadgeLabel(t.status, isLate)}
+                          </span>
+                          <span className={cn('starium-kcard-tag', priorityTagClass(t.priority))}>
+                            {`Priorité ${(TASK_PRIORITY_LABEL[t.priority] ?? t.priority).toLowerCase()}`}
+                          </span>
                         </div>
-                        <div className="shrink-0 text-[11px] text-muted-foreground">
-                          {statusLabel}
-                        </div>
-                      </div>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>
-                          Priorité : {priorityLabel}
-                        </span>
-                        <span>
-                          {t.plannedEndDate ? `Fin ${formatFrDate(t.plannedEndDate)}` : 'Sans échéance'}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted/50">
                         <div
-                          className="h-full rounded bg-primary/70"
-                          style={{ width: `${t.progress ?? 0}%` }}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
+                          className={cn(
+                            'starium-kcard-title',
+                            isDone && 'line-through decoration-muted-foreground/40',
+                          )}
+                        >
+                          {t.name}
+                        </div>
 
-                {colTasks.length === 0 && (
-                  <div className="rounded-md border border-dashed border-border/50 bg-muted/10 p-3 text-center text-xs text-muted-foreground">
-                    Aucune tâche
-                  </div>
-                )}
-              </div>
+                        {showCardDescription ? (
+                          <p className="starium-kcard-desc" title={descriptionText}>
+                            {descriptionText}
+                          </p>
+                        ) : null}
+
+                        {showProgress ? (
+                          <div className="starium-dt-prog mb-2.5 mt-1">
+                            <div className="starium-dt-prog-track" aria-hidden>
+                              <div
+                                className={cn(
+                                  'starium-dt-prog-fill',
+                                  taskProgressFillClass(progress, isLate),
+                                )}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <span className="starium-dt-prog-pct">{progress}%</span>
+                          </div>
+                        ) : null}
+
+                        {showCardChecklist ? (
+                          <div
+                            className="starium-kcard-checklist"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <div className="starium-kcard-checklist-head">
+                              <span>Liste de contrôle</span>
+                              <span className="starium-kcard-checklist-count" aria-hidden>
+                                {checkedCount}/{checklist.length}
+                              </span>
+                            </div>
+                            <ul className="starium-kcard-checklist-items">
+                              {checklist.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className={cn(
+                                    'starium-kcard-checklist-item',
+                                    item.isChecked && 'starium-kcard-checklist-item--done',
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={item.isChecked}
+                                    disabled={!canEdit}
+                                    aria-label={`${item.isChecked ? 'Coché' : 'Non coché'} : ${item.title}`}
+                                    onChange={(e) =>
+                                      toggleChecklistItem(t, item.id, e.target.checked)
+                                    }
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                  />
+                                  <span className="min-w-0 truncate" title={item.title}>
+                                    {item.title}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        <div className="starium-kcard-foot">
+                          <span
+                            className={cn(
+                              'starium-kcard-due',
+                              isLate && !isDone && 'starium-kcard-due--late',
+                            )}
+                          >
+                            {isDone ? (
+                              <Check strokeWidth={2} aria-hidden />
+                            ) : (
+                              <Calendar strokeWidth={1.75} aria-hidden />
+                            )}
+                            {formatFrDateShort(t.plannedEndDate)}
+                          </span>
+                          {t.responsibleResourceId ? (
+                            <UserInitialsAvatar
+                              displayName={assigneeName}
+                              seed={t.responsibleResourceId}
+                              themeIndex={taskIndex}
+                              size="sm"
+                              className="starium-kav !size-6 !text-[9px]"
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {colTasks.length === 0 && (
+                <div className="starium-kcol-empty">Aucune tâche</div>
+              )}
             </div>
           );
         })}
+        </div>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent
-          className="max-w-[min(80vw,72rem)] sm:max-w-[min(80vw,72rem)]"
-          showCloseButton
-        >
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier la tâche' : 'Nouvelle tâche'}</DialogTitle>
-            <DialogDescription>
-              Mettre à jour les informations de la tâche, son planning et ses dépendances.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[min(65vh,520px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
-            <TaskFormDialogFields
-              form={createForm}
-              onPatch={(patch) =>
-                setCreateForm((prev) => ({
-                  ...prev,
-                  ...patch,
-                }))
-              }
-              phaseOptions={phaseOptions}
-              tasksForDepends={tasksForDepends}
-              assignableOptions={assignableOptions}
-              bucketOptions={bucketOptions}
-              taskLabelOptions={taskLabelOptions}
-              syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
-              canCreateTaskLabels={canCreateTaskLabels}
-              onCreateTaskLabel={onCreateTaskLabel}
-              fieldIdPrefix="planning-task"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              disabled={
-                !createForm.name.trim() ||
-                createMut.isPending ||
-                updateMut.isPending
-              }
-            >
-              {editing ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+      <ProjectTaskFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={!!editing}
+        form={createForm}
+        onPatch={(patch) =>
+          setCreateForm((prev) => ({
+            ...prev,
+            ...patch,
+          }))
+        }
+        onSubmit={submit}
+        isSubmitting={createMut.isPending || updateMut.isPending}
+        phaseOptions={phaseOptions}
+        tasksForDepends={tasksForDepends}
+        assignableOptions={assignableOptions}
+        bucketOptions={bucketOptions}
+        taskLabelOptions={taskLabelOptions}
+        syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
+        canCreateTaskLabels={canCreateTaskLabels}
+        onCreateTaskLabel={onCreateTaskLabel}
+        fieldIdPrefix="kanban-task"
+      />
+    </>
   );
-}
+});
+
+ProjectPlanningKanbanTab.displayName = 'ProjectPlanningKanbanTab';
 

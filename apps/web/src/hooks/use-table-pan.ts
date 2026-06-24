@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 /**
- * Hook de déplacement par clic (grab/pan) pour les conteneurs de table scrollables.
+ * Hook de déplacement par clic (grab/pan) pour les conteneurs scrollables.
  *
  * Clic gauche maintenu + glisser → translation du scroll (horizontal + vertical).
  * Les éléments interactifs (liens, boutons, champs, selects, labels) ne déclenchent pas le pan.
@@ -46,7 +46,13 @@ export function useTablePan() {
   const onMouseDown = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('a[href], input, textarea, select, label, button, [role="button"]')) return;
+    if (
+      target.closest(
+        'a[href], input, textarea, select, label, button, [role="button"]',
+      )
+    ) {
+      return;
+    }
     const el = scrollRef.current;
     if (!el) return;
     panRef.current = {

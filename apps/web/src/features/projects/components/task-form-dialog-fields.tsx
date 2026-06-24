@@ -1,9 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   TASK_PRIORITY_LABEL,
   TASK_STATUS_LABEL,
@@ -15,6 +12,9 @@ import {
   Flag,
   Link2,
   ListChecks,
+  Plus,
+  Tag,
+  Trash2,
   User,
   X,
 } from 'lucide-react';
@@ -47,9 +47,6 @@ function dateInputToIso(s: string): string | undefined {
   return new Date(`${s}T12:00:00.000Z`).toISOString();
 }
 
-const fieldBase =
-  'border border-input bg-background text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
-
 const DEP_TYPES = [
   { value: '', label: '—' },
   { value: 'FINISH_TO_START', label: 'Fin → début' },
@@ -57,7 +54,6 @@ const DEP_TYPES = [
   { value: 'FINISH_TO_FINISH', label: 'Fin → fin' },
 ];
 
-/** Valeur sentinelle pour le Select d’ajout d’étiquette (affichage « Choisir… »). */
 const TASK_LABEL_PICK_PLACEHOLDER = '__task_label_pick__';
 
 function toUserErrorMessage(error: unknown): string {
@@ -70,13 +66,32 @@ function toUserErrorMessage(error: unknown): string {
   return 'Une erreur est survenue.';
 }
 
+type FormFieldProps = {
+  label: string;
+  htmlFor: string;
+  hint?: string;
+  className?: string;
+  children: React.ReactNode;
+};
+
+function FormField({ label, htmlFor, hint, className, children }: FormFieldProps) {
+  return (
+    <div className={cn('starium-form-field', className)}>
+      <label htmlFor={htmlFor} className="starium-form-label">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="starium-form-hint">{hint}</p> : null}
+    </div>
+  );
+}
+
 export type TaskFormDialogFieldsProps = {
   form: CreateProjectTaskPayload;
   onPatch: (patch: Partial<CreateProjectTaskPayload>) => void;
   phaseOptions: { id: string; name: string }[];
   tasksForDepends: { id: string; name: string }[];
   assignableOptions: { id: string; label: string }[];
-  /** Buckets projet (vide = aucun bucket défini côté API). */
   bucketOptions: { id: string; label: string }[];
   taskLabelOptions: TaskLabelOption[];
   syncMicrosoftPlannerLabelsEnabled: boolean;
@@ -84,14 +99,9 @@ export type TaskFormDialogFieldsProps = {
   onCreateTaskLabel?: (name: string) => Promise<string>;
   canCreatePhase?: boolean;
   onCreatePhase?: (name: string) => Promise<string>;
-  /** Préfixe des `id` HTML (ex. `planning-task`). */
   fieldIdPrefix: string;
 };
 
-/**
- * Formulaire tâche (planning) : sections alignées sur FRONTEND_UI-UX.md.
- * Une phase est un libellé de groupement (pas une tâche).
- */
 export function TaskFormDialogFields({
   form,
   onPatch,
@@ -117,6 +127,9 @@ export function TaskFormDialogFields({
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [newPhaseName, setNewPhaseName] = useState('');
   const [isCreatingPhase, setIsCreatingPhase] = useState(false);
+
+  const progress = Math.min(100, Math.max(0, form.progress ?? 0));
+
   const labelById = useMemo(() => {
     const m = new Map<string, TaskLabelOption>();
     for (const o of taskLabelOptions) m.set(o.id, o);
@@ -175,65 +188,53 @@ export function TaskFormDialogFields({
   };
 
   return (
-    <div className="space-y-4">
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-identity')}
-      >
-        <h3
-          id={fid('sec-identity')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <Flag className="size-3.5 shrink-0" aria-hidden />
+    <div className="starium-form">
+      <section className="starium-form-section" aria-labelledby={fid('sec-identity')}>
+        <h3 id={fid('sec-identity')} className="starium-form-section-title">
+          <Flag aria-hidden />
           Identité
         </h3>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('name')}>Nom</Label>
-            <Input
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField label="Nom" htmlFor={fid('name')} className="starium-form-grid--span-2">
+            <input
               id={fid('name')}
+              className="starium-form-input"
               value={form.name}
               onChange={(e) => onPatch({ name: e.target.value })}
               required
               autoComplete="off"
+              placeholder="Intitulé de la tâche"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('desc')}>Description</Label>
+          </FormField>
+          <FormField label="Description" htmlFor={fid('desc')} className="starium-form-grid--span-2">
             <textarea
               id={fid('desc')}
-              className={cn(
-                'min-h-[72px] w-full rounded-lg px-3 py-2 placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
-                fieldBase,
-              )}
+              className="starium-form-textarea"
               value={form.description ?? ''}
               onChange={(e) => onPatch({ description: e.target.value })}
+              placeholder="Contexte, livrables, critères d’acceptation…"
             />
-          </div>
+          </FormField>
         </div>
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-tracking')}
-      >
-        <h3
-          id={fid('sec-tracking')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <ListChecks className="size-3.5 shrink-0" aria-hidden />
-          Suivi
+      <section className="starium-form-section" aria-labelledby={fid('sec-tracking')}>
+        <h3 id={fid('sec-tracking')} className="starium-form-section-title">
+          <ListChecks aria-hidden />
+          Suivi & organisation
         </h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor={fid('bucket')}>Bucket</Label>
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField
+            label="Bucket"
+            htmlFor={fid('bucket')}
+            hint="Colonne Kanban / Planner (défini dans les options du projet)."
+            className="starium-form-grid--span-2"
+          >
             <select
               id={fid('bucket')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.bucketId ?? ''}
-              onChange={(e) =>
-                onPatch({ bucketId: e.target.value || null })
-              }
+              onChange={(e) => onPatch({ bucketId: e.target.value || null })}
             >
               <option value="">— Aucun</option>
               {bucketOptions.map((b) => (
@@ -242,15 +243,44 @@ export function TaskFormDialogFields({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              Colonne Kanban / Planner (défini dans les options du projet).
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('status')}>Statut</Label>
+          </FormField>
+
+          <FormField label="Libellé de phase" htmlFor={fid('phase')}>
+            <select
+              id={fid('phase')}
+              className="starium-form-select"
+              value={form.phaseId ?? ''}
+              onChange={(e) => onPatch({ phaseId: e.target.value || null })}
+            >
+              <option value="">Sans libellé</option>
+              {phaseOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="Assigné à" htmlFor={fid('owner')}>
+            <select
+              id={fid('owner')}
+              className="starium-form-select"
+              value={form.ownerUserId ?? ''}
+              onChange={(e) => onPatch({ ownerUserId: e.target.value || null })}
+            >
+              <option value="">— Non assigné</option>
+              {assignableOptions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="Statut" htmlFor={fid('status')}>
             <select
               id={fid('status')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.status ?? 'TODO'}
               onChange={(e) => onPatch({ status: e.target.value })}
             >
@@ -260,12 +290,12 @@ export function TaskFormDialogFields({
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('priority')}>Priorité</Label>
+          </FormField>
+
+          <FormField label="Priorité" htmlFor={fid('priority')}>
             <select
               id={fid('priority')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.priority ?? 'MEDIUM'}
               onChange={(e) => onPatch({ priority: e.target.value })}
             >
@@ -275,82 +305,113 @@ export function TaskFormDialogFields({
                 </option>
               ))}
             </select>
+          </FormField>
+
+          <div className="starium-form-progress starium-form-grid--span-2">
+            <div className="starium-form-progress-head">
+              <label htmlFor={fid('progress')} className="starium-form-label">
+                Avancement
+              </label>
+              <span className="starium-form-progress-value" aria-hidden>
+                {progress} %
+              </span>
+            </div>
+            <input
+              id={fid('progress')}
+              type="range"
+              className="starium-form-range"
+              min={0}
+              max={100}
+              step={5}
+              value={progress}
+              onChange={(e) =>
+                onPatch({
+                  progress: Number.parseInt(e.target.value, 10) || 0,
+                })
+              }
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+              aria-valuetext={`${progress} pour cent`}
+            />
           </div>
         </div>
-        <div className="mt-3 space-y-1.5">
-          <Label htmlFor={fid('progress')}>Progression (0–100)</Label>
-          <Input
-            id={fid('progress')}
-            type="number"
-            min={0}
-            max={100}
-            value={form.progress ?? 0}
-            onChange={(e) =>
-              onPatch({
-                progress: Number.parseInt(e.target.value, 10) || 0,
-              })
-            }
-          />
-        </div>
+
+        {canCreatePhase ? (
+          <div className="starium-form-inline mt-3">
+            <FormField label="Nouveau libellé de phase" htmlFor={fid('new-phase')}>
+              <input
+                id={fid('new-phase')}
+                className="starium-form-input"
+                value={newPhaseName}
+                placeholder="Ex. Cadrage"
+                onChange={(e) => setNewPhaseName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void createAndSelectPhase();
+                }}
+                disabled={isCreatingPhase}
+              />
+            </FormField>
+            <button
+              type="button"
+              className="starium-btn starium-btn-secondary starium-btn-sm"
+              disabled={!newPhaseName.trim() || isCreatingPhase}
+              onClick={() => void createAndSelectPhase()}
+            >
+              <Plus aria-hidden />
+              Ajouter
+            </button>
+          </div>
+        ) : null}
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-planning')}
-      >
-        <h3
-          id={fid('sec-planning')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <CalendarRange className="size-3.5 shrink-0" aria-hidden />
+      <section className="starium-form-section" aria-labelledby={fid('sec-planning')}>
+        <h3 id={fid('sec-planning')} className="starium-form-section-title">
+          <CalendarRange aria-hidden />
           Planning
         </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('planned-start')}>Début planifié</Label>
-            <Input
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField label="Début planifié" htmlFor={fid('planned-start')}>
+            <input
               id={fid('planned-start')}
               type="date"
+              className="starium-form-input"
               value={isoToDateInput(form.plannedStartDate)}
               onChange={(e) =>
                 onPatch({ plannedStartDate: dateInputToIso(e.target.value) })
               }
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('planned-end')}>Fin planifiée</Label>
-            <Input
+          </FormField>
+          <FormField label="Fin planifiée" htmlFor={fid('planned-end')}>
+            <input
               id={fid('planned-end')}
               type="date"
+              className="starium-form-input"
               value={isoToDateInput(form.plannedEndDate)}
               onChange={(e) =>
                 onPatch({ plannedEndDate: dateInputToIso(e.target.value) })
               }
             />
-          </div>
+          </FormField>
         </div>
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-checklist')}
-      >
-        <h3
-          id={fid('sec-checklist')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <CheckSquare className="size-3.5 shrink-0" aria-hidden />
+      <section className="starium-form-section" aria-labelledby={fid('sec-checklist')}>
+        <h3 id={fid('sec-checklist')} className="starium-form-section-title">
+          <CheckSquare aria-hidden />
           Liste de contrôle
         </h3>
-        <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+        <p className="starium-form-hint mb-3">
           Synchronisée avec Microsoft Planner lors de la sync des tâches.
         </p>
-        <ul className="space-y-2">
+        <ul className="starium-checklist">
           {(form.checklistItems ?? []).map((item, idx) => (
-            <li key={item.id ?? `draft-${idx}`} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+            <li key={item.id ?? `draft-${idx}`} className="starium-checklist-row">
               <input
                 type="checkbox"
-                className="size-4 shrink-0 rounded border border-input"
                 checked={item.isChecked ?? false}
                 onChange={(e) => {
                   const next = [...(form.checklistItems ?? [])];
@@ -359,10 +420,11 @@ export function TaskFormDialogFields({
                 }}
                 aria-label={`Élément coché : ${item.title || 'nouvel élément'}`}
               />
-              <Input
-                className="min-w-0 flex-1"
+              <input
+                className="starium-form-input min-w-0 flex-1"
                 value={item.title}
                 placeholder="Libellé"
+                aria-label={`Libellé de l’élément ${idx + 1}`}
                 onChange={(e) => {
                   const next = [...(form.checklistItems ?? [])];
                   next[idx] = { ...next[idx], title: e.target.value };
@@ -377,11 +439,7 @@ export function TaskFormDialogFields({
                   const nextTitle = items[idx]?.title ?? '';
                   (e.currentTarget as HTMLInputElement).blur();
 
-                  // UX: si l'utilisateur "valide" sur la dernière ligne remplie, on prépare la ligne suivante.
-                  if (
-                    nextTitle.trim().length > 0 &&
-                    idx === items.length - 1
-                  ) {
+                  if (nextTitle.trim().length > 0 && idx === items.length - 1) {
                     onPatch({
                       checklistItems: [
                         ...items,
@@ -395,11 +453,10 @@ export function TaskFormDialogFields({
                   }
                 }}
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 shrink-0 px-2 text-muted-foreground"
+                className="starium-form-icon-btn"
+                aria-label={`Retirer l’élément ${item.title || idx + 1}`}
                 onClick={() => {
                   const next = (form.checklistItems ?? []).filter((_, i) => i !== idx);
                   onPatch({
@@ -410,16 +467,14 @@ export function TaskFormDialogFields({
                   });
                 }}
               >
-                Retirer
-              </Button>
+                <Trash2 className="size-4" aria-hidden />
+              </button>
             </li>
           ))}
         </ul>
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
-          className="mt-2"
+          className="starium-btn starium-btn-secondary starium-btn-sm mt-3"
           onClick={() => {
             const items = form.checklistItems ?? [];
             onPatch({
@@ -430,137 +485,127 @@ export function TaskFormDialogFields({
             });
           }}
         >
+          <Plus aria-hidden />
           Ajouter un élément
-        </Button>
+        </button>
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-labels')}
-      >
-        <h3
-          id={fid('sec-labels')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
+      <section className="starium-form-section" aria-labelledby={fid('sec-labels')}>
+        <h3 id={fid('sec-labels')} className="starium-form-section-title">
+          <Tag aria-hidden />
           Étiquettes
         </h3>
 
         {syncMicrosoftPlannerLabelsEnabled ? (
-          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+          <p className="starium-form-hint mb-3">
             Synchronisation Microsoft Planner active : la création des étiquettes Starium est
             désactivée.
           </p>
         ) : null}
 
-        <div className="space-y-3">
-          {selectedLabelIds.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {selectedLabelIds.map((id) => {
-                const opt = labelById.get(id);
-                const name = opt?.label ?? id;
-                const bg = resolveTaskLabelDisplayColor(
-                  opt?.plannerCategoryId ?? null,
-                  opt?.color ?? null,
-                );
-                const fg = pickReadableTextOnBackground(bg);
-                return (
-                  <span
-                    key={id}
-                    className="inline-flex max-w-full items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium shadow-sm"
-                    style={{ backgroundColor: bg, color: fg }}
-                  >
-                    <span className="truncate" title={name}>
-                      {name}
-                    </span>
-                    <button
-                      type="button"
-                      className={cn(
-                        'shrink-0 rounded-md p-0.5 hover:bg-black/10',
-                        fg === '#ffffff' ? 'text-white/90' : 'text-black/70',
-                      )}
-                      aria-label={`Retirer l’étiquette ${name}`}
-                      onClick={() => removeLabel(id)}
-                    >
-                      <X className="size-3.5" aria-hidden />
-                    </button>
+        {selectedLabelIds.length > 0 ? (
+          <div className="starium-form-tags mb-3">
+            {selectedLabelIds.map((id) => {
+              const opt = labelById.get(id);
+              const name = opt?.label ?? id;
+              const bg = resolveTaskLabelDisplayColor(
+                opt?.plannerCategoryId ?? null,
+                opt?.color ?? null,
+              );
+              const fg = pickReadableTextOnBackground(bg);
+              return (
+                <span
+                  key={id}
+                  className="inline-flex max-w-full items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-semibold shadow-sm"
+                  style={{ backgroundColor: bg, color: fg }}
+                >
+                  <span className="truncate" title={name}>
+                    {name}
                   </span>
+                  <button
+                    type="button"
+                    className={cn(
+                      'shrink-0 rounded-md p-0.5 hover:bg-black/10',
+                      fg === '#ffffff' ? 'text-white/90' : 'text-black/70',
+                    )}
+                    aria-label={`Retirer l’étiquette ${name}`}
+                    onClick={() => removeLabel(id)}
+                  >
+                    <X className="size-3.5" aria-hidden />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : taskLabelOptions.length > 0 ? (
+          <p className="starium-form-hint mb-3">Aucune étiquette sélectionnée.</p>
+        ) : null}
+
+        <FormField label="Choisir une étiquette" htmlFor={fid('labels-picker')}>
+          <Select
+            value={TASK_LABEL_PICK_PLACEHOLDER}
+            onValueChange={(id) => {
+              if (!id || id === TASK_LABEL_PICK_PLACEHOLDER) return;
+              toggleLabel(id);
+            }}
+            disabled={taskLabelOptions.length === 0}
+          >
+            <SelectTrigger
+              id={fid('labels-picker')}
+              className={cn(
+                'starium-form-select h-[38px] w-full min-w-0 shadow-none',
+                taskLabelOptions.length === 0 && 'cursor-not-allowed opacity-70',
+              )}
+            >
+              <SelectValue placeholder="— Choisir dans la liste…">
+                {taskLabelOptions.length === 0
+                  ? '— Aucune étiquette disponible'
+                  : '— Choisir dans la liste…'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TASK_LABEL_PICK_PLACEHOLDER}>
+                <span className="text-muted-foreground">— Choisir dans la liste…</span>
+              </SelectItem>
+              {availableLabelOptions.map((opt) => {
+                const bg = resolveTaskLabelDisplayColor(
+                  opt.plannerCategoryId ?? null,
+                  opt.color ?? null,
+                );
+                return (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    <span className="flex w-full min-w-0 items-center gap-2.5">
+                      <span
+                        className="size-3 shrink-0 rounded-full shadow-inner ring-1 ring-black/10"
+                        style={{ backgroundColor: bg }}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 truncate">{opt.label}</span>
+                    </span>
+                  </SelectItem>
                 );
               })}
-            </div>
-          ) : taskLabelOptions.length > 0 ? (
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              Aucune étiquette sélectionnée.
+            </SelectContent>
+          </Select>
+          {taskLabelOptions.length === 0 ? (
+            <p className="starium-form-hint">
+              {syncMicrosoftPlannerLabelsEnabled
+                ? 'Les libellés viennent du plan Planner. La sync des tâches importe ces libellés s’ils manquent.'
+                : 'Créez une étiquette Starium avec le champ ci-dessous pour la voir dans cette liste.'}
+            </p>
+          ) : availableLabelOptions.length === 0 && selectedLabelIds.length > 0 ? (
+            <p className="starium-form-hint">
+              Toutes les étiquettes disponibles sont sélectionnées.
             </p>
           ) : null}
-
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('labels-picker')}>Choisir une étiquette</Label>
-            <Select
-              value={TASK_LABEL_PICK_PLACEHOLDER}
-              onValueChange={(id) => {
-                if (!id || id === TASK_LABEL_PICK_PLACEHOLDER) return;
-                toggleLabel(id);
-              }}
-              disabled={taskLabelOptions.length === 0}
-            >
-              <SelectTrigger
-                id={fid('labels-picker')}
-                className={cn(
-                  'h-9 w-full min-w-0 border px-2 shadow-xs',
-                  fieldBase,
-                  taskLabelOptions.length === 0 && 'cursor-not-allowed opacity-70',
-                )}
-              >
-                <SelectValue placeholder="— Choisir dans la liste…">
-                  {taskLabelOptions.length === 0
-                    ? '— Aucune étiquette disponible'
-                    : '— Choisir dans la liste…'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={TASK_LABEL_PICK_PLACEHOLDER}>
-                  <span className="text-muted-foreground">— Choisir dans la liste…</span>
-                </SelectItem>
-                {availableLabelOptions.map((opt) => {
-                  const bg = resolveTaskLabelDisplayColor(
-                    opt.plannerCategoryId ?? null,
-                    opt.color ?? null,
-                  );
-                  return (
-                    <SelectItem key={opt.id} value={opt.id}>
-                      <span className="flex w-full min-w-0 items-center gap-2.5">
-                        <span
-                          className="size-3 shrink-0 rounded-full shadow-inner ring-1 ring-black/10"
-                          style={{ backgroundColor: bg }}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 truncate">{opt.label}</span>
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            {taskLabelOptions.length === 0 ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                {syncMicrosoftPlannerLabelsEnabled
-                  ? 'Les libellés viennent du plan Planner (catégories 1 à 25 dans les détails du plan). La sync des tâches importe aussi ces libellés s’ils manquent. Seules les catégories 1 à 6 peuvent être renvoyées vers Planner sur chaque tâche (limitation Microsoft).'
-                  : 'Créez une étiquette Starium avec le champ ci-dessous pour la voir dans cette liste.'}
-              </p>
-            ) : availableLabelOptions.length === 0 && selectedLabelIds.length > 0 ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                Toutes les étiquettes disponibles sont sélectionnées.
-              </p>
-            ) : null}
-          </div>
-        </div>
+        </FormField>
 
         {canCreateTaskLabels ? (
-          <div className="mt-4 flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <Label htmlFor={fid('new-label')}>Nouvelle étiquette</Label>
-              <Input
+          <div className="starium-form-inline mt-3">
+            <FormField label="Nouvelle étiquette" htmlFor={fid('new-label')}>
+              <input
                 id={fid('new-label')}
+                className="starium-form-input"
                 value={newLabelName}
                 placeholder="Nom d’étiquette"
                 onChange={(e) => setNewLabelName(e.target.value)}
@@ -572,84 +617,30 @@ export function TaskFormDialogFields({
                 }}
                 disabled={isCreatingLabel}
               />
-            </div>
-            <Button
+            </FormField>
+            <button
               type="button"
+              className="starium-btn starium-btn-secondary starium-btn-sm"
               disabled={!newLabelName.trim() || isCreatingLabel}
               onClick={() => void createAndSelectLabel()}
             >
+              <Plus aria-hidden />
               Ajouter
-            </Button>
+            </button>
           </div>
         ) : null}
       </section>
 
-      <section className="rounded-lg border border-border/70 bg-muted/30 p-4">
-        <div className="space-y-1.5">
-          <Label htmlFor={fid('phase')}>Libellé de phase</Label>
-          <select
-            id={fid('phase')}
-            className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
-            value={form.phaseId ?? ''}
-            onChange={(e) => onPatch({ phaseId: e.target.value || null })}
-          >
-            <option value="">Sans libellé de phase</option>
-            {phaseOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] leading-snug text-muted-foreground">
-            La phase est un libellé de regroupement visuel des tâches.
-          </p>
-        </div>
-        {canCreatePhase ? (
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <Label htmlFor={fid('new-phase')}>Nouveau libellé de phase</Label>
-              <Input
-                id={fid('new-phase')}
-                value={newPhaseName}
-                placeholder="Ex: Cadrage"
-                onChange={(e) => setNewPhaseName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter') return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void createAndSelectPhase();
-                }}
-                disabled={isCreatingPhase}
-              />
-            </div>
-            <Button
-              type="button"
-              disabled={!newPhaseName.trim() || isCreatingPhase}
-              onClick={() => void createAndSelectPhase()}
-            >
-              Ajouter le libellé
-            </Button>
-          </div>
-        ) : null}
-      </section>
-
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-deps')}
-      >
-        <h3
-          id={fid('sec-deps')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <Link2 className="size-3.5 shrink-0" aria-hidden />
+      <section className="starium-form-section" aria-labelledby={fid('sec-deps')}>
+        <h3 id={fid('sec-deps')} className="starium-form-section-title">
+          <Link2 aria-hidden />
           Dépendances
         </h3>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('depends')}>Dépend de (prédécesseur)</Label>
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField label="Dépend de (prédécesseur)" htmlFor={fid('depends')}>
             <select
               id={fid('depends')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.dependsOnTaskId ?? ''}
               onChange={(e) =>
                 onPatch({ dependsOnTaskId: e.target.value || null })
@@ -662,12 +653,15 @@ export function TaskFormDialogFields({
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('dep-type')}>Type de dépendance</Label>
+          </FormField>
+          <FormField
+            label="Type de dépendance"
+            htmlFor={fid('dep-type')}
+            hint="Lien logique avec la tâche prédécesseur (ex. fin → début)."
+          >
             <select
               id={fid('dep-type')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.dependencyType ?? ''}
               onChange={(e) =>
                 onPatch({
@@ -681,39 +675,7 @@ export function TaskFormDialogFields({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] leading-snug text-muted-foreground">
-              Définit le lien logique avec la tâche prédécesseur (ex. fin → début).
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-owner')}
-      >
-        <h3
-          id={fid('sec-owner')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <User className="size-3.5 shrink-0" aria-hidden />
-          Responsable
-        </h3>
-        <div className="space-y-1.5">
-          <Label htmlFor={fid('owner')}>Utilisateur assigné</Label>
-          <select
-            id={fid('owner')}
-            className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
-            value={form.ownerUserId ?? ''}
-            onChange={(e) => onPatch({ ownerUserId: e.target.value || null })}
-          >
-            <option value="">—</option>
-            {assignableOptions.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
+          </FormField>
         </div>
       </section>
     </div>

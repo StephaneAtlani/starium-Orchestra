@@ -1464,6 +1464,717 @@ table.starium-dt {
   outline-offset: 2px;
 }
 
+/* Bouton primaire DS */
+.starium-btn-primary {
+  background: var(--brand-gold);
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-btn-primary:hover {
+  background: var(--brand-gold-600, color-mix(in srgb, var(--brand-gold) 88%, black));
+}
+.starium-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.starium-btn-sm {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.starium-btn-sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Formulaire modal DS */
+.starium-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.starium-form-section {
+  padding: 14px 15px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1, 0 1px 2px rgba(0, 0, 0, 0.04));
+}
+.starium-form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-form-section-title svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.starium-form-grid {
+  display: grid;
+  gap: 12px;
+}
+.starium-form-grid--2 {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 480px) {
+  .starium-form-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.starium-form-grid--span-2 {
+  grid-column: 1 / -1;
+}
+.starium-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.starium-form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-form-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-form-input,
+.starium-form-select,
+.starium-form-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  font-size: 13px;
+  color: var(--brand-ink, var(--foreground));
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.starium-form-input,
+.starium-form-select {
+  height: 38px;
+  padding: 0 11px;
+}
+.starium-form-textarea {
+  min-height: 84px;
+  padding: 9px 11px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.starium-form-input::placeholder,
+.starium-form-textarea::placeholder {
+  color: var(--neutral-400, color-mix(in srgb, var(--muted-foreground) 75%, transparent));
+}
+.starium-form-input:focus-visible,
+.starium-form-select:focus-visible,
+.starium-form-textarea:focus-visible {
+  outline: none;
+  border-color: var(--brand-gold-400, var(--ring));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 18%, transparent);
+}
+.starium-form-input:disabled,
+.starium-form-select:disabled,
+.starium-form-textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.starium-form-select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  cursor: pointer;
+}
+.starium-form-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.starium-form-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.starium-form-progress-value {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-gold-700, var(--foreground));
+}
+.starium-form-range {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--brand-gold);
+  cursor: pointer;
+}
+.starium-form-range:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+.starium-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starium-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.starium-checklist-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--brand-gold);
+  cursor: pointer;
+}
+.starium-form-icon-btn {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  color: var(--neutral-500, var(--muted-foreground));
+  cursor: pointer;
+}
+.starium-form-icon-btn:hover {
+  background: var(--neutral-50, var(--background));
+  color: var(--state-danger, var(--destructive));
+}
+.starium-form-icon-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-form-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.starium-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.starium-form-inline .starium-form-field {
+  flex: 1 1 12rem;
+}
+
+/* Toolbar DS (mockup .toolbar) */
+.starium-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.starium-toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0.5rem;
+}
+.starium-search-input {
+  display: flex;
+  flex: 1 1 14rem;
+  align-items: center;
+  gap: 8px;
+  min-width: min(100%, 220px);
+  max-width: 380px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+}
+.starium-search-input svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-search-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 13px;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-search-input input::placeholder {
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-fbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+  white-space: nowrap;
+  cursor: pointer;
+}
+.starium-fbtn:hover:not(:disabled) {
+  background: var(--neutral-50, var(--background));
+}
+.starium-fbtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.starium-fbtn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-fbtn--muted {
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-fbtn-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 28px 0 13px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+}
+.starium-fbtn-wrap:hover {
+  background: var(--neutral-50, var(--background));
+}
+.starium-fbtn-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-fbtn-select {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+  cursor: pointer;
+  max-width: 9rem;
+}
+.starium-fbtn-select:focus-visible {
+  outline: none;
+}
+.starium-fbtn-wrap:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-fbtn-chev {
+  position: absolute;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+
+/* Segmented toggle DS */
+.starium-seg-toggle {
+  display: flex;
+  padding: 3px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-100, var(--muted));
+}
+.starium-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--neutral-500, var(--muted-foreground));
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.starium-seg-btn svg {
+  flex-shrink: 0;
+}
+.starium-seg-btn:hover {
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-seg-btn--active {
+  background: var(--neutral-0, var(--card));
+  color: var(--brand-ink, var(--foreground));
+  box-shadow: var(--shadow-1);
+}
+.starium-seg-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Actions tableau */
+.starium-dt-dots-btn {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--neutral-400, var(--muted-foreground));
+  cursor: pointer;
+  list-style: none;
+}
+.starium-dt-dots-btn:hover {
+  background: var(--neutral-100, var(--muted));
+  color: var(--neutral-700, var(--foreground));
+}
+.starium-dt-dots-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-dt-dots-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Menu contextuel compact (tableaux) */
+.starium-dropdown-panel--compact {
+  min-width: 11rem;
+  padding: 4px;
+}
+.starium-dropdown-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--neutral-700, var(--foreground));
+  text-decoration: none;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.starium-dropdown-item:hover {
+  background: var(--neutral-50, var(--accent));
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-dropdown-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.starium-dropdown-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.starium-dropdown-item--danger {
+  color: var(--state-danger);
+}
+.starium-dropdown-item--danger:hover {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-dropdown-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+
+/* Kanban DS */
+.starium-proj-tasks {
+  min-width: 0;
+}
+.starium-kanban-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-gutter: stable;
+  max-width: 100%;
+}
+.starium-kanban-scroll--panning {
+  cursor: grabbing;
+  user-select: none;
+}
+.starium-kanban-scroll:not(.starium-kanban-scroll--panning) {
+  cursor: grab;
+}
+.starium-kanban {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 14px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 4px;
+}
+.starium-kcol {
+  display: flex;
+  flex: 0 0 17.5rem;
+  width: 17.5rem;
+  max-height: min(70vh, calc(100dvh - 14rem));
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+  padding: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-100, var(--muted));
+  -webkit-overflow-scrolling: touch;
+}
+.starium-kcol--over {
+  outline: 2px solid color-mix(in srgb, var(--brand-gold) 55%, transparent);
+  outline-offset: 2px;
+}
+.starium-kcol-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 4px;
+}
+.starium-kcol-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-kcol-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-kcol-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--neutral-500, var(--muted-foreground));
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-0, var(--card));
+}
+.starium-kcol-empty {
+  padding: 12px;
+  border: 1px dashed var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  text-align: center;
+  font-size: 12px;
+  color: var(--neutral-500, var(--muted-foreground));
+  background: color-mix(in srgb, var(--neutral-0, var(--card)) 50%, transparent);
+}
+.starium-kcard {
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 120ms ease;
+}
+.starium-kcard:hover:not(:disabled) {
+  box-shadow: var(--shadow-2);
+}
+.starium-kcard:disabled {
+  cursor: default;
+}
+.starium-kcard:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-kprio {
+  width: 3px;
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: -1px 9px -1px -1px;
+  border-radius: 3px 0 0 3px;
+}
+.starium-kcard-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.starium-kcard-top .starium-kcard-status {
+  padding: 2px 7px;
+  font-size: 9.5px;
+  gap: 4px;
+  letter-spacing: 0.02em;
+}
+.starium-kcard-top .starium-kcard-status::before {
+  width: 5px;
+  height: 5px;
+}
+.starium-kcard-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.starium-kcard-tag--danger {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-kcard-tag--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-kcard-tag--neutral {
+  background: var(--neutral-100, var(--muted));
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-kcard-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--brand-ink, var(--foreground));
+  margin-bottom: 5px;
+}
+.starium-kcard-desc {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--neutral-500, var(--muted-foreground));
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+.starium-kcard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 13px 13px;
+}
+.starium-kcard-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-kcard-due svg {
+  width: 12px;
+  height: 12px;
+}
+.starium-kcard-due--late {
+  color: var(--state-danger);
+}
+.starium-kcard-checklist {
+  margin: 0 10px 8px;
+  padding: 8px 3px 0;
+  border-top: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 65%, transparent));
+}
+.starium-kcard-checklist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-kcard-checklist-count {
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-100, var(--muted));
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-kcard-checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starium-kcard-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-kcard-checklist-item input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin: 1px 0 0;
+  accent-color: var(--brand-gold);
+  cursor: pointer;
+}
+.starium-kcard-checklist-item input[type='checkbox']:disabled {
+  cursor: default;
+}
+.starium-kcard-checklist-item--done span {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.starium-kcard .starium-kcard-top,
+.starium-kcard .starium-kcard-title,
+.starium-kcard .starium-kcard-desc,
+.starium-kcard .starium-dt-prog {
+  padding-left: 13px;
+  padding-right: 13px;
+}
+.starium-kcard .starium-kcard-top {
+  padding-top: 13px;
+}
+.starium-kav {
+  flex-shrink: 0;
+}
+
 .starium-avatar-chip--5 {
   background: var(--brand-gold-100);
   color: var(--brand-gold-700);

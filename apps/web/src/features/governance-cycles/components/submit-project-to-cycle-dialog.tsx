@@ -28,14 +28,19 @@ import {
 import { useGovernanceCyclesListQuery } from '../api/governance-cycles.queries';
 import { formatGovernanceCycleDateRange } from '../lib/governance-cycle-formatters';
 
-export function SubmitProjectToCycleDialog({
-  projectId,
-  className,
-}: {
+type SubmitProjectToCycleDialogContentProps = {
   projectId: string;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+};
+
+export function SubmitProjectToCycleDialogContent({
+  projectId,
+  open,
+  onOpenChange,
+  onSuccess,
+}: SubmitProjectToCycleDialogContentProps) {
   const [cycleId, setCycleId] = useState('');
   const cyclesQuery = useGovernanceCyclesListQuery(
     { limit: 50, offset: 0 },
@@ -54,11 +59,65 @@ export function SubmitProjectToCycleDialog({
     try {
       await submitMutation.mutateAsync({ cycleId, projectId });
       toast.success('Projet soumis au cycle de pilotage');
-      setOpen(false);
+      setCycleId('');
+      onOpenChange(false);
+      onSuccess?.();
     } catch (e) {
       toast.error(getApiErrorMessage(e));
     }
   }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) setCycleId('');
+    onOpenChange(next);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Soumettre au cycle de pilotage</DialogTitle>
+          <DialogDescription>
+            Le projet sera inscrit comme candidat au programme choisi (pas encore décidé en
+            séance).
+          </DialogDescription>
+        </DialogHeader>
+        <Select value={cycleId} onValueChange={(v) => setCycleId(v ?? '')}>
+          <SelectTrigger>
+            <SelectValue placeholder="Programme de pilotage" />
+          </SelectTrigger>
+          <SelectContent>
+            {cycles.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+                {c.startDate || c.endDate
+                  ? ` — ${formatGovernanceCycleDateRange(c.startDate, c.endDate)}`
+                  : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+            Soumettre
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function SubmitProjectToCycleDialog({
+  projectId,
+  className,
+}: {
+  projectId: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
 
   return (
     <PermissionGate permission="governance_cycles.propose">
@@ -72,40 +131,11 @@ export function SubmitProjectToCycleDialog({
         <span className="hidden sm:inline">Soumettre au cycle</span>
         <span className="sm:hidden">Soumettre</span>
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Soumettre au cycle de pilotage</DialogTitle>
-            <DialogDescription>
-              Le projet sera inscrit comme candidat au programme choisi (pas encore décidé en
-              séance).
-            </DialogDescription>
-          </DialogHeader>
-          <Select value={cycleId} onValueChange={(v) => setCycleId(v ?? '')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Programme de pilotage" />
-            </SelectTrigger>
-            <SelectContent>
-              {cycles.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                  {c.startDate || c.endDate
-                    ? ` — ${formatGovernanceCycleDateRange(c.startDate, c.endDate)}`
-                    : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Annuler
-            </Button>
-            <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
-              Soumettre
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SubmitProjectToCycleDialogContent
+        projectId={projectId}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </PermissionGate>
   );
 }

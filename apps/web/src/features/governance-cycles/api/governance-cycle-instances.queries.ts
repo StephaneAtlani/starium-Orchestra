@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useGovernanceCyclesReadContext } from './governance-cycles.queries';
+import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import { governanceCyclesKeys } from '../lib/governance-cycles-query-keys';
 import {
   closeGovernanceCycleInstance,
@@ -179,6 +180,9 @@ export function useSubmitProjectToCycleMutation() {
     onSuccess: (_d, { projectId }) => {
       void qc.invalidateQueries({
         queryKey: governanceCyclesKeys.byProject(clientId, projectId),
+      });
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.sheet(clientId, projectId),
       });
     },
   });

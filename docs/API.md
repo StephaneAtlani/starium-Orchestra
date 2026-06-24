@@ -594,7 +594,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/governance-cycles/:id/summary (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — KPI global `GovernanceCycleGlobalSummaryDto` ; isolation `clientId` |
 | /api/governance-cycles/:id (DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.delete`) — archivage logique → **204** sans corps |
 | /api/governance-cycles/:id/restore (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.update` — désarchivage : restaure le statut d’avant archivage (audit `governance_cycle.archived`, sinon inférence `closedAt` / `validatedAt` / `DRAFT`) |
-| /api/governance-cycles/:id/candidacies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.propose` — body `{ projectId }` ; upsert item `CANDIDATE` (RFC-PROJ-CYCLE-003-C) ; **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE` |
+| /api/governance-cycles/:id/candidacies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.propose` — body `{ projectId }` ; upsert item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` (RFC-PROJ-CYCLE-003-C) ; **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE` |
 | /api/governance-cycles/:cycleId/instances (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` / `create` \| `update` — séances de décision (RFC-003-A) |
 | /api/governance-cycles/:cycleId/instances/generate (POST) | idem | `governance_cycles.update` — génération depuis `governanceConfig.instanceSchedule` (RFC-003-F) |
 | /api/governance-cycles/:cycleId/instances/:instanceId (GET, PATCH) | idem | détail séance ; `periodLabel` + `scheduledDecisionAt` requis si statut ≥ `PLANNED` |
@@ -1279,7 +1279,7 @@ Isolation **`clientId`** sur toutes les routes ; `cycleId` et `instanceId` doive
 | `PUT` `…/agenda` | `update` | Body `{ items: [{ itemId, sortOrder? }] }` — remplace l’ODJ. Items **PROJECT** ou **BUDGET** en statut candidat uniquement. |
 | `PATCH` `…/decisions` | `arbitrate` | Brouillon décisions séance si `OPEN`. |
 | `POST` `…/close` | `arbitrate` | Clôture atomique (**003-B** + readiness/propagation **003-D/E**). |
-| `POST` `…/candidacies` | `propose` | Body `{ projectId }` — upsert item **CANDIDATE** (**003-C**). |
+| `POST` `…/candidacies` | `propose` | Body `{ projectId }` — upsert item **CANDIDATE** + `arbitrationMetierStatus = SOUMIS_VALIDATION` (**003-C**). |
 
 **UI** (`apps/web/src/features/governance-cycles/`) : onglet Séances — préparation ODJ via `GET …/items?limit=100` (max API) ; libellés métier sur les lignes (pas d’UUID affiché seul). Voir [RFC-PROJ-CYCLE-003](RFC/RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) §4.9.
 

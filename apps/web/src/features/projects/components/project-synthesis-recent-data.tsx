@@ -1,13 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Calendar,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Flag,
   LayoutGrid,
   ListTodo,
@@ -16,223 +13,33 @@ import {
 import { LoadingState } from '@/components/feedback/loading-state';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { cn } from '@/lib/utils';
-import {
-  TASK_PRIORITY_LABEL,
-  TASK_STATUS_LABEL,
-} from '../constants/project-enum-labels';
+import { TASK_PRIORITY_LABEL } from '../constants/project-enum-labels';
 import {
   SynthesisListKpi,
   SynthesisListKpis,
 } from './synthesis-ds-kpi';
-import { projectPlanning } from '../constants/project-routes';
+import { projectTasks } from '../constants/project-routes';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
+import {
+  computeTaskStats,
+  sortTasksForList,
+  TASK_ICON_TONES,
+  taskAssigneeDisplayName,
+  taskAssigneeShortLabel,
+  taskPriorityFlagClass,
+  taskProgressFillClass,
+  taskStatusBadgeClass,
+  taskStatusBadgeLabel,
+} from '../lib/project-task-display';
 import { formatProjectDateLong } from '../lib/projects-list-display';
 import type { ProjectDetail, ProjectTaskApi } from '../types/project.types';
-
-const TASK_ICON_TONES = [
-  'starium-dt-ti-neutral',
-  'starium-dt-ti-blue',
-  'starium-dt-ti-purple',
-  'starium-dt-ti-gold',
-  'starium-dt-ti-green',
-] as const;
+import { ProjectTasksPagination } from './project-tasks-pagination';
 
 const TASK_PAGE_SIZE_OPTIONS = [5, 10, 25] as const;
-const DEFAULT_TASK_PAGE_SIZE = TASK_PAGE_SIZE_OPTIONS[0];
-
-function getVisiblePageNumbers(currentPage: number, totalPages: number): number[] {
-  if (totalPages <= 5) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-  if (currentPage <= 3) {
-    return [1, 2, 3, 4, 5];
-  }
-  if (currentPage >= totalPages - 2) {
-    return [
-      totalPages - 4,
-      totalPages - 3,
-      totalPages - 2,
-      totalPages - 1,
-      totalPages,
-    ];
-  }
-  return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
-}
-
-function RecentTasksPagination({
-  total,
-  page,
-  pageSize,
-  onPageChange,
-  onPageSizeChange,
-  planningHref,
-}: {
-  total: number;
-  page: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  planningHref: string;
-}) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const start = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const end = total === 0 ? 0 : Math.min(safePage * pageSize, total);
-  const pageNumbers = getVisiblePageNumbers(safePage, totalPages);
-  const rangeLabel =
-    total === 0
-      ? 'Aucune tâche à afficher'
-      : total === 1
-        ? '1 tâche'
-        : `${start} à ${end} sur ${total} tâches`;
-
-  return (
-    <div className="starium-dt-pagination" aria-label="Pagination des tâches récentes">
-      <div className="starium-dt-pagination__start">
-        <span className="starium-dt-pg-info" aria-live="polite">
-          {rangeLabel}
-        </span>
-        <Link href={planningHref} className="starium-dt-footer-link">
-          Voir toutes les tâches
-        </Link>
-      </div>
-
-      <div className="starium-dt-pg-nums" role="navigation" aria-label="Pages">
-        <button
-          type="button"
-          className="starium-dt-pg-btn"
-          disabled={safePage <= 1 || total === 0}
-          onClick={() => onPageChange(safePage - 1)}
-          aria-label="Page précédente"
-        >
-          <ChevronLeft strokeWidth={2.5} aria-hidden />
-        </button>
-        {pageNumbers.map((pageNumber) => (
-          <button
-            key={pageNumber}
-            type="button"
-            className={cn(
-              'starium-dt-pg-btn',
-              pageNumber === safePage && 'starium-dt-pg-btn--active',
-            )}
-            onClick={() => onPageChange(pageNumber)}
-            aria-label={`Page ${pageNumber}`}
-            aria-current={pageNumber === safePage ? 'page' : undefined}
-          >
-            {pageNumber}
-          </button>
-        ))}
-        <button
-          type="button"
-          className="starium-dt-pg-btn"
-          disabled={safePage >= totalPages || total === 0}
-          onClick={() => onPageChange(safePage + 1)}
-          aria-label="Page suivante"
-        >
-          <ChevronRight strokeWidth={2.5} aria-hidden />
-        </button>
-      </div>
-
-      <label className="flex items-center gap-2">
-        <span className="sr-only">Nombre de tâches par page</span>
-        <select
-          className="starium-dt-pg-select"
-          value={pageSize}
-          onChange={(event) => {
-            onPageChange(1);
-            onPageSizeChange(Number(event.target.value));
-          }}
-          disabled={total === 0}
-        >
-          {TASK_PAGE_SIZE_OPTIONS.map((size) => (
-            <option key={size} value={size}>
-              {size} par page
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  );
-}
-
-function taskAssigneeLabel(task: ProjectTaskApi): string {
-  const resource = task.responsibleResource;
-  if (resource?.firstName && resource?.name) {
-    return `${resource.firstName} ${resource.name.charAt(0)}.`;
-  }
-  if (resource?.name) return resource.name;
-  return '—';
-}
-
-function taskAssigneeDisplayName(task: ProjectTaskApi): string {
-  const resource = task.responsibleResource;
-  if (resource?.firstName && resource?.name) {
-    return `${resource.firstName} ${resource.name}`;
-  }
-  return resource?.name ?? 'Non assignée';
-}
-
-function statusBadgeClass(status: string, isLate: boolean | undefined): string {
-  if (isLate && status !== 'DONE' && status !== 'CANCELLED') {
-    return 'starium-ds-badge--danger';
-  }
-  switch (status) {
-    case 'IN_PROGRESS':
-      return 'starium-ds-badge--success';
-    case 'BLOCKED':
-      return 'starium-ds-badge--danger';
-    case 'DONE':
-      return 'starium-ds-badge--success';
-    case 'TODO':
-    case 'DRAFT':
-      return 'starium-ds-badge--info';
-    default:
-      return 'starium-ds-badge--neutral';
-  }
-}
-
-function statusBadgeLabel(status: string, isLate: boolean | undefined): string {
-  if (isLate && status !== 'DONE' && status !== 'CANCELLED') {
-    return 'En retard';
-  }
-  return TASK_STATUS_LABEL[status] ?? status;
-}
-
-function priorityFlagClass(priority: string): string {
-  if (priority === 'HIGH' || priority === 'CRITICAL') return 'starium-dt-flag--haute';
-  if (priority === 'LOW') return 'starium-dt-flag--basse';
-  return 'starium-dt-flag--moyenne';
-}
-
-function progressFillClass(progress: number, isLate: boolean | undefined): string {
-  if (isLate) return 'starium-dt-prog-fill--bad';
-  if (progress >= 80) return 'starium-dt-prog-fill--ok';
-  if (progress >= 40) return 'starium-dt-prog-fill--warn';
-  return 'starium-dt-prog-fill--blue';
-}
-
-function sortTasksRecentFirst(tasks: ProjectTaskApi[]): ProjectTaskApi[] {
-  return [...tasks].sort((a, b) => {
-    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    if (bTime !== aTime) return bTime - aTime;
-    return b.sortOrder - a.sortOrder;
-  });
-}
-
-function computeTaskStats(tasks: ProjectTaskApi[]) {
-  const total = tasks.length;
-  const done = tasks.filter((t) => t.status === 'DONE').length;
-  const inProgress = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
-  const blocked = tasks.filter((t) => t.status === 'BLOCKED' || t.isLate).length;
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
-  return { total, done, inProgress, blocked, donePct: pct(done), inProgressPct: pct(inProgress), blockedPct: pct(blocked) };
-}
 
 function RecentTaskRow({ task, index }: { task: ProjectTaskApi; index: number }) {
-  const assignee = taskAssigneeLabel(task);
+  const assignee = taskAssigneeShortLabel(task);
   const assigneeName = taskAssigneeDisplayName(task);
-  const dueDate = task.plannedEndDate;
   const isLate = task.isLate ?? false;
   const progress = Math.min(100, Math.max(0, Math.round(task.progress ?? 0)));
   const iconTone = TASK_ICON_TONES[index % TASK_ICON_TONES.length];
@@ -255,12 +62,12 @@ function RecentTaskRow({ task, index }: { task: ProjectTaskApi; index: number })
         </div>
       </td>
       <td>
-        <span className={cn('starium-ds-badge', statusBadgeClass(task.status, isLate))}>
-          {statusBadgeLabel(task.status, isLate)}
+        <span className={cn('starium-ds-badge', taskStatusBadgeClass(task.status, isLate))}>
+          {taskStatusBadgeLabel(task.status, isLate)}
         </span>
       </td>
       <td>
-        <span className={cn('starium-dt-flag', priorityFlagClass(task.priority))}>
+        <span className={cn('starium-dt-flag', taskPriorityFlagClass(task.priority))}>
           <Flag strokeWidth={2} aria-hidden />
           {TASK_PRIORITY_LABEL[task.priority] ?? task.priority}
         </span>
@@ -273,7 +80,7 @@ function RecentTaskRow({ task, index }: { task: ProjectTaskApi; index: number })
           )}
         >
           <Calendar strokeWidth={1.75} aria-hidden />
-          {formatProjectDateLong(dueDate)}
+          {formatProjectDateLong(task.plannedEndDate)}
         </div>
       </td>
       <td>
@@ -296,7 +103,7 @@ function RecentTaskRow({ task, index }: { task: ProjectTaskApi; index: number })
           <span className="starium-dt-prog-pct">{progress}%</span>
           <div className="starium-dt-prog-track" aria-hidden>
             <div
-              className={cn('starium-dt-prog-fill', progressFillClass(progress, isLate))}
+              className={cn('starium-dt-prog-fill', taskProgressFillClass(progress, isLate))}
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -316,10 +123,10 @@ export function ProjectSynthesisRecentData({
   const tasksQuery = useProjectTasksQuery(projectId);
   const tasks = tasksQuery.data?.items ?? [];
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_TASK_PAGE_SIZE);
+  const [pageSize, setPageSize] = useState<number>(TASK_PAGE_SIZE_OPTIONS[0]);
 
   const stats = useMemo(() => computeTaskStats(tasks), [tasks]);
-  const sortedTasks = useMemo(() => sortTasksRecentFirst(tasks), [tasks]);
+  const sortedTasks = useMemo(() => sortTasksForList(tasks), [tasks]);
   const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
   const safePage = Math.min(page, totalPages);
 
@@ -334,7 +141,7 @@ export function ProjectSynthesisRecentData({
     return sortedTasks.slice(offset, offset + pageSize);
   }, [sortedTasks, safePage, pageSize]);
 
-  const planningHref = projectPlanning(projectId, 'tasks');
+  const tasksHref = projectTasks(projectId, 'tasks');
 
   return (
     <section className="starium-proj-recent" aria-labelledby="project-recent-data-heading">
@@ -406,7 +213,7 @@ export function ProjectSynthesisRecentData({
                   {paginatedTasks.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                        Aucune tâche planifiée. Créez-en depuis le planning.
+                        Aucune tâche planifiée. Créez-en depuis l&apos;onglet Tâches.
                       </td>
                     </tr>
                   ) : (
@@ -421,13 +228,16 @@ export function ProjectSynthesisRecentData({
                 </tbody>
               </table>
             </div>
-            <RecentTasksPagination
+            <ProjectTasksPagination
               total={stats.total}
               page={safePage}
               pageSize={pageSize}
               onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              planningHref={planningHref}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              footerLink={{ href: tasksHref, label: 'Voir toutes les tâches' }}
             />
           </>
         )}

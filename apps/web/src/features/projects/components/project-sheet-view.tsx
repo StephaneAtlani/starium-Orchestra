@@ -104,7 +104,8 @@ import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query
 import { useProjectScenariosMutations } from '../hooks/use-project-scenarios-mutations';
 import { useProjectScenariosQuery } from '../hooks/use-project-scenarios-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
-import { SubmitProjectToCycleDialog } from '@/features/governance-cycles/components/submit-project-to-cycle-dialog';
+import { SubmitProjectToCycleDialogContent } from '@/features/governance-cycles/components/submit-project-to-cycle-dialog';
+import { useGovernanceCyclesByProjectQuery } from '@/features/governance-cycles/api/governance-cycles.queries';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import type {
   ProjectArbitrationLevelStatus,
@@ -153,6 +154,9 @@ const LEVEL_STATUS_ORDER: ProjectArbitrationLevelStatus[] = [
   'VALIDE',
   'REFUSE',
 ];
+
+/** Options du select arbitrage — « Proposition de projet » réservée à la création, pas au changement manuel. */
+const LEVEL_STATUS_SELECT_ORDER = LEVEL_STATUS_ORDER.filter((k) => k !== 'BROUILLON');
 
 const DECISION_LEVEL_LABEL: Record<string, string> = {
   METIER: 'Métier',
@@ -484,8 +488,9 @@ export function ProjectSheetView({
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
-  const { has } = usePermissions();
+  const { has, isModuleVisible } = usePermissions();
   const canEdit = has('projects.update') && !sheetReadOnlyOverride;
+  const governanceCyclesEnabled = isModuleVisible('governance_cycles');
 
   const { data: querySheet, isLoading, error } = useProjectSheetQuery(projectId, {
     enabled: !sheetReadOnlyOverride,
@@ -545,6 +550,7 @@ export function ProjectSheetView({
   const [lastSheetSavedAt, setLastSheetSavedAt] = useState<number | null>(null);
 
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [cycleDialogOpen, setCycleDialogOpen] = useState(false);
   const [pendingArbValidation, setPendingArbValidation] = useState<{
     level: 0 | 1 | 2;
     next: ProjectArbitrationLevelStatus;
@@ -747,6 +753,93 @@ export function ProjectSheetView({
       }
     },
     [],
+  );
+
+  const cyclesByProjectQuery = useGovernanceCyclesByProjectQuery(projectId, {
+    enabled: governanceCyclesEnabled && has('governance_cycles.read') && !sheetReadOnlyOverride,
+  });
+  const cycleItems = cyclesByProjectQuery.data?.items ?? [];
+  const hasOpenCycleCandidacy = useMemo(
+    () =>
+      cycleItems.some(
+        (item) =>
+          item.decisionStatus === 'CANDIDATE' || item.decisionStatus === 'TO_ARBITRATE',
+      ),
+    [cycleItems],
+  );
+  const metierStatusLockedByCycle = governanceCyclesEnabled && hasOpenCycleCandidacy;
+
+  useEffect(() => {
+    if (!governanceCyclesEnabled || sheetReadOnlyOverride || cycleItems.length === 0) return;
+
+    const hasAccepted = cycleItems.some(
+      (item) =>
+        item.decisionStatus === 'ACCEPTED' ||
+        item.decisionStatus === 'ACCEPTED_WITH_RESERVE',
+    );
+    const hasRejected = cycleItems.some((item) => item.decisionStatus === 'REJECTED');
+    const hasPending = cycleItems.some(
+      (item) =>
+        item.decisionStatus === 'CANDIDATE' || item.decisionStatus === 'TO_ARBITRATE',
+    );
+
+    if (hasAccepted) {
+      setArbMetier((current) => (current === 'VALIDE' ? current : 'VALIDE'));
+      return;
+    }
+    if (hasRejected) {
+      setArbMetier((current) => (current === 'REFUSE' ? current : 'REFUSE'));
+      return;
+    }
+    if (hasPending) {
+      setArbMetier((current) =>
+        current === 'SOUMIS_VALIDATION' ? current : 'SOUMIS_VALIDATION',
+      );
+    }
+  }, [governanceCyclesEnabled, sheetReadOnlyOverride, cycleItems]);
+
+  const handleArbitrationStatusChange = useCallback(
+    (
+      level: 0 | 1 | 2,
+      next: ProjectArbitrationLevelStatus,
+      current: ProjectArbitrationLevelStatus,
+    ) => {
+      if (
+        level === 0 &&
+        metierStatusLockedByCycle &&
+        current === 'SOUMIS_VALIDATION' &&
+        next !== 'SOUMIS_VALIDATION'
+      ) {
+        toast.message('Statut piloté par le cycle de pilotage en cours.');
+        return;
+      }
+
+      if (
+        level === 0 &&
+        next === 'SOUMIS_VALIDATION' &&
+        governanceCyclesEnabled &&
+        has('governance_cycles.propose') &&
+        !hasOpenCycleCandidacy
+      ) {
+        setCycleDialogOpen(true);
+        return;
+      }
+
+      const terminal = (s: ProjectArbitrationLevelStatus) => s === 'VALIDE' || s === 'REFUSE';
+      if (next !== current && (terminal(current) || terminal(next))) {
+        setPendingArbValidation({ level, next, previousValue: current });
+        setSnapshotDialogOpen(true);
+        return;
+      }
+      applyArbitrationSelectChange(level, next);
+    },
+    [
+      metierStatusLockedByCycle,
+      governanceCyclesEnabled,
+      has,
+      hasOpenCycleCandidacy,
+      applyArbitrationSelectChange,
+    ],
   );
 
   /** Une seule clé dérivée pour l’autosave : le useEffect garde un deps de taille fixe (évite erreur React si la liste change / HMR). */
@@ -973,12 +1066,7 @@ export function ProjectSheetView({
 
   const pageShell = (content: ReactNode) =>
     embedMode === 'page' ? (
-      <ProjectWorkspaceShell
-        projectId={projectId}
-        bannerExtraActions={<SubmitProjectToCycleDialog projectId={projectId} />}
-      >
-        {content}
-      </ProjectWorkspaceShell>
+      <ProjectWorkspaceShell projectId={projectId}>{content}</ProjectWorkspaceShell>
     ) : (
       content
     );
@@ -1552,11 +1640,13 @@ export function ProjectSheetView({
                 ) : null}
               </div>
               <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-                Métier → comité de projet → sponsor / CODIR. Statuts : proposition de projet, en préparation,
-                soumis à validation, validé, refusé. Le niveau suivant s’ouvre après « Validé » sur le
-                précédent. Tout changement impliquant « Validé » ou « Refusé » (y compris en sortir) ouvre une
-                confirmation : en continuant, la fiche est enregistrée dans l&apos;historique des décisions.
-                Sauvegarde avec la fiche (automatique).
+                Métier → comité de projet → sponsor / CODIR. Statuts : en préparation, soumis à
+                validation, validé, refusé. Passer en « Soumis à validation » avec le module cycles
+                de pilotage ouvre l&apos;inscription au programme ; la décision de séance met à jour
+                le statut (validé / refusé). Le niveau suivant s’ouvre après « Validé » sur le
+                précédent. Tout changement impliquant « Validé » ou « Refusé » (y compris en sortir)
+                ouvre une confirmation : en continuant, la fiche est enregistrée dans
+                l&apos;historique des décisions. Sauvegarde avec la fiche (automatique).
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
@@ -1626,20 +1716,7 @@ export function ProjectSheetView({
                           value={value}
                           onValueChange={(v) => {
                             const next = v as ProjectArbitrationLevelStatus;
-                            const terminal = (s: ProjectArbitrationLevelStatus) =>
-                              s === 'VALIDE' || s === 'REFUSE';
-                            const arbitrationChangeNeedsConfirmation =
-                              next !== value && (terminal(value) || terminal(next));
-                            if (arbitrationChangeNeedsConfirmation) {
-                              setPendingArbValidation({
-                                level: i as 0 | 1 | 2,
-                                next,
-                                previousValue: value,
-                              });
-                              setSnapshotDialogOpen(true);
-                              return;
-                            }
-                            applyArbitrationSelectChange(i as 0 | 1 | 2, next);
+                            handleArbitrationStatusChange(i as 0 | 1 | 2, next, value);
                           }}
                           disabled={saveMutation.isPending}
                         >
@@ -1650,7 +1727,7 @@ export function ProjectSheetView({
                             <SelectValue>{LEVEL_STATUS_LABEL[value]}</SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            {LEVEL_STATUS_ORDER.map((k) => (
+                            {LEVEL_STATUS_SELECT_ORDER.map((k) => (
                               <SelectItem key={k} value={k}>
                                 {LEVEL_STATUS_LABEL[k]}
                               </SelectItem>
@@ -2718,6 +2795,15 @@ export function ProjectSheetView({
             open={retroplanOpen}
             onOpenChange={setRetroplanOpen}
           />
+
+          {governanceCyclesEnabled && has('governance_cycles.propose') ? (
+            <SubmitProjectToCycleDialogContent
+              projectId={projectId}
+              open={cycleDialogOpen}
+              onOpenChange={setCycleDialogOpen}
+              onSuccess={() => applyArbitrationSelectChange(0, 'SOUMIS_VALIDATION')}
+            />
+          ) : null}
         </>
       ) : null}
 
