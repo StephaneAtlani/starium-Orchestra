@@ -277,7 +277,7 @@ export function ProjectsListTableDesktop({
   ).sort((a, b) => a.localeCompare(b, 'fr'));
 
   const projectHeadClass =
-    'sticky left-0 z-[52] min-w-[14rem] bg-card pl-4 starium-table-sticky-edge';
+    'sticky left-0 z-[52] min-w-[14rem] bg-card starium-table-sticky-edge';
   const projectCellClass =
     'sticky left-0 z-20 align-top bg-card py-3 pl-4 starium-table-sticky-edge min-w-[14rem] max-w-[18rem]';
 
@@ -296,11 +296,11 @@ export function ProjectsListTableDesktop({
               rowSpan={2}
               className={cn(
                 projectHeadClass,
-                'starium-projects-table-project-head align-top !py-0 pl-4 normal-case',
+                'starium-projects-table-project-head align-top !py-0 normal-case',
               )}
             >
-              <div className="flex h-full flex-col">
-                <div className="border-b border-border py-[var(--ds-table-head-py)] pr-2">
+              <div className="flex h-full min-h-full flex-col">
+                <div className="starium-projects-table-project-head__label border-b border-border py-[var(--ds-table-head-py)] pl-4 pr-2">
                   <HeaderTip tip={PROJECTS_TABLE_HEADER_TOOLTIPS.project}>
                     <SortHeaderButton
                       label="Projet"
@@ -310,7 +310,7 @@ export function ProjectsListTableDesktop({
                     />
                   </HeaderTip>
                 </div>
-                <div className="min-h-6 flex-1 pb-2" aria-hidden />
+                <div className="min-h-6 flex-1 pb-2 pl-4" aria-hidden />
               </div>
             </TableHead>
             {isExtended ? (

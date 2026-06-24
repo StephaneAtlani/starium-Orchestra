@@ -63,6 +63,11 @@
   --color-danger: #b42318;
   --color-info: #2a6fdb;
 
+  --purple: #6b2fb2;
+  --purple-bg: #efe4fd;
+  --teal: #0e7462;
+  --teal-bg: #e2f5f1;
+
   /* ---------- Rayons ---------- */
   --radius-xs: 4px;
   --radius-sm: 6px;

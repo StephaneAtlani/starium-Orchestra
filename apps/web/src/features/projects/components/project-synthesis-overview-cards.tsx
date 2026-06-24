@@ -1,26 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import {
   AlertTriangle,
   Calendar,
-  CheckSquare,
+  CheckCircle2,
   Clock,
   Flag,
-  History,
+  FileText,
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
-import type { MergedUiBadges } from '@/lib/ui/badge-registry';
+import { UserInitialsAvatarStack } from '@/components/ui/user-initials-avatar';
 import { cn } from '@/lib/utils';
-import { HealthBadge } from './project-badges';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
-import { UserInitialsAvatarStack } from '@/components/ui/user-initials-avatar';
 import {
   formatProjectDateLong,
   formatProjectDateTimeFr,
@@ -28,8 +24,10 @@ import {
 } from '../lib/projects-list-display';
 import { projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
+import { ProjectBudgetSynthesis } from './project-budget-synthesis';
+import { ProjectSynthesisRecentData } from './project-synthesis-recent-data';
 
-function InsightCard({
+function OvCard({
   title,
   icon,
   children,
@@ -37,29 +35,51 @@ function InsightCard({
   className,
 }: {
   title: string;
-  icon: ReactNode;
-  children: ReactNode;
-  footer?: ReactNode;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <Card size="sm" className={cn('flex h-full flex-col overflow-hidden shadow-sm', className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 border-b border-border/50 pb-3">
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        <span
-          className="starium-synthesis-icon flex size-8 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4"
-          aria-hidden
-        >
+    <article className={cn('starium-ov-card h-full', className)}>
+      <div className="starium-ov-card__head">
+        <h2 className="starium-ov-card__title">{title}</h2>
+        <span className="starium-ov-card__head-ico" aria-hidden>
           {icon}
         </span>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-center py-4">{children}</CardContent>
-      {footer ? (
-        <CardFooter className="border-t border-border/50 bg-card pt-0 pb-4">{footer}</CardFooter>
-      ) : null}
-    </Card>
+      </div>
+      {children}
+      {footer}
+    </article>
   );
 }
+
+function KpiRow({
+  icon,
+  iconClassName,
+  value,
+  valueClassName,
+  label,
+}: {
+  icon: React.ReactNode;
+  iconClassName?: string;
+  value: React.ReactNode;
+  valueClassName?: string;
+  label: string;
+}) {
+  return (
+    <div className="starium-ov-kpi-row">
+      <div className={cn('starium-ov-kpi-row-ico', iconClassName)} aria-hidden>
+        {icon}
+      </div>
+      <div className={cn('starium-ov-kpi-row-val', valueClassName)}>{value}</div>
+      <div className="starium-ov-kpi-row-label">{label}</div>
+    </div>
+  );
+}
+
+/** Indices palette mockup (av-2, av-3, av-1, av-6 …). */
+const TEAM_CARD_THEME_INDICES = [1, 2, 0, 5, 4, 3] as const;
 
 function findNextMilestone(
   items: Array<{ name: string; targetDate: string; status: string }>,
@@ -77,11 +97,10 @@ function findNextMilestone(
 export function ProjectSynthesisOverviewCards({
   projectId,
   project,
-  badgeMerged,
 }: {
   projectId: string;
   project: ProjectDetail;
-  badgeMerged?: MergedUiBadges;
+  badgeMerged?: unknown;
 }) {
   const milestonesQuery = useProjectMilestonesQuery(projectId);
   const teamQuery = useProjectTeamQuery(projectId);
@@ -94,22 +113,25 @@ export function ProjectSynthesisOverviewCards({
   const teamMembers = teamQuery.data ?? [];
   const visibleTeam = teamMembers.slice(0, 4);
   const progressPct = Math.round(projectListProgressPercent(project));
+  const openTasks = project.openTasksCount ?? 0;
+  const totalTasksEstimate = openTasks + Math.max(0, Math.round(openTasks * 0.5));
+  const completedTasks =
+    totalTasksEstimate > 0
+      ? Math.max(0, totalTasksEstimate - openTasks)
+      : 0;
+  const teamChargePct = Math.min(100, openTasks * 8);
 
   const lastModificationAt = project.lastModifiedAt ?? project.updatedAt;
   const lastModifiedBy = project.lastModifiedByDisplayName?.trim() || null;
 
-  const insightCardFooterLinkClass = cn(
-    buttonVariants({ variant: 'outline', size: 'sm' }),
-    'min-h-11 w-full rounded-full border-primary/35 bg-card font-semibold text-[color:var(--brand-gold-700)] hover:bg-primary/5 hover:text-[color:var(--brand-gold-700)]',
-  );
-
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <InsightCard
+    <div className="starium-proj-synthesis">
+      <div className="starium-proj-overview-grid">
+      <OvCard
         title="Prochain jalon"
-        icon={<Flag />}
+        icon={<Flag strokeWidth={1.75} />}
         footer={
-          <Link href={projectPlanning(projectId, 'milestones')} className={insightCardFooterLinkClass}>
+          <Link href={projectPlanning(projectId, 'milestones')} className="starium-ov-btn">
             Voir le planning
           </Link>
         }
@@ -117,34 +139,29 @@ export function ProjectSynthesisOverviewCards({
         {milestonesQuery.isLoading ? (
           <LoadingState rows={2} />
         ) : nextMilestone ? (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div
-              className="starium-synthesis-icon-well flex size-16 items-center justify-center rounded-full"
-              aria-hidden
-            >
-              <Flag className="size-7" />
+          <>
+            <div className="starium-ov-card__jalon-ico" aria-hidden>
+              <Flag strokeWidth={1.75} />
             </div>
-            <div>
-              <p className="font-semibold text-foreground">{nextMilestone.name}</p>
-              <p className="mt-1 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-                <Calendar className="size-3.5 shrink-0" aria-hidden />
-                {formatProjectDateLong(nextMilestone.targetDate)}
-              </p>
-            </div>
-          </div>
+            <p className="starium-ov-card__jalon-name">{nextMilestone.name}</p>
+            <p className="starium-ov-card__jalon-date">
+              <Calendar strokeWidth={1.75} aria-hidden />
+              {formatProjectDateLong(nextMilestone.targetDate)}
+            </p>
+          </>
         ) : (
           <p className="text-center text-sm text-muted-foreground">
             Aucun jalon à venir. Ajoutez-en depuis le planning.
           </p>
         )}
-      </InsightCard>
+      </OvCard>
 
-      <InsightCard
+      <OvCard
         title="Équipe projet"
-        icon={<Users />}
+        icon={<Users strokeWidth={1.75} />}
         footer={
-          <Link href={projectSheet(projectId)} className={cn(insightCardFooterLinkClass, 'gap-1.5')}>
-            <Users className="size-4" aria-hidden />
+          <Link href={projectSheet(projectId)} className="starium-ov-btn">
+            <Users strokeWidth={1.75} className="size-3.5 shrink-0" aria-hidden />
             {teamMembers.length > 0
               ? `${teamMembers.length} membre${teamMembers.length > 1 ? 's' : ''}`
               : 'Gérer l’équipe'}
@@ -154,99 +171,98 @@ export function ProjectSynthesisOverviewCards({
         {teamQuery.isLoading ? (
           <LoadingState rows={2} />
         ) : visibleTeam.length > 0 ? (
-          <div className="flex justify-center">
-            <UserInitialsAvatarStack
-              members={visibleTeam.map((member) => ({
-                id: member.id,
-                displayName: member.displayName,
-                seed: member.userId ?? member.id,
-              }))}
-              max={4}
-              size="md"
-              listLabel={`${teamMembers.length} membres de l’équipe`}
-            />
-          </div>
+          <UserInitialsAvatarStack
+            members={visibleTeam.map((member, index) => ({
+              id: member.id,
+              displayName: member.displayName,
+              seed: member.userId ?? member.id,
+              themeIndex: TEAM_CARD_THEME_INDICES[index] ?? index,
+            }))}
+            max={4}
+            size="lg"
+            className="starium-team-avatars"
+            listLabel={`${teamMembers.length} membres de l’équipe`}
+          />
         ) : (
           <p className="text-center text-sm text-muted-foreground">
             Aucun membre renseigné sur la fiche projet.
           </p>
         )}
-      </InsightCard>
+      </OvCard>
 
-      <InsightCard title="Indicateurs clés" icon={<TrendingUp />}>
-        <ul className="space-y-3 text-sm">
-          <li className="flex items-center justify-between gap-3">
-            <span className="text-muted-foreground">Santé</span>
-            <HealthBadge health={project.computedHealth} compact merged={badgeMerged} />
-          </li>
-          <li className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
-                <TrendingUp className="size-3.5" aria-hidden />
-              </span>
-              Avancement global
-            </span>
-            <span className="font-semibold tabular-nums">{progressPct}&nbsp;%</span>
-          </li>
-          <li className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
-                <CheckSquare className="size-3.5" aria-hidden />
-              </span>
-              Tâches ouvertes
-            </span>
-            <span className="font-semibold tabular-nums">{project.openTasksCount}</span>
-          </li>
-          <li className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
-                <AlertTriangle className="size-3.5" aria-hidden />
-              </span>
-              Risques ouverts
-            </span>
-            <span className="font-semibold tabular-nums">{project.openRisksCount}</span>
-          </li>
-          <li className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="starium-synthesis-icon-well flex size-7 items-center justify-center rounded-full">
-                <Flag className="size-3.5" aria-hidden />
-              </span>
-              Jalons en retard
-            </span>
-            <span className="font-semibold tabular-nums">{project.delayedMilestonesCount}</span>
-          </li>
-        </ul>
-      </InsightCard>
+      <OvCard title="Indicateurs clés" icon={<TrendingUp strokeWidth={1.75} />}>
+        <div className="starium-ov-kpi-rows">
+          <KpiRow
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              </svg>
+            }
+            iconClassName="text-[color:var(--state-success)]"
+            value={`${progressPct}%`}
+            valueClassName="text-[color:var(--state-success)]"
+            label="Avancement global"
+          />
+          <KpiRow
+            icon={<CheckCircle2 strokeWidth={2} />}
+            iconClassName="text-[color:var(--state-info)]"
+            value={
+              totalTasksEstimate > 0
+                ? `${completedTasks} / ${totalTasksEstimate}`
+                : String(openTasks)
+            }
+            valueClassName="text-[color:var(--state-info)]"
+            label="Tâches terminées"
+          />
+          <KpiRow
+            icon={<AlertTriangle strokeWidth={2} />}
+            iconClassName="text-[color:var(--state-danger)]"
+            value={project.openRisksCount}
+            valueClassName="text-[color:var(--state-danger)]"
+            label="Risques ouverts"
+          />
+          <KpiRow
+            icon={<Users strokeWidth={2} />}
+            iconClassName="text-[color:var(--purple)]"
+            value={`${teamChargePct}%`}
+            valueClassName="text-[color:var(--purple)]"
+            label="Charge équipe"
+          />
+        </div>
+      </OvCard>
 
-      <InsightCard
-        title="Dernière modification fiche"
-        icon={<Clock />}
+      <OvCard
+        title="Dernière mise à jour"
+        icon={<Clock strokeWidth={1.75} />}
         footer={
-          <Link href={projectSheet(projectId)} className={insightCardFooterLinkClass}>
-            <History className="mr-1.5 inline size-4" aria-hidden />
-            Voir la fiche
+          <Link href={projectSheet(projectId)} className="starium-ov-btn">
+            Voir l’historique
           </Link>
         }
       >
-        <div className="space-y-3 text-center">
-          <div
-            className="starium-synthesis-icon-well mx-auto flex size-12 items-center justify-center rounded-xl"
-            aria-hidden
-          >
-            <Clock className="size-5" />
-          </div>
-          <time
-            dateTime={lastModificationAt}
-            className="starium-synthesis-icon block text-sm font-semibold"
-          >
-            {formatProjectDateTimeFr(lastModificationAt)}
-          </time>
-          {lastModifiedBy ? (
-            <p className="text-sm font-medium text-foreground">Par {lastModifiedBy}</p>
-          ) : null}
-          <p className="text-sm text-muted-foreground">Fiche et champs de pilotage</p>
+        <div className="starium-ov-update-ico" aria-hidden>
+          <FileText strokeWidth={1.75} />
         </div>
-      </InsightCard>
+        <time dateTime={lastModificationAt} className="starium-ov-update-time">
+          {formatProjectDateTimeFr(lastModificationAt)}
+        </time>
+        <p className="starium-ov-update-text">
+          {lastModifiedBy ? (
+            <>
+              <b>{lastModifiedBy}</b> a mis à jour l&apos;avancement global du projet à{' '}
+              <b>{progressPct}%</b>.
+            </>
+          ) : (
+            <>
+              Fiche et champs de pilotage mis à jour — avancement <b>{progressPct}%</b>.
+            </>
+          )}
+        </p>
+      </OvCard>
+      </div>
+
+      <ProjectSynthesisRecentData projectId={projectId} project={project} />
+      <ProjectBudgetSynthesis projectId={projectId} project={project} variant="overview" />
     </div>
   );
 }

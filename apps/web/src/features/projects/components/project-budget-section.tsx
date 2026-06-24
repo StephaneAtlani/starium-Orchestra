@@ -120,7 +120,14 @@ function formatCurrencyEur(value: number): string {
   }).format(value);
 }
 
-export function ProjectBudgetSection({ projectId }: { projectId: string }) {
+export function ProjectBudgetSection({
+  projectId,
+  embedded = false,
+}: {
+  projectId: string;
+  /** Sans carte englobante (page Budget dédiée). */
+  embedded?: boolean;
+}) {
   const { has } = usePermissions();
   const { activeClient } = useActiveClient();
   const canCreateBudgetLine = has('budgets.create');
@@ -374,15 +381,8 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
     return { committed, consumed, imputedCapex, imputedOpex };
   }, [fixedBudgetLinks]);
 
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Budget</CardTitle>
-        <p className="text-sm font-normal text-muted-foreground">
-          Liez le projet à une ou plusieurs lignes budgétaires.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-6">
+  const body = (
+    <>
         {linksQuery.isLoading ? (
           <LoadingState rows={2} />
         ) : (
@@ -881,7 +881,22 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
             if (!o) setEditingLinkId(null);
           }}
         />
-      </CardContent>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{body}</div>;
+  }
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Budget</CardTitle>
+        <p className="text-sm font-normal text-muted-foreground">
+          Liez le projet à une ou plusieurs lignes budgétaires.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">{body}</CardContent>
     </Card>
   );
 }

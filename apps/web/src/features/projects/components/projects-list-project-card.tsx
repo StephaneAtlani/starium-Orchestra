@@ -141,7 +141,7 @@ export function ProjectsListProjectCard({
               <div className="flex items-start gap-0.5">
                 <Link
                   href={projectDetail(p.id)}
-                  className="min-w-0 flex-1 text-base font-bold leading-tight text-foreground hover:text-primary"
+                  className="starium-proj-name min-w-0 flex-1 text-base leading-tight"
                 >
                   <span className="line-clamp-2">{p.name}</span>
                 </Link>

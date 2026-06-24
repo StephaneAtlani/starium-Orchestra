@@ -153,10 +153,8 @@ export function ProjectsListKanban({
                       draggedProjectId === project.id && 'opacity-60',
                     )}
                   >
-                    <Link href={`/projects/${project.id}`} className="block">
-                      <p className="line-clamp-2 text-sm font-medium text-primary hover:underline">
-                        {project.name}
-                      </p>
+                    <Link href={`/projects/${project.id}`} className="starium-proj-name block">
+                      <p className="line-clamp-2">{project.name}</p>
                     </Link>
                     {project.code ? (
                       <p className="mt-1 text-xs font-mono text-muted-foreground">{project.code}</p>

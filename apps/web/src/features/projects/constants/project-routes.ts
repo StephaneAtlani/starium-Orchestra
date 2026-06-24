@@ -79,6 +79,11 @@ export function projectRisks(projectId: string): string {
   return `/projects/${projectId}/risks`;
 }
 
+/** Cockpit budget projet — synthèse, KPI et liaisons budgétaires. */
+export function projectBudget(projectId: string): string {
+  return `/projects/${projectId}/budget`;
+}
+
 /** Vue transverse — registre risques tous projets (cockpit /risks). */
 export function risksRegistry(): string {
   return '/risks';

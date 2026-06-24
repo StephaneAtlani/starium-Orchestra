@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { projectScenarioWorkspace } from '../constants/project-routes';
+import { projectBudget, projectScenarioWorkspace } from '../constants/project-routes';
 import { deriveScenariosScreenState } from '../components/project-scenarios-view';
-import { deriveProjectWorkspaceTabState } from '../components/project-workspace-tabs';
+import {
+  deriveProjectWorkspaceTabState,
+  getActiveWorkspaceTabId,
+} from '../components/project-workspace-tabs';
 
 describe('Scenarios navigation and screen states', () => {
   it('active le tab Scénarios sur la route dédiée', () => {
@@ -22,6 +25,14 @@ describe('Scenarios navigation and screen states', () => {
   it('active le tab Scénarios sur la route cockpit (sous-route scénarios)', () => {
     const state = deriveProjectWorkspaceTabState('/projects/p1/scenarios/cockpit', null);
     expect(state.isScenarios).toBe(true);
+  });
+
+  it('active le tab Budget sur la route dédiée', () => {
+    const state = deriveProjectWorkspaceTabState('/projects/p1/budget', null);
+    expect(state.isBudget).toBe(true);
+    expect(state.isSynth).toBe(false);
+    expect(getActiveWorkspaceTabId(state)).toBe('budget');
+    expect(projectBudget('p1')).toBe('/projects/p1/budget');
   });
 
   it('calcule loading/error/empty/success pour ProjectScenariosView', () => {

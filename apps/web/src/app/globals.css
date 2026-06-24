@@ -82,45 +82,1395 @@ html.dark {
   color: var(--brand-gold-700);
 }
 
-/* Navigation projet (bandeau onglets) */
+/* Navigation projet (bandeau onglets — refonte dtabs) */
 .starium-project-workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-radius: var(--radius-md, 10px);
-  border: 1px solid var(--border);
-  background: var(--card);
-  box-shadow: var(--ds-card-shadow, 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent));
+  border: 1px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  padding: 7px 10px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-1);
+}
+.starium-project-workspace-tabs::-webkit-scrollbar {
+  display: none;
 }
 .starium-project-workspace-tab {
-  position: relative;
-  color: var(--muted-foreground);
-  transition: color 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm, 6px);
+  border-bottom: 2.5px solid transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--neutral-500, var(--muted-foreground));
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease;
 }
 .starium-project-workspace-tab:hover {
-  color: var(--foreground);
+  color: var(--brand-ink, var(--foreground));
 }
 .starium-project-workspace-tab--active {
   color: var(--brand-gold-700);
+  border-bottom-color: var(--brand-gold);
   font-weight: 600;
 }
 .starium-project-workspace-tab--active svg {
   color: var(--brand-gold-700);
 }
-.starium-project-workspace-tab--active::after {
+.starium-project-workspace-tab svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+/* En-tête projet (refonte proj-head) */
+.starium-proj-head {
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+.starium-proj-head__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.starium-proj-head__titlewrap {
+  flex: 1;
+  min-width: 0;
+}
+.starium-proj-head__titlerow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.starium-proj-head__actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .starium-proj-head__top {
+    flex-wrap: wrap;
+  }
+  .starium-proj-head__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+.starium-proj-head__folder {
+  display: flex;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-proj-head__title {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-proj-head__sub {
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-proj-head__progress {
+  margin: 20px 0 4px;
+}
+.starium-proj-head__progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.starium-proj-head__progress-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.starium-proj-head__progress-val {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+.starium-proj-head__bigbar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-200, var(--border));
+}
+.starium-proj-head__bigbar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--brand-gold, var(--primary));
+  transition: width var(--duration-base, 200ms) var(--ease-standard, ease);
+}
+.starium-proj-head__meta-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  margin-top: 20px;
+}
+@media (max-width: 1100px) {
+  .starium-proj-head__meta-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.starium-proj-head__meta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-right: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+.starium-proj-head__meta-item:last-child {
+  border-right: none;
+}
+@media (max-width: 1100px) {
+  .starium-proj-head__meta-item:nth-child(2n) {
+    border-right: none;
+  }
+}
+.starium-proj-head__meta-ico {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-proj-head__meta-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-proj-head__meta-ico--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-proj-head__meta-ico--green {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-proj-head__meta-ico--blue {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-proj-head__meta-ico--red {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-proj-head__meta-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-proj-head__meta-value {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-proj-head__meta-value--danger {
+  color: var(--state-danger);
+}
+
+/* Boutons refonte portail */
+.starium-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: var(--radius-md, 10px);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+.starium-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.starium-btn-secondary {
+  border: 1.5px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-btn-secondary:hover {
+  background: var(--neutral-50, var(--background));
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-btn-modifier {
+  border: 1.5px solid var(--brand-gold-100) !important;
+  background: var(--neutral-0, var(--card)) !important;
+  color: var(--brand-gold-700) !important;
+  font-weight: 700;
+}
+.starium-btn-modifier:hover {
+  background: var(--brand-gold-050) !important;
+  color: var(--brand-gold-700) !important;
+}
+.starium-btn-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  color: var(--neutral-600, var(--muted-foreground));
+  cursor: pointer;
+  list-style: none;
+}
+.starium-btn-icon:hover {
+  background: var(--neutral-50, var(--background));
+}
+.starium-btn-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.starium-btn-icon::-webkit-details-marker {
+  display: none;
+}
+
+/* Status pill (refonte) */
+.starium-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+}
+.starium-status-pill::before {
   content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.starium-status-pill--success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-status-pill--warning {
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+.starium-status-pill--info {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-status-pill--muted {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* Cartes aperçu projet (refonte ov-card) */
+.starium-ov-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+  padding: 20px;
+}
+.starium-ov-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.starium-ov-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.starium-ov-card__head-ico {
+  color: var(--brand-gold, var(--primary));
+}
+.starium-ov-card__head-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-ov-card__jalon-ico {
+  display: flex;
+  width: 54px;
+  height: 54px;
+  align-items: center;
+  justify-content: center;
+  margin: 6px auto 14px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-ov-card__jalon-ico svg {
+  width: 24px;
+  height: 24px;
+}
+.starium-ov-card__jalon-name {
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+.starium-ov-card__jalon-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-gold-700);
+}
+.starium-ov-card__jalon-date svg {
+  width: 14px;
+  height: 14px;
+}
+.starium-ov-btn {
+  margin-top: auto;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1.5px solid var(--brand-gold-100);
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-gold-700);
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+.starium-ov-btn:hover {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-ov-kpi-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.starium-ov-kpi-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.starium-ov-kpi-row-ico {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+.starium-ov-kpi-row-ico svg {
+  width: 24px;
+  height: 24px;
+}
+.starium-ov-kpi-row-val {
+  min-width: 54px;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.starium-ov-kpi-row-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-ov-update-ico {
+  display: flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-ov-update-ico svg {
+  width: 22px;
+  height: 22px;
+}
+.starium-ov-update-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--state-info);
+}
+.starium-ov-update-text {
+  margin-top: 8px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-ov-update-text b {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+/* Avatars équipe (refonte — mockup .team-avatars) */
+.starium-team-avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 18px 0;
+  padding: 0;
+  list-style: none;
+}
+.starium-team-avatars > li {
+  display: flex;
+  position: relative;
+}
+.starium-team-avatars > li + li {
+  margin-left: -12px;
+}
+.starium-team-avatars > li:nth-child(1) {
+  z-index: 1;
+}
+.starium-team-avatars > li:nth-child(2) {
+  z-index: 2;
+}
+.starium-team-avatars > li:nth-child(3) {
+  z-index: 3;
+}
+.starium-team-avatars > li:nth-child(4) {
+  z-index: 4;
+}
+.starium-team-avatars .starium-avatar-chip {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill, 999px);
+  border: 3px solid var(--neutral-0, #ffffff);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+.starium-avatar-chip--1 {
+  background: #d7e3f6;
+  color: #2a52a0;
+}
+.starium-avatar-chip--2 {
+  background: #f6e0d7;
+  color: #a0532a;
+}
+.starium-avatar-chip--3 {
+  background: #d7f0e3;
+  color: #1f7a52;
+}
+.starium-avatar-chip--4 {
+  background: #efe0f6;
+  color: var(--purple);
+}
+
+/* Grille aperçu projet (mockup .g4) */
+.starium-proj-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .starium-proj-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .starium-proj-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Synthèse projet — bloc données récentes (mockup stat-cards + dt) */
+.starium-proj-synthesis {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.starium-proj-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.starium-sec-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+@media (max-width: 1100px) {
+  .starium-stat-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.starium-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px;
+  border-right: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  text-align: center;
+}
+.starium-stat-card:nth-child(2n) {
+  border-right: none;
+}
+@media (min-width: 1101px) {
+  .starium-stat-card {
+    border-bottom: none;
+  }
+  .starium-stat-card:not(:last-child) {
+    border-right: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  }
+  .starium-stat-card:nth-child(2n) {
+    border-right: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  }
+  .starium-stat-card:last-child {
+    border-right: none;
+  }
+}
+.starium-stat-card__ico {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-stat-card__ico svg {
+  width: 19px;
+  height: 19px;
+}
+.starium-stat-card__num {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-stat-card__lbl {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-stat-card__pct {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* KPI list-kpi (mockup portefeuille / listes) */
+.starium-list-kpis {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 0;
+}
+@media (max-width: 1100px) {
+  .starium-list-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 640px) {
+  .starium-list-kpis {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+.starium-list-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-list-kpi__ico {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-list-kpi__ico svg {
+  width: 21px;
+  height: 21px;
+}
+.starium-list-kpi__ico--neutral {
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+}
+.starium-list-kpi__ico--success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-list-kpi__ico--info {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-list-kpi__ico--danger {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-list-kpi__ico--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-list-kpi__label {
+  margin-bottom: 3px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-list-kpi__num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-list-kpi__sub {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* KPI budget strip (mockup .bud-kpis) */
+.starium-bud-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  margin-bottom: 16px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+@media (max-width: 1100px) {
+  .starium-bud-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .starium-bud-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.starium-bud-kpi {
+  padding: 16px 18px;
+  border-right: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+.starium-bud-kpi:last-child {
+  border-right: none;
+}
+@media (min-width: 1101px) {
+  .starium-bud-kpi {
+    border-bottom: none;
+  }
+}
+@media (max-width: 1100px) {
+  .starium-bud-kpi:nth-child(3n) {
+    border-right: none;
+  }
+  .starium-bud-kpi:nth-child(n + 4) {
+    border-bottom: none;
+  }
+}
+@media (max-width: 640px) {
+  .starium-bud-kpi {
+    border-right: none;
+  }
+  .starium-bud-kpi:not(:last-child) {
+    border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  }
+}
+.starium-bud-kpi__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-bud-kpi__label svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--neutral-400);
+}
+.starium-bud-kpi__val {
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-bud-kpi__sub {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Grille synthèse budget (mockup .g-budget) */
+.starium-g-budget {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+@media (max-width: 1100px) {
+  .starium-g-budget {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.starium-bud-chart-card {
+  padding: 20px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-bud-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.starium-bud-chart-title {
+  margin-bottom: 3px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-bud-chart-sub {
+  font-size: 12px;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-bud-bo-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 36px;
+}
+.starium-bud-bo-stat-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-bud-bo-stat-val {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-bud-bo-stat-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neutral-400);
+}
+.starium-bud-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.starium-bud-donut-card {
+  padding: 20px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+  text-align: center;
+}
+.starium-bud-donut-card .starium-bud-chart-title {
+  margin-bottom: 14px;
+  text-align: left;
+}
+.starium-bud-donut {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  margin: 0 auto 14px;
+  flex-shrink: 0;
+}
+.starium-bud-donut svg {
+  transform: rotate(-90deg);
+}
+.starium-bud-donut-center {
   position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 76%;
-  height: 5px;
-  transform: translateX(-50%);
-  background-color: var(--primary);
-  pointer-events: none;
-  /* Sourire : extrémités relevées, creux au centre (collé au bord bas) */
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0 1.1 Q50 5.9 100 1.1 L100 6 0 6 Z' fill='white'/%3E%3C/svg%3E");
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0 1.1 Q50 5.9 100 1.1 L100 6 0 6 Z' fill='white'/%3E%3C/svg%3E");
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.starium-bud-donut-pct {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-bud-donut-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-bud-donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.starium-bud-leg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neutral-600);
+}
+.starium-bud-leg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill, 999px);
+  flex-shrink: 0;
+}
+.starium-bud-alert {
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--state-warning) 35%, transparent);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--state-warning-bg);
+}
+.starium-bud-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--state-warning);
+}
+.starium-bud-alert-head svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.starium-bud-alert-text {
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--neutral-700, var(--foreground));
+}
+.starium-bud-alert-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background: var(--brand-gold);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.starium-bud-alert-btn:hover {
+  background: var(--brand-gold-600);
+}
+.starium-bcat {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.starium-bcat-ico {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.starium-bcat-ico svg {
+  width: 16px;
+  height: 16px;
+}
+.starium-bcat-ico--purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+.starium-bcat-ico--green {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-bcat-ico--blue {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-bcat-ico--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-bcat-ico--red {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-bud-prog-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+}
+.starium-bud-ptrack {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-100);
+}
+.starium-bud-pfill {
+  height: 100%;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-bud-pfill--ok {
+  background: var(--state-success);
+}
+.starium-bud-pfill--warn {
+  background: var(--state-warning);
+}
+.starium-bud-pfill--bad {
+  background: var(--state-danger);
+}
+.starium-bud-pfill--blue {
+  background: var(--state-info);
+}
+.starium-bud-pfill--purple {
+  background: var(--purple);
+}
+.starium-proj-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.starium-proj-budget-manage {
+  padding-top: 8px;
+  border-top: 1px solid var(--neutral-200, var(--border));
+}
+
+.starium-tablecard {
+  overflow: hidden;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-table-wrap {
+  overflow-x: auto;
+}
+table.starium-dt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.starium-dt thead th {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--neutral-500, var(--muted-foreground));
+  white-space: nowrap;
+  text-align: left;
+}
+.starium-dt thead th.starium-dt__right {
+  text-align: right;
+}
+.starium-dt tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+  color: var(--neutral-700, var(--foreground));
+  vertical-align: middle;
+}
+.starium-dt tbody tr:last-child td {
+  border-bottom: none;
+}
+.starium-dt tbody tr:hover td {
+  background: var(--neutral-50, var(--muted));
+}
+.starium-dt tfoot td {
+  padding: 14px 16px;
+  border-top: 2px solid var(--neutral-200, var(--border));
+  font-weight: 800;
+  vertical-align: middle;
+  color: var(--neutral-700, var(--foreground));
+  background: var(--neutral-0, var(--card));
+}
+.starium-dt tfoot td:first-child {
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-dt-cell-strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-dt-cell-sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-dt-tname {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.starium-dt-tname-ico {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+}
+.starium-dt-tname-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-dt-ti-neutral {
+  background: var(--neutral-100, var(--muted));
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-dt-ti-blue {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-dt-ti-purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+.starium-dt-ti-gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-dt-ti-green {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-dt-ti-red {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-dt-assignee {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.starium-dt-assignee .starium-avatar-chip {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+  border-width: 2px;
+}
+.starium-dt-assignee-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--neutral-700, var(--foreground));
+}
+.starium-dt-date {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-dt-date svg {
+  width: 13px;
+  height: 13px;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-dt-date--late {
+  font-weight: 700;
+  color: var(--state-danger);
+}
+.starium-dt-date--late svg {
+  color: var(--state-danger);
+}
+.starium-ds-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.starium-ds-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.starium-ds-badge--success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-ds-badge--warn {
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+.starium-ds-badge--danger {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-ds-badge--info {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-ds-badge--neutral {
+  background: var(--neutral-100, var(--muted));
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-dt-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.starium-dt-flag svg {
+  width: 13px;
+  height: 13px;
+}
+.starium-dt-flag--haute {
+  color: var(--state-danger);
+}
+.starium-dt-flag--moyenne {
+  color: var(--brand-gold-700);
+}
+.starium-dt-flag--basse {
+  color: var(--state-success);
+}
+.starium-dt-prog {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 130px;
+}
+.starium-dt-prog-pct {
+  min-width: 34px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-dt-prog-track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-200, var(--border));
+}
+.starium-dt-prog-fill {
+  height: 100%;
+  border-radius: var(--radius-pill, 999px);
+}
+.starium-dt-prog-fill--ok {
+  background: var(--state-success);
+}
+.starium-dt-prog-fill--warn {
+  background: var(--brand-gold, var(--primary));
+}
+.starium-dt-prog-fill--bad {
+  background: var(--state-danger);
+}
+.starium-dt-prog-fill--blue {
+  background: var(--state-info);
+}
+.starium-dt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+.starium-dt-footer-info {
+  font-size: 12.5px;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-dt-footer-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-gold-700);
+  text-decoration: none;
+}
+.starium-dt-footer-link:hover {
+  text-decoration: underline;
+}
+
+/* Pagination tableaux DS (mockup .pagination) */
+.starium-dt-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+.starium-dt-pagination__start {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 12rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.starium-dt-pg-info {
+  font-size: 12.5px;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+.starium-dt-pg-nums {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.starium-dt-pg-btn {
+  display: flex;
+  min-width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1.5px solid transparent;
+  border-radius: 7px;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+  cursor: pointer;
+}
+.starium-dt-pg-btn:hover:not(:disabled) {
+  background: var(--neutral-100, var(--muted));
+}
+.starium-dt-pg-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-dt-pg-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.starium-dt-pg-btn--active {
+  border-color: var(--brand-gold);
+  color: var(--brand-gold-700);
+}
+.starium-dt-pg-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.starium-dt-pg-select {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: 7px;
+  background: var(--neutral-0, var(--card));
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+  cursor: pointer;
+}
+.starium-dt-pg-select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.starium-avatar-chip--5 {
+  background: var(--brand-gold-100);
+  color: var(--brand-gold-700);
+}
+.starium-avatar-chip--6 {
+  background: #f6d7e3;
+  color: #a02a52;
 }
 
 /* Shell : classes sémantiques (variables :root) */
@@ -1076,15 +2426,19 @@ html.dark {
   .starium-projects-table thead tr:first-child th[rowspan] {
     vertical-align: top;
   }
+  .starium-projects-table thead th.starium-projects-table-project-head {
+    border-bottom: 1.5px solid var(--border);
+    padding-bottom: 0;
+  }
+  .starium-projects-table-project-head__label {
+    border-bottom-width: 1.5px;
+  }
   .starium-projects-table thead tr.starium-projects-table-filter-row th {
     background: var(--card);
     border-top: 1.5px solid var(--border);
     border-bottom: 1.5px solid var(--border);
     padding-top: 0 !important;
     vertical-align: bottom;
-  }
-  .starium-projects-table-project-head .border-b {
-    border-bottom-width: 1.5px;
   }
   .starium-projects-table .starium-col-filter {
     height: 1.5rem;
@@ -1115,13 +2469,14 @@ html.dark {
     background: color-mix(in srgb, var(--muted) 50%, transparent);
   }
   .starium-proj-name {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 700;
-    color: var(--brand-gold-700, var(--primary));
+    color: var(--brand-ink, var(--foreground));
   }
   .starium-proj-name:hover {
-    color: var(--brand-gold-600, var(--primary));
+    color: var(--brand-ink, var(--foreground));
     text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .starium-proj-code {
     margin-top: 2px;

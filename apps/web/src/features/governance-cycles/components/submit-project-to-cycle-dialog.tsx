@@ -62,18 +62,16 @@ export function SubmitProjectToCycleDialog({
 
   return (
     <PermissionGate permission="governance_cycles.propose">
-      <Button
+      <button
         type="button"
-        variant="outline"
-        size="sm"
-        className={cn('min-h-10 gap-1.5', className)}
+        className={cn('starium-btn starium-btn-secondary shrink-0', className)}
         aria-label="Soumettre au cycle de pilotage"
         onClick={() => setOpen(true)}
       >
-        <SendHorizontal className="size-4 shrink-0" aria-hidden />
-        <span className="hidden sm:inline">Soumettre au cycle de pilotage</span>
+        <SendHorizontal aria-hidden />
+        <span className="hidden sm:inline">Soumettre au cycle</span>
         <span className="sm:hidden">Soumettre</span>
-      </Button>
+      </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

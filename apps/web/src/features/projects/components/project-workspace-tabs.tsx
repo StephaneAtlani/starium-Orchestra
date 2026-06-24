@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
+  projectBudget,
   projectDetail,
   projectPlanning,
   projectScenarios,
@@ -45,11 +46,9 @@ export type WorkspaceTabId =
 function tabLinkClass(active: boolean, presentation: 'default' | 'bar') {
   if (presentation === 'bar') {
     return cn(
-      'starium-project-workspace-tab flex min-h-11 min-w-0 flex-row items-center justify-center gap-1.5 px-2 py-2.5 text-center transition-colors',
-      'md:px-2.5 md:py-3 lg:px-3',
-      'hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+      'starium-project-workspace-tab',
       active && 'starium-project-workspace-tab--active',
-      '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
     );
   }
 
@@ -66,14 +65,13 @@ function tabLinkClass(active: boolean, presentation: 'default' | 'bar') {
 const tablistClassNameDefault =
   'grid h-11 min-w-[min(100%,22rem)] grid-cols-2 gap-1 rounded-xl bg-muted/90 p-1 shadow-inner ring-1 ring-border/40 sm:min-w-0 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7';
 
-const barTabLabelClass = 'max-w-full truncate text-xs font-medium leading-tight lg:text-sm';
-
-const tablistClassNameBar = 'hidden w-full grid-cols-4 md:grid lg:grid-cols-8';
+const barTabLabelClass = 'max-w-full truncate';
 
 export type ProjectWorkspaceTabState = {
   isSheet: boolean;
   isRisks: boolean;
   isPlanning: boolean;
+  isBudget: boolean;
   isScenarios: boolean;
   isOptions: boolean;
   isPoints: boolean;
@@ -87,17 +85,35 @@ export function deriveProjectWorkspaceTabState(
   const isSheet = Boolean(pathname?.includes('/sheet'));
   const isRisks = Boolean(pathname?.includes('/risks'));
   const isPlanning = Boolean(pathname?.includes('/planning'));
+  const isBudget = Boolean(pathname?.includes('/budget'));
   const isScenarios = Boolean(pathname?.includes('/scenarios'));
   const isOptions = Boolean(pathname?.includes('/options'));
   const isPoints = tab === 'points';
-  const isSynth = !isSheet && !isRisks && !isPoints && !isPlanning && !isScenarios && !isOptions;
-  return { isSheet, isRisks, isPlanning, isScenarios, isOptions, isPoints, isSynth };
+  const isSynth =
+    !isSheet &&
+    !isRisks &&
+    !isPoints &&
+    !isPlanning &&
+    !isBudget &&
+    !isScenarios &&
+    !isOptions;
+  return {
+    isSheet,
+    isRisks,
+    isPlanning,
+    isBudget,
+    isScenarios,
+    isOptions,
+    isPoints,
+    isSynth,
+  };
 }
 
 export function getActiveWorkspaceTabId(tabState: ProjectWorkspaceTabState): WorkspaceTabId {
   if (tabState.isSheet) return 'sheet';
   if (tabState.isPlanning) return 'planning';
   if (tabState.isRisks) return 'risks';
+  if (tabState.isBudget) return 'budget';
   if (tabState.isPoints) return 'points';
   if (tabState.isScenarios) return 'scenarios';
   if (tabState.isOptions) return 'options';
@@ -153,9 +169,9 @@ function buildWorkspaceTabs(
     {
       id: 'budget',
       label: 'Budget',
-      href: `${detailHref}#project-budget`,
+      href: projectBudget(projectId),
       icon: Banknote,
-      isActive: () => false,
+      isActive: (s) => s.isBudget,
     },
     {
       id: 'points',
@@ -298,15 +314,16 @@ export function ProjectWorkspaceTabs({
 
   if (presentation === 'bar') {
     return (
-      <nav
-        className="starium-project-workspace-tabs relative z-0 overflow-hidden"
-        aria-label="Navigation projet"
-      >
+      <>
         <ProjectWorkspaceTabsMobileSelect tabs={tabs} activeTabId={activeTabId} />
-        <div role="tablist" className={tablistClassNameBar}>
+        <nav
+          className="starium-project-workspace-tabs relative z-0 hidden md:flex"
+          role="tablist"
+          aria-label="Navigation projet"
+        >
           <WorkspaceTabLinks tabs={tabs} tabState={tabState} presentation="bar" />
-        </div>
-      </nav>
+        </nav>
+      </>
     );
   }
 

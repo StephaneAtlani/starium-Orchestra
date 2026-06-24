@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import {
+  Banknote,
   Calendar,
   ClipboardList,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  projectBudget,
   projectDetail,
   projectPlanning,
   projectRisks,
@@ -19,7 +21,13 @@ import {
 } from '../constants/project-routes';
 import type { ProjectListItem } from '../types/project.types';
 
-export function ProjectsListRowActionsMenu({ project }: { project: ProjectListItem }) {
+export function ProjectsListRowActionsMenu({
+  project,
+  triggerClassName,
+}: {
+  project: ProjectListItem;
+  triggerClassName?: string;
+}) {
   const menuRef = useRef<HTMLDetailsElement>(null);
   const detailHref = projectDetail(project.id);
   const pointsHref = `${detailHref}?tab=points`;
@@ -61,6 +69,7 @@ export function ProjectsListRowActionsMenu({ project }: { project: ProjectListIt
     { href: detailHref, label: 'Synthèse', Icon: LayoutDashboard },
     { href: projectSheet(project.id), label: 'Fiche projet', Icon: ClipboardList },
     { href: projectPlanning(project.id), label: 'Planning', Icon: ListTodo },
+    { href: projectBudget(project.id), label: 'Budget', Icon: Banknote },
     { href: pointsHref, label: 'Points projet', Icon: Calendar },
     { href: projectRisks(project.id), label: 'Risques', Icon: ShieldAlert },
   ] as const;
@@ -71,10 +80,13 @@ export function ProjectsListRowActionsMenu({ project }: { project: ProjectListIt
       className="group/details relative shrink-0 group-open/details:z-[120]"
     >
       <summary
-        className="inline-flex size-8 list-none cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground [&::-webkit-details-marker]:hidden"
+        className={cn(
+          'starium-btn-icon [&::-webkit-details-marker]:hidden',
+          triggerClassName,
+        )}
         aria-label={`Actions pour ${project.name}`}
       >
-        <MoreHorizontal className="size-4" aria-hidden />
+        <MoreHorizontal aria-hidden />
       </summary>
       <div
         className={cn(
