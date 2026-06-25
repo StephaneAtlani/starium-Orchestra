@@ -299,8 +299,8 @@ export function ProjectsListTableDesktop({
                 'starium-projects-table-project-head align-top !py-0 normal-case',
               )}
             >
-              <div className="flex h-full min-h-full flex-col">
-                <div className="starium-projects-table-project-head__label border-b border-border py-[var(--ds-table-head-py)] pl-4 pr-2">
+              <div className="starium-projects-table-project-head__inner flex h-full min-h-full flex-col">
+                <div className="starium-projects-table-project-head__label py-[var(--ds-table-head-py)] pl-4 pr-2">
                   <HeaderTip tip={PROJECTS_TABLE_HEADER_TOOLTIPS.project}>
                     <SortHeaderButton
                       label="Projet"
@@ -310,7 +310,7 @@ export function ProjectsListTableDesktop({
                     />
                   </HeaderTip>
                 </div>
-                <div className="min-h-6 flex-1 pb-2 pl-4" aria-hidden />
+                <div className="starium-projects-table-project-head__filter-slot flex-1 pl-4" aria-hidden />
               </div>
             </TableHead>
             {isExtended ? (

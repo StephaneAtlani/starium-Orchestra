@@ -3138,11 +3138,14 @@ table.starium-dt {
     vertical-align: top;
   }
   .starium-projects-table thead th.starium-projects-table-project-head {
-    border-bottom: 1.5px solid var(--border);
+    border-bottom: none;
     padding-bottom: 0;
   }
-  .starium-projects-table-project-head__label {
-    border-bottom-width: 1.5px;
+  .starium-projects-table-project-head__filter-slot {
+    min-height: 1.5rem;
+    border-top: 1.5px solid var(--border);
+    border-bottom: 1.5px solid var(--border);
+    padding-bottom: 0.5rem;
   }
   .starium-projects-table thead tr.starium-projects-table-filter-row th {
     background: var(--card);
