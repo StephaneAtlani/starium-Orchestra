@@ -396,6 +396,22 @@ export function shiftTimelineBounds(
   return { min: bounds.min + delta, max: bounds.max + delta };
 }
 
+export function formatMacroPlanningRangeMs(
+  startMs: number | null,
+  endMs: number | null,
+): string {
+  if (startMs == null || endMs == null) return 'Dates non planifiées';
+  const opts: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  };
+  const start = new Date(startMs).toLocaleDateString('fr-FR', opts);
+  const end = new Date(endMs).toLocaleDateString('fr-FR', opts);
+  if (start === end) return start;
+  return `${start} → ${end}`;
+}
+
 export function formatDaysUntilFr(iso: string): string {
   const target = new Date(iso);
   if (Number.isNaN(target.getTime())) return '';

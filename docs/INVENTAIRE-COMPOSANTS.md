@@ -10,7 +10,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 
 ## Composants partages (3)
 
-- `ClientSwitcher` - `components/ClientSwitcher.tsx` - permet de changer client.
+- `ClientSwitcher` - `components/ClientSwitcher.tsx` - changement de client actif (menu compte, section Organisation).
 - `PermissionGate` - `components/PermissionGate.tsx` - controle l'acces a permission.
 - `RequireActiveClient` - `components/RequireActiveClient.tsx` - gere l'interface de require active client.
 
@@ -48,15 +48,19 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `filter-bar` - `components/layout/filter-bar.tsx` - grille responsive de filtres liste (`section` + `grid-cols-1` mobile). Props : `desktopColumns`, `aria-label`, `asSearch` (optionnel).
 - `filter-bar-field` - `components/layout/filter-bar-field.tsx` - champ filtre accessible : `id`, `label`, `description?`, `children` en render props `{ controlId, labelId, descriptionId }` pour câbler Input/Select/Radix.
 
-## Shell applicatif (7)
+## Shell applicatif (11)
 
-- `app-shell` - `components/shell/app-shell.tsx` - structure le shell de app.
+- `app-shell` - `components/shell/app-shell.tsx` - structure le shell de app (`WorkspaceBreadcrumbProvider`, gutter workspace).
+- `account-menu-dropdown` - `components/shell/account-menu-dropdown.tsx` - menu compte, organisation et déconnexion.
+- `mobile-workspace-header-bar` - `components/shell/mobile-workspace-header-bar.tsx` - barre header mobile (ink).
 - `sidebar-dropdown` - `components/shell/sidebar-dropdown.tsx` - gere l'interface de sidebar dropdown.
 - `sidebar-item` - `components/shell/sidebar-item.tsx` - gere l'interface de sidebar item.
 - `sidebar-nav-context` - `components/shell/sidebar-nav-context.tsx` - expose le contexte React pour sidebar nav.
 - `sidebar-section` - `components/shell/sidebar-section.tsx` - regroupe une section dediee a sidebar.
 - `sidebar` - `components/shell/sidebar.tsx` - gere l'interface de sidebar.
-- `workspace-header` - `components/shell/workspace-header.tsx` - affiche l'en-tete pour espace.
+- `workspace-breadcrumb` - `components/shell/workspace-breadcrumb.tsx` - fil d'Ariane topbar.
+- `workspace-breadcrumb-context` - `components/shell/workspace-breadcrumb-context.tsx` - override libelle entite (`useWorkspaceBreadcrumbOverride`).
+- `workspace-header` - `components/shell/workspace-header.tsx` - topbar desktop et orchestration header mobile.
 
 ## Tableaux (1)
 
@@ -331,6 +335,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `action-plan-task-edit-dialog` - `features/projects/components/action-plan-task-edit-dialog.tsx` - ouvre un dialogue pour action plan tache edition.
 - `action-plan-tasks-table` - `features/projects/components/action-plan-tasks-table.tsx` - affiche un tableau pour action plan taches.
 - `gantt-bar-color-legend` - `features/projects/components/gantt-bar-color-legend.tsx` - gere l'interface de gantt color legend.
+- `project-milestones-stat-strip` - `features/projects/components/project-milestones-stat-strip.tsx` - affiche le bandeau KPI des jalons projet.
 - `milestone-form-dialog-fields` - `features/projects/components/milestone-form-dialog-fields.tsx` - ouvre un dialogue pour milestone fields.
 - `person-catalog-picker-dialog` - `features/projects/components/person-catalog-picker-dialog.tsx` - ouvre un dialogue pour person catalogue.
 - `portfolio-gantt-chart` - `features/projects/components/portfolio-gantt-chart.tsx` - affiche des graphiques pour portefeuille gantt.

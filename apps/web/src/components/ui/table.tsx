@@ -28,11 +28,11 @@ function TableContainer({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={pan.scrollRef}
-      onMouseDown={pan.onMouseDown}
+      onPointerDown={pan.onPointerDown}
       data-slot="table-container"
       className={cn(
         "relative w-full overflow-x-auto",
-        pan.isPanning ? "cursor-grabbing select-none" : "cursor-grab",
+        pan.isPanning ? "cursor-grabbing select-none touch-none" : "cursor-grab",
         hasOverflow &&
           "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden",
       )}

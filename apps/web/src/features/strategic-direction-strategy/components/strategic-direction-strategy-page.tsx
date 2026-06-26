@@ -666,10 +666,10 @@ export function StrategicDirectionStrategyPage() {
           <div
             ref={tablePan.scrollRef}
             data-slot="table-container"
-            onMouseDown={tablePan.onMouseDown}
+            onPointerDown={tablePan.onPointerDown}
             className={cn(
               'min-h-0 flex-1 overflow-auto',
-              tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+              tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
             )}
           >
             <Table className="min-w-[52rem] w-full text-sm">

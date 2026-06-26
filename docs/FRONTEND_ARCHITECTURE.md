@@ -155,7 +155,7 @@ Les composants shadcn (base-nova) s’appuient sur :
 
 Ces paquets doivent être déclarés dans `apps/web/package.json`. Ajout de composants via le CLI shadcn : `npx shadcn@latest add <component>`.
 
-Le composant **`Table`** (`apps/web/src/components/ui/table.tsx`) enveloppe par défaut la `<table>` dans un conteneur scroll avec **grab/pan** (`useTablePan`, `apps/web/src/hooks/use-table-pan.ts`). Détail, cas **`noWrapper`** (en-têtes sticky) et **`SelectValue`** (libellés filtres) : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §5.1 et §8.
+Le composant **`Table`** (`apps/web/src/components/ui/table.tsx`) enveloppe par défaut la `<table>` dans un conteneur scroll avec **grab/pan** (`useTablePan`, `apps/web/src/hooks/use-table-pan.ts` — Pointer Events souris/doigt). Détail, cas **`noWrapper`** (en-têtes sticky), **`shouldSuppressClick`** et **`SelectValue`** (libellés filtres) : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §5.1 et §8.
 
 ### Pourquoi ces choix
 
@@ -287,32 +287,31 @@ Elle dépend de :
 
 ## 8. Header du workspace
 
-Le header est limité à la zone droite.
+Le header est limité à la zone droite (colonne workspace, à droite de la sidebar).
 
 ### Contenu
 
-* titre de page
-* breadcrumbs
-* switcher de client
-* recherche globale
+* fil d’Ariane métier (route courante, pas le client actif)
+* barre de recherche globale
 * notifications
-* raccourcis d’action
-* menu profil
+* menu profil (compte, organisation / changement de client, déconnexion)
 
 ### Exemple
 
 ```text
-Budgets / Exercice 2026
+Pilotage / Projets / Refonte Portail Client
 
-[Client actif ▼]   [Recherche]   [Notifications]   [Profil]
+[Rechercher… ⌘K]   [Notifications]   [Avatar ▼]
 ```
+
+Le client actif est sélectionné dans le menu profil (section **Organisation**), pas dans la topbar.
 
 ### Règles
 
-* le client actif est toujours visible
-* les actions de page sont à droite
+* le fil d’Ariane reflète la navigation métier (`navigation.ts` + override entité si UUID)
+* les actions de page restent dans le contenu (`PageHeader`, toolbars)
 * le header ne porte pas de logique métier
-* il expose uniquement le contexte courant
+* il expose le contexte de navigation et les raccourcis transverses (recherche, notifications, compte)
 
 ---
 
@@ -1063,8 +1062,10 @@ Cette section décrit rapidement **l’état réel** du frontend dans `apps/web`
 - `src/app/(protected)/layout.tsx` : applique l’`AppShell` (sidebar + header + zone de contenu) aux pages protégées.
 - `src/components/shell/` :
   - `sidebar.tsx` : navigation principale (colonne gauche compacte, icône + label en dessous, typographie réduite).
-  - `workspace-header.tsx` : fil d’Ariane (Home, client actif, zone courante), ClientSwitcher, actions (icônes placeholder), menu compte (Compte / Déconnexion) avec fermeture clic extérieur et Escape, avatar photo via `GET /api/me/avatar` si `hasAvatar` sinon initiales (détail : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §3.2).
-  - `app-shell.tsx` : composition globale si présent.
+  - `workspace-header.tsx` : topbar desktop (fil d’Ariane, recherche, notifications, menu compte) + barre mobile ink (`mobile-workspace-header-bar.tsx`).
+  - `workspace-breadcrumb.tsx` + `lib/navigation/build-workspace-breadcrumb.ts` : fil d’Ariane dynamique ; `useWorkspaceBreadcrumbOverride` pour les libellés entité (projet, budget…).
+  - `account-menu-dropdown.tsx` : Compte, Déconnexion, section Organisation (`ClientSwitcher` ou nom client).
+  - `app-shell.tsx` : composition globale ; `WorkspaceBreadcrumbProvider` + gutter `px-4 sm:px-5` (`starium-workspace-inner`). Détail : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §3.2.
 
 **Règle :** toute nouvelle page métier dans `(protected)` doit simplement rendre son contenu dans le `<main>` du shell, **sans recréer de layout**.
 
@@ -1125,10 +1126,8 @@ Règles concrètes :
 ### 30.4 Sidebar et shell de contenu
 
 - **Sidebar** : `src/components/shell/sidebar.tsx`. Largeur définie en CSS (`.starium-sidebar` dans `globals.css`) : **12rem**. Sections : `SidebarSection` + `SidebarItem`. Item Budgets : menu déroulant au survol (`SidebarDropdown` + contexte pour le panneau). Pour ajouter un lien : config dans `src/config/navigation.ts`.
-- **App Shell** : `app-shell.tsx` utilise un wrapper de contenu unique `CONTENT_WRAPPER = 'mx-auto w-full max-w-7xl px-6 sm:px-8'` pour le header et le main, afin que le contenu soit aligné verticalement. Le header (`WorkspaceHeader`) reçoit `contentClassName` ; le main enveloppe les enfants dans ce même wrapper + `py-6 sm:py-8`.
-- **PageContainer** : n’ajoute que l’espacement vertical (`space-y-6`) ; le padding horizontal et le `max-w-7xl` sont gérés par le shell.
-
-### 30.5 Typographie
+- **App Shell** : `app-shell.tsx` — wrapper `CONTENT_WRAPPER_GUTTER` (`w-full min-w-0 px-4 sm:px-5 starium-workspace-inner`) partagé par `WorkspaceHeader` et `<main>` (pleine largeur utile à droite de la sidebar, sans `max-w-7xl` centré). `WorkspaceBreadcrumbProvider` enveloppe la zone workspace.
+- **PageContainer** : n’ajoute que l’espacement vertical (`space-y-6`) ; le padding horizontal vient du shell.
 
 - Taille de base du body définie dans `globals.css` :
 

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useTablePan } from '@/hooks/use-table-pan';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
@@ -98,6 +99,7 @@ function TaskTableRow({
   onMarkDone,
   onMarkInProgress,
   onDuplicate,
+  shouldSuppressClick,
 }: {
   task: ProjectTaskApi;
   index: number;
@@ -108,6 +110,7 @@ function TaskTableRow({
   onMarkDone: (task: ProjectTaskApi) => void;
   onMarkInProgress: (task: ProjectTaskApi) => void;
   onDuplicate: (task: ProjectTaskApi) => void;
+  shouldSuppressClick: () => boolean;
 }) {
   const assignee = taskAssigneeShortLabel(task);
   const assigneeName = taskAssigneeDisplayName(task);
@@ -119,7 +122,10 @@ function TaskTableRow({
   return (
     <tr
       className={cn(canEdit && 'cursor-pointer')}
-      onClick={() => canEdit && onEdit(task)}
+      onClick={() => {
+        if (shouldSuppressClick()) return;
+        if (canEdit) onEdit(task);
+      }}
       onKeyDown={(event) => {
         if (!canEdit) return;
         if (event.key === 'Enter' || event.key === ' ') {
@@ -224,6 +230,7 @@ export const ProjectTasksListTab = forwardRef<
   const createMut = useCreateProjectTaskMutation(projectId);
   const updateMut = useUpdateProjectTaskMutation(projectId);
   const createTaskLabelMut = useCreateProjectTaskLabelMutation(projectId);
+  const tablePan = useTablePan();
 
   const [nameFilter, setNameFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
@@ -557,7 +564,16 @@ export const ProjectTasksListTab = forwardRef<
       </div>
 
       <div className="starium-tablecard">
-        <div className="starium-table-wrap">
+        <div
+          ref={tablePan.scrollRef}
+          onPointerDown={tablePan.onPointerDown}
+          className={cn(
+            'starium-table-wrap',
+            tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
+          )}
+          title="Clic maintenu et glisser pour parcourir le tableau"
+          aria-label="Liste des tâches — glisser pour faire défiler"
+        >
           <table className="starium-dt">
             <caption className="sr-only">Liste des tâches du projet</caption>
             <thead>
@@ -595,6 +611,7 @@ export const ProjectTasksListTab = forwardRef<
                     onMarkDone={markDone}
                     onMarkInProgress={markInProgress}
                     onDuplicate={duplicateTask}
+                    shouldSuppressClick={tablePan.shouldSuppressClick}
                   />
                 ))
               )}

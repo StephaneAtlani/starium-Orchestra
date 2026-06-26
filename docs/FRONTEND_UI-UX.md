@@ -130,12 +130,44 @@ export function PageContainer({ children, className }: PageContainerProps) {
 - **Projets** : sous-entrées **Portefeuille projet** → `/projects`, **Option** → `/projects/options` (placeholder module). Les **options par projet** (RFC-PROJ-OPT-001) sont sur `**/projects/[projectId]/options`**, accessibles depuis l’onglet **Options** du bandeau de navigation projet (`ProjectWorkspaceTabs`). Logique d’état actif par route (`pathname`) dans `sidebar.tsx` (même idée que pour Budgets : enfant actif si la route courante correspond au sous-lien ou à un préfixe métier).
 - **Éviter** de dupliquer un panneau scroll : le contenu principal reste dans `<main>` ; le panneau latéral du dropdown est uniquement pour la navigation.
 
-### 3.2 WorkspaceHeader — barre supérieure
+### 3.2 WorkspaceHeader — barre supérieure (topbar)
 
-- Fichier : `apps/web/src/components/shell/workspace-header.tsx`.
-- **Contenu** : fil d’Ariane (Home → client actif avec indication e-mail identité par défaut si chargé → libellé de zone, ex. Dashboard), badge plateforme admin si applicable, **ClientSwitcher** (jeton d’accès), icônes d’action (recherche, document, calendrier, notifications — placeholders), menu utilisateur.
-- **Menu compte** (`<details>` sur le résumé avatar) : liens **Compte** (`/account`) et **Déconnexion**. Fermeture au **clic extérieur** (`pointerdown` sur le document), à la touche **Escape**, et après navigation / déconnexion.
-- **Avatar** : si le profil expose `hasAvatar` (voir `GET /me`), chargement de l’image via `**GET /api/me/avatar`** avec `Authorization: Bearer …`, affichage en blob URL (`object-cover` dans le cercle) ; sinon initiales (dont `PA` pour un admin plateforme). Après changement de photo sur la page Compte, `refreshProfile()` recharge le profil et l’avatar dans le header.
+- Fichiers :
+  - `apps/web/src/components/shell/workspace-header.tsx` — composition desktop + mobile ;
+  - `apps/web/src/components/shell/workspace-breadcrumb.tsx` — fil d’Ariane ;
+  - `apps/web/src/lib/navigation/build-workspace-breadcrumb.ts` — résolution route → segments ;
+  - `apps/web/src/components/shell/workspace-breadcrumb-context.tsx` — override libellé entité (`useWorkspaceBreadcrumbOverride`) ;
+  - `apps/web/src/components/shell/account-menu-dropdown.tsx` — menu compte + organisation ;
+  - `apps/web/src/components/shell/mobile-workspace-header-bar.tsx` — barre mobile (ink).
+- Provider : `WorkspaceBreadcrumbProvider` dans `app-shell.tsx` (obligatoire pour le fil d’Ariane et les overrides).
+
+**Desktop (`md+`)** — hauteur `--topbar-height` (64px), classes `.starium-topbar-*` dans `globals.css` :
+
+| Zone | Comportement |
+|------|----------------|
+| Fil d’Ariane | `WorkspaceBreadcrumb` : segments dérivés de `pathname` + `config/navigation.ts` (section → module → sous-route). Ex. `/projects` → `Pilotage / Projets` ; `/projects/{id}` → `Pilotage / Projets / {nom projet}`. Dernier segment sans lien (`aria-current="page"`). |
+| Recherche | Bouton `.starium-topbar-search` (placeholder + raccourci `⌘K` / `Ctrl+K`) ; icône seule entre `md` et `lg`. Ouvre `GlobalSearchDialog`. |
+| Notifications | `NotificationBell` (`.starium-topbar-icon`). |
+| Menu compte | Avatar `.starium-topbar-avatar` (ink + bordure or) + chevron ; panneau Compte / Déconnexion. |
+
+**Fil d’Ariane — libellés dynamiques (UUID)** : le builder pose un placeholder `…` pour les segments dynamiques. Les pages chargent le libellé métier via :
+
+```tsx
+useWorkspaceBreadcrumbOverride({
+  entityLabel: project.name,
+  entityHref: projectDetail(projectId),
+});
+```
+
+Références : `ProjectWorkspaceShell`, `budgets/[budgetId]/page.tsx`. Override complet possible avec `items: WorkspaceBreadcrumbItem[]`.
+
+**Sélection client** : plus dans la topbar. Section **Organisation** en tête du menu compte (`AccountMenuDropdown`) : `ClientSwitcher` si multi-client, sinon nom du client actif. Même logique sur mobile.
+
+**Menu compte** (`<details>`) : fermeture au **clic extérieur**, **Escape**, après navigation / déconnexion.
+
+**Avatar** : si `hasAvatar` (`GET /me`), image via `GET /api/me/avatar` (blob URL) ; sinon initiales (`PA` pour admin plateforme). Après changement sur `/account`, `refreshProfile()` recharge l’avatar.
+
+**Règles** : le fil d’Ariane ne porte pas le nom du client actif (contexte organisation = menu compte). Pas de logique métier dans le header : calcul breadcrumb + affichage contexte uniquement.
 
 ---
 
@@ -144,7 +176,7 @@ export function PageContainer({ children, className }: PageContainerProps) {
 Titres en **tokens** sémantiques (pas de `#1B1B1B`). Composant : `components/layout/page-header.tsx` — **carte blanche** (`.starium-page-header` : fond `var(--card)`, bordure, ombre DS).
 
 - **Titre** : `text-xl font-bold sm:text-2xl` (mobile-first).
-- **Eyebrow** optionnel (ex. « Pilotage › Projets ») : `.starium-page-header__eyebrow`.
+- **Eyebrow** optionnel (ex. « Pilotage › Projets ») : `.starium-page-header__eyebrow`. Le fil d’Ariane principal vit dans la **topbar** (`WorkspaceBreadcrumb`) ; l’eyebrow reste un complément local à la page si besoin.
 - **Actions** : zone `.starium-page-header__actions` — sur mobile, empilées sous le titre (pleine largeur) ; sur `sm+`, alignées à droite du titre.
 - **Actions responsives** (référence `/projects`) : liens secondaires en **icônes seules** + `aria-label` sous `md` ; libellés complets sur `sm+` ; CTA primaire raccourci (« Nouveau ») sur très petit écran.
 
@@ -353,7 +385,8 @@ Autres écrans (ex. **plan d’action détail**, §11) peuvent utiliser une **va
 ## 8. Liste dans une `Card` + table
 
 - En-tête : `CardHeader` + `CardTitle` / `CardDescription`.
-- **Composant `Table`** (`apps/web/src/components/ui/table.tsx`) : par défaut (sans `noWrapper`), la `<table>` est dans un `div` `data-slot="table-container"` avec `overflow-x-auto`, **`cursor-grab`** / **`cursor-grabbing`** pendant le déplacement, et le hook **`useTablePan`** (`apps/web/src/hooks/use-table-pan.ts`) — **clic gauche maintenu + glisser** pour faire défiler (horizontal ; vertical aussi si le conteneur a les deux axes). Les **liens, boutons, champs, selects, labels** ne déclenchent pas le pan (même esprit que le Gantt portefeuille : `docs/modules/portfolio-gantt-ui.md` §5). **`TableContainer`** est exporté si un écran doit réutiliser ce wrapper seul.
+- **Composant `Table`** (`apps/web/src/components/ui/table.tsx`) : par défaut (sans `noWrapper`), la `<table>` est dans un `div` `data-slot="table-container"` avec `overflow-x-auto`, **`cursor-grab`** / **`cursor-grabbing`** pendant le déplacement, et le hook **`useTablePan`** (`apps/web/src/hooks/use-table-pan.ts`) — **clic maintenu + glisser** (souris **ou** doigt via **Pointer Events**) pour faire défiler (horizontal ; vertical aussi si le conteneur a les deux axes). Un **seuil de déplacement** (~6 px) évite de confondre pan et clic sur une ligne ; après un pan, appeler **`shouldSuppressClick()`** dans le `onClick` ligne pour ne pas ouvrir l’édition. Les **liens, boutons, champs, selects, labels** ne déclenchent pas le pan (même esprit que le Gantt portefeuille : `docs/modules/portfolio-gantt-ui.md` §5). Pendant le pan : `touch-none` + `select-none`. **`TableContainer`** est exporté si un écran doit réutiliser ce wrapper seul.
+- **Écrans projet** utilisant `useTablePan` sur `starium-table-wrap` (hors wrapper `Table` par défaut) : **liste tâches** (`project-tasks-list-tab.tsx`, `/projects/:id/tasks`), **jalons planning** (`project-planning-milestones-tab.tsx`, `?sub=milestones`), **Kanban** (`project-planning-kanban-tab.tsx`).
 - **En-tête sticky** (`thead` avec `sticky top-0`, colonnes `sticky left-*`) : le **scroll** doit être sur le **parent direct** attendu par le navigateur pour `sticky`. Si la carte a une **hauteur max** et un scroll **vertical** sur `CardContent`, utiliser **`Table noWrapper`** pour éviter un wrapper `overflow-x-auto` **intermédiaire** qui casse le sticky sur `<thead>` — le scroll horizontal + vertical est alors sur le `CardContent` (souvent couplé à `useTablePan` sur ce même nœud). Exemple : page **`/projects`** (`app/(protected)/projects/page.tsx`) + `ProjectsListTable` (`Table noWrapper`).
 - Si le tableau n’a **pas** besoin d’en-tête sticky dans un conteneur à hauteur bornée : pattern simple `CardContent` en `p-0` + composant qui utilise `Table` **sans** `noWrapper` — le grab/pan du wrapper `table-container` s’applique déjà.
 - Pied : `CardFooter` (pagination, actions).
@@ -379,10 +412,10 @@ const tablePan = useTablePan();
   </CardHeader>
   <CardContent
     ref={tablePan.scrollRef}
-    onMouseDown={tablePan.onMouseDown}
+    onPointerDown={tablePan.onPointerDown}
     className={cn(
       'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
-      tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+      tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
     )}
   >
     <ProjectsListTable items={items} />

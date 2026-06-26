@@ -193,7 +193,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 23    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée) | ✅ Couvert  | OK                  |
 | 24    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle     | ✅ Couvert (MVP) | `/projects/[projectId]/sheet` — `ProjectSheetView` ; finitions / arbitrage CODIR avancé hors scope minimal |
 | 25    | **RFC-FE-PROJ-003** | Tasks UI          | Interface tâches               | ✅ Couvert  | stable              |
-| 25b   | **RFC-PROJ-012**    | Gantt UI (planning) | Frise + grille, deps, drag   | ✅ Couvert  | [Gantt Tâches et Jalons](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — `/projects/[projectId]/planning` |
+| 25b   | **RFC-PROJ-012**    | Gantt UI (planning) | Macro + Gantt + Jalons       | ✅ Couvert  | [Gantt Tâches et Jalons](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — `/planning?sub=macro` (défaut), `gantt`, `milestones` ; tâches/Kanban sur `/tasks` |
 | 26    | **RFC-FE-PROJ-004** | Risks UI          | Interface risques              | ✅ Couvert  | EBIOS RM : [RFC-PROJ-018](./RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md) — modale autosave, matrice P×I, suppression dans la modale |
 | 27    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources                 | ❌ À faire  | dépend RES          |
 | 28    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualisation budgets          | ⚠️ Partiel | OK partiel          |

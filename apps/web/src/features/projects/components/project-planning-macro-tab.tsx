@@ -36,6 +36,10 @@ import {
 import { projectPlanning } from '../constants/project-routes';
 import { useMacroGanttPanDrag } from '../hooks/use-macro-gantt-pan-drag';
 import { ProjectPlanningMacroSidebar } from './project-planning-macro-sidebar';
+import {
+  buildMacroPhaseToolbarInfo,
+  ProjectPlanningMacroPhaseToolbar,
+} from './project-planning-macro-phase-toolbar';
 
 const MACRO_TIMELINE_SCALE = 'week' as const;
 
@@ -162,6 +166,20 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
     [bounds],
   );
 
+  const phaseToolbarInfo = useMemo(
+    () =>
+      bounds
+        ? buildMacroPhaseToolbarInfo(
+            phaseFilter,
+            visiblePhaseRows,
+            milestoneMarkers.length,
+            bounds.min,
+            bounds.max,
+          )
+        : null,
+    [phaseFilter, visiblePhaseRows, milestoneMarkers.length, bounds],
+  );
+
   const scrollToToday = () => {
     const step = findMacroPlanningPanStepForMs(
       visiblePhaseRows,
@@ -276,6 +294,9 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
           </div>
         ) : (
           <div className="starium-panel starium-gantt-card overflow-hidden rounded-[var(--ds-card-radius)] border border-border bg-card p-0">
+            {phaseToolbarInfo ? (
+              <ProjectPlanningMacroPhaseToolbar info={phaseToolbarInfo} />
+            ) : null}
             <div
               className={cn(
                 'starium-gantt-viewport starium-macro-gantt-pan',

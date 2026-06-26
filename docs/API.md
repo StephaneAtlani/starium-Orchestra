@@ -3006,7 +3006,7 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
 
-- **GET** — Agrégat **tâches + jalons** pour l’UI Gantt (les **activités** ne font pas partie de ce payload). **`projects.read`** — consommé par la route **`/projects/[projectId]/planning`** (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)).
+- **GET** — Agrégat **tâches + jalons** pour l’UI **Gantt détaillé** (`/planning?sub=gantt`). Les **activités** ne font pas partie de ce payload. **`projects.read`** — la vue **Macro** (`?sub=macro`) consomme plutôt `GET …/tasks`, `GET …/milestones` et la liste des phases tâches (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) §7.3.1).
 
 ### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
 

@@ -29,7 +29,7 @@ Le module Projets sert à piloter un projet de bout en bout:
 flowchart TD
 start[Portefeuille projets] --> createProject[Creer projet]
 createProject --> projectSheet[Fiche projet]
-projectSheet --> planning[Planning Gantt]
+projectSheet --> planning[Planning]
 projectSheet --> risks[Risques]
 projectSheet --> scenarios[Scenarios]
 risks --> actionPlans[Plans action]
@@ -157,27 +157,29 @@ decision --> execution[Execution projet retenu]
 
 ## 7) Faire des diagrammes de présentation
 
-## 7.1 Diagramme Gantt (présentation planning)
+## 7.1 Diagramme planning (présentation CODIR)
 
 ### Route
 
-- `/projects/[projectId]/planning`
+- `/projects/[projectId]/planning` — vue **Macro** par défaut (`?sub=macro`)
+- `/projects/[projectId]/planning?sub=gantt` — Gantt détaillé (édition si `projects.update`)
+- `/projects/[projectId]/tasks` — liste / Kanban des tâches
 
 ### Procédure
 
 1. Ouvrir le projet.
-2. Cliquer `Planning`.
-3. Basculer sur vue `Gantt`.
+2. Cliquer `Planning` (vue Macro : phases, jalons, synthèse latérale).
+3. Pour le détail opérationnel, basculer sur `Planning / Gantt`.
 4. Vérifier que toutes les tâches clés ont date début/fin.
-5. Filtrer le périmètre à présenter (ex: stream, équipe, statut).
-6. Positionner l'échelle temporelle utile (court/moyen terme).
+5. Filtrer le périmètre à présenter (phase, équipe sur Macro ; stream, statut sur Gantt).
+6. Naviguer la fenêtre temporelle Macro (flèches ou glisser la frise) si besoin.
 7. Prendre capture pour support comité.
 
 ### Utilisation en réunion
 
-- Vue 1: planning global.
-- Vue 2: jalons critiques.
-- Vue 3: fenêtre `30/60/90` jours.
+- Vue 1: **Macro** — planning global, prochain jalon, santé.
+- Vue 2: sous-onglet **Jalons** (`?sub=milestones`) — tableau KPI + colonnes phase, étiquettes, tâche liée, responsable, dates ; ou jalons sur la frise Macro.
+- Vue 3: **Gantt** — détail tâches, dépendances, édition planning.
 
 ## 7.2 Diagramme comparatif scénarios
 

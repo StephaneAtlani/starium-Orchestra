@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémenté (web) — avec `projects.update` : **frise interactive** (déplacement et redimensionnement des barres, jalons déplaçables, **liens de dépendance** en SVG + création **Fin → début** par drag entre ports) ; création / édition des tâches via le panneau gauche (mêmes hooks et API que l’onglet Tâches). Échelle **px/jour fixe** (pas de zoom utilisateur dans cette version). **Ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) (fiche projet décisionnelle, autre document).
+Implémenté (web) — **cockpit Planning** avec sous-onglets **Macro** (défaut), **Planning / Gantt** et **Jalons** sur `/projects/:projectId/planning?sub=macro|gantt|milestones` ; onglet **Tâches** (liste + Kanban) sur `/projects/:projectId/tasks`. Sous-onglet Gantt : avec `projects.update`, **frise interactive** (déplacement et redimensionnement des barres, jalons déplaçables, **liens de dépendance** en SVG + création **Fin → début** par drag entre ports) ; création / édition des tâches via le panneau gauche (mêmes hooks et API que l’onglet Tâches). Gantt détaillé : échelle **Jour / Semaine / Mois**, **zoom temps** (boutons + Ctrl/Cmd + molette), filtres et options d’affichage (jalons, libellés frise, infobulles, couleur des barres) ; vue Macro en échelle **semaine** fixe avec pan par pas discrets. **Ne pas confondre** avec [RFC-PROJ-012 — Project Sheet](RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) (fiche projet décisionnelle, autre document).
 
 ## Priorité
 
@@ -56,10 +56,11 @@ Mettre en place un **système de planification projet** permettant :
 * progression
 * endpoint Gantt
 * affichage Gantt interactif (frise + grille)
+* vue **Macro** (pilotage CODIR : phases, jalons, synthèse latérale) — lecture seule, consomme `GET /tasks`, `GET /milestones` et phases tâches (pas le payload `/gantt`)
 
 ## Exclus MVP
 
-* zoom temporel utilisateur (jour / semaine / mois) — prévu pour évolution
+* zoom temporel utilisateur sur le Gantt détaillé (jour / semaine / mois) — prévu pour évolution ; la vue Macro reste en échelle semaine fixe
 * autoscheduling
 * multi-dépendances
 * charge / ressources
@@ -288,19 +289,24 @@ GET /api/projects/:projectId/gantt
 
 # 7. UX/UI
 
-## 7.1 Fiche projet
+## 7.1 Navigation workspace projet
 
 ```text
 Projet
- ├── Tâches
- ├── Jalons
- └── Planning / Gantt
+ ├── Tâches          → /projects/:projectId/tasks?sub=tasks|kanban
+ └── Planning        → /projects/:projectId/planning?sub=macro|gantt|milestones
+      ├── Macro      (défaut)
+      ├── Planning / Gantt
+      └── Jalons
 ```
+
+Orchestration : `ProjectPlanningView` (`project-planning-view.tsx`), routes via `projectTasks()` / `projectPlanning()` dans `project-routes.ts`.
 
 ---
 
-## 7.2 Onglet Tâches
+## 7.2 Onglet Tâches (`/tasks`)
 
+* sous-onglets **Liste** et **Kanban** (`?sub=tasks` | `?sub=kanban`)
 * création via bouton
 * édition via dialogue modal (création / modification)
 * tableau structuré
@@ -308,15 +314,54 @@ Projet
 
 ---
 
-## 7.3 Onglet Jalons
+## 7.3 Cockpit Planning (`/planning`)
 
-* création simple
-* vue liste
-* lien avec tâches
+Sous-navigation `role="tablist"` : **Macro** | **Planning / Gantt** | **Jalons**. Paramètre `sub` absent ou invalide → **Macro**.
 
----
+### 7.3.1 Macro (`?sub=macro`)
 
-## 7.4 Onglet Gantt
+Vue **lecture seule** de pilotage (CODIR / chef de projet) — pas de CRUD inline.
+
+**Données** : `useProjectTasksQuery`, `useProjectMilestonesQuery`, `useProjectDetailQuery`, phases via `listProjectTaskPhases` ; **pas** `GET /gantt`.
+
+**Layout** : grille Gantt unifiée (`starium-gantt-*`) — en-têtes mois / semaines (`S{n}` sans date sous la semaine), lignes **phase** (barre agrégée + sous-barre tâche représentative), losanges **jalons**, ligne **Aujourd’hui**. Colonne libellés + frise dans le même conteneur ; **pas de scroll horizontal** (`overflow: hidden`, largeur 100 %).
+
+**Fenêtre temporelle** : ~12 semaines, ancrée sur le premier contenu daté ; navigation par **pas discrets** de 7 jours (`panStep`, bornes `getMacroPlanningMaxPanStep`) :
+
+* boutons période précédente / suivante (désactivés aux bornes)
+* bouton **Aujourd’hui** (recalcule le pas pour centrer la date du jour)
+* **pan** souris / doigt (`useMacroGanttPanDrag`, ~72 px = 1 pas, `touch-action: none`)
+
+Barres recadrées sur l’intersection visible (`rangeToTimelinePercent`) ; jalons hors fenêtre masqués.
+
+**Toolbar** (`starium-fbtn`) : filtres **équipe** et **phase** (libellés métier, pas d’ID visible). Pas de toggle Semaine/Mois (échelle `week` fixe). Pas de légende en bas de frise.
+
+**Sidebar** (`ProjectPlanningMacroSidebar`, deux cartes `starium-panel`) :
+
+1. **Jalons** — titre dynamique : *Prochain jalon* (jalon ouvert futur), *Jalon en retard* (tous les jalons ouverts passés), ou *Jalons* + message vide ; lien vers sous-onglet Jalons.
+2. **Santé du planning** — `computedHealth`, avancement, tâches en retard, charge équipe indicative.
+
+### 7.3.2 Jalons (`?sub=milestones`)
+
+Vue **liste opérationnelle** des jalons du projet (CRUD via dialog si `projects.update`).
+
+**Données** : `useProjectMilestonesQuery` ; jointures d’affichage côté client : `useProjectTasksQuery` (nom de la tâche liée), `useProjectAssignableUsers` (responsable), `useProjectMilestoneLabelsQuery` + `listProjectTaskPhases` (étiquettes et phases — **libellés métier**, jamais d’ID brut en UI).
+
+**Layout** (aligné onglet **Tâches** — `starium-proj-*`, `starium-stat-cards`, `starium-tablecard`, `starium-dt`) :
+
+* **Bandeau KPI** (`ProjectMilestonesStatStrip`) : total, planifiés, atteints, en retard (pastilles sémantiques + %).
+* **Toolbar** (`starium-toolbar`) : hint + bouton `starium-btn-primary` « Nouveau jalon ».
+* **Tableau** (`starium-dt`) : colonnes **Jalon** (icône losange colorée rotative + nom / code), **Phase**, **Étiquettes** (tags colorés), **Tâche liée**, **Responsable** (avatar + nom court), **Statut** (`starium-ds-badge`), **Date cible**, **Date atteinte**.
+* **Grab/pan** : `useTablePan` sur `starium-table-wrap` — souris **et** doigt (Pointer Events) ; seuil de déplacement avant pan pour ne pas bloquer le clic ligne → édition (`shouldSuppressClick`).
+* États **loading** / **error** / **empty** (`LoadingState`, `Alert`, `EmptyState`).
+
+### 7.3.3 Planning / Gantt (`?sub=gantt`)
+
+**Chrome** (`ProjectGanttView` / `ProjectGanttToolbar` / `ProjectGanttCard`, classes `starium-project-gantt-*` dans `globals.css`) :
+
+* bannière projet (nom, statut, période planifiée) ;
+* toolbar en deux rangées : échelle segmentée, zoom temps, filtres (`Select` statut, mode couleur barres), switches (jalons, libellés frise, infobulles), plein écran, « Nouvelle tâche » ;
+* légende couleurs des barres (`GanttBarColorLegend`) selon le mode choisi.
 
 ### Gauche
 
@@ -327,7 +372,7 @@ Projet
 
 ### Droite
 
-* frise temporelle : en-têtes mois / semaines (agrégation automatique si la plage est longue), grille au pas **jour** (échelle **px/jour fixe**, pas de zoom utilisateur dans cette version)
+* frise temporelle : en-têtes mois / semaines / jours (selon densité), grille au pas **jour** ; **zoom temps** utilisateur (`timeZoom`, Ctrl/Cmd + molette sur la frise) et échelle **Jour / Semaine / Mois** (recalcul `px/jour` + remplissage largeur visible)
 * barres tâches (dates planifiées début / fin), remplissage = progression ; si `projects.update` : **déplacer** la barre (translation des dates), **redimensionner** début / fin (poignées latérales)
 * **Liens** : affichage SVG des dépendances selon `dependencyType` (ancres prédécesseur / successeur) ; **création / remplacement** d’une dépendance **Fin → début** par drag du port sortie (fin de barre) vers le port entrée (début de barre cible) — les autres types restent éditables via le formulaire tâche
 * marqueurs jalons sur la date cible, ligne « aujourd’hui »
@@ -372,7 +417,8 @@ project_milestone.updated
 * dates
 * dépendances
 * phases (barres de groupe dérivées backend) + tâches
-* calcul layout frise (bornes, largeur, positionnement px) — `gantt-timeline-layout.spec.ts`
+* calcul layout frise (bornes, largeur, positionnement px, clip barres visibles) — `gantt-timeline-layout.spec.ts`
+* fenêtre Macro, pas de pan, position « aujourd’hui » — `build-macro-planning-gantt.spec.ts`
 * géométrie des liens de dépendance — `gantt-dependency-geometry.spec.ts`
 
 ## Intégration
@@ -388,6 +434,19 @@ project_milestone.updated
 
 **Frontend** (`apps/web/src/features/projects/`) :
 
+* [`components/project-planning-view.tsx`](../../apps/web/src/features/projects/components/project-planning-view.tsx) — shell Planning + sous-onglets Macro / Gantt / Jalons
+* [`components/project-planning-macro-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-macro-tab.tsx) — vue Macro (frise phases/jalons, filtres, pan)
+* [`components/project-planning-macro-sidebar.tsx`](../../apps/web/src/features/projects/components/project-planning-macro-sidebar.tsx) — cartes jalons + santé planning
+* [`components/project-planning-milestones-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-milestones-tab.tsx) — sous-onglet Jalons (KPI strip, tableau `starium-dt`, grab/pan, dialog CRUD)
+* [`components/project-milestones-stat-strip.tsx`](../../apps/web/src/features/projects/components/project-milestones-stat-strip.tsx) — bandeau KPI jalons
+* [`lib/project-milestone-display.ts`](../../apps/web/src/features/projects/lib/project-milestone-display.ts) — stats, badges statut, libellés étiquettes
+* [`components/project-tasks-list-tab.tsx`](../../apps/web/src/features/projects/components/project-tasks-list-tab.tsx) — liste tâches (`starium-dt`, filtres, grab/pan)
+* [`components/project-tasks-stat-strip.tsx`](../../apps/web/src/features/projects/components/project-tasks-stat-strip.tsx) — bandeau KPI tâches (onglet `/tasks`)
+* [`gantt/components/project-gantt-view.tsx`](../../apps/web/src/features/projects/gantt/components/project-gantt-view.tsx) — chrome Gantt (bannière, toolbar, carte, poignée split)
+* [`lib/build-macro-planning-gantt.ts`](../../apps/web/src/features/projects/lib/build-macro-planning-gantt.ts) — lignes phase, fenêtre ~12 sem., `panStep`, marqueurs jalons
+* [`lib/build-macro-planning-gantt.spec.ts`](../../apps/web/src/features/projects/lib/build-macro-planning-gantt.spec.ts) — tests viewport / pan
+* [`hooks/use-macro-gantt-pan-drag.ts`](../../apps/web/src/features/projects/hooks/use-macro-gantt-pan-drag.ts) — drag horizontal → incrément `panStep`
+* [`constants/project-routes.ts`](../../apps/web/src/features/projects/constants/project-routes.ts) — `projectPlanning(id)` → `?sub=macro` par défaut ; `projectTasks(id)` → `/tasks`
 * [`components/project-gantt-panel.tsx`](../../apps/web/src/features/projects/components/project-gantt-panel.tsx) — split grille gauche / frise droite ; `projects.update` pour « Nouvelle tâche », drag barres / jalons, calque SVG des dépendances, ligne élastique en drag de lien ; `useProjectGanttQuery`
 * [`components/project-gantt-task-bar.tsx`](../../apps/web/src/features/projects/components/project-gantt-task-bar.tsx) — barre (move / resize / ports lien)
 * [`components/project-task-planning-section.tsx`](../../apps/web/src/features/projects/components/project-task-planning-section.tsx) — formulaire et mutations partagés (`useCreateProjectTaskMutation`, `useUpdateProjectTaskMutation`, DTO identiques à l’onglet Tâches) ; variants `full-table` / `gantt-sidebar`
@@ -398,6 +457,7 @@ project_milestone.updated
 * [`lib/gantt-dependency-geometry.spec.ts`](../../apps/web/src/features/projects/lib/gantt-dependency-geometry.spec.ts) — tests Vitest sur la géométrie des dépendances
 * [`lib/build-gantt-body-rows.ts`](../../apps/web/src/features/projects/lib/build-gantt-body-rows.ts) — **ordre unique** des lignes (phases, jalons avec tâche liée, tâches) partagé entre la grille et la frise ; le panneau Gantt construit ce corps à partir du payload `GET /gantt` et le transmet à `ProjectTaskPlanningSection` via la prop `ganttUnifiedBodyRows` (la grille réconcilie avec les requêtes tâches/jalons pour l’édition inline)
 * [`hooks/use-project-planning-mutations.ts`](../../apps/web/src/features/projects/hooks/use-project-planning-mutations.ts) — option `silentToast` sur `useUpdateProjectTaskMutation` / `useUpdateProjectMilestoneMutation` pour limiter les toasts lors des gestes sur la frise (succès dédié pour le lien « Dépendance enregistrée » dans le panneau Gantt)
+* [`hooks/use-table-pan.ts`](../../apps/web/src/hooks/use-table-pan.ts) — grab/pan générique tableaux (Pointer Events souris + doigt, seuil anti-clic accidentel) — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8
 
 **Backend** : inchangé par rapport à la RFC — `GET /api/projects/:projectId/gantt`, `PATCH` tâche / jalon ; isolation client (pas de `clientId` arbitraire côté client). Les rejets métier (ex. cycle de dépendance) sont renvoyés par l’API et affichés via toast.
 

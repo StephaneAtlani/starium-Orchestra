@@ -5,6 +5,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export type SwitchProps = {
+  id?: string;
   checked: boolean;
   onCheckedChange: (next: boolean) => void;
   disabled?: boolean;
@@ -17,6 +18,7 @@ export type SwitchProps = {
  * Rendu : un bouton avec `role="switch"` et un curseur (knob) animé.
  */
 export function Switch({
+  id,
   checked,
   onCheckedChange,
   disabled,
@@ -25,6 +27,7 @@ export function Switch({
 }: SwitchProps) {
   return (
     <button
+      id={id}
       type="button"
       role="switch"
       aria-checked={checked}

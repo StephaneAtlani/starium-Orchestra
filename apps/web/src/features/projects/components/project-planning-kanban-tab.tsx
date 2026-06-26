@@ -312,7 +312,7 @@ export const ProjectPlanningKanbanTab = forwardRef<
           'starium-kanban-scroll',
           kanbanPan.isPanning && 'starium-kanban-scroll--panning',
         )}
-        onMouseDown={kanbanPan.onMouseDown}
+        onPointerDown={kanbanPan.onPointerDown}
         aria-label="Colonnes Kanban — faites glisser horizontalement pour parcourir"
       >
         <div className="starium-kanban" role="list" aria-label="Vue Kanban des tâches">

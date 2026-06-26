@@ -396,10 +396,10 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
       <ComparisonColumnToggles value={cols} onChange={setCols} />
       <div
         ref={pan.scrollRef}
-        onMouseDown={pan.onMouseDown}
+        onPointerDown={pan.onPointerDown}
         className={cn(
           'max-h-[min(70vh,560px)] overflow-auto rounded-md border border-border',
-          pan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+          pan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
         )}
       >
       <Table noWrapper className={tableMinW}>

@@ -39,8 +39,8 @@ Le socle navigation est **déjà pensé mobile** :
 | --------- | ------- | ---- |
 | App shell | `apps/web/src/components/shell/app-shell.tsx` | `100dvh`, gutter `px-4 sm:px-5`, `min-w-0` |
 | Sidebar drawer | `apps/web/src/components/shell/sidebar.tsx` | Overlay `fixed inset-0`, `translate-x` mobile, `Escape`, `body overflow hidden` |
-| Header workspace | `apps/web/src/components/shell/workspace-header.tsx` | Hamburger `md:hidden`, `aria-expanded` / `aria-controls`, layout colonne `sm:` |
-| Client switcher | `apps/web/src/components/ClientSwitcher.tsx` | Largeur contrainte mobile |
+| Header workspace | `apps/web/src/components/shell/workspace-header.tsx` | Topbar 64px desktop ; barre mobile ink ; fil d’Ariane + recherche + notifications + menu compte |
+| Client switcher | `apps/web/src/components/ClientSwitcher.tsx` | Dans le menu compte (section Organisation), pas dans la topbar ; largeur pleine dans le panneau dropdown |
 | Page header pages | `apps/web/src/components/layout/page-header.tsx` | Actions en colonne puis ligne `sm:` |
 
 **Hors scope Lot 0** : refonte du shell (déjà OK). Ce lot cible les **fondations UI transverses** qui impactent ~100 écrans sans les modifier un par un.
