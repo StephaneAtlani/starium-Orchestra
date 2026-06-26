@@ -714,6 +714,106 @@ html.dark {
   font-weight: 700;
 }
 
+/* Risques — pilotage projet */
+.starium-proj-risks-pilotage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.starium-proj-risks-pilotage-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.starium-proj-risks-pilotage-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-list-kpi-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-lg, 14px);
+}
+.starium-list-kpi-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-list-kpi-btn--active .starium-list-kpi {
+  border-color: var(--brand-gold-100);
+  box-shadow:
+    var(--shadow-1),
+    0 0 0 1px color-mix(in srgb, var(--brand-gold) 35%, transparent);
+}
+.starium-risk-attention {
+  padding: 18px;
+}
+.starium-risk-attention--ok {
+  padding: 16px 18px;
+}
+.starium-risk-attention-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starium-risk-attention-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 65%, transparent));
+}
+.starium-risk-attention-item:first-child {
+  padding-top: 2px;
+}
+.starium-risk-attention-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.starium-risk-attention-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+button.starium-risk-attention-title {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+button.starium-risk-attention-title:hover {
+  color: var(--brand-gold-700);
+}
+button.starium-risk-attention-title:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.starium-risk-attention-meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--neutral-500, var(--muted-foreground));
+}
+
+.starium-proj-risks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 1rem;
+}
+@media (min-width: 768px) {
+  .starium-proj-risks {
+    padding-top: 1.25rem;
+  }
+}
+
 /* KPI list-kpi (mockup portefeuille / listes) */
 .starium-list-kpis {
   display: grid;
@@ -1498,6 +1598,11 @@ table.starium-dt {
   background: var(--neutral-0, var(--card));
   box-shadow: var(--shadow-1, 0 1px 2px rgba(0, 0, 0, 0.04));
 }
+.starium-form-section--inline-summary {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--brand-gold) 6%, var(--neutral-0, var(--card)));
+  border-color: color-mix(in srgb, var(--brand-gold) 22%, var(--neutral-200, var(--border)));
+}
 .starium-form-section-title {
   display: flex;
   align-items: center;
@@ -1525,6 +1630,14 @@ table.starium-dt {
 @media (min-width: 480px) {
   .starium-form-grid--2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.starium-form-grid--3 {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .starium-form-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 .starium-form-grid--span-2 {
