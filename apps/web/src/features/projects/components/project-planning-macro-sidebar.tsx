@@ -21,16 +21,48 @@ import {
 import { formatDaysUntilFr } from '../lib/build-macro-planning-gantt';
 import type { ProjectDetail } from '../types/project.types';
 
-function findNextMilestone(
-  items: Array<{ name: string; targetDate: string; status: string; description?: string | null }>,
-) {
+const MACRO_SIDEBAR_CARD =
+  'starium-panel starium-side-panel overflow-hidden rounded-[var(--ds-card-radius)] border border-border bg-card';
+
+type MilestoneSidebarItem = {
+  name: string;
+  targetDate: string;
+  status: string;
+  description?: string | null;
+};
+
+function resolveMilestoneSidebar(
+  items: MilestoneSidebarItem[],
+): {
+  title: string;
+  milestone: MilestoneSidebarItem | null;
+  emptyText: string | null;
+} {
   const open = items.filter((m) => m.status !== 'ACHIEVED' && m.status !== 'CANCELLED');
-  if (open.length === 0) return null;
+  if (open.length === 0) {
+    return {
+      title: 'Jalons',
+      milestone: null,
+      emptyText: 'Aucun jalon à venir.',
+    };
+  }
+
   const now = Date.now();
-  const upcoming = [...open].sort(
+  const sorted = [...open].sort(
     (a, b) => new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime(),
   );
-  return upcoming.find((m) => new Date(m.targetDate).getTime() >= now) ?? upcoming[0];
+  const upcoming = sorted.find((m) => new Date(m.targetDate).getTime() >= now);
+  if (upcoming) {
+    return { title: 'Prochain jalon', milestone: upcoming, emptyText: null };
+  }
+
+  const past = sorted.filter((m) => new Date(m.targetDate).getTime() < now);
+  const mostRecentOverdue = past[past.length - 1] ?? null;
+  return {
+    title: 'Jalon en retard',
+    milestone: mostRecentOverdue,
+    emptyText: null,
+  };
 }
 
 function healthLabel(health: string): string {
@@ -58,7 +90,7 @@ export function ProjectPlanningMacroSidebar({
   const tasksQuery = useProjectTasksQuery(projectId);
   const teamQuery = useProjectTeamQuery(projectId);
 
-  const nextMilestone = findNextMilestone(milestonesQuery.data?.items ?? []);
+  const milestoneSidebar = resolveMilestoneSidebar(milestonesQuery.data?.items ?? []);
   const tasks = tasksQuery.data?.items ?? [];
   const lateTasks = tasks.filter(
     (t) =>
@@ -81,45 +113,44 @@ export function ProjectPlanningMacroSidebar({
         : 'Retards ou dérives détectés sur le planning.';
 
   return (
-    <aside
-      className="starium-panel starium-side-panel overflow-hidden rounded-[var(--ds-card-radius)] border border-border bg-card"
-      aria-label="Synthèse planning"
-    >
-      <div className="starium-sp-block">
+    <div className="starium-macro-sidebar" aria-label="Synthèse planning">
+      <article className={MACRO_SIDEBAR_CARD}>
         <div className="starium-sp-head">
-          <span className="starium-sp-title">Prochain jalon</span>
+          <span className="starium-sp-title">
+            {milestonesQuery.isLoading ? 'Jalons' : milestoneSidebar.title}
+          </span>
         </div>
         {milestonesQuery.isLoading ? (
           <LoadingState rows={2} />
-        ) : nextMilestone ? (
+        ) : milestoneSidebar.milestone ? (
           <>
             <div className="starium-sp-jalon">
               <div className="starium-sp-jalon-ico" aria-hidden>
                 <Flag strokeWidth={1.75} />
               </div>
               <div>
-                <div className="starium-sp-jalon-name">{nextMilestone.name}</div>
+                <div className="starium-sp-jalon-name">{milestoneSidebar.milestone.name}</div>
                 <div className="starium-sp-jalon-date">
-                  {formatProjectDateLong(nextMilestone.targetDate)}
-                  {formatDaysUntilFr(nextMilestone.targetDate)
-                    ? ` (${formatDaysUntilFr(nextMilestone.targetDate)})`
+                  {formatProjectDateLong(milestoneSidebar.milestone.targetDate)}
+                  {formatDaysUntilFr(milestoneSidebar.milestone.targetDate)
+                    ? ` (${formatDaysUntilFr(milestoneSidebar.milestone.targetDate)})`
                     : null}
                 </div>
               </div>
             </div>
-            {nextMilestone.description ? (
-              <p className="starium-sp-text">{nextMilestone.description}</p>
+            {milestoneSidebar.milestone.description ? (
+              <p className="starium-sp-text">{milestoneSidebar.milestone.description}</p>
             ) : null}
           </>
         ) : (
-          <p className="starium-sp-text">Aucun jalon à venir.</p>
+          <p className="starium-sp-text">{milestoneSidebar.emptyText}</p>
         )}
         <Link href={projectPlanning(projectId, 'milestones')} className="starium-sp-btn">
           Voir les jalons
         </Link>
-      </div>
+      </article>
 
-      <div className="starium-sp-block">
+      <article className={MACRO_SIDEBAR_CARD}>
         <div className="starium-sp-head">
           <span className="starium-sp-title">Santé du planning</span>
           <span className="starium-sp-head-ico" aria-hidden>
@@ -162,13 +193,10 @@ export function ProjectPlanningMacroSidebar({
           </span>
         </div>
 
-        <Link
-          href={projectPlanning(projectId, 'gantt')}
-          className="starium-sp-btn starium-sp-btn--spaced"
-        >
+        <Link href={projectPlanning(projectId, 'gantt')} className="starium-sp-btn starium-sp-btn--spaced">
           Voir l&apos;analyse détaillée
         </Link>
-      </div>
-    </aside>
+      </article>
+    </div>
   );
 }
