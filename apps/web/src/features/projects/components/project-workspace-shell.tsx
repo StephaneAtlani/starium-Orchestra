@@ -5,7 +5,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { AlertCircle, Share2 } from 'lucide-react';
+import { useWorkspaceBreadcrumbOverride } from '@/components/shell/workspace-breadcrumb-context';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
+import { projectDetail } from '../constants/project-routes';
 import { ProjectSynthesisBanner } from './project-synthesis-banner';
 import { ProjectsListRowActionsMenu } from './projects-list-row-actions-menu';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
@@ -29,6 +31,12 @@ export function ProjectWorkspaceShell({
   afterAlerts,
 }: ProjectWorkspaceShellProps) {
   const { data: project, isLoading, error } = useProjectDetailQuery(projectId);
+
+  useWorkspaceBreadcrumbOverride(
+    project?.name
+      ? { entityLabel: project.name, entityHref: projectDetail(projectId) }
+      : null,
+  );
 
   if (!projectId) {
     return <p className="text-sm text-destructive">Identifiant de projet manquant.</p>;

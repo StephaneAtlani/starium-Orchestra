@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { ClientSwitcher } from '../ClientSwitcher';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { AccountMenuDropdown } from './account-menu-dropdown';
 
@@ -64,22 +63,6 @@ export function MobileWorkspaceHeaderBar({
 
         <div className="flex min-w-0 shrink-0 items-center gap-1.5">
           {accessToken && activeClient ? (
-            multiClient ? (
-              <ClientSwitcher
-                accessToken={accessToken}
-                className="starium-header-mobile__client-select"
-              />
-            ) : (
-              <span
-                className="starium-header-mobile__client-pill max-w-[7.5rem] truncate"
-                title={activeClient.name}
-              >
-                {activeClient.name}
-              </span>
-            )
-          ) : null}
-
-          {accessToken && activeClient ? (
             <NotificationBell tone="inverse" />
           ) : null}
 
@@ -88,6 +71,10 @@ export function MobileWorkspaceHeaderBar({
               avatarPreview={avatarPreview}
               avatarInitials={avatarInitials}
               onLogout={onLogout}
+              variant="mobile"
+              accessToken={accessToken}
+              activeClient={activeClient}
+              multiClient={multiClient}
               triggerClassName="min-h-11 min-w-11 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--starium-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--starium-sidebar-bg)]"
               menuClassName="starium-header-mobile__account-menu"
             />

@@ -9,6 +9,7 @@ import { ChatDrawerProvider } from '@/features/chatbot/chat-drawer-context';
 import { StariumChatDrawer } from '@/features/chatbot/starium-chat-drawer';
 import { MobileBottomNav } from './mobile-bottom-nav';
 import { MobileNavMenu } from './mobile-nav-menu';
+import { WorkspaceBreadcrumbProvider } from './workspace-breadcrumb-context';
 
 /** Élément DOM pour le plein écran « sans sidebar » : colonne header + main (+ drawer). */
 export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
@@ -35,6 +36,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <ChatDrawerProvider>
       <SidebarNavProvider>
+        <WorkspaceBreadcrumbProvider>
         <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
           <Sidebar />
           <div
@@ -50,6 +52,7 @@ export function AppShell({ children }: AppShellProps) {
             <StariumChatDrawer />
           </div>
         </div>
+        </WorkspaceBreadcrumbProvider>
       </SidebarNavProvider>
     </ChatDrawerProvider>
   );

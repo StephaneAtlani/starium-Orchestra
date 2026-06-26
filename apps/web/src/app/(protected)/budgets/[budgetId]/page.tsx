@@ -13,6 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
+import { useWorkspaceBreadcrumbOverride } from '@/components/shell/workspace-breadcrumb-context';
 import { PageContainer } from '@/components/layout/page-container';
 import { BudgetKpiCards } from '@/features/budgets/components/budget-kpi-cards';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
@@ -38,6 +39,7 @@ import {
   budgetEdit,
   budgetEnvelopeNew,
   budgetImport,
+  budgetDetail,
 } from '@/features/budgets/constants/budget-routes';
 import { NewBudgetLineDialog } from '@/features/budgets/components/new-budget-line-dialog';
 import { CreateBudgetSnapshotDialog } from '@/features/budgets/components/create-budget-snapshot-dialog';
@@ -89,6 +91,12 @@ export default function BudgetDetailPage() {
   const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
   const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
+
+  useWorkspaceBreadcrumbOverride(
+    budget?.name && budgetId
+      ? { entityLabel: budget.name, entityHref: budgetDetail(budgetId) }
+      : null,
+  );
 
   const {
     taxDisplayMode,

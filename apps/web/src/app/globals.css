@@ -2848,6 +2848,207 @@ table.starium-dt {
   background-color: var(--starium-surface);
 }
 
+/* Topbar workspace (RFC-014 / maquette portail client) */
+.starium-topbar {
+  height: var(--topbar-height, 64px);
+  min-height: var(--topbar-height, 64px);
+}
+
+.starium-topbar-breadcrumb {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.375rem;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--starium-text-muted);
+}
+
+.starium-topbar-breadcrumb__link {
+  flex-shrink: 0;
+  color: var(--starium-text-muted);
+  text-decoration: none;
+  transition: color var(--duration-fast, 120ms) var(--ease-standard, ease);
+}
+
+.starium-topbar-breadcrumb__link:hover {
+  color: var(--starium-text);
+}
+
+.starium-topbar-breadcrumb__sep {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  color: var(--neutral-300, var(--border));
+}
+
+.starium-topbar-breadcrumb__current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--starium-text);
+}
+
+.starium-topbar-search {
+  display: none;
+  align-items: center;
+  gap: 0.4375rem;
+  height: 2.125rem;
+  width: min(18.75rem, 28vw);
+  flex-shrink: 0;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background-color: var(--starium-surface-muted, var(--muted));
+  font-family: inherit;
+  font-size: 0.78125rem;
+  color: var(--starium-text-muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast, 120ms) var(--ease-standard, ease);
+}
+
+@media (min-width: 1024px) {
+  .starium-topbar-search {
+    display: flex;
+  }
+}
+
+.starium-topbar-search:hover {
+  background-color: var(--neutral-200, var(--accent));
+}
+
+.starium-topbar-search:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.starium-topbar-search svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  color: var(--starium-text-muted);
+}
+
+.starium-topbar-search__placeholder {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.starium-topbar-search kbd {
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 1px solid var(--starium-border);
+  background-color: var(--starium-surface);
+  padding: 1px 5px;
+  font-family: inherit;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--starium-text-muted);
+}
+
+.starium-topbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.starium-topbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.starium-topbar-icon > details > summary {
+  width: 2.125rem;
+  height: 2.125rem;
+  min-width: 2.125rem;
+  min-height: 2.125rem;
+  border-radius: var(--radius-md, 10px);
+  color: var(--starium-text-muted);
+}
+
+.starium-topbar-icon > details > summary:hover {
+  background-color: var(--starium-surface-muted, var(--muted));
+  color: var(--starium-text);
+}
+
+.starium-topbar-icon .notif-badge,
+.starium-topbar-icon > details > summary span[class*='rounded-full'] {
+  top: 1px;
+  right: 1px;
+  min-width: 0.9375rem;
+  height: 0.9375rem;
+  padding: 0 3px;
+  border: 1.5px solid var(--starium-surface);
+  background-color: var(--starium-primary);
+  color: var(--brand-ink);
+  font-size: 0.5625rem;
+  font-weight: 800;
+}
+
+.starium-topbar-avatar {
+  display: flex;
+  width: 2.125rem;
+  height: 2.125rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1.5px solid var(--starium-primary);
+  background-color: var(--brand-ink);
+  color: var(--starium-primary);
+  font-size: 0.71875rem;
+  font-weight: 800;
+}
+
+.starium-topbar-chevron {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--starium-text-muted);
+}
+
+.starium-account-menu__client {
+  border-bottom: 1px solid var(--starium-border);
+  padding: 0.625rem 0.75rem;
+}
+
+.starium-account-menu__client-label {
+  margin-bottom: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--starium-text-muted);
+}
+
+.starium-account-menu__client-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--starium-text);
+}
+
+.starium-account-menu__client-select {
+  width: 100%;
+  max-width: none;
+  border-color: var(--starium-border);
+  background-color: var(--starium-surface-muted, var(--muted));
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .starium-card {
   background-color: var(--starium-surface);
   border: 1px solid var(--starium-border);

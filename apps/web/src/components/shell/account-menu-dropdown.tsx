@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { UserCircle, ChevronDown } from 'lucide-react';
+import { UserCircle, ChevronDown, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ClientSwitcher } from '../ClientSwitcher';
 
 interface AccountMenuDropdownProps {
   avatarPreview: string | null;
@@ -14,6 +15,11 @@ interface AccountMenuDropdownProps {
   /** Classes sur le summary (trigger avatar) */
   triggerClassName?: string;
   showChevron?: boolean;
+  /** Variante visuelle du trigger (topbar desktop vs mobile) */
+  variant?: 'default' | 'topbar' | 'mobile';
+  accessToken?: string | null;
+  activeClient?: { id: string; name: string } | null;
+  multiClient?: boolean;
 }
 
 export function AccountMenuDropdown({
@@ -23,8 +29,13 @@ export function AccountMenuDropdown({
   menuClassName,
   triggerClassName,
   showChevron = false,
+  variant = 'default',
+  accessToken,
+  activeClient,
+  multiClient = false,
 }: AccountMenuDropdownProps) {
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const showClientSection = Boolean(accessToken && (multiClient || activeClient));
 
   useEffect(() => {
     const el = menuRef.current;
@@ -54,16 +65,24 @@ export function AccountMenuDropdown({
     };
   }, []);
 
+  const avatarClassName =
+    variant === 'topbar'
+      ? 'starium-topbar-avatar'
+      : variant === 'mobile'
+        ? 'starium-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold'
+        : 'starium-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold md:h-8 md:w-8 md:font-medium';
+
   return (
     <details ref={menuRef} className="group/details relative shrink-0">
       <summary
         className={cn(
           'list-none flex cursor-pointer items-center justify-center [&::-webkit-details-marker]:hidden',
+          variant === 'topbar' && 'gap-0.5',
           triggerClassName,
         )}
-        aria-label="Mon compte et déconnexion"
+        aria-label="Mon compte, organisation et déconnexion"
       >
-        <span className="starium-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold md:h-8 md:w-8 md:font-medium">
+        <span className={avatarClassName}>
           {avatarPreview ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL objet blob
             <img
@@ -76,17 +95,38 @@ export function AccountMenuDropdown({
           )}
         </span>
         {showChevron ? (
-          <ChevronDown className="h-4 w-4 starium-text" aria-hidden />
+          <span className="starium-topbar-chevron" aria-hidden>
+            <ChevronDown className="h-3.5 w-3.5" />
+          </span>
         ) : null}
       </summary>
       <div
         className={cn(
-          'starium-dropdown-panel absolute right-0 z-50 mt-2 min-w-[11rem] rounded-xl py-1 text-sm shadow-lg md:min-w-[180px] md:rounded-lg',
+          'starium-dropdown-panel absolute right-0 z-50 mt-2 min-w-[11rem] rounded-xl py-1 text-sm shadow-lg md:min-w-[200px] md:rounded-lg',
+          showClientSection && 'md:min-w-[240px]',
           'pointer-events-none opacity-0 translate-y-1 scale-[0.98] transition-all duration-150 ease-out',
           'group-open/details:pointer-events-auto group-open/details:translate-y-0 group-open/details:scale-100 group-open/details:opacity-100',
           menuClassName,
         )}
       >
+        {showClientSection ? (
+          <div className="starium-account-menu__client">
+            <p className="starium-account-menu__client-label" id="account-menu-client-label">
+              Organisation
+            </p>
+            {multiClient && accessToken ? (
+              <ClientSwitcher
+                accessToken={accessToken}
+                className="starium-account-menu__client-select"
+              />
+            ) : activeClient ? (
+              <p className="starium-account-menu__client-name" title={activeClient.name}>
+                <Building2 className="mr-1.5 inline h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                {activeClient.name}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <Link
           href="/account"
           onClick={() => {
