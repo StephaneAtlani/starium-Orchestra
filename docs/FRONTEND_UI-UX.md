@@ -625,7 +625,7 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 
 #### 11.3.1 Modale formulaire dense — bandeau d’en-tête (norme)
 
-À utiliser pour **les nouvelles modales** formulaire (longues ou sections multiples) et pour **rafraîchir graphiquement** les modales existantes lorsque c’est demandé. Référence d’implémentation : `**ProjectRiskEbiosDialog`** — `features/projects/components/project-risk-ebios-dialog.tsx`.
+À utiliser pour **les nouvelles modales** formulaire (longues ou sections multiples) et pour **rafraîchir graphiquement** les modales existantes lorsque c’est demandé. Références d’implémentation : **`ProjectRiskEbiosDialog`** (`project-risk-ebios-dialog.tsx`, formulaire long) ; **`ProjectTaskFormDialog`** / **`MilestoneFormDialog`** (`project-task-form-dialog.tsx`, `milestone-form-dialog.tsx` — modales formulaire moyennes, champs `starium-form-*`).
 
 
 | Zone                         | Pattern                                                                                                                                                                                                          |

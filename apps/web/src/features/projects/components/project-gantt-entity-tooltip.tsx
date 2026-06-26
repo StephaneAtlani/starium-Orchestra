@@ -116,6 +116,57 @@ export function ProjectGanttTaskTooltipContent({
   );
 }
 
+function fmtMs(ms: number | null | undefined): string {
+  if (ms == null || Number.isNaN(ms)) return '—';
+  try {
+    return new Date(ms).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+export function MacroGanttPhaseTooltipContent({
+  name,
+  taskCount,
+  milestoneCount,
+  startMs,
+  endMs,
+}: {
+  name: string;
+  taskCount: number;
+  milestoneCount: number;
+  startMs: number | null;
+  endMs: number | null;
+}) {
+  return (
+    <div className="flex w-full max-w-[min(28rem,calc(100vw-2rem))] flex-col gap-2 text-left">
+      <div>
+        <SectionTitle>Phase</SectionTitle>
+        <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-background/95">
+          {name}
+        </p>
+      </div>
+      <ul className="list-none space-y-1 text-[0.8125rem] leading-snug text-background/95">
+        <li>
+          <span className="text-background/75">Contenu · </span>
+          {taskCount} tâche{taskCount > 1 ? 's' : ''}
+          {milestoneCount > 0
+            ? ` · ${milestoneCount} jalon${milestoneCount > 1 ? 's' : ''}`
+            : ''}
+        </li>
+        <li>
+          <span className="text-background/75">Période · </span>
+          {fmtMs(startMs)} → {fmtMs(endMs)}
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 export function ProjectGanttMilestoneTooltipContent({
   milestone,
   linkedTaskName,

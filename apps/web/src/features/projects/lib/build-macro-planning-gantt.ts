@@ -32,6 +32,10 @@ export type MacroPlanningPhaseRow = {
   subLabel: string | null;
   subStartMs: number | null;
   subEndMs: number | null;
+  /** Tâche représentative affichée en sous-barre (si datée). */
+  subTaskId: string | null;
+  /** Jalon représentatif en sous-barre quand aucune tâche datée. */
+  subMilestoneId: string | null;
 };
 
 export type MacroPlanningMilestoneMarker = {
@@ -42,6 +46,12 @@ export type MacroPlanningMilestoneMarker = {
   status: string;
   color: string;
 };
+
+export function getMacroPlanningTaskRangeMs(
+  task: ProjectTaskApi,
+): { startMs: number; endMs: number } | null {
+  return collectTaskRangeMs(task);
+}
 
 function collectTaskRangeMs(task: ProjectTaskApi): { startMs: number; endMs: number } | null {
   const start = task.plannedStartDate
@@ -126,6 +136,8 @@ export function buildMacroPlanningPhaseRows(
       const subTask = pickSubTask(phaseTasks);
       const subRange = subTask ? collectTaskRangeMs(subTask) : null;
 
+      const subMilestone = subTask ? null : (phaseMilestones[0] ?? null);
+
       return {
         phaseId: phase.id,
         name: phase.name,
@@ -134,9 +146,11 @@ export function buildMacroPlanningPhaseRows(
         milestoneCount: phaseMilestones.length,
         startMs: merged.startMs,
         endMs: merged.endMs,
-        subLabel: subTask?.name ?? phaseMilestones[0]?.name ?? null,
-        subStartMs: subRange?.startMs ?? null,
-        subEndMs: subRange?.endMs ?? null,
+        subLabel: subTask?.name ?? subMilestone?.name ?? null,
+        subStartMs: subRange?.startMs ?? (subMilestone ? new Date(subMilestone.targetDate).getTime() : null),
+        subEndMs: subRange?.endMs ?? (subMilestone ? new Date(subMilestone.targetDate).getTime() : null),
+        subTaskId: subTask?.id ?? null,
+        subMilestoneId: subMilestone?.id ?? null,
       };
     });
 
@@ -153,6 +167,8 @@ export function buildMacroPlanningPhaseRows(
     const merged = mergeRanges([...taskRanges, ...milestoneRanges]);
     const subTask = pickSubTask(ungroupedTasks);
     const subRange = subTask ? collectTaskRangeMs(subTask) : null;
+    const subMilestone = subTask ? null : (ungroupedMilestones[0] ?? null);
+
     rows.push({
       phaseId: null,
       name: 'Sans libellé de phase',
@@ -161,9 +177,11 @@ export function buildMacroPlanningPhaseRows(
       milestoneCount: ungroupedMilestones.length,
       startMs: merged.startMs,
       endMs: merged.endMs,
-      subLabel: subTask?.name ?? ungroupedMilestones[0]?.name ?? null,
-      subStartMs: subRange?.startMs ?? null,
-      subEndMs: subRange?.endMs ?? null,
+      subLabel: subTask?.name ?? subMilestone?.name ?? null,
+      subStartMs: subRange?.startMs ?? (subMilestone ? new Date(subMilestone.targetDate).getTime() : null),
+      subEndMs: subRange?.endMs ?? (subMilestone ? new Date(subMilestone.targetDate).getTime() : null),
+      subTaskId: subTask?.id ?? null,
+      subMilestoneId: subMilestone?.id ?? null,
     });
   }
 
@@ -394,22 +412,6 @@ export function shiftTimelineBounds(
 ): TimelineBounds {
   const delta = deltaDays * GANTT_DAY_MS;
   return { min: bounds.min + delta, max: bounds.max + delta };
-}
-
-export function formatMacroPlanningRangeMs(
-  startMs: number | null,
-  endMs: number | null,
-): string {
-  if (startMs == null || endMs == null) return 'Dates non planifiées';
-  const opts: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  };
-  const start = new Date(startMs).toLocaleDateString('fr-FR', opts);
-  const end = new Date(endMs).toLocaleDateString('fr-FR', opts);
-  if (start === end) return start;
-  return `${start} → ${end}`;
 }
 
 export function formatDaysUntilFr(iso: string): string {

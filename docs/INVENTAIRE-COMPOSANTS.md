@@ -336,7 +336,8 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `action-plan-tasks-table` - `features/projects/components/action-plan-tasks-table.tsx` - affiche un tableau pour action plan taches.
 - `gantt-bar-color-legend` - `features/projects/components/gantt-bar-color-legend.tsx` - gere l'interface de gantt color legend.
 - `project-milestones-stat-strip` - `features/projects/components/project-milestones-stat-strip.tsx` - affiche le bandeau KPI des jalons projet.
-- `milestone-form-dialog-fields` - `features/projects/components/milestone-form-dialog-fields.tsx` - ouvre un dialogue pour milestone fields.
+- `milestone-form-dialog` - `features/projects/components/milestone-form-dialog.tsx` - modale création / édition jalon (gabarit Dialog §11.3.1, `DialogBody` scroll).
+- `milestone-form-dialog-fields` - `features/projects/components/milestone-form-dialog-fields.tsx` - champs formulaire jalon (`starium-form-*`).
 - `person-catalog-picker-dialog` - `features/projects/components/person-catalog-picker-dialog.tsx` - ouvre un dialogue pour person catalogue.
 - `portfolio-gantt-chart` - `features/projects/components/portfolio-gantt-chart.tsx` - affiche des graphiques pour portefeuille gantt.
 - `portfolio-gantt-legend` - `features/projects/components/portfolio-gantt-legend.tsx` - gere l'interface de portefeuille gantt legend.
@@ -351,11 +352,13 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-create-form` - `features/projects/components/project-create-form.tsx` - gere le formulaire de projet creation.
 - `project-detail-view` - `features/projects/components/project-detail-view.tsx` - affiche la vue de projet detail.
 - `project-documents-section` - `features/projects/components/project-documents-section.tsx` - regroupe une section dediee a projet documents.
-- `project-gantt-entity-tooltip` - `features/projects/components/project-gantt-entity-tooltip.tsx` - affiche une infobulle pour projet gantt entity.
+- `project-gantt-entity-tooltip` - `features/projects/components/project-gantt-entity-tooltip.tsx` - contenus infobulle Gantt (tâche, jalon, phase Macro).
+- `project-macro-gantt-bar` - `features/projects/components/project-macro-gantt-bar.tsx` - barre / losange Macro avec tooltip (frise planning `?sub=macro`).
 - `project-gantt-panel` - `features/projects/components/project-gantt-panel.tsx` - affiche un panneau pour projet gantt.
 - `project-gantt-task-bar` - `features/projects/components/project-gantt-task-bar.tsx` - gere l'interface de projet gantt tache.
 - `project-planning-kanban-tab` - `features/projects/components/project-planning-kanban-tab.tsx` - organise les onglets pour projet planning kanban.
-- `project-planning-milestones-tab` - `features/projects/components/project-planning-milestones-tab.tsx` - organise les onglets pour projet planning milestones.
+- `project-planning-milestones-tab` - `features/projects/components/project-planning-milestones-tab.tsx` - sous-onglet Jalons (tableau, `MilestoneFormDialog`).
+- `project-planning-macro-tab` - `features/projects/components/project-planning-macro-tab.tsx` - sous-onglet Macro (frise phases/jalons, déplier, infobulles).
 - `project-planning-tasks-tab` - `features/projects/components/project-planning-tasks-tab.tsx` - organise les onglets pour projet planning taches.
 - `project-planning-view` - `features/projects/components/project-planning-view.tsx` - affiche la vue de projet planning.
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.

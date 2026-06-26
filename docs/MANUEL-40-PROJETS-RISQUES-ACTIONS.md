@@ -169,11 +169,13 @@ decision --> execution[Execution projet retenu]
 
 1. Ouvrir le projet.
 2. Cliquer `Planning` (vue Macro : phases, jalons, synthèse latérale).
-3. Pour le détail opérationnel, basculer sur `Planning / Gantt`.
-4. Vérifier que toutes les tâches clés ont date début/fin.
-5. Filtrer le périmètre à présenter (phase, équipe sur Macro ; stream, statut sur Gantt).
-6. Naviguer la fenêtre temporelle Macro (flèches ou glisser la frise) si besoin.
-7. Prendre capture pour support comité.
+3. **Déplier** une phase (chevron) pour voir le détail des tâches ; **déplier** la ligne « Jalons » pour lister chaque repère.
+4. Survoler barres et losanges pour les **infobulles** (statut, dates, phase, description).
+5. Pour le détail opérationnel, basculer sur `Planning / Gantt`.
+6. Vérifier que toutes les tâches clés ont date début/fin.
+7. Filtrer le périmètre à présenter (phase, équipe sur Macro ; stream, statut sur Gantt).
+8. Naviguer la fenêtre temporelle Macro (flèches ou glisser la frise) si besoin.
+9. Prendre capture pour support comité.
 
 ### Utilisation en réunion
 

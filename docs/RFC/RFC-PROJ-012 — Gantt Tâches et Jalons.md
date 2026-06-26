@@ -324,7 +324,18 @@ Vue **lecture seule** de pilotage (CODIR / chef de projet) — pas de CRUD inlin
 
 **Données** : `useProjectTasksQuery`, `useProjectMilestonesQuery`, `useProjectDetailQuery`, phases via `listProjectTaskPhases` ; **pas** `GET /gantt`.
 
-**Layout** : grille Gantt unifiée (`starium-gantt-*`) — en-têtes mois / semaines (`S{n}` sans date sous la semaine), lignes **phase** (barre agrégée + sous-barre tâche représentative), losanges **jalons**, ligne **Aujourd’hui**. Colonne libellés + frise dans le même conteneur ; **pas de scroll horizontal** (`overflow: hidden`, largeur 100 %).
+**Layout** : grille Gantt unifiée (`starium-gantt-*`) — en-têtes mois / semaines (`S{n}` sans date sous la semaine), lignes **phase** (barre agrégée + sous-barre tâche représentative si repliée), losanges **jalons** (regroupés sur la ligne « Jalons » si repliée), ligne **Aujourd’hui**. Colonne libellés + frise dans le même conteneur ; **pas de scroll horizontal** (`overflow: hidden`, largeur 100 %).
+
+**Déplier / replier** (lecture seule, pas de CRUD sur la frise) :
+
+* chevron sur chaque ligne **phase** lorsqu’elle contient au moins une tâche — affiche sous la phase la liste des tâches (libellé + barre individuelle si datée) ;
+* chevron sur la ligne **Jalons** lorsqu’il y a au moins un jalon — affiche une ligne par jalon (libellé + losange sur la frise) ;
+* en phase **dépliée**, la sous-barre représentative est masquée ; en **repliée**, les losanges ou tâches détaillés sont masqués sur la ligne synthèse ;
+* l’état déplié est **réinitialisé** au changement des filtres équipe / phase (`viewportFocusKey`).
+
+**Infobulles** : au survol des barres (phase, sous-barre, tâche) et des losanges — contenu riche aligné sur le Gantt détaillé (`MacroGanttPhaseTooltipContent`, `ProjectGanttTaskTooltipContent`, `ProjectGanttMilestoneTooltipContent` dans `project-gantt-entity-tooltip.tsx`) ; les déclencheurs ignorent le pan horizontal (`stopPropagation` sur pointer down).
+
+**Densité libellés** : colonne phase compacte (`starium-gantt-rowlabel--phase`) ; piste **double** (`starium-gantt-track--dual`, `min-height` adapté) lorsque barre agrégée + sous-barre coexistent pour éviter le clipping.
 
 **Fenêtre temporelle** : ~12 semaines, ancrée sur le premier contenu daté ; navigation par **pas discrets** de 7 jours (`panStep`, bornes `getMacroPlanningMaxPanStep`) :
 
@@ -353,6 +364,7 @@ Vue **liste opérationnelle** des jalons du projet (CRUD via dialog si `projects
 * **Toolbar** (`starium-toolbar`) : hint + bouton `starium-btn-primary` « Nouveau jalon ».
 * **Tableau** (`starium-dt`) : colonnes **Jalon** (icône losange colorée rotative + nom / code), **Phase**, **Étiquettes** (tags colorés), **Tâche liée**, **Responsable** (avatar + nom court), **Statut** (`starium-ds-badge`), **Date cible**, **Date atteinte**.
 * **Grab/pan** : `useTablePan` sur `starium-table-wrap` — souris **et** doigt (Pointer Events) ; seuil de déplacement avant pan pour ne pas bloquer le clic ligne → édition (`shouldSuppressClick`).
+* **Dialog CRUD** : `MilestoneFormDialog` — gabarit modale formulaire dense ([FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §11.3.1 : bandeau `DialogHeader`, scroll `DialogBody`, pied `DialogFooter`, champs `starium-form-*` dans `milestone-form-dialog-fields.tsx`) ; réutilisé depuis le Gantt (`ProjectTaskPlanningSection`) et l’onglet Jalons.
 * États **loading** / **error** / **empty** (`LoadingState`, `Alert`, `EmptyState`).
 
 ### 7.3.3 Planning / Gantt (`?sub=gantt`)
@@ -418,7 +430,7 @@ project_milestone.updated
 * dépendances
 * phases (barres de groupe dérivées backend) + tâches
 * calcul layout frise (bornes, largeur, positionnement px, clip barres visibles) — `gantt-timeline-layout.spec.ts`
-* fenêtre Macro, pas de pan, position « aujourd’hui » — `build-macro-planning-gantt.spec.ts`
+* fenêtre Macro, pas de pan, position « aujourd’hui », `subTaskId` / `getMacroPlanningTaskRangeMs` — `build-macro-planning-gantt.spec.ts`
 * géométrie des liens de dépendance — `gantt-dependency-geometry.spec.ts`
 
 ## Intégration
@@ -435,9 +447,13 @@ project_milestone.updated
 **Frontend** (`apps/web/src/features/projects/`) :
 
 * [`components/project-planning-view.tsx`](../../apps/web/src/features/projects/components/project-planning-view.tsx) — shell Planning + sous-onglets Macro / Gantt / Jalons
-* [`components/project-planning-macro-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-macro-tab.tsx) — vue Macro (frise phases/jalons, filtres, pan)
+* [`components/project-planning-macro-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-macro-tab.tsx) — vue Macro (frise phases/jalons, filtres, pan, déplier phases/jalons, infobulles frise)
+* [`components/project-macro-gantt-bar.tsx`](../../apps/web/src/features/projects/components/project-macro-gantt-bar.tsx) — barres / losanges Macro avec `Tooltip` (pan non déclenché au survol)
 * [`components/project-planning-macro-sidebar.tsx`](../../apps/web/src/features/projects/components/project-planning-macro-sidebar.tsx) — cartes jalons + santé planning
-* [`components/project-planning-milestones-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-milestones-tab.tsx) — sous-onglet Jalons (KPI strip, tableau `starium-dt`, grab/pan, dialog CRUD)
+* [`components/project-planning-milestones-tab.tsx`](../../apps/web/src/features/projects/components/project-planning-milestones-tab.tsx) — sous-onglet Jalons (KPI strip, tableau `starium-dt`, grab/pan, `MilestoneFormDialog`)
+* [`components/milestone-form-dialog.tsx`](../../apps/web/src/features/projects/components/milestone-form-dialog.tsx) — modale création / édition jalon (gabarit §11.3.1 FRONTEND_UI-UX)
+* [`components/milestone-form-dialog-fields.tsx`](../../apps/web/src/features/projects/components/milestone-form-dialog-fields.tsx) — corps formulaire jalon (`starium-form-*`)
+* [`components/project-gantt-entity-tooltip.tsx`](../../apps/web/src/features/projects/components/project-gantt-entity-tooltip.tsx) — infobulles tâche / jalon / phase Macro (`MacroGanttPhaseTooltipContent`, …)
 * [`components/project-milestones-stat-strip.tsx`](../../apps/web/src/features/projects/components/project-milestones-stat-strip.tsx) — bandeau KPI jalons
 * [`lib/project-milestone-display.ts`](../../apps/web/src/features/projects/lib/project-milestone-display.ts) — stats, badges statut, libellés étiquettes
 * [`components/project-tasks-list-tab.tsx`](../../apps/web/src/features/projects/components/project-tasks-list-tab.tsx) — liste tâches (`starium-dt`, filtres, grab/pan)

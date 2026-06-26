@@ -3,14 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
@@ -33,7 +25,7 @@ import type {
 } from '../api/projects.api';
 import { listProjectTaskPhases } from '../api/projects.api';
 import { cn } from '@/lib/utils';
-import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
+import { MilestoneFormDialog } from './milestone-form-dialog';
 import { ProjectMilestonesStatStrip } from './project-milestones-stat-strip';
 import {
   assignableUserDisplayName,
@@ -446,46 +438,25 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-lg" showCloseButton>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier le jalon' : 'Nouveau jalon'}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? 'Mettre à jour le repère temporel et la liaison éventuelle avec une tâche.'
-                : 'Définir un jalon sur la ligne de temps du projet ; liaison avec une tâche optionnelle.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
-            <MilestoneFormDialogFields
-              form={form}
-              onPatch={(p) =>
-                setForm((prev) => ({
-                  ...prev,
-                  ...p,
-                }))
-              }
-              phaseOptions={phaseOptions}
-              milestoneLabelOptions={milestoneLabelOptions}
-              canCreateMilestoneLabels={canCreateMilestoneLabels}
-              onCreateMilestoneLabel={onCreateMilestoneLabel}
-              fieldIdPrefix="ms"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              disabled={!form.name.trim() || createMut.isPending || updateMut.isPending}
-            >
-              {editing ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MilestoneFormDialog
+        open={open}
+        onOpenChange={setOpen}
+        editing={Boolean(editing)}
+        onSubmit={submit}
+        isSubmitting={createMut.isPending || updateMut.isPending}
+        form={form}
+        onPatch={(p) =>
+          setForm((prev) => ({
+            ...prev,
+            ...p,
+          }))
+        }
+        phaseOptions={phaseOptions}
+        milestoneLabelOptions={milestoneLabelOptions}
+        canCreateMilestoneLabels={canCreateMilestoneLabels}
+        onCreateMilestoneLabel={onCreateMilestoneLabel}
+        fieldIdPrefix="ms"
+      />
     </div>
   );
 }

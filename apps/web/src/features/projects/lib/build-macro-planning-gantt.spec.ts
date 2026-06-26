@@ -68,6 +68,8 @@ describe('buildMacroPlanningPhaseRows', () => {
     expect(rows[0]?.taskCount).toBe(1);
     expect(rows[0]?.startMs).toBeTruthy();
     expect(rows[0]?.subLabel).toBe('Analyse');
+    expect(rows[0]?.subTaskId).toBe('t1');
+    expect(rows[0]?.subMilestoneId).toBeNull();
   });
 });
 
