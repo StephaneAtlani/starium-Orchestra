@@ -4,11 +4,14 @@ import {
   GANTT_DAY_MS,
   GANTT_PX_PER_DAY,
   buildDayBands,
+  buildMacroGanttHeaderMonths,
   buildWeekendBands,
   computeTimelineBounds,
   dateMsFromPx,
   dateMsToPx,
   dateRangeToTimelineLayout,
+  msToTimelinePercent,
+  rangeToTimelinePercent,
   resizeTaskRange,
   shiftTaskRangeByDays,
   shouldShowDayHeaderRow,
@@ -110,5 +113,36 @@ describe('gantt-timeline-layout', () => {
     const w = buildWeekendBands(b, 10);
     expect(w.length).toBe(2);
     expect(w.every((x) => x.widthPx > 0)).toBe(true);
+  });
+
+  it('buildMacroGanttHeaderMonths flex = nombre de semaines par mois', () => {
+    const bounds = {
+      min: Date.UTC(2026, 1, 24, 0, 0, 0, 0),
+      max: Date.UTC(2026, 4, 1, 0, 0, 0, 0),
+    };
+    const months = buildMacroGanttHeaderMonths(bounds, 1.35);
+    expect(months.length).toBeGreaterThan(0);
+    for (const month of months) {
+      expect(month.flex).toBe(month.weeks.length);
+      expect(month.weeks.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('rangeToTimelinePercent recadre les barres qui débordent la fenêtre (pan macro)', () => {
+    const bounds = {
+      min: Date.UTC(2026, 5, 1, 0, 0, 0, 0),
+      max: Date.UTC(2026, 8, 1, 0, 0, 0, 0),
+    };
+    const barStart = Date.UTC(2026, 2, 1, 0, 0, 0, 0);
+    const barEnd = Date.UTC(2026, 10, 1, 0, 0, 0, 0);
+
+    const unclampedRight = msToTimelinePercent(barEnd, bounds);
+    expect(unclampedRight).toBeGreaterThan(100);
+
+    const clipped = rangeToTimelinePercent(barStart, barEnd, bounds);
+    expect(clipped).not.toBeNull();
+    expect(parseFloat(clipped!.left)).toBe(0);
+    expect(parseFloat(clipped!.width)).toBeLessThanOrEqual(100);
+    expect(parseFloat(clipped!.width)).toBeLessThan(unclampedRight);
   });
 });

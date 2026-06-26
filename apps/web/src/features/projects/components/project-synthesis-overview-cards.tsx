@@ -131,7 +131,7 @@ export function ProjectSynthesisOverviewCards({
         title="Prochain jalon"
         icon={<Flag strokeWidth={1.75} />}
         footer={
-          <Link href={projectPlanning(projectId, 'milestones')} className="starium-ov-btn">
+          <Link href={projectPlanning(projectId)} className="starium-ov-btn">
             Voir le planning
           </Link>
         }

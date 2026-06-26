@@ -120,6 +120,63 @@ export function timelineWidthPx(bounds: TimelineBounds, pxPerDay: number): numbe
   return Math.max(GANTT_MIN_TIMELINE_PX, spanDays * pxPerDay);
 }
 
+/** Position horizontale en % dans la frise (0–100). */
+export function msToTimelinePercent(ms: number, bounds: TimelineBounds): number {
+  const span = bounds.max - bounds.min;
+  if (span <= 0) return 0;
+  return ((ms - bounds.min) / span) * 100;
+}
+
+/** Barre Gantt macro en % (left / width), recadrée sur la fenêtre visible. */
+export function rangeToTimelinePercent(
+  startMs: number,
+  endMs: number,
+  bounds: TimelineBounds,
+): { left: string; width: string } | null {
+  if (endMs <= startMs) return null;
+
+  const visibleStart = Math.max(startMs, bounds.min);
+  const visibleEnd = Math.min(endMs, bounds.max);
+  if (visibleEnd <= visibleStart) return null;
+
+  const left = msToTimelinePercent(visibleStart, bounds);
+  const right = msToTimelinePercent(visibleEnd, bounds);
+  const width = right - left;
+  if (width <= 0) return null;
+
+  return {
+    left: `${left}%`,
+    width: `${Math.max(0.8, width)}%`,
+  };
+}
+
+export type MacroGanttHeaderMonth = {
+  label: string;
+  flex: number;
+  weeks: Array<{ label: string }>;
+};
+
+/** Largeur minimale d’une colonne semaine dans l’en-tête macro (px). */
+export const MACRO_GANTT_WEEK_MIN_PX = 36;
+
+/** En-tête mois / semaines pour la vue macro (structure flex du mockup DS). */
+export function buildMacroGanttHeaderMonths(
+  bounds: TimelineBounds,
+  pxPerDay: number,
+): MacroGanttHeaderMonth[] {
+  const months = buildMonthBands(bounds, pxPerDay);
+  const weeks = buildWeekBands(bounds, pxPerDay);
+
+  return months.map((month) => {
+    const monthEnd = month.leftPx + month.widthPx;
+    const monthWeeks = weeks
+      .filter((w) => w.leftPx >= month.leftPx - 0.5 && w.leftPx < monthEnd)
+      .map((w) => ({ label: w.label }));
+    const flex = Math.max(1, monthWeeks.length);
+    return { label: month.label, flex, weeks: monthWeeks };
+  });
+}
+
 export type MonthBand = { leftPx: number; widthPx: number; label: string };
 export type WeekBand = { leftPx: number; widthPx: number; label: string };
 export type DayBand = { leftPx: number; widthPx: number; label: string };

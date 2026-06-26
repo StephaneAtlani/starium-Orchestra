@@ -54,13 +54,13 @@ export function projectTasks(
   return `${base}?sub=${sub}`;
 }
 
-/** Cockpit Planning : jalons, Gantt (RFC-PROJ-012). */
+/** Cockpit Planning : macro, Gantt, jalons (RFC-PROJ-012). */
 export function projectPlanning(
   projectId: string,
-  sub?: 'milestones' | 'gantt',
+  sub?: 'macro' | 'milestones' | 'gantt',
 ): string {
   const base = `/projects/${projectId}/planning`;
-  if (!sub || sub === 'gantt') return `${base}?sub=gantt`;
+  if (!sub || sub === 'macro') return `${base}?sub=macro`;
   return `${base}?sub=${sub}`;
 }
 

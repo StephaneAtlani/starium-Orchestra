@@ -5,20 +5,29 @@ import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { projectPlanning } from '../constants/project-routes';
 import { ProjectWorkspaceShell } from './project-workspace-shell';
+import { ProjectPlanningMacroTab } from './project-planning-macro-tab';
 import { ProjectPlanningMilestonesTab } from './project-planning-milestones-tab';
 import { ProjectGanttPanel } from './project-gantt-panel';
 
-const SUB_TABS = [
-  { id: 'gantt' as const, label: 'Planning / Gantt' },
-  { id: 'milestones' as const, label: 'Jalons' },
+type PlanningSub = 'macro' | 'gantt' | 'milestones';
+
+const SUB_TABS: { id: PlanningSub; label: string }[] = [
+  { id: 'macro', label: 'Macro' },
+  { id: 'gantt', label: 'Planning / Gantt' },
+  { id: 'milestones', label: 'Jalons' },
 ];
+
+function resolvePlanningSub(raw: string | null): PlanningSub {
+  if (raw === 'gantt' || raw === 'milestones') return raw;
+  return 'macro';
+}
 
 function PlanningSubTabs({
   projectId,
   active,
 }: {
   projectId: string;
-  active: 'milestones' | 'gantt';
+  active: PlanningSub;
 }) {
   return (
     <div
@@ -51,8 +60,7 @@ function PlanningSubTabs({
 
 export function ProjectPlanningView({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams();
-  const subRaw = searchParams.get('sub');
-  const sub: 'milestones' | 'gantt' = subRaw === 'milestones' ? 'milestones' : 'gantt';
+  const sub = resolvePlanningSub(searchParams.get('sub'));
 
   if (!projectId) {
     return (
@@ -63,6 +71,7 @@ export function ProjectPlanningView({ projectId }: { projectId: string }) {
   return (
     <ProjectWorkspaceShell projectId={projectId}>
       <PlanningSubTabs projectId={projectId} active={sub} />
+      {sub === 'macro' && <ProjectPlanningMacroTab projectId={projectId} />}
       {sub === 'gantt' && <ProjectGanttPanel projectId={projectId} />}
       {sub === 'milestones' && <ProjectPlanningMilestonesTab projectId={projectId} />}
     </ProjectWorkspaceShell>
