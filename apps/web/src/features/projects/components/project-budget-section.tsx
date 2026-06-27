@@ -2,7 +2,18 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from '@/lib/toast';
-import { ChevronDown, Link2, Pencil, Trash2 } from 'lucide-react';
+import {
+  Activity,
+  ChevronDown,
+  CircleDollarSign,
+  Cloud,
+  Code2,
+  FileText,
+  Link2,
+  Pencil,
+  Scale,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,14 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
@@ -38,11 +41,13 @@ import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-l
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
 import { cn } from '@/lib/utils';
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
+import { SynthesisListKpi, SynthesisListKpis } from './synthesis-ds-kpi';
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetAllocationType,
 } from '../types/project.types';
 import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
+import { formatBudgetEur } from '../lib/project-budget-display';
 
 /** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
 const SELECT_NONE = '__none__';
@@ -387,181 +392,230 @@ export function ProjectBudgetSection({
           <LoadingState rows={2} />
         ) : (
           <>
-            {!fixedBudgetLinks.length ? (
-              <p className="text-sm text-muted-foreground">
-                Aucun lien en montants fixes.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ligne</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead className="w-[104px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fixedBudgetLinks.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <span className="font-medium">{row.budgetLine.code}</span>{' '}
-                        <span className="text-muted-foreground">{row.budgetLine.name}</span>
-                      </TableCell>
-                      <TableCell className="text-sm tabular-nums">
-                        <span className="text-muted-foreground">
-                          {row.amount != null ? row.amount : '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-0.5">
-                          {canEditBudgetLinks ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-foreground"
-                              onClick={() => setEditingLinkId(row.id)}
-                              aria-label="Modifier le lien budgétaire"
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            disabled={deleteMut.isPending}
-                            onClick={() => onDelete(row.id)}
-                            aria-label="Supprimer le lien"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            <div
-              className="rounded-lg border border-border/60 bg-muted/25 px-3 py-3 sm:px-4"
-              aria-live="polite"
-            >
-              <dl className="grid gap-3 sm:grid-cols-3 sm:gap-4">
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Coût prévisionnel (fiche projet)
-                  </dt>
-                  <dd className="text-base font-semibold tabular-nums text-foreground">
-                    {sheetQuery.isLoading ? (
-                      <span className="text-muted-foreground">Chargement…</span>
-                    ) : sheetQuery.isError ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : sheetForecastCost != null ? (
-                      formatCurrencyEur(sheetForecastCost)
+            <div aria-live="polite">
+              <SynthesisListKpis
+                columns={3}
+                aria-label="Alignement prévisionnel et imputations fixes"
+              >
+                <SynthesisListKpi
+                  icon={<CircleDollarSign strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--neutral"
+                  label="Coût prévisionnel"
+                  value={
+                    sheetQuery.isLoading ? (
+                      '…'
+                    ) : sheetQuery.isError || sheetForecastCost == null ? (
+                      '—'
                     ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </dd>
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Total imputé (montants fixes)
-                  </dt>
-                  <dd className="text-base font-semibold tabular-nums text-foreground">
-                    {formatCurrencyEur(totalFixedAllocated)}
-                  </dd>
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Écart (prévisionnel − imputé)
-                  </dt>
-                  <dd
-                    className={cn(
-                      'text-base font-semibold tabular-nums',
-                      forecastVsAllocatedGap == null
-                        ? 'text-muted-foreground'
-                        : forecastVsAllocatedGap < 0
-                          ? 'text-destructive'
-                          : forecastVsAllocatedGap > 0
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-foreground',
-                    )}
-                  >
-                    {sheetQuery.isLoading ? (
-                      <span className="font-normal text-muted-foreground">
-                        Chargement…
-                      </span>
+                      formatCurrencyEur(sheetForecastCost)
+                    )
+                  }
+                  sub="Fiche projet"
+                />
+                <SynthesisListKpi
+                  icon={<Link2 strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--gold"
+                  label="Total imputé"
+                  value={formatCurrencyEur(totalFixedAllocated)}
+                  valueClassName="text-[color:var(--brand-gold-700)]"
+                  sub={
+                    fixedBudgetLinks.length === 0
+                      ? 'Aucun lien fixe'
+                      : `${fixedBudgetLinks.length} lien${fixedBudgetLinks.length > 1 ? 's' : ''} fixe${fixedBudgetLinks.length > 1 ? 's' : ''}`
+                  }
+                  subClassName="text-[color:var(--brand-gold-700)]"
+                />
+                <SynthesisListKpi
+                  icon={<Scale strokeWidth={1.75} />}
+                  iconClassName={
+                    forecastVsAllocatedGap != null && forecastVsAllocatedGap < 0
+                      ? 'starium-list-kpi__ico--danger'
+                      : forecastVsAllocatedGap != null && forecastVsAllocatedGap > 0
+                        ? 'starium-list-kpi__ico--success'
+                        : 'starium-list-kpi__ico--neutral'
+                  }
+                  label="Écart"
+                  value={
+                    sheetQuery.isLoading ? (
+                      '…'
                     ) : sheetForecastCost == null ||
                       forecastVsAllocatedGap == null ||
                       sheetQuery.isError ? (
                       '—'
                     ) : (
                       formatCurrencyEur(forecastVsAllocatedGap)
-                    )}
-                  </dd>
-                </div>
-              </dl>
+                    )
+                  }
+                  valueClassName={
+                    forecastVsAllocatedGap == null
+                      ? undefined
+                      : forecastVsAllocatedGap < 0
+                        ? 'text-[color:var(--state-danger)]'
+                        : forecastVsAllocatedGap > 0
+                          ? 'text-[color:var(--state-success)]'
+                          : undefined
+                  }
+                  sub="Prévisionnel − imputé"
+                />
+              </SynthesisListKpis>
 
-              <div className="mt-3 border-t border-border/50 pt-3">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Lignes budgétaires liées
-                </p>
-                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Engagé (lignes)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.committed)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Consommé (lignes)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.consumed)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      CAPEX (imputé)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedCapex)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      OPEX (imputé)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedOpex)}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+              <SynthesisListKpis
+                columns={4}
+                className="mt-4"
+                aria-label="Indicateurs des lignes budgétaires liées"
+              >
+                <SynthesisListKpi
+                  icon={<FileText strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--gold"
+                  label="Engagé"
+                  value={formatBudgetEur(lineKpisFromFixedLinks.committed)}
+                  valueClassName="text-[color:var(--brand-gold-700)]"
+                  sub="Lignes liées"
+                  subClassName="text-[color:var(--brand-gold-700)]"
+                />
+                <SynthesisListKpi
+                  icon={<Activity strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--info"
+                  label="Consommé"
+                  value={formatBudgetEur(lineKpisFromFixedLinks.consumed)}
+                  valueClassName="text-[color:var(--state-info)]"
+                  sub="Lignes liées"
+                  subClassName="text-[color:var(--state-info)]"
+                />
+                <SynthesisListKpi
+                  icon={<Cloud strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--info"
+                  label="CAPEX imputé"
+                  value={formatBudgetEur(lineKpisFromFixedLinks.imputedCapex)}
+                />
+                <SynthesisListKpi
+                  icon={<Code2 strokeWidth={1.75} />}
+                  iconClassName="starium-list-kpi__ico--neutral"
+                  label="OPEX imputé"
+                  value={formatBudgetEur(lineKpisFromFixedLinks.imputedOpex)}
+                />
+              </SynthesisListKpis>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:bg-card">
+            <div className="starium-tablecard">
+              <div className="starium-table-wrap">
+                <table className="starium-dt">
+                  <caption className="sr-only">
+                    Liaisons budgétaires en montants fixes du projet
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Ligne budgétaire</th>
+                      <th scope="col" className="starium-dt__right">
+                        Montant imputé
+                      </th>
+                      <th scope="col" className="starium-dt__right w-[108px]">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fixedBudgetLinks.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="py-10 text-center text-sm text-muted-foreground"
+                        >
+                          Aucun lien en montants fixes. Ajoutez un lien ci-dessous pour imputer le
+                          projet sur une ligne budgétaire.
+                        </td>
+                      </tr>
+                    ) : (
+                      fixedBudgetLinks.map((row, index) => {
+                        const fixedAmount = parseFixedLinkAmount(row.amount);
+                        const lineLabel = row.budgetLine.code
+                          ? `${row.budgetLine.code} — ${row.budgetLine.name}`
+                          : row.budgetLine.name;
+                        const tone =
+                          row.budgetLine.expenseType === 'CAPEX'
+                            ? 'starium-dt-ti-blue'
+                            : index % 2 === 0
+                              ? 'starium-dt-ti-gold'
+                              : 'starium-dt-ti-purple';
+                        const Icon =
+                          row.budgetLine.expenseType === 'CAPEX' ? Cloud : Code2;
+
+                        return (
+                          <tr key={row.id}>
+                            <td>
+                              <div className="starium-dt-tname">
+                                <div
+                                  className={cn('starium-dt-tname-ico', tone)}
+                                  aria-hidden
+                                >
+                                  <Icon strokeWidth={1.75} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="starium-dt-cell-strong truncate">
+                                    {lineLabel}
+                                  </div>
+                                  <div className="starium-dt-cell-sub">
+                                    {row.budgetLine.expenseType ?? 'OPEX'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="text-right tabular-nums font-semibold">
+                              {fixedAmount != null
+                                ? formatCurrencyEur(fixedAmount)
+                                : '—'}
+                            </td>
+                            <td className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {canEditBudgetLinks ? (
+                                  <button
+                                    type="button"
+                                    className="starium-btn-icon min-h-11 min-w-11"
+                                    onClick={() => setEditingLinkId(row.id)}
+                                    aria-label={`Modifier le lien sur ${lineLabel}`}
+                                  >
+                                    <Pencil aria-hidden />
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="starium-btn-icon min-h-11 min-w-11 text-[color:var(--state-danger)]"
+                                  disabled={deleteMut.isPending}
+                                  onClick={() => onDelete(row.id)}
+                                  aria-label={`Supprimer le lien sur ${lineLabel}`}
+                                >
+                                  <Trash2 aria-hidden />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="flex items-center gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] text-muted-foreground">
+                Montants fixes imputés sur chaque ligne. Les liaisons en pourcentage ne sont pas
+                listées ici.
+              </p>
+            </div>
+
+            <div className="starium-proj-budget-add">
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/30 sm:px-5"
+                className="starium-proj-budget-add__trigger"
                 onClick={() => setAddBudgetLinkOpen((o) => !o)}
                 aria-expanded={addBudgetLinkOpen}
                 aria-controls="pb-add-budget-link-panel"
                 id="pb-add-budget-link-trigger"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-semibold tracking-tight">
+                  <p className="text-sm font-semibold tracking-tight text-[color:var(--brand-ink)]">
                     Ajouter un lien budgétaire
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Tapez pour filtrer, ou ouvrez la liste. Budget, puis enveloppe, puis une ligne
-                    active — libellés alignés sur le module Budget.
+                    Budget, enveloppe, puis ligne active — libellés alignés sur le module Budget.
                   </p>
                 </div>
                 <ChevronDown
@@ -577,7 +631,7 @@ export function ProjectBudgetSection({
             <form
               id="pb-add-budget-link-panel"
               onSubmit={onSubmit}
-              className="space-y-5 border-t border-border/80 bg-white px-4 pb-5 pt-4 dark:bg-card sm:px-5"
+              className="starium-proj-budget-add__panel space-y-5"
             >
               <div className="space-y-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -855,10 +909,9 @@ export function ProjectBudgetSection({
                   </div>
                 )}
 
-              <Button
+              <button
                 type="submit"
-                variant="secondary"
-                className="w-full sm:w-auto"
+                className="starium-btn starium-btn-primary w-full sm:w-auto"
                 disabled={
                   createMut.isPending ||
                   !budgetLineId ||
@@ -866,7 +919,7 @@ export function ProjectBudgetSection({
                 }
               >
                 {createMut.isPending ? 'Enregistrement…' : 'Ajouter le lien'}
-              </Button>
+              </button>
             </form>
               ) : null}
             </div>
@@ -885,7 +938,7 @@ export function ProjectBudgetSection({
   );
 
   if (embedded) {
-    return <div className="space-y-6">{body}</div>;
+    return <div className="starium-proj-budget-section">{body}</div>;
   }
 
   return (

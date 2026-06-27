@@ -1221,8 +1221,57 @@ button.starium-risk-attention-title:focus-visible {
   gap: 18px;
 }
 .starium-proj-budget-manage {
-  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-proj-budget-manage__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.starium-proj-budget-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.starium-proj-budget-add {
+  overflow: hidden;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-proj-budget-add__trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 14px 18px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.starium-proj-budget-add__trigger:hover {
+  background: var(--neutral-50, var(--muted));
+}
+.starium-proj-budget-add__trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.starium-proj-budget-add__panel {
   border-top: 1px solid var(--neutral-200, var(--border));
+  padding: 18px 18px 20px;
+  background: color-mix(in srgb, var(--neutral-50, var(--muted)) 55%, var(--neutral-0, var(--card)));
 }
 
 .starium-tablecard {
@@ -3374,8 +3423,8 @@ table.starium-dt {
 
 /* Topbar workspace (RFC-014 / maquette portail client) */
 .starium-topbar {
-  height: var(--topbar-height, 64px);
-  min-height: var(--topbar-height, 64px);
+  height: var(--topbar-height, 56px);
+  min-height: var(--topbar-height, 56px);
 }
 
 .starium-topbar-breadcrumb {
@@ -3385,8 +3434,8 @@ table.starium-dt {
   align-items: center;
   gap: 0.375rem;
   overflow: hidden;
-  font-size: 0.8125rem;
-  line-height: 1.25;
+  font-size: 0.875rem;
+  line-height: 1.35;
   color: var(--starium-text-muted);
 }
 
@@ -3419,16 +3468,16 @@ table.starium-dt {
 .starium-topbar-search {
   display: none;
   align-items: center;
-  gap: 0.4375rem;
-  height: 2.125rem;
-  width: min(18.75rem, 28vw);
+  gap: 0.5rem;
+  height: var(--topbar-control-size, 2.5rem);
+  width: min(20rem, 30vw);
   flex-shrink: 0;
-  padding: 0 0.75rem;
+  padding: 0 0.875rem;
   border: none;
   border-radius: var(--radius-md, 10px);
   background-color: var(--starium-surface-muted, var(--muted));
   font-family: inherit;
-  font-size: 0.78125rem;
+  font-size: 0.8125rem;
   color: var(--starium-text-muted);
   cursor: pointer;
   transition: background-color var(--duration-fast, 120ms) var(--ease-standard, ease);
@@ -3450,8 +3499,8 @@ table.starium-dt {
 }
 
 .starium-topbar-search svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 1rem;
+  height: 1rem;
   flex-shrink: 0;
   color: var(--starium-text-muted);
 }
@@ -3491,10 +3540,10 @@ table.starium-dt {
 }
 
 .starium-topbar-icon > details > summary {
-  width: 2.125rem;
-  height: 2.125rem;
-  min-width: 2.125rem;
-  min-height: 2.125rem;
+  width: var(--topbar-control-size, 2.5rem);
+  height: var(--topbar-control-size, 2.5rem);
+  min-width: var(--topbar-control-size, 2.5rem);
+  min-height: var(--topbar-control-size, 2.5rem);
   border-radius: var(--radius-md, 10px);
   color: var(--starium-text-muted);
 }
@@ -3520,8 +3569,8 @@ table.starium-dt {
 
 .starium-topbar-avatar {
   display: flex;
-  width: 2.125rem;
-  height: 2.125rem;
+  width: var(--topbar-control-size, 2.5rem);
+  height: var(--topbar-control-size, 2.5rem);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -3530,7 +3579,7 @@ table.starium-dt {
   border: 1.5px solid var(--starium-primary);
   background-color: var(--brand-ink);
   color: var(--starium-primary);
-  font-size: 0.71875rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 

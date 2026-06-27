@@ -1,3 +1,4 @@
+import { Link2 } from 'lucide-react';
 import type { ProjectDetail } from '../types/project.types';
 import { ProjectBudgetSection } from './project-budget-section';
 import { ProjectBudgetSynthesis } from './project-budget-synthesis';
@@ -13,12 +14,26 @@ export function ProjectBudgetPageContent({
     <div id="project-budget" className="flex flex-col gap-[18px]">
       <ProjectBudgetSynthesis projectId={projectId} project={project} variant="page" />
 
-      <div className="starium-proj-budget-manage">
-        <h3 className="mb-4 text-sm font-bold text-[color:var(--brand-ink)]">
-          Gestion des liaisons budgétaires
-        </h3>
+      <section
+        className="starium-proj-budget-manage"
+        aria-labelledby="project-budget-links-heading"
+      >
+        <header className="starium-proj-budget-manage__head">
+          <div className="starium-bcat-ico starium-bcat-ico--gold" aria-hidden>
+            <Link2 strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0">
+            <h3 id="project-budget-links-heading" className="starium-bud-chart-title">
+              Gestion des liaisons budgétaires
+            </h3>
+            <p className="starium-bud-chart-sub">
+              Imputez le projet sur des lignes budgétaires en montants fixes et suivez
+              l&apos;alignement avec le coût prévisionnel.
+            </p>
+          </div>
+        </header>
         <ProjectBudgetSection projectId={projectId} embedded />
-      </div>
+      </section>
     </div>
   );
 }

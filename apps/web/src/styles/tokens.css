@@ -97,7 +97,8 @@
   /* ---------- Layout ---------- */
   --container-max: 1280px;
   --sidebar-width: 248px;
-  --topbar-height: 64px;
+  --topbar-control-size: 2.5rem;
+  --topbar-height: calc(var(--topbar-control-size) + 0.75rem);
 
   /* ----------------------------------------------------------------------
    * Primitives composants — LA charte structurelle centrale.
