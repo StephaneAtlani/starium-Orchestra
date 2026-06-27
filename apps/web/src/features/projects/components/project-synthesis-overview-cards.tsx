@@ -26,6 +26,7 @@ import { projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
 import { ProjectBudgetSynthesis } from './project-budget-synthesis';
 import { ProjectPilotageAttentionPanel } from './project-pilotage-attention-panel';
+import { ProjectPostMortemOverviewBanner } from './project-post-mortem-overview-banner';
 import { ProjectSynthesisRecentData } from './project-synthesis-recent-data';
 
 function OvCard({
@@ -127,6 +128,8 @@ export function ProjectSynthesisOverviewCards({
 
   return (
     <div className="starium-proj-synthesis">
+      <ProjectPostMortemOverviewBanner projectId={projectId} projectStatus={project.status} />
+
       <div className="starium-proj-overview-grid">
       <OvCard
         title="Prochain jalon"

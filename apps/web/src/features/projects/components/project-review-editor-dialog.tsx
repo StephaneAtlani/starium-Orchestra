@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import {
   AlertTriangle,
+  BookOpen,
   CalendarClock,
   CloudRain,
   CloudSun,
+  FileText,
   Flag,
   History,
   Info,
@@ -22,7 +24,6 @@ import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -275,17 +276,27 @@ function readCommitteeMood(raw: unknown): CommitteeMood | null {
 function ProjectMeteoInline({
   project,
   badgeMerged,
+  embedded = false,
 }: {
   project: ProjectDetail;
   badgeMerged: MergedUiBadges;
+  embedded?: boolean;
 }) {
   const av =
     project.derivedProgressPercent ?? project.progressPercent ?? null;
   return (
-    <div className="rounded-xl border border-border/70 border-l-4 border-l-sky-500/50 bg-card p-3 shadow-sm">
-      <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-        Indicateurs projet
-      </p>
+    <div
+      className={cn(
+        embedded
+          ? 'rounded-lg border border-border/60 bg-muted/25 p-3'
+          : 'rounded-xl border border-border/70 border-l-4 border-l-sky-500/50 bg-card p-3 shadow-sm',
+      )}
+    >
+      {!embedded ? (
+        <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+          Indicateurs projet
+        </p>
+      ) : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <HealthBadge health={project.computedHealth} compact merged={badgeMerged} />
@@ -335,6 +346,22 @@ function classifyPrevReviewAction(
   const due = a.dueDate ? new Date(a.dueDate).getTime() : null;
   if (due != null && due < Date.now()) return 'late';
   return 'in_progress';
+}
+
+const POST_MORTEM_NARRATIVE_FIELDS = [
+  ['objectifs', 'Objectifs / cadrage initial'],
+  ['resultats', 'Résultats obtenus'],
+  ['ecarts', 'Écarts (plan, budget, délais…)'],
+  ['causes', 'Causes / analyse'],
+  ['leconsApprises', 'Leçons apprises'],
+  ['recommandations', 'Recommandations / capitalisation'],
+] as const;
+
+function reviewEditorStatusBadgeClass(status: string): string {
+  if (status === 'FINALIZED') return 'starium-ds-badge--success';
+  if (status === 'DRAFT') return 'starium-ds-badge--warn';
+  if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
+  return 'starium-ds-badge--info';
 }
 
 function formatReviewDateTime(iso: string): string {
@@ -875,6 +902,8 @@ export function ProjectReviewEditorDialog({
     onOpenChange(false);
   };
 
+  const isPostMortemReview = reviewType === 'POST_MORTEM';
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -882,17 +911,41 @@ export function ProjectReviewEditorDialog({
         showCloseButton
         className="flex h-[min(92vh,900px)] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[90vw]"
       >
-        <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 bg-gradient-to-b from-muted/35 via-background to-background px-4 py-5 sm:px-6">
+        <DialogHeader
+          className={cn(
+            'shrink-0 space-y-0 border-b border-border/60 px-4 py-5 sm:px-6',
+            isPostMortemReview
+              ? 'bg-gradient-to-b from-amber-500/10 via-background to-background'
+              : 'bg-gradient-to-b from-muted/35 via-background to-background',
+          )}
+        >
+          <DialogDescription className="sr-only">
+            {isPostMortemReview
+              ? "Éditeur de retour d'expérience — bilan, écarts et leçons apprises"
+              : 'Éditeur de point projet — compte rendu, décisions et actions'}
+          </DialogDescription>
           <div className="flex flex-wrap items-start gap-4">
             <div
-              className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/50 text-sky-700 shadow-inner dark:text-sky-400"
+              className={cn(
+                'flex size-11 shrink-0 items-center justify-center rounded-xl border shadow-inner',
+                isPostMortemReview
+                  ? 'border-amber-500/30 bg-amber-500/15 text-amber-950 dark:text-amber-300'
+                  : 'border-border/60 bg-muted/50 text-sky-700 dark:text-sky-400',
+              )}
               aria-hidden
             >
-              <CalendarClock className="size-5" />
+              {isPostMortemReview ? (
+                <BookOpen className="size-5" />
+              ) : (
+                <CalendarClock className="size-5" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
+                  <p className="starium-overline mb-1">
+                    {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
+                  </p>
                   <DialogTitle className="text-left text-xl font-semibold leading-snug tracking-tight text-foreground">
                     {d ? (
                       PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType
@@ -910,7 +963,8 @@ export function ProjectReviewEditorDialog({
                   )}
                   {d && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                        <CalendarClock className="size-3 shrink-0" aria-hidden />
                         {formatReviewDateTime(d.reviewDate)}
                       </span>
                       {d.title ? (
@@ -919,18 +973,22 @@ export function ProjectReviewEditorDialog({
                           <span className="font-medium text-foreground">{d.title}</span>
                         </span>
                       ) : (
-                        <span className="text-xs italic text-muted-foreground">Sans titre de séance</span>
+                        <span className="text-xs italic text-muted-foreground">
+                          {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
+                        </span>
                       )}
                     </div>
                   )}
                 </div>
                 {d && (
-                  <Badge
-                    variant={d.status === 'FINALIZED' ? 'secondary' : 'outline'}
-                    className="shrink-0 border-border/70 px-2.5 py-0.5 text-xs font-medium"
+                  <span
+                    className={cn(
+                      'starium-ds-badge shrink-0',
+                      reviewEditorStatusBadgeClass(d.status),
+                    )}
                   >
                     {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
-                  </Badge>
+                  </span>
                 )}
               </div>
             </div>
@@ -944,10 +1002,17 @@ export function ProjectReviewEditorDialog({
             <p className="text-sm text-destructive">Impossible de charger ce point.</p>
           ) : (
             <div className="mx-auto flex max-w-4xl flex-col gap-5">
-              <div className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                <p className="mb-3 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Paramètres du point
-                </p>
+              <ReviewFormSection
+                sectionId="pr-ed-params"
+                title={isPostMortemReview ? 'Identification du bilan' : 'Paramètres du point'}
+                description={
+                  isPostMortemReview
+                    ? 'Date de clôture, libellé du retour d’expérience.'
+                    : 'Type de revue, date et titre de la séance.'
+                }
+                icon={isPostMortemReview ? BookOpen : CalendarClock}
+                accent={isPostMortemReview ? 'amber' : 'sky'}
+              >
                 <div className="grid gap-4 sm:grid-cols-12">
                   <div className="grid gap-1.5 sm:col-span-4 lg:col-span-3">
                     <Label htmlFor="pr-ed-type-h" className="text-xs font-medium text-foreground">
@@ -969,7 +1034,7 @@ export function ProjectReviewEditorDialog({
                   </div>
                   <div className="grid gap-1.5 sm:col-span-4 lg:col-span-4">
                     <Label htmlFor="pr-ed-date-h" className="text-xs font-medium text-foreground">
-                      Date et heure
+                      {isPostMortemReview ? 'Date du bilan' : 'Date et heure'}
                     </Label>
                     <Input
                       id="pr-ed-date-h"
@@ -982,7 +1047,7 @@ export function ProjectReviewEditorDialog({
                   </div>
                   <div className="grid gap-1.5 sm:col-span-12 lg:col-span-5">
                     <Label htmlFor="pr-ed-title-h" className="text-xs font-medium text-foreground">
-                      Titre de la séance
+                      {isPostMortemReview ? 'Titre du bilan' : 'Titre de la séance'}
                     </Label>
                     <Input
                       id="pr-ed-title-h"
@@ -990,24 +1055,45 @@ export function ProjectReviewEditorDialog({
                       disabled={!editable}
                       onChange={(e) => setTitle(e.target.value)}
                       maxLength={500}
-                      placeholder="Ex. COPIL — revue budget T2"
+                      placeholder={
+                        isPostMortemReview
+                          ? 'Ex. Retour d’expérience — intégration API éditeur'
+                          : 'Ex. COPIL — revue budget T2'
+                      }
                       className="border-border/70"
                     />
                   </div>
                 </div>
-              </div>
+              </ReviewFormSection>
 
-              {projectQuery.isLoading && (
+              {isPostMortemReview && projectQuery.data && (
+                <ReviewFormSection
+                  sectionId="pr-ed-context"
+                  title="Contexte à la clôture"
+                  description="Indicateurs projet au moment du bilan — lecture seule."
+                  icon={Target}
+                  accent="slate"
+                >
+                  <ProjectMeteoInline
+                    project={projectQuery.data}
+                    badgeMerged={badgeMerged}
+                    embedded
+                  />
+                </ReviewFormSection>
+              )}
+
+              {!isPostMortemReview && projectQuery.isLoading && (
                 <div
                   className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
                   aria-hidden
                 />
               )}
-              {projectQuery.data && (
+              {!isPostMortemReview && projectQuery.data && (
                 <ProjectMeteoInline project={projectQuery.data} badgeMerged={badgeMerged} />
               )}
 
-              {(!!projectQuery.data?.warnings?.length || actionFormAlerts.length > 0) && (
+              {(!!projectQuery.data?.warnings?.length ||
+                (!isPostMortemReview && actionFormAlerts.length > 0)) && (
                 <div className="space-y-2">
                   {projectQuery.data?.warnings?.map((w) => (
                     <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
@@ -1310,6 +1396,8 @@ export function ProjectReviewEditorDialog({
                 </div>
               </ReviewFormSection>
 
+              {!isPostMortemReview && (
+              <>
               {previousReviewId != null && (
                 <ReviewFormSection
                   sectionId="pr-section-since"
@@ -1769,7 +1857,125 @@ export function ProjectReviewEditorDialog({
                   ))}
                 </div>
               </ReviewFormSection>
+              </>
+              )}
 
+              {isPostMortemReview ? (
+                <>
+                  <ReviewFormSection
+                    sectionId="pr-section-rex-narrative"
+                    title="Bilan narratif"
+                    description="Structure RETEX : objectifs, résultats, écarts, causes, leçons et recommandations."
+                    icon={FileText}
+                    accent="amber"
+                  >
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {POST_MORTEM_NARRATIVE_FIELDS.map(([key, label]) => (
+                        <div
+                          key={key}
+                          className={cn(
+                            'grid gap-1.5',
+                            (key === 'leconsApprises' || key === 'recommandations') &&
+                              'lg:col-span-2',
+                          )}
+                        >
+                          <Label className="text-xs font-medium">{label}</Label>
+                          <textarea
+                            className={textareaClass}
+                            value={postMortemForm[key]}
+                            disabled={!editable}
+                            onChange={(e) =>
+                              setPostMortemForm((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            placeholder="…"
+                            rows={key === 'leconsApprises' || key === 'recommandations' ? 4 : 3}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </ReviewFormSection>
+
+                  <ReviewFormSection
+                    sectionId="pr-section-rex-indicators"
+                    title="Indicateurs de perception"
+                    description="Notation 0–5 sur budget, délais, qualité, communication et pilotage des risques."
+                    icon={Target}
+                    accent="violet"
+                  >
+                    <PostMortemIndicatorsBlock
+                      indicateurs={postMortemForm.indicateurs}
+                      editable={editable}
+                      embedded
+                      onChange={(next) =>
+                        setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
+                      }
+                    />
+                  </ReviewFormSection>
+
+                  <ReviewFormSection
+                    sectionId="pr-section-summary"
+                    title="Synthèse exécutive"
+                    description="Message clé pour le CODIR — faits marquants et capitalisation."
+                    icon={Sparkles}
+                    accent="emerald"
+                  >
+                    <div className="grid gap-3">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="pr-ed-summary">Synthèse du bilan</Label>
+                        <textarea
+                          id="pr-ed-summary"
+                          className={textareaClass}
+                          value={executiveSummary}
+                          disabled={!editable}
+                          onChange={(e) => setExecutiveSummary(e.target.value)}
+                          placeholder="Ce que le comité doit retenir : faits marquants, écarts majeurs, leçons prioritaires…"
+                          maxLength={20000}
+                        />
+                      </div>
+                      {projectQuery.data && (
+                        <div className="grid gap-1.5 sm:max-w-md">
+                          <Label htmlFor="pr-project-status">Statut du projet</Label>
+                          <Select
+                            value={projectQuery.data.status}
+                            onValueChange={(v) => {
+                              if (v && canUpdateProject) {
+                                updateProjectStatusMutation.mutate(v);
+                              }
+                            }}
+                            disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
+                          >
+                            <SelectTrigger
+                              id="pr-project-status"
+                              size="sm"
+                              className="h-9 w-full border-border/70"
+                            >
+                              <SelectValue placeholder="Statut">
+                                {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
+                                  projectQuery.data.status}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                                <SelectItem key={k} value={k}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {!canUpdateProject ? (
+                            <p className="text-[0.7rem] text-muted-foreground">
+                              Permission « mise à jour projets » requise pour modifier le statut.
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </ReviewFormSection>
+                </>
+              ) : (
               <ReviewFormSection
                 sectionId="pr-section-summary"
                 title="Résumé exécutif"
@@ -1790,47 +1996,6 @@ export function ProjectReviewEditorDialog({
                       maxLength={20000}
                     />
                   </div>
-                  {reviewType === 'POST_MORTEM' && (
-                    <div className="grid gap-3 border-t border-border/60 pt-3">
-                      <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Retour d&apos;expérience
-                      </p>
-                      {(
-                        [
-                          ['objectifs', 'Objectifs / cadrage initial'],
-                          ['resultats', 'Résultats obtenus'],
-                          ['ecarts', 'Écarts (plan, budget, délais…)'],
-                          ['causes', 'Causes / analyse'],
-                          ['leconsApprises', 'Leçons apprises'],
-                          ['recommandations', 'Recommandations / capitalisation'],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <div key={key} className="grid gap-1.5">
-                          <Label className="text-xs font-medium">{label}</Label>
-                          <textarea
-                            className={textareaClass}
-                            value={postMortemForm[key]}
-                            disabled={!editable}
-                            onChange={(e) =>
-                              setPostMortemForm((prev) => ({
-                                ...prev,
-                                [key]: e.target.value,
-                              }))
-                            }
-                            placeholder="…"
-                            rows={3}
-                          />
-                        </div>
-                      ))}
-                      <PostMortemIndicatorsBlock
-                        indicateurs={postMortemForm.indicateurs}
-                        editable={editable}
-                        onChange={(next) =>
-                          setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
-                        }
-                      />
-                    </div>
-                  )}
                   {projectQuery.data && (
                     <div className="grid gap-1.5 sm:max-w-md">
                       <Label htmlFor="pr-project-status">Changer le statut du projet</Label>
@@ -1868,7 +2033,6 @@ export function ProjectReviewEditorDialog({
                       ) : null}
                     </div>
                   )}
-                  {reviewType !== 'POST_MORTEM' ? (
                   <div className="grid gap-1.5 sm:max-w-xl">
                     <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
                     <Input
@@ -1916,23 +2080,28 @@ export function ProjectReviewEditorDialog({
                       </Button>
                     ) : null}
                   </div>
-                  ) : null}
                 </div>
               </ReviewFormSection>
+              )}
 
-              {reviewType !== 'POST_MORTEM' ? (
+              {!isPostMortemReview && (
               <CommitteeMoodPicker
                 value={committeeMood}
                 onChange={setCommitteeMood}
                 disabled={!editable}
               />
-              ) : null}
+              )}
             </div>
           )}
         </div>
 
         {d && (
-          <DialogFooter className="border-t border-border/60 bg-muted/20 px-4 pt-3 pb-5 sm:px-6 sm:pb-6">
+          <DialogFooter
+            className={cn(
+              'border-t border-border/60 px-4 pt-3 pb-5 sm:px-6 sm:pb-6',
+              isPostMortemReview ? 'bg-amber-500/5' : 'bg-muted/20',
+            )}
+          >
             <div className="flex w-full flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -1940,7 +2109,11 @@ export function ProjectReviewEditorDialog({
                 </Button>
                 {editable && (
                   <span className="text-xs text-muted-foreground" aria-live="polite">
-                    {update.isPending ? 'Enregistrement…' : 'Brouillon synchronisé automatiquement'}
+                    {update.isPending
+                      ? 'Enregistrement…'
+                      : isPostMortemReview
+                        ? 'Brouillon REX synchronisé automatiquement'
+                        : 'Brouillon synchronisé automatiquement'}
                   </span>
                 )}
               </div>
@@ -1961,7 +2134,11 @@ export function ProjectReviewEditorDialog({
                       onClick={() => void onFinalize()}
                       disabled={finalize.isPending || update.isPending}
                     >
-                      {finalize.isPending ? 'Finalisation…' : 'Finaliser le point'}
+                      {finalize.isPending
+                        ? 'Finalisation…'
+                        : isPostMortemReview
+                          ? "Finaliser le retour d'expérience"
+                          : 'Finaliser le point'}
                     </Button>
                     <Button
                       type="button"
@@ -1970,7 +2147,7 @@ export function ProjectReviewEditorDialog({
                       onClick={() => void onCancelReview()}
                       disabled={cancel.isPending}
                     >
-                      Annuler le point
+                      {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler le point'}
                     </Button>
                   </>
                 )}

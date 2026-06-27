@@ -2,7 +2,6 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { ProjectReviewsTab } from './project-reviews-tab';
@@ -20,13 +19,9 @@ function ProjectDetailTabbedContent({ projectId }: { projectId: string }) {
 
   if (showPoints) {
     return (
-      <Card size="sm" className="min-w-0 overflow-hidden shadow-sm">
-        <CardContent className="p-4 sm:p-6">
-          <Suspense fallback={<LoadingState rows={4} />}>
-            <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
-          </Suspense>
-        </CardContent>
-      </Card>
+      <Suspense fallback={<LoadingState rows={4} />}>
+        <ProjectReviewsTab projectId={projectId} projectStatus={project.status} />
+      </Suspense>
     );
   }
 
