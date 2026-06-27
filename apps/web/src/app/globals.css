@@ -977,7 +977,7 @@ button.starium-risk-attention-title:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
   margin-bottom: 16px;
 }
 @media (max-width: 1100px) {
@@ -1242,31 +1242,64 @@ button.starium-risk-attention-title:focus-visible {
 }
 .starium-proj-budget-add {
   overflow: hidden;
-  border: 1px solid var(--neutral-200, var(--border));
+  border: 1.5px solid var(--brand-gold-100);
   border-radius: var(--radius-lg, 14px);
   background: var(--neutral-0, var(--card));
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
 }
 .starium-proj-budget-add__trigger {
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   min-height: 44px;
-  padding: 14px 18px;
+  padding: 16px 18px;
   border: none;
-  background: transparent;
+  background: color-mix(in srgb, var(--brand-gold-050) 65%, var(--neutral-0, var(--card)));
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 }
 .starium-proj-budget-add__trigger:hover {
-  background: var(--neutral-50, var(--muted));
+  background: var(--brand-gold-050);
+}
+.starium-proj-budget-add__trigger[aria-expanded='true'] {
+  background: var(--brand-gold-050);
+  box-shadow: inset 0 -1px 0 var(--brand-gold-100);
 }
 .starium-proj-budget-add__trigger:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
+}
+.starium-proj-budget-add__trigger-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  border: 1.5px solid var(--brand-gold-100);
+  color: var(--brand-gold-700);
+  box-shadow: var(--shadow-1);
+}
+.starium-proj-budget-add__trigger-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-proj-budget-add__trigger-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--brand-gold-700);
+}
+.starium-proj-budget-add__trigger-sub {
+  font-size: 12px;
+  color: var(--neutral-600, var(--muted-foreground));
 }
 .starium-proj-budget-add__panel {
   border-top: 1px solid var(--neutral-200, var(--border));

@@ -11,6 +11,7 @@ import {
   FileText,
   Link2,
   Pencil,
+  Plus,
   Scale,
   Trash2,
 } from 'lucide-react';
