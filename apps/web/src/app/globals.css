@@ -1306,6 +1306,87 @@ button.starium-risk-attention-title:focus-visible {
   padding: 18px 18px 20px;
   background: color-mix(in srgb, var(--neutral-50, var(--muted)) 55%, var(--neutral-0, var(--card)));
 }
+.starium-proj-budget-remainder {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+}
+.starium-proj-budget-remainder--muted {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-proj-budget-remainder__title {
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-proj-budget-remainder__hint {
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-proj-budget-remainder__grid {
+  display: grid;
+  gap: 10px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 480px) {
+  .starium-proj-budget-remainder__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.starium-proj-budget-remainder__grid dt {
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-section-label-color, var(--neutral-600, var(--muted-foreground)));
+}
+.starium-proj-budget-remainder__grid dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-proj-budget-remainder__after-draft {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  border-top: 1px dashed var(--neutral-200, var(--border));
+}
+@media (min-width: 480px) {
+  .starium-proj-budget-remainder__after-draft {
+    grid-column: auto;
+    padding-top: 0;
+    border-top: none;
+  }
+}
+.starium-proj-budget-remainder__val--success {
+  color: var(--state-success);
+}
+.starium-proj-budget-remainder__val--warning {
+  color: var(--state-warning);
+}
+.starium-proj-budget-remainder__val--danger {
+  color: var(--state-danger);
+}
+
+.starium-proj-budget-edit-form__body {
+  background: color-mix(in srgb, var(--neutral-50, var(--muted)) 40%, var(--neutral-0, var(--card)));
+}
+.starium-proj-budget-edit-form .starium-proj-budget-edit-form__body {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+.starium-proj-budget-edit-form__footer {
+  border-top: 1px solid var(--neutral-200, var(--border));
+  padding: 14px 20px 18px;
+  background: var(--neutral-0, var(--card));
+}
 
 .starium-tablecard {
   overflow: hidden;
@@ -1694,7 +1775,7 @@ table.starium-dt {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--neutral-500, var(--muted-foreground));
+  color: var(--ds-section-label-color, var(--neutral-600, var(--muted-foreground)));
 }
 .starium-form-section-title svg {
   width: 14px;
@@ -3783,7 +3864,12 @@ table.starium-dt {
     line-height: 1.25rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--ds-section-label-color, var(--neutral-600, var(--muted-foreground)));
+  }
+
+  /* Pattern Tailwind récurrent : libellés de groupe formulaire / table */
+  .uppercase.tracking-wide.text-muted-foreground {
+    color: var(--ds-section-label-color, var(--neutral-600, var(--muted-foreground)));
   }
 
   /* Séparateur colonne sticky (tableaux larges) */

@@ -49,6 +49,17 @@ import type {
 } from '../types/project.types';
 import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
 import { formatBudgetEur } from '../lib/project-budget-display';
+import {
+  ALLOCATION_MODE_LABELS,
+  canAddProjectBudgetLink,
+  computeFixedAllocationRemainder,
+  computePercentageAllocationRemainder,
+  humanizeProjectBudgetLinkError,
+  parseFixedLinkAmount,
+  resolveCreateAllocationMode,
+} from '../lib/project-budget-allocation';
+import { formatProjectBudgetAllocation } from '../scenario-workspace/scenario-budget-project-links';
+import { ProjectBudgetAllocationRemainder } from './project-budget-allocation-remainder';
 
 /** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
 const SELECT_NONE = '__none__';
@@ -111,12 +122,6 @@ function buildCreateLinkPayload(
   return { ok: true, payload };
 }
 
-function parseFixedLinkAmount(amount: string | null): number | null {
-  if (amount == null || amount === '') return null;
-  const n = Number(String(amount).replace(',', '.'));
-  return Number.isNaN(n) ? null : n;
-}
-
 function formatCurrencyEur(value: number): string {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -155,6 +160,7 @@ export function ProjectBudgetSection({
 
   const [budgetLineId, setBudgetLineId] = useState<string>(SELECT_NONE);
   const [amount, setAmount] = useState('');
+  const [percentage, setPercentage] = useState('');
 
   const [newLineName, setNewLineName] = useState('');
   const [newLineCode, setNewLineCode] = useState('');
@@ -238,7 +244,18 @@ export function ProjectBudgetSection({
   const resetForm = () => {
     setBudgetLineId(SELECT_NONE);
     setAmount('');
+    setPercentage('');
   };
+
+  const budgetLinks = linksQuery.data?.items ?? [];
+  const createAllocationMode = useMemo(
+    () => resolveCreateAllocationMode(budgetLinks),
+    [budgetLinks],
+  );
+  const addLinkGuard = useMemo(
+    () => canAddProjectBudgetLink(budgetLinks),
+    [budgetLinks],
+  );
 
   /** Crée la ligne budgétaire puis tente d’ajouter le lien projet (même règles que « Ajouter le lien »). */
   const handleCreateBudgetLineAndLink = async () => {
@@ -292,7 +309,12 @@ export function ProjectBudgetSection({
       setNewLineGeneralLedgerId(SELECT_NONE);
       setShowNewLineForm(false);
 
-      const built = buildCreateLinkPayload(line.id, 'FIXED', '', amount);
+      const built = buildCreateLinkPayload(
+        line.id,
+        createAllocationMode,
+        percentage,
+        amount,
+      );
       if (!built.ok) {
         toast.warning('Ligne créée et sélectionnée', {
           description: `${built.message} Complétez l’allocation ci-dessus, puis « Ajouter le lien ».`,
@@ -304,14 +326,25 @@ export function ProjectBudgetSection({
       toast.success('Ligne créée et lien budgétaire ajouté.');
       resetForm();
     } catch (err: unknown) {
-      const msg = isApiFormError(err) ? err.message : 'Création impossible.';
+      const msg = isApiFormError(err)
+        ? humanizeProjectBudgetLinkError(err.message)
+        : 'Création impossible.';
       toast.error(msg);
     }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const built = buildCreateLinkPayload(budgetLineId, 'FIXED', '', amount);
+    if (!addLinkGuard.ok) {
+      toast.error(addLinkGuard.message);
+      return;
+    }
+    const built = buildCreateLinkPayload(
+      budgetLineId,
+      createAllocationMode,
+      percentage,
+      amount,
+    );
     if (!built.ok) {
       toast.error(built.message);
       return;
@@ -323,7 +356,7 @@ export function ProjectBudgetSection({
       resetForm();
     } catch (err: unknown) {
       const msg = isApiFormError(err)
-        ? err.message
+        ? humanizeProjectBudgetLinkError(err.message)
         : 'Création impossible.';
       toast.error(msg);
     }
@@ -336,7 +369,7 @@ export function ProjectBudgetSection({
       toast.success('Lien supprimé.');
     } catch (err: unknown) {
       const msg = isApiFormError(err)
-        ? err.message
+        ? humanizeProjectBudgetLinkError(err.message)
         : 'Suppression impossible.';
       toast.error(msg);
     }
@@ -348,11 +381,8 @@ export function ProjectBudgetSection({
       : (linksQuery.data?.items ?? []).find((l) => l.id === editingLinkId) ?? null;
 
   const fixedBudgetLinks = useMemo(
-    () =>
-      (linksQuery.data?.items ?? []).filter(
-        (row) => row.allocationType === 'FIXED',
-      ),
-    [linksQuery.data?.items],
+    () => budgetLinks.filter((row) => row.allocationType === 'FIXED'),
+    [budgetLinks],
   );
 
   const totalFixedAllocated = useMemo(() => {
@@ -365,6 +395,21 @@ export function ProjectBudgetSection({
   }, [fixedBudgetLinks]);
 
   const sheetForecastCost = sheetQuery.data?.estimatedCost ?? null;
+  const allocationRemainder = useMemo(() => {
+    if (createAllocationMode === 'FIXED') {
+      return computeFixedAllocationRemainder(budgetLinks, sheetForecastCost, amount);
+    }
+    if (createAllocationMode === 'PERCENTAGE') {
+      return computePercentageAllocationRemainder(budgetLinks, percentage);
+    }
+    return null;
+  }, [
+    amount,
+    budgetLinks,
+    createAllocationMode,
+    percentage,
+    sheetForecastCost,
+  ]);
   const forecastVsAllocatedGap =
     sheetForecastCost != null
       ? sheetForecastCost - totalFixedAllocated
@@ -502,13 +547,14 @@ export function ProjectBudgetSection({
               <div className="starium-table-wrap">
                 <table className="starium-dt">
                   <caption className="sr-only">
-                    Liaisons budgétaires en montants fixes du projet
+                    Liaisons budgétaires du projet
                   </caption>
                   <thead>
                     <tr>
                       <th scope="col">Ligne budgétaire</th>
+                      <th scope="col">Mode d&apos;allocation</th>
                       <th scope="col" className="starium-dt__right">
-                        Montant imputé
+                        Valeur
                       </th>
                       <th scope="col" className="starium-dt__right w-[108px]">
                         <span className="sr-only">Actions</span>
@@ -516,22 +562,33 @@ export function ProjectBudgetSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {fixedBudgetLinks.length === 0 ? (
+                    {budgetLinks.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={3}
+                          colSpan={4}
                           className="py-10 text-center text-sm text-muted-foreground"
                         >
-                          Aucun lien en montants fixes. Ajoutez un lien ci-dessous pour imputer le
-                          projet sur une ligne budgétaire.
+                          Aucun lien budgétaire. Ajoutez un lien ci-dessous pour rattacher le
+                          projet à une ligne active.
                         </td>
                       </tr>
                     ) : (
-                      fixedBudgetLinks.map((row, index) => {
+                      budgetLinks.map((row, index) => {
                         const fixedAmount = parseFixedLinkAmount(row.amount);
                         const lineLabel = row.budgetLine.code
                           ? `${row.budgetLine.code} — ${row.budgetLine.name}`
                           : row.budgetLine.name;
+                        const allocationLabel = formatProjectBudgetAllocation(row);
+                        const valueLabel =
+                          row.allocationType === 'FULL'
+                            ? '100 %'
+                            : row.allocationType === 'PERCENTAGE'
+                              ? row.percentage != null
+                                ? `${row.percentage} %`
+                                : '—'
+                              : fixedAmount != null
+                                ? formatCurrencyEur(fixedAmount)
+                                : '—';
                         const tone =
                           row.budgetLine.expenseType === 'CAPEX'
                             ? 'starium-dt-ti-blue'
@@ -561,10 +618,11 @@ export function ProjectBudgetSection({
                                 </div>
                               </div>
                             </td>
+                            <td>
+                              <div className="text-sm text-foreground">{allocationLabel}</div>
+                            </td>
                             <td className="text-right tabular-nums font-semibold">
-                              {fixedAmount != null
-                                ? formatCurrencyEur(fixedAmount)
-                                : '—'}
+                              {valueLabel}
                             </td>
                             <td className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -611,17 +669,20 @@ export function ProjectBudgetSection({
                 aria-controls="pb-add-budget-link-panel"
                 id="pb-add-budget-link-trigger"
               >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-semibold tracking-tight text-[color:var(--brand-ink)]">
+                <span className="starium-proj-budget-add__trigger-icon" aria-hidden="true">
+                  <Plus strokeWidth={2.25} />
+                </span>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="starium-proj-budget-add__trigger-title">
                     Ajouter un lien budgétaire
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="starium-proj-budget-add__trigger-sub">
                     Budget, enveloppe, puis ligne active — libellés alignés sur le module Budget.
                   </p>
                 </div>
                 <ChevronDown
                   className={cn(
-                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                    'size-4 shrink-0 text-[color:var(--brand-gold-700)] transition-transform duration-200',
                     addBudgetLinkOpen && 'rotate-180',
                   )}
                   aria-hidden="true"
@@ -634,8 +695,17 @@ export function ProjectBudgetSection({
               onSubmit={onSubmit}
               className="starium-proj-budget-add__panel space-y-5"
             >
+              {!addLinkGuard.ok ? (
+                <div
+                  className="rounded-lg border border-[color-mix(in_srgb,var(--state-warning)_35%,var(--border))] bg-[color-mix(in_srgb,var(--state-warning-bg)_80%,var(--card))] px-4 py-3 text-sm text-foreground"
+                  role="status"
+                >
+                  {addLinkGuard.message}
+                </div>
+              ) : (
+                <>
               <div className="space-y-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="starium-overline">
                   Sélection
                 </p>
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -724,23 +794,68 @@ export function ProjectBudgetSection({
               </div>
 
               <div className="border-t border-border/60 pt-5">
-                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="starium-overline mb-1">
                   Allocation sur la ligne choisie ou à créer
                 </p>
                 <p className="mb-3 text-xs text-muted-foreground">
-                  Montants fixes sur la ligne sélectionnée.
+                  Mode du projet :{' '}
+                  <span className="font-medium text-foreground">
+                    {ALLOCATION_MODE_LABELS[createAllocationMode]}
+                  </span>
+                  {budgetLinks.length === 0
+                    ? ' — premier lien, montant fixe par défaut.'
+                    : null}
                 </p>
-                <div className="max-w-md space-y-2">
-                  <Label htmlFor="pb-amt">Montant (devise budget)</Label>
-                  <Input
-                    id="pb-amt"
-                    inputMode="decimal"
-                    placeholder="ex. 12000"
-                    value={amount}
-                    onChange={(ev) => setAmount(ev.target.value)}
-                    className="h-9"
+                {createAllocationMode === 'PERCENTAGE' ? (
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="pb-pct">Pourcentage de la ligne</Label>
+                    <div className="relative max-w-[10rem]">
+                      <Input
+                        id="pb-pct"
+                        inputMode="decimal"
+                        placeholder="ex. 25"
+                        value={percentage}
+                        onChange={(ev) => setPercentage(ev.target.value)}
+                        className="h-10 pr-9 tabular-nums"
+                        aria-describedby="pb-pct-hint"
+                      />
+                      <span
+                        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-muted-foreground"
+                        aria-hidden
+                      >
+                        %
+                      </span>
+                    </div>
+                    <p id="pb-pct-hint" className="text-xs text-muted-foreground">
+                      Part du projet sur cette ligne budgétaire.
+                    </p>
+                  </div>
+                ) : createAllocationMode === 'FIXED' ? (
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="pb-amt">Montant ({selectedBudget?.currency ?? 'EUR'})</Label>
+                    <Input
+                      id="pb-amt"
+                      inputMode="decimal"
+                      placeholder="ex. 12000"
+                      value={amount}
+                      onChange={(ev) => setAmount(ev.target.value)}
+                      className="h-10 tabular-nums"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Le projet prendra 100 % de la ligne sélectionnée. Aucun montant ni pourcentage
+                    à saisir.
+                  </p>
+                )}
+                {createAllocationMode === 'FIXED' || createAllocationMode === 'PERCENTAGE' ? (
+                  <ProjectBudgetAllocationRemainder
+                    mode={createAllocationMode}
+                    remainder={allocationRemainder}
+                    forecastCost={sheetForecastCost}
+                    currency={selectedBudget?.currency ?? 'EUR'}
                   />
-                </div>
+                ) : null}
               </div>
 
               {canCreateBudgetLine &&
@@ -921,6 +1036,8 @@ export function ProjectBudgetSection({
               >
                 {createMut.isPending ? 'Enregistrement…' : 'Ajouter le lien'}
               </button>
+                </>
+              )}
             </form>
               ) : null}
             </div>
@@ -930,6 +1047,8 @@ export function ProjectBudgetSection({
         <ProjectBudgetLinkEditDialog
           projectId={projectId}
           link={editingLink}
+          budgetLinks={budgetLinks}
+          forecastCost={sheetForecastCost}
           open={editingLinkId !== null && editingLink !== null}
           onOpenChange={(o) => {
             if (!o) setEditingLinkId(null);

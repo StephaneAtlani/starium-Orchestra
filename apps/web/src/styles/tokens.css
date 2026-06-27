@@ -127,4 +127,6 @@
   --ds-kpi-value-size: 2.125rem;
   --ds-kpi-value-size-dense: 1.25rem;
   --ds-kpi-value-weight: 700;
+
+  --ds-section-label-color: var(--neutral-600);
 }
