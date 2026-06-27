@@ -3,16 +3,12 @@
 import { useMemo, useState } from 'react';
 import { toast } from '@/lib/toast';
 import {
-  Activity,
   ChevronDown,
-  CircleDollarSign,
   Cloud,
   Code2,
-  FileText,
   Link2,
   Pencil,
   Plus,
-  Scale,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -42,13 +38,7 @@ import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-l
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
 import { cn } from '@/lib/utils';
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
-import { SynthesisListKpi, SynthesisListKpis } from './synthesis-ds-kpi';
-import type {
-  CreateProjectBudgetLinkPayload,
-  ProjectBudgetAllocationType,
-} from '../types/project.types';
 import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
-import { formatBudgetEur } from '../lib/project-budget-display';
 import {
   ALLOCATION_MODE_LABELS,
   canAddProjectBudgetLink,
@@ -60,6 +50,10 @@ import {
 } from '../lib/project-budget-allocation';
 import { formatProjectBudgetAllocation } from '../scenario-workspace/scenario-budget-project-links';
 import { ProjectBudgetAllocationRemainder } from './project-budget-allocation-remainder';
+import type {
+  CreateProjectBudgetLinkPayload,
+  ProjectBudgetAllocationType,
+} from '../types/project.types';
 
 /** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
 const SELECT_NONE = '__none__';
@@ -380,20 +374,6 @@ export function ProjectBudgetSection({
       ? null
       : (linksQuery.data?.items ?? []).find((l) => l.id === editingLinkId) ?? null;
 
-  const fixedBudgetLinks = useMemo(
-    () => budgetLinks.filter((row) => row.allocationType === 'FIXED'),
-    [budgetLinks],
-  );
-
-  const totalFixedAllocated = useMemo(() => {
-    let sum = 0;
-    for (const row of fixedBudgetLinks) {
-      const v = parseFixedLinkAmount(row.amount);
-      if (v != null) sum += v;
-    }
-    return sum;
-  }, [fixedBudgetLinks]);
-
   const sheetForecastCost = sheetQuery.data?.estimatedCost ?? null;
   const allocationRemainder = useMemo(() => {
     if (createAllocationMode === 'FIXED') {
@@ -410,27 +390,6 @@ export function ProjectBudgetSection({
     percentage,
     sheetForecastCost,
   ]);
-  const forecastVsAllocatedGap =
-    sheetForecastCost != null
-      ? sheetForecastCost - totalFixedAllocated
-      : null;
-
-  const lineKpisFromFixedLinks = useMemo(() => {
-    let committed = 0;
-    let consumed = 0;
-    let imputedCapex = 0;
-    let imputedOpex = 0;
-    for (const row of fixedBudgetLinks) {
-      committed += row.budgetLine.committedAmount ?? 0;
-      consumed += row.budgetLine.consumedAmount ?? 0;
-      const fixed = parseFixedLinkAmount(row.amount);
-      if (fixed == null) continue;
-      const et = row.budgetLine.expenseType;
-      if (et === 'CAPEX') imputedCapex += fixed;
-      else imputedOpex += fixed;
-    }
-    return { committed, consumed, imputedCapex, imputedOpex };
-  }, [fixedBudgetLinks]);
 
   const body = (
     <>
@@ -438,111 +397,6 @@ export function ProjectBudgetSection({
           <LoadingState rows={2} />
         ) : (
           <>
-            <div aria-live="polite">
-              <SynthesisListKpis
-                columns={3}
-                aria-label="Alignement prévisionnel et imputations fixes"
-              >
-                <SynthesisListKpi
-                  icon={<CircleDollarSign strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--neutral"
-                  label="Coût prévisionnel"
-                  value={
-                    sheetQuery.isLoading ? (
-                      '…'
-                    ) : sheetQuery.isError || sheetForecastCost == null ? (
-                      '—'
-                    ) : (
-                      formatCurrencyEur(sheetForecastCost)
-                    )
-                  }
-                  sub="Fiche projet"
-                />
-                <SynthesisListKpi
-                  icon={<Link2 strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--gold"
-                  label="Total imputé"
-                  value={formatCurrencyEur(totalFixedAllocated)}
-                  valueClassName="text-[color:var(--brand-gold-700)]"
-                  sub={
-                    fixedBudgetLinks.length === 0
-                      ? 'Aucun lien fixe'
-                      : `${fixedBudgetLinks.length} lien${fixedBudgetLinks.length > 1 ? 's' : ''} fixe${fixedBudgetLinks.length > 1 ? 's' : ''}`
-                  }
-                  subClassName="text-[color:var(--brand-gold-700)]"
-                />
-                <SynthesisListKpi
-                  icon={<Scale strokeWidth={1.75} />}
-                  iconClassName={
-                    forecastVsAllocatedGap != null && forecastVsAllocatedGap < 0
-                      ? 'starium-list-kpi__ico--danger'
-                      : forecastVsAllocatedGap != null && forecastVsAllocatedGap > 0
-                        ? 'starium-list-kpi__ico--success'
-                        : 'starium-list-kpi__ico--neutral'
-                  }
-                  label="Écart"
-                  value={
-                    sheetQuery.isLoading ? (
-                      '…'
-                    ) : sheetForecastCost == null ||
-                      forecastVsAllocatedGap == null ||
-                      sheetQuery.isError ? (
-                      '—'
-                    ) : (
-                      formatCurrencyEur(forecastVsAllocatedGap)
-                    )
-                  }
-                  valueClassName={
-                    forecastVsAllocatedGap == null
-                      ? undefined
-                      : forecastVsAllocatedGap < 0
-                        ? 'text-[color:var(--state-danger)]'
-                        : forecastVsAllocatedGap > 0
-                          ? 'text-[color:var(--state-success)]'
-                          : undefined
-                  }
-                  sub="Prévisionnel − imputé"
-                />
-              </SynthesisListKpis>
-
-              <SynthesisListKpis
-                columns={4}
-                className="mt-4"
-                aria-label="Indicateurs des lignes budgétaires liées"
-              >
-                <SynthesisListKpi
-                  icon={<FileText strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--gold"
-                  label="Engagé"
-                  value={formatBudgetEur(lineKpisFromFixedLinks.committed)}
-                  valueClassName="text-[color:var(--brand-gold-700)]"
-                  sub="Lignes liées"
-                  subClassName="text-[color:var(--brand-gold-700)]"
-                />
-                <SynthesisListKpi
-                  icon={<Activity strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--info"
-                  label="Consommé"
-                  value={formatBudgetEur(lineKpisFromFixedLinks.consumed)}
-                  valueClassName="text-[color:var(--state-info)]"
-                  sub="Lignes liées"
-                  subClassName="text-[color:var(--state-info)]"
-                />
-                <SynthesisListKpi
-                  icon={<Cloud strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--info"
-                  label="CAPEX imputé"
-                  value={formatBudgetEur(lineKpisFromFixedLinks.imputedCapex)}
-                />
-                <SynthesisListKpi
-                  icon={<Code2 strokeWidth={1.75} />}
-                  iconClassName="starium-list-kpi__ico--neutral"
-                  label="OPEX imputé"
-                  value={formatBudgetEur(lineKpisFromFixedLinks.imputedOpex)}
-                />
-              </SynthesisListKpis>
-            </div>
-
             <div className="starium-tablecard">
               <div className="starium-table-wrap">
                 <table className="starium-dt">

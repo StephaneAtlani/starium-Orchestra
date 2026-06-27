@@ -3,17 +3,13 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import {
-  Activity,
   AlertTriangle,
   CheckCircle2,
-  CircleDollarSign,
   Cloud,
   Code2,
-  FileText,
   Info,
   LineChart,
   Palette,
-  TrendingUp,
   Users,
 } from 'lucide-react';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -22,18 +18,16 @@ import { projectBudget } from '../constants/project-routes';
 import { useProjectBudgetLinksQuery } from '../hooks/use-project-budget-links-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import {
-  aggregateProjectBudgetFromLinks,
   budgetPercentOf,
+  computeProjectBudgetMetrics,
   formatBudgetCompact,
   formatBudgetEur,
-  linkAllocatedAmount,
-  parseBudgetAmount,
+  projectLinkAllocatedBudget,
+  projectLinkEngaged,
+  projectLinkRealized,
 } from '../lib/project-budget-display';
 import type { ProjectBudgetLinkItem, ProjectDetail } from '../types/project.types';
-import {
-  SynthesisListKpi,
-  SynthesisListKpis,
-} from './synthesis-ds-kpi';
+import { ProjectBudgetKpiStrip } from './project-budget-kpi-strip';
 
 const DONUT_RADIUS = 54;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
@@ -76,9 +70,9 @@ function BudgetCategoryRow({
   link: ProjectBudgetLinkItem;
   index: number;
 }) {
-  const budget = linkAllocatedAmount(link);
-  const engaged = link.budgetLine.committedAmount ?? 0;
-  const consumed = link.budgetLine.consumedAmount ?? 0;
+  const budget = projectLinkAllocatedBudget(link);
+  const engaged = projectLinkEngaged(link);
+  const consumed = projectLinkRealized(link);
   const rest =
     budget != null && budget > 0 ? Math.max(0, budget - consumed) : null;
   const consumptionPct =
@@ -278,91 +272,6 @@ function ProjectBudgetWarnings({
   );
 }
 
-function BudgetKpiStrip({
-  metrics,
-}: {
-  metrics: {
-    total: number | null;
-    engaged: number;
-    consumed: number;
-    restToEngage: number | null;
-    forecast: number | null;
-    forecastDelta: number | null;
-    consumedPct: number;
-    engagedPct: number;
-    restPct: number;
-    capexOpexLabel: string;
-  };
-}) {
-  return (
-    <SynthesisListKpis columns={5} aria-label="Indicateurs budgétaires du projet">
-      <SynthesisListKpi
-        icon={<CircleDollarSign strokeWidth={1.75} />}
-        iconClassName="starium-list-kpi__ico--gold"
-        label="Budget total"
-        value={formatBudgetCompact(metrics.total)}
-        sub={metrics.capexOpexLabel}
-        subClassName="text-[color:var(--brand-gold-700)]"
-      />
-      <SynthesisListKpi
-        icon={<FileText strokeWidth={1.75} />}
-        iconClassName="starium-list-kpi__ico--gold"
-        label="Engagé"
-        value={formatBudgetCompact(metrics.engaged)}
-        valueClassName="text-[color:var(--brand-gold-700)]"
-        sub={
-          metrics.total != null && metrics.total > 0
-            ? `${metrics.engagedPct}% du budget`
-            : '—'
-        }
-        subClassName="text-[color:var(--brand-gold-700)]"
-      />
-      <SynthesisListKpi
-        icon={<Activity strokeWidth={1.75} />}
-        iconClassName="starium-list-kpi__ico--info"
-        label="Consommé"
-        value={formatBudgetCompact(metrics.consumed)}
-        valueClassName="text-[color:var(--state-info)]"
-        sub={
-          metrics.total != null && metrics.total > 0
-            ? `${metrics.consumedPct}% du budget`
-            : '—'
-        }
-        subClassName="text-[color:var(--state-info)]"
-      />
-      <SynthesisListKpi
-        icon={<CheckCircle2 strokeWidth={1.75} />}
-        iconClassName="starium-list-kpi__ico--success"
-        label="Reste à engager"
-        value={formatBudgetCompact(metrics.restToEngage)}
-        valueClassName="text-[color:var(--state-success)]"
-        sub={
-          metrics.total != null && metrics.restToEngage != null
-            ? `${metrics.restPct}% disponible`
-            : '—'
-        }
-        subClassName="text-[color:var(--state-success)]"
-      />
-      <SynthesisListKpi
-        icon={<TrendingUp strokeWidth={1.75} />}
-        iconClassName="starium-list-kpi__ico--neutral"
-        label="Prévision à fin"
-        value={formatBudgetCompact(metrics.forecast)}
-        sub={
-          metrics.forecastDelta != null
-            ? `Écart ${metrics.forecastDelta >= 0 ? '+' : ''}${formatBudgetCompact(metrics.forecastDelta)}`
-            : '—'
-        }
-        subClassName={
-          metrics.forecastDelta != null && metrics.forecastDelta >= 0
-            ? 'text-[color:var(--state-success)]'
-            : 'text-[color:var(--state-warning)]'
-        }
-      />
-    </SynthesisListKpis>
-  );
-}
-
 function BudgetOverviewGrid({
   metrics,
   topCritical,
@@ -371,9 +280,9 @@ function BudgetOverviewGrid({
   metrics: {
     total: number | null;
     engaged: number;
-    consumed: number;
-    remaining: number | null;
-    consumedPct: number;
+    realized: number;
+    available: number | null;
+    realizedPct: number;
     engagedPct: number;
   };
   topCritical?: { link: ProjectBudgetLinkItem; pct: number };
@@ -414,26 +323,26 @@ function BudgetOverviewGrid({
             ) : null}
           </div>
           <div>
-            <p className="starium-bud-bo-stat-label">Consommé</p>
+            <p className="starium-bud-bo-stat-label">Réalisé</p>
             <p
               className="starium-bud-bo-stat-val"
               style={{ color: 'var(--state-info)' }}
             >
-              {formatBudgetCompact(metrics.consumed)}
+              {formatBudgetCompact(metrics.realized)}
             </p>
             {metrics.total != null && metrics.total > 0 ? (
               <p
                 className="starium-bud-bo-stat-sub"
                 style={{ color: 'var(--state-info)' }}
               >
-                {metrics.consumedPct}% réalisé
+                {metrics.realizedPct}% réalisé
               </p>
             ) : null}
           </div>
           <div>
             <p className="starium-bud-bo-stat-label">Disponible</p>
             <p className="starium-bud-bo-stat-val">
-              {formatBudgetCompact(metrics.remaining)}
+              {formatBudgetCompact(metrics.available)}
             </p>
             {metrics.total != null ? (
               <p className="starium-bud-bo-stat-sub">après consommation</p>
@@ -444,9 +353,9 @@ function BudgetOverviewGrid({
 
       <div className="starium-bud-side">
         <BudgetDonut
-          consumedPct={metrics.consumedPct}
-          consumed={metrics.consumed}
-          remaining={metrics.remaining ?? 0}
+          consumedPct={metrics.realizedPct}
+          consumed={metrics.realized}
+          remaining={metrics.available ?? 0}
         />
         {topCritical && categoriesHref ? (
           <div className="starium-bud-alert" role="status">
@@ -532,20 +441,20 @@ function BudgetCategoriesTable({
                   className="tabular-nums"
                   style={{ color: 'var(--state-info)' }}
                 >
-                  {formatBudgetEur(metrics.consumed)}
+                  {formatBudgetEur(metrics.realized)}
                 </td>
                 <td className="tabular-nums">
-                  {formatBudgetEur(metrics.remaining)}
+                  {formatBudgetEur(metrics.available)}
                 </td>
-                <td>{metrics.consumedPct}%</td>
+                <td>{metrics.realizedPct}%</td>
               </tr>
             </tfoot>
           ) : null}
         </table>
       </div>
       <p className="flex items-center gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] text-muted-foreground">
-        Montants issus des lignes budgétaires liées (Financial Core). Les liaisons en
-        pourcentage n&apos;affichent pas de budget fixe par ligne.
+        Montants proratisés au périmètre projet selon le mode d&apos;allocation (intégral,
+        pourcentage ou montant fixe).
       </p>
     </div>
   );
@@ -565,77 +474,37 @@ export function ProjectBudgetSynthesis({
   const sheetQuery = useProjectSheetQuery(projectId);
   const links = linksQuery.data?.items ?? [];
 
-  const metrics = useMemo(() => {
-    const agg = aggregateProjectBudgetFromLinks(links);
-    const targetFromProject = parseBudgetAmount(project.targetBudgetAmount);
-    const consumedFromProject = parseBudgetAmount(project.consumedBudgetAmount);
-    const estimatedCost = sheetQuery.data?.estimatedCost ?? null;
+  const metrics = useMemo(
+    () =>
+      computeProjectBudgetMetrics(links, {
+        targetBudgetAmount: project.targetBudgetAmount,
+        consumedBudgetAmount: project.consumedBudgetAmount,
+        estimatedCost: sheetQuery.data?.estimatedCost ?? null,
+      }),
+    [
+      links,
+      project.consumedBudgetAmount,
+      project.targetBudgetAmount,
+      sheetQuery.data?.estimatedCost,
+    ],
+  );
 
-    const total =
-      targetFromProject ??
-      (agg.allocatedFixed > 0 ? agg.allocatedFixed : null);
-    const consumed =
-      consumedFromProject != null && consumedFromProject > 0
-        ? consumedFromProject
-        : agg.consumed;
-    const engaged = agg.committed;
-    const restToEngage =
-      total != null && total > 0 ? Math.max(0, total - engaged) : null;
-    const remaining = total != null && total > 0 ? Math.max(0, total - consumed) : null;
-    const forecast = estimatedCost ?? (total != null ? consumed : null);
-    const forecastDelta =
-      total != null && forecast != null ? total - forecast : null;
-
-    const consumedPct = total != null && total > 0 ? budgetPercentOf(consumed, total) : 0;
-    const engagedPct = total != null && total > 0 ? budgetPercentOf(engaged, total) : 0;
-    const restPct =
-      total != null && total > 0 && restToEngage != null
-        ? budgetPercentOf(restToEngage, total)
-        : 0;
-
-    const capexOpexLabel =
-      agg.imputedCapex > 0 || agg.imputedOpex > 0
-        ? [
-            agg.imputedCapex > 0 ? 'CAPEX' : null,
-            agg.imputedOpex > 0 ? 'OPEX' : null,
-          ]
-            .filter(Boolean)
-            .join(' + ')
-        : 'Budget projet';
-
-    const criticalLinks = [...links]
-      .map((link) => {
-        const budget = linkAllocatedAmount(link);
-        const consumedLine = link.budgetLine.consumedAmount ?? 0;
-        const pct =
-          budget != null && budget > 0
-            ? budgetPercentOf(consumedLine, budget)
-            : 0;
-        return { link, pct };
-      })
-      .filter((row) => row.pct >= 85)
-      .sort((a, b) => b.pct - a.pct);
-
-    return {
-      total,
-      engaged,
-      consumed,
-      restToEngage,
-      remaining,
-      forecast,
-      forecastDelta,
-      consumedPct,
-      engagedPct,
-      restPct,
-      capexOpexLabel,
-      criticalLinks,
-    };
-  }, [
-    links,
-    project.consumedBudgetAmount,
-    project.targetBudgetAmount,
-    sheetQuery.data?.estimatedCost,
-  ]);
+  const criticalLinks = useMemo(
+    () =>
+      [...links]
+        .map((link) => {
+          const budget = projectLinkAllocatedBudget(link);
+          const realizedLine = projectLinkRealized(link);
+          const pct =
+            budget != null && budget > 0
+              ? budgetPercentOf(realizedLine, budget)
+              : 0;
+          return { link, pct };
+        })
+        .filter((row) => row.pct >= 85)
+        .sort((a, b) => b.pct - a.pct),
+    [links],
+  );
 
   const categoriesRefId =
     variant === 'page' ? 'project-budget-categories' : 'project-synthesis-budget-categories';
@@ -666,7 +535,7 @@ export function ProjectBudgetSynthesis({
       });
     }
 
-    for (const { link, pct } of metrics.criticalLinks) {
+    for (const { link, pct } of criticalLinks) {
       items.push({
         id: `critical-${link.id}`,
         severity: pct >= 95 ? 'danger' : 'warning',
@@ -680,14 +549,14 @@ export function ProjectBudgetSynthesis({
       });
     }
 
-    if (metrics.total != null && metrics.total > 0 && metrics.consumed > metrics.total) {
+    if (metrics.total != null && metrics.total > 0 && metrics.realized > metrics.total) {
       items.push({
         id: 'consumed-over-target',
         severity: 'danger',
         title: 'Budget cible dépassé',
         message: (
           <>
-            La consommation (<b>{formatBudgetCompact(metrics.consumed)}</b>) dépasse le budget
+            Le réalisé (<b>{formatBudgetCompact(metrics.realized)}</b>) dépasse le budget
             cible (<b>{formatBudgetCompact(metrics.total)}</b>).
           </>
         ),
@@ -723,9 +592,9 @@ export function ProjectBudgetSynthesis({
     }
 
     return items;
-  }, [links.length, metrics, project.warnings, variant]);
+  }, [criticalLinks, links.length, metrics, project.warnings, variant]);
 
-  const topCritical = metrics.criticalLinks[0];
+  const topCritical = criticalLinks[0];
   const showSidebarAlert = variant === 'overview' && topCritical != null;
 
   return (
@@ -766,7 +635,7 @@ export function ProjectBudgetSynthesis({
             />
           ) : null}
 
-          <BudgetKpiStrip metrics={metrics} />
+          <ProjectBudgetKpiStrip metrics={metrics} />
 
           <BudgetOverviewGrid
             metrics={metrics}

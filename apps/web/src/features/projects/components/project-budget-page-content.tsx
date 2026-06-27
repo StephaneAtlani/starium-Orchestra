@@ -27,8 +27,8 @@ export function ProjectBudgetPageContent({
               Gestion des liaisons budgétaires
             </h3>
             <p className="starium-bud-chart-sub">
-              Imputez le projet sur des lignes budgétaires en montants fixes et suivez
-              l&apos;alignement avec le coût prévisionnel.
+              Imputez le projet sur des lignes budgétaires et suivez engagements et réalisé au
+              périmètre projet.
             </p>
           </div>
         </header>

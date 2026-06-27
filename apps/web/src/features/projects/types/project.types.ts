@@ -566,6 +566,7 @@ export type ProjectBudgetLinkItem = {
     /** Agrégats ligne (Financial Core) — montants sur toute la ligne budgétaire. */
     committedAmount?: number;
     consumedAmount?: number;
+    initialAmount?: number;
     expenseType?: string;
   };
 };

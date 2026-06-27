@@ -355,6 +355,7 @@ export class ProjectBudgetLinksService {
       status: BudgetLineStatus;
       committedAmount: Prisma.Decimal | null;
       consumedAmount: Prisma.Decimal | null;
+      initialAmount: Prisma.Decimal | null;
       expenseType: string;
     },
   ) {
@@ -381,6 +382,7 @@ export class ProjectBudgetLinksService {
         status: budgetLine.status,
         committedAmount: fromDecimal(budgetLine.committedAmount),
         consumedAmount: fromDecimal(budgetLine.consumedAmount),
+        initialAmount: fromDecimal(budgetLine.initialAmount),
         expenseType: budgetLine.expenseType,
       },
     };
@@ -434,6 +436,7 @@ export class ProjectBudgetLinksService {
               status: true,
               committedAmount: true,
               consumedAmount: true,
+              initialAmount: true,
               expenseType: true,
             },
           },
@@ -493,6 +496,7 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
@@ -645,8 +649,8 @@ export class ProjectBudgetLinksService {
             status: true,
             committedAmount: true,
             consumedAmount: true,
-            expenseType: true,
             initialAmount: true,
+            expenseType: true,
           },
         },
       },
@@ -741,6 +745,7 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
@@ -804,6 +809,7 @@ export class ProjectBudgetLinksService {
             status: true,
             committedAmount: true,
             consumedAmount: true,
+            initialAmount: true,
             expenseType: true,
           },
         },
@@ -887,6 +893,7 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
