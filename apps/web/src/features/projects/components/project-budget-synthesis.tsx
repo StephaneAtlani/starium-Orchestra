@@ -23,11 +23,19 @@ import {
   formatBudgetCompact,
   formatBudgetEur,
   projectLinkAllocatedBudget,
+  projectLinkDisplayLineBudget,
+  projectLinkEffectiveBudget,
   projectLinkEngaged,
+  projectLinkLineOverrun,
   projectLinkRealized,
 } from '../lib/project-budget-display';
+import {
+  ALLOCATION_MODE_LABELS,
+  parseFixedLinkAmount,
+} from '../lib/project-budget-allocation';
 import type { ProjectBudgetLinkItem, ProjectDetail } from '../types/project.types';
 import { ProjectBudgetKpiStrip } from './project-budget-kpi-strip';
+import { StariumTableWrap } from '@/components/ui/starium-table-wrap';
 
 const DONUT_RADIUS = 54;
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
@@ -63,6 +71,18 @@ function progressFillClass(pct: number): string {
   return 'starium-bud-pfill--blue';
 }
 
+function formatLinkAllocationValue(link: ProjectBudgetLinkItem): string {
+  if (link.allocationType === 'FULL') return '100 %';
+  if (
+    link.allocationType === 'PERCENTAGE' ||
+    link.allocationType === 'BUDGET_PERCENTAGE'
+  ) {
+    return link.percentage != null ? `${link.percentage} %` : '—';
+  }
+  const fixed = parseFixedLinkAmount(link.amount);
+  return fixed != null ? formatBudgetEur(fixed) : '—';
+}
+
 function BudgetCategoryRow({
   link,
   index,
@@ -70,13 +90,15 @@ function BudgetCategoryRow({
   link: ProjectBudgetLinkItem;
   index: number;
 }) {
-  const budget = projectLinkAllocatedBudget(link);
+  const lineBudget = projectLinkDisplayLineBudget(link);
+  const envelope = projectLinkEffectiveBudget(link);
+  const overrun = projectLinkLineOverrun(link);
   const engaged = projectLinkEngaged(link);
   const consumed = projectLinkRealized(link);
   const rest =
-    budget != null && budget > 0 ? Math.max(0, budget - consumed) : null;
+    envelope != null && envelope > 0 ? Math.max(0, envelope - consumed) : null;
   const consumptionPct =
-    budget != null && budget > 0 ? budgetPercentOf(consumed, budget) : null;
+    envelope != null && envelope > 0 ? budgetPercentOf(consumed, envelope) : null;
   const isCritical = consumptionPct != null && consumptionPct >= 85;
   const Icon = categoryIconForLink(link, index);
   const tone = CATEGORY_ICON_TONES[index % CATEGORY_ICON_TONES.length];
@@ -94,25 +116,44 @@ function BudgetCategoryRow({
           <span className="starium-dt-cell-strong truncate">{lineLabel}</span>
         </div>
       </td>
-      <td className="tabular-nums">
-        {budget != null ? formatBudgetEur(budget) : '—'}
+      <td>
+        <div className="min-w-[9rem] text-sm text-foreground">
+          {ALLOCATION_MODE_LABELS[link.allocationType]}
+        </div>
+        <div className="starium-dt-cell-sub tabular-nums">
+          {formatLinkAllocationValue(link)}
+        </div>
+      </td>
+      <td className="starium-dt__right tabular-nums">
+        {lineBudget != null ? formatBudgetEur(lineBudget) : '—'}
+      </td>
+      <td className="starium-dt__right tabular-nums font-medium">
+        {envelope != null ? formatBudgetEur(envelope) : '—'}
       </td>
       <td
-        className="tabular-nums font-semibold"
+        className={cn(
+          'starium-dt__right tabular-nums',
+          overrun > 0 && 'font-semibold text-[color:var(--state-danger)]',
+        )}
+      >
+        {overrun > 0 ? formatBudgetEur(overrun) : '—'}
+      </td>
+      <td
+        className="starium-dt__right tabular-nums font-semibold"
         style={{ color: 'var(--brand-gold-700)' }}
       >
         {formatBudgetEur(engaged)}
       </td>
       <td
         className={cn(
-          'tabular-nums font-bold',
+          'starium-dt__right tabular-nums font-bold',
           isCritical && 'text-[color:var(--state-danger)]',
         )}
         style={!isCritical ? { color: 'var(--state-info)' } : undefined}
       >
         {formatBudgetEur(consumed)}
       </td>
-      <td className="tabular-nums">
+      <td className="starium-dt__right tabular-nums">
         {rest != null ? formatBudgetEur(rest) : '—'}
       </td>
       <td>
@@ -386,37 +427,76 @@ function BudgetCategoriesTable({
 }: {
   project: ProjectDetail;
   links: ProjectBudgetLinkItem[];
-  metrics: {
-    total: number | null;
-    engaged: number;
-    consumed: number;
-    remaining: number | null;
-    consumedPct: number;
-  };
+  metrics: ReturnType<typeof computeProjectBudgetMetrics>;
   categoriesRefId: string;
   emptyMessage: React.ReactNode;
 }) {
+  const columnCount = 9;
+
+  const tableTotals = useMemo(() => {
+    let lineBudgetTotal = 0;
+    let envelopeTotal = 0;
+    let overrunTotal = 0;
+    let hasLineBudget = false;
+    let hasEnvelope = false;
+
+    for (const link of links) {
+      const lineBudget = projectLinkDisplayLineBudget(link);
+      const envelope = projectLinkEffectiveBudget(link);
+      if (lineBudget != null) {
+        lineBudgetTotal += lineBudget;
+        hasLineBudget = true;
+      }
+      if (envelope != null) {
+        envelopeTotal += envelope;
+        hasEnvelope = true;
+      }
+      overrunTotal += projectLinkLineOverrun(link);
+    }
+
+    return {
+      lineBudgetTotal: hasLineBudget ? lineBudgetTotal : null,
+      envelopeTotal: hasEnvelope ? envelopeTotal : null,
+      overrunTotal: overrunTotal > 0 ? overrunTotal : null,
+    };
+  }, [links]);
+
   return (
     <div className="starium-tablecard" id={categoriesRefId}>
-      <div className="starium-table-wrap">
-        <table className="starium-dt">
+      <StariumTableWrap scrollLabel="Répartition budgétaire — glisser pour faire défiler">
+        <table className="starium-dt starium-dt--wide starium-dt--budget-categories">
           <caption className="sr-only">
             Répartition budgétaire par ligne liée au projet {project.name}
           </caption>
           <thead>
             <tr>
               <th scope="col">Catégorie</th>
-              <th scope="col">Budget</th>
-              <th scope="col">Engagé</th>
-              <th scope="col">Réalisé</th>
-              <th scope="col">Reste</th>
+              <th scope="col">Mode d&apos;allocation</th>
+              <th scope="col" className="starium-dt__right" title="Montant validé dans le budget global">
+                Budget ligne
+              </th>
+              <th scope="col" className="starium-dt__right" title="Périmètre financier imputé au projet">
+                Enveloppe projet
+              </th>
+              <th scope="col" className="starium-dt__right" title="Écart imputé si enveloppe supérieure au budget ligne">
+                Dépassement
+              </th>
+              <th scope="col" className="starium-dt__right">
+                Engagé
+              </th>
+              <th scope="col" className="starium-dt__right">
+                Réalisé
+              </th>
+              <th scope="col" className="starium-dt__right">
+                Reste
+              </th>
               <th scope="col">Consommation</th>
             </tr>
           </thead>
           <tbody>
             {links.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={columnCount} className="py-10 text-center text-sm text-muted-foreground">
                   {emptyMessage}
                 </td>
               </tr>
@@ -426,24 +506,44 @@ function BudgetCategoriesTable({
               ))
             )}
           </tbody>
-          {links.length > 0 && metrics.total != null ? (
+          {links.length > 0 ? (
             <tfoot>
               <tr>
-                <td>Total</td>
-                <td className="tabular-nums">{formatBudgetEur(metrics.total)}</td>
+                <td colSpan={2}>Total projet</td>
+                <td className="starium-dt__right tabular-nums">
+                  {tableTotals.lineBudgetTotal != null
+                    ? formatBudgetEur(tableTotals.lineBudgetTotal)
+                    : '—'}
+                </td>
+                <td className="starium-dt__right tabular-nums font-medium">
+                  {tableTotals.envelopeTotal != null
+                    ? formatBudgetEur(tableTotals.envelopeTotal)
+                    : '—'}
+                </td>
                 <td
-                  className="tabular-nums"
+                  className={cn(
+                    'starium-dt__right tabular-nums',
+                    tableTotals.overrunTotal != null &&
+                      'font-semibold text-[color:var(--state-danger)]',
+                  )}
+                >
+                  {tableTotals.overrunTotal != null
+                    ? formatBudgetEur(tableTotals.overrunTotal)
+                    : '—'}
+                </td>
+                <td
+                  className="starium-dt__right tabular-nums"
                   style={{ color: 'var(--brand-gold-700)' }}
                 >
                   {formatBudgetEur(metrics.engaged)}
                 </td>
                 <td
-                  className="tabular-nums"
+                  className="starium-dt__right tabular-nums"
                   style={{ color: 'var(--state-info)' }}
                 >
                   {formatBudgetEur(metrics.realized)}
                 </td>
-                <td className="tabular-nums">
+                <td className="starium-dt__right tabular-nums">
                   {formatBudgetEur(metrics.available)}
                 </td>
                 <td>{metrics.realizedPct}%</td>
@@ -451,10 +551,19 @@ function BudgetCategoriesTable({
             </tfoot>
           ) : null}
         </table>
-      </div>
-      <p className="flex items-center gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] text-muted-foreground">
-        Montants proratisés au périmètre projet selon le mode d&apos;allocation (intégral,
-        pourcentage ou montant fixe).
+      </StariumTableWrap>
+      <p className="flex items-start gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] leading-relaxed text-muted-foreground">
+        <Info className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        <span>
+          <strong className="font-medium text-foreground">Budget ligne</strong> : montant validé
+          dans le budget global (inchangé par le projet).{' '}
+          <strong className="font-medium text-foreground">Enveloppe projet</strong> : périmètre
+          financier imputé selon le mode d&apos;allocation (intégral, pourcentage de la ligne,
+          pourcentage du budget ou montant fixe).{' '}
+          <strong className="font-medium text-foreground">Dépassement</strong> : écart imputé
+          lorsque l&apos;enveloppe dépasse le budget ligne (typiquement en «&nbsp;Pourcentage du
+          budget&nbsp;»). Engagé, réalisé et reste sont calculés sur l&apos;enveloppe projet.
+        </span>
       </p>
     </div>
   );
@@ -515,15 +624,6 @@ export function ProjectBudgetSynthesis({
     if (variant !== 'page') return [];
 
     const items: BudgetWarningItem[] = [];
-
-    for (const warning of project.warnings) {
-      items.push({
-        id: `project-warning-${warning}`,
-        severity: 'warning',
-        title: 'Alerte pilotage',
-        message: warning,
-      });
-    }
 
     if (links.length === 0) {
       items.push({
@@ -592,7 +692,7 @@ export function ProjectBudgetSynthesis({
     }
 
     return items;
-  }, [criticalLinks, links.length, metrics, project.warnings, variant]);
+  }, [criticalLinks, links.length, metrics, variant]);
 
   const topCritical = criticalLinks[0];
   const showSidebarAlert = variant === 'overview' && topCritical != null;

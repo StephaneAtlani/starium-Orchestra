@@ -11,6 +11,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { StariumTableWrap } from '@/components/ui/starium-table-wrap';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { cn } from '@/lib/utils';
 import { TASK_PRIORITY_LABEL } from '../constants/project-enum-labels';
@@ -194,7 +195,7 @@ export function ProjectSynthesisRecentData({
           </div>
         ) : (
           <>
-            <div className="starium-table-wrap">
+            <StariumTableWrap scrollLabel="Tâches récentes — glisser pour faire défiler">
               <table className="starium-dt">
                 <caption className="sr-only">
                   Tâches récentes du projet {project.name}
@@ -227,7 +228,7 @@ export function ProjectSynthesisRecentData({
                   )}
                 </tbody>
               </table>
-            </div>
+            </StariumTableWrap>
             <ProjectTasksPagination
               total={stats.total}
               page={safePage}

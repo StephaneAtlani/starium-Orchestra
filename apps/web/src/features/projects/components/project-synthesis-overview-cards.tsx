@@ -25,6 +25,7 @@ import {
 import { projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
 import { ProjectBudgetSynthesis } from './project-budget-synthesis';
+import { ProjectPilotageAttentionPanel } from './project-pilotage-attention-panel';
 import { ProjectSynthesisRecentData } from './project-synthesis-recent-data';
 
 function OvCard({
@@ -260,6 +261,8 @@ export function ProjectSynthesisOverviewCards({
         </p>
       </OvCard>
       </div>
+
+      <ProjectPilotageAttentionPanel projectId={projectId} project={project} />
 
       <ProjectSynthesisRecentData projectId={projectId} project={project} />
       <ProjectBudgetSynthesis projectId={projectId} project={project} variant="overview" />

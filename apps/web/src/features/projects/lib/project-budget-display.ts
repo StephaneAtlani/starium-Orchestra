@@ -42,6 +42,12 @@ export function projectAllocationShare(link: ProjectBudgetLinkItem): number {
   return 0;
 }
 
+/** Budget validé de la ligne budgétaire (inchangé par le mode d’allocation projet). */
+export function projectLinkLineBudget(link: ProjectBudgetLinkItem): number | null {
+  const initial = link.budgetLine.initialAmount;
+  return initial == null ? null : initial;
+}
+
 /** Enveloppe budgétaire du projet sur une ligne liée. */
 export function projectLinkAllocatedBudget(link: ProjectBudgetLinkItem): number | null {
   if (link.allocationType === 'FIXED') {
@@ -59,6 +65,25 @@ export function projectLinkAllocatedBudget(link: ProjectBudgetLinkItem): number 
   const pct = parseBudgetAmount(link.percentage);
   if (pct == null) return null;
   return computePercentageLineAllocationAmount(initial, pct);
+}
+
+/** Écart imputé en dépassement (mode % du budget uniquement). */
+export function projectLinkLineOverrun(link: ProjectBudgetLinkItem): number {
+  if (link.allocationType !== 'BUDGET_PERCENTAGE') return 0;
+  const envelope = projectLinkAllocatedBudget(link);
+  const lineBudget = projectLinkLineBudget(link);
+  if (envelope == null || lineBudget == null) return 0;
+  return Math.max(0, envelope - lineBudget);
+}
+
+/** Montant affiché dans la colonne « Budget ligne » (référence validée). */
+export function projectLinkDisplayLineBudget(link: ProjectBudgetLinkItem): number | null {
+  return projectLinkLineBudget(link);
+}
+
+/** Enveloppe projet utilisée pour reste / consommation (dépassement inclus). */
+export function projectLinkEffectiveBudget(link: ProjectBudgetLinkItem): number | null {
+  return projectLinkAllocatedBudget(link);
 }
 
 /** Engagé attribué au projet (proratisé selon le mode d’allocation). */

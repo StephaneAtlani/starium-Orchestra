@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getBudgetLineAllocationWarning } from './project-budget-line-allocation-check';
+import {
+  getBudgetLineAllocationWarning,
+  isBlockingLineAllocationWarning,
+} from './project-budget-line-allocation-check';
 
 const line = {
   code: 'L-01',
@@ -18,6 +21,7 @@ describe('getBudgetLineAllocationWarning — PERCENTAGE', () => {
     expect(warning?.projectAllocation).toBe(5_001);
     expect(warning?.exceedsLineRemaining).toBe(true);
     expect(warning?.exceedsLineBudget).toBe(false);
+    expect(warning?.kind).toBe('line_remaining');
   });
 
   it('signale un dépassement du budget ligne à 100 % si arrondi supérieur', () => {
@@ -28,6 +32,8 @@ describe('getBudgetLineAllocationWarning — PERCENTAGE', () => {
     expect(warning).not.toBeNull();
     expect(warning?.projectAllocation).toBe(10_001);
     expect(warning?.exceedsLineBudget).toBe(true);
+    expect(warning?.kind).toBe('line_budget');
+    expect(isBlockingLineAllocationWarning(warning!)).toBe(true);
   });
 
   it('ne signale rien si le montant arrondi tient dans le budget et le disponible', () => {
@@ -48,8 +54,37 @@ describe('getBudgetLineAllocationWarning — BUDGET_PERCENTAGE', () => {
     });
     expect(warning).not.toBeNull();
     expect(warning?.projectAllocation).toBe(5_001);
+    expect(warning?.kind).toBe('line_remaining');
     expect(warning?.exceedsLineBudget).toBe(false);
-    expect(warning?.exceedsLineRemaining).toBe(true);
+  });
+
+  it('100 % du budget total → dépassement imputé, pas erreur bloquante', () => {
+    const warning = getBudgetLineAllocationWarning(
+      { ...line, initialAmount: 50_000, remainingAmount: 40_000 },
+      {
+        mode: 'BUDGET_PERCENTAGE',
+        percentage: '100',
+        budgetTotalInitialAmount: 500_000,
+      },
+    );
+    expect(warning).not.toBeNull();
+    expect(warning?.kind).toBe('budget_percentage_overrun');
+    expect(warning?.projectAllocation).toBe(500_000);
+    expect(warning?.lineOverrun).toBe(450_000);
+    expect(warning?.severity).toBe('info');
+    expect(isBlockingLineAllocationWarning(warning!)).toBe(false);
+  });
+
+  it('ne signale rien si l’enveloppe tient dans le budget ligne', () => {
+    const warning = getBudgetLineAllocationWarning(
+      { ...line, initialAmount: 600_000, remainingAmount: 600_000 },
+      {
+        mode: 'BUDGET_PERCENTAGE',
+        percentage: '100',
+        budgetTotalInitialAmount: 500_000,
+      },
+    );
+    expect(warning).toBeNull();
   });
 });
 

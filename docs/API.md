@@ -3033,8 +3033,9 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ### Liens projet ↔ ligne budgétaire (RFC-PROJ-010) — module Nest `project-budget`
 
-- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. **`projects.read`**
-- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. Chaque item expose la ligne budgétaire (libellés métier) et **`budgetLine.budgetTotalInitialAmount`** si mode **BUDGET_PERCENTAGE**. **`projects.read`**
+- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| **`BUDGET_PERCENTAGE`** \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **PATCH /api/project-budget-links/:id** — Mise à jour partielle (ligne, mode si un seul lien, `percentage`, `amount`). **`projects.update`**
 - **DELETE /api/project-budget-links/:id** — Suppression (204 si OK). **`projects.update`**
 
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).

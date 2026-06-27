@@ -53,7 +53,7 @@ import {
   PROJECT_REVIEW_TYPE_LABEL,
   PROJECT_STATUS_LABEL,
   TASK_STATUS_LABEL,
-  WARNING_CODE_LABEL,
+  projectWarningLabel,
 } from '../constants/project-enum-labels';
 import {
   POST_MORTEM_EMPTY,
@@ -1013,7 +1013,7 @@ export function ProjectReviewEditorDialog({
                     <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
                       <AlertTriangle className="size-4" aria-hidden />
                       <AlertDescription className="text-sm">
-                        {WARNING_CODE_LABEL[w] ?? w}
+                        {projectWarningLabel(w)}
                       </AlertDescription>
                     </Alert>
                   ))}

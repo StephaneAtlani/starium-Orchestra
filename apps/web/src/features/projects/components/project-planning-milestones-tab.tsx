@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
-import { useTablePan } from '@/hooks/use-table-pan';
+import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
@@ -60,7 +60,6 @@ function MilestoneTableRow({
   linkedTaskName,
   ownerUser,
   onEdit,
-  shouldSuppressClick,
 }: {
   milestone: ProjectMilestoneApi;
   index: number;
@@ -70,8 +69,8 @@ function MilestoneTableRow({
   linkedTaskName: string | null;
   ownerUser: ProjectAssignableUser | undefined;
   onEdit: (m: ProjectMilestoneApi) => void;
-  shouldSuppressClick: () => boolean;
 }) {
+  const { shouldSuppressClick } = useStariumTablePan();
   const statusLabel = milestoneStatusLabel(m.status);
   const iconTone = MILESTONE_ICON_TONES[index % MILESTONE_ICON_TONES.length];
   const isLate = milestoneDateIsLate(m.status);
@@ -214,7 +213,6 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
   const createMut = useCreateProjectMilestoneMutation(projectId);
   const updateMut = useUpdateProjectMilestoneMutation(projectId);
   const createMilestoneLabelMut = useCreateProjectMilestoneLabelMutation(projectId);
-  const tablePan = useTablePan();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProjectMilestoneApi | null>(null);
@@ -386,17 +384,8 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
         </div>
       ) : (
         <div className="starium-tablecard">
-          <div
-            ref={tablePan.scrollRef}
-            onPointerDown={tablePan.onPointerDown}
-            className={cn(
-              'starium-table-wrap',
-              tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
-            )}
-            title="Clic maintenu et glisser pour parcourir le tableau"
-            aria-label="Tableau des jalons — glisser pour faire défiler"
-          >
-            <table className="starium-dt">
+          <StariumTableWrap scrollLabel="Tableau des jalons — glisser pour faire défiler">
+            <table className="starium-dt starium-dt--wide">
               <caption className="sr-only">Liste des jalons du projet</caption>
               <thead>
                 <tr>
@@ -429,12 +418,11 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
                       m.ownerUserId ? ownerUserById.get(m.ownerUserId) : undefined
                     }
                     onEdit={openEdit}
-                    shouldSuppressClick={tablePan.shouldSuppressClick}
                   />
                 ))}
               </tbody>
             </table>
-          </div>
+          </StariumTableWrap>
         </div>
       )}
 

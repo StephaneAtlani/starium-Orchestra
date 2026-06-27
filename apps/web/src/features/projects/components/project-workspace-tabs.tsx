@@ -257,7 +257,7 @@ function ProjectWorkspaceTabsMobileSelect({
   const ActiveIcon = activeTab.icon;
 
   return (
-    <div className="border-b border-border p-3 md:hidden">
+    <div className="starium-project-workspace-tabs-mobile max-md:block md:hidden">
       <Label htmlFor="project-workspace-tab-select" className="sr-only">
         Section du projet
       </Label>
@@ -271,24 +271,54 @@ function ProjectWorkspaceTabsMobileSelect({
       >
         <SelectTrigger
           id="project-workspace-tab-select"
-          className="h-11 w-full min-h-11 text-base"
+          className="starium-project-workspace-tabs-mobile__trigger"
           aria-label="Choisir une section du projet"
         >
           <SelectValue>
-            <span className="flex items-center gap-2">
-              <ActiveIcon className="starium-synthesis-icon size-4 shrink-0" aria-hidden />
-              <span className="truncate">{activeTab.label}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-3">
+              <span
+                className="starium-synthesis-icon-well starium-project-workspace-tabs-mobile__icon-well"
+                aria-hidden
+              >
+                <ActiveIcon className="size-[18px] shrink-0" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <span className="starium-project-workspace-tabs-mobile__eyebrow">
+                  Section du projet
+                </span>
+                <span className="starium-project-workspace-tabs-mobile__value truncate">
+                  {activeTab.label}
+                </span>
+              </span>
             </span>
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent align="start" sideOffset={6}>
           {tabs.map((tab) => {
             const Icon = tab.icon;
+            const isActive = tab.id === activeTabId;
             return (
-              <SelectItem key={tab.id} value={tab.id} className="min-h-11 text-base">
-                <span className="flex items-center gap-2">
-                  <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
-                  {tab.label}
+              <SelectItem
+                key={tab.id}
+                value={tab.id}
+                className={cn(
+                  'min-h-11 py-2.5 text-sm',
+                  isActive && 'starium-project-workspace-tabs-mobile__item--active',
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className={cn(
+                      'flex size-8 shrink-0 items-center justify-center rounded-md',
+                      isActive
+                        ? 'starium-synthesis-icon-well'
+                        : 'bg-muted/60 text-muted-foreground',
+                    )}
+                    aria-hidden
+                  >
+                    <Icon className="size-4 shrink-0" />
+                  </span>
+                  <span className="truncate">{tab.label}</span>
                 </span>
               </SelectItem>
             );
@@ -332,7 +362,7 @@ export function ProjectWorkspaceTabs({
       <>
         <ProjectWorkspaceTabsMobileSelect tabs={tabs} activeTabId={activeTabId} />
         <nav
-          className="starium-project-workspace-tabs relative z-0 hidden md:flex"
+          className="starium-project-workspace-tabs relative z-0 hidden min-w-0 md:flex"
           role="tablist"
           aria-label="Navigation projet"
         >

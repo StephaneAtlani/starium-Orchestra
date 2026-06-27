@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useTablePan } from '@/hooks/use-table-pan';
+import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
 import {
   createProjectRisk,
   deleteProjectRisk,
@@ -254,7 +254,6 @@ function ProjectRisksListSection({
   quickFilter: RiskQuickFilter;
   onQuickFilterChange: (filter: RiskQuickFilter) => void;
 }) {
-  const tablePan = useTablePan();
   const [search, setSearch] = useState('');
   const [criticalityFilter, setCriticalityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -432,17 +431,8 @@ function ProjectRisksListSection({
       </div>
 
       <div className="starium-tablecard">
-        <div
-          ref={tablePan.scrollRef}
-          onPointerDown={tablePan.onPointerDown}
-          className={cn(
-            'starium-table-wrap',
-            tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
-          )}
-          title="Clic maintenu et glisser pour parcourir le tableau"
-          aria-label="Liste des risques — glisser pour faire défiler"
-        >
-          <table className="starium-dt">
+        <StariumTableWrap scrollLabel="Liste des risques — glisser pour faire défiler">
+          <table className="starium-dt starium-dt--wide">
             <caption className="sr-only">Registre des risques du projet</caption>
             <thead>
               <tr>
@@ -477,13 +467,12 @@ function ProjectRisksListSection({
                     canEdit={canEdit}
                     ownerById={ownerById}
                     onEdit={onEdit}
-                    shouldSuppressClick={tablePan.shouldSuppressClick}
                   />
                 ))
               )}
             </tbody>
           </table>
-        </div>
+        </StariumTableWrap>
 
         <ProjectTasksPagination
           total={filteredRisks.length}
@@ -507,15 +496,14 @@ function RiskTableRow({
   canEdit,
   ownerById,
   onEdit,
-  shouldSuppressClick,
 }: {
   risk: ProjectRiskApi;
   index: number;
   canEdit: boolean;
   ownerById: Map<string, string>;
   onEdit: (risk: ProjectRiskApi) => void;
-  shouldSuppressClick: () => boolean;
 }) {
+  const { shouldSuppressClick } = useStariumTablePan();
   const owner = riskOwnerLabel(risk, ownerById);
   const subtitle = risk.description?.trim() || risk.fearedEvent?.trim() || risk.code;
   const overdue = risk.status !== 'CLOSED' && isRiskDueOverdue(risk.dueDate);

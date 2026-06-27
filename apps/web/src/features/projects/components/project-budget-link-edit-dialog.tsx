@@ -30,7 +30,7 @@ import { useUpdateProjectBudgetLink } from '../hooks/use-update-project-budget-l
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
 import { ProjectBudgetAllocationRemainder } from './project-budget-allocation-remainder';
 import { ProjectBudgetLineAllocationAlert } from './project-budget-line-allocation-alert';
-import { getBudgetLineAllocationWarning } from '../lib/project-budget-line-allocation-check';
+import { getBudgetLineAllocationWarning, isBlockingLineAllocationWarning } from '../lib/project-budget-line-allocation-check';
 import {
   ALLOCATION_MODE_LABELS,
   computeFixedAllocationRemainderForEdit,
@@ -253,7 +253,7 @@ export function ProjectBudgetLinkEditDialog({
   }, [budgetLineId, linesQuery.data, link]);
 
   const budgetTotalInitialAmount =
-    budgetSummaryQuery.data?.kpi.totalInitialAmount ??
+    budgetSummaryQuery.data?.totalInitialAmount ??
     link?.budgetLine.budgetTotalInitialAmount ??
     null;
 
@@ -514,10 +514,15 @@ export function ProjectBudgetLinkEditDialog({
                         onChange={(ev) => setPercentage(ev.target.value)}
                         className={cn(
                           'h-10 pr-9 tabular-nums',
-                          lineAllocationWarning?.exceedsLineBudget &&
+                          lineAllocationWarning != null &&
+                            isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                            lineAllocationWarning.exceedsLineBudget &&
                             'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
                         )}
-                        aria-invalid={lineAllocationWarning != null}
+                        aria-invalid={
+                          lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning)
+                        }
                         aria-describedby={
                           lineAllocationWarning
                             ? 'pb-edit-line-allocation-alert'
@@ -533,7 +538,7 @@ export function ProjectBudgetLinkEditDialog({
                     </div>
                     <p id="pb-edit-pct-hint" className="text-xs text-muted-foreground">
                       {effectiveAllocationMode === 'BUDGET_PERCENTAGE'
-                        ? 'Part du budget parent imputée sur la ligne (montant arrondi à l’entier supérieur).'
+                        ? 'Enveloppe projet = part du budget parent (arrondi supérieur). Le budget validé de la ligne n’est pas modifié ; l’éventuel écart est imputé en dépassement.'
                         : 'Part du projet sur cette ligne budgétaire (montant arrondi à l’entier supérieur).'}
                       {effectiveAllocationMode === 'BUDGET_PERCENTAGE' &&
                       budgetTotalInitialAmount != null ? (
@@ -547,31 +552,61 @@ export function ProjectBudgetLinkEditDialog({
                       ) : null}
                       {selectedBudgetLine ? (
                         <>
-                          {effectiveAllocationMode === 'PERCENTAGE' ? (
+                          {effectiveAllocationMode === 'BUDGET_PERCENTAGE' ? (
+                            <>
+                              {' '}
+                              Budget ligne (validé) :{' '}
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCurrencyEur(selectedBudgetLine.initialAmount)}
+                              </span>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Enveloppe projet :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                  {draftPercentageAmount >
+                                  selectedBudgetLine.initialAmount ? (
+                                    <>
+                                      {' · '}
+                                      Dépassement imputé :{' '}
+                                      <span className="font-medium tabular-nums text-[color:var(--state-danger)]">
+                                        {formatCurrencyEur(
+                                          draftPercentageAmount -
+                                            selectedBudgetLine.initialAmount,
+                                        )}
+                                      </span>
+                                    </>
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </>
+                          ) : effectiveAllocationMode === 'PERCENTAGE' ? (
                             <>
                               {' '}
                               Budget ligne :{' '}
                               <span className="font-medium tabular-nums text-foreground">
                                 {formatCurrencyEur(selectedBudgetLine.initialAmount)}
                               </span>
-                            </>
-                          ) : null}
-                          {draftPercentageAmount != null ? (
-                            <>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Montant imputé :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                </>
+                              ) : null}
                               {' · '}
-                              Montant imputé :{' '}
+                              Disponible ligne :{' '}
                               <span className="font-medium tabular-nums text-foreground">
-                                {formatCurrencyEur(draftPercentageAmount)}
+                                {formatCurrencyEur(
+                                  Math.max(0, selectedBudgetLine.remainingAmount),
+                                )}
                               </span>
                             </>
                           ) : null}
-                          {' · '}
-                          Disponible ligne :{' '}
-                          <span className="font-medium tabular-nums text-foreground">
-                            {formatCurrencyEur(
-                              Math.max(0, selectedBudgetLine.remainingAmount),
-                            )}
-                          </span>
                         </>
                       ) : null}
                     </p>
@@ -587,10 +622,15 @@ export function ProjectBudgetLinkEditDialog({
                       onChange={(ev) => setAmount(ev.target.value)}
                       className={cn(
                         'h-10 tabular-nums',
-                        lineAllocationWarning?.exceedsLineBudget &&
+                        lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                          lineAllocationWarning.exceedsLineBudget &&
                           'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
                       )}
-                      aria-invalid={lineAllocationWarning != null}
+                      aria-invalid={
+                        lineAllocationWarning != null &&
+                        isBlockingLineAllocationWarning(lineAllocationWarning)
+                      }
                       aria-describedby={
                         lineAllocationWarning ? 'pb-edit-line-allocation-alert' : undefined
                       }

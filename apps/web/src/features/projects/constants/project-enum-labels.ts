@@ -148,6 +148,11 @@ export const WARNING_CODE_LABEL: Record<string, string> = {
   BLOCKED: 'Bloqué',
 };
 
+/** Libellé métier d’un code `project.warnings` — jamais l’identifiant technique en UI. */
+export function projectWarningLabel(code: string): string {
+  return WARNING_CODE_LABEL[code] ?? 'Point d’attention projet';
+}
+
 /** RFC-PROJ-013 */
 export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   COPIL: 'Revue COPIL',

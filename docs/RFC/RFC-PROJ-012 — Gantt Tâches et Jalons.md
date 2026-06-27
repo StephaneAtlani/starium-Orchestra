@@ -363,7 +363,7 @@ Vue **liste opérationnelle** des jalons du projet (CRUD via dialog si `projects
 * **Bandeau KPI** (`ProjectMilestonesStatStrip`) : total, planifiés, atteints, en retard (pastilles sémantiques + %).
 * **Toolbar** (`starium-toolbar`) : hint + bouton `starium-btn-primary` « Nouveau jalon ».
 * **Tableau** (`starium-dt`) : colonnes **Jalon** (icône losange colorée rotative + nom / code), **Phase**, **Étiquettes** (tags colorés), **Tâche liée**, **Responsable** (avatar + nom court), **Statut** (`starium-ds-badge`), **Date cible**, **Date atteinte**.
-* **Grab/pan** : `useTablePan` sur `starium-table-wrap` — souris **et** doigt (Pointer Events) ; seuil de déplacement avant pan pour ne pas bloquer le clic ligne → édition (`shouldSuppressClick`).
+* **Grab/pan** : tableaux denses projet via **`StariumTableWrap`** (`useTablePan` — souris **et** doigt, Pointer Events) ; seuil ~6 px ; **`useStariumTablePan().shouldSuppressClick`** sur les lignes cliquables. Kanban : pan dédié. Voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.
 * **Dialog CRUD** : `MilestoneFormDialog` — gabarit modale formulaire dense ([FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §11.3.1 : bandeau `DialogHeader`, scroll `DialogBody`, pied `DialogFooter`, champs `starium-form-*` dans `milestone-form-dialog-fields.tsx`) ; réutilisé depuis le Gantt (`ProjectTaskPlanningSection`) et l’onglet Jalons.
 * États **loading** / **error** / **empty** (`LoadingState`, `Alert`, `EmptyState`).
 

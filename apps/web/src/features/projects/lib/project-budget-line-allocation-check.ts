@@ -11,12 +11,20 @@ export type BudgetLineAllocationRef = {
   remainingAmount: number;
 };
 
+export type BudgetLineAllocationWarningKind =
+  | 'line_budget'
+  | 'line_remaining'
+  | 'budget_percentage_overrun';
+
 export type BudgetLineAllocationWarning = {
-  severity: 'warning' | 'danger';
+  severity: 'info' | 'warning' | 'danger';
+  kind: BudgetLineAllocationWarningKind;
   lineLabel: string;
   lineBudget: number;
   lineRemaining: number;
   projectAllocation: number;
+  /** Écart imputé en dépassement (mode % du budget). */
+  lineOverrun?: number;
   exceedsLineBudget: boolean;
   exceedsLineRemaining: boolean;
 };
@@ -70,10 +78,26 @@ export function getBudgetLineAllocationWarning(
   const exceedsLineBudget = projectAllocation > lineBudget;
   const exceedsLineRemaining = projectAllocation > lineRemaining;
 
+  if (options.mode === 'BUDGET_PERCENTAGE' && exceedsLineBudget) {
+    const lineOverrun = projectAllocation - lineBudget;
+    return {
+      severity: 'info',
+      kind: 'budget_percentage_overrun',
+      lineLabel: formatLineLabel(line),
+      lineBudget,
+      lineRemaining,
+      projectAllocation,
+      lineOverrun,
+      exceedsLineBudget: true,
+      exceedsLineRemaining,
+    };
+  }
+
   if (!exceedsLineBudget && !exceedsLineRemaining) return null;
 
   return {
     severity: exceedsLineBudget ? 'danger' : 'warning',
+    kind: exceedsLineBudget ? 'line_budget' : 'line_remaining',
     lineLabel: formatLineLabel(line),
     lineBudget,
     lineRemaining,
@@ -81,4 +105,11 @@ export function getBudgetLineAllocationWarning(
     exceedsLineBudget,
     exceedsLineRemaining,
   };
+}
+
+/** Alerte visuelle bloquante (PERCENTAGE / FIXED) — pas pour le dépassement % budget. */
+export function isBlockingLineAllocationWarning(
+  warning: BudgetLineAllocationWarning,
+): boolean {
+  return warning.kind !== 'budget_percentage_overrun';
 }

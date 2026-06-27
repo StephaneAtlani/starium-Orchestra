@@ -82,9 +82,8 @@ html.dark {
   color: var(--brand-gold-700);
 }
 
-/* Navigation projet (bandeau onglets — refonte dtabs) */
+/* Navigation projet (bandeau onglets desktop — refonte dtabs) */
 .starium-project-workspace-tabs {
-  display: flex;
   align-items: center;
   gap: 4px;
   overflow-x: auto;
@@ -129,6 +128,78 @@ html.dark {
   height: 16px;
   flex-shrink: 0;
   color: inherit;
+}
+
+/* Navigation projet — sélecteur mobile (miroir visuel du bandeau desktop) */
+.starium-project-workspace-tabs-mobile {
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--neutral-200, var(--border));
+  background: var(--neutral-0, var(--card));
+  padding: 7px 10px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-1);
+}
+.starium-project-workspace-tabs-mobile__trigger {
+  display: flex;
+  width: 100% !important;
+  min-height: 44px !important;
+  height: auto !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none !important;
+  border-radius: var(--radius-sm, 6px) !important;
+  background: transparent !important;
+  padding: 9px 12px !important;
+  box-shadow: none !important;
+  font-size: inherit;
+  transition: background-color 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.starium-project-workspace-tabs-mobile__trigger:hover {
+  background: color-mix(in srgb, var(--neutral-200) 35%, transparent) !important;
+}
+.starium-project-workspace-tabs-mobile__trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  box-shadow: none !important;
+}
+.starium-project-workspace-tabs-mobile__trigger > svg:last-of-type {
+  color: var(--brand-gold-700);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+.starium-project-workspace-tabs-mobile__icon-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm, 6px);
+}
+.starium-project-workspace-tabs-mobile__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--neutral-500, var(--muted-foreground));
+  line-height: 1.2;
+}
+.starium-project-workspace-tabs-mobile__value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand-gold-700);
+  line-height: 1.25;
+}
+.starium-project-workspace-tabs-mobile__item--active {
+  color: var(--brand-gold-700);
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .starium-project-workspace-tabs-mobile__trigger {
+    transition: none;
+  }
 }
 
 /* En-tête projet (refonte proj-head) */
@@ -1394,6 +1465,11 @@ button.starium-risk-attention-title:focus-visible {
   background: color-mix(in srgb, var(--state-danger-bg) 85%, var(--card));
   color: var(--foreground);
 }
+.starium-proj-budget-line-alert--info {
+  border-color: color-mix(in srgb, var(--state-info) 35%, var(--border));
+  background: color-mix(in srgb, var(--state-info-bg, var(--muted)) 85%, var(--card));
+  color: var(--foreground);
+}
 .starium-proj-budget-line-alert__title {
   font-size: 13px;
   font-weight: 700;
@@ -1403,6 +1479,9 @@ button.starium-risk-attention-title:focus-visible {
 }
 .starium-proj-budget-line-alert--danger .starium-proj-budget-line-alert__title {
   color: var(--state-danger);
+}
+.starium-proj-budget-line-alert--info .starium-proj-budget-line-alert__title {
+  color: var(--state-info);
 }
 .starium-proj-budget-line-alert__text {
   font-size: 12px;
@@ -1432,6 +1511,11 @@ button.starium-risk-attention-title:focus-visible {
 }
 .starium-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+table.starium-dt.starium-dt--wide {
+  width: max(100%, 56rem);
 }
 table.starium-dt {
   width: 100%;

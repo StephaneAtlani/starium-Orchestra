@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { StariumTableWrap } from '@/components/ui/starium-table-wrap';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
 import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
@@ -55,7 +56,7 @@ import {
 import { formatProjectBudgetAllocation } from '../scenario-workspace/scenario-budget-project-links';
 import { ProjectBudgetAllocationRemainder } from './project-budget-allocation-remainder';
 import { ProjectBudgetLineAllocationAlert } from './project-budget-line-allocation-alert';
-import { getBudgetLineAllocationWarning } from '../lib/project-budget-line-allocation-check';
+import { getBudgetLineAllocationWarning, isBlockingLineAllocationWarning } from '../lib/project-budget-line-allocation-check';
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetAllocationType,
@@ -391,7 +392,7 @@ export function ProjectBudgetSection({
 
   const sheetForecastCost = sheetQuery.data?.estimatedCost ?? null;
   const budgetTotalInitialAmount =
-    budgetSummaryQuery.data?.kpi.totalInitialAmount ?? null;
+    budgetSummaryQuery.data?.totalInitialAmount ?? null;
 
   const allocationRemainder = useMemo(() => {
     if (effectiveCreateAllocationMode === 'FIXED') {
@@ -502,7 +503,7 @@ export function ProjectBudgetSection({
         ) : (
           <>
             <div className="starium-tablecard">
-              <div className="starium-table-wrap">
+              <StariumTableWrap scrollLabel="Liaisons budgétaires — glisser pour faire défiler">
                 <table className="starium-dt">
                   <caption className="sr-only">
                     Liaisons budgétaires du projet
@@ -612,7 +613,7 @@ export function ProjectBudgetSection({
                     )}
                   </tbody>
                 </table>
-              </div>
+              </StariumTableWrap>
               <p className="flex items-center gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] text-muted-foreground">
                 Montants ou pourcentages imputés sur chaque ligne selon le mode d&apos;allocation
                 du projet.
@@ -816,10 +817,15 @@ export function ProjectBudgetSection({
                         onChange={(ev) => setPercentage(ev.target.value)}
                         className={cn(
                           'h-10 pr-9 tabular-nums',
-                          lineAllocationWarning?.exceedsLineBudget &&
+                          lineAllocationWarning != null &&
+                            isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                            lineAllocationWarning.exceedsLineBudget &&
                             'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
                         )}
-                        aria-invalid={lineAllocationWarning != null}
+                        aria-invalid={
+                          lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning)
+                        }
                         aria-describedby={
                           lineAllocationWarning
                             ? 'pb-line-allocation-alert'
@@ -835,7 +841,7 @@ export function ProjectBudgetSection({
                     </div>
                     <p id="pb-pct-hint" className="text-xs text-muted-foreground">
                       {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE'
-                        ? 'Part du budget parent imputée sur la ligne (montant arrondi à l’entier supérieur).'
+                        ? 'Enveloppe projet = part du budget parent (arrondi supérieur). Le budget validé de la ligne n’est pas modifié ; l’éventuel écart est imputé en dépassement.'
                         : 'Part du projet sur cette ligne budgétaire (montant arrondi à l’entier supérieur).'}
                       {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE' &&
                       budgetTotalInitialAmount != null ? (
@@ -849,31 +855,61 @@ export function ProjectBudgetSection({
                       ) : null}
                       {allocationLineRef ? (
                         <>
-                          {effectiveCreateAllocationMode === 'PERCENTAGE' ? (
+                          {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE' ? (
+                            <>
+                              {' '}
+                              Budget ligne (validé) :{' '}
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCurrencyEur(allocationLineRef.initialAmount)}
+                              </span>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Enveloppe projet :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                  {draftPercentageAmount >
+                                  allocationLineRef.initialAmount ? (
+                                    <>
+                                      {' · '}
+                                      Dépassement imputé :{' '}
+                                      <span className="font-medium tabular-nums text-[color:var(--state-danger)]">
+                                        {formatCurrencyEur(
+                                          draftPercentageAmount -
+                                            allocationLineRef.initialAmount,
+                                        )}
+                                      </span>
+                                    </>
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </>
+                          ) : effectiveCreateAllocationMode === 'PERCENTAGE' ? (
                             <>
                               {' '}
                               Budget ligne :{' '}
                               <span className="font-medium tabular-nums text-foreground">
                                 {formatCurrencyEur(allocationLineRef.initialAmount)}
                               </span>
-                            </>
-                          ) : null}
-                          {draftPercentageAmount != null ? (
-                            <>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Montant imputé :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                </>
+                              ) : null}
                               {' · '}
-                              Montant imputé :{' '}
+                              Disponible ligne :{' '}
                               <span className="font-medium tabular-nums text-foreground">
-                                {formatCurrencyEur(draftPercentageAmount)}
+                                {formatCurrencyEur(
+                                  Math.max(0, allocationLineRef.remainingAmount),
+                                )}
                               </span>
                             </>
                           ) : null}
-                          {' · '}
-                          Disponible ligne :{' '}
-                          <span className="font-medium tabular-nums text-foreground">
-                            {formatCurrencyEur(
-                              Math.max(0, allocationLineRef.remainingAmount),
-                            )}
-                          </span>
                         </>
                       ) : null}
                     </p>
@@ -889,10 +925,15 @@ export function ProjectBudgetSection({
                       onChange={(ev) => setAmount(ev.target.value)}
                       className={cn(
                         'h-10 tabular-nums',
-                        lineAllocationWarning?.exceedsLineBudget &&
+                        lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                          lineAllocationWarning.exceedsLineBudget &&
                           'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
                       )}
-                      aria-invalid={lineAllocationWarning != null}
+                      aria-invalid={
+                        lineAllocationWarning != null &&
+                        isBlockingLineAllocationWarning(lineAllocationWarning)
+                      }
                       aria-describedby={
                         lineAllocationWarning ? 'pb-line-allocation-alert' : undefined
                       }
