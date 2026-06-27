@@ -3,8 +3,15 @@ import type { ProjectBudgetAllocationType, ProjectBudgetLinkItem } from '../type
 export const ALLOCATION_MODE_LABELS: Record<ProjectBudgetAllocationType, string> = {
   FULL: 'Intégral (100 % de la ligne)',
   PERCENTAGE: 'Pourcentage de la ligne',
+  BUDGET_PERCENTAGE: 'Pourcentage du budget',
   FIXED: 'Montant fixe',
 };
+
+export function isPercentageAllocationMode(
+  mode: ProjectBudgetAllocationType,
+): boolean {
+  return mode === 'PERCENTAGE' || mode === 'BUDGET_PERCENTAGE';
+}
 
 export function parseFixedLinkAmount(amount: string | null): number | null {
   if (amount == null || amount === '') return null;
@@ -16,6 +23,15 @@ export function parseAllocationPercentage(value: string | null): number | null {
   if (value == null || value === '') return null;
   const n = Number(String(value).replace(',', '.'));
   return Number.isNaN(n) ? null : n;
+}
+
+/** Montant € imputé sur une ligne pour un pourcentage (arrondi à l'entier supérieur). */
+export function computePercentageLineAllocationAmount(
+  lineInitialAmount: number,
+  percentage: number,
+): number | null {
+  if (lineInitialAmount <= 0 || percentage <= 0) return null;
+  return Math.ceil((lineInitialAmount * percentage) / 100);
 }
 
 export function sumFixedLinkAmounts(links: ProjectBudgetLinkItem[]): number {
@@ -30,7 +46,7 @@ export function sumFixedLinkAmounts(links: ProjectBudgetLinkItem[]): number {
 export function sumPercentageLinkAllocations(links: ProjectBudgetLinkItem[]): number {
   let sum = 0;
   for (const link of links) {
-    if (link.allocationType !== 'PERCENTAGE') continue;
+    if (!isPercentageAllocationMode(link.allocationType)) continue;
     sum += parseAllocationPercentage(link.percentage) ?? 0;
   }
   return sum;
@@ -139,7 +155,7 @@ export function canAddProjectBudgetLink(
 
 const API_ERROR_MESSAGES: Record<string, string> = {
   'Un seul mode d’allocation par projet (FULL, PERCENTAGE ou FIXED)':
-    'Tous les liens du projet doivent utiliser le même mode d’allocation (intégral, pourcentage ou montant fixe).',
+    'Tous les liens du projet doivent utiliser le même mode d’allocation (intégral, pourcentage ligne, pourcentage budget ou montant fixe).',
   'Au plus un lien FULL par projet':
     'Un projet en mode intégral ne peut avoir qu’un seul lien budgétaire.',
   'Un lien FULL ne doit pas avoir de pourcentage ni de montant':

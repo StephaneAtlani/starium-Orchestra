@@ -462,7 +462,19 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                   </div>
                 </div>
 
-                {visiblePhaseRows.map((row, rowIndex) => {
+                <div className="starium-gantt-body">
+                  {todayPercent != null ? (
+                    <div className="starium-gantt-today-layer" aria-hidden>
+                      <div
+                        className="starium-gantt-today"
+                        style={{ left: `${todayPercent}%` }}
+                      >
+                        <div className="starium-gantt-today-flag">Aujourd&apos;hui</div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                {visiblePhaseRows.map((row) => {
                   const phaseKey = phaseRowKey(row.phaseId);
                   const isExpanded = expandedPhaseKeys.has(phaseKey);
                   const canExpand = row.taskCount > 0;
@@ -519,17 +531,6 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                               'starium-gantt-track--dual',
                           )}
                         >
-                          {todayPercent != null ? (
-                            <div
-                              className="starium-gantt-today"
-                              style={{ left: `${todayPercent}%` }}
-                              aria-hidden
-                            >
-                              {rowIndex === 0 ? (
-                                <div className="starium-gantt-today-flag">Aujourd&apos;hui</div>
-                              ) : null}
-                            </div>
-                          ) : null}
                           {mainBar ? (
                             <MacroGanttBar
                               className="starium-gantt-bar"
@@ -605,13 +606,6 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                                   </div>
                                 </div>
                                 <div className="starium-gantt-track starium-gantt-track--task">
-                                  {todayPercent != null ? (
-                                    <div
-                                      className="starium-gantt-today"
-                                      style={{ left: `${todayPercent}%` }}
-                                      aria-hidden
-                                    />
-                                  ) : null}
                                   {taskBar ? (
                                     <MacroGanttBar
                                       className="starium-gantt-bar starium-gantt-bar--task"
@@ -690,13 +684,6 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                       </div>
                     </div>
                     <div className="starium-gantt-track starium-gantt-track--jalons">
-                      {todayPercent != null ? (
-                        <div
-                          className="starium-gantt-today"
-                          style={{ left: `${todayPercent}%` }}
-                          aria-hidden
-                        />
-                      ) : null}
                       {!milestonesExpanded
                         ? milestoneMarkers.map((marker) => {
                             const markerPct = msToTimelinePercent(marker.targetMs, bounds);
@@ -760,13 +747,6 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                               </div>
                             </div>
                             <div className="starium-gantt-track starium-gantt-track--task starium-gantt-track--jalons">
-                              {todayPercent != null ? (
-                                <div
-                                  className="starium-gantt-today"
-                                  style={{ left: `${todayPercent}%` }}
-                                  aria-hidden
-                                />
-                              ) : null}
                               {inView ? (
                                 <MacroGanttMilestoneDiamond
                                   className="starium-gantt-diamond"
@@ -792,6 +772,7 @@ export function ProjectPlanningMacroTab({ projectId }: { projectId: string }) {
                       })
                     : null}
                 </Fragment>
+                </div>
               </div>
             </div>
           </div>

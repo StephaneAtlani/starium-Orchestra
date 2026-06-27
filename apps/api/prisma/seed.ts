@@ -95,12 +95,16 @@ type EnvelopeSeed = {
   lines: LineSeed[];
 };
 
+type EnvelopeUpsertInput = Pick<EnvelopeSeed, "code" | "name" | "type">;
+
 type BudgetSeed = {
   code: string;
   name: string;
   currency: string;
   envelopes: EnvelopeSeed[];
 };
+
+type BudgetUpsertInput = Pick<BudgetSeed, "code" | "name" | "currency">;
 
 type ExerciseSeed = {
   year: number;
@@ -2550,9 +2554,9 @@ async function syncDemoProjectMilestonePhases(clientId: string, prefix: string):
   }
 }
 
-/** Liaison FULL vers des lignes budgétaires réelles du client (RFC-PROJ-010). */
-async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): Promise<void> {
-  const lines = await prisma.budgetLine.findMany({
+/** Lignes budgétaires éligibles aux liaisons projet démo (RFC-PROJ-010). */
+async function findDemoProjectBudgetLines(clientId: string) {
+  return prisma.budgetLine.findMany({
     where: {
       clientId,
       status: BudgetLineStatus.ACTIVE,
@@ -2567,11 +2571,83 @@ async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): P
     orderBy: { code: "asc" },
     take: 48,
   });
-  if (lines.length === 0) {
-    console.warn(`Seed liens budget [${prefix}]: aucune ligne ACTIVE sur budget/exercice ouverts, skip.`);
-    return;
+}
+
+/**
+ * Clients créés hors catalogue CLIENTS (zzz, testa, …) : budget minimal pour tester les liaisons projet.
+ */
+async function ensureMinimalDemoBudgetForClient(
+  clientId: string,
+  prefix: string,
+): Promise<void> {
+  const year = new Date().getUTCFullYear();
+  const exercise = await upsertExercise(clientId, year);
+  const budget = await upsertBudget(clientId, exercise.id, {
+    code: `${prefix}-DEMO-BUD`,
+    name: `Budget démo portefeuille ${prefix}`,
+    currency: "EUR",
+  });
+  const envelope = await upsertEnvelope(clientId, budget.id, {
+    code: `${prefix}-ENV-PROJ`,
+    name: "Enveloppe projets démo",
+    type: BudgetEnvelopeType.RUN,
+  });
+  const lines = [
+    {
+      code: `${prefix}-L01`,
+      name: "Projets — infrastructure",
+      expenseType: ExpenseType.CAPEX,
+      amount: 320_000,
+    },
+    {
+      code: `${prefix}-L02`,
+      name: "Projets — run & applicatif",
+      expenseType: ExpenseType.OPEX,
+      amount: 240_000,
+    },
+    {
+      code: `${prefix}-L03`,
+      name: "Projets — transformation",
+      expenseType: ExpenseType.OPEX,
+      amount: 180_000,
+    },
+    {
+      code: `${prefix}-L04`,
+      name: "Projets — sécurité & conformité",
+      expenseType: ExpenseType.OPEX,
+      amount: 120_000,
+    },
+  ] as const;
+
+  for (const line of lines) {
+    const created = await upsertLine(clientId, budget.id, envelope.id, {
+      ...line,
+      supplierName: "",
+      flow: "NONE",
+    });
+    await seedBudgetLinePlanningMonths(clientId, created.id, line.code, line.amount);
   }
 
+  console.log(
+    `✅ Seed budget minimal [${prefix}] : exercice ${year}, ${lines.length} ligne(s) ACTIVE (bootstrap portefeuille démo).`,
+  );
+}
+
+/** Liaison FULL vers des lignes budgétaires réelles du client (RFC-PROJ-010). */
+async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): Promise<number> {
+  let lines = await findDemoProjectBudgetLines(clientId);
+  if (lines.length === 0) {
+    await ensureMinimalDemoBudgetForClient(clientId, prefix);
+    lines = await findDemoProjectBudgetLines(clientId);
+  }
+  if (lines.length === 0) {
+    console.warn(
+      `Seed liens budget [${prefix}]: aucune ligne ACTIVE sur budget/exercice ouverts, skip.`,
+    );
+    return 0;
+  }
+
+  let linked = 0;
   for (let i = 1; i <= 10; i++) {
     const code = `${prefix}-SEED-${String(i).padStart(2, "0")}`;
     const project = await prisma.project.findFirst({ where: { clientId, code } });
@@ -2586,7 +2662,9 @@ async function ensureDemoProjectBudgetLinks(clientId: string, prefix: string): P
         allocationType: ProjectBudgetAllocationType.FULL,
       },
     });
+    linked += 1;
   }
+  return linked;
 }
 
 /**
@@ -2937,14 +3015,14 @@ async function seedClientDemoProjects(
   await ensureDemoRetroplanMilestones(clientId, prefix, now, a);
   await syncDemoProjectMilestonePhases(clientId, prefix);
   await ensureDemoProjectTagsAndLabels(prisma, clientId, prefix);
-  await ensureDemoProjectBudgetLinks(clientId, prefix);
+  const budgetLinksCreated = await ensureDemoProjectBudgetLinks(clientId, prefix);
   await ensureDemoProjectTaskBuckets(prisma, clientId, prefix);
   await ensureDemoProjectActivities(prisma, clientId, prefix, now, a, b);
   await ensureDemoProjectReviews(prisma, clientId, prefix, now, a, b);
   await ensureDemoActionPlans(prisma, clientId, prefix, now, a);
 
   console.log(
-    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, étiquettes projet/tâches/jalons, liens budget FULL, buckets Kanban, activites recurrentes, points projet, catégories, ressources, 3 plans d’action + tâches COPIL/cyber/RGPD`,
+    `✅ Seed demo projets [${slug}]: 10 projets, risques métier (jeu complet), taches (jeu complet recree), fiches (TOWS 4 quadrants), jalons rétroplan, étiquettes projet/tâches/jalons, ${budgetLinksCreated > 0 ? `${budgetLinksCreated} lien(s) budget FULL` : "liens budget non créés"}, buckets Kanban, activites recurrentes, points projet, catégories, ressources, 3 plans d’action + tâches COPIL/cyber/RGPD`,
   );
 }
 
@@ -3190,7 +3268,7 @@ async function upsertExercise(clientId: string, year: number) {
   });
 }
 
-async function upsertBudget(clientId: string, exerciseId: string, seed: BudgetSeed) {
+async function upsertBudget(clientId: string, exerciseId: string, seed: BudgetUpsertInput) {
   return prisma.budget.upsert({
     where: {
       clientId_code: {
@@ -3215,7 +3293,7 @@ async function upsertBudget(clientId: string, exerciseId: string, seed: BudgetSe
   });
 }
 
-async function upsertEnvelope(clientId: string, budgetId: string, seed: EnvelopeSeed) {
+async function upsertEnvelope(clientId: string, budgetId: string, seed: EnvelopeUpsertInput) {
   return prisma.budgetEnvelope.upsert({
     where: {
       clientId_budgetId_code: {

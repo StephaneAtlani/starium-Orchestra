@@ -546,7 +546,7 @@ export type CreateRetroplanMacroPayload = {
 };
 
 /** RFC-PROJ-010 — liaisons budget */
-export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'FIXED';
+export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'BUDGET_PERCENTAGE' | 'FIXED';
 
 export type ProjectBudgetLinkItem = {
   id: string;
@@ -567,6 +567,8 @@ export type ProjectBudgetLinkItem = {
     committedAmount?: number;
     consumedAmount?: number;
     initialAmount?: number;
+    /** Somme des montants initiaux des lignes du budget (pilotage). */
+    budgetTotalInitialAmount?: number | null;
     expenseType?: string;
   };
 };

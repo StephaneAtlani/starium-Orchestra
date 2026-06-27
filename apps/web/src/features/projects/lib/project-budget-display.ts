@@ -1,4 +1,5 @@
 import type { ProjectBudgetLinkItem } from '../types/project.types';
+import { computePercentageLineAllocationAmount } from './project-budget-allocation';
 
 export function parseBudgetAmount(raw: string | null | undefined): number | null {
   if (raw == null || raw === '') return null;
@@ -49,8 +50,15 @@ export function projectLinkAllocatedBudget(link: ProjectBudgetLinkItem): number 
   const initial = link.budgetLine.initialAmount;
   if (initial == null) return null;
   if (link.allocationType === 'FULL') return initial;
-  const share = projectAllocationShare(link);
-  return initial * share;
+  if (link.allocationType === 'BUDGET_PERCENTAGE') {
+    const budgetTotal = link.budgetLine.budgetTotalInitialAmount;
+    const pct = parseBudgetAmount(link.percentage);
+    if (budgetTotal == null || pct == null) return null;
+    return computePercentageLineAllocationAmount(budgetTotal, pct);
+  }
+  const pct = parseBudgetAmount(link.percentage);
+  if (pct == null) return null;
+  return computePercentageLineAllocationAmount(initial, pct);
 }
 
 /** Engagé attribué au projet (proratisé selon le mode d’allocation). */
@@ -58,6 +66,10 @@ export function projectLinkEngaged(link: ProjectBudgetLinkItem): number {
   const committed = link.budgetLine.committedAmount ?? 0;
   if (link.allocationType === 'FIXED') {
     const cap = parseBudgetAmount(link.amount) ?? 0;
+    return Math.min(committed, cap);
+  }
+  if (link.allocationType === 'BUDGET_PERCENTAGE') {
+    const cap = projectLinkAllocatedBudget(link) ?? 0;
     return Math.min(committed, cap);
   }
   return committed * projectAllocationShare(link);
@@ -68,6 +80,10 @@ export function projectLinkRealized(link: ProjectBudgetLinkItem): number {
   const consumed = link.budgetLine.consumedAmount ?? 0;
   if (link.allocationType === 'FIXED') {
     const cap = parseBudgetAmount(link.amount) ?? 0;
+    return Math.min(consumed, cap);
+  }
+  if (link.allocationType === 'BUDGET_PERCENTAGE') {
+    const cap = projectLinkAllocatedBudget(link) ?? 0;
     return Math.min(consumed, cap);
   }
   return consumed * projectAllocationShare(link);

@@ -1375,6 +1375,41 @@ button.starium-risk-attention-title:focus-visible {
   color: var(--state-danger);
 }
 
+.starium-proj-budget-line-alert {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md, 10px);
+  border-width: 1px;
+  border-style: solid;
+}
+.starium-proj-budget-line-alert--warning {
+  border-color: color-mix(in srgb, var(--state-warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--state-warning-bg) 85%, var(--card));
+  color: var(--foreground);
+}
+.starium-proj-budget-line-alert--danger {
+  border-color: color-mix(in srgb, var(--state-danger) 40%, var(--border));
+  background: color-mix(in srgb, var(--state-danger-bg) 85%, var(--card));
+  color: var(--foreground);
+}
+.starium-proj-budget-line-alert__title {
+  font-size: 13px;
+  font-weight: 700;
+}
+.starium-proj-budget-line-alert--warning .starium-proj-budget-line-alert__title {
+  color: var(--state-warning);
+}
+.starium-proj-budget-line-alert--danger .starium-proj-budget-line-alert__title {
+  color: var(--state-danger);
+}
+.starium-proj-budget-line-alert__text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--neutral-700, var(--foreground));
+}
+
 .starium-proj-budget-edit-form__body {
   background: color-mix(in srgb, var(--neutral-50, var(--muted)) 40%, var(--neutral-0, var(--card)));
 }
@@ -2504,10 +2539,20 @@ table.starium-dt {
 .starium-macro-gantt {
   width: 100%;
   min-width: 0;
+  --starium-gantt-label-width: 200px;
+}
+.starium-gantt-body {
+  position: relative;
+}
+.starium-gantt-today-layer {
+  position: absolute;
+  inset: 0 0 0 var(--starium-gantt-label-width);
+  pointer-events: none;
+  z-index: 2;
 }
 .starium-gantt-head {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: var(--starium-gantt-label-width) 1fr;
   border-bottom: 1px solid var(--neutral-200, var(--border));
 }
 .starium-gantt-head-label {
@@ -2568,7 +2613,7 @@ table.starium-dt {
 }
 .starium-gantt-row {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: var(--starium-gantt-label-width) 1fr;
   align-items: start;
   border-bottom: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 65%, transparent));
   min-height: 2.75rem;

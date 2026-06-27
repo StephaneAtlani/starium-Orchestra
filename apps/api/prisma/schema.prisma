@@ -1302,6 +1302,7 @@ enum ProjectMilestoneStatus {
 enum ProjectBudgetAllocationType {
   FULL
   PERCENTAGE
+  BUDGET_PERCENTAGE
   FIXED
 }
 

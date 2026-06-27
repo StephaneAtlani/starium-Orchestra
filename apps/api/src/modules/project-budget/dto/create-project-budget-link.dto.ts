@@ -17,7 +17,8 @@ export class CreateProjectBudgetLinkDto {
   allocationType!: ProjectBudgetAllocationType;
 
   @ValidateIf((o: CreateProjectBudgetLinkDto) =>
-    o.allocationType === ProjectBudgetAllocationType.PERCENTAGE,
+    o.allocationType === ProjectBudgetAllocationType.PERCENTAGE ||
+    o.allocationType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE,
   )
   @IsNumber()
   @Type(() => Number)
