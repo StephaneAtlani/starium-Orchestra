@@ -11,7 +11,7 @@ export type KpiCardFooterTone =
   | 'violet';
 
 const FOOTER_TONE_CLASS: Record<KpiCardFooterTone, string> = {
-  muted: 'text-muted-foreground',
+  muted: 'starium-text-muted',
   brand: 'text-[color:var(--starium-primary)]',
   success: 'text-emerald-700 dark:text-emerald-400',
   warning: 'text-amber-800 dark:text-amber-400',
@@ -96,7 +96,7 @@ export function KpiCard({
             {value}
           </div>
           {subtitle ? (
-            <div className="mt-0.5 text-xs text-muted-foreground">{subtitle}</div>
+            <div className="starium-text-muted mt-0.5 text-xs">{subtitle}</div>
           ) : null}
           {resolvedFooter ? (
             <div

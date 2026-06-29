@@ -56,7 +56,7 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 
 ## 2. Règles express
 
-- Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages.
+- Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages. **Texte secondaire** : `text-muted-foreground` ou `.starium-text-muted` → `--color-text-muted` / `--ds-text-muted-color` (**neutral-600** `#5F5A52`, contraste AA sur fond papier — ne pas utiliser neutral-500 pour du corps de texte).
 - **Bordures / cadres** : ne jamais se contenter de la classe `**border`** seule — sans couleur explicite, Tailwind applique souvent une couleur de bordure **trop contrastée** (effet « noir » sur fond clair). Toujours combiner avec un token : `**border-border`**, `**border-border/60**`, `**border-border/70**`, `**border-input**` (champs), ou `**border-dashed border-border/80**` (zones vides). Les `**Card**` utilisent déjà `.starium-card` (`var(--starium-border)`). Pour un **sous-bloc** dans une carte (formulaire, encart), préférer par ex. `rounded-lg border border-border/70 bg-muted/30 p-4` — filet **gris** cohérent avec le reste de l’UI, pas un trait noir.
 - **Cadres imbriqués** : **ne pas** envelopper une grille de KPI dans une `Card` / `.starium-section` — pattern DS dashboard : **`.starium-module`** (titre + actions, fond app visible) + **`.starium-kpi-card`** par indicateur ; **portefeuille `/projects`** : **`.starium-module`** + grille **4 × `KpiCard` `variant="dense"`** (pastilles icônes sémantiques — **§6.1**). La classe **`.starium-kpi-strip`** reste disponible en CSS pour d’autres écrans (ex. présentation CODIR) mais n’est plus le pattern du bandeau KPI liste projets. Réserver **`.starium-section`** / **`.starium-panel`** à un **seul** bloc (tableau, citation, formulaire). Détail : **§2.1**.
 - **Cartes « synthèse »** (fiche projet, arbitrage) : sous-blocs avec accent latéral possible — voir fiche projet **§11.2**. Les **score cards KPI** (dashboard, budgets) utilisent **§2.1** / **§6** ; le **bandeau KPI portefeuille Projets** utilise **§6.1** (4 × `KpiCard` dense dans `.starium-module`), pas le bandeau coloré latéral fiche projet.
@@ -74,7 +74,7 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | Classe | Usage | Cadre ? |
 |--------|--------|---------|
 | `.starium-module` | Groupe de page : titre + description + contenu (ex. bloc KPI dashboard, widgets Budget/Projets) | **Non** — fond app `#FAF9F7` |
-| `.starium-kpi-card` | **Une** score card KPI (icône or + libellé + valeur) — dashboard, budgets | **Oui** — `shadow-1`, `radius-lg` |
+| `.starium-kpi-card` | **Une** score card KPI (icône or + libellé + valeur) — dashboard, budgets | **Oui** — `shadow-1`, `radius-lg` ; libellé `.starium-kpi-label` → `--ds-kpi-label-color` |
 | `.starium-kpi-card--interactive` | Variante cliquable (lien) | idem + hover `shadow-2` |
 | `.starium-kpi-strip` | **Bandeau KPI** historique : une carte, grille 3 colonnes (groupes Volume / Risques / Complétude) — **présentation CODIR** ou écrans legacy ; **pas** le bandeau `/projects` actuel | **Oui** — un seul cadre |
 | `.starium-kpi-strip-*` | Sous-éléments du strip (`-grid`, `-group`, `-group-label`, `-items`, `-item-label`, `-item-value`, modificateurs `--ok` / `--warn` / `--danger` / `--muted`) | — |
@@ -87,6 +87,9 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-projects-table` | Densité et en-têtes overline du tableau portefeuille Projets | — |
 | `.starium-table-footer` | Pied pagination panneau liste (mockup Projets) | — |
 | `.starium-overline` | Libellé uppercase 11px (groupes compacts) | — |
+| `.starium-text-muted` | Texte secondaire lisible (descriptions, métadonnées, sous-titres module) — `neutral-600` | — |
+
+**Tokens typo secondaire** (`apps/web/src/styles/tokens.css`) : `--color-text-muted` → `var(--neutral-600)` ; `--ds-text-muted-color` ; `--ds-kpi-label-color` (libellés `.starium-kpi-label` et strip KPI). Préférer `text-muted-foreground` ou `.starium-text-muted` — **ne pas** utiliser `neutral-500` pour du texte de contenu.
 
 **Règle anti « cadre dans cadre »** : grille de N KPI dashboard → `starium-module` + N × `starium-kpi-card`. **Interdit** : `starium-section` > grille de `starium-kpi-card`. Portefeuille Projets : **`starium-module`** + **4 × `KpiCard` dense** (`projects-portfolio-kpi.tsx`) — pas de `Card` parent autour des KPI.
 
@@ -386,7 +389,7 @@ Autres écrans (ex. **plan d’action détail**, §11) peuvent utiliser une **va
 
 - En-tête : `CardHeader` + `CardTitle` / `CardDescription`.
 - **Composant `Table`** (`apps/web/src/components/ui/table.tsx`) : par défaut (sans `noWrapper`), la `<table>` est dans un `div` `data-slot="table-container"` avec `overflow-x-auto`, **`cursor-grab`** / **`cursor-grabbing`** pendant le déplacement, et le hook **`useTablePan`** (`apps/web/src/hooks/use-table-pan.ts`) — **clic maintenu + glisser** (souris **ou** doigt via **Pointer Events**) pour faire défiler (horizontal ; vertical aussi si le conteneur a les deux axes). Un **seuil de déplacement** (~6 px) évite de confondre pan et clic sur une ligne ; après un pan, appeler **`shouldSuppressClick()`** dans le `onClick` ligne pour ne pas ouvrir l’édition. Les **liens, boutons, champs, selects, labels** ne déclenchent pas le pan (même esprit que le Gantt portefeuille : `docs/modules/portfolio-gantt-ui.md` §5). Pendant le pan : `touch-none` + `select-none`. **`TableContainer`** est exporté si un écran doit réutiliser ce wrapper seul.
-- **Tableaux `starium-dt`** (cartes `starium-tablecard`) : utiliser le composant **`StariumTableWrap`** (`apps/web/src/components/ui/starium-table-wrap.tsx`) — même hook **`useTablePan`**, contexte **`useStariumTablePan()`** pour les lignes cliquables. Classe CSS **`starium-dt--wide`** (`min-width` ~56rem) sur les grilles denses. **Écrans projet** : budget (`project-budget-synthesis.tsx`, `project-budget-section.tsx`), tâches (`project-tasks-list-tab.tsx`), jalons (`project-planning-milestones-tab.tsx`), risques (`project-risks-view.tsx`), tâches récentes synthèse (`project-synthesis-recent-data.tsx`). **Kanban** : pan dédié (`project-planning-kanban-tab.tsx`).
+- **Tableaux `starium-dt`** (cartes `starium-tablecard`) : utiliser le composant **`StariumTableWrap`** (`apps/web/src/components/ui/starium-table-wrap.tsx`) — même hook **`useTablePan`**, contexte **`useStariumTablePan()`** pour les lignes cliquables. Classe CSS **`starium-dt--wide`** (`min-width` ~56rem) sur les grilles denses. **Écrans projet** : budget (`project-budget-synthesis.tsx`, `project-budget-section.tsx`), tâches (`project-tasks-list-tab.tsx`), jalons (`project-planning-milestones-tab.tsx`), risques (`project-risks-view.tsx`), **points projet** (`project-reviews-tab.tsx`), tâches récentes synthèse (`project-synthesis-recent-data.tsx`). **Kanban** : pan dédié (`project-planning-kanban-tab.tsx`).
 - **En-tête sticky** (`thead` avec `sticky top-0`, colonnes `sticky left-*`) : le **scroll** doit être sur le **parent direct** attendu par le navigateur pour `sticky`. Si la carte a une **hauteur max** et un scroll **vertical** sur `CardContent`, utiliser **`Table noWrapper`** pour éviter un wrapper `overflow-x-auto` **intermédiaire** qui casse le sticky sur `<thead>` — le scroll horizontal + vertical est alors sur le `CardContent` (souvent couplé à `useTablePan` sur ce même nœud). Exemple : page **`/projects`** (`app/(protected)/projects/page.tsx`) + `ProjectsListTable` (`Table noWrapper`).
 - Si le tableau n’a **pas** besoin d’en-tête sticky dans un conteneur à hauteur bornée : pattern simple `CardContent` en `p-0` + composant qui utilise `Table` **sans** `noWrapper` — le grab/pan du wrapper `table-container` s’applique déjà.
 - Pied : `CardFooter` (pagination, actions).
@@ -606,7 +609,22 @@ Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant `*
 
 **Référence** : RFC-PROJ-012, [docs/modules/projects-mvp.md](./modules/projects-mvp.md).
 
-### 11.3 Modales — voile et panneau global (`Dialog`)
+### 11.3 Détail projet — aperçu / synthèse (`ProjectSynthesisOverviewCards`)
+
+Route : `/projects/[projectId]` (onglet **Synthèse** par défaut dans `ProjectWorkspaceTabs`). Composant racine : **`ProjectSynthesisOverviewCards`** (`features/projects/components/project-synthesis-overview-cards.tsx`).
+
+**Ordre des blocs** (classe `.starium-proj-synthesis`) :
+
+1. **`ProjectPostMortemOverviewBanner`** — uniquement si projet **`COMPLETED` \| `CANCELLED` \| `ARCHIVED`** ; bandeau accent ambre (`ProjectReviewsContextBanner`, variante `overview`) ; CTA prioritaire REX ; éditeur **`ProjectReviewEditorDialog`** ouvert depuis l’aperçu ; deep link `?openReview=<id>`.
+2. Grille **4 cartes** `.starium-ov-card` (jalon, équipe, indicateurs, dernière MAJ).
+3. **`ProjectPilotageAttentionPanel`** — si `project.warnings` non vide ; liste d’écarts avec libellés métier (`projectWarningLabel`), hints actionnables, lien fiche projet ; accent ambre ou rouge selon criticité.
+4. **`ProjectSynthesisRecentData`**, **`ProjectBudgetSynthesis`** (`variant="overview"`).
+
+**Points projet** (`?tab=points`) : **`ProjectReviewsTab`** — liste historique `starium-dt` ; bannière contextuelle pilotage (projet non clos) via `ProjectReviewsContextBanner` ; pas de bandeau REX (déplacé sur l’aperçu). Voir RFC-PROJ-013 §10.
+
+**Référence** : RFC-PROJ-013, RFC-PROJ-010, [docs/modules/projects-mvp.md](./modules/projects-mvp.md).
+
+### 11.4 Modales — voile et panneau global (`Dialog`)
 
 Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop` + `Popup`). Ce socle s’applique à toutes les modales ; les écrans métier (**§12.1** et suivants) précisent largeurs et contenus.
 
@@ -623,7 +641,7 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 | **Pied**     | `DialogFooter` : `border-t border-border/60` sur le séparateur (§2).                                                                                                                                   |
 
 
-#### 11.3.1 Modale formulaire dense — bandeau d’en-tête (norme)
+#### 11.4.1 Modale formulaire dense — bandeau d’en-tête (norme)
 
 À utiliser pour **les nouvelles modales** formulaire (longues ou sections multiples) et pour **rafraîchir graphiquement** les modales existantes lorsque c’est demandé. Références d’implémentation : **`ProjectRiskEbiosDialog`** (`project-risk-ebios-dialog.tsx`, formulaire long) ; **`ProjectTaskFormDialog`** / **`MilestoneFormDialog`** (`project-task-form-dialog.tsx`, `milestone-form-dialog.tsx` — modales formulaire moyennes, champs `starium-form-*`).
 
@@ -644,11 +662,11 @@ Implémentation : `**apps/web/src/components/ui/dialog.tsx`** (Base UI `Backdrop
 
 **Prompts à coller (Cursor / agent)** — compléter les `[…]` :
 
-*Nouvelle modale (gabarit §11.3.1)*
+*Nouvelle modale (gabarit §11.4.1)*
 
 ```text
 Crée une modale [nom / rôle métier] dans [chemin ou feature, ex. features/xxx/components/…].
-Respecte docs/FRONTEND_UI-UX.md §11.3.1 (norme modale formulaire dense) et la référence
+Respecte docs/FRONTEND_UI-UX.md §11.4.1 (norme modale formulaire dense) et la référence
 ProjectRiskEbiosDialog (project-risk-ebios-dialog.tsx) : DialogContent, bandeau DialogHeader
 (-mx-4 -mt-4, bg-card, pl-7 sm:pl-8, ligne d’état si besoin), encarts corps type §12.2, Alert §9,
 DialogFooter seulement si actions explicites. [Précise périmètre fonctionnel, champs, API, client scope.]
@@ -657,7 +675,7 @@ DialogFooter seulement si actions explicites. [Précise périmètre fonctionnel,
 *Adapter une modale existante*
 
 ```text
-Refactor l’UX/UI de la modale [fichier.tsx] pour appliquer le gabarit docs/FRONTEND_UI-UX.md §11.3.1
+Refactor l’UX/UI de la modale [fichier.tsx] pour appliquer le gabarit docs/FRONTEND_UI-UX.md §11.4.1
 (même structure que ProjectRiskEbiosDialog : bandeau d’en-tête, alignement pl-7 sm:pl-8, description
 courte, ligne d’état optionnelle, corps en encarts). Ne change pas la logique métier ni les appels API
 hors ce qui est nécessaire au layout. [Contraintes : autosave oui/non, pied oui/non.]

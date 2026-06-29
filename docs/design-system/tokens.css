@@ -34,8 +34,8 @@
   --neutral-200:  #E9E6E0;        /* borders, dividers */
   --neutral-300:  #D6D2CA;
   --neutral-400:  #B6B0A4;
-  --neutral-500:  #8C8579;        /* muted text */
-  --neutral-600:  #5F5A52;
+  --neutral-500:  #8C8579;        /* bordures légères, placeholders — pas le corps muted */
+  --neutral-600:  #5F5A52;        /* texte secondaire lisible (AA sur fond papier) */
   --neutral-700:  #403D38;
   --neutral-800:  #26241F;
   --neutral-900:  #14130F;
@@ -53,8 +53,12 @@
   /* ---------- Foreground / Background tokens ---------- */
   --fg-1:        var(--brand-ink);     /* primary text */
   --fg-2:        var(--neutral-700);   /* body */
-  --fg-3:        var(--neutral-500);   /* muted/meta */
+  --fg-3:        var(--neutral-600);   /* muted/meta — lisible sur fond clair */
   --fg-4:        var(--neutral-400);   /* placeholder */
+
+  --color-text-muted: var(--neutral-600);
+  --ds-text-muted-color: var(--color-text-muted);
+  --ds-kpi-label-color: var(--ds-text-muted-color);
   --fg-on-gold:  var(--brand-ink);     /* text over gold */
   --fg-on-ink:   var(--neutral-0);
 

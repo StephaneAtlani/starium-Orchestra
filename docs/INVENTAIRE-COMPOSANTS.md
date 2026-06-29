@@ -360,13 +360,17 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-planning-milestones-tab` - `features/projects/components/project-planning-milestones-tab.tsx` - sous-onglet Jalons (tableau, `MilestoneFormDialog`).
 - `project-planning-macro-tab` - `features/projects/components/project-planning-macro-tab.tsx` - sous-onglet Macro (frise phases/jalons, déplier, infobulles).
 - `project-planning-tasks-tab` - `features/projects/components/project-planning-tasks-tab.tsx` - organise les onglets pour projet planning taches.
-- `project-planning-view` - `features/projects/components/project-planning-view.tsx` - affiche la vue de projet planning.
+- `project-pilotage-attention-panel` - `features/projects/components/project-pilotage-attention-panel.tsx` - panneau points d’attention pilotage sur l’aperçu projet (warnings API, libellés métier, CTA fiche).
+- `project-post-mortem-overview-banner` - `features/projects/components/project-post-mortem-overview-banner.tsx` - bandeau REX en tête de l’aperçu (projet clos ; CTA Continuer/Créer ; `?openReview=`).
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.
-- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - ouvre un dialogue pour projet revue editor.
-- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - organise les onglets pour projet revues.
+- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
+- `project-reviews-context-banner` - `features/projects/components/project-reviews-context-banner.tsx` - bannière contextuelle COPIL/REX (variantes `tab` | `overview`).
+- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (liste `starium-dt`, création, deep links `?createRetourExperience=`).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.
 - `project-sheet-view` - `features/projects/components/project-sheet-view.tsx` - affiche la vue de projet fiche.
+- `project-synthesis-overview-cards` - `features/projects/components/project-synthesis-overview-cards.tsx` - grille aperçu projet (KPI, bandeau REX, attention, données récentes, budget synthèse).
+- `project-synthesis-recent-data` - `features/projects/components/project-synthesis-recent-data.tsx` - tableau tâches récentes sur l’aperçu (`starium-dt`).
 - `project-task-planning-section` - `features/projects/components/project-task-planning-section.tsx` - regroupe une section dediee a projet tache planning.
 - `project-team-matrix` - `features/projects/components/project-team-matrix.tsx` - gere l'interface de projet equipe matrice.
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.

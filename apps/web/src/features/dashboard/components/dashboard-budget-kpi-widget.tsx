@@ -648,13 +648,13 @@ export function DashboardBudgetKpiWidget() {
         {data ? (
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium text-foreground">{data.budget.name}</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="starium-text-muted text-sm">
               {data.exercise.name}
               {data.exercise.code ? ` (${data.exercise.code})` : null}
             </p>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="starium-text-muted text-sm">
             Synthèse du budget actif pour ce client.
           </p>
         )}
