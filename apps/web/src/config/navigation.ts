@@ -66,7 +66,7 @@ export const navigation: NavigationSection[] = [
     ],
   },
   {
-    section: 'PILOTAGE STRATÉGIQUE',
+    section: 'ORIENTATION',
     items: [
       {
         label: 'Vision stratégique',
@@ -90,6 +90,11 @@ export const navigation: NavigationSection[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    section: 'EXÉCUTION',
+    items: [
       {
         label: 'Projets',
         icon: FolderKanban,
@@ -128,6 +133,11 @@ export const navigation: NavigationSection[] = [
         requiredPermissions: ['projects.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
+    ],
+  },
+  {
+    section: 'CONTRÔLE',
+    items: [
       {
         label: 'Cycles de pilotage',
         href: '/cycles',
@@ -146,11 +156,6 @@ export const navigation: NavigationSection[] = [
         requiredPermissions: ['projects.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
-    ],
-  },
-  {
-    section: 'PILOTAGE FINANCIER',
-    items: [
       {
         label: 'Budgets',
         icon: Wallet,
@@ -162,6 +167,44 @@ export const navigation: NavigationSection[] = [
           { label: 'Dashboard', href: '/budgets/dashboard', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Budget', href: '/budgets', scope: 'client', requiredPermissions: ['budgets.read'] },
           { label: 'Configuration', href: '/budgets/configuration', scope: 'client', requiredPermissions: ['budgets.read'] },
+        ],
+      },
+      {
+        label: 'Conformité',
+        href: '/compliance/dashboard',
+        icon: Scale,
+        scope: 'client',
+        moduleCode: 'compliance',
+        requiredPermissions: ['compliance.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+      },
+    ],
+  },
+  {
+    section: 'MOYENS',
+    items: [
+      {
+        label: 'Contrats',
+        icon: FileSignature,
+        scope: 'client',
+        moduleCode: 'contracts',
+        requiredPermissions: ['contracts.read'],
+        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
+        children: [
+          {
+            label: 'Registre',
+            href: '/contracts',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.read'],
+          },
+          {
+            label: 'Types de contrat',
+            href: '/contracts/kind-types',
+            scope: 'client',
+            moduleCode: 'contracts',
+            requiredPermissions: ['contracts.kind_types.manage'],
+          },
         ],
       },
       {
@@ -205,35 +248,6 @@ export const navigation: NavigationSection[] = [
         ],
       },
       {
-        label: 'Contrats',
-        icon: FileSignature,
-        scope: 'client',
-        moduleCode: 'contracts',
-        requiredPermissions: ['contracts.read'],
-        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
-        children: [
-          {
-            label: 'Registre',
-            href: '/contracts',
-            scope: 'client',
-            moduleCode: 'contracts',
-            requiredPermissions: ['contracts.read'],
-          },
-          {
-            label: 'Types de contrat',
-            href: '/contracts/kind-types',
-            scope: 'client',
-            moduleCode: 'contracts',
-            requiredPermissions: ['contracts.kind_types.manage'],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    section: 'ORGANISATION',
-    items: [
-      {
         label: 'Ressources',
         href: '/resources',
         icon: Boxes,
@@ -248,20 +262,6 @@ export const navigation: NavigationSection[] = [
         scope: 'client',
         requiredPermissions: ['skills.read', 'teams.read', 'resources.read'],
         requiredPermissionsMatch: 'any',
-        allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
-      },
-    ],
-  },
-  {
-    section: 'GOUVERNANCE & CONFORMITÉ',
-    items: [
-      {
-        label: 'Conformité',
-        href: '/compliance/dashboard',
-        icon: Scale,
-        scope: 'client',
-        moduleCode: 'compliance',
-        requiredPermissions: ['compliance.read'],
         allowedClientRoles: ['CLIENT_ADMIN', 'CLIENT_USER'],
       },
     ],

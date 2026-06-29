@@ -18,10 +18,10 @@ const UUID_RE =
 
 const SECTION_LABELS: Record<string, string> = {
   ACCUEIL: 'Accueil',
-  'PILOTAGE STRATÉGIQUE': 'Pilotage',
-  'PILOTAGE FINANCIER': 'Pilotage financier',
-  ORGANISATION: 'Organisation',
-  'GOUVERNANCE & CONFORMITÉ': 'Gouvernance',
+  ORIENTATION: 'Orientation',
+  EXÉCUTION: 'Exécution',
+  CONTRÔLE: 'Contrôle',
+  MOYENS: 'Moyens',
   ADMINISTRATION: 'Administration',
   Platform: 'Plateforme',
   Security: 'Sécurité',
