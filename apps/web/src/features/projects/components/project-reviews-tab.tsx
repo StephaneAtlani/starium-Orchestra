@@ -1,10 +1,11 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -39,10 +39,13 @@ import {
   Calendar,
   CalendarRange,
   ClipboardList,
+  FileText,
+  ListChecks,
   Plus,
+  Trash2,
+  UserPlus,
   Users,
 } from 'lucide-react';
-import type { ComponentType } from 'react';
 import {
   findDraftPostMortemReview,
   hasFinalizedPostMortemReview,
@@ -52,73 +55,6 @@ import {
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
-
-const selectFieldClass = cn(
-  'border-input bg-background h-9 w-full rounded-md border border-border/70 px-2.5 text-sm shadow-xs',
-  'transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-  'disabled:cursor-not-allowed disabled:opacity-50',
-);
-
-const CREATE_SECTION_ACCENTS = {
-  sky: {
-    bar: 'border-l-[3px] border-l-sky-500/70',
-    icon: 'bg-sky-500/10 text-sky-800 dark:text-sky-300',
-  },
-  amber: {
-    bar: 'border-l-[3px] border-l-amber-500/70',
-    icon: 'bg-amber-500/15 text-amber-950 dark:text-amber-300',
-  },
-} as const;
-
-function CreateReviewFormSection({
-  sectionId,
-  title,
-  description,
-  icon: Icon,
-  accent,
-  children,
-}: {
-  sectionId: string;
-  title: string;
-  description?: string;
-  icon: ComponentType<{ className?: string }>;
-  accent: keyof typeof CREATE_SECTION_ACCENTS;
-  children: ReactNode;
-}) {
-  const a = CREATE_SECTION_ACCENTS[accent];
-  return (
-    <section
-      className={cn(
-        'rounded-xl border border-border/70 bg-card p-4 shadow-sm',
-        a.bar,
-      )}
-      aria-labelledby={sectionId}
-    >
-      <div className="mb-4 flex gap-3">
-        <div
-          className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-lg',
-            a.icon,
-          )}
-        >
-          <Icon className="size-4" aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2
-            id={sectionId}
-            className="text-sm font-semibold tracking-tight text-foreground"
-          >
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
 
 const REVIEW_ROW_ICON_TONES = [
   'starium-dt-ti-blue',
@@ -237,6 +173,18 @@ function displayNameFromUser(u: ProjectAssignableUser): string {
   return name || u.email;
 }
 
+/** Initiales pour l’avatar d’un participant ; repli sur le rang si nom vide. */
+function participantInitials(displayName: string, index: number): string {
+  const trimmed = displayName.trim();
+  if (!trimmed) return String(index + 1);
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  const letters =
+    parts.length >= 2
+      ? `${parts[0][0]}${parts[parts.length - 1][0]}`
+      : trimmed.slice(0, 2);
+  return letters.toUpperCase();
+}
+
 type CreateParticipantRow = {
   displayName: string;
   userId: string;
@@ -250,6 +198,14 @@ const emptyParticipantRow = (): CreateParticipantRow => ({
   attended: true,
   isRequired: false,
 });
+
+/** Élément à trancher (arbitrage) — mappé sur `decisions` (title + détail) à la création. */
+type CreateDecisionRow = {
+  title: string;
+  description: string;
+};
+
+const emptyDecisionRow = (): CreateDecisionRow => ({ title: '', description: '' });
 
 /** Une ligne par membre de l’équipe projet (compte client si présent, sinon nom libre). */
 function isApiFormError(e: unknown): e is ApiFormError {
@@ -322,8 +278,12 @@ export function ProjectReviewsTab({
   const [formDate, setFormDate] = useState(defaultDatetimeLocal);
   const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
   const [formTitle, setFormTitle] = useState('');
+  const [formSummary, setFormSummary] = useState('');
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
     emptyParticipantRow(),
+  ]);
+  const [createDecisions, setCreateDecisions] = useState<CreateDecisionRow[]>([
+    emptyDecisionRow(),
   ]);
 
   const createFormSeededRef = useRef(false);
@@ -337,6 +297,8 @@ export function ProjectReviewsTab({
     setFormDate(defaultDatetimeLocal());
     setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
+    setFormSummary('');
+    setCreateDecisions([emptyDecisionRow()]);
   }, [postMortemEligible]);
 
   const openEditor = useCallback((id: string) => {
@@ -457,12 +419,21 @@ export function ProjectReviewsTab({
         attended: p.attended,
         isRequired: p.isRequired,
       }));
+    const decisions = createDecisions
+      .filter((x) => x.title.trim())
+      .map((x) => ({
+        title: x.title.trim(),
+        description: x.description.trim() || null,
+      }));
+    const summary = formSummary.trim();
     try {
       const created = await create.mutateAsync({
         reviewDate,
         reviewType: formType,
         title: formTitle.trim() || undefined,
+        ...(summary ? { executiveSummary: summary } : {}),
         ...(participants.length > 0 ? { participants } : {}),
+        ...(decisions.length > 0 ? { decisions } : {}),
       });
       setCreateOpen(false);
       openEditor(created.id);
@@ -480,6 +451,17 @@ export function ProjectReviewsTab({
     }
   };
 
+  const primaryReviewLabel = postMortemEligible
+    ? draftPostMortem
+      ? "Continuer le retour d'expérience"
+      : "Créer un retour d'expérience"
+    : 'Nouveau point projet';
+
+  const showPrimaryCta =
+    canEdit && !(postMortemEligible && finalizedPostMortem && !draftPostMortem);
+
+  const hasReviews = (list.data?.length ?? 0) > 0;
+
   return (
     <div className="flex flex-col gap-4">
       {!postMortemEligible ? (
@@ -491,6 +473,21 @@ export function ProjectReviewsTab({
           onPrimaryAction={onPrimaryReviewAction}
           variant="tab"
         />
+      ) : null}
+
+      {/* Le bandeau ci-dessus porte le CTA quand le projet n'est pas clos ; ce header
+          garantit un bouton de création persistant pour les projets terminés (REX). */}
+      {postMortemEligible && showPrimaryCta && hasReviews ? (
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            className="starium-btn starium-btn-primary min-h-11"
+            onClick={onPrimaryReviewAction}
+          >
+            <Plus strokeWidth={2.5} aria-hidden />
+            {primaryReviewLabel}
+          </button>
+        </div>
       ) : null}
 
       <div className="starium-tablecard">
@@ -557,213 +554,391 @@ export function ProjectReviewsTab({
         }}
       >
         <DialogContent
-          className={cn(
-            'flex max-h-[min(92vh,900px)] w-[min(90vw,calc(100%-2rem))] max-w-[min(90vw,calc(100%-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(90vw,calc(100%-2rem))]',
-          )}
+          showCloseButton
+          size="xl"
+          className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden p-4 lg:max-w-3xl"
         >
-          <div className="shrink-0 border-b border-border/60 bg-gradient-to-b from-muted/50 to-muted/20 px-5 py-4 sm:px-6">
-            <DialogHeader className="gap-2 space-y-0">
-              <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                {postMortemEligible ? "Nouveau retour d'expérience" : 'Nouveau point projet'}
-              </DialogTitle>
-              <DialogDescription className="text-sm leading-relaxed">
-                {postMortemEligible
-                  ? "Date, parties prenantes, puis grille de retour d'expérience (objectifs, résultats, leçons) dans l'éditeur."
-                  : 'Date, type et parties prenantes. Vous compléterez le compte rendu (synthèse, décisions, actions) dans l’éditeur juste après la création.'}
-              </DialogDescription>
+          <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
+            <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+              <div className="pr-8">
+                <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                  <DialogTitle className="text-left">
+                    {postMortemEligible ? "Nouveau retour d'expérience" : 'Nouveau point projet'}
+                  </DialogTitle>
+                  <span className="starium-ds-badge starium-ds-badge--neutral">
+                    {postMortemEligible ? 'Bilan de clôture' : 'Revue de pilotage'}
+                  </span>
+                </div>
+                <DialogDescription className="mt-2 text-left">
+                  {postMortemEligible
+                    ? "Date, parties prenantes, puis grille de retour d'expérience dans l'éditeur."
+                    : "Date, type et parties prenantes ; le compte rendu se complète dans l'éditeur juste après la création."}
+                </DialogDescription>
+              </div>
             </DialogHeader>
-          </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-5 py-5 sm:px-6">
-            <div className="mx-auto flex max-w-4xl flex-col gap-5">
-              <CreateReviewFormSection
-                sectionId="create-pr-ident"
-                title="Identification"
-                description="Contexte du point : date, nature de la revue, libellé libre optionnel."
-                icon={CalendarRange}
-                accent="sky"
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-date">Date du point</Label>
-                    <Input
-                      id="pr-date"
-                      type="datetime-local"
-                      value={formDate}
-                      onChange={(e) => setFormDate(e.target.value)}
+            <DialogBody className="min-h-0 flex-1 py-4">
+              <div className="starium-form">
+                <section className="starium-form-section" aria-labelledby="create-pr-ident">
+                  <h3 id="create-pr-ident" className="starium-form-section-title">
+                    <CalendarRange aria-hidden />
+                    Identification
+                  </h3>
+                  <p className="starium-form-hint mb-3">
+                    Contexte du point : date, nature de la revue, libellé libre optionnel.
+                  </p>
+                  <div className="starium-form-grid starium-form-grid--2">
+                    <div className="starium-form-field">
+                      <label htmlFor="pr-date" className="starium-form-label">
+                        Date du point
+                      </label>
+                      <Input
+                        id="pr-date"
+                        type="datetime-local"
+                        className="starium-form-input"
+                        value={formDate}
+                        onChange={(e) => setFormDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="starium-form-field">
+                      <label htmlFor="pr-type" className="starium-form-label">
+                        Type
+                      </label>
+                      <select
+                        id="pr-type"
+                        className="starium-form-select"
+                        value={formType}
+                        onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
+                        disabled={postMortemEligible && createTypeOptions.length === 1}
+                      >
+                        {createTypeOptions.map((t) => (
+                          <option key={t} value={t}>
+                            {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="starium-form-field starium-form-grid--span-2">
+                      <label htmlFor="pr-title" className="starium-form-label">
+                        Titre (optionnel)
+                      </label>
+                      <Input
+                        id="pr-title"
+                        className="starium-form-input"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        maxLength={500}
+                        placeholder="Ex. COPIL mensuel — arbitrage budget"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section className="starium-form-section" aria-labelledby="create-pr-framing">
+                  <h3 id="create-pr-framing" className="starium-form-section-title">
+                    <FileText aria-hidden />
+                    Cadrage
+                  </h3>
+                  <p className="starium-form-hint mb-3">
+                    Objectif, ordre du jour et synthèse de préparation du point. Complétez le compte
+                    rendu détaillé dans l’éditeur après la création.
+                  </p>
+                  <div className="starium-form-field">
+                    <label htmlFor="pr-summary" className="starium-form-label">
+                      Objectif &amp; ordre du jour (optionnel)
+                    </label>
+                    <textarea
+                      id="pr-summary"
+                      className="starium-form-textarea min-h-[96px]"
+                      value={formSummary}
+                      onChange={(e) => setFormSummary(e.target.value)}
+                      maxLength={20000}
+                      rows={4}
+                      placeholder={
+                        'Ex.\n1. Avancement & jalons\n2. Points bloquants\n3. Arbitrage budget\n4. Prochaines étapes'
+                      }
                     />
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-type">Type</Label>
-                    <select
-                      id="pr-type"
-                      className={selectFieldClass}
-                      value={formType}
-                      onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
-                      disabled={postMortemEligible && createTypeOptions.length === 1}
-                    >
-                      {createTypeOptions.map((t) => (
-                        <option key={t} value={t}>
-                          {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid gap-1.5 sm:col-span-2">
-                    <Label htmlFor="pr-title">Titre (optionnel)</Label>
-                    <Input
-                      id="pr-title"
-                      value={formTitle}
-                      onChange={(e) => setFormTitle(e.target.value)}
-                      maxLength={500}
-                      placeholder="Ex. COPIL mensuel — arbitrage budget"
-                    />
-                  </div>
-                </div>
-              </CreateReviewFormSection>
+                </section>
 
-              <CreateReviewFormSection
-                sectionId="create-pr-participants"
-                title="Parties prenantes"
-                description="L’équipe projet est préremplie à l’ouverture. Vous pouvez ajuster, retirer ou ajouter des membres (compte client ou identité nom libre)."
-                icon={Users}
-                accent="amber"
-              >
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
-                    }
-                  >
-                    Ajouter un participant
-                  </Button>
-                </div>
-                {teamForCreate.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Chargement de l’équipe projet…</p>
-                ) : null}
-                {assignable.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Chargement de la liste des membres du client…</p>
-                ) : null}
-                <div className="space-y-3">
-                  {createParticipants.map((row, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-border/70 bg-muted/30 p-3"
+                <section className="starium-form-section" aria-labelledby="create-pr-decisions">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3
+                      id="create-pr-decisions"
+                      className="starium-form-section-title mb-0 min-w-0 flex-1"
                     >
-                      <div className="grid gap-2">
-                        <div className="grid gap-1.5">
-                          <Label className="text-xs">Membre du client (optionnel)</Label>
-                          <select
-                            className={selectFieldClass}
-                            disabled={assignable.isLoading}
-                            value={row.userId}
-                            onChange={(e) => {
-                                const id = e.target.value;
-                                const u = assignable.data?.users?.find((x) => x.id === id);
-                                setCreateParticipants((prev) =>
-                                  prev.map((p, j) =>
-                                    j === i
-                                      ? {
-                                          ...p,
-                                          userId: id,
-                                          displayName: u
-                                            ? displayNameFromUser(u)
-                                            : p.displayName,
-                                        }
-                                      : p,
-                                  ),
-                                );
-                              }}
-                            >
-                              <option value="">— Choisir dans la liste —</option>
-                              {assignable.data?.users?.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {formatAssignableUser(u)}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="grid gap-1.5">
-                            <Label htmlFor={`pr-part-name-${i}`}>Nom affiché</Label>
-                            <Input
-                              id={`pr-part-name-${i}`}
-                              value={row.displayName}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                setCreateParticipants((prev) =>
-                                  prev.map((p, j) => (j === i ? { ...p, displayName: v } : p)),
-                                );
-                              }}
-                              placeholder="Nom, rôle, organisation…"
-                            />
-                          </div>
-                          <div className="flex flex-wrap gap-4">
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border border-input"
-                                checked={row.attended}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) =>
-                                      j === i ? { ...p, attended: v } : p,
-                                    ),
-                                  );
-                                }}
-                              />
-                              Présent
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border border-input"
-                                checked={row.isRequired}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) =>
-                                      j === i ? { ...p, isRequired: v } : p,
-                                    ),
-                                  );
-                                }}
-                              />
-                              Requis
-                            </label>
-                            {createParticipants.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-destructive"
-                                onClick={() =>
-                                  setCreateParticipants((prev) =>
-                                    prev.filter((_, j) => j !== i),
-                                  )
-                                }
+                      <ListChecks aria-hidden />
+                      Éléments à trancher
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-9 shrink-0 gap-1.5"
+                      onClick={() =>
+                        setCreateDecisions((prev) => [...prev, emptyDecisionRow()])
+                      }
+                    >
+                      <Plus className="size-4" aria-hidden />
+                      Ajouter
+                    </Button>
+                  </div>
+                  <p className="starium-form-hint mb-3">
+                    Arbitrages ou décisions attendus du point. Vous les finaliserez (validés / reportés)
+                    dans l’éditeur.
+                  </p>
+                  <ul className="space-y-2.5">
+                    {createDecisions.map((row, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg border border-border/70 bg-card p-3 shadow-sm"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="min-w-0 flex-1 space-y-3">
+                            <div className="starium-form-field">
+                              <label
+                                htmlFor={`pr-decision-title-${i}`}
+                                className="starium-form-label"
                               >
-                                Retirer
-                              </Button>
-                            )}
+                                Sujet à trancher
+                              </label>
+                              <Input
+                                id={`pr-decision-title-${i}`}
+                                className="starium-form-input"
+                                value={row.title}
+                                maxLength={500}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setCreateDecisions((prev) =>
+                                    prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
+                                  );
+                                }}
+                                placeholder="Ex. Valider le dépassement budgétaire de 12 k€"
+                              />
+                            </div>
+                            <div className="starium-form-field">
+                              <label
+                                htmlFor={`pr-decision-desc-${i}`}
+                                className="starium-form-label"
+                              >
+                                Contexte / options (optionnel)
+                              </label>
+                              <textarea
+                                id={`pr-decision-desc-${i}`}
+                                className="starium-form-textarea min-h-[72px]"
+                                value={row.description}
+                                maxLength={8000}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setCreateDecisions((prev) =>
+                                    prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
+                                  );
+                                }}
+                                placeholder="Enjeux, options envisagées, recommandation…"
+                              />
+                            </div>
                           </div>
+                          {createDecisions.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                              aria-label={`Retirer l’élément ${row.title.trim() || i + 1}`}
+                              onClick={() =>
+                                setCreateDecisions((prev) => prev.filter((_, j) => j !== i))
+                              }
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                          )}
                         </div>
-                      </div>
+                      </li>
                     ))}
-                </div>
-              </CreateReviewFormSection>
-            </div>
-          </div>
-          <DialogFooter className="!mx-0 !mb-0 shrink-0 rounded-b-xl border-t border-border/60 bg-muted/30 px-5 py-3.5 sm:px-6 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Annuler
-            </Button>
-            <Button type="button" onClick={() => void onCreate()} disabled={create.isPending}>
-              {create.isPending ? 'Création…' : 'Créer et ouvrir'}
-            </Button>
-          </DialogFooter>
+                  </ul>
+                </section>
+
+                <section className="starium-form-section" aria-labelledby="create-pr-participants">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3
+                      id="create-pr-participants"
+                      className="starium-form-section-title mb-0 min-w-0 flex-1"
+                    >
+                      <Users aria-hidden />
+                      Parties prenantes
+                    </h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-9 shrink-0 gap-1.5"
+                      onClick={() =>
+                        setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
+                      }
+                    >
+                      <UserPlus className="size-4" aria-hidden />
+                      Ajouter
+                    </Button>
+                  </div>
+                  <p className="starium-form-hint mb-3" aria-live="polite">
+                    L’équipe projet est préremplie à l’ouverture — {createParticipants.length}{' '}
+                    {createParticipants.length > 1 ? 'participants' : 'participant'}. Ajustez, retirez
+                    ou ajoutez des membres (compte client ou nom libre).
+                  </p>
+                  {teamForCreate.isLoading ? (
+                    <p className="text-xs text-muted-foreground">Chargement de l’équipe projet…</p>
+                  ) : null}
+                  {assignable.isLoading ? (
+                    <p className="text-xs text-muted-foreground">
+                      Chargement de la liste des membres du client…
+                    </p>
+                  ) : null}
+                  <ul className="space-y-2.5">
+                    {createParticipants.map((row, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg border border-border/70 bg-card p-3 shadow-sm"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--brand-gold)_16%,transparent)] text-xs font-semibold text-[color:var(--brand-gold-700)]"
+                            aria-hidden
+                          >
+                            {participantInitials(row.displayName, i)}
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-3">
+                            <div className="starium-form-grid starium-form-grid--2">
+                              <div className="starium-form-field">
+                                <label
+                                  htmlFor={`pr-part-user-${i}`}
+                                  className="starium-form-label"
+                                >
+                                  Membre du client (optionnel)
+                                </label>
+                                <select
+                                  id={`pr-part-user-${i}`}
+                                  className="starium-form-select"
+                                  disabled={assignable.isLoading}
+                                  value={row.userId}
+                                  onChange={(e) => {
+                                    const id = e.target.value;
+                                    const u = assignable.data?.users?.find((x) => x.id === id);
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) =>
+                                        j === i
+                                          ? {
+                                              ...p,
+                                              userId: id,
+                                              displayName: u
+                                                ? displayNameFromUser(u)
+                                                : p.displayName,
+                                            }
+                                          : p,
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  <option value="">— Choisir dans la liste —</option>
+                                  {assignable.data?.users?.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                      {formatAssignableUser(u)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="starium-form-field">
+                                <label
+                                  htmlFor={`pr-part-name-${i}`}
+                                  className="starium-form-label"
+                                >
+                                  Nom affiché
+                                </label>
+                                <Input
+                                  id={`pr-part-name-${i}`}
+                                  className="starium-form-input"
+                                  value={row.displayName}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) => (j === i ? { ...p, displayName: v } : p)),
+                                    );
+                                  }}
+                                  placeholder="Nom, rôle, organisation…"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 rounded border border-input"
+                                  checked={row.attended}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
+                                    );
+                                  }}
+                                />
+                                Présent
+                              </label>
+                              <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 rounded border border-input"
+                                  checked={row.isRequired}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
+                                    );
+                                  }}
+                                />
+                                Requis
+                              </label>
+                            </div>
+                          </div>
+                          {createParticipants.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                              aria-label={`Retirer le participant ${row.displayName.trim() || i + 1}`}
+                              onClick={() =>
+                                setCreateParticipants((prev) => prev.filter((_, j) => j !== i))
+                              }
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </div>
+            </DialogBody>
+
+            <DialogFooter>
+              <button
+                type="button"
+                className="starium-btn starium-btn-secondary"
+                onClick={() => setCreateOpen(false)}
+                disabled={create.isPending}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="starium-btn starium-btn-primary"
+                onClick={() => void onCreate()}
+                disabled={create.isPending}
+              >
+                {create.isPending ? 'Création…' : 'Créer et ouvrir'}
+              </button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
