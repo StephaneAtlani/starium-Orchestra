@@ -18,6 +18,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
+  PROJECT_REVIEW_MEETING_MODE_LABEL,
   PROJECT_REVIEW_STATUS_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
 } from '../constants/project-enum-labels';
@@ -27,7 +28,9 @@ import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import type {
   ProjectAssignableUser,
+  ProjectReviewCreationMode,
   ProjectReviewListItem,
+  ProjectReviewMeetingMode,
   ProjectReviewType,
   ProjectTeamMemberApi,
 } from '../types/project.types';
@@ -65,7 +68,8 @@ const REVIEW_ROW_ICON_TONES = [
 
 function reviewStatusDsBadgeClass(status: string): string {
   if (status === 'FINALIZED') return 'starium-ds-badge--success';
-  if (status === 'DRAFT') return 'starium-ds-badge--warn';
+  if (status === 'IN_REVIEW' || status === 'DRAFT') return 'starium-ds-badge--warn';
+  if (status === 'PLANNED') return 'starium-ds-badge--info';
   if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
   return 'starium-ds-badge--info';
 }
@@ -95,7 +99,12 @@ function ReviewTableRow({
   const typeLabel = PROJECT_REVIEW_TYPE_LABEL[row.reviewType] ?? row.reviewType;
   const statusLabel = PROJECT_REVIEW_STATUS_LABEL[row.status] ?? row.status;
   const title = row.title?.trim() || typeLabel;
-  const actionLabel = row.status === 'DRAFT' ? 'Continuer' : 'Voir';
+  const actionLabel =
+    row.status === 'IN_REVIEW' || row.status === 'DRAFT'
+      ? 'Continuer'
+      : row.status === 'PLANNED'
+        ? 'Ouvrir'
+        : 'Voir';
 
   return (
     <tr
@@ -285,6 +294,11 @@ export function ProjectReviewsTab({
   const [createDecisions, setCreateDecisions] = useState<CreateDecisionRow[]>([
     emptyDecisionRow(),
   ]);
+  const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('');
+  const [formMeetingUrl, setFormMeetingUrl] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formCreationMode, setFormCreationMode] =
+    useState<ProjectReviewCreationMode>('IMMEDIATE');
 
   const createFormSeededRef = useRef(false);
   const openedPostMortemFromQueryRef = useRef(false);
@@ -298,6 +312,10 @@ export function ProjectReviewsTab({
     setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
     setFormSummary('');
+    setFormMeetingMode('');
+    setFormMeetingUrl('');
+    setFormLocation('');
+    setFormCreationMode('IMMEDIATE');
     setCreateDecisions([emptyDecisionRow()]);
   }, [postMortemEligible]);
 
@@ -430,13 +448,25 @@ export function ProjectReviewsTab({
       const created = await create.mutateAsync({
         reviewDate,
         reviewType: formType,
+        creationMode: postMortemEligible ? 'IMMEDIATE' : formCreationMode,
         title: formTitle.trim() || undefined,
         ...(summary ? { executiveSummary: summary } : {}),
+        ...(formMeetingMode
+          ? {
+              meetingMode: formMeetingMode,
+              ...(formMeetingUrl.trim() ? { meetingUrl: formMeetingUrl.trim() } : {}),
+              ...(formLocation.trim() ? { location: formLocation.trim() } : {}),
+            }
+          : {}),
         ...(participants.length > 0 ? { participants } : {}),
         ...(decisions.length > 0 ? { decisions } : {}),
       });
       setCreateOpen(false);
-      openEditor(created.id);
+      const openEditorAfterCreate =
+        postMortemEligible || formCreationMode === 'IMMEDIATE';
+      if (openEditorAfterCreate) {
+        openEditor(created.id);
+      }
     } catch (err) {
       const msg = isApiFormError(err) ? err.message : 'Création du point impossible.';
       toast.error(msg);
@@ -660,6 +690,94 @@ export function ProjectReviewsTab({
                     />
                   </div>
                 </section>
+
+                {!postMortemEligible ? (
+                  <section className="starium-form-section" aria-labelledby="create-pr-meeting">
+                    <h3 id="create-pr-meeting" className="starium-form-section-title">
+                      <Calendar aria-hidden />
+                      Réunion
+                    </h3>
+                    <div className="starium-form-grid starium-form-grid--2">
+                      <div className="starium-form-field starium-form-grid--span-2">
+                        <span className="starium-form-label">Mode</span>
+                        <div className="flex flex-wrap gap-3">
+                          {(['REMOTE', 'ONSITE', 'HYBRID'] as const).map((mode) => (
+                            <label key={mode} className="inline-flex min-h-11 items-center gap-2">
+                              <input
+                                type="radio"
+                                name="pr-meeting-mode"
+                                checked={formMeetingMode === mode}
+                                onChange={() => setFormMeetingMode(mode)}
+                              />
+                              {PROJECT_REVIEW_MEETING_MODE_LABEL[mode]}
+                            </label>
+                          ))}
+                          <label className="inline-flex min-h-11 items-center gap-2">
+                            <input
+                              type="radio"
+                              name="pr-meeting-mode"
+                              checked={formMeetingMode === ''}
+                              onChange={() => setFormMeetingMode('')}
+                            />
+                            Non renseigné
+                          </label>
+                        </div>
+                      </div>
+                      {(formMeetingMode === 'REMOTE' || formMeetingMode === 'HYBRID') && (
+                        <div className="starium-form-field starium-form-grid--span-2">
+                          <label htmlFor="pr-meeting-url" className="starium-form-label">
+                            Lien de réunion
+                          </label>
+                          <Input
+                            id="pr-meeting-url"
+                            type="url"
+                            className="starium-form-input min-h-11"
+                            value={formMeetingUrl}
+                            onChange={(e) => setFormMeetingUrl(e.target.value)}
+                            placeholder="https://…"
+                          />
+                        </div>
+                      )}
+                      {(formMeetingMode === 'ONSITE' || formMeetingMode === 'HYBRID') && (
+                        <div className="starium-form-field starium-form-grid--span-2">
+                          <label htmlFor="pr-location" className="starium-form-label">
+                            Lieu
+                          </label>
+                          <Input
+                            id="pr-location"
+                            className="starium-form-input min-h-11"
+                            value={formLocation}
+                            onChange={(e) => setFormLocation(e.target.value)}
+                            maxLength={300}
+                          />
+                        </div>
+                      )}
+                      <div className="starium-form-field starium-form-grid--span-2">
+                        <span className="starium-form-label">Création</span>
+                        <div className="flex flex-wrap gap-3">
+                          <label className="inline-flex min-h-11 items-center gap-2">
+                            <input
+                              type="radio"
+                              name="pr-creation-mode"
+                              checked={formCreationMode === 'IMMEDIATE'}
+                              onChange={() => setFormCreationMode('IMMEDIATE')}
+                            />
+                            Créer et saisir
+                          </label>
+                          <label className="inline-flex min-h-11 items-center gap-2">
+                            <input
+                              type="radio"
+                              name="pr-creation-mode"
+                              checked={formCreationMode === 'PLANNED'}
+                              onChange={() => setFormCreationMode('PLANNED')}
+                            />
+                            Planifier
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
 
                 <section className="starium-form-section" aria-labelledby="create-pr-decisions">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

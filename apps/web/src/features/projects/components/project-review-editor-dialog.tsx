@@ -47,6 +47,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 import {
   ARBITRATION_LEVEL_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
@@ -67,6 +68,8 @@ import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
+import { ReviewAgendaSection, ReviewMeetingInfoBlock } from './review-agenda-section';
+import { ReviewParticipantsSection } from './review-participants-section';
 import { projectSheet } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -359,7 +362,8 @@ const POST_MORTEM_NARRATIVE_FIELDS = [
 
 function reviewEditorStatusBadgeClass(status: string): string {
   if (status === 'FINALIZED') return 'starium-ds-badge--success';
-  if (status === 'DRAFT') return 'starium-ds-badge--warn';
+  if (status === 'IN_REVIEW' || status === 'DRAFT') return 'starium-ds-badge--warn';
+  if (status === 'PLANNED') return 'starium-ds-badge--info';
   if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
   return 'starium-ds-badge--info';
 }
@@ -559,7 +563,7 @@ export function ProjectReviewEditorDialog({
   const teamQuery = useProjectTeamQuery(projectId, { enabled: open });
   const assignableUsersQuery = useProjectAssignableUsers({ enabled: open });
 
-  const { update, finalize, cancel } = useProjectReviewMutations(projectId);
+  const { update, finalize, cancel, startReview } = useProjectReviewMutations(projectId);
 
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -610,8 +614,8 @@ export function ProjectReviewEditorDialog({
         ? d.participants.map((p) => ({
             displayName: p.displayName ?? '',
             userId: p.userId ?? '',
-            attended: p.attended,
-            isRequired: p.isRequired,
+            attended: p.attendanceStatus === 'PRESENT',
+            isRequired: false,
             source: 'free' as const,
             teamMemberId: undefined,
             projectRoleName: null,
@@ -682,8 +686,9 @@ export function ProjectReviewEditorDialog({
   }, [open, reviewId, detailQuery.data, initFromDetail]);
 
   const d = detailQuery.data;
-  const isDraft = d?.status === 'DRAFT';
-  const editable = canEdit && isDraft;
+  const isPlanned = d?.status === 'PLANNED';
+  const isInReview = d?.status === 'IN_REVIEW' || d?.status === 'DRAFT';
+  const editable = canEdit && isInReview;
   const projectStatus = projectQuery.data?.status;
   const reviewTypeOptions = useMemo(
     () => getReviewTypeOptionsForEditor(projectStatus, reviewType),
@@ -897,9 +902,18 @@ export function ProjectReviewEditorDialog({
   };
 
   const onCancelReview = async () => {
-    if (!d || !editable) return;
+    if (!d || (!editable && !isPlanned)) return;
     await cancel.mutateAsync(d.id);
     onOpenChange(false);
+  };
+
+  const onStartReview = async () => {
+    if (!d || !isPlanned || !canEdit) return;
+    try {
+      await startReview.mutateAsync(d.id);
+    } catch {
+      toast.error('Impossible de démarrer la revue.');
+    }
   };
 
   const isPostMortemReview = reviewType === 'POST_MORTEM';
@@ -1065,6 +1079,24 @@ export function ProjectReviewEditorDialog({
                   </div>
                 </div>
               </ReviewFormSection>
+
+              <ReviewMeetingInfoBlock detail={d} />
+
+              <ReviewParticipantsSection
+                projectId={projectId}
+                reviewId={d.id}
+                status={d.status}
+                participants={d.participants ?? []}
+                canEdit={canEdit}
+              />
+
+              <ReviewAgendaSection
+                projectId={projectId}
+                reviewId={d.id}
+                status={d.status}
+                agendaItems={d.agendaItems ?? []}
+                canEdit={canEdit}
+              />
 
               {isPostMortemReview && projectQuery.data && (
                 <ReviewFormSection
@@ -2112,12 +2144,28 @@ export function ProjectReviewEditorDialog({
                     {update.isPending
                       ? 'Enregistrement…'
                       : isPostMortemReview
-                        ? 'Brouillon REX synchronisé automatiquement'
-                        : 'Brouillon synchronisé automatiquement'}
+                        ? 'REX synchronisé automatiquement'
+                        : 'Revue synchronisée automatiquement'}
                   </span>
                 )}
+                {isPlanned && startReview.isSuccess ? (
+                  <span className="text-xs text-muted-foreground" aria-live="polite">
+                    Revue démarrée — vous pouvez saisir le compte rendu.
+                  </span>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
+                {isPlanned && canEdit && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="min-h-11"
+                    onClick={() => void onStartReview()}
+                    disabled={startReview.isPending}
+                  >
+                    {startReview.isPending ? 'Démarrage…' : 'Démarrer la revue'}
+                  </Button>
+                )}
                 {editable && (
                   <>
                     <Button

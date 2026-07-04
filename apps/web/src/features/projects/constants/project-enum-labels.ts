@@ -165,9 +165,31 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
 };
 
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {
+  PLANNED: 'Planifié',
+  IN_REVIEW: 'En revue',
   DRAFT: 'Brouillon',
   FINALIZED: 'Finalisé',
   CANCELLED: 'Annulé',
+};
+
+export const PROJECT_REVIEW_MEETING_MODE_LABEL: Record<string, string> = {
+  REMOTE: 'Visio',
+  ONSITE: 'Présentiel',
+  HYBRID: 'Hybride',
+};
+
+export const PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL: Record<string, string> = {
+  EXPECTED: 'Attendu',
+  PRESENT: 'Présent',
+  ABSENT: 'Absent',
+  EXCUSED: 'Excusé',
+};
+
+export const PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL: Record<string, string> = {
+  TODO: 'À traiter',
+  IN_PROGRESS: 'En cours',
+  DONE: 'Traité',
+  SKIPPED: 'Non traité',
 };
 
 /** Aligné fiche projet — statuts d’arbitrage par niveau (lecture seule dans l’éditeur de point). */

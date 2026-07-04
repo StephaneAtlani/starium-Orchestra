@@ -5,16 +5,18 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-import type { ProjectReviewType } from '@prisma/client';
+import type { ProjectReviewMeetingMode, ProjectReviewType } from '@prisma/client';
 import { ProjectReviewActionItemInputDto } from './project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './project-review-decision.dto';
 import { ProjectReviewParticipantInputDto } from './project-review-participant.dto';
 import { PROJECT_REVIEW_TYPE_VALUES } from './project-review-type-values';
+import { PROJECT_REVIEW_MEETING_MODE_VALUES } from '../project-review-meeting.validation';
 
-/** PATCH brouillon uniquement — tous les champs optionnels. */
+/** PATCH revue éditable uniquement — tous les champs optionnels. */
 export class UpdateProjectReviewDto {
   @IsOptional()
   @IsDateString()
@@ -44,6 +46,19 @@ export class UpdateProjectReviewDto {
   @IsOptional()
   @IsDateString()
   nextReviewDate?: string | null;
+
+  @IsOptional()
+  @IsIn([...PROJECT_REVIEW_MEETING_MODE_VALUES])
+  meetingMode?: ProjectReviewMeetingMode | null;
+
+  @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  meetingUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  location?: string | null;
 
   @IsOptional()
   @IsArray()

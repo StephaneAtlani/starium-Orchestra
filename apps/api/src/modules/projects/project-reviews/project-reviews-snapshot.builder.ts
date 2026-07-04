@@ -3,6 +3,9 @@ import type {
   Project,
   ProjectBudgetLink,
   ProjectMilestone,
+  ProjectReviewAgendaItemStatus,
+  ProjectReviewMeetingMode,
+  ProjectReviewParticipantAttendanceStatus,
   ProjectRisk,
   ProjectTask,
 } from '@prisma/client';
@@ -26,9 +29,46 @@ function isTaskLate(t: ProjectTask): boolean {
   return new Date(t.plannedEndDate) < startOfTodayUtc();
 }
 
+export type ProjectReviewSnapshotParticipant = {
+  userId: string | null;
+  displayName: string | null;
+  roleLabel: string | null;
+  attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+};
+
+export type ProjectReviewSnapshotAgendaAction = {
+  id: string;
+  title: string;
+  status: string;
+  dueDate: string | null;
+  responsibleUserId: string | null;
+  responsibleDisplayName: string | null;
+  contributors: Array<{
+    userId: string | null;
+    displayName: string | null;
+    roleLabel: string | null;
+  }>;
+};
+
+export type ProjectReviewSnapshotAgendaDecision = {
+  id: string;
+  title: string;
+  description: string | null;
+};
+
+export type ProjectReviewSnapshotAgendaItem = {
+  id: string;
+  title: string;
+  orderIndex: number;
+  status: ProjectReviewAgendaItemStatus;
+  notes: string | null;
+  decisionSummary: string | null;
+  decisions: ProjectReviewSnapshotAgendaDecision[];
+  actionItems: ProjectReviewSnapshotAgendaAction[];
+};
+
 export type ProjectReviewSnapshotBudgetLine = {
   budgetLineId: string;
-  /** Libellé lisible (code + nom ligne). */
   label: string;
   allocationType: string;
   percentage: string | null;
@@ -43,6 +83,13 @@ export type ProjectReviewSnapshotPayload = {
     health: ComputedHealth;
     priority: string;
   };
+  meeting: {
+    meetingMode: ProjectReviewMeetingMode | null;
+    location: string | null;
+  };
+  participants: ProjectReviewSnapshotParticipant[];
+  agenda: ProjectReviewSnapshotAgendaItem[];
+  untreatedAgendaItems: Array<{ id: string; title: string; status: string }>;
   progress: { globalProgress: number | null };
   arbitration: {
     arbitrationMetierStatus: string | null;
@@ -92,8 +139,24 @@ export function buildProjectReviewSnapshotPayload(input: {
     }
   >;
   pilotage: ProjectsPilotageService;
+  meeting: {
+    meetingMode: ProjectReviewMeetingMode | null;
+    location: string | null;
+  };
+  participants: ProjectReviewSnapshotParticipant[];
+  agenda: ProjectReviewSnapshotAgendaItem[];
 }): Prisma.InputJsonValue {
-  const { project, tasks, risks, milestones, budgetLinks, pilotage } = input;
+  const {
+    project,
+    tasks,
+    risks,
+    milestones,
+    budgetLinks,
+    pilotage,
+    meeting,
+    participants,
+    agenda,
+  } = input;
 
   const health = pilotage.computedHealth(project, tasks, risks, milestones);
   const globalProgress =
@@ -153,6 +216,17 @@ export function buildProjectReviewSnapshotPayload(input: {
         }
       : null;
 
+  const untreatedAgendaItems = agenda
+    .filter(
+      (item) =>
+        item.status === 'SKIPPED' || item.status === 'TODO',
+    )
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+    }));
+
   const payload: ProjectReviewSnapshotPayload = {
     project: {
       id: project.id,
@@ -161,6 +235,13 @@ export function buildProjectReviewSnapshotPayload(input: {
       health,
       priority: project.priority,
     },
+    meeting: {
+      meetingMode: meeting.meetingMode,
+      location: meeting.location,
+    },
+    participants,
+    agenda,
+    untreatedAgendaItems,
     progress: { globalProgress },
     arbitration: {
       arbitrationMetierStatus: project.arbitrationMetierStatus ?? null,

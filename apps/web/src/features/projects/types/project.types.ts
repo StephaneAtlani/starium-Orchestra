@@ -784,7 +784,28 @@ export type ProjectReviewType =
   | 'AD_HOC'
   | 'POST_MORTEM';
 
-export type ProjectReviewStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
+export type ProjectReviewStatus =
+  | 'PLANNED'
+  | 'IN_REVIEW'
+  | 'FINALIZED'
+  | 'CANCELLED'
+  | 'DRAFT';
+
+export type ProjectReviewMeetingMode = 'REMOTE' | 'ONSITE' | 'HYBRID';
+
+export type ProjectReviewCreationMode = 'PLANNED' | 'IMMEDIATE';
+
+export type ProjectReviewAgendaItemStatus =
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'DONE'
+  | 'SKIPPED';
+
+export type ProjectReviewParticipantAttendanceStatus =
+  | 'EXPECTED'
+  | 'PRESENT'
+  | 'ABSENT'
+  | 'EXCUSED';
 
 export type ProjectReviewListItem = {
   id: string;
@@ -795,6 +816,11 @@ export type ProjectReviewListItem = {
   status: ProjectReviewStatus;
   title: string | null;
   executiveSummary: string | null;
+  meetingMode: ProjectReviewMeetingMode | null;
+  meetingUrl: string | null;
+  location: string | null;
+  startedAt: string | null;
+  startedByUserId: string | null;
   facilitatorUserId: string | null;
   nextReviewDate: string | null;
   finalizedAt: string | null;
@@ -804,6 +830,7 @@ export type ProjectReviewListItem = {
   participantsCount: number;
   decisionsCount: number;
   actionItemsCount: number;
+  agendaItemsCount: number;
 };
 
 export type ProjectReviewListResponse = {
@@ -814,14 +841,38 @@ export type ProjectReviewParticipantApi = {
   id: string;
   userId: string | null;
   displayName: string | null;
-  attended: boolean;
-  isRequired: boolean;
+  roleLabel: string | null;
+  attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+};
+
+export type ProjectReviewAgendaItemApi = {
+  id: string;
+  title: string;
+  description: string | null;
+  orderIndex: number;
+  plannedDurationMinutes: number | null;
+  ownerUserId: string | null;
+  ownerDisplayName: string | null;
+  status: ProjectReviewAgendaItemStatus;
+  notes: string | null;
+  decisionSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectReviewActionItemContributorApi = {
+  id: string;
+  userId: string | null;
+  displayName: string | null;
+  roleLabel: string | null;
+  contributionStatus: string | null;
 };
 
 export type ProjectReviewDecisionApi = {
   id: string;
   title: string;
   description: string | null;
+  agendaItemId: string | null;
   createdAt: string;
 };
 
@@ -831,6 +882,10 @@ export type ProjectReviewActionItemApi = {
   status: string;
   dueDate: string | null;
   linkedTaskId: string | null;
+  agendaItemId: string | null;
+  responsibleUserId: string | null;
+  responsibleDisplayName: string | null;
+  contributors: ProjectReviewActionItemContributorApi[];
 };
 
 export type ProjectReviewDetail = {
@@ -843,6 +898,12 @@ export type ProjectReviewDetail = {
   title: string | null;
   executiveSummary: string | null;
   contentPayload: unknown;
+  meetingMode: ProjectReviewMeetingMode | null;
+  meetingUrl: string | null;
+  location: string | null;
+  startedAt: string | null;
+  startedByUserId: string | null;
+  startedByDisplayName: string | null;
   facilitatorUserId: string | null;
   nextReviewDate: string | null;
   finalizedAt: string | null;
@@ -850,6 +911,7 @@ export type ProjectReviewDetail = {
   createdAt: string;
   updatedAt: string;
   participants: ProjectReviewParticipantApi[];
+  agendaItems: ProjectReviewAgendaItemApi[];
   decisions: ProjectReviewDecisionApi[];
   actionItems: ProjectReviewActionItemApi[];
   /** Toujours présent ; `null` si status !== FINALIZED */

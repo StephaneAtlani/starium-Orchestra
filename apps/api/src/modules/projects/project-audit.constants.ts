@@ -17,6 +17,8 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
+  PROJECT_REVIEW_AGENDA_ITEM: 'project_review_agenda_item',
+  PROJECT_REVIEW_PARTICIPANT: 'project_review_participant',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
 } as const;
 
@@ -99,6 +101,18 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_UPDATED: 'project.review.updated',
   PROJECT_REVIEW_FINALIZED: 'project.review.finalized',
   PROJECT_REVIEW_CANCELLED: 'project.review.cancelled',
+  PROJECT_REVIEW_STARTED: 'project.review.started',
+  PROJECT_REVIEW_AGENDA_ITEM_CREATED: 'project.review.agenda_item.created',
+  PROJECT_REVIEW_AGENDA_ITEM_UPDATED: 'project.review.agenda_item.updated',
+  PROJECT_REVIEW_AGENDA_ITEM_REORDERED: 'project.review.agenda_item.reordered',
+  PROJECT_REVIEW_AGENDA_ITEM_STARTED: 'project.review.agenda_item.started',
+  PROJECT_REVIEW_AGENDA_ITEM_COMPLETED: 'project.review.agenda_item.completed',
+  PROJECT_REVIEW_AGENDA_ITEM_SKIPPED: 'project.review.agenda_item.skipped',
+  PROJECT_REVIEW_ACTION_RESPONSIBILITY_ASSIGNED:
+    'project.review.action.responsibility_assigned',
+  PROJECT_REVIEW_PARTICIPANT_ADDED: 'project.review.participant.added',
+  PROJECT_REVIEW_PARTICIPANT_UPDATED: 'project.review.participant.updated',
+  PROJECT_REVIEW_PARTICIPANT_REMOVED: 'project.review.participant.removed',
 
   /** RFC-PROJ-DOC-001 */
   PROJECT_DOCUMENT_CREATED: 'project.document.created',

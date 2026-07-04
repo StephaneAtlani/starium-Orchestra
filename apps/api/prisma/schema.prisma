@@ -300,6 +300,8 @@ model Client {
   projectReviewParticipants        ProjectReviewParticipant[]
   projectReviewDecisions           ProjectReviewDecision[]
   projectReviewActionItems         ProjectReviewActionItem[]
+  projectReviewAgendaItems         ProjectReviewAgendaItem[]
+  projectReviewActionItemContributors ProjectReviewActionItemContributor[]
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
@@ -553,6 +555,10 @@ model User {
   archivedProjectScenarios             ProjectScenario[]               @relation("ProjectScenarioArchivedBy")
   facilitatedProjectReviews            ProjectReview[]                 @relation("ProjectReviewFacilitator")
   finalizedProjectReviews              ProjectReview[]                 @relation("ProjectReviewFinalizedBy")
+  startedProjectReviews                ProjectReview[]                 @relation("ProjectReviewStartedBy")
+  ownedProjectReviewAgendaItems        ProjectReviewAgendaItem[]       @relation("ProjectReviewAgendaItemOwner")
+  responsibleProjectReviewActionItems  ProjectReviewActionItem[]       @relation("ProjectReviewActionResponsible")
+  projectReviewActionItemContributions ProjectReviewActionItemContributor[]
   projectReviewParticipants            ProjectReviewParticipant[]
   emailIdentities                      UserEmailIdentity[]
   emailIdentityVerificationTokens    EmailIdentityVerificationToken[] @relation("EmailIdentityTokenUser")
@@ -1382,9 +1388,34 @@ enum ProjectReviewType {
 }
 
 enum ProjectReviewStatus {
+  /// Legacy — migré vers IN_REVIEW ; jamais écrit par le code applicatif Phase 1
   DRAFT
+  /// Point planifié, pas encore démarré (RFC-PROJ-013-1)
+  PLANNED
+  /// Revue en cours de saisie / conduite (RFC-PROJ-013-1)
+  IN_REVIEW
   FINALIZED
   CANCELLED
+}
+
+enum ProjectReviewMeetingMode {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+enum ProjectReviewAgendaItemStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+enum ProjectReviewParticipantAttendanceStatus {
+  EXPECTED
+  PRESENT
+  ABSENT
+  EXCUSED
 }
 
 /// RFC-PROJ-DOC-001 — registre métier documentaire projet (sans stockage binaire MVP)
@@ -2161,11 +2192,17 @@ model ProjectReview {
 
   reviewDate DateTime
   reviewType ProjectReviewType
-  status     ProjectReviewStatus @default(DRAFT)
+  status     ProjectReviewStatus @default(IN_REVIEW)
 
   title            String?
   executiveSummary String?
   contentPayload   Json?
+
+  meetingMode       ProjectReviewMeetingMode?
+  meetingUrl        String?
+  location          String?
+  startedAt         DateTime?
+  startedByUserId   String?
 
   facilitatorUserId String?
   finalizedAt       DateTime?
@@ -2182,10 +2219,12 @@ model ProjectReview {
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
   finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+  startedBy   User?   @relation("ProjectReviewStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
 
   participants ProjectReviewParticipant[]
   decisions    ProjectReviewDecision[]
   actionItems  ProjectReviewActionItem[]
+  agendaItems  ProjectReviewAgendaItem[]
 
   @@index([clientId, projectId, reviewDate])
   @@index([clientId, projectId, status])
@@ -2199,15 +2238,50 @@ model ProjectReviewParticipant {
 
   userId      String?
   displayName String?
+  roleLabel   String?
 
-  attended   Boolean @default(true)
-  isRequired Boolean @default(false)
+  attended         Boolean @default(true)
+  isRequired       Boolean @default(false)
+  attendanceStatus ProjectReviewParticipantAttendanceStatus @default(EXPECTED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
   user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
+  @@index([clientId, projectReviewId])
+  @@index([projectReviewId])
+  @@index([userId])
+}
+
+model ProjectReviewAgendaItem {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  title                  String
+  description            String?
+  orderIndex             Int
+  plannedDurationMinutes Int?
+  ownerUserId            String?
+  status                 ProjectReviewAgendaItemStatus @default(TODO)
+  notes                  String?
+  decisionSummary        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  ownerUser     User?         @relation("ProjectReviewAgendaItemOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  decisions   ProjectReviewDecision[]
+  actionItems ProjectReviewActionItem[]
+
+  @@index([clientId, projectReviewId, orderIndex])
   @@index([projectReviewId])
 }
 
@@ -2215,17 +2289,20 @@ model ProjectReviewDecision {
   id              String @id @default(cuid())
   clientId        String
   projectReviewId String
+  agendaItemId    String?
 
   title       String
   description String?
 
   createdAt DateTime @default(now())
 
-  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  client        Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview          @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  agendaItem    ProjectReviewAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([projectReviewId])
+  @@index([agendaItemId])
 }
 
 model ProjectReviewActionItem {
@@ -2233,20 +2310,45 @@ model ProjectReviewActionItem {
   clientId        String
   projectReviewId String
   projectId       String
+  agendaItemId    String?
 
-  title        String
-  status       ProjectTaskStatus
-  dueDate      DateTime?
-  linkedTaskId String?
+  title              String
+  status             ProjectTaskStatus
+  dueDate            DateTime?
+  linkedTaskId       String?
+  responsibleUserId  String?
 
-  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  projectReview ProjectReview @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  linkedTask    ProjectTask?  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  client          Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview   ProjectReview                 @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  project         Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  linkedTask      ProjectTask?                  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  agendaItem      ProjectReviewAgendaItem?      @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  responsibleUser User?                         @relation("ProjectReviewActionResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+  contributors    ProjectReviewActionItemContributor[]
 
   @@index([clientId])
   @@index([clientId, projectId])
   @@index([projectReviewId])
+  @@index([agendaItemId])
+  @@index([responsibleUserId])
+}
+
+model ProjectReviewActionItemContributor {
+  id           String @id @default(cuid())
+  clientId     String
+  actionItemId String
+
+  userId              String?
+  displayName         String?
+  roleLabel           String?
+  contributionStatus  String?
+
+  client     Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  actionItem ProjectReviewActionItem @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+  user       User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([actionItemId])
 }
 
 /// Catalogue des rôles d’équipe projet (par client).

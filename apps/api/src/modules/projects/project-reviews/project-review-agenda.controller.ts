@@ -1,7 +1,7 @@
 import {
   Body,
   Controller,
-  Get,
+  Delete,
   Param,
   Patch,
   Post,
@@ -16,59 +16,28 @@ import { ActiveClientId } from '../../../common/decorators/active-client.decorat
 import { RequestUserId } from '../../../common/decorators/request-user.decorator';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../../budget-management/types/audit-context';
-import { CreateProjectReviewDto } from './dto/create-project-review.dto';
-import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
-import { ProjectReviewsService } from './project-reviews.service';
+import { CreateProjectReviewAgendaItemDto } from './dto/create-agenda-item.dto';
+import { ReorderProjectReviewAgendaItemsDto } from './dto/reorder-agenda-items.dto';
+import { UpdateProjectReviewAgendaItemDto } from './dto/update-agenda-item.dto';
+import { ProjectReviewAgendaService } from './project-review-agenda.service';
 
-@Controller('projects/:projectId/reviews')
+@Controller('projects/:projectId/reviews/:reviewId/agenda-items')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
-export class ProjectReviewsController {
-  constructor(private readonly projectReviewsService: ProjectReviewsService) {}
-
-  @Get()
-  @RequirePermissions('projects.read')
-  list(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('projectId') projectId: string,
-  ) {
-    return this.projectReviewsService.list(clientId!, projectId);
-  }
-
-  @Get(':reviewId')
-  @RequirePermissions('projects.read')
-  getById(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('projectId') projectId: string,
-    @Param('reviewId') reviewId: string,
-  ) {
-    return this.projectReviewsService.getById(clientId!, projectId, reviewId);
-  }
+export class ProjectReviewAgendaController {
+  constructor(private readonly agendaService: ProjectReviewAgendaService) {}
 
   @Post()
   @RequirePermissions('projects.update')
   create(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
-    @Body() dto: CreateProjectReviewDto,
-    @RequestUserId() actorUserId: string | undefined,
-    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
-  ) {
-    const context: AuditContext = { actorUserId, meta };
-    return this.projectReviewsService.create(clientId!, projectId, dto, context);
-  }
-
-  @Patch(':reviewId')
-  @RequirePermissions('projects.update')
-  update(
-    @ActiveClientId() clientId: string | undefined,
-    @Param('projectId') projectId: string,
     @Param('reviewId') reviewId: string,
-    @Body() dto: UpdateProjectReviewDto,
+    @Body() dto: CreateProjectReviewAgendaItemDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.projectReviewsService.update(
+    return this.agendaService.create(
       clientId!,
       projectId,
       reviewId,
@@ -77,56 +46,104 @@ export class ProjectReviewsController {
     );
   }
 
-  @Post(':reviewId/start-review')
+  @Patch('reorder')
   @RequirePermissions('projects.update')
-  startReview(
+  reorder(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('reviewId') reviewId: string,
+    @Body() dto: ReorderProjectReviewAgendaItemsDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.projectReviewsService.startReview(
+    return this.agendaService.reorder(
       clientId!,
       projectId,
       reviewId,
+      dto,
       context,
     );
   }
 
-  @Post(':reviewId/finalize')
+  @Patch(':agendaItemId')
   @RequirePermissions('projects.update')
-  finalize(
+  update(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('reviewId') reviewId: string,
+    @Param('agendaItemId') agendaItemId: string,
+    @Body() dto: UpdateProjectReviewAgendaItemDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.projectReviewsService.finalize(
+    return this.agendaService.update(
       clientId!,
       projectId,
       reviewId,
+      agendaItemId,
+      dto,
       context,
     );
   }
 
-  @Post(':reviewId/cancel')
+  @Post(':agendaItemId/start')
   @RequirePermissions('projects.update')
-  cancel(
+  start(
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('reviewId') reviewId: string,
+    @Param('agendaItemId') agendaItemId: string,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
     const context: AuditContext = { actorUserId, meta };
-    return this.projectReviewsService.cancel(
+    return this.agendaService.start(
       clientId!,
       projectId,
       reviewId,
+      agendaItemId,
+      context,
+    );
+  }
+
+  @Post(':agendaItemId/complete')
+  @RequirePermissions('projects.update')
+  complete(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Param('agendaItemId') agendaItemId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.agendaService.complete(
+      clientId!,
+      projectId,
+      reviewId,
+      agendaItemId,
+      context,
+    );
+  }
+
+  @Post(':agendaItemId/skip')
+  @RequirePermissions('projects.update')
+  skip(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Param('agendaItemId') agendaItemId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.agendaService.skip(
+      clientId!,
+      projectId,
+      reviewId,
+      agendaItemId,
       context,
     );
   }

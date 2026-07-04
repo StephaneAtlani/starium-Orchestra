@@ -5,9 +5,19 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   cancelProjectReview,
+  completeProjectReviewAgendaItem,
   createProjectReview,
+  createProjectReviewAgendaItem,
+  createProjectReviewParticipant,
+  deleteProjectReviewParticipant,
   finalizeProjectReview,
+  reorderProjectReviewAgendaItems,
+  skipProjectReviewAgendaItem,
+  startProjectReview,
+  startProjectReviewAgendaItem,
   updateProjectReview,
+  updateProjectReviewAgendaItem,
+  updateProjectReviewParticipant,
 } from '../api/project-reviews.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
@@ -16,6 +26,15 @@ export function useProjectReviewMutations(projectId: string) {
   const qc = useQueryClient();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+
+  const invalidateReview = (reviewId: string) => {
+    void qc.invalidateQueries({
+      queryKey: projectQueryKeys.reviews(clientId, projectId),
+    });
+    void qc.invalidateQueries({
+      queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
+    });
+  };
 
   const invalidate = () => {
     void qc.invalidateQueries({
@@ -40,10 +59,15 @@ export function useProjectReviewMutations(projectId: string) {
       body: Record<string, unknown>;
     }) => updateProjectReview(authFetch, projectId, reviewId, body),
     onSuccess: (_, { reviewId }) => {
-      invalidate();
-      void qc.invalidateQueries({
-        queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
-      });
+      invalidateReview(reviewId);
+    },
+  });
+
+  const startReview = useMutation({
+    mutationFn: (reviewId: string) =>
+      startProjectReview(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
     },
   });
 
@@ -51,10 +75,7 @@ export function useProjectReviewMutations(projectId: string) {
     mutationFn: (reviewId: string) =>
       finalizeProjectReview(authFetch, projectId, reviewId),
     onSuccess: (_, reviewId) => {
-      invalidate();
-      void qc.invalidateQueries({
-        queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
-      });
+      invalidateReview(reviewId);
     },
   });
 
@@ -62,12 +83,173 @@ export function useProjectReviewMutations(projectId: string) {
     mutationFn: (reviewId: string) =>
       cancelProjectReview(authFetch, projectId, reviewId),
     onSuccess: (_, reviewId) => {
-      invalidate();
-      void qc.invalidateQueries({
-        queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
-      });
+      invalidateReview(reviewId);
     },
   });
 
-  return { create, update, finalize, cancel };
+  const createAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      body,
+    }: {
+      reviewId: string;
+      body: Record<string, unknown>;
+    }) => createProjectReviewAgendaItem(authFetch, projectId, reviewId, body),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const updateAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      agendaItemId,
+      body,
+    }: {
+      reviewId: string;
+      agendaItemId: string;
+      body: Record<string, unknown>;
+    }) =>
+      updateProjectReviewAgendaItem(
+        authFetch,
+        projectId,
+        reviewId,
+        agendaItemId,
+        body,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const reorderAgendaItems = useMutation({
+    mutationFn: ({
+      reviewId,
+      items,
+    }: {
+      reviewId: string;
+      items: Array<{ id: string; orderIndex: number }>;
+    }) => reorderProjectReviewAgendaItems(authFetch, projectId, reviewId, items),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const startAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      agendaItemId,
+    }: {
+      reviewId: string;
+      agendaItemId: string;
+    }) =>
+      startProjectReviewAgendaItem(authFetch, projectId, reviewId, agendaItemId),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const completeAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      agendaItemId,
+    }: {
+      reviewId: string;
+      agendaItemId: string;
+    }) =>
+      completeProjectReviewAgendaItem(
+        authFetch,
+        projectId,
+        reviewId,
+        agendaItemId,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const skipAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      agendaItemId,
+    }: {
+      reviewId: string;
+      agendaItemId: string;
+    }) =>
+      skipProjectReviewAgendaItem(authFetch, projectId, reviewId, agendaItemId),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const createParticipant = useMutation({
+    mutationFn: ({
+      reviewId,
+      body,
+    }: {
+      reviewId: string;
+      body: Record<string, unknown>;
+    }) => createProjectReviewParticipant(authFetch, projectId, reviewId, body),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const updateParticipant = useMutation({
+    mutationFn: ({
+      reviewId,
+      participantId,
+      body,
+    }: {
+      reviewId: string;
+      participantId: string;
+      body: Record<string, unknown>;
+    }) =>
+      updateProjectReviewParticipant(
+        authFetch,
+        projectId,
+        reviewId,
+        participantId,
+        body,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const deleteParticipant = useMutation({
+    mutationFn: ({
+      reviewId,
+      participantId,
+    }: {
+      reviewId: string;
+      participantId: string;
+    }) =>
+      deleteProjectReviewParticipant(
+        authFetch,
+        projectId,
+        reviewId,
+        participantId,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  return {
+    create,
+    update,
+    startReview,
+    finalize,
+    cancel,
+    createAgendaItem,
+    updateAgendaItem,
+    reorderAgendaItems,
+    startAgendaItem,
+    completeAgendaItem,
+    skipAgendaItem,
+    createParticipant,
+    updateParticipant,
+    deleteParticipant,
+  };
 }

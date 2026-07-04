@@ -4,8 +4,12 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  ValidateNested,
+  IsArray,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ProjectTaskStatus } from '@prisma/client';
+import { ProjectReviewActionItemContributorInputDto } from './project-review-action-item-contributor.dto';
 
 export class ProjectReviewActionItemInputDto {
   @IsString()
@@ -22,4 +26,18 @@ export class ProjectReviewActionItemInputDto {
   @IsOptional()
   @IsString()
   linkedTaskId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  responsibleUserId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  agendaItemId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProjectReviewActionItemContributorInputDto)
+  contributors?: ProjectReviewActionItemContributorInputDto[];
 }

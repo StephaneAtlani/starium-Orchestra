@@ -19,6 +19,10 @@ import { ProjectSheetController } from './project-sheet/project-sheet.controller
 import { ProjectSheetService } from './project-sheet/project-sheet.service';
 import { ProjectReviewsController } from './project-reviews/project-reviews.controller';
 import { ProjectReviewsService } from './project-reviews/project-reviews.service';
+import { ProjectReviewAgendaController } from './project-reviews/project-review-agenda.controller';
+import { ProjectReviewAgendaService } from './project-reviews/project-review-agenda.service';
+import { ProjectReviewParticipantsController } from './project-reviews/project-review-participants.controller';
+import { ProjectReviewParticipantsService } from './project-reviews/project-review-participants.service';
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
@@ -66,6 +70,8 @@ import { OrganizationModule } from '../organization/organization.module';
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
     ProjectReviewsController,
+    ProjectReviewAgendaController,
+    ProjectReviewParticipantsController,
     ProjectPortfolioCategoriesController,
     ProjectsController,
     ProjectDocumentsController,
@@ -87,6 +93,8 @@ import { OrganizationModule } from '../organization/organization.module';
     ProjectSheetService,
     ProjectSheetDecisionSnapshotsService,
     ProjectReviewsService,
+    ProjectReviewAgendaService,
+    ProjectReviewParticipantsService,
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,
     ProjectDocumentContentService,

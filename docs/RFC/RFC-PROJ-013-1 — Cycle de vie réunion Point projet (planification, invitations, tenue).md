@@ -2,7 +2,7 @@
 
 ## Statut
 
-Proposé (à faire) — extension de **RFC-PROJ-013**
+**Implémenté (Phase 1)** — extension de **RFC-PROJ-013** (2026-07-04). Phases 2 (invitations in-app) et 3 (email / Microsoft Graph) **non livrées**.
 
 ## Périmètre de ce lot
 
@@ -36,14 +36,14 @@ Aligner le module **Point projet** sur le **cycle de vie réel d'une réunion de
 
 # 2. Problème adressé
 
-Aujourd'hui (RFC-PROJ-013 implémenté) :
+Avant **RFC-PROJ-013-1** (RFC-PROJ-013 seul) :
 
-* « Créer un point » crée immédiatement un `ProjectReview` en `DRAFT` **et** ouvre l'éditeur du compte rendu.
-* Le statut `DRAFT` **fusionne** deux phases distinctes : « réunion planifiée / à venir » et « compte rendu en cours ».
-* **Aucun champ** ne porte le **mode** (visio / présentiel / hybride), le **lien de réunion** ou le **lieu**.
-* **Aucune invitation** n'est diffusée aux participants (le module `notifications` in-app existe mais n'est pas branché ; aucun email ; aucune réunion Teams/calendrier).
+* « Créer un point » créait immédiatement un `ProjectReview` en `DRAFT` **et** ouvrait l'éditeur du compte rendu.
+* Le statut `DRAFT` **fusionnait** deux phases distinctes : « réunion planifiée / à venir » et « compte rendu en cours ».
+* **Aucun champ** ne portait le **mode** (visio / présentiel / hybride), le **lien de réunion** ou le **lieu**.
+* **Aucune invitation** n'était diffusée aux participants (le module `notifications` in-app existe mais n'est pas branché ; aucun email ; aucune réunion Teams/calendrier).
 
-Conséquence : impossible de piloter un point « à venir » distinct d'un point « à saisir », ni de convier les participants depuis Starium.
+**Phase 1 livrée** : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`, conduite de réunion (ordre du jour, participants `attendanceStatus`, responsable unique sur actions). Les invitations restent hors scope (Phases 2/3).
 
 ### Ce qui existe déjà et qu'on réutilise
 
@@ -273,9 +273,18 @@ Préfixe `/api`.
 | `POST`  | `/projects/:projectId/reviews/:reviewId/start-review` | `projects.update` | `PLANNED → IN_REVIEW` (refuse si statut ≠ `PLANNED`) |
 | `POST`  | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` | `IN_REVIEW → FINALIZED` (**refuse si `PLANNED`**) |
 | `POST`  | `/projects/:projectId/reviews/:reviewId/cancel` | `projects.update` | `PLANNED|IN_REVIEW → CANCELLED` |
-| `GET`   | `/projects/:projectId/reviews[/:reviewId]` | `projects.read` | Retourne les nouveaux champs |
+| `GET`   | `/projects/:projectId/reviews[/:reviewId]` | `projects.read` | Retourne les nouveaux champs (+ `agendaItems`, participants enrichis) |
+| `POST`  | `/projects/:projectId/reviews/:reviewId/agenda-items` | `projects.update` | Créer un point d'ordre du jour (si `PLANNED` ou `IN_REVIEW`) |
+| `PATCH` | `/projects/:projectId/reviews/:reviewId/agenda-items/reorder` | `projects.update` | Réordonner (`items: { id, orderIndex }[]`) — route déclarée **avant** `:agendaItemId` |
+| `PATCH` | `/projects/:projectId/reviews/:reviewId/agenda-items/:agendaItemId` | `projects.update` | Modifier titre / notes / `decisionSummary` (notes interdites en `PLANNED`) |
+| `POST`  | `…/agenda-items/:agendaItemId/start` \| `complete` \| `skip` | `projects.update` | Transitions point d'ordre du jour |
+| `POST`  | `/projects/:projectId/reviews/:reviewId/participants` | `projects.update` | Ajouter participant (interne `userId` ou externe `displayName`) |
+| `PATCH` | `/projects/:projectId/reviews/:reviewId/participants/:participantId` | `projects.update` | Modifier (`attendanceStatus` source de vérité en `IN_REVIEW`) |
+| `DELETE`| `/projects/:projectId/reviews/:reviewId/participants/:participantId` | `projects.update` | Supprimer (si `PLANNED` ou `IN_REVIEW`) |
 
 > Route `invite` = **Phase 2 (hors de ce lot)**, non implémentée ici.
+
+**Audits Phase 1 complémentaires** : `project.review.started`, `project.review.agenda_item.*`, `project.review.action.responsibility_assigned`, `project.review.participant.{added,updated,removed}`. **Jamais** `meetingUrl` ni email externe en clair dans les audits.
 
 ---
 
@@ -366,3 +375,35 @@ Préfixe `/api`.
 | **3** | Email + réunion Teams/calendrier | ❌ Hors de ce lot — trajectoire future | Mailer + Microsoft Graph (à câbler) |
 
 La Phase 1 matérialise à elle seule le workflow « préparer → tenir → acter » (le « lien vers le point » reste le deep link `?openReview=`), sans aucune dépendance d'infrastructure. Les invitations (in-app puis email/Teams) sont explicitement reportées.
+
+---
+
+# 12. Implémentation livrée (Phase 1)
+
+## Backend
+
+* **Prisma** : `ProjectReviewStatus` (+ `PLANNED`, `IN_REVIEW`, `DRAFT` legacy conservé), `ProjectReviewMeetingMode`, champs réunion sur `ProjectReview`, `ProjectReviewAgendaItem`, `ProjectReviewActionItemContributor`, extension `ProjectReviewParticipant` (`attendanceStatus`, `roleLabel`, timestamps).
+* **Migrations** (5 dossiers séparés, ordre obligatoire) :
+  * `20260704120000_proj_013_1_meeting_lifecycle_enums_columns`
+  * `20260704120100_proj_013_1_migrate_draft_reviews` (`DRAFT → IN_REVIEW`)
+  * `20260704120200_proj_013_1_review_status_default_in_review`
+  * `20260704120300_proj_013_1_review_conduct_agenda_actions`
+  * `20260704120400_proj_013_1_review_participant_attendance`
+* **Services** : `project-reviews.service.ts` (cycle de vie), `project-review-agenda.service.ts`, `project-review-participants.service.ts`.
+* **Controllers** : `project-reviews.controller.ts` (`start-review`), `project-review-agenda.controller.ts`, `project-review-participants.controller.ts`.
+* **Snapshot** : `project-reviews-snapshot.builder.ts` — fige `meetingMode`, `location`, participants (`attendanceStatus`), agenda ordonné, actions (responsable + intervenants), points non traités ; **exclut** `meetingUrl`.
+* **Seeds** : `seed-project-demo-reviews.ts` — statuts démo rebasculés sur `IN_REVIEW` / `PLANNED`.
+* **Tests** : `project-reviews.service.spec.ts`, `project-review-agenda.service.spec.ts`, `project-review-participants.service.spec.ts`.
+
+## Frontend
+
+* Types / labels : `project.types.ts`, `project-enum-labels.ts` (`PLANNED`, `IN_REVIEW`, modes réunion, `attendanceStatus`).
+* API / hooks : `project-reviews.api.ts`, `use-project-review-mutations.ts` (`startReview`, agenda, participants).
+* UI : `project-reviews-tab.tsx` (création + `creationMode` + section Réunion), `project-review-editor-dialog.tsx` (lecture seule `PLANNED`, « Démarrer la revue »), `review-agenda-section.tsx`, `review-participants-section.tsx`.
+* Post-mortem : `project-review-post-mortem.ts` — brouillon REX filtré sur `IN_REVIEW`.
+
+## Déploiement
+
+```bash
+cd apps/api && npx prisma migrate deploy
+```
