@@ -70,6 +70,8 @@ import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-
 import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
 import { ReviewAgendaSection, ReviewMeetingInfoBlock } from './review-agenda-section';
 import { ReviewParticipantsSection } from './review-participants-section';
+import { ReviewInvitationsSection } from './review-invitations-section';
+import { ReviewPlannedPlanningFields } from './review-planned-planning-fields';
 import { projectSheet } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -689,6 +691,7 @@ export function ProjectReviewEditorDialog({
   const isPlanned = d?.status === 'PLANNED';
   const isInReview = d?.status === 'IN_REVIEW' || d?.status === 'DRAFT';
   const editable = canEdit && isInReview;
+  const planningEditable = canEdit && isPlanned;
   const projectStatus = projectQuery.data?.status;
   const reviewTypeOptions = useMemo(
     () => getReviewTypeOptionsForEditor(projectStatus, reviewType),
@@ -771,6 +774,14 @@ export function ProjectReviewEditorDialog({
     ],
   );
 
+  const buildPlannedPatchBody = useCallback(
+    () => ({
+      reviewDate: fromLocalDatetimeInput(reviewDate),
+      title: title.trim() || null,
+    }),
+    [reviewDate, title],
+  );
+
   /** Sauvegarde automatique du brouillon (debounce) — pas de clic « Enregistrer » requis. */
   useEffect(() => {
     if (!open || !editable || !d || !reviewId) return;
@@ -812,6 +823,40 @@ export function ProjectReviewEditorDialog({
     postMortemForm,
     update,
     buildPatchBody,
+  ]);
+
+  useEffect(() => {
+    if (!open || !planningEditable || !d || !reviewId) return;
+    if (lastInitRef.current !== reviewId) return;
+
+    const t = window.setTimeout(() => {
+      const body = buildPlannedPatchBody();
+      const s = JSON.stringify(body);
+      if (lastSavedSerializedRef.current === null) {
+        lastSavedSerializedRef.current = s;
+        return;
+      }
+      if (s === lastSavedSerializedRef.current) return;
+      update.mutate(
+        { reviewId: d.id, body },
+        {
+          onSuccess: () => {
+            lastSavedSerializedRef.current = s;
+          },
+        },
+      );
+    }, 1200);
+
+    return () => window.clearTimeout(t);
+  }, [
+    open,
+    planningEditable,
+    d,
+    reviewId,
+    reviewDate,
+    title,
+    update,
+    buildPlannedPatchBody,
   ]);
 
   const pilotageSinceLast = useMemo(() => {
@@ -1054,7 +1099,7 @@ export function ProjectReviewEditorDialog({
                       id="pr-ed-date-h"
                       type="datetime-local"
                       value={reviewDate}
-                      disabled={!editable}
+                      disabled={!editable && !planningEditable}
                       onChange={(e) => setReviewDate(e.target.value)}
                       className="border-border/70"
                     />
@@ -1066,7 +1111,7 @@ export function ProjectReviewEditorDialog({
                     <Input
                       id="pr-ed-title-h"
                       value={title}
-                      disabled={!editable}
+                      disabled={!editable && !planningEditable}
                       onChange={(e) => setTitle(e.target.value)}
                       maxLength={500}
                       placeholder={
@@ -1082,7 +1127,24 @@ export function ProjectReviewEditorDialog({
 
               <ReviewMeetingInfoBlock detail={d} />
 
+              {planningEditable ? (
+                <ReviewPlannedPlanningFields
+                  projectId={projectId}
+                  reviewId={d.id}
+                  detail={d}
+                  canEdit={planningEditable}
+                />
+              ) : null}
+
               <ReviewParticipantsSection
+                projectId={projectId}
+                reviewId={d.id}
+                status={d.status}
+                participants={d.participants ?? []}
+                canEdit={canEdit}
+              />
+
+              <ReviewInvitationsSection
                 projectId={projectId}
                 reviewId={d.id}
                 status={d.status}

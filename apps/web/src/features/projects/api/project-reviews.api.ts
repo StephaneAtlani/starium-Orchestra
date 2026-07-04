@@ -1,6 +1,7 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  InviteProjectReviewResult,
   ProjectReviewAgendaItemApi,
   ProjectReviewDetail,
   ProjectReviewListResponse,
@@ -92,6 +93,21 @@ export async function cancelProjectReview(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectReviewDetail>;
+}
+
+export async function inviteProjectReview(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  body?: { participantIds?: string[] },
+): Promise<InviteProjectReviewResult> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<InviteProjectReviewResult>;
 }
 
 const agendaBase = (projectId: string, reviewId: string) =>

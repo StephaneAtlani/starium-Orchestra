@@ -13,6 +13,7 @@ import {
 import { ProjectsPilotageService } from '../projects-pilotage.service';
 import { ProjectsService } from '../projects.service';
 import { ProjectReviewsService } from './project-reviews.service';
+import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 
 describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
   let service: ProjectReviewsService;
@@ -43,6 +44,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
   let auditLogs: { create: jest.Mock };
   let projects: { getProjectForScope: jest.Mock; assertClientUser: jest.Mock };
   let pilotage: { computedHealth: jest.Mock };
+  let invitations: { invite: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -94,6 +96,14 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     pilotage = {
       computedHealth: jest.fn().mockReturnValue('GREEN'),
     };
+    invitations = {
+      invite: jest.fn().mockResolvedValue({
+        notified: 1,
+        skippedExternal: 0,
+        skippedInactive: 0,
+        participantIds: ['part1'],
+      }),
+    };
     prisma = {
       projectReview: {
         findMany: jest.fn(),
@@ -140,6 +150,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       projects as unknown as ProjectsService,
       pilotage as unknown as ProjectsPilotageService,
       auditLogs as unknown as AuditLogsService,
+      invitations as unknown as ProjectReviewInvitationsService,
     );
   });
 
@@ -413,5 +424,141 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
         {},
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('auto_create : revue créée même si invitation auto échoue', async () => {
+    const plannedRow = reviewRow({
+      status: ProjectReviewStatus.PLANNED,
+      participants: [{ id: 'p1', userId: 'u1', displayName: null }],
+    });
+    prisma.projectReview.create.mockResolvedValue(plannedRow);
+    prisma.projectReview.findFirst.mockResolvedValue(plannedRow);
+    invitations.invite.mockRejectedValue(new Error('notification failed'));
+
+    const result = await service.create(
+      clientId,
+      projectId,
+      {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.COPIL,
+        creationMode: 'PLANNED',
+        participants: [{ userId: 'u1' }],
+      },
+      { actorUserId: 'admin' },
+    );
+
+    expect(result.status).toBe(ProjectReviewStatus.PLANNED);
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_INVITE_FAILED,
+      }),
+    );
+  });
+
+  it('auto_create déclenche invite pour PLANNED avec participants internes', async () => {
+    prisma.projectReview.create.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.PLANNED,
+        participants: [{ id: 'p1', userId: 'u1', displayName: null }],
+      }),
+    );
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.PLANNED,
+        participants: [{ id: 'p1', userId: 'u1', displayName: null }],
+      }),
+    );
+
+    await service.create(
+      clientId,
+      projectId,
+      {
+        reviewDate: '2025-06-01T10:00:00.000Z',
+        reviewType: ProjectReviewType.COPIL,
+        creationMode: 'PLANNED',
+        participants: [{ userId: 'u1' }],
+      },
+      { actorUserId: 'admin' },
+    );
+
+    expect(invitations.invite).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      reviewId,
+      expect.any(Object),
+      { trigger: 'auto_create' },
+    );
+  });
+
+  it('update PLANNED refuse les champs compte rendu', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.PLANNED }),
+    );
+
+    await expect(
+      service.update(clientId, projectId, reviewId, {
+        decisions: [{ title: 'Décision' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('update PLANNED avec changement reviewDate déclenche auto_date_change', async () => {
+    prisma.projectReview.findFirst
+      .mockResolvedValueOnce(
+        reviewRow({
+          status: ProjectReviewStatus.PLANNED,
+          reviewDate: new Date('2025-06-01T10:00:00.000Z'),
+        }),
+      )
+      .mockResolvedValueOnce(
+        reviewRow({
+          status: ProjectReviewStatus.PLANNED,
+          reviewDate: new Date('2025-06-15T10:00:00.000Z'),
+        }),
+      );
+    prisma.projectReview.update.mockResolvedValue({});
+    prisma.projectReview.findFirstOrThrow.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.PLANNED,
+        reviewDate: new Date('2025-06-15T10:00:00.000Z'),
+      }),
+    );
+
+    await service.update(
+      clientId,
+      projectId,
+      reviewId,
+      { reviewDate: '2025-06-15T10:00:00.000Z' },
+      { actorUserId: 'admin' },
+    );
+
+    expect(invitations.invite).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      reviewId,
+      expect.any(Object),
+      { trigger: 'auto_date_change' },
+    );
+  });
+
+  it('update PLANNED sans changement reviewDate ne déclenche pas auto_date_change', async () => {
+    const sameDate = new Date('2025-06-01T10:00:00.000Z');
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.PLANNED, reviewDate: sameDate }),
+    );
+    prisma.projectReview.update.mockResolvedValue({});
+    prisma.projectReview.findFirstOrThrow.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.PLANNED, reviewDate: sameDate }),
+    );
+
+    await service.update(
+      clientId,
+      projectId,
+      reviewId,
+      { reviewDate: sameDate.toISOString(), title: 'Nouveau titre' },
+      { actorUserId: 'admin' },
+    );
+
+    expect(invitations.invite).not.toHaveBeenCalled();
   });
 });

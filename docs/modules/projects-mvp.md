@@ -34,7 +34,8 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
   - `projects.service.ts` — CRUD projet, liste enrichie (pilotage), `getPortfolioSummary`
   - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` comme **moyenne des `progress`** sur les tâches non annulées (RFC-PROJ-011), criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
   - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` — sous-ressources (RFC-PROJ-011 pour tâches/jalons enrichis, activités, Gantt-ready)
-  - `project-reviews.service.ts` — points projet COPIL/COPRO (RFC-PROJ-013 + RFC-PROJ-013-1 Phase 1), cycle `PLANNED`/`IN_REVIEW`, snapshot enrichi, audit `project.review.*`
+  - `project-reviews.service.ts` — points projet COPIL/COPRO (RFC-PROJ-013 + RFC-PROJ-013-1 Phases 1–2), cycle `PLANNED`/`IN_REVIEW`, invitations in-app, snapshot enrichi, audit `project.review.*`
+  - `project-review-invitations.service.ts` — notifications in-app participants (RFC-PROJ-013-1 Phase 2)
   - `project-review-agenda.service.ts`, `project-review-participants.service.ts` — ordre du jour et participants (RFC-PROJ-013-1)
 - **Guards** (tous les contrôleurs des modules ci-dessus) : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
 - **Audit** : création / mise à jour / suppression projet et sous-ressources tracées où implémenté ; liens budget projet en complément (`project_budget_link`)
@@ -69,12 +70,13 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | PATCH | `/projects/:id/project-sheet` | `projects.update` — champs fiche (cadrage, scores, ROI/priorité dérivés côté serveur, `type` / `status` projet, arbitrage 3 niveaux, motifs de refus si refus) ; audit `project.sheet.updated` |
 | POST | `/projects/:id/arbitration` | `projects.update` — mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`) ; audit dédié validé / refusé |
 | GET | `/projects/:projectId/reviews` | `projects.read` — liste des points projet (sans `snapshotPayload` dans les items) |
-| POST | `/projects/:projectId/reviews` | `projects.update` — création (`creationMode` : `PLANNED` \| `IMMEDIATE`, champs réunion) |
-| GET | `/projects/:projectId/reviews/:reviewId` | `projects.read` — détail (+ agenda, participants ; `snapshotPayload` `null` si non finalisé) |
-| PATCH | `/projects/:projectId/reviews/:reviewId` | `projects.update` — mise à jour si `IN_REVIEW` (legacy `DRAFT` toléré) |
+| POST | `/projects/:projectId/reviews` | `projects.update` — création (`creationMode` : `PLANNED` \| `IMMEDIATE`, champs réunion, `autoInviteOnCreate`) |
+| GET | `/projects/:projectId/reviews/:reviewId` | `projects.read` — détail (+ agenda, participants avec `invitedAt`/`lastInvitedAt` ; `snapshotPayload` `null` si non finalisé) |
+| PATCH | `/projects/:projectId/reviews/:reviewId` | `projects.update` — `IN_REVIEW` : compte rendu ; `PLANNED` : champs planning uniquement |
 | POST | `/projects/:projectId/reviews/:reviewId/start-review` | `projects.update` — `PLANNED → IN_REVIEW` (RFC-PROJ-013-1) |
 | POST | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` — finalisation + snapshot (refus si `PLANNED`) |
 | POST | `/projects/:projectId/reviews/:reviewId/cancel` | `projects.update` — annulation depuis `PLANNED` ou `IN_REVIEW` |
+| POST | `/projects/:projectId/reviews/:reviewId/invite` | `projects.update` — invitations in-app participants internes (RFC-PROJ-013-1 Phase 2) |
 | POST/PATCH/… | `/projects/:projectId/reviews/:reviewId/agenda-items` | `projects.update` — ordre du jour (RFC-PROJ-013-1) |
 | POST/PATCH/DELETE | `/projects/:projectId/reviews/:reviewId/participants` | `projects.update` — participants (`attendanceStatus`) |
 

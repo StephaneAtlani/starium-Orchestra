@@ -8,6 +8,36 @@ export function isReviewContentEditable(status: ProjectReviewStatus): boolean {
   );
 }
 
+export function isReviewPlanningEditable(status: ProjectReviewStatus): boolean {
+  return status === ProjectReviewStatus.PLANNED;
+}
+
+export function isReviewUpdateAllowed(status: ProjectReviewStatus): boolean {
+  return isReviewContentEditable(status) || isReviewPlanningEditable(status);
+}
+
+const PLANNED_FORBIDDEN_UPDATE_FIELDS = [
+  'decisions',
+  'actionItems',
+  'contentPayload',
+  'participants',
+  'nextReviewDate',
+  'reviewType',
+  'executiveSummary',
+] as const;
+
+export function assertPlannedUpdatePayloadAllowed(
+  dto: Record<string, unknown>,
+): void {
+  for (const field of PLANNED_FORBIDDEN_UPDATE_FIELDS) {
+    if (dto[field] !== undefined) {
+      throw new BadRequestException(
+        `Champ « ${field} » non modifiable sur une revue planifiée`,
+      );
+    }
+  }
+}
+
 export function isReviewAgendaEditable(status: ProjectReviewStatus): boolean {
   return (
     status === ProjectReviewStatus.PLANNED ||

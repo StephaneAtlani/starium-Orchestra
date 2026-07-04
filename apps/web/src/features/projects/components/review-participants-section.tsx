@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL } from '../constants/project-enum-labels';
+import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import type {
@@ -107,6 +108,11 @@ export function ReviewParticipantsSection({
                   {PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL[p.attendanceStatus] ??
                     p.attendanceStatus}
                 </span>
+                {p.lastInvitedAt ? (
+                  <span className="starium-ds-badge starium-ds-badge--info text-xs">
+                    Notifié le {formatProjectDateTimeFr(p.lastInvitedAt)}
+                  </span>
+                ) : null}
                 {markAttendance ? (
                   <select
                     className="starium-form-select min-h-11"

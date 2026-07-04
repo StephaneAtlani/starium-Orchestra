@@ -113,6 +113,8 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_PARTICIPANT_ADDED: 'project.review.participant.added',
   PROJECT_REVIEW_PARTICIPANT_UPDATED: 'project.review.participant.updated',
   PROJECT_REVIEW_PARTICIPANT_REMOVED: 'project.review.participant.removed',
+  PROJECT_REVIEW_INVITED: 'project.review.invited',
+  PROJECT_REVIEW_INVITE_FAILED: 'project.review.invite_failed',
 
   /** RFC-PROJ-DOC-001 */
   PROJECT_DOCUMENT_CREATED: 'project.document.created',

@@ -843,6 +843,15 @@ export type ProjectReviewParticipantApi = {
   displayName: string | null;
   roleLabel: string | null;
   attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+  invitedAt?: string | null;
+  lastInvitedAt?: string | null;
+};
+
+export type InviteProjectReviewResult = {
+  notified: number;
+  skippedExternal: number;
+  skippedInactive: number;
+  participantIds: string[];
 };
 
 export type ProjectReviewAgendaItemApi = {

@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Implémenté (Phase 1)** — extension de **RFC-PROJ-013** (2026-07-04). Phases 2 (invitations in-app) et 3 (email / Microsoft Graph) **non livrées**.
+**Implémenté (Phases 1–2)** — extension de **RFC-PROJ-013** (2026-07-04). **Phase 2 livrée** (invitations in-app, cf. §13). Phase 3 (email / Microsoft Graph) **non livrée**.
 
 ## Périmètre de ce lot
 
@@ -17,7 +17,7 @@
 
 **Dépendances de trajectoire future (hors de ce lot) :**
 
-* Module transverse `notifications` (in-app) — **Phase 2 future**
+* **RFC-038** — Socle alertes et notifications in-app (`Notification`, cloche, `GET/PATCH /api/notifications`) — **Phase 2**
 * RFC-PROJ-INT-001 / INT-005 / INT-007 — Intégration Microsoft 365 — **Phase 3 future**
 
 ---
@@ -138,14 +138,17 @@ Règles serveur strictes :
 * `meetingUrl` validé `@IsUrl` + schéma `https?` uniquement (pas de `javascript:` / `data:`).
 * `POST_MORTEM` (projet clos) : `meetingMode` optionnel ; le flux REX **conserve la création immédiate** si c'est le comportement actuel (cf. §9).
 
-## 4.4 Phase 2 — Invitations in-app (TRAJECTOIRE FUTURE — hors de ce lot)
+## 4.4 Phase 2 — Invitations in-app (planifiée — hors Phase 1)
 
-> **Non implémenté dans ce lot. Aucun fichier modifié.** Décrit pour la trajectoire seulement.
+> **Non implémentée.** Plan d'implémentation détaillé en **§13**.
 
-* À la planification / au changement de date, émettre une **notification in-app** (`NotificationsService`) à chaque participant ayant un `userId` plateforme.
-* Contenu : type de point, date, mode + lien réunion, **deep link `?openReview=<id>`**.
-* Participants « nom libre » (externes) : pas de notif in-app (couvert par email en Phase 3).
-* Fera l'objet d'un lot dédié (route `invite`, audit `project.review.invited`).
+Résumé :
+
+* Notifications **in-app uniquement** (table `Notification`, cloche RFC-038) — **pas** d'email, **pas** de Microsoft Graph.
+* Cibles : participants `ProjectReviewParticipant` avec `userId` actif sur le client ; externes (`displayName` seul) ignorés (Phase 3).
+* Déclencheurs : bouton **« Inviter »** manuel + renvoi automatique optionnel à la création `PLANNED` (si participants déjà présents) et au **changement de `reviewDate`**.
+* Deep link `actionUrl` → fiche projet `?openReview=<reviewId>` ; **`meetingUrl` jamais** dans logs, audits, metadata notification.
+* Route `POST .../reviews/:reviewId/invite`, audit `project.review.invited`.
 
 ## 4.5 Phase 3 — Email + réunion Microsoft (TRAJECTOIRE FUTURE — hors de ce lot)
 
@@ -371,7 +374,7 @@ Préfixe `/api`.
 | Phase | Contenu | Statut de ce lot | Dépendance externe |
 | ----- | ------- | ---------------- | ------------------ |
 | **1** | Statuts `PLANNED` + `IN_REVIEW` (+ `DRAFT` legacy conservé), `creationMode`, champs réunion (mode/URL/lieu), « Démarrer la revue », snapshot `meetingMode`/`location`, lien via `?openReview=` | ✅ **Implémenté (ce lot)** | Aucune |
-| **2** | Invitations **in-app** (module `notifications`) | ❌ Hors de ce lot — trajectoire future | `NotificationsService` (existant) |
+| **2** | Invitations **in-app** (module `notifications`) | ✅ **Implémenté (Phase 2)** | RFC-038 / table `Notification` (existant) |
 | **3** | Email + réunion Teams/calendrier | ❌ Hors de ce lot — trajectoire future | Mailer + Microsoft Graph (à câbler) |
 
 La Phase 1 matérialise à elle seule le workflow « préparer → tenir → acter » (le « lien vers le point » reste le deep link `?openReview=`), sans aucune dépendance d'infrastructure. Les invitations (in-app puis email/Teams) sont explicitement reportées.
@@ -398,12 +401,297 @@ La Phase 1 matérialise à elle seule le workflow « préparer → tenir → act
 ## Frontend
 
 * Types / labels : `project.types.ts`, `project-enum-labels.ts` (`PLANNED`, `IN_REVIEW`, modes réunion, `attendanceStatus`).
-* API / hooks : `project-reviews.api.ts`, `use-project-review-mutations.ts` (`startReview`, agenda, participants).
-* UI : `project-reviews-tab.tsx` (création + `creationMode` + section Réunion), `project-review-editor-dialog.tsx` (lecture seule `PLANNED`, « Démarrer la revue »), `review-agenda-section.tsx`, `review-participants-section.tsx`.
+* API / hooks : `project-reviews.api.ts`, `use-project-review-mutations.ts` (`startReview`, agenda, participants, **`inviteReview`**).
+* UI : `project-reviews-tab.tsx` (création + `creationMode` + section Réunion), `project-review-editor-dialog.tsx` (lecture seule `PLANNED`, « Démarrer la revue », **invitations**), `review-agenda-section.tsx`, `review-participants-section.tsx`, **`review-invitations-section.tsx`**, **`review-planned-planning-fields.tsx`**.
 * Post-mortem : `project-review-post-mortem.ts` — brouillon REX filtré sur `IN_REVIEW`.
+
+## Phase 2 — Invitations in-app (livré)
+
+* **Prisma** : `invitedAt`, `lastInvitedAt` sur `ProjectReviewParticipant` (migration `20260705120000`).
+* **Backend** : `project-review-invitations.service.ts`, `NotificationsService.createForUser`, route `POST .../invite`, auto-triggers post-commit (`auto_create`, `auto_date_change`), PATCH `PLANNED` partiel, audits `project.review.invited` / `project.review.invite_failed`.
+* **Frontend** : section Invitations + badges « Notifié le … », édition planning en `PLANNED`.
+* **Tests** : `project-review-invitations.service.spec.ts` + extensions `project-reviews.service.spec.ts`.
 
 ## Déploiement
 
 ```bash
 cd apps/api && npx prisma migrate deploy
 ```
+
+---
+
+# 13. Plan d'implémentation Phase 2 — Invitations in-app
+
+> **Statut : livré (Phase 2).** Ce lot s'appuie sur la Phase 1 (revue `PLANNED`, participants, deep link `?openReview=`). Aucun email ni intégration Microsoft (Phase 3).
+
+## 13.1 Objectif et périmètre
+
+Permettre au pilote du point projet de **notifier les participants internes** qu'une réunion est planifiée, directement dans la **cloche in-app** (RFC-038).
+
+**Inclus**
+
+* Création de notifications `Notification` (`type = INFO`) pour chaque participant avec `userId` plateforme, scopé `clientId`.
+* Route dédiée `POST .../invite` + déclenchement automatique contrôlé (cf. §13.3).
+* Traçabilité : audit `project.review.invited`, horodatage par participant.
+* UI : bloc « Invitations » dans l'éditeur `PLANNED` (bouton, retour succès/échec, indicateur « notifié »).
+
+**Exclus (Phase 3 ou hors scope)**
+
+* Email SMTP / templates mail.
+* Création Teams / événement calendrier Graph.
+* Notifications aux participants **externes** (`displayName` sans `userId`).
+* Opt-out granulaire par type de notification projet (hors scope V1 — tous les utilisateurs avec `notifications.read` voient la cloche).
+
+## 13.2 Analyse de l'existant (Phase 1 + socle notifications)
+
+| Élément | État | Usage Phase 2 |
+| ------- | ---- | --------------- |
+| `ProjectReview` `PLANNED` + champs réunion | ✅ Phase 1 | Seules revues `PLANNED` invitables ; refus si `IN_REVIEW` / terminal |
+| `ProjectReviewParticipant.userId` / `displayName` | ✅ Phase 1 | Notifier **uniquement** si `userId` non null |
+| Deep link `?openReview=<id>` | ✅ Frontend | `actionUrl` de la notification |
+| `Notification` (Prisma) | ✅ RFC-038 | `clientId`, `userId`, `type`, `title`, `message`, `entityType`, `entityId`, `entityLabel`, `actionUrl`, `metadata` |
+| `NotificationsService` | ✅ RFC-038 | `list` / `markRead` / `markAllRead` — **pas** de `create` centralisé aujourd'hui |
+| Création notification | ✅ Patron `alerts.service.ts` | `prisma.notification.create` + audit `notification.created` |
+| Cloche frontend | ✅ `notification-bell.tsx` | Affiche `actionUrl` comme lien cliquable |
+| `ProjectsModule` | ✅ Phase 1 | **À étendre** : pas d'import `NotificationsModule` aujourd'hui |
+
+**Hypothèse retenue** : introduire une méthode dédiée `NotificationsService.createForUser(...)` (ou helper interne `project-review-invitations.service.ts`) pour uniformiser la création et l'audit, plutôt que dupliquer le bloc `prisma.notification.create` du module alertes.
+
+## 13.3 Déclencheurs et règles métier
+
+### 13.3.1 Qui peut inviter
+
+* Permission **`projects.update`** (même garde que `start-review`).
+* Revue dans le scope `clientId` + `projectId` (via `getProjectForScope`).
+* Statut revue **`PLANNED` uniquement** — refus explicite si `IN_REVIEW`, `FINALIZED`, `CANCELLED`.
+
+### 13.3.2 Qui reçoit une notification
+
+Pour chaque participant éligible :
+
+1. `userId` renseigné ;
+2. utilisateur **actif** sur le client (`client_users.status = ACTIVE`) ;
+3. participant appartient à la revue courante.
+
+**Ignorés (sans erreur bloquante)** :
+
+* Participants externes (`displayName` seul) → comptés dans le résumé `skippedExternal`.
+* `userId` absent du client ou utilisateur inactif → `skippedInactive`.
+* Doublon dans la même requête → dédupliquer par `userId`.
+
+### 13.3.3 Modes de déclenchement
+
+| Mode | Quand | Comportement |
+| ---- | ----- | ------------ |
+| **Manuel** | `POST .../invite` (bouton UI « Inviter les participants ») | Notifie les participants ciblés (tous par défaut, ou sous-ensemble via DTO) |
+| **Auto — création** | `create` avec `creationMode = PLANNED` **et** participants fournis dans le même flux | Appel interne `invite` en fin de transaction si ≥1 participant `userId` (option `autoInviteOnCreate`, défaut `true`) |
+| **Auto — date** | `PATCH` revue modifiant `reviewDate` (revue toujours `PLANNED`) | Renvoi automatique à **tous** les participants `userId` (`skippedAlreadyInvited` = false : une replanification doit re-notifier) |
+
+> **Choix explicite** : pas d'invitation auto à l'**ajout** d'un participant seul (POST participants) en V1 — l'organisateur clique « Inviter » ou attend le prochain changement de date. Extension possible en V1.1 via flag `inviteOnParticipantAdd`.
+
+### 13.3.4 Idempotence et re-invitation
+
+* Chaque envoi réussi met à jour `ProjectReviewParticipant.lastInvitedAt` (et `invitedAt` au premier envoi).
+* Re-cliquer « Inviter » **crée de nouvelles notifications** (comportement attendu pour rappel) ; l'UI affiche la date du dernier envoi.
+* Pas de table `ProjectReviewInvitation` en V1 — la traçabilité repose sur `Notification` + audit + timestamps participant.
+
+## 13.4 Contenu des notifications
+
+### 13.4.1 Payload `Notification`
+
+```typescript
+{
+  clientId,           // scope authentifié
+  userId,             // destinataire participant
+  type: 'INFO',
+  title: 'Point projet planifié — {projectName}',
+  message: '{reviewTypeLabel} · {reviewDateFormatted} · {meetingModeLabel}{locationSuffix}',
+  status: 'UNREAD',
+  entityType: 'project_review',
+  entityId: reviewId,
+  entityLabel: '{reviewTitle ou type COPIL/COPRO}',
+  actionUrl: '/projects/{projectId}?openReview={reviewId}',
+  metadata: {
+    projectId,
+    reviewId,
+    reviewDate: ISO8601,
+    meetingMode: 'REMOTE' | 'ONSITE' | 'HYBRID',
+    // location autorisée (texte lieu, pas DCP)
+    // meetingUrl INTERDIT (token / fuite logs)
+  },
+}
+```
+
+### 13.4.2 Règles de rédaction
+
+* **Titre** : nom du projet + nature du point (libellé métier, pas UUID).
+* **Message** : date/heure locale client, mode réunion en libellé (« Visio », « Présentiel », « Hybride »), lieu texte si `ONSITE`/`HYBRID` ; pour le mode visio, phrase du type « Lien de réunion disponible dans le point projet » — **ne pas** inclure `meetingUrl` dans `message` ni `metadata`.
+* **`actionUrl`** : chemin frontend relatif (comme les alertes existantes) ; ouverture soumise à `projects.read` + scope client (inchangé).
+* **Audit `project.review.invited`** : `{ reviewId, notifiedCount, skippedExternal, skippedInactive, trigger: 'manual' | 'auto_create' | 'auto_date_change' }` — **jamais** `meetingUrl`.
+
+## 13.5 Modèle de données (évolution Prisma)
+
+**Migration additive** (1 dossier) :
+
+```prisma
+model ProjectReviewParticipant {
+  // … champs Phase 1 …
+  invitedAt     DateTime?  // premier envoi réussi
+  lastInvitedAt DateTime?  // dernier envoi (manuel ou auto)
+}
+```
+
+Pas de nouvel enum. Pas de modification de `NotificationType` (réutiliser `INFO`).
+
+Optionnel Phase 2+ : index `(clientId, projectReviewId, userId)` si requêtes fréquentes — non bloquant V1.
+
+## 13.6 API
+
+| Méthode | Route | Permission | Effet |
+| ------- | ----- | ---------- | ----- |
+| `POST` | `/projects/:projectId/reviews/:reviewId/invite` | `projects.update` | Émet les notifications in-app ; met à jour `invitedAt` / `lastInvitedAt` |
+
+**DTO `InviteProjectReviewDto`** (body optionnel) :
+
+```typescript
+{
+  participantIds?: string[];  // sous-ensemble ; défaut = tous éligibles
+  trigger?: 'manual';         // réservé serveur pour auto (non exposé client)
+}
+```
+
+**Réponse `InviteProjectReviewResultDto`** :
+
+```typescript
+{
+  notified: number;
+  skippedExternal: number;
+  skippedInactive: number;
+  participantIds: string[];   // IDs participants effectivement notifiés
+}
+```
+
+**Hooks internes** (service, pas de route supplémentaire) :
+
+* `ProjectReviewsService.create` → si `PLANNED` + participants → `invite(..., { trigger: 'auto_create' })`.
+* `ProjectReviewsService.update` → si `reviewDate` modifiée et statut `PLANNED` → `invite(..., { trigger: 'auto_date_change' })`.
+
+> La route `invite` reste la **seule** entrée HTTP explicite ; les auto-triggers restent encapsulés dans le service revue.
+
+## 13.7 Backend — fichiers à créer / modifier
+
+**Créer**
+
+* `apps/api/src/modules/projects/project-reviews/project-review-invitations.service.ts` — logique invite, composition message, boucle destinataires, mise à jour timestamps participant.
+* `apps/api/src/modules/projects/project-reviews/dto/invite-project-review.dto.ts`
+* `apps/api/src/modules/projects/project-reviews/dto/invite-project-review-result.dto.ts`
+* `apps/api/prisma/migrations/20260705120000_proj_013_1_participant_invited_at/` — colonnes `invitedAt`, `lastInvitedAt`
+
+**Modifier**
+
+* `apps/api/prisma/schema.prisma` — champs participant (§13.5).
+* `apps/api/src/modules/projects/project-reviews/project-reviews.module.ts` — provider `ProjectReviewInvitationsService` ; import **`NotificationsModule`** (ou accès `PrismaService` + `AuditLogsService` si helper minimal).
+* `apps/api/src/modules/projects/project-reviews/project-reviews.controller.ts` — route `POST .../invite`.
+* `apps/api/src/modules/projects/project-reviews/project-reviews.service.ts` — auto-triggers create/update date.
+* `apps/api/src/modules/projects/project-reviews/project-reviews.constants.ts` (ou équivalent audit) — `PROJECT_REVIEW_AUDIT_INVITED = 'project.review.invited'`.
+* `apps/api/src/modules/notifications/notifications.service.ts` — **optionnel mais recommandé** : `createForUser({ clientId, userId, ... })` factorisé.
+* Mappers réponse participant — exposer `invitedAt`, `lastInvitedAt` au frontend.
+
+## 13.8 Frontend — fichiers à créer / modifier
+
+**Modifier**
+
+* `apps/web/src/features/projects/api/project-reviews.api.ts` — `inviteProjectReview(projectId, reviewId, body?)`.
+* `apps/web/src/features/projects/hooks/use-project-review-mutations.ts` — mutation `inviteReview` + invalidation liste participants / détail revue.
+* `apps/web/src/features/projects/types/project.types.ts` — champs `invitedAt`, `lastInvitedAt` sur participant ; type résultat invite.
+* `apps/web/src/features/projects/components/project-review-editor-dialog.tsx` — section **Invitations** visible si `status === 'PLANNED'` :
+  * bouton « Inviter les participants » (`projects.update`) ;
+  * résumé : « X participant(s) notifiable(s) » / « Y externe(s) non notifiable(s) in-app » ;
+  * états loading / error / succès (`aria-live`) ;
+  * **pas** d'affichage d'URL brute comme seule info.
+* `apps/web/src/features/projects/components/review-participants-section.tsx` — badge « Notifié le {date} » si `lastInvitedAt` (libellé métier, date localisée).
+
+**Comportement cloche**
+
+* Aucun changement obligatoire sur `notification-bell.tsx` si `actionUrl` déjà géré — vérifier que le lien `/projects/...?openReview=...` ouvre bien l'éditeur (déjà Phase 1).
+
+## 13.9 Tests
+
+**Backend** (`project-review-invitations.service.spec.ts` + extensions) :
+
+* Invite manuel `PLANNED` → N notifications `INFO`, audit `project.review.invited`, timestamps participant.
+* Refus si statut ≠ `PLANNED`.
+* Participant externe seul → `notified = 0`, `skippedExternal = 1`, pas d'erreur.
+* `userId` inactif / hors client → `skippedInactive`.
+* Auto create `PLANNED` avec 2 participants internes → 2 notifications.
+* Changement `reviewDate` → re-notification tous internes.
+* **Isolation client** : invite sur revue autre client → 404.
+* **Sécurité contenu** : snapshot audit / metadata notification sans `meetingUrl`.
+* Permission : utilisateur `projects.read` seul → 403 sur `POST invite`.
+
+**Frontend** :
+
+* Bouton visible uniquement en `PLANNED` ; masqué en `IN_REVIEW`.
+* Toast succès avec compteurs ; erreur API affichée.
+* Badge « Notifié le … » sur participant après succès.
+
+## 13.10 Conformité by design (Phase 2)
+
+### RGPD
+
+* **DCP** : `userId` destinataire (référence utilisateur), pas d'email en Phase 2.
+* **Finalité** : informer les participants internes d'une réunion planifiée.
+* **Minimisation** : pas de `meetingUrl` dans notification / metadata / logs ; lieu texte limité (déjà `MaxLength(300)`).
+* **Rétention** : notifications suivent RFC-038 ; participants cascade avec revue.
+* **Effacement** : suppression utilisateur → `userId` participant `SetNull` (existant) ; notifications historiques conservées liées à `userId` (comportement RFC-038).
+
+### RGAA
+
+* Bouton « Inviter » : label explicite, cible ≥ 44px, `focus-visible`.
+* Retour dynamique (compteurs, erreurs) via `aria-live="polite"`.
+* Badge « Notifié » : texte + date, pas couleur seule.
+
+### Design System
+
+* Section `.starium-form-section` dans l'éditeur ; bouton `starium-btn` ; toasts existants.
+* Libellés métier (nom participant, type point, mode réunion) — **jamais** UUID visible.
+
+### Sécurité
+
+* Authz `projects.update` ; scope client strict.
+* DTO validé ; pas de `clientId` / `userId` destinataire arbitraire dans le payload (dérivés des participants de la revue).
+* Audit sans fuite URL signée.
+
+### Mobile
+
+* Bouton Inviter pleine largeur < `sm` ; section empilée ; badge notifié lisible sur carte participant mobile.
+
+## 13.11 Critères d'acceptation
+
+- [x] Un organisateur peut inviter depuis une revue `PLANNED` ; les participants internes reçoivent une notification cloche cliquable vers le point.
+- [x] Les externes ne reçoivent pas de notification ; le résumé API/UI l'indique clairement.
+- [x] Replanifier (`reviewDate`) renvoie une notification aux internes.
+- [x] `meetingUrl` absent des audits, metadata notification et logs.
+- [x] Audit `project.review.invited` présent avec compteurs.
+- [x] Tests backend isolation client + statut + contenu passent.
+- [x] Documentation `docs/API.md` et `docs/modules/projects-mvp.md` mises à jour (route `invite`).
+
+## 13.12 Ordre d'implémentation suggéré
+
+1. Migration Prisma `invitedAt` / `lastInvitedAt`.
+2. `ProjectReviewInvitationsService` + tests unitaires.
+3. Route controller + constante audit.
+4. Auto-triggers dans `ProjectReviewsService` (create / update date).
+5. API client + mutation frontend.
+6. UI éditeur + badges participants.
+7. Sync doc (`API.md`, `_RFC Liste.md`, statut RFC → « Partiel Phase 1–2 »).
+
+## 13.13 Dépendances et risques
+
+| Risque | Mitigation |
+| ------ | ---------- |
+| Spam notifications si dates modifiées en rafale | Debounce côté UI ; côté serveur, comparer ancienne/nouvelle date (ignore si identique à la seconde près) |
+| `NotificationsService` sans `create` | Ajouter helper centralisé ou service invitations isolé |
+| Participants ajoutés après création sans auto-invite | Documenté §13.3.3 ; bouton manuel obligatoire |
+| Fuite `meetingUrl` | Revue code + test assertion sur metadata/audit |
+| Phase 3 email pour externes | Ne pas promettre l'in-app aux externes ; message UI explicite |

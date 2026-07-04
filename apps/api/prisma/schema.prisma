@@ -2244,6 +2244,9 @@ model ProjectReviewParticipant {
   isRequired       Boolean @default(false)
   attendanceStatus ProjectReviewParticipantAttendanceStatus @default(EXPECTED)
 
+  invitedAt     DateTime?
+  lastInvitedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

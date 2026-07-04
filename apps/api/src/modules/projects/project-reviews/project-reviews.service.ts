@@ -25,7 +25,8 @@ import {
   assertMeetingFieldsCoherence,
   assertValidMeetingUrl,
 } from './project-review-meeting.validation';
-import { isReviewContentEditable } from './project-review-status.helpers';
+import { isReviewContentEditable, isReviewPlanningEditable, isReviewUpdateAllowed, assertPlannedUpdatePayloadAllowed } from './project-review-status.helpers';
+import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 import {
   formatProjectReviewUserDisplayName,
   projectReviewUserSelect,
@@ -80,6 +81,7 @@ export class ProjectReviewsService {
     private readonly projects: ProjectsService,
     private readonly pilotage: ProjectsPilotageService,
     private readonly auditLogs: AuditLogsService,
+    private readonly invitations: ProjectReviewInvitationsService,
   ) {}
 
   private async validateLinkedTasks(
@@ -370,7 +372,45 @@ export class ProjectReviewsService {
       displayName: p.displayName ?? userDisplayName,
       roleLabel: p.roleLabel,
       attendanceStatus: p.attendanceStatus,
+      invitedAt: p.invitedAt?.toISOString() ?? null,
+      lastInvitedAt: p.lastInvitedAt?.toISOString() ?? null,
     };
+  }
+
+  private reviewDatesEqualSecond(a: Date, b: Date): boolean {
+    return Math.floor(a.getTime() / 1000) === Math.floor(b.getTime() / 1000);
+  }
+
+  private auditMeta(context?: AuditContext) {
+    return {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+  }
+
+  private async tryAutoInvite(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context: AuditContext | undefined,
+    trigger: 'auto_create' | 'auto_date_change',
+  ): Promise<void> {
+    try {
+      await this.invitations.invite(clientId, projectId, reviewId, context, {
+        trigger,
+      });
+    } catch {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_INVITE_FAILED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: { reviewId, trigger },
+        ...this.auditMeta(context),
+      });
+    }
   }
 
   private mapActionItem(a: ReviewWithChildren['actionItems'][number]) {
@@ -633,7 +673,112 @@ export class ProjectReviewsService {
       ...meta,
     });
 
-    return this.mapReviewToDetail(created);
+    const detail = this.mapReviewToDetail(created);
+
+    const shouldAutoInvite =
+      created.status === ProjectReviewStatus.PLANNED &&
+      dto.autoInviteOnCreate !== false &&
+      (created.participants ?? []).some((p) => p.userId != null);
+    if (shouldAutoInvite) {
+      await this.tryAutoInvite(
+        clientId,
+        projectId,
+        created.id,
+        context,
+        'auto_create',
+      );
+      return this.getById(clientId, projectId, created.id);
+    }
+
+    return detail;
+  }
+
+  private async updatePlannedReview(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    dto: UpdateProjectReviewDto,
+    existing: ReviewWithChildren,
+    context?: AuditContext,
+  ) {
+    assertPlannedUpdatePayloadAllowed(dto as Record<string, unknown>);
+
+    if (dto.facilitatorUserId !== undefined) {
+      await this.validateFacilitator(clientId, dto.facilitatorUserId);
+    }
+
+    const effectiveMeetingMode =
+      dto.meetingMode !== undefined ? dto.meetingMode : existing.meetingMode;
+    const effectiveMeetingUrl =
+      dto.meetingUrl !== undefined ? dto.meetingUrl : existing.meetingUrl;
+    const effectiveLocation =
+      dto.location !== undefined ? dto.location : existing.location;
+    if (
+      dto.meetingMode !== undefined ||
+      dto.meetingUrl !== undefined ||
+      dto.location !== undefined
+    ) {
+      this.resolveMeetingFields({
+        meetingMode: effectiveMeetingMode,
+        meetingUrl: effectiveMeetingUrl,
+        location: effectiveLocation,
+      });
+    }
+
+    const previousReviewDate = existing.reviewDate;
+    const data: Prisma.ProjectReviewUncheckedUpdateInput = {};
+    if (dto.reviewDate !== undefined) data.reviewDate = new Date(dto.reviewDate);
+    if (dto.title !== undefined) data.title = dto.title?.trim() ?? null;
+    if (dto.facilitatorUserId !== undefined) {
+      data.facilitatorUserId = dto.facilitatorUserId ?? null;
+    }
+    if (dto.meetingMode !== undefined) {
+      data.meetingMode = dto.meetingMode ?? null;
+    }
+    if (dto.meetingUrl !== undefined) {
+      data.meetingUrl = dto.meetingUrl?.trim() ?? null;
+    }
+    if (dto.location !== undefined) {
+      data.location = dto.location?.trim() ?? null;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await this.prisma.projectReview.update({
+        where: { id: reviewId },
+        data,
+      });
+    }
+
+    const updated = await this.prisma.projectReview.findFirstOrThrow({
+      where: { id: reviewId, clientId, projectId },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_UPDATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: updated.id,
+      newValue: { projectId, status: updated.status },
+      ...this.auditMeta(context),
+    });
+
+    const reviewDateChanged =
+      dto.reviewDate !== undefined &&
+      !this.reviewDatesEqualSecond(previousReviewDate, updated.reviewDate);
+    if (reviewDateChanged) {
+      await this.tryAutoInvite(
+        clientId,
+        projectId,
+        reviewId,
+        context,
+        'auto_date_change',
+      );
+      return this.getById(clientId, projectId, reviewId);
+    }
+
+    return this.mapReviewToDetail(updated);
   }
 
   async update(
@@ -649,6 +794,21 @@ export class ProjectReviewsService {
       include: reviewInclude,
     });
     if (!existing) throw new NotFoundException('Review not found');
+    if (!isReviewUpdateAllowed(existing.status)) {
+      throw new BadRequestException('Only editable reviews can be updated');
+    }
+
+    if (isReviewPlanningEditable(existing.status)) {
+      return this.updatePlannedReview(
+        clientId,
+        projectId,
+        reviewId,
+        dto,
+        existing,
+        context,
+      );
+    }
+
     if (!isReviewContentEditable(existing.status)) {
       throw new BadRequestException('Only editable reviews can be updated');
     }

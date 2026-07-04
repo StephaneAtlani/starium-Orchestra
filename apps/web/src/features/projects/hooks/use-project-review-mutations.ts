@@ -11,6 +11,7 @@ import {
   createProjectReviewParticipant,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
+  inviteProjectReview,
   reorderProjectReviewAgendaItems,
   skipProjectReviewAgendaItem,
   startProjectReview,
@@ -20,6 +21,7 @@ import {
   updateProjectReviewParticipant,
 } from '../api/project-reviews.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { notificationsKeys } from '@/features/notifications/hooks/use-notifications';
 
 export function useProjectReviewMutations(projectId: string) {
   const authFetch = useAuthenticatedFetch();
@@ -236,12 +238,30 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const inviteReview = useMutation({
+    mutationFn: ({
+      reviewId,
+      participantIds,
+    }: {
+      reviewId: string;
+      participantIds?: string[];
+    }) =>
+      inviteProjectReview(authFetch, projectId, reviewId, { participantIds }),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+      void qc.invalidateQueries({
+        queryKey: notificationsKeys.root(clientId),
+      });
+    },
+  });
+
   return {
     create,
     update,
     startReview,
     finalize,
     cancel,
+    inviteReview,
     createAgendaItem,
     updateAgendaItem,
     reorderAgendaItems,

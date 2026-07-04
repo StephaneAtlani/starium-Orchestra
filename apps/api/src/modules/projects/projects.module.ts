@@ -50,6 +50,8 @@ import { AccessControlModule } from '../access-control/access-control.module';
 import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 import { OrganizationModule } from '../organization/organization.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { ProjectReviewInvitationsService } from './project-reviews/project-review-invitations.service';
 @Module({
   imports: [
     PrismaModule,
@@ -61,6 +63,7 @@ import { OrganizationModule } from '../organization/organization.module';
     AccessDecisionModule,
     FeatureFlagsModule,
     OrganizationModule,
+    NotificationsModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */
@@ -95,6 +98,7 @@ import { OrganizationModule } from '../organization/organization.module';
     ProjectReviewsService,
     ProjectReviewAgendaService,
     ProjectReviewParticipantsService,
+    ProjectReviewInvitationsService,
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,
     ProjectDocumentContentService,

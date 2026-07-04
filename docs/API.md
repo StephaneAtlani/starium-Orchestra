@@ -2945,21 +2945,22 @@ Règles SC-004 :
 
 Audits mutations tâches : **`project.scenario_task.created`**, **`project.scenario_task.updated`**, **`project.scenario_task.deleted`**, **`project.scenario_task.bootstrapped`** (resourceType `project_scenario_task`). Aucun audit sur les lectures ni sur `GET .../timeline-summary`.
 
-### Points projet (RFC-PROJ-013 + RFC-PROJ-013-1 Phase 1) — `/api/projects/:projectId/reviews`
+### Points projet (RFC-PROJ-013 + RFC-PROJ-013-1 Phases 1–2) — `/api/projects/:projectId/reviews`
 
 Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne suffit pas à cibler une ressource.
 
 **Statuts** : `PLANNED` (planifié), `IN_REVIEW` (compte rendu en cours), `FINALIZED`, `CANCELLED` ; `DRAFT` legacy (plus écrit par l’API — données migrées en `IN_REVIEW`).
 
-**Création** : champ métier **`creationMode`** (`PLANNED` \| `IMMEDIATE`, défaut `IMMEDIATE`) — **pas** de `status` libre. Champs réunion optionnels : `meetingMode` (`REMOTE` \| `ONSITE` \| `HYBRID`), `meetingUrl` (http/https uniquement), `location` (max 300).
+**Création** : champ métier **`creationMode`** (`PLANNED` \| `IMMEDIATE`, défaut `IMMEDIATE`) — **pas** de `status` libre. Champs réunion optionnels : `meetingMode` (`REMOTE` \| `ONSITE` \| `HYBRID`), `meetingUrl` (http/https uniquement), `location` (max 300). Option **`autoInviteOnCreate`** (bool, défaut `true`) : si `PLANNED` + participants `userId`, envoi auto post-commit des notifications in-app (échec non bloquant).
 
 - **GET /api/projects/:projectId/reviews** — Liste (tri `reviewDate` desc, `createdAt` desc). Items **sans** `snapshotPayload`. Champs réunion + compteurs agenda. **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode` : `PLANNED` → statut planifié ; `IMMEDIATE` → `IN_REVIEW`. **`projects.update`**
-- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, participants avec `attendanceStatus`). `snapshotPayload` : `null` si non finalisé. **`projects.read`**
-- **PATCH /api/projects/:projectId/reviews/:reviewId** — Mise à jour si `IN_REVIEW` (tolérance `DRAFT` legacy). Refus si `PLANNED` / `FINALIZED` / `CANCELLED`. **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, participants avec `attendanceStatus`, `invitedAt`, `lastInvitedAt`). `snapshotPayload` : `null` si non finalisé. **`projects.read`**
+- **PATCH /api/projects/:projectId/reviews/:reviewId** — Si **`IN_REVIEW`** (tolérance `DRAFT` legacy) : mise à jour compte rendu complète. Si **`PLANNED`** : champs planning uniquement (`reviewDate`, `title`, `meetingMode`, `meetingUrl`, `location`, `facilitatorUserId`) — refus explicite des champs compte rendu. Refus si `FINALIZED` / `CANCELLED`. Changement `reviewDate` en `PLANNED` → re-notification auto post-commit (échec non bloquant). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — `PLANNED → IN_REVIEW` (set `startedAt`, `startedByUserId`). Audit **`project.review.started`**. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_REVIEW → FINALIZED` ; **refus explicite si `PLANNED`**. Snapshot inclut `meetingMode`/`location`, participants, agenda — **sans** `meetingUrl`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Depuis `PLANNED` ou `IN_REVIEW`. Audit **`project.review.cancelled`**. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Notifications in-app (`INFO`) aux participants internes actifs ; body optionnel `{ participantIds?: string[] }` (défaut = tous éligibles). Réponse `{ notified, skippedExternal, skippedInactive, participantIds }`. Audit **`project.review.invited`**. **`meetingUrl` interdit** dans notification/metadata/audit. **`projects.update`**
 
 **Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PLANNED` ou `IN_REVIEW`) :
 
@@ -2976,7 +2977,7 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 **Type `POST_MORTEM` (retour d’expérience)** : création autorisée seulement si le projet est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; **`creationMode=PLANNED` interdit** (400). **`nextReviewDate`** interdit. Corps : **`contentPayload.postMortem`**.
 
-Audits : **`project.review.created`**, **`updated`**, **`started`**, **`finalized`**, **`cancelled`**, **`agenda_item.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` en clair.
+Audits : **`project.review.created`**, **`updated`**, **`started`**, **`finalized`**, **`cancelled`**, **`invited`**, **`invite_failed`** (auto-triggers), **`agenda_item.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` en clair.
 
 ### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
 

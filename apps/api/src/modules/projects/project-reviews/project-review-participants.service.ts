@@ -58,6 +58,8 @@ export class ProjectReviewParticipantsService {
     displayName: string | null;
     roleLabel: string | null;
     attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+    invitedAt?: Date | null;
+    lastInvitedAt?: Date | null;
     user?: {
       id: string;
       firstName: string | null;
@@ -72,6 +74,8 @@ export class ProjectReviewParticipantsService {
       displayName: row.displayName ?? userDisplayName,
       roleLabel: row.roleLabel,
       attendanceStatus: row.attendanceStatus,
+      invitedAt: row.invitedAt?.toISOString() ?? null,
+      lastInvitedAt: row.lastInvitedAt?.toISOString() ?? null,
     };
   }
 

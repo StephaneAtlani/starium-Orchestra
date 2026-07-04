@@ -1,14 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsDateString,
-  IsIn,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-  ValidateNested,
-} from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsIn, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
 import type { ProjectReviewMeetingMode, ProjectReviewType } from '@prisma/client';
 import { ProjectReviewActionItemInputDto } from './project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './project-review-decision.dto';
@@ -63,6 +54,10 @@ export class CreateProjectReviewDto {
   @IsOptional()
   @IsIn([...PROJECT_REVIEW_CREATION_MODE_VALUES])
   creationMode?: 'PLANNED' | 'IMMEDIATE';
+
+  @IsOptional()
+  @IsBoolean()
+  autoInviteOnCreate?: boolean;
 
   @IsOptional()
   @IsArray()
