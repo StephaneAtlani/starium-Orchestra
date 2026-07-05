@@ -2980,6 +2980,8 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
   Audits : **`project.review.invited`**, **`emailed`**, **`email_failed`**, **`teams_meeting.*`**, **`calendar_event.*`**. **`meetingUrl` / join URL interdits** dans notification in-app metadata et audits. **`projects.update`**
 
+  **Microsoft** : scopes `OnlineMeetings.ReadWrite` et `Calendars.ReadWrite` requis ; connexions existantes peuvent nécessiter un **re-consentement**. Organisateur Graph V1 = utilisateur ayant connecté Microsoft (`MicrosoftConnection.connectedByUserId`). Lien M365 actif **ne crée pas** Teams/calendrier automatiquement.
+
 **Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PLANNED` ou `IN_REVIEW`) :
 
 - **POST** — Créer un point (`title`, `description?`, `plannedDurationMinutes?`, `ownerUserId?`). **`projects.update`**

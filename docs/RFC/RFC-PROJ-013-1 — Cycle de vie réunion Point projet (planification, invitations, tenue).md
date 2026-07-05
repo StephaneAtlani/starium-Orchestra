@@ -6,7 +6,7 @@
 
 ## Périmètre de ce lot
 
-> **Ce lot n'implémente QUE la Phase 1.** Les Phases 2 (invitations in-app) et 3 (email / Microsoft Graph / Teams / calendrier) sont décrites **uniquement comme trajectoire future** : aucun fichier n'est créé ou modifié pour elles dans ce lot, aucune route, aucun branchement `NotificationsService`, aucun appel Microsoft Graph. Elles feront l'objet de RFC/lots distincts.
+> **Phases 1–3 livrées.** Phase 1 : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`. Phase 2 : invitations **in-app** (§13). Phase 3 : **email**, **Teams** et **calendrier** Microsoft via la même route `POST .../invite` (§14) — canaux de notification (`in_app` \| `email`) **séparés** des actions Microsoft (`createTeamsMeeting`, `createCalendarEvent`), toutes **opt-in** par défaut.
 
 ## Dépendances
 
@@ -18,8 +18,8 @@
 **Dépendances de trajectoire future (hors de ce lot) :**
 
 * **RFC-038** — Socle alertes et notifications in-app — **Phase 2 ✅**
-* **RFC-PROJ-INT-001** / **INT-004** / **INT-005** / **INT-007** — Intégration Microsoft 365 (Graph, connexion client, lien projet) — **Phase 3**
-* Module **email** (`EmailService`, `EmailDelivery`, templates) — **Phase 3**
+* **RFC-PROJ-INT-001** / **INT-004** / **INT-005** / **INT-007** — Intégration Microsoft 365 (Graph, connexion client, lien projet) — **Phase 3 ✅**
+* Module **email** (`EmailService`, `EmailDelivery`, templates) — **Phase 3 ✅**
 
 ---
 
@@ -44,7 +44,7 @@ Avant **RFC-PROJ-013-1** (RFC-PROJ-013 seul) :
 * **Aucun champ** ne portait le **mode** (visio / présentiel / hybride), le **lien de réunion** ou le **lieu**.
 * **Aucune invitation** n'était diffusée aux participants (le module `notifications` in-app existe mais n'est pas branché ; aucun email ; aucune réunion Teams/calendrier).
 
-**Phase 1 livrée** : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`, conduite de réunion (ordre du jour, participants `attendanceStatus`, responsable unique sur actions). Les invitations restent hors scope (Phases 2/3).
+**Phase 1 livrée** : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`, conduite de réunion (ordre du jour, participants `attendanceStatus`, responsable unique sur actions). **Phases 2–3 livrées** : invitations in-app (§13), email + Teams/calendrier (§14).
 
 ### Ce qui existe déjà et qu'on réutilise
 
@@ -95,7 +95,7 @@ Aujourd'hui `DRAFT` couvre à la fois `PLANNED` et `IN_REVIEW`. On introduit la 
 
 # 4. Découpage en phases
 
-**Phases 1–2 implémentées ; Phase 3 planifiée (§14).** La Phase 1 initiale ne couvrait que le cycle de vie ; les Phases 2–3 sont documentées en §13–§14.
+**Phases 1–3 implémentées** (§12–§14). La Phase 1 initiale ne couvrait que le cycle de vie ; les Phases 2–3 étendent invitations et intégrations Microsoft/email.
 
 ## 4.1 Phase 1 — Cycle de vie + réunion (SEUL périmètre de ce lot)
 
@@ -139,28 +139,29 @@ Règles serveur strictes :
 * `meetingUrl` validé `@IsUrl` + schéma `https?` uniquement (pas de `javascript:` / `data:`).
 * `POST_MORTEM` (projet clos) : `meetingMode` optionnel ; le flux REX **conserve la création immédiate** si c'est le comportement actuel (cf. §9).
 
-## 4.4 Phase 2 — Invitations in-app (planifiée — hors Phase 1)
+## 4.4 Phase 2 — Invitations in-app
 
-> **Non implémentée.** Plan d'implémentation détaillé en **§13**.
+> **Statut : livré (Phase 2).** Détail en **§13**.
 
 Résumé :
 
-* Notifications **in-app uniquement** (table `Notification`, cloche RFC-038) — **pas** d'email, **pas** de Microsoft Graph.
-* Cibles : participants `ProjectReviewParticipant` avec `userId` actif sur le client ; externes (`displayName` seul) ignorés (Phase 3).
-* Déclencheurs : bouton **« Inviter »** manuel + renvoi automatique optionnel à la création `PLANNED` (si participants déjà présents) et au **changement de `reviewDate`**.
+* Notifications **in-app uniquement** (table `Notification`, cloche RFC-038) — pas d'email, pas de Microsoft Graph.
+* Cibles : participants `ProjectReviewParticipant` avec `userId` actif sur le client ; externes (`displayName` seul) ignorés in-app (email en Phase 3).
+* Déclencheurs : bouton **« Inviter »** manuel + renvoi automatique à la création `PLANNED` et au **changement de `reviewDate`** (`channels: ['in_app']` uniquement).
 * Deep link `actionUrl` → fiche projet `?openReview=<reviewId>` ; **`meetingUrl` jamais** dans logs, audits, metadata notification.
 * Route `POST .../reviews/:reviewId/invite`, audit `project.review.invited`.
 
-## 4.5 Phase 3 — Email + réunion Microsoft (planifiée — hors Phases 1–2)
+## 4.5 Phase 3 — Email + réunion Microsoft
 
-> **Non implémentée.** Plan d'implémentation détaillé en **§14**.
+> **Statut : livré (Phase 3).** Détail en **§14**.
 
 Résumé :
 
-* **Email d'invitation** : participants **externes** (`displayName` + email) et option complémentaire pour internes ; réutilisation `EmailService.queueEmail` + template dédié ; traçabilité `EmailDelivery`.
-* **Réunion Teams** : création `onlineMeeting` via Graph (si lien projet Microsoft actif + mode `REMOTE`/`HYBRID`) ; persistance du **join URL** Graph sur `ProjectReview.meetingUrl` (source de vérité visio).
-* **Événement calendrier** : création / mise à jour d'un `event` Outlook avec participants ; stockage `microsoftEventId` sur la revue.
-* **Extension** de `POST .../invite` (canaux `in_app` | `email` | `teams`) — **sans** remplacer le comportement Phase 2 par défaut.
+* **Canaux notification** (`channels`) : `in_app` \| `email` — défaut `['in_app']` ; email **uniquement si demandé**.
+* **Actions Microsoft** (opt-in, défaut `false`) : `createTeamsMeeting`, `createCalendarEvent`, `forceOverwriteMeetingUrl` — **pas** des canaux ; lien M365 actif **ne déclenche pas** Teams/calendrier automatiquement.
+* **Email** : template `project_review_invitation`, `externalEmail` sur participants externes, traçabilité `EmailDelivery.projectReviewId`.
+* **Teams** : `POST /me/onlineMeetings` si action explicite + mode `REMOTE`/`HYBRID` + lien projet Microsoft ; organisateur Graph = `MicrosoftConnection.connectedByUserId` (V1).
+* **Calendrier** : `POST/PATCH /me/events` si action explicite ; patch auto sur `auto_date_change` **uniquement** si `microsoftEventId` déjà créé par Starium.
 
 ---
 
@@ -289,7 +290,7 @@ Préfixe `/api`.
 | `PATCH` | `/projects/:projectId/reviews/:reviewId/participants/:participantId` | `projects.update` | Modifier (`attendanceStatus` source de vérité en `IN_REVIEW`) |
 | `DELETE`| `/projects/:projectId/reviews/:reviewId/participants/:participantId` | `projects.update` | Supprimer (si `PLANNED` ou `IN_REVIEW`) |
 
-> Route `invite` = **Phase 2 ✅** ; extensions email / Teams = **Phase 3 (§14)**.
+> Route `invite` = **Phases 2–3 ✅** (in-app, email, Teams/calendrier opt-in) — cf. §13–§14 et [API.md](../API.md).
 
 **Audits Phase 1 complémentaires** : `project.review.started`, `project.review.agenda_item.*`, `project.review.action.responsibility_assigned`, `project.review.participant.{added,updated,removed}`. **Jamais** `meetingUrl` ni email externe en clair dans les audits.
 
@@ -379,9 +380,9 @@ Préfixe `/api`.
 | ----- | ------- | ---------------- | ------------------ |
 | **1** | Statuts `PLANNED` + `IN_REVIEW` (+ `DRAFT` legacy conservé), `creationMode`, champs réunion (mode/URL/lieu), « Démarrer la revue », snapshot `meetingMode`/`location`, lien via `?openReview=` | ✅ **Implémenté (ce lot)** | Aucune |
 | **2** | Invitations **in-app** (module `notifications`) | ✅ **Implémenté (Phase 2)** | RFC-038 / table `Notification` (existant) |
-| **3** | Email + réunion Teams/calendrier | 📋 **Planifié** (§14) — non implémenté | `EmailService` + Microsoft Graph (RFC-PROJ-INT-*) |
+| **3** | Email + réunion Teams/calendrier | ✅ **Implémenté (Phase 3)** | `EmailService` + Microsoft Graph (RFC-PROJ-INT-*) ; migration `20260705140000` |
 
-La Phase 1 matérialise à elle seule le workflow « préparer → tenir → acter » (le « lien vers le point » reste le deep link `?openReview=`), sans aucune dépendance d'infrastructure. Les invitations (in-app puis email/Teams) sont explicitement reportées.
+Les trois phases couvrent le workflow « préparer → inviter → tenir → acter ». Le lien vers le point reste le deep link `?openReview=`.
 
 ---
 
@@ -415,6 +416,20 @@ La Phase 1 matérialise à elle seule le workflow « préparer → tenir → act
 * **Backend** : `project-review-invitations.service.ts`, `NotificationsService.createForUser`, route `POST .../invite`, auto-triggers post-commit (`auto_create`, `auto_date_change`), PATCH `PLANNED` partiel, audits `project.review.invited` / `project.review.invite_failed`.
 * **Frontend** : section Invitations + badges « Notifié le … », édition planning en `PLANNED`.
 * **Tests** : `project-review-invitations.service.spec.ts` + extensions `project-reviews.service.spec.ts`.
+
+## Phase 3 — Email + Microsoft Teams / calendrier (livré)
+
+* **Prisma** : `externalEmail`, `lastEmailedAt` (participant) ; `microsoftOnlineMeetingId`, `microsoftEventId`, `microsoftMeetingOrganizerUserId` (revue) ; `EmailDelivery.projectReviewId` — migration `20260705140000`.
+* **Backend** :
+  * `project-review-email-invitations.service.ts` — canal `email`, template `project_review_invitation`, pseudonymisation audit ;
+  * `project-review-microsoft-meeting.service.ts` — Teams + calendrier Graph (`OnlineMeetings.ReadWrite`, `Calendars.ReadWrite` dans scopes par défaut) ;
+  * orchestrateur multi-canaux dans `project-review-invitations.service.ts` ;
+  * helpers Graph : `createOnlineMeeting`, `createCalendarEvent`, `patchCalendarEvent` ;
+  * audits : `project.review.emailed`, `email_failed`, `teams_meeting.*`, `calendar_event.*`.
+* **Contrat invite** : `channels` = `in_app` \| `email` (défaut `['in_app']`) ; actions Microsoft séparées (`createTeamsMeeting`, `createCalendarEvent`, `forceOverwriteMeetingUrl` — défaut `false`) ; réponse `notifiedInApp`, compteurs email/Teams/calendrier.
+* **Organisateur Graph (V1)** : token de `MicrosoftConnection` client (`connectedByUserId`) — pas d'OAuth utilisateur individuel.
+* **Frontend** : `review-invitations-section.tsx` (cases notification vs actions Microsoft), `review-participants-section.tsx` (`externalEmail` externes), badge « Réunion Teams créée ».
+* **Tests** : `project-review-email-invitations.service.spec.ts`, `project-review-microsoft-meeting.service.spec.ts`, `invite-project-review.dto.spec.ts` + extensions orchestrateur (40 tests project-review).
 
 ## Déploiement
 
@@ -531,7 +546,7 @@ Pour chaque participant éligible :
 * **Titre** : nom du projet + nature du point (libellé métier, pas UUID).
 * **Message** : date/heure locale client, mode réunion en libellé (« Visio », « Présentiel », « Hybride »), lieu texte si `ONSITE`/`HYBRID` ; pour le mode visio, phrase du type « Lien de réunion disponible dans le point projet » — **ne pas** inclure `meetingUrl` dans `message` ni `metadata`.
 * **`actionUrl`** : chemin frontend relatif (comme les alertes existantes) ; ouverture soumise à `projects.read` + scope client (inchangé).
-* **Audit `project.review.invited`** : `{ reviewId, notifiedCount, skippedExternal, skippedInactive, trigger: 'manual' | 'auto_create' | 'auto_date_change' }` — **jamais** `meetingUrl`.
+* **Audit `project.review.invited`** : `{ reviewId, notifiedInAppCount, skippedExternal, skippedInactive, trigger, channels }` — **jamais** `meetingUrl`.
 
 ## 13.5 Modèle de données (évolution Prisma)
 
@@ -564,14 +579,15 @@ Optionnel Phase 2+ : index `(clientId, projectReviewId, userId)` si requêtes fr
 }
 ```
 
-**Réponse `InviteProjectReviewResultDto`** :
+**Réponse `InviteProjectReviewResultDto` (Phase 2 — étendue Phase 3 en §14.8)** :
 
 ```typescript
 {
-  notified: number;
+  notifiedInApp: number;      // ex-notified (Phase 2)
   skippedExternal: number;
   skippedInactive: number;
-  participantIds: string[];   // IDs participants effectivement notifiés
+  participantIds: string[];
+  // Phase 3 : emailed, skippedNoEmail, emailFailed, teamsMeeting*, calendarEvent*
 }
 ```
 
@@ -698,13 +714,13 @@ Optionnel Phase 2+ : index `(clientId, projectReviewId, userId)` si requêtes fr
 | `NotificationsService` sans `create` | Ajouter helper centralisé ou service invitations isolé |
 | Participants ajoutés après création sans auto-invite | Documenté §13.3.3 ; bouton manuel obligatoire |
 | Fuite `meetingUrl` | Revue code + test assertion sur metadata/audit |
-| Phase 3 email pour externes | Ne pas promettre l'in-app aux externes ; message UI explicite — **Phase 3 §14** couvre l'email |
+| Phase 3 email pour externes | Livré §14 — canal `email` opt-in ; UI explicite |
 
 ---
 
 # 14. Plan d'implémentation Phase 3 — Email + Microsoft Teams / calendrier
 
-> **Statut : planifié, non livré.** Ce lot **étend** la Phase 2 (`ProjectReviewInvitationsService`, route `POST .../invite`, auto-triggers) sans la remplacer. Les participants internes continuent de recevoir la notification in-app par défaut.
+> **Statut : livré (Phase 3).** Ce lot **étend** la Phase 2 sans la remplacer. Les participants internes reçoivent la notification in-app par défaut (`channels: ['in_app']`). Teams et calendrier ne se créent **pas** automatiquement lorsque Microsoft est actif — action explicite requise.
 
 ## 14.1 Objectif et périmètre
 
@@ -722,12 +738,12 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 | **3b — Teams** | `onlineMeeting` Graph, persistance join URL, replanification | Non — dépend INT-005/007 + scopes |
 | **3c — Calendrier** | `calendar/events`, attendees, replanification / annulation | Non — dépend 3b ou meetingUrl existant |
 
-**Inclus**
+**Inclus (livré)**
 
-* Extension orchestrateur d'invitation (Phase 2) : canaux configurables par appel ou par défaut client.
-* Email aux externes via adresse dédiée sur le participant.
-* Création Teams si `ProjectMicrosoftLink.isEnabled` et mode `REMOTE` / `HYBRID`.
-* Mise à jour `meetingUrl` depuis Graph (remplace saisie manuelle pour le flux Teams).
+* Orchestrateur d'invitation : **canaux** (`in_app` \| `email`) séparés des **actions Microsoft** (`createTeamsMeeting`, `createCalendarEvent`).
+* Email aux externes via `externalEmail` ; email internes si canal `email` demandé.
+* Création Teams **uniquement** si `createTeamsMeeting=true` + lien Microsoft + mode visio.
+* Mise à jour `meetingUrl` depuis Graph avec protection `forceOverwriteMeetingUrl` si URL manuelle existante.
 * Audits complémentaires sans fuite de token / join URL signé.
 
 **Exclus (hors Phase 3 ou lot ultérieur)**
@@ -741,40 +757,42 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 
 | Élément | État | Usage Phase 3 |
 | ------- | ---- | --------------- |
-| `ProjectReviewInvitationsService` | ✅ Phase 2 | Orchestrateur à **étendre** (canaux) — conserver in-app tel quel |
-| `POST .../invite` + auto-triggers | ✅ Phase 2 | Point d'entrée unique ; DTO enrichi (canaux, pas de `trigger` client) |
-| `EmailService.queueEmail` | ✅ Existant | `EmailDelivery` + worker async ; template `generic_notification` réutilisable en V1, **`project_review_invitation` dédié** recommandé |
-| `EmailDelivery` | ✅ Prisma | Traçabilité envoi email par participant / revue |
-| `MicrosoftGraphService` | ✅ RFC-PROJ-INT-004 | Transport HTTP ; **pas** encore `onlineMeetings` / `events` |
-| `MicrosoftOAuthService` | ✅ RFC-PROJ-INT-003 | Jeton délégué organisateur (facilitateur ou acteur invite) |
-| `ProjectMicrosoftLink` | ✅ RFC-PROJ-INT-007 | Prérequis Teams : `isEnabled`, `teamId`, connexion active |
-| Participants externes | ✅ Phase 1 | `displayName` sans `userId` — Phase 2 les ignore in-app ; Phase 3 requiert **`externalEmail`** |
-| `meetingUrl` sur `ProjectReview` | ✅ Phase 1 | Saisie manuelle aujourd'hui ; Phase 3 peut **écraser** via Graph si création Teams |
+| `ProjectReviewInvitationsService` | ✅ Phase 2–3 | Orchestrateur multi-canaux + délégation email / Microsoft |
+| `POST .../invite` + auto-triggers | ✅ Phase 2–3 | Point d'entrée unique ; DTO Phase 3 (canaux + flags Microsoft) |
+| `EmailService.queueEmail` | ✅ Phase 3 | Template **`project_review_invitation`** |
+| `EmailDelivery` | ✅ Phase 3 | Colonne `projectReviewId` |
+| `MicrosoftGraphService` | ✅ Phase 3 | `createOnlineMeeting`, `createCalendarEvent`, `patchCalendarEvent` |
+| `MicrosoftOAuthService` | ✅ Phase 3 | Jeton connexion client (`MicrosoftConnection`) |
+| `ProjectMicrosoftLink` | ✅ Phase 3 | Prérequis Teams/calendrier : `isEnabled`, connexion `ACTIVE` |
+| Participants externes | ✅ Phase 3 | `externalEmail` (normalisé trim/lowercase) |
+| `meetingUrl` sur `ProjectReview` | ✅ Phase 3 | Saisie manuelle ou Graph ; écrasement protégé |
 
 **Hypothèse retenue** : ne pas créer de `ProjectReviewInvitation` dédiée en V1 — réutiliser `Notification` (in-app), `EmailDelivery` (email), champs Graph sur `ProjectReview` (Teams/calendrier), timestamps participant Phase 2.
 
 ## 14.3 Déclencheurs et règles métier
 
-### 14.3.1 Canaux d'invitation
+### 14.3.1 Canaux de notification vs actions Microsoft
 
-| Canal | Cible | Prérequis |
-| ----- | ----- | --------- |
-| **`in_app`** | Participant avec `userId` actif | Phase 2 — comportement par défaut conservé |
-| **`email`** | Externe avec `externalEmail` valide ; interne avec email utilisateur si option activée | SMTP configuré ou mode log-only documenté |
-| **`teams`** | Revue `REMOTE`/`HYBRID` + lien Microsoft projet actif | Connexion Microsoft + scopes Graph |
+| Élément | Cible | Prérequis / défaut |
+| ----- | ----- | ------------------ |
+| **`in_app`** (canal) | Participant avec `userId` actif | Défaut si `channels` absent |
+| **`email`** (canal) | Externe `externalEmail` ou interne `User.email` | **Uniquement si** `channels` contient `email` ; SMTP ou log-only |
+| **`createTeamsMeeting`** (action) | Revue `REMOTE`/`HYBRID` + lien Microsoft | Défaut **`false`** — opt-in explicite |
+| **`createCalendarEvent`** (action) | Événement Outlook + attendees | Défaut **`false`** — opt-in explicite |
 
-**DTO `InviteProjectReviewDto` (évolution Phase 3)** :
+**DTO `InviteProjectReviewDto` (livré)** :
 
 ```typescript
 {
   participantIds?: string[];
-  channels?: ('in_app' | 'email' | 'teams')[];  // défaut = ['in_app', 'email'] si SMTP actif, sinon ['in_app']
-  createTeamsMeeting?: boolean;   // défaut true si teams activé côté projet + mode visio
-  createCalendarEvent?: boolean;  // défaut true si connexion Microsoft + organisateur résolu
+  channels?: ('in_app' | 'email')[];  // défaut = ['in_app'] ; whitelist stricte
+  createTeamsMeeting?: boolean;       // défaut false
+  createCalendarEvent?: boolean;      // défaut false
+  forceOverwriteMeetingUrl?: boolean; // défaut false
 }
 ```
 
-> **`trigger` reste interne** (manual | auto_create | auto_date_change) — jamais exposé au client (cf. Phase 2).
+> **`trigger` reste interne** (manual \| auto_create \| auto_date_change) — jamais exposé au client.
 
 ### 14.3.2 Qui reçoit quoi
 
@@ -787,11 +805,12 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 
 ### 14.3.3 Teams — création / replanification
 
-* **Création** : lors de `invite` avec `createTeamsMeeting=true` (ou auto à la première invite si `meetingUrl` vide et mode visio).
-* **Organisateur Graph** : `facilitatorUserId` si lié à un compte Microsoft du client ; sinon acteur `projects.update` s'il a lié son compte ; sinon **400** explicite « compte Microsoft requis ».
-* **Persistance** : `meetingUrl` ← join URL Graph ; **`microsoftOnlineMeetingId`** sur `ProjectReview`.
-* **Replanification** (`reviewDate` modifiée, revue `PLANNED`) : PATCH event Graph existant si `microsoftEventId` ; sinon recréation contrôlée (audit `project.review.teams_meeting.updated`).
-* **Annulation** revue (`cancel`) : option V1 — laisser l'événement Graph (documenté) ; V1.1 — annuler event (`project.review.calendar_event.cancelled`).
+* **Création** : uniquement si `createTeamsMeeting=true` (action explicite — **pas** auto lorsque M365 est actif).
+* **Organisateur Graph (V1)** : `MicrosoftConnection.connectedByUserId` (connexion client) — pas de résolution facilitateur/acteur individuel.
+* **Protection URL** : si `meetingUrl` manuel sans `microsoftOnlineMeetingId` → refus sauf `forceOverwriteMeetingUrl=true` + audit `overwrite_confirmed`.
+* **Persistance** : `meetingUrl` ← join URL Graph ; `microsoftOnlineMeetingId`, `microsoftMeetingOrganizerUserId`.
+* **Replanification calendrier** : `auto_date_change` + `microsoftEventId` existant → `patchCalendarEvent` ; sans `microsoftEventId` → pas de création auto.
+* **Annulation** revue (`cancel`) : événement Graph laissé en place (V1 documenté).
 
 ### 14.3.4 Gestion des erreurs (alignée Phase 2)
 
@@ -890,52 +909,44 @@ Contraintes :
 
 | Méthode | Route | Évolution |
 | ------- | ----- | --------- |
-| `POST` | `…/reviews/:reviewId/invite` | Body Phase 3 : `channels?`, `createTeamsMeeting?`, `createCalendarEvent?` — réponse enrichie |
-| `PATCH` | `…/reviews/:reviewId/participants/:id` | Accepte `externalEmail` (externes) |
-| `POST` | `…/reviews/:reviewId/create-teams-meeting` | **Option** — action isolée si UX « Créer réunion Teams » sans renvoyer toutes les invites |
+| `POST` | `…/reviews/:reviewId/invite` | Body : `channels?`, `createTeamsMeeting?`, `createCalendarEvent?`, `forceOverwriteMeetingUrl?` |
+| `PATCH` | `…/reviews/:reviewId/participants/:id` | Accepte `externalEmail` (externes uniquement) |
 
-**Réponse `InviteProjectReviewResultDto` (évolution)** :
+**Réponse `InviteProjectReviewResultDto` (livré)** :
 
 ```typescript
 {
-  notified: number;           // in_app (Phase 2)
+  notifiedInApp: number;
   skippedExternal: number;
   skippedInactive: number;
   participantIds: string[];
-  emailed: number;            // Phase 3
+  emailed: number;
   skippedNoEmail: number;
   emailFailed: number;
+  emailDisabled?: boolean;
   teamsMeetingCreated: boolean;
+  teamsMeetingUpdated: boolean;
+  teamsMeetingSkipped: boolean;
   calendarEventCreated: boolean;
+  calendarEventUpdated: boolean;
+  calendarEventSkipped: boolean;
 }
 ```
 
-## 14.9 Backend — fichiers à créer / modifier
+> Route optionnelle `POST …/create-teams-meeting` : **non implémentée** — Teams via `createTeamsMeeting` sur `invite`.
 
-**Créer**
+## 14.9 Backend — fichiers livrés
 
-* `project-review-microsoft-meeting.service.ts` — onlineMeeting + event Graph
-* `project-review-email-invitations.service.ts` — boucle email externes (ou méthodes privées dans orchestrateur si petit)
-* Migration Prisma Phase 3 (participant `externalEmail`, champs Graph revue)
-* Template `project_review_invitation`
+**Créés** : `project-review-microsoft-meeting.service.ts`, `project-review-email-invitations.service.ts`, `project-review-invitation-privacy.helpers.ts`, migration `20260705140000`, template `project_review_invitation`, specs associées.
 
-**Modifier**
+**Modifiés** : `project-review-invitations.service.ts`, DTOs invite/participants/résultat, `microsoft-graph.service.ts`, `microsoft.constants.ts` (scopes), `email.templates.ts`, `email.service.ts`, `project-audit.constants.ts`, `projects.module.ts` (`EmailModule`, `MicrosoftModule`).
 
-* `project-review-invitations.service.ts` — orchestration multi-canaux ; délégation email / Teams
-* `invite-project-review.dto.ts` / `invite-project-review-result.dto.ts`
-* `create-participant.dto.ts` / `update-participant.dto.ts` — `externalEmail?`
-* `microsoft-graph.service.ts` — helpers `createOnlineMeeting`, `createCalendarEvent`, `patchCalendarEvent` (transport pur)
-* `project-audit.constants.ts` — `project.review.emailed`, `project.review.teams_meeting.created`, `project.review.calendar_event.created`, `project.review.teams_failed`
-* `email.templates.ts` — clé `project_review_invitation`
+## 14.10 Frontend (livré)
 
-## 14.10 Frontend
-
-**Modifier**
-
-* `review-participants-section.tsx` — champ **Email** (externes) ; validation format ; libellé DCP court
-* `review-invitations-section.tsx` — options canaux (cases à cocher Email / Teams si projet Microsoft actif) ; résumé `emailed` / `skippedNoEmail`
-* `project-review-editor-dialog.tsx` — bouton « Créer réunion Teams » si visio + Microsoft actif ; badge « Réunion Teams créée »
-* `project-reviews.api.ts` / mutations — body invite enrichi
+* `review-participants-section.tsx` — `externalEmail` externes, badges `lastEmailedAt`.
+* `review-invitations-section.tsx` — cases **notification** (in-app, email) vs **actions Microsoft** (Teams, calendrier) ; confirmation overwrite URL ; `aria-live`.
+* `project-review-editor-dialog.tsx` — props réunion + badge Teams.
+* `project-reviews.api.ts` / mutations — body/réponse Phase 3.
 
 **RGAA**
 
@@ -986,14 +997,14 @@ Contraintes :
 
 ## 14.13 Critères d'acceptation
 
-- [ ] Un organisateur peut inviter un **externe par email** depuis une revue `PLANNED`.
-- [ ] Avec Microsoft actif, une réunion Teams peut être créée et le **join URL** renseigne `meetingUrl`.
-- [ ] Un événement calendrier est créé avec les attendees résolus (emails).
-- [ ] Replanifier `reviewDate` met à jour l'événement (ou comportement documenté + audit).
-- [ ] Canaux in-app Phase 2 **inchangés** par défaut.
-- [ ] Audits / logs sans join URL ni token Graph.
-- [ ] Tests backend canaux + isolation client passent.
-- [ ] `docs/API.md` mis à jour.
+- [x] Un organisateur peut inviter un **externe par email** depuis une revue `PLANNED`.
+- [x] Avec Microsoft actif, une réunion Teams peut être créée (opt-in) et le **join URL** renseigne `meetingUrl`.
+- [x] Un événement calendrier peut être créé (opt-in) avec les attendees résolus (emails).
+- [x] Replanifier `reviewDate` met à jour l'événement si `microsoftEventId` Starium existe (auto-triggers).
+- [x] Canaux in-app Phase 2 **inchangés** par défaut (`channels: ['in_app']`).
+- [x] Audits / logs sans join URL ni token Graph.
+- [x] Tests backend canaux + isolation client passent (40 tests project-review).
+- [x] `docs/API.md` et `docs/modules/projects-mvp.md` mis à jour.
 
 ## 14.14 Ordre d'implémentation suggéré
 

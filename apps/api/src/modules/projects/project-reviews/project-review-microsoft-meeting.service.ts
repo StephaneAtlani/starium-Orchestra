@@ -30,6 +30,18 @@ export type ProjectReviewMeetingOptions = {
   forceOverwriteMeetingUrl?: boolean;
 };
 
+/** Sous-ensemble de ProjectReview utilisé par Graph (Teams / calendrier). */
+export type ProjectReviewMicrosoftContext = Pick<
+  ProjectReview,
+  | 'reviewDate'
+  | 'title'
+  | 'meetingMode'
+  | 'meetingUrl'
+  | 'location'
+  | 'microsoftOnlineMeetingId'
+  | 'microsoftEventId'
+>;
+
 export type TeamsMeetingResult = {
   teamsMeetingCreated: boolean;
   teamsMeetingUpdated: boolean;
@@ -128,7 +140,10 @@ export class ProjectReviewMicrosoftMeetingService {
     };
   }
 
-  private buildMeetingSubject(review: ProjectReview, projectName: string): string {
+  private buildMeetingSubject(
+    review: ProjectReviewMicrosoftContext,
+    projectName: string,
+  ): string {
     return review.title?.trim() || `Point projet — ${projectName}`;
   }
 
@@ -165,7 +180,7 @@ export class ProjectReviewMicrosoftMeetingService {
     projectId: string;
     reviewId: string;
     projectName: string;
-    review: ProjectReview;
+    review: ProjectReviewMicrosoftContext;
     agendaItems: { plannedDurationMinutes: number | null }[];
     meetingOptions: ProjectReviewMeetingOptions;
     context?: AuditContext;
@@ -291,7 +306,7 @@ export class ProjectReviewMicrosoftMeetingService {
     projectId: string;
     reviewId: string;
     projectName: string;
-    review: ProjectReview;
+    review: ProjectReviewMicrosoftContext;
     participants: (ProjectReviewParticipant & {
       user?: { email: string } | null;
     })[];
@@ -409,7 +424,7 @@ export class ProjectReviewMicrosoftMeetingService {
     projectId: string;
     reviewId: string;
     projectName: string;
-    review: ProjectReview;
+    review: ProjectReviewMicrosoftContext;
     participants: (ProjectReviewParticipant & {
       user?: { email: string } | null;
     })[];
