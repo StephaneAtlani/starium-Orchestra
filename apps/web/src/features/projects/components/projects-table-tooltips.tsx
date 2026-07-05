@@ -105,14 +105,10 @@ export function buildProjectSignalsCellTooltip(
   }
 
   if (snap.nextMilestone) {
-    return (
-      <TooltipLine>
-        Prochain jalon : {snap.nextMilestone.name}
-        {snap.nextMilestone.targetDate
-          ? ` (${formatSnapshotDate(snap.nextMilestone.targetDate)})`
-          : ''}
-      </TooltipLine>
-    );
+    const milestoneLabel = snap.nextMilestone.targetDate
+      ? `Prochain jalon : ${snap.nextMilestone.name} (${formatSnapshotDate(snap.nextMilestone.targetDate)})`
+      : `Prochain jalon : ${snap.nextMilestone.name}`;
+    return <TooltipLine>{milestoneLabel}</TooltipLine>;
   }
 
   return <TooltipLine>Pilotage OK</TooltipLine>;

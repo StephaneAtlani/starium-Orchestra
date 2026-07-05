@@ -45,10 +45,10 @@ describe('ProjectReviewParticipantsService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('create participant en PLANNED avec attendanceStatus', async () => {
+  it('create participant en PREPARING avec attendanceStatus', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
       id: reviewId,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.PREPARING,
     });
     prisma.projectReviewParticipant.create.mockResolvedValue({
       id: 'part1',
@@ -75,10 +75,10 @@ describe('ProjectReviewParticipantsService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('update attendanceStatus en IN_REVIEW', async () => {
+  it('update attendanceStatus en IN_PROGRESS', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
       id: reviewId,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
     });
     prisma.projectReviewParticipant.findFirst.mockResolvedValue({
       id: 'part1',

@@ -20,6 +20,7 @@ import {
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
+import { normalizeReviewStatus } from '../lib/project-review-status';
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
@@ -33,9 +34,17 @@ const REVIEW_ROW_ICON_TONES = [
 ] as const;
 
 function reviewStatusDsBadgeClass(status: string): string {
-  if (status === 'FINALIZED') return 'starium-ds-badge--success';
-  if (status === 'IN_REVIEW' || status === 'DRAFT') return 'starium-ds-badge--warn';
-  if (status === 'PLANNED') return 'starium-ds-badge--info';
+  const normalized = normalizeReviewStatus(status as import('../types/project.types').ProjectReviewStatus);
+  if (status === 'FINALIZED' || normalized === 'FINALIZED') return 'starium-ds-badge--success';
+  if (
+    normalized === 'IN_PROGRESS' ||
+    status === 'IN_REVIEW' ||
+    status === 'DRAFT'
+  ) {
+    return 'starium-ds-badge--warn';
+  }
+  if (normalized === 'SCHEDULED' || status === 'PLANNED') return 'starium-ds-badge--info';
+  if (normalized === 'PREPARING') return 'starium-ds-badge--neutral';
   if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
   return 'starium-ds-badge--info';
 }
@@ -66,9 +75,9 @@ function ReviewTableRow({
   const statusLabel = PROJECT_REVIEW_STATUS_LABEL[row.status] ?? row.status;
   const title = row.title?.trim() || typeLabel;
   const actionLabel =
-    row.status === 'IN_REVIEW' || row.status === 'DRAFT'
+    row.status === 'IN_PROGRESS' || row.status === 'IN_REVIEW' || row.status === 'DRAFT'
       ? 'Continuer'
-      : row.status === 'PLANNED'
+      : row.status === 'SCHEDULED' || row.status === 'PLANNED' || row.status === 'PREPARING'
         ? 'Ouvrir'
         : 'Voir';
 
@@ -90,7 +99,9 @@ function ReviewTableRow({
       <td>
         <div className="starium-dt-date min-w-[10rem]">
           <Calendar strokeWidth={1.75} aria-hidden />
-          <time dateTime={row.reviewDate}>{formatProjectDateTimeFr(row.reviewDate)}</time>
+          <time dateTime={row.reviewDate ?? undefined}>
+            {row.reviewDate ? formatProjectDateTimeFr(row.reviewDate) : '—'}
+          </time>
         </div>
       </td>
       <td>

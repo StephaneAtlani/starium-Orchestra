@@ -7,6 +7,10 @@ import { PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL } from '../constants/projec
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import {
+  isReviewContentEditable,
+  isReviewParticipantsEditable,
+} from '../lib/project-review-status';
 import type {
   ProjectReviewParticipantApi,
   ProjectReviewParticipantAttendanceStatus,
@@ -61,9 +65,8 @@ export function ReviewParticipantsSection({
   const [externalEmail, setExternalEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  const editable =
-    canEdit && (status === 'PLANNED' || status === 'IN_REVIEW');
-  const markAttendance = canEdit && status === 'IN_REVIEW';
+  const editable = canEdit && isReviewParticipantsEditable(status);
+  const markAttendance = canEdit && isReviewContentEditable(status);
   const isExternalForm = !userId.trim();
 
   const onAdd = async () => {

@@ -3,10 +3,12 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import type { ProjectReviewMeetingMode, ProjectReviewType } from '@prisma/client';
@@ -34,7 +36,25 @@ export class UpdateProjectReviewDto {
   @IsOptional()
   @IsString()
   @MaxLength(20000)
+  objective?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
   executiveSummary?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number | null;
 
   @IsOptional()
   contentPayload?: Record<string, unknown> | null;

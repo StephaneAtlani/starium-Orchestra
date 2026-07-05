@@ -8,7 +8,7 @@ import {
   IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProjectTaskStatus } from '@prisma/client';
+import { ProjectTaskPriority, ProjectTaskStatus } from '@prisma/client';
 import { ProjectReviewActionItemContributorInputDto } from './project-review-action-item-contributor.dto';
 
 export class ProjectReviewActionItemInputDto {
@@ -34,6 +34,19 @@ export class ProjectReviewActionItemInputDto {
   @IsOptional()
   @IsString()
   agendaItemId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  decisionId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  description?: string | null;
+
+  @IsOptional()
+  @IsEnum(ProjectTaskPriority)
+  priority?: ProjectTaskPriority | null;
 
   @IsOptional()
   @IsArray()

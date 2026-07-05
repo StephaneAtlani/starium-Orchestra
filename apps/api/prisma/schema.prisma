@@ -302,6 +302,7 @@ model Client {
   projectReviewActionItems         ProjectReviewActionItem[]
   projectReviewAgendaItems         ProjectReviewAgendaItem[]
   projectReviewActionItemContributors ProjectReviewActionItemContributor[]
+  projectReviewAttachments         ProjectReviewAttachment[]
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
@@ -556,9 +557,13 @@ model User {
   facilitatedProjectReviews            ProjectReview[]                 @relation("ProjectReviewFacilitator")
   finalizedProjectReviews              ProjectReview[]                 @relation("ProjectReviewFinalizedBy")
   startedProjectReviews                ProjectReview[]                 @relation("ProjectReviewStartedBy")
+  createdProjectReviews                ProjectReview[]                 @relation("ProjectReviewCreatedBy")
+  cancelledProjectReviews              ProjectReview[]                 @relation("ProjectReviewCancelledBy")
   microsoftOrganizedProjectReviews     ProjectReview[]                 @relation("ProjectReviewMicrosoftOrganizer")
   ownedProjectReviewAgendaItems        ProjectReviewAgendaItem[]       @relation("ProjectReviewAgendaItemOwner")
   responsibleProjectReviewActionItems  ProjectReviewActionItem[]       @relation("ProjectReviewActionResponsible")
+  decidedProjectReviewDecisions        ProjectReviewDecision[]         @relation("ProjectReviewDecisionDecidedBy")
+  uploadedProjectReviewAttachments     ProjectReviewAttachment[]       @relation("ProjectReviewAttachmentUploadedBy")
   projectReviewActionItemContributions ProjectReviewActionItemContributor[]
   projectReviewParticipants            ProjectReviewParticipant[]
   emailIdentities                      UserEmailIdentity[]
@@ -1380,21 +1385,35 @@ enum ProjectTeamMemberAffiliation {
 enum ProjectReviewType {
   COPIL
   COPRO
+  /// Legacy — migré vers PROJECT_REVIEW (RFC-PROJ-013-2)
   CODIR_REVIEW
   RISK_REVIEW
   MILESTONE_REVIEW
+  /// Legacy — migré vers OTHER (RFC-PROJ-013-2)
   AD_HOC
   /// Retour d'expérience — bilan de fin de projet (terminés / annulés / archivés uniquement)
   POST_MORTEM
+  /// RFC-PROJ-013-2
+  PROJECT_REVIEW
+  BUDGET_REVIEW
+  ARBITRATION
+  CRISIS_POINT
+  OTHER
 }
 
 enum ProjectReviewStatus {
-  /// Legacy — migré vers IN_REVIEW ; jamais écrit par le code applicatif Phase 1
+  /// Legacy — migré vers PREPARING ou IN_PROGRESS
   DRAFT
-  /// Point planifié, pas encore démarré (RFC-PROJ-013-1)
+  /// Legacy — migré vers SCHEDULED ou PREPARING
   PLANNED
-  /// Revue en cours de saisie / conduite (RFC-PROJ-013-1)
+  /// Legacy — migré vers IN_PROGRESS
   IN_REVIEW
+  /// RFC-PROJ-013-2 — préparation sans planification obligatoire
+  PREPARING
+  /// RFC-PROJ-013-2 — point planifié
+  SCHEDULED
+  /// RFC-PROJ-013-2 — tenue en cours
+  IN_PROGRESS
   FINALIZED
   CANCELLED
 }
@@ -1410,6 +1429,49 @@ enum ProjectReviewAgendaItemStatus {
   IN_PROGRESS
   DONE
   SKIPPED
+}
+
+/// RFC-PROJ-013-2 — type de point d'ordre du jour
+enum ProjectReviewAgendaItemType {
+  INFORMATION
+  DECISION
+  ARBITRATION
+  RISK
+  ACTION_REVIEW
+  BUDGET
+  MILESTONE
+  OTHER
+}
+
+/// RFC-PROJ-013-2 — pièce jointe / lien point projet
+enum ProjectReviewAttachmentType {
+  URL
+  DOCUMENT_REFERENCE
+  POWERBI_LINK
+  SHAREPOINT_LINK
+  OTHER
+  /// Référence documentId uniquement — pas de stockage binaire
+  FILE
+}
+
+/// RFC-PROJ-013-2 — type de décision point projet
+enum ProjectReviewDecisionType {
+  GO
+  NO_GO
+  ARBITRATION
+  BUDGET_VALIDATION
+  SCOPE_CHANGE
+  RISK_ACCEPTANCE
+  PRIORITY_CHANGE
+  OTHER
+}
+
+/// RFC-PROJ-013-2 — statut décision point projet
+enum ProjectReviewDecisionStatus {
+  DRAFT
+  VALIDATED
+  REJECTED
+  SUPERSEDED
 }
 
 enum ProjectReviewParticipantAttendanceStatus {
@@ -2101,6 +2163,7 @@ model ProjectDocument {
   project        Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   uploadedByUser User?                         @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   microsoftSync  ProjectDocumentMicrosoftSync?
+  reviewAttachments ProjectReviewAttachment[]
 
   @@index([clientId])
   @@index([projectId])
@@ -2191,13 +2254,20 @@ model ProjectReview {
   clientId  String
   projectId String
 
-  reviewDate DateTime
+  reviewDate DateTime?
   reviewType ProjectReviewType
-  status     ProjectReviewStatus @default(IN_REVIEW)
+  status     ProjectReviewStatus @default(PREPARING)
 
   title            String?
+  /// RFC-PROJ-013-2 — objectif principal du point (alias rétrocompat : executiveSummary)
+  objective        String?
   executiveSummary String?
   contentPayload   Json?
+
+  /// RFC-PROJ-013-2 — période couverte par le point
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  durationMinutes Int?
 
   meetingMode       ProjectReviewMeetingMode?
   meetingUrl        String?
@@ -2214,6 +2284,10 @@ model ProjectReview {
   finalizedAt       DateTime?
   finalizedByUserId String?
 
+  createdByUserId   String?
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+
   nextReviewDate DateTime?
 
   snapshotPayload Json?
@@ -2226,12 +2300,15 @@ model ProjectReview {
   facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
   finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
   startedBy   User?   @relation("ProjectReviewStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("ProjectReviewCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  cancelledBy User?   @relation("ProjectReviewCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
   microsoftMeetingOrganizer User? @relation("ProjectReviewMicrosoftOrganizer", fields: [microsoftMeetingOrganizerUserId], references: [id], onDelete: SetNull)
 
   participants ProjectReviewParticipant[]
   decisions    ProjectReviewDecision[]
   actionItems  ProjectReviewActionItem[]
   agendaItems  ProjectReviewAgendaItem[]
+  attachments  ProjectReviewAttachment[]
 
   @@index([clientId, projectId, reviewDate])
   @@index([clientId, projectId, status])
@@ -2279,6 +2356,9 @@ model ProjectReviewAgendaItem {
 
   title                  String
   description            String?
+  itemType               ProjectReviewAgendaItemType @default(INFORMATION)
+  objective              String?
+  expectedDecision       String?
   orderIndex             Int
   plannedDurationMinutes Int?
   ownerUserId            String?
@@ -2295,6 +2375,7 @@ model ProjectReviewAgendaItem {
 
   decisions   ProjectReviewDecision[]
   actionItems ProjectReviewActionItem[]
+  attachments ProjectReviewAttachment[]
 
   @@index([clientId, projectReviewId, orderIndex])
   @@index([projectReviewId])
@@ -2306,14 +2387,23 @@ model ProjectReviewDecision {
   projectReviewId String
   agendaItemId    String?
 
-  title       String
-  description String?
+  title        String
+  description  String?
+  decisionType ProjectReviewDecisionType   @default(OTHER)
+  status       ProjectReviewDecisionStatus @default(VALIDATED)
+  decidedByUserId String?
+  decidedAt       DateTime?
+  impact          String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   client        Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   projectReview ProjectReview          @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
   agendaItem    ProjectReviewAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  decidedBy     User?                  @relation("ProjectReviewDecisionDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  actionItems   ProjectReviewActionItem[]
+  attachments   ProjectReviewAttachment[]
 
   @@index([clientId])
   @@index([projectReviewId])
@@ -2326,9 +2416,12 @@ model ProjectReviewActionItem {
   projectReviewId String
   projectId       String
   agendaItemId    String?
+  decisionId      String?
 
   title              String
+  description        String?
   status             ProjectTaskStatus
+  priority           ProjectTaskPriority?
   dueDate            DateTime?
   linkedTaskId       String?
   responsibleUserId  String?
@@ -2338,13 +2431,16 @@ model ProjectReviewActionItem {
   project         Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   linkedTask      ProjectTask?                  @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
   agendaItem      ProjectReviewAgendaItem?      @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  decision        ProjectReviewDecision?        @relation(fields: [decisionId], references: [id], onDelete: SetNull)
   responsibleUser User?                         @relation("ProjectReviewActionResponsible", fields: [responsibleUserId], references: [id], onDelete: SetNull)
   contributors    ProjectReviewActionItemContributor[]
+  attachments     ProjectReviewAttachment[]
 
   @@index([clientId])
   @@index([clientId, projectId])
   @@index([projectReviewId])
   @@index([agendaItemId])
+  @@index([decisionId])
   @@index([responsibleUserId])
 }
 
@@ -2367,6 +2463,45 @@ model ProjectReviewActionItemContributor {
 }
 
 /// Catalogue des rôles d’équipe projet (par client).
+model ProjectReviewAttachment {
+  id              String @id @default(cuid())
+  clientId        String
+  projectReviewId String
+
+  agendaItemId String?
+  decisionId   String?
+  actionItemId String?
+
+  attachmentType ProjectReviewAttachmentType
+  title          String
+  description    String?
+  url            String?
+  documentId     String?
+  fileName       String?
+  mimeType       String?
+  sizeBytes      Int?
+
+  uploadedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client        Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview            @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  agendaItem    ProjectReviewAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  decision      ProjectReviewDecision?   @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+  actionItem    ProjectReviewActionItem? @relation(fields: [actionItemId], references: [id], onDelete: SetNull)
+  document      ProjectDocument?         @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  uploadedBy    User?                    @relation("ProjectReviewAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, projectReviewId])
+  @@index([projectReviewId])
+  @@index([agendaItemId])
+  @@index([decisionId])
+  @@index([actionItemId])
+  @@index([documentId])
+}
+
 model ProjectTeamRole {
   id         String                     @id @default(cuid())
   clientId   String

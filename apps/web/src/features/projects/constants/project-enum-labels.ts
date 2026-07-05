@@ -153,23 +153,27 @@ export function projectWarningLabel(code: string): string {
   return WARNING_CODE_LABEL[code] ?? 'Point d’attention projet';
 }
 
-/** RFC-PROJ-013 */
+/** RFC-PROJ-013 — vocabulaire « point projet » */
 export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
-  COPIL: 'Revue COPIL',
-  COPRO: 'Revue COPRO',
-  CODIR_REVIEW: 'Revue CODIR',
-  RISK_REVIEW: 'Revue risques',
-  MILESTONE_REVIEW: 'Revue jalons',
-  AD_HOC: 'Ad hoc',
+  COPIL: 'Point COPIL',
+  COPRO: 'Point COPRO',
+  CODIR_REVIEW: 'Point CODIR',
+  RISK_REVIEW: 'Point risques',
+  MILESTONE_REVIEW: 'Point jalons',
+  AD_HOC: 'Point ad hoc',
   POST_MORTEM: "Retour d'expérience",
 };
 
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {
-  PLANNED: 'Planifié',
-  IN_REVIEW: 'En revue',
-  DRAFT: 'Brouillon',
+  PREPARING: 'En préparation',
+  SCHEDULED: 'Planifié',
+  IN_PROGRESS: 'En cours',
   FINALIZED: 'Finalisé',
   CANCELLED: 'Annulé',
+  /** Legacy */
+  PLANNED: 'Planifié',
+  IN_REVIEW: 'En cours',
+  DRAFT: 'En préparation',
 };
 
 export const PROJECT_REVIEW_MEETING_MODE_LABEL: Record<string, string> = {
@@ -190,6 +194,42 @@ export const PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL: Record<string, string> = {
   IN_PROGRESS: 'En cours',
   DONE: 'Traité',
   SKIPPED: 'Non traité',
+};
+
+export const PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL: Record<string, string> = {
+  INFORMATION: 'Information',
+  DECISION: 'Décision',
+  ARBITRATION: 'Arbitrage',
+  RISK: 'Risque',
+  ACTION_REVIEW: 'Suivi des actions',
+  BUDGET: 'Budget',
+  MILESTONE: 'Jalon',
+  OTHER: 'Autre',
+};
+
+export const PROJECT_REVIEW_DECISION_TYPE_LABEL: Record<string, string> = {
+  GO: 'Go',
+  NO_GO: 'No go',
+  ARBITRATION: 'Arbitrage',
+  BUDGET_VALIDATION: 'Validation budget',
+  SCOPE_CHANGE: 'Changement de périmètre',
+  OTHER: 'Autre',
+};
+
+export const PROJECT_REVIEW_DECISION_STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  VALIDATED: 'Validée',
+  REJECTED: 'Refusée',
+  SUPERSEDED: 'Remplacée',
+};
+
+export const PROJECT_REVIEW_ATTACHMENT_TYPE_LABEL: Record<string, string> = {
+  URL: 'Lien web',
+  DOCUMENT_REFERENCE: 'Document projet',
+  POWERBI_LINK: 'Lien Power BI',
+  SHAREPOINT_LINK: 'Lien SharePoint',
+  OTHER: 'Autre lien',
+  FILE: 'Fichier',
 };
 
 /** Aligné fiche projet — statuts d’arbitrage par niveau (lecture seule dans l’éditeur de point). */

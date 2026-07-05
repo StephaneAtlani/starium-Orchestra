@@ -3,11 +3,19 @@ import type {
   Project,
   ProjectBudgetLink,
   ProjectMilestone,
+  ProjectReview,
   ProjectReviewAgendaItemStatus,
+  ProjectReviewAttachment,
+  ProjectReviewAttachmentType,
+  ProjectReviewDecision,
+  ProjectReviewDecisionStatus,
+  ProjectReviewDecisionType,
   ProjectReviewMeetingMode,
   ProjectReviewParticipantAttendanceStatus,
+  ProjectReviewType,
   ProjectRisk,
   ProjectTask,
+  ProjectTaskPriority,
 } from '@prisma/client';
 import { Prisma as PrismaNS } from '@prisma/client';
 import type { ComputedHealth } from '../projects.types';
@@ -41,6 +49,7 @@ export type ProjectReviewSnapshotAgendaAction = {
   title: string;
   status: string;
   dueDate: string | null;
+  priority: ProjectTaskPriority | null;
   responsibleUserId: string | null;
   responsibleDisplayName: string | null;
   contributors: Array<{
@@ -54,6 +63,9 @@ export type ProjectReviewSnapshotAgendaDecision = {
   id: string;
   title: string;
   description: string | null;
+  decisionType: ProjectReviewDecisionType;
+  status: ProjectReviewDecisionStatus;
+  impact: string | null;
 };
 
 export type ProjectReviewSnapshotAgendaItem = {
@@ -67,6 +79,12 @@ export type ProjectReviewSnapshotAgendaItem = {
   actionItems: ProjectReviewSnapshotAgendaAction[];
 };
 
+export type ProjectReviewSnapshotAttachment = {
+  title: string;
+  attachmentType: ProjectReviewAttachmentType;
+  agendaItemTitle: string | null;
+};
+
 export type ProjectReviewSnapshotBudgetLine = {
   budgetLineId: string;
   label: string;
@@ -76,6 +94,17 @@ export type ProjectReviewSnapshotBudgetLine = {
 };
 
 export type ProjectReviewSnapshotPayload = {
+  schemaVersion: 2;
+  review: {
+    type: ProjectReviewType;
+    title: string | null;
+    objective: string | null;
+    periodStart: string | null;
+    periodEnd: string | null;
+    reviewDate: string | null;
+    durationMinutes: number | null;
+    facilitatorDisplayName: string | null;
+  };
   project: {
     id: string;
     name: string;
@@ -89,7 +118,25 @@ export type ProjectReviewSnapshotPayload = {
   };
   participants: ProjectReviewSnapshotParticipant[];
   agenda: ProjectReviewSnapshotAgendaItem[];
+  attachments: ProjectReviewSnapshotAttachment[];
+  decisions: Array<{
+    id: string;
+    title: string;
+    decisionType: ProjectReviewDecisionType;
+    status: ProjectReviewDecisionStatus;
+    impact: string | null;
+    agendaItemTitle: string | null;
+  }>;
+  actions: Array<{
+    id: string;
+    title: string;
+    responsibleDisplayName: string | null;
+    contributors: Array<{ displayName: string | null; roleLabel: string | null }>;
+    dueDate: string | null;
+    priority: ProjectTaskPriority | null;
+  }>;
   untreatedAgendaItems: Array<{ id: string; title: string; status: string }>;
+  nextSteps: string | null;
   progress: { globalProgress: number | null };
   arbitration: {
     arbitrationMetierStatus: string | null;
@@ -129,6 +176,30 @@ const TOP_RISKS_MAX = 5;
 const MILESTONES_MAX = 5;
 
 export function buildProjectReviewSnapshotPayload(input: {
+  review: Pick<
+    ProjectReview,
+    | 'reviewType'
+    | 'title'
+    | 'objective'
+    | 'executiveSummary'
+    | 'periodStart'
+    | 'periodEnd'
+    | 'reviewDate'
+    | 'durationMinutes'
+    | 'nextReviewDate'
+  >;
+  facilitatorDisplayName: string | null;
+  attachments: ProjectReviewAttachment[];
+  standaloneDecisions: ProjectReviewDecision[];
+  standaloneActions: Array<{
+    id: string;
+    title: string;
+    dueDate: Date | null;
+    priority: ProjectTaskPriority | null;
+    responsibleDisplayName: string | null;
+    contributors: Array<{ displayName: string | null; roleLabel: string | null }>;
+  }>;
+  agendaTitleById: Map<string, string>;
   project: Project;
   tasks: ProjectTask[];
   risks: ProjectRisk[];
@@ -147,6 +218,12 @@ export function buildProjectReviewSnapshotPayload(input: {
   agenda: ProjectReviewSnapshotAgendaItem[];
 }): Prisma.InputJsonValue {
   const {
+    review,
+    facilitatorDisplayName,
+    attachments,
+    standaloneDecisions,
+    standaloneActions,
+    agendaTitleById,
     project,
     tasks,
     risks,
@@ -217,17 +294,57 @@ export function buildProjectReviewSnapshotPayload(input: {
       : null;
 
   const untreatedAgendaItems = agenda
-    .filter(
-      (item) =>
-        item.status === 'SKIPPED' || item.status === 'TODO',
-    )
+    .filter((item) => item.status === 'SKIPPED' || item.status === 'TODO')
     .map((item) => ({
       id: item.id,
       title: item.title,
       status: item.status,
     }));
 
+  const snapshotAttachments: ProjectReviewSnapshotAttachment[] = (
+    attachments ?? []
+  ).map(
+    (a) => ({
+      title: a.title,
+      attachmentType: a.attachmentType,
+      agendaItemTitle: a.agendaItemId
+        ? (agendaTitleById.get(a.agendaItemId) ?? null)
+        : null,
+    }),
+  );
+
+  const snapshotDecisions = standaloneDecisions.map((d) => ({
+    id: d.id,
+    title: d.title,
+    decisionType: d.decisionType,
+    status: d.status,
+    impact: d.impact,
+    agendaItemTitle: d.agendaItemId
+      ? (agendaTitleById.get(d.agendaItemId) ?? null)
+      : null,
+  }));
+
+  const snapshotActions = standaloneActions.map((a) => ({
+    id: a.id,
+    title: a.title,
+    responsibleDisplayName: a.responsibleDisplayName,
+    contributors: a.contributors,
+    dueDate: a.dueDate?.toISOString() ?? null,
+    priority: a.priority,
+  }));
+
   const payload: ProjectReviewSnapshotPayload = {
+    schemaVersion: 2,
+    review: {
+      type: review.reviewType,
+      title: review.title,
+      objective: review.objective ?? review.executiveSummary ?? null,
+      periodStart: review.periodStart?.toISOString() ?? null,
+      periodEnd: review.periodEnd?.toISOString() ?? null,
+      reviewDate: review.reviewDate?.toISOString() ?? null,
+      durationMinutes: review.durationMinutes ?? null,
+      facilitatorDisplayName,
+    },
     project: {
       id: project.id,
       name: project.name,
@@ -241,7 +358,11 @@ export function buildProjectReviewSnapshotPayload(input: {
     },
     participants,
     agenda,
+    attachments: snapshotAttachments,
+    decisions: snapshotDecisions,
+    actions: snapshotActions,
     untreatedAgendaItems,
+    nextSteps: review.nextReviewDate?.toISOString() ?? null,
     progress: { globalProgress },
     arbitration: {
       arbitrationMetierStatus: project.arbitrationMetierStatus ?? null,
@@ -263,4 +384,14 @@ export function buildProjectReviewSnapshotPayload(input: {
   };
 
   return JSON.parse(JSON.stringify(payload)) as Prisma.InputJsonValue;
+}
+
+/** Assert snapshot v2 contains no sensitive URLs (for tests). */
+export function snapshotContainsSensitiveUrls(payload: unknown): boolean {
+  const json = JSON.stringify(payload);
+  return (
+    json.includes('meetingUrl') ||
+    json.includes('externalEmail') ||
+    json.includes('"url"')
+  );
 }

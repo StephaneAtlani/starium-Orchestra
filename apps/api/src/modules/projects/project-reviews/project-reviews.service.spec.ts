@@ -15,7 +15,7 @@ import { ProjectsService } from '../projects.service';
 import { ProjectReviewsService } from './project-reviews.service';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 
-describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
+describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
   let service: ProjectReviewsService;
   let prisma: {
     projectReview: {
@@ -50,8 +50,6 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
   const projectId = 'p1';
   const reviewId = 'rev1';
 
-  const reviewInclude = expect.any(Object);
-
   function reviewRow(overrides: Record<string, unknown> = {}) {
     return {
       id: reviewId,
@@ -59,15 +57,22 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       projectId,
       reviewDate: new Date('2025-06-01'),
       reviewType: ProjectReviewType.COPIL,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: 'Point',
+      objective: null,
       executiveSummary: null,
+      periodStart: null,
+      periodEnd: null,
+      durationMinutes: null,
       contentPayload: null,
       meetingMode: null,
       meetingUrl: null,
       location: null,
       startedAt: null,
       startedByUserId: null,
+      createdByUserId: null,
+      cancelledAt: null,
+      cancelledByUserId: null,
       facilitatorUserId: null,
       finalizedAt: null,
       finalizedByUserId: null,
@@ -79,6 +84,8 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       decisions: [],
       actionItems: [],
       agendaItems: [],
+      attachments: [],
+      facilitator: null,
       startedBy: null,
       ...overrides,
     };
@@ -170,9 +177,42 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('create IMMEDIATE → IN_REVIEW ; PLANNED → PLANNED', async () => {
+  it('create PREPARING par défaut ; IMMEDIATE → IN_PROGRESS ; SCHEDULED → SCHEDULED', async () => {
     prisma.projectReview.create.mockImplementation(({ data }) =>
-      Promise.resolve(reviewRow({ status: data.status })),
+      Promise.resolve(reviewRow({ status: data.status, reviewDate: data.reviewDate })),
+    );
+
+    await service.create(
+      clientId,
+      projectId,
+      { reviewType: ProjectReviewType.COPIL },
+      { actorUserId: 'u1' },
+    );
+    expect(prisma.projectReview.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProjectReviewStatus.PREPARING,
+          createdByUserId: 'u1',
+        }),
+      }),
+    );
+
+    await service.create(
+      clientId,
+      projectId,
+      {
+        reviewType: ProjectReviewType.COPIL,
+        creationMode: 'IMMEDIATE',
+      },
+      {},
+    );
+    expect(prisma.projectReview.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProjectReviewStatus.IN_PROGRESS,
+          startedAt: expect.any(Date),
+        }),
+      }),
     );
 
     await service.create(
@@ -181,13 +221,13 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       {
         reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.COPIL,
-        creationMode: 'IMMEDIATE',
+        creationMode: 'SCHEDULED',
       },
       {},
     );
-    expect(prisma.projectReview.create).toHaveBeenCalledWith(
+    expect(prisma.projectReview.create).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: ProjectReviewStatus.IN_REVIEW }),
+        data: expect.objectContaining({ status: ProjectReviewStatus.SCHEDULED }),
       }),
     );
 
@@ -203,12 +243,21 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     );
     expect(prisma.projectReview.create).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: ProjectReviewStatus.PLANNED }),
+        data: expect.objectContaining({ status: ProjectReviewStatus.SCHEDULED }),
       }),
     );
   });
 
-  it('create POST_MORTEM + PLANNED → 400', async () => {
+  it('create SCHEDULED sans reviewDate → 400', async () => {
+    await expect(
+      service.create(clientId, projectId, {
+        reviewType: ProjectReviewType.COPIL,
+        creationMode: 'SCHEDULED',
+      }),
+    ).rejects.toThrow(/date de revue est obligatoire/i);
+  });
+
+  it('create POST_MORTEM + SCHEDULED → 400', async () => {
     projects.getProjectForScope.mockResolvedValueOnce({
       id: projectId,
       status: ProjectStatus.COMPLETED,
@@ -217,21 +266,54 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       service.create(clientId, projectId, {
         reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.POST_MORTEM,
-        creationMode: 'PLANNED',
+        creationMode: 'SCHEDULED',
       }),
     ).rejects.toThrow(/ne peut pas être planifié/i);
     expect(prisma.projectReview.create).not.toHaveBeenCalled();
   });
 
-  it('startReview PLANNED → IN_REVIEW + audit started', async () => {
+  it('schedule PREPARING → SCHEDULED + audit', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.PLANNED }),
+      reviewRow({ status: ProjectReviewStatus.PREPARING, reviewDate: null }),
     );
     prisma.projectReview.update.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.IN_REVIEW, startedAt: new Date() }),
+      reviewRow({
+        status: ProjectReviewStatus.SCHEDULED,
+        reviewDate: new Date('2025-06-15T10:00:00.000Z'),
+      }),
     );
 
-    await service.startReview(clientId, projectId, reviewId, {
+    await service.schedule(
+      clientId,
+      projectId,
+      reviewId,
+      { reviewDate: '2025-06-15T10:00:00.000Z' },
+      { actorUserId: 'u1' },
+    );
+
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProjectReviewStatus.SCHEDULED,
+        }),
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_UPDATED,
+      }),
+    );
+  });
+
+  it('start SCHEDULED → IN_PROGRESS + audit started', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.SCHEDULED }),
+    );
+    prisma.projectReview.update.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.IN_PROGRESS, startedAt: new Date() }),
+    );
+
+    await service.start(clientId, projectId, reviewId, {
       actorUserId: 'u1',
       meta: {},
     });
@@ -240,8 +322,8 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_STARTED,
         newValue: expect.objectContaining({
-          previousStatus: ProjectReviewStatus.PLANNED,
-          newStatus: ProjectReviewStatus.IN_REVIEW,
+          previousStatus: ProjectReviewStatus.SCHEDULED,
+          newStatus: ProjectReviewStatus.IN_PROGRESS,
         }),
       }),
     );
@@ -250,18 +332,18 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     ).not.toMatch(/meetingUrl/i);
   });
 
-  it('startReview 2e appel IN_REVIEW → erreur stable', async () => {
+  it('start 2e appel IN_PROGRESS → erreur stable', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.IN_REVIEW }),
+      reviewRow({ status: ProjectReviewStatus.IN_PROGRESS }),
     );
     await expect(
-      service.startReview(clientId, projectId, reviewId, {}),
+      service.start(clientId, projectId, reviewId, {}),
     ).rejects.toThrow('La revue est déjà en cours.');
   });
 
-  it('finalize refuse PLANNED', async () => {
+  it('finalize refuse SCHEDULED', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.PLANNED }),
+      reviewRow({ status: ProjectReviewStatus.SCHEDULED }),
     );
     prisma.$transaction.mockImplementation(
       async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
@@ -274,10 +356,10 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     ).rejects.toThrow(/Démarrez d’abord/i);
   });
 
-  it('finalize OK depuis IN_REVIEW avec snapshot sans meetingUrl', async () => {
+  it('finalize OK depuis IN_PROGRESS avec snapshot sans meetingUrl', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
       reviewRow({
-        status: ProjectReviewStatus.IN_REVIEW,
+        status: ProjectReviewStatus.IN_PROGRESS,
         meetingMode: 'REMOTE',
         meetingUrl: 'https://teams.example.com/secret',
         location: 'Salle A',
@@ -323,16 +405,17 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
 
     const updateCall = prisma.projectReview.update.mock.calls[0][0];
     const snapshot = updateCall.data.snapshotPayload as Record<string, unknown>;
+    expect(snapshot.schemaVersion).toBe(2);
     expect(snapshot.meeting).toEqual(
       expect.objectContaining({ meetingMode: 'REMOTE', location: 'Salle A' }),
     );
     expect(JSON.stringify(snapshot)).not.toMatch(/meetingUrl/i);
+    expect(JSON.stringify(snapshot)).not.toMatch(/"url"/);
   });
 
   it('meetingUrl javascript: refusé à la création', async () => {
     await expect(
       service.create(clientId, projectId, {
-        reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.COPIL,
         meetingMode: 'REMOTE',
         meetingUrl: 'javascript:alert(1)',
@@ -343,7 +426,6 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
   it('meetingUrl sans mode REMOTE/HYBRID → 400', async () => {
     await expect(
       service.create(clientId, projectId, {
-        reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.COPIL,
         meetingMode: 'ONSITE',
         meetingUrl: 'https://example.com/meet',
@@ -351,20 +433,32 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('cancel autorisé depuis PLANNED et IN_REVIEW', async () => {
+  it('cancel autorisé depuis SCHEDULED et IN_PROGRESS + trace annulation', async () => {
     for (const status of [
-      ProjectReviewStatus.PLANNED,
-      ProjectReviewStatus.IN_REVIEW,
+      ProjectReviewStatus.SCHEDULED,
+      ProjectReviewStatus.IN_PROGRESS,
     ]) {
       prisma.projectReview.findFirst.mockResolvedValue(reviewRow({ status }));
       prisma.projectReview.update.mockResolvedValue(
-        reviewRow({ status: ProjectReviewStatus.CANCELLED }),
+        reviewRow({
+          status: ProjectReviewStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelledByUserId: 'u1',
+        }),
       );
-      await service.cancel(clientId, projectId, reviewId, {});
+      await service.cancel(clientId, projectId, reviewId, { actorUserId: 'u1' });
     }
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          cancelledAt: expect.any(Date),
+          cancelledByUserId: 'u1',
+        }),
+      }),
+    );
   });
 
-  it('update spawn next review en PLANNED', async () => {
+  it('update spawn next review en SCHEDULED', async () => {
     const existing = reviewRow({
       participants: [
         {
@@ -398,7 +492,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     expect(prisma.projectReview.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: ProjectReviewStatus.PLANNED,
+          status: ProjectReviewStatus.SCHEDULED,
         }),
       }),
     );
@@ -411,7 +505,6 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
         clientId,
         projectId,
         {
-          reviewDate: '2025-06-01T10:00:00.000Z',
           reviewType: ProjectReviewType.COPRO,
           actionItems: [
             {
@@ -427,12 +520,12 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
   });
 
   it('auto_create : revue créée même si invitation auto échoue', async () => {
-    const plannedRow = reviewRow({
-      status: ProjectReviewStatus.PLANNED,
+    const scheduledRow = reviewRow({
+      status: ProjectReviewStatus.SCHEDULED,
       participants: [{ id: 'p1', userId: 'u1', displayName: null }],
     });
-    prisma.projectReview.create.mockResolvedValue(plannedRow);
-    prisma.projectReview.findFirst.mockResolvedValue(plannedRow);
+    prisma.projectReview.create.mockResolvedValue(scheduledRow);
+    prisma.projectReview.findFirst.mockResolvedValue(scheduledRow);
     invitations.invite.mockRejectedValue(new Error('notification failed'));
 
     const result = await service.create(
@@ -441,13 +534,13 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       {
         reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.COPIL,
-        creationMode: 'PLANNED',
+        creationMode: 'SCHEDULED',
         participants: [{ userId: 'u1' }],
       },
       { actorUserId: 'admin' },
     );
 
-    expect(result.status).toBe(ProjectReviewStatus.PLANNED);
+    expect(result.status).toBe(ProjectReviewStatus.SCHEDULED);
     expect(auditLogs.create).toHaveBeenCalledWith(
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_INVITE_FAILED,
@@ -455,16 +548,16 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('auto_create déclenche invite pour PLANNED avec participants internes', async () => {
+  it('auto_create déclenche invite pour SCHEDULED avec participants internes', async () => {
     prisma.projectReview.create.mockResolvedValue(
       reviewRow({
-        status: ProjectReviewStatus.PLANNED,
+        status: ProjectReviewStatus.SCHEDULED,
         participants: [{ id: 'p1', userId: 'u1', displayName: null }],
       }),
     );
     prisma.projectReview.findFirst.mockResolvedValue(
       reviewRow({
-        status: ProjectReviewStatus.PLANNED,
+        status: ProjectReviewStatus.SCHEDULED,
         participants: [{ id: 'p1', userId: 'u1', displayName: null }],
       }),
     );
@@ -475,7 +568,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       {
         reviewDate: '2025-06-01T10:00:00.000Z',
         reviewType: ProjectReviewType.COPIL,
-        creationMode: 'PLANNED',
+        creationMode: 'SCHEDULED',
         participants: [{ userId: 'u1' }],
       },
       { actorUserId: 'admin' },
@@ -490,9 +583,9 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('update PLANNED refuse les champs compte rendu', async () => {
+  it('update SCHEDULED refuse les champs compte rendu', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.PLANNED }),
+      reviewRow({ status: ProjectReviewStatus.SCHEDULED }),
     );
 
     await expect(
@@ -502,24 +595,24 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('update PLANNED avec changement reviewDate déclenche auto_date_change', async () => {
+  it('update SCHEDULED avec changement reviewDate déclenche auto_date_change', async () => {
     prisma.projectReview.findFirst
       .mockResolvedValueOnce(
         reviewRow({
-          status: ProjectReviewStatus.PLANNED,
+          status: ProjectReviewStatus.SCHEDULED,
           reviewDate: new Date('2025-06-01T10:00:00.000Z'),
         }),
       )
       .mockResolvedValueOnce(
         reviewRow({
-          status: ProjectReviewStatus.PLANNED,
+          status: ProjectReviewStatus.SCHEDULED,
           reviewDate: new Date('2025-06-15T10:00:00.000Z'),
         }),
       );
     prisma.projectReview.update.mockResolvedValue({});
     prisma.projectReview.findFirstOrThrow.mockResolvedValue(
       reviewRow({
-        status: ProjectReviewStatus.PLANNED,
+        status: ProjectReviewStatus.SCHEDULED,
         reviewDate: new Date('2025-06-15T10:00:00.000Z'),
       }),
     );
@@ -541,24 +634,16 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('update PLANNED sans changement reviewDate ne déclenche pas auto_date_change', async () => {
-    const sameDate = new Date('2025-06-01T10:00:00.000Z');
+  it('objective mappé dans la réponse (alias executiveSummary)', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.PLANNED, reviewDate: sameDate }),
-    );
-    prisma.projectReview.update.mockResolvedValue({});
-    prisma.projectReview.findFirstOrThrow.mockResolvedValue(
-      reviewRow({ status: ProjectReviewStatus.PLANNED, reviewDate: sameDate }),
-    );
-
-    await service.update(
-      clientId,
-      projectId,
-      reviewId,
-      { reviewDate: sameDate.toISOString(), title: 'Nouveau titre' },
-      { actorUserId: 'admin' },
+      reviewRow({
+        objective: 'Piloter le trimestre',
+        executiveSummary: null,
+      }),
     );
 
-    expect(invitations.invite).not.toHaveBeenCalled();
+    const result = await service.getById(clientId, projectId, reviewId);
+    expect(result.objective).toBe('Piloter le trimestre');
+    expect(result.executiveSummary).toBe('Piloter le trimestre');
   });
 });

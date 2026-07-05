@@ -4,6 +4,7 @@ import type {
   InviteProjectReviewPayload,
   InviteProjectReviewResult,
   ProjectReviewAgendaItemApi,
+  ProjectReviewAttachmentApi,
   ProjectReviewDetail,
   ProjectReviewListResponse,
   ProjectReviewParticipantApi,
@@ -60,12 +61,27 @@ export async function updateProjectReview(
   return res.json() as Promise<ProjectReviewDetail>;
 }
 
+export async function scheduleProjectReview(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  body: { reviewDate: string },
+): Promise<ProjectReviewDetail> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/schedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDetail>;
+}
+
 export async function startProjectReview(
   authFetch: AuthFetch,
   projectId: string,
   reviewId: string,
 ): Promise<ProjectReviewDetail> {
-  const res = await authFetch(`${base(projectId)}/${reviewId}/start-review`, {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/start`, {
     method: 'POST',
   });
   if (!res.ok) throw await parseApiFormError(res);
@@ -254,3 +270,54 @@ export async function deleteProjectReviewParticipant(
 }
 
 export type { ProjectReviewParticipantAttendanceStatus };
+
+const attachmentsBase = (projectId: string, reviewId: string) =>
+  `${base(projectId)}/${reviewId}/attachments`;
+
+export async function createProjectReviewAttachment(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  body: Record<string, unknown>,
+): Promise<ProjectReviewAttachmentApi> {
+  const res = await authFetch(attachmentsBase(projectId, reviewId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewAttachmentApi>;
+}
+
+export async function updateProjectReviewAttachment(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  attachmentId: string,
+  body: Record<string, unknown>,
+): Promise<ProjectReviewAttachmentApi> {
+  const res = await authFetch(
+    `${attachmentsBase(projectId, reviewId)}/${attachmentId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewAttachmentApi>;
+}
+
+export async function deleteProjectReviewAttachment(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  attachmentId: string,
+): Promise<{ ok: boolean }> {
+  const res = await authFetch(
+    `${attachmentsBase(projectId, reviewId)}/${attachmentId}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ ok: boolean }>;
+}

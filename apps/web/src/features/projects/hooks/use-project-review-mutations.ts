@@ -8,16 +8,20 @@ import {
   completeProjectReviewAgendaItem,
   createProjectReview,
   createProjectReviewAgendaItem,
+  createProjectReviewAttachment,
   createProjectReviewParticipant,
+  deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
   inviteProjectReview,
   reorderProjectReviewAgendaItems,
+  scheduleProjectReview,
   skipProjectReviewAgendaItem,
   startProjectReview,
   startProjectReviewAgendaItem,
   updateProjectReview,
   updateProjectReviewAgendaItem,
+  updateProjectReviewAttachment,
   updateProjectReviewParticipant,
 } from '../api/project-reviews.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -70,6 +74,19 @@ export function useProjectReviewMutations(projectId: string) {
     mutationFn: (reviewId: string) =>
       startProjectReview(authFetch, projectId, reviewId),
     onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const scheduleReview = useMutation({
+    mutationFn: ({
+      reviewId,
+      reviewDate,
+    }: {
+      reviewId: string;
+      reviewDate: string;
+    }) => scheduleProjectReview(authFetch, projectId, reviewId, { reviewDate }),
+    onSuccess: (_, { reviewId }) => {
       invalidateReview(reviewId);
     },
   });
@@ -255,9 +272,59 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const createAttachment = useMutation({
+    mutationFn: ({
+      reviewId,
+      body,
+    }: {
+      reviewId: string;
+      body: Record<string, unknown>;
+    }) => createProjectReviewAttachment(authFetch, projectId, reviewId, body),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const updateAttachment = useMutation({
+    mutationFn: ({
+      reviewId,
+      attachmentId,
+      body,
+    }: {
+      reviewId: string;
+      attachmentId: string;
+      body: Record<string, unknown>;
+    }) =>
+      updateProjectReviewAttachment(
+        authFetch,
+        projectId,
+        reviewId,
+        attachmentId,
+        body,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const deleteAttachment = useMutation({
+    mutationFn: ({
+      reviewId,
+      attachmentId,
+    }: {
+      reviewId: string;
+      attachmentId: string;
+    }) =>
+      deleteProjectReviewAttachment(authFetch, projectId, reviewId, attachmentId),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
   return {
     create,
     update,
+    scheduleReview,
     startReview,
     finalize,
     cancel,
@@ -271,5 +338,8 @@ export function useProjectReviewMutations(projectId: string) {
     createParticipant,
     updateParticipant,
     deleteParticipant,
+    createAttachment,
+    updateAttachment,
+    deleteAttachment,
   };
 }

@@ -434,7 +434,12 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     enabledByDefault: false,
     size: 'single',
     render: ({ reviews, isLoading }) => {
-      const in30 = reviews.filter((r) => daysUntil(r.reviewDate) <= 0 && daysUntil(r.reviewDate) >= -30).length;
+      const in30 = reviews.filter(
+        (r) =>
+          r.reviewDate &&
+          daysUntil(r.reviewDate) <= 0 &&
+          daysUntil(r.reviewDate) >= -30,
+      ).length;
       return (
         <WidgetBarList
           title="Cadence revues (30 jours)"

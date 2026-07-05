@@ -49,10 +49,10 @@ describe('ProjectReviewAgendaService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('create agenda en PLANNED', async () => {
+  it('create agenda en SCHEDULED', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
       id: reviewId,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.SCHEDULED,
     });
     prisma.projectReviewAgendaItem.create.mockResolvedValue({
       id: 'ag1',
@@ -70,10 +70,46 @@ describe('ProjectReviewAgendaService (RFC-PROJ-013-1)', () => {
     );
   });
 
-  it('refuse update notes en PLANNED', async () => {
+  it('create agenda avec itemType', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
       id: reviewId,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.PREPARING,
+    });
+    prisma.projectReviewAgendaItem.create.mockResolvedValue({
+      id: 'ag1',
+      title: 'Arbitrage budget',
+      itemType: 'ARBITRATION',
+      orderIndex: 1,
+    });
+
+    await service.create(
+      clientId,
+      projectId,
+      reviewId,
+      {
+        title: 'Arbitrage budget',
+        itemType: 'ARBITRATION',
+        objective: 'Trancher le dépassement',
+        expectedDecision: 'GO sous conditions',
+      },
+      {},
+    );
+
+    expect(prisma.projectReviewAgendaItem.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          itemType: 'ARBITRATION',
+          objective: 'Trancher le dépassement',
+          expectedDecision: 'GO sous conditions',
+        }),
+      }),
+    );
+  });
+
+  it('refuse update notes en SCHEDULED', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue({
+      id: reviewId,
+      status: ProjectReviewStatus.SCHEDULED,
     });
     prisma.projectReviewAgendaItem.findFirst.mockResolvedValue({
       id: 'ag1',

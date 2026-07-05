@@ -37,7 +37,6 @@ import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import {
-  defaultProjectDatetimeLocal,
   PROJECT_DATETIME_LOCAL_STEP_SECONDS,
 } from '../lib/project-datetime-local';
 import type {
@@ -149,6 +148,12 @@ const CREATION_MODE_OPTIONS: {
   icon: typeof PenLine;
 }[] = [
   {
+    value: 'PREPARING',
+    title: 'Préparer',
+    description: 'Crée un point en préparation — date optionnelle, à planifier ensuite.',
+    icon: ClipboardPen,
+  },
+  {
     value: 'IMMEDIATE',
     title: 'Saisir maintenant',
     description: 'Ouvre l’éditeur pour rédiger le compte rendu dès la création.',
@@ -157,7 +162,7 @@ const CREATION_MODE_OPTIONS: {
   {
     value: 'PLANNED',
     title: 'Planifier',
-    description: 'Crée un point à venir ; invitations et tenue se préparent avant le jour J.',
+    description: 'Crée un point planifié à une date précise ; invitations avant le jour J.',
     icon: CalendarClock,
   },
 ];
@@ -274,9 +279,10 @@ export function ProjectReviewCreateDialog({
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: open });
   const { create } = useProjectReviewMutations(projectId);
 
-  const [formDate, setFormDate] = useState(defaultProjectDatetimeLocal);
+  const [formDate, setFormDate] = useState('');
   const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
   const [formTitle, setFormTitle] = useState('');
+  const [formObjective, setFormObjective] = useState('');
   const [formSummary, setFormSummary] = useState('');
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
     emptyParticipantRow(),
@@ -288,19 +294,20 @@ export function ProjectReviewCreateDialog({
   const [formMeetingUrl, setFormMeetingUrl] = useState('');
   const [formLocation, setFormLocation] = useState('');
   const [formCreationMode, setFormCreationMode] =
-    useState<ProjectReviewCreationMode>('IMMEDIATE');
+    useState<ProjectReviewCreationMode>('PREPARING');
 
   const createFormSeededRef = useRef(false);
 
   const resetForm = useCallback(() => {
-    setFormDate(defaultProjectDatetimeLocal());
+    setFormDate('');
     setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
+    setFormObjective('');
     setFormSummary('');
     setFormMeetingMode('');
     setFormMeetingUrl('');
     setFormLocation('');
-    setFormCreationMode('IMMEDIATE');
+    setFormCreationMode('PREPARING');
     setCreateDecisions([emptyDecisionRow()]);
   }, [postMortemEligible]);
 
@@ -346,14 +353,24 @@ export function ProjectReviewCreateDialog({
     onOpenChange(next);
   };
 
+  const requiresDate =
+    formCreationMode === 'PLANNED' || formCreationMode === 'SCHEDULED';
+
   const submitLabel = postMortemEligible
     ? 'Créer le retour d’expérience'
-    : formCreationMode === 'PLANNED'
+    : formCreationMode === 'PLANNED' || formCreationMode === 'SCHEDULED'
       ? 'Planifier le point'
-      : 'Créer et ouvrir l’éditeur';
+      : formCreationMode === 'PREPARING'
+        ? 'Créer le point'
+        : 'Créer et ouvrir l’éditeur';
 
   const onSubmit = async () => {
-    const reviewDate = new Date(formDate).toISOString();
+    if (requiresDate && !formDate.trim()) {
+      toast.error('La date est obligatoire pour un point planifié.');
+      return;
+    }
+    const reviewDate = formDate.trim() ? new Date(formDate).toISOString() : undefined;
+    const objective = formObjective.trim() || formSummary.trim();
     const participants = createParticipants
       .filter((p) => p.displayName.trim() || p.userId.trim())
       .map((p) => ({
@@ -368,15 +385,15 @@ export function ProjectReviewCreateDialog({
         title: x.title.trim(),
         description: x.description.trim() || null,
       }));
-    const summary = formSummary.trim();
+    const summary = objective;
 
     try {
       const created = await create.mutateAsync({
-        reviewDate,
+        ...(reviewDate ? { reviewDate } : {}),
         reviewType: formType,
         creationMode: postMortemEligible ? 'IMMEDIATE' : formCreationMode,
         title: formTitle.trim() || undefined,
-        ...(summary ? { executiveSummary: summary } : {}),
+        ...(objective ? { objective, executiveSummary: objective } : {}),
         ...(formMeetingMode
           ? {
               meetingMode: formMeetingMode,
@@ -416,7 +433,7 @@ export function ProjectReviewCreateDialog({
               <DialogDescription className="mt-1.5 max-w-prose text-left text-sm">
                 {postMortemEligible
                   ? 'Bilan de clôture : date, équipe, puis grille REX dans l’éditeur.'
-                  : 'Planifiez ou lancez une revue de pilotage — le détail se complète dans l’éditeur.'}
+                  : 'Planifiez ou lancez un point de pilotage — le détail se complète dans l’éditeur.'}
               </DialogDescription>
             </div>
           </DialogHeader>
@@ -435,7 +452,10 @@ export function ProjectReviewCreateDialog({
                 <div className="starium-form-grid starium-form-grid--2">
                   <div className="starium-form-field">
                     <label htmlFor="pr-date" className="starium-form-label">
-                      Date et heure
+                      Date et heure{' '}
+                      {!requiresDate ? (
+                        <span className="font-normal text-muted-foreground">(optionnel)</span>
+                      ) : null}
                     </label>
                     <Input
                       id="pr-date"
@@ -444,12 +464,12 @@ export function ProjectReviewCreateDialog({
                       className="starium-form-input min-h-11"
                       value={formDate}
                       onChange={(e) => setFormDate(e.target.value)}
-                      required
+                      required={requiresDate}
                     />
                   </div>
                   <div className="starium-form-field">
                     <label htmlFor="pr-type" className="starium-form-label">
-                      Type de revue
+                      Type de point
                     </label>
                     <select
                       id="pr-type"
@@ -494,7 +514,7 @@ export function ProjectReviewCreateDialog({
                     </h3>
                     <fieldset>
                       <legend className="sr-only">Mode de création du point</legend>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="grid gap-2 sm:grid-cols-3">
                         {CREATION_MODE_OPTIONS.map((opt) => (
                           <FormChoiceTile
                             key={opt.value}
@@ -755,12 +775,26 @@ export function ProjectReviewCreateDialog({
               <div className="flex flex-col gap-2">
                 <OptionalBlock
                   id="create-pr-framing"
-                  title="Ordre du jour"
-                  summary="Objectif et points à aborder — optionnel"
+                  title="Objectif du point"
+                  summary="Cadrage et ordre du jour — optionnel"
                 >
                   <div className="starium-form-field">
+                    <label htmlFor="pr-objective" className="starium-form-label">
+                      Objectif principal
+                    </label>
+                    <textarea
+                      id="pr-objective"
+                      className="starium-form-textarea min-h-[72px]"
+                      value={formObjective}
+                      onChange={(e) => setFormObjective(e.target.value)}
+                      maxLength={20000}
+                      rows={3}
+                      placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
+                    />
+                  </div>
+                  <div className="starium-form-field mt-3">
                     <label htmlFor="pr-summary" className="starium-form-label">
-                      Contenu
+                      Ordre du jour (texte libre)
                     </label>
                     <textarea
                       id="pr-summary"
@@ -886,7 +920,7 @@ export function ProjectReviewCreateDialog({
               type="button"
               className="min-h-11"
               onClick={() => void onSubmit()}
-              disabled={create.isPending || !formDate}
+              disabled={create.isPending || (requiresDate && !formDate.trim())}
             >
               {create.isPending ? 'Création…' : submitLabel}
             </Button>

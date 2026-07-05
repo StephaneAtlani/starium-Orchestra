@@ -93,6 +93,9 @@ export class ProjectReviewAgendaService {
         projectReviewId: reviewId,
         title: dto.title.trim(),
         description: dto.description?.trim() ?? null,
+        itemType: dto.itemType,
+        objective: dto.objective?.trim() ?? null,
+        expectedDecision: dto.expectedDecision?.trim() ?? null,
         orderIndex,
         plannedDurationMinutes: dto.plannedDurationMinutes ?? null,
         ownerUserId: dto.ownerUserId ?? null,
@@ -145,6 +148,13 @@ export class ProjectReviewAgendaService {
     if (dto.title !== undefined) data.title = dto.title.trim();
     if (dto.description !== undefined) {
       data.description = dto.description?.trim() ?? null;
+    }
+    if (dto.itemType !== undefined) data.itemType = dto.itemType;
+    if (dto.objective !== undefined) {
+      data.objective = dto.objective?.trim() ?? null;
+    }
+    if (dto.expectedDecision !== undefined) {
+      data.expectedDecision = dto.expectedDecision?.trim() ?? null;
     }
     if (dto.plannedDurationMinutes !== undefined) {
       data.plannedDurationMinutes = dto.plannedDurationMinutes;

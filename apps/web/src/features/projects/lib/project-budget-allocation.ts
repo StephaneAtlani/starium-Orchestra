@@ -13,6 +13,28 @@ export function isPercentageAllocationMode(
   return mode === 'PERCENTAGE' || mode === 'BUDGET_PERCENTAGE';
 }
 
+export type BudgetLineAllocationWarningMode =
+  | 'FIXED'
+  | 'PERCENTAGE'
+  | 'BUDGET_PERCENTAGE';
+
+export function isBudgetLineAllocationWarningMode(
+  mode: ProjectBudgetAllocationType,
+): mode is BudgetLineAllocationWarningMode {
+  return mode === 'FIXED' || isPercentageAllocationMode(mode);
+}
+
+export type AllocationRemainderMode =
+  | 'FIXED'
+  | 'PERCENTAGE'
+  | 'BUDGET_PERCENTAGE';
+
+export function isAllocationRemainderMode(
+  mode: ProjectBudgetAllocationType,
+): mode is AllocationRemainderMode {
+  return isBudgetLineAllocationWarningMode(mode);
+}
+
 export function parseFixedLinkAmount(amount: string | null): number | null {
   if (amount == null || amount === '') return null;
   const n = Number(String(amount).replace(',', '.'));

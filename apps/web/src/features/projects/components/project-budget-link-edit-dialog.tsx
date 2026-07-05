@@ -37,6 +37,8 @@ import {
   computePercentageAllocationRemainderForEdit,
   computePercentageLineAllocationAmount,
   humanizeProjectBudgetLinkError,
+  isAllocationRemainderMode,
+  isBudgetLineAllocationWarningMode,
   isPercentageAllocationMode,
   parseFixedLinkAmount,
   parseAllocationPercentage,
@@ -258,10 +260,7 @@ export function ProjectBudgetLinkEditDialog({
     null;
 
   const lineAllocationWarning = useMemo(() => {
-    if (
-      effectiveAllocationMode !== 'FIXED' &&
-      !isPercentageAllocationMode(effectiveAllocationMode)
-    ) {
+    if (!isBudgetLineAllocationWarningMode(effectiveAllocationMode)) {
       return null;
     }
     return getBudgetLineAllocationWarning(selectedBudgetLine, {
@@ -664,8 +663,7 @@ export function ProjectBudgetLinkEditDialog({
                   />
                 ) : null}
 
-                {effectiveAllocationMode === 'FIXED' ||
-                isPercentageAllocationMode(effectiveAllocationMode) ? (
+                {isAllocationRemainderMode(effectiveAllocationMode) ? (
                   <ProjectBudgetAllocationRemainder
                     mode={effectiveAllocationMode}
                     remainder={allocationRemainder}

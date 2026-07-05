@@ -11,6 +11,11 @@ const REVIEW_TYPE_LABEL: Record<ProjectReviewType, string> = {
   MILESTONE_REVIEW: 'Revue jalon',
   AD_HOC: 'Point ad hoc',
   POST_MORTEM: "Retour d'expérience",
+  PROJECT_REVIEW: 'Revue projet',
+  BUDGET_REVIEW: 'Revue budget',
+  ARBITRATION: 'Arbitrage',
+  CRISIS_POINT: 'Point de crise',
+  OTHER: 'Autre',
 };
 
 const MEETING_MODE_LABEL: Record<ProjectReviewMeetingMode, string> = {

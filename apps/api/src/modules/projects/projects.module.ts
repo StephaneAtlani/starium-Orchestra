@@ -23,6 +23,8 @@ import { ProjectReviewAgendaController } from './project-reviews/project-review-
 import { ProjectReviewAgendaService } from './project-reviews/project-review-agenda.service';
 import { ProjectReviewParticipantsController } from './project-reviews/project-review-participants.controller';
 import { ProjectReviewParticipantsService } from './project-reviews/project-review-participants.service';
+import { ProjectReviewAttachmentsController } from './project-reviews/project-review-attachments.controller';
+import { ProjectReviewAttachmentsService } from './project-reviews/project-review-attachments.service';
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
@@ -81,6 +83,7 @@ import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-
     ProjectReviewsController,
     ProjectReviewAgendaController,
     ProjectReviewParticipantsController,
+    ProjectReviewAttachmentsController,
     ProjectPortfolioCategoriesController,
     ProjectsController,
     ProjectDocumentsController,
@@ -104,6 +107,7 @@ import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-
     ProjectReviewsService,
     ProjectReviewAgendaService,
     ProjectReviewParticipantsService,
+    ProjectReviewAttachmentsService,
     ProjectReviewInvitationsService,
     ProjectReviewEmailInvitationsService,
     ProjectReviewMicrosoftMeetingService,

@@ -5,11 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL,
+  PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
   PROJECT_REVIEW_MEETING_MODE_LABEL,
 } from '../constants/project-enum-labels';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import {
+  isReviewAgendaConductEditable,
+  isReviewAgendaEditable,
+  isReviewFinalizedOrCancelled,
+} from '../lib/project-review-status';
 import type {
   ProjectReviewAgendaItemApi,
+  ProjectReviewAgendaItemType,
   ProjectReviewDetail,
   ProjectReviewMeetingMode,
   ProjectReviewStatus,
@@ -43,16 +50,18 @@ export function ReviewAgendaSection({
   } = useProjectReviewMutations(projectId);
 
   const [newTitle, setNewTitle] = useState('');
+  const [newItemType, setNewItemType] = useState<ProjectReviewAgendaItemType>('INFORMATION');
   const [selectedId, setSelectedId] = useState<string | null>(
     agendaItems[0]?.id ?? null,
   );
   const [notes, setNotes] = useState('');
   const [decisionSummary, setDecisionSummary] = useState('');
+  const [objective, setObjective] = useState('');
+  const [expectedDecision, setExpectedDecision] = useState('');
 
-  const agendaEditable =
-    canEdit && (status === 'PLANNED' || status === 'IN_REVIEW');
-  const conductEditable = canEdit && status === 'IN_REVIEW';
-  const readOnly = status === 'FINALIZED' || status === 'CANCELLED';
+  const agendaEditable = canEdit && isReviewAgendaEditable(status);
+  const conductEditable = canEdit && isReviewAgendaConductEditable(status);
+  const readOnly = isReviewFinalizedOrCancelled(status);
 
   const selected = agendaItems.find((i) => i.id === selectedId) ?? null;
 
@@ -62,7 +71,7 @@ export function ReviewAgendaSection({
     try {
       await createAgendaItem.mutateAsync({
         reviewId,
-        body: { title },
+        body: { title, itemType: newItemType },
       });
       setNewTitle('');
     } catch {
@@ -91,7 +100,12 @@ export function ReviewAgendaSection({
       await updateAgendaItem.mutateAsync({
         reviewId,
         agendaItemId: selected.id,
-        body: { notes: notes.trim() || null, decisionSummary: decisionSummary.trim() || null },
+        body: {
+          notes: notes.trim() || null,
+          decisionSummary: decisionSummary.trim() || null,
+          objective: objective.trim() || null,
+          expectedDecision: expectedDecision.trim() || null,
+        },
       });
     } catch {
       toast.error('Enregistrement impossible.');
@@ -125,9 +139,14 @@ export function ReviewAgendaSection({
                     setSelectedId(item.id);
                     setNotes(item.notes ?? '');
                     setDecisionSummary(item.decisionSummary ?? '');
+                    setObjective(item.objective ?? '');
+                    setExpectedDecision(item.expectedDecision ?? '');
                   }}
                 >
                   <span className="font-medium">{item.title}</span>
+                  <span className="ml-2 starium-ds-badge starium-ds-badge--neutral">
+                    {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[item.itemType] ?? item.itemType}
+                  </span>
                   <span className="ml-2 starium-ds-badge starium-ds-badge--neutral">
                     {PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL[item.status] ?? item.status}
                   </span>
@@ -205,6 +224,18 @@ export function ReviewAgendaSection({
 
       {agendaEditable ? (
         <div className="mt-4 flex flex-wrap gap-2">
+          <select
+            className="starium-form-select min-h-11 w-full sm:w-auto"
+            value={newItemType}
+            aria-label="Type de point"
+            onChange={(e) => setNewItemType(e.target.value as ProjectReviewAgendaItemType)}
+          >
+            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </select>
           <Input
             className="starium-form-input min-h-11 flex-1"
             value={newTitle}
@@ -221,6 +252,30 @@ export function ReviewAgendaSection({
       {selected && conductEditable ? (
         <div className="mt-4 space-y-3 rounded-lg border border-border/70 p-3">
           <p className="text-sm font-medium">Point courant : {selected.title}</p>
+          <div className="starium-form-field">
+            <label htmlFor="agenda-objective" className="starium-form-label">
+              Objectif du point
+            </label>
+            <textarea
+              id="agenda-objective"
+              className="starium-form-textarea min-h-[64px]"
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label htmlFor="agenda-expected" className="starium-form-label">
+              Décision attendue
+            </label>
+            <textarea
+              id="agenda-expected"
+              className="starium-form-textarea min-h-[64px]"
+              value={expectedDecision}
+              onChange={(e) => setExpectedDecision(e.target.value)}
+              onBlur={() => void saveConductFields()}
+            />
+          </div>
           <div className="starium-form-field">
             <label htmlFor="agenda-notes" className="starium-form-label">
               Notes
@@ -249,7 +304,7 @@ export function ReviewAgendaSection({
       ) : null}
 
       {readOnly ? (
-        <p className="starium-form-hint mt-2">Ordre du jour figé (revue terminée ou annulée).</p>
+        <p className="starium-form-hint mt-2">Ordre du jour figé (point terminé ou annulé).</p>
       ) : null}
     </section>
   );

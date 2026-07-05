@@ -84,7 +84,7 @@ type PostMortemSeed = {
 };
 
 type ReviewBlueprint = {
-  daysFromNow: number;
+  daysFromNow?: number | null;
   type: ProjectReviewType;
   status: ProjectReviewStatus;
   title: string;
@@ -175,7 +175,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: -3,
       type: ProjectReviewType.COPRO,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: "COPRO — préparation industrialisation",
       executiveSummary:
         "Brouillon : préparer les critères de passage en prod nationale (volumétrie, support N2, fenêtres de changement).",
@@ -200,6 +200,21 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
           linkTask: false,
         },
       ],
+    },
+    {
+      daysFromNow: null,
+      type: ProjectReviewType.COPIL,
+      status: ProjectReviewStatus.PREPARING,
+      title: "COPIL — arbitrage budget Q3 (en préparation)",
+      executiveSummary:
+        "Préparer l'ordre du jour : arbitrage enveloppe OPEX, revue des risques fournisseur, décisions GO/NO-GO sur le jalon national.",
+      facilitatorUserId: "USER_A",
+      participants: [
+        { userId: "USER_A", displayName: null, attended: false, isRequired: true },
+        { userId: "USER_B", displayName: null, attended: false, isRequired: false },
+      ],
+      decisions: [],
+      actions: [],
     },
     {
       daysFromNow: -45,
@@ -262,7 +277,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: 10,
       type: ProjectReviewType.MILESTONE_REVIEW,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.SCHEDULED,
       title: "Revue jalon — mise en prod zone sensible",
       executiveSummary: "Préparation du comité de passage : critères GO/NO-GO à finaliser.",
       facilitatorUserId: "USER_A",
@@ -428,7 +443,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: -5,
       type: ProjectReviewType.COPRO,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: "COPRO — arbitrage et scénarios de report",
       executiveSummary:
         "Brouillon : préparer les options (réduction périmètre, phasage, maintien en charge) pour la prochaine CODIR.",
@@ -499,7 +514,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: 2,
       type: ProjectReviewType.RISK_REVIEW,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.SCHEDULED,
       title: "Revue risques — cyber (session dédiée)",
       executiveSummary:
         "Préparation : cartographie des scénarios d’attaque sur les segments non encore isolés.",
@@ -559,7 +574,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: -2,
       type: ProjectReviewType.AD_HOC,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: "Point ad hoc — UX tunnel mobile",
       executiveSummary: "Atelier court sur les retours utilisateurs pilotes ; pas de décision formelle attendue.",
       facilitatorUserId: "USER_A",
@@ -698,7 +713,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: 5,
       type: ProjectReviewType.COPRO,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.SCHEDULED,
       title: "COPRO — suivi plan de rattrapage",
       executiveSummary: "Brouillon : point d’étape sur les correctifs agents et couverture APM.",
       facilitatorUserId: "USER_A",
@@ -718,7 +733,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: -8,
       type: ProjectReviewType.COPIL,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: "COPIL — partenariat éditeur et API",
       executiveSummary:
         "Premier comité avec l’éditeur : contrat cadre en cours ; pas encore de responsable projet interne nominatif sur Starium.",
@@ -752,7 +767,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: -2,
       type: ProjectReviewType.POST_MORTEM,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       title: "Retour d'expérience — partenariat éditeur (brouillon)",
       executiveSummary:
         "Brouillon : synthétiser la perception sur budget, délais et qualité d'intégration avant finalisation.",
@@ -783,7 +798,7 @@ const BLUEPRINTS: Record<string, ReviewBlueprint[]> = {
     {
       daysFromNow: 40,
       type: ProjectReviewType.COPIL,
-      status: ProjectReviewStatus.PLANNED,
+      status: ProjectReviewStatus.SCHEDULED,
       title: "COPIL — lancement programme IA documentaire",
       executiveSummary:
         "Projet en préparation : cadrage use cases, données personnelles et hébergement ; premier COPIL après kick-off.",
@@ -834,7 +849,7 @@ function seedSuffixFromProjectCode(code: string): string | null {
 }
 
 /**
- * Points projet (RFC-PROJ-013) : données riches, statuts PLANNED / IN_REVIEW / FINALIZED / CANCELLED,
+ * Points projet (RFC-PROJ-013 / RFC-PROJ-013-2) : statuts PREPARING / SCHEDULED / IN_PROGRESS / FINALIZED / CANCELLED,
  * participants, décisions, actions, météo comité (`committeeMood`), snapshots figés pour les finalisés.
  * Inclut des retours d'expérience (`POST_MORTEM`, `contentPayload.postMortem`) sur certains jeux démo.
  * Réinitialise les points existants sur les projets démo `prefix-SEED-01` … `10` pour garantir un jeu cohérent à chaque seed.
@@ -882,7 +897,8 @@ export async function ensureDemoProjectReviews(
     const firstTaskId = firstTaskByProject.get(proj.id) ?? null;
 
     for (const bp of blueprints) {
-      const reviewDate = addDaysUtc(now, bp.daysFromNow);
+      const reviewDate =
+        bp.daysFromNow != null ? addDaysUtc(now, bp.daysFromNow) : null;
       const contentPayload: Prisma.InputJsonValue =
         bp.type === ProjectReviewType.POST_MORTEM && bp.postMortem
           ? { postMortem: bp.postMortem }
@@ -924,6 +940,7 @@ export async function ensureDemoProjectReviews(
           reviewType: bp.type,
           status: bp.status,
           title: bp.title,
+          objective: bp.executiveSummary,
           executiveSummary: bp.executiveSummary,
           contentPayload,
           facilitatorUserId: resolveUser(bp.facilitatorUserId, userA, userB),
@@ -988,7 +1005,7 @@ export async function ensureDemoProjectReviews(
         projectId: proj.id,
         reviewDate: addDaysUtc(now, -1),
         reviewType: ProjectReviewType.COPIL,
-        status: ProjectReviewStatus.IN_REVIEW,
+        status: ProjectReviewStatus.IN_PROGRESS,
         title: `COPIL — suivi (${proj.code})`,
         executiveSummary:
           "Point projet démo généré automatiquement (seed de secours) : aucun jeu détaillé ne correspondait au code projet.",

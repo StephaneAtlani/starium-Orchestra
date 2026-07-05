@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type LucideIcon } from 'react';
+import { useState } from 'react';
 import { ShieldIcon, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

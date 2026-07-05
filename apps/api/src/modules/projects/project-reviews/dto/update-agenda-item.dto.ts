@@ -1,4 +1,5 @@
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { ProjectReviewAgendaItemType } from '@prisma/client';
 
 export class UpdateProjectReviewAgendaItemDto {
   @IsOptional()
@@ -29,4 +30,18 @@ export class UpdateProjectReviewAgendaItemDto {
   @IsString()
   @MaxLength(8000)
   decisionSummary?: string | null;
+
+  @IsOptional()
+  @IsEnum(ProjectReviewAgendaItemType)
+  itemType?: ProjectReviewAgendaItemType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  objective?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  expectedDecision?: string | null;
 }

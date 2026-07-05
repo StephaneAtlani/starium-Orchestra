@@ -7,6 +7,7 @@ import { toast } from '@/lib/toast';
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectMicrosoftLinkQuery } from '../options/hooks/use-project-microsoft-link-query';
+import { isReviewInvitationsVisible } from '../lib/project-review-status';
 import type {
   InviteProjectReviewPayload,
   ProjectReviewMeetingMode,
@@ -74,7 +75,7 @@ export function ReviewInvitationsSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const liveRef = useRef<HTMLDivElement>(null);
 
-  const visible = status === 'PLANNED' && canEdit;
+  const visible = isReviewInvitationsVisible(status) && canEdit;
   const { internal, external, emailable } = useMemo(
     () => countInviteStats(participants),
     [participants],

@@ -140,11 +140,21 @@ export class ProjectReviewInvitationsService {
       reviewId,
     );
 
-    if (review.status !== ProjectReviewStatus.PLANNED) {
+    if (
+      review.status !== ProjectReviewStatus.SCHEDULED &&
+      review.status !== ProjectReviewStatus.PLANNED
+    ) {
       throw new BadRequestException(
         'Seules les revues planifiées peuvent recevoir des invitations',
       );
     }
+    if (!review.reviewDate) {
+      throw new BadRequestException(
+        'La date de revue est requise pour envoyer des invitations',
+      );
+    }
+
+    const scheduledReviewDate = review.reviewDate;
 
     const channels = resolveChannels(options);
     const meetingOptions = resolveMeetingOptions(options);
@@ -257,7 +267,13 @@ export class ProjectReviewInvitationsService {
         projectId,
         reviewId,
         projectName: project.name,
-        review: currentReview,
+        review: {
+          reviewType: currentReview.reviewType,
+          reviewDate: scheduledReviewDate,
+          meetingMode: currentReview.meetingMode,
+          location: currentReview.location,
+          title: currentReview.title,
+        },
         participants,
         context,
       });
@@ -279,7 +295,7 @@ export class ProjectReviewInvitationsService {
           projectName: project.name,
           review: {
             reviewType: currentReview.reviewType,
-            reviewDate: currentReview.reviewDate,
+            reviewDate: scheduledReviewDate,
             meetingMode: currentReview.meetingMode,
             location: currentReview.location,
             meetingUrl,

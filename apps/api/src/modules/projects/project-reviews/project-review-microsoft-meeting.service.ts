@@ -218,6 +218,12 @@ export class ProjectReviewMicrosoftMeetingService {
       input.projectId,
     );
 
+    if (!input.review.reviewDate) {
+      throw new BadRequestException(
+        'La date de revue est requise pour créer une réunion Teams',
+      );
+    }
+
     const { startDateTime, endDateTime } = this.computeMeetingWindow({
       reviewDate: input.review.reviewDate,
       agendaItems: input.agendaItems,
@@ -327,6 +333,12 @@ export class ProjectReviewMicrosoftMeetingService {
       input.clientId,
       input.projectId,
     );
+
+    if (!input.review.reviewDate) {
+      throw new BadRequestException(
+        'La date de revue est requise pour créer un événement calendrier',
+      );
+    }
 
     const { startDateTime, endDateTime } = this.computeMeetingWindow({
       reviewDate: input.review.reviewDate,

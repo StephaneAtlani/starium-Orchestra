@@ -1,7 +1,10 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import type { AllocationRemainder } from '../lib/project-budget-allocation';
+import type {
+  AllocationRemainder,
+  AllocationRemainderMode,
+} from '../lib/project-budget-allocation';
 
 function formatCurrency(value: number, currency: string): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -19,7 +22,7 @@ function formatPercent(value: number): string {
 }
 
 type Props = {
-  mode: 'FIXED' | 'PERCENTAGE';
+  mode: AllocationRemainderMode;
   remainder: AllocationRemainder | null;
   forecastCost?: number | null;
   currency?: string;

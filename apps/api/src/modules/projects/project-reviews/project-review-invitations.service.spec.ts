@@ -40,7 +40,7 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 3)', () => {
     id: reviewId,
     clientId,
     projectId,
-    status: ProjectReviewStatus.PLANNED,
+    status: ProjectReviewStatus.SCHEDULED,
     reviewType: ProjectReviewType.COPIL,
     reviewDate: new Date('2025-06-01T10:00:00.000Z'),
     title: 'Point COPIL',
@@ -137,7 +137,7 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 3)', () => {
     );
   });
 
-  it('notifie les participants internes actifs en PLANNED (défaut in_app)', async () => {
+  it('notifie les participants internes actifs en SCHEDULED (défaut in_app)', async () => {
     const result = await service.invite(
       clientId,
       projectId,
@@ -167,10 +167,10 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 3)', () => {
     );
   });
 
-  it('refuse si statut ≠ PLANNED', async () => {
+  it('refuse si statut ≠ SCHEDULED', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
       ...baseReview,
-      status: ProjectReviewStatus.IN_REVIEW,
+      status: ProjectReviewStatus.IN_PROGRESS,
       participants: [],
       agendaItems: [],
     });

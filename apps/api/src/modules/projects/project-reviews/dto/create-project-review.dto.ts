@@ -1,5 +1,17 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsDateString, IsIn, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import type { ProjectReviewMeetingMode, ProjectReviewType } from '@prisma/client';
 import { ProjectReviewActionItemInputDto } from './project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './project-review-decision.dto';
@@ -8,11 +20,13 @@ import { PROJECT_REVIEW_TYPE_VALUES } from './project-review-type-values';
 import {
   PROJECT_REVIEW_CREATION_MODE_VALUES,
   PROJECT_REVIEW_MEETING_MODE_VALUES,
+  type ProjectReviewCreationMode,
 } from '../project-review-meeting.validation';
 
 export class CreateProjectReviewDto {
+  @IsOptional()
   @IsDateString()
-  reviewDate!: string;
+  reviewDate?: string;
 
   @IsIn([...PROJECT_REVIEW_TYPE_VALUES])
   reviewType!: ProjectReviewType;
@@ -25,7 +39,25 @@ export class CreateProjectReviewDto {
   @IsOptional()
   @IsString()
   @MaxLength(20000)
+  objective?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
   executiveSummary?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number | null;
 
   @IsOptional()
   contentPayload?: Record<string, unknown> | null;
@@ -53,7 +85,7 @@ export class CreateProjectReviewDto {
 
   @IsOptional()
   @IsIn([...PROJECT_REVIEW_CREATION_MODE_VALUES])
-  creationMode?: 'PLANNED' | 'IMMEDIATE';
+  creationMode?: ProjectReviewCreationMode;
 
   @IsOptional()
   @IsBoolean()

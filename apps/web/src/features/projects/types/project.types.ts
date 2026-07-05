@@ -785,21 +785,62 @@ export type ProjectReviewType =
   | 'POST_MORTEM';
 
 export type ProjectReviewStatus =
-  | 'PLANNED'
-  | 'IN_REVIEW'
+  | 'PREPARING'
+  | 'SCHEDULED'
+  | 'IN_PROGRESS'
   | 'FINALIZED'
   | 'CANCELLED'
+  /** Legacy — migré côté API */
+  | 'PLANNED'
+  | 'IN_REVIEW'
   | 'DRAFT';
 
 export type ProjectReviewMeetingMode = 'REMOTE' | 'ONSITE' | 'HYBRID';
 
-export type ProjectReviewCreationMode = 'PLANNED' | 'IMMEDIATE';
+export type ProjectReviewCreationMode =
+  | 'PREPARING'
+  | 'SCHEDULED'
+  | 'IMMEDIATE'
+  /** Legacy — mappé SCHEDULED */
+  | 'PLANNED';
 
 export type ProjectReviewAgendaItemStatus =
   | 'TODO'
   | 'IN_PROGRESS'
   | 'DONE'
   | 'SKIPPED';
+
+export type ProjectReviewAgendaItemType =
+  | 'INFORMATION'
+  | 'DECISION'
+  | 'ARBITRATION'
+  | 'RISK'
+  | 'ACTION_REVIEW'
+  | 'BUDGET'
+  | 'MILESTONE'
+  | 'OTHER';
+
+export type ProjectReviewAttachmentType =
+  | 'URL'
+  | 'DOCUMENT_REFERENCE'
+  | 'POWERBI_LINK'
+  | 'SHAREPOINT_LINK'
+  | 'OTHER'
+  | 'FILE';
+
+export type ProjectReviewDecisionType =
+  | 'GO'
+  | 'NO_GO'
+  | 'ARBITRATION'
+  | 'BUDGET_VALIDATION'
+  | 'SCOPE_CHANGE'
+  | 'OTHER';
+
+export type ProjectReviewDecisionStatus =
+  | 'DRAFT'
+  | 'VALIDATED'
+  | 'REJECTED'
+  | 'SUPERSEDED';
 
 export type ProjectReviewParticipantAttendanceStatus =
   | 'EXPECTED'
@@ -811,11 +852,15 @@ export type ProjectReviewListItem = {
   id: string;
   clientId: string;
   projectId: string;
-  reviewDate: string;
+  reviewDate: string | null;
   reviewType: ProjectReviewType;
   status: ProjectReviewStatus;
   title: string | null;
+  objective: string | null;
   executiveSummary: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  durationMinutes: number | null;
   meetingMode: ProjectReviewMeetingMode | null;
   meetingUrl: string | null;
   location: string | null;
@@ -878,6 +923,9 @@ export type ProjectReviewAgendaItemApi = {
   id: string;
   title: string;
   description: string | null;
+  itemType: ProjectReviewAgendaItemType;
+  objective: string | null;
+  expectedDecision: string | null;
   orderIndex: number;
   plannedDurationMinutes: number | null;
   ownerUserId: string | null;
@@ -902,30 +950,61 @@ export type ProjectReviewDecisionApi = {
   title: string;
   description: string | null;
   agendaItemId: string | null;
+  decisionType: ProjectReviewDecisionType;
+  status: ProjectReviewDecisionStatus;
+  decidedByUserId: string | null;
+  decidedAt: string | null;
+  impact: string | null;
   createdAt: string;
 };
 
 export type ProjectReviewActionItemApi = {
   id: string;
   title: string;
+  description: string | null;
   status: string;
+  priority: string | null;
   dueDate: string | null;
   linkedTaskId: string | null;
   agendaItemId: string | null;
+  decisionId: string | null;
   responsibleUserId: string | null;
   responsibleDisplayName: string | null;
   contributors: ProjectReviewActionItemContributorApi[];
+};
+
+export type ProjectReviewAttachmentApi = {
+  id: string;
+  attachmentType: ProjectReviewAttachmentType;
+  title: string;
+  description: string | null;
+  url: string | null;
+  documentId: string | null;
+  /** Libellé document projet — renvoyé par l’API quand document lié. */
+  documentName?: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  agendaItemId: string | null;
+  decisionId: string | null;
+  actionItemId: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProjectReviewDetail = {
   id: string;
   clientId: string;
   projectId: string;
-  reviewDate: string;
+  reviewDate: string | null;
   reviewType: ProjectReviewType;
   status: ProjectReviewStatus;
   title: string | null;
+  objective: string | null;
   executiveSummary: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  durationMinutes: number | null;
   contentPayload: unknown;
   meetingMode: ProjectReviewMeetingMode | null;
   meetingUrl: string | null;
@@ -945,6 +1024,7 @@ export type ProjectReviewDetail = {
   agendaItems: ProjectReviewAgendaItemApi[];
   decisions: ProjectReviewDecisionApi[];
   actionItems: ProjectReviewActionItemApi[];
+  attachments?: ProjectReviewAttachmentApi[];
   /** Toujours présent ; `null` si status !== FINALIZED */
   snapshotPayload: Record<string, unknown> | null;
 };

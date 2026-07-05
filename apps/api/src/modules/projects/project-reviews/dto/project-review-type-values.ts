@@ -14,4 +14,9 @@ export const PROJECT_REVIEW_TYPE_VALUES = [
   'MILESTONE_REVIEW',
   'AD_HOC',
   'POST_MORTEM',
+  'PROJECT_REVIEW',
+  'BUDGET_REVIEW',
+  'ARBITRATION',
+  'CRISIS_POINT',
+  'OTHER',
 ] as const satisfies readonly ProjectReviewType[];

@@ -4,9 +4,21 @@
 
 ## Statut
 
-**Proposé** — reorientation produit et plan d’implémentation. Cette RFC **complète** **RFC-PROJ-013** (socle) et **reoriente** l’approche centrée « réunion » de **RFC-PROJ-013-1** vers un **artefact de pilotage**.
+**Implémenté** — reorientation pilotage (RFC-PROJ-013-2). Complète **RFC-PROJ-013** et reoriente **RFC-PROJ-013-1**.
 
 > **Note de numérotation** : l’identifiant **RFC-PROJ-014** est déjà réservé au référentiel *Catégories du portefeuille projets*. Ce lot porte donc le numéro **RFC-PROJ-013-2**.
+
+## Implémentation (référence code)
+
+- **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ProjectReviewStatus` (`PREPARING`, `SCHEDULED`, `IN_PROGRESS` + legacy `DRAFT`/`PLANNED`/`IN_REVIEW`), `ProjectReviewType` (+ `PROJECT_REVIEW`, `BUDGET_REVIEW`, `ARBITRATION`, `CRISIS_POINT`, `OTHER`), `ProjectReviewAgendaItemType`, `ProjectReviewAttachmentType`, `ProjectReviewDecisionType`, `ProjectReviewDecisionStatus`. Modèle **`ProjectReviewAttachment`** ; champs review : `objective`, `periodStart`/`periodEnd`, `durationMinutes`, `reviewDate` nullable, `cancelledAt`/`cancelledByUserId`, `createdByUserId` ; agenda : `itemType`, `objective`, `expectedDecision` ; décisions : `decisionType`, `status`, `decidedByUserId`, `decidedAt`, `impact` ; actions : `decisionId`, `description`, `priority`. Default statut : **`PREPARING`**.
+- **Migrations** (découpage A→J) : `apps/api/prisma/migrations/20260705180000` … `20260705180900` — enum statuts, champs additifs, data migration `PLANNED`→`SCHEDULED` / `IN_REVIEW`→`IN_PROGRESS` / `DRAFT`→`PREPARING`, types rituel, default `PREPARING`, agenda typé, attachments, décisions, actions enrichies.
+- **Backend** : [`apps/api/src/modules/projects/project-reviews/`](../../apps/api/src/modules/projects/project-reviews/) — `project-review-status.helpers.ts`, `project-review-meeting.validation.ts` (`creationMode` : `PREPARING` \| `SCHEDULED` \| `IMMEDIATE` ; alias legacy `PLANNED`→`SCHEDULED`), `ProjectReviewsService` (`schedule`, `start`, alias `startReview`), `ProjectReviewAttachmentsService` + `project-review-attachments.controller.ts`, `project-reviews-snapshot.builder.ts` (**`schemaVersion: 2`**). Enregistrement dans [`projects.module.ts`](../../apps/api/src/modules/projects/projects.module.ts). Isolation `clientId` + `projectId` sur toutes les opérations.
+- **API** (préfixe `/api`) : routes existantes + **`POST …/schedule`**, **`POST …/start`** (alias **`POST …/start-review`**), **`POST|PATCH|DELETE …/attachments`**. Invitations (`POST …/invite`) : revue **`SCHEDULED`** (legacy `PLANNED` toléré). Permissions inchangées : `projects.read` / `projects.update`.
+- **Snapshot v2** : généré au `finalize` ; métadonnées review (`objective`, période), ODJ typé, décisions/actions enrichies, attachments **sans URL** ; exclusion `meetingUrl` / emails externes (`snapshotContainsSensitiveUrls()` testé).
+- **Audit** : `project.review.created|updated|started|finalized|cancelled`, `project.review.attachment.added|updated|removed`, `project.review.agenda_item.*`, `project.review.participant.*` ; **jamais** `meetingUrl` ni `url` attachment en clair.
+- **Frontend** : [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) — **7 onglets** (Vue générale, ODJ, Participants, Décisions, Actions, Pièces jointes, Historique) ; logistique réunion en bloc repliable secondaire ; CTA **« Démarrer le point »**. Sections : `review-agenda-section`, `review-decisions-section`, `review-actions-section`, `review-attachments-section`, `review-history-section`. Création : [`project-review-create-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-create-dialog.tsx) — date optionnelle, `PREPARING` par défaut. API/types : [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), [`project.types.ts`](../../apps/web/src/features/projects/types/project.types.ts), [`project-enum-labels.ts`](../../apps/web/src/features/projects/constants/project-enum-labels.ts), [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts).
+- **Tests** : **51** tests unitaires sous `apps/api/src/modules/projects/project-reviews/` (service, attachments, snapshot, agenda, invitations).
+- **Seed démo** : [`seed-project-demo-reviews.ts`](../../apps/api/prisma/seed-project-demo-reviews.ts) — statuts `PREPARING` / `SCHEDULED` / `IN_PROGRESS` / `FINALIZED` / `CANCELLED` ; exemple **PREPARING sans date** sur SEED-01.
 
 ## Dépendances
 
@@ -27,7 +39,9 @@
 
 ## 0. Analyse de l’existant
 
-### 0.1 Ce qui est déjà en place (RFC-PROJ-013 + RFC-PROJ-013-1)
+> **Note** : cette section décrit l’état **avant** RFC-PROJ-013-2 (écarts §0.2 levés — voir [Implémentation (référence code)](#implémentation-référence-code)).
+
+### 0.1 Ce qui était en place (RFC-PROJ-013 + RFC-PROJ-013-1)
 
 | Domaine | État actuel | Référence code |
 | ------- | ----------- | -------------- |
@@ -42,7 +56,7 @@
 | API | ✅ | CRUD revue, `finalize`, `cancel`, `start-review`, agenda, participants, decisions, actions, `invite` |
 | Frontend | ✅ | Onglet Points projet, éditeur dialogue, deep links `?openReview=` |
 
-### 0.2 Écarts par rapport à la cible de cette RFC
+### 0.2 Écarts par rapport à la cible de cette RFC *(résolus à l’implémentation)*
 
 | Besoin cible | Écart |
 | ------------ | ----- |
@@ -1000,11 +1014,12 @@ Le module doit répondre à l’objectif principal de Starium Orchestra :
 
 ## 24.4 Documentation
 
-| Fichier | Action |
-| ------- | ------ |
-| `docs/API.md` | Endpoints attachments + transitions statuts |
-| `docs/modules/projects-mvp.md` | Parcours point projet pilotage |
-| `docs/RFC/_RFC Liste.md` | Entrée RFC-PROJ-013-2 |
+| Fichier | Action | État |
+| ------- | ------ | ---- |
+| `docs/API.md` | Endpoints attachments + transitions statuts | ✅ |
+| `docs/modules/projects-mvp.md` | Parcours point projet pilotage | ✅ |
+| `docs/ARCHITECTURE.md` | Module `projects` — cycle 013-2 | ✅ |
+| `docs/RFC/_RFC Liste.md` | Entrée RFC-PROJ-013-2 | ✅ |
 
 ---
 
