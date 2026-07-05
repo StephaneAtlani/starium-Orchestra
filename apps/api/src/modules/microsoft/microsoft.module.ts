@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Logger, Module, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type IORedis from 'ioredis';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -38,7 +38,7 @@ import { ProjectMicrosoftLinksController } from './project-microsoft-links.contr
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditLogsModule, ProjectsModule, QueueModule],
+  imports: [PrismaModule, AuthModule, AuditLogsModule, forwardRef(() => ProjectsModule), QueueModule],
   controllers: [
     MicrosoftAuthController,
     MicrosoftOAuthCallbackController,

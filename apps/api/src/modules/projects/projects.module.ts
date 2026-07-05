@@ -51,7 +51,11 @@ import { AccessDecisionModule } from '../access-decision/access-decision.module'
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 import { OrganizationModule } from '../organization/organization.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
+import { MicrosoftModule } from '../microsoft/microsoft.module';
 import { ProjectReviewInvitationsService } from './project-reviews/project-review-invitations.service';
+import { ProjectReviewEmailInvitationsService } from './project-reviews/project-review-email-invitations.service';
+import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-review-microsoft-meeting.service';
 @Module({
   imports: [
     PrismaModule,
@@ -64,6 +68,8 @@ import { ProjectReviewInvitationsService } from './project-reviews/project-revie
     FeatureFlagsModule,
     OrganizationModule,
     NotificationsModule,
+    EmailModule,
+    forwardRef(() => MicrosoftModule),
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */
@@ -99,6 +105,8 @@ import { ProjectReviewInvitationsService } from './project-reviews/project-revie
     ProjectReviewAgendaService,
     ProjectReviewParticipantsService,
     ProjectReviewInvitationsService,
+    ProjectReviewEmailInvitationsService,
+    ProjectReviewMicrosoftMeetingService,
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,
     ProjectDocumentContentService,

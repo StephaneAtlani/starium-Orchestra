@@ -24,12 +24,14 @@ import {
 type QueueEmailInput = {
   clientId: string;
   alertId?: string;
+  projectReviewId?: string;
   createdByUserId?: string;
   recipient: string;
   templateKey: EmailTemplateKey;
   title: string;
   message: string;
   actionUrl?: string | null;
+  meetingJoinUrl?: string | null;
 };
 
 @Injectable()
@@ -54,6 +56,7 @@ export class EmailService {
       title: input.title,
       message: input.message,
       actionUrl: input.actionUrl,
+      meetingJoinUrl: input.meetingJoinUrl,
     });
 
     let delivery: { id: string };
@@ -62,6 +65,7 @@ export class EmailService {
         data: {
           clientId: input.clientId,
           alertId: input.alertId ?? null,
+          projectReviewId: input.projectReviewId ?? null,
           createdByUserId: input.createdByUserId ?? null,
           recipient: input.recipient,
           templateKey: input.templateKey,

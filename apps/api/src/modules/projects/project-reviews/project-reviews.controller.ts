@@ -152,7 +152,16 @@ export class ProjectReviewsController {
       projectId,
       reviewId,
       context,
-      { trigger: 'manual', participantIds: dto.participantIds },
+      {
+        trigger: 'manual',
+        participantIds: dto.participantIds,
+        channels: dto.channels,
+        meetingOptions: {
+          createTeamsMeeting: dto.createTeamsMeeting,
+          createCalendarEvent: dto.createCalendarEvent,
+          forceOverwriteMeetingUrl: dto.forceOverwriteMeetingUrl,
+        },
+      },
     );
   }
 }

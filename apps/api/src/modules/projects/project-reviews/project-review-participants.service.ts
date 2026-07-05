@@ -16,6 +16,7 @@ import { formatProjectReviewUserDisplayName } from './project-review-user-displa
 import { assertReviewParticipantsEditable } from './project-review-status.helpers';
 import { CreateProjectReviewParticipantDto } from './dto/create-participant.dto';
 import { UpdateProjectReviewParticipantDto } from './dto/update-participant.dto';
+import { normalizeExternalEmail } from './project-review-invitation-privacy.helpers';
 
 function syncLegacyAttended(
   attendanceStatus: ProjectReviewParticipantAttendanceStatus,
@@ -60,6 +61,8 @@ export class ProjectReviewParticipantsService {
     attendanceStatus: ProjectReviewParticipantAttendanceStatus;
     invitedAt?: Date | null;
     lastInvitedAt?: Date | null;
+    externalEmail?: string | null;
+    lastEmailedAt?: Date | null;
     user?: {
       id: string;
       firstName: string | null;
@@ -76,7 +79,25 @@ export class ProjectReviewParticipantsService {
       attendanceStatus: row.attendanceStatus,
       invitedAt: row.invitedAt?.toISOString() ?? null,
       lastInvitedAt: row.lastInvitedAt?.toISOString() ?? null,
+      externalEmail: row.externalEmail ?? null,
+      lastEmailedAt: row.lastEmailedAt?.toISOString() ?? null,
     };
+  }
+
+  private assertExternalEmailRules(
+    userId?: string | null,
+    externalEmail?: string | null,
+  ): string | null {
+    const normalized =
+      externalEmail?.trim()
+        ? normalizeExternalEmail(externalEmail)
+        : null;
+    if (normalized && userId?.trim()) {
+      throw new BadRequestException(
+        'externalEmail est réservé aux participants externes',
+      );
+    }
+    return normalized;
   }
 
   private assertParticipantIdentity(
@@ -103,6 +124,10 @@ export class ProjectReviewParticipantsService {
     assertReviewParticipantsEditable(review.status);
 
     this.assertParticipantIdentity(dto.userId, dto.displayName);
+    const externalEmail = this.assertExternalEmailRules(
+      dto.userId,
+      dto.externalEmail,
+    );
     if (dto.userId) {
       await this.projects.assertClientUser(clientId, dto.userId);
     }
@@ -118,6 +143,7 @@ export class ProjectReviewParticipantsService {
         userId: dto.userId ?? null,
         displayName: dto.displayName?.trim() ?? null,
         roleLabel: dto.roleLabel?.trim() ?? null,
+        externalEmail,
         attendanceStatus,
         attended: syncLegacyAttended(attendanceStatus),
       },
@@ -169,6 +195,11 @@ export class ProjectReviewParticipantsService {
       dto.displayName !== undefined ? dto.displayName : existing.displayName;
     this.assertParticipantIdentity(effectiveUserId, effectiveDisplayName);
 
+    const externalEmail =
+      dto.externalEmail !== undefined
+        ? this.assertExternalEmailRules(effectiveUserId, dto.externalEmail)
+        : undefined;
+
     const attendanceStatus =
       dto.attendanceStatus ?? existing.attendanceStatus;
 
@@ -184,6 +215,7 @@ export class ProjectReviewParticipantsService {
           dto.roleLabel !== undefined
             ? dto.roleLabel?.trim() ?? null
             : undefined,
+        externalEmail,
         attendanceStatus,
         attended: syncLegacyAttended(attendanceStatus),
       },

@@ -1148,6 +1148,9 @@ export function ProjectReviewEditorDialog({
                 projectId={projectId}
                 reviewId={d.id}
                 status={d.status}
+                meetingMode={d.meetingMode}
+                meetingUrl={d.meetingUrl}
+                microsoftOnlineMeetingId={d.microsoftOnlineMeetingId}
                 participants={d.participants ?? []}
                 canEdit={canEdit}
               />

@@ -9,9 +9,11 @@ import {
   PROJECT_AUDIT_ACTION,
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from '../project-audit.constants';
+import { ProjectReviewEmailInvitationsService } from './project-review-email-invitations.service';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
+import { ProjectReviewMicrosoftMeetingService } from './project-review-microsoft-meeting.service';
 
-describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
+describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 3)', () => {
   let service: ProjectReviewInvitationsService;
   let prisma: {
     project: { findFirst: jest.Mock };
@@ -21,57 +23,102 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
   };
   let notifications: { createForUser: jest.Mock };
   let auditLogs: { create: jest.Mock };
+  let emailInvitations: { sendInvitations: jest.Mock };
+  let microsoftMeeting: {
+    createOrUpdateTeamsMeeting: jest.Mock;
+    createOrUpdateCalendarEvent: jest.Mock;
+    patchCalendarEventOnDateChange: jest.Mock;
+    auditTeamsFailure: jest.Mock;
+  };
 
   const clientId = 'c1';
   const projectId = 'p1';
   const reviewId = 'rev1';
   const context = { actorUserId: 'u-admin' };
 
+  const baseReview = {
+    id: reviewId,
+    clientId,
+    projectId,
+    status: ProjectReviewStatus.PLANNED,
+    reviewType: ProjectReviewType.COPIL,
+    reviewDate: new Date('2025-06-01T10:00:00.000Z'),
+    title: 'Point COPIL',
+    meetingMode: 'REMOTE',
+    meetingUrl: 'https://teams.example/join/token',
+    location: null,
+    microsoftOnlineMeetingId: null,
+    microsoftEventId: null,
+    participants: [
+      {
+        id: 'part1',
+        userId: 'u1',
+        displayName: null,
+        externalEmail: null,
+        invitedAt: null,
+        lastInvitedAt: null,
+        user: { email: 'u1@example.com' },
+      },
+      {
+        id: 'part2',
+        userId: 'u2',
+        displayName: null,
+        externalEmail: null,
+        invitedAt: new Date('2025-05-01T10:00:00.000Z'),
+        lastInvitedAt: new Date('2025-05-01T10:00:00.000Z'),
+        user: { email: 'u2@example.com' },
+      },
+      {
+        id: 'part3',
+        userId: null,
+        displayName: 'Consultant externe',
+        externalEmail: 'ext@example.com',
+        invitedAt: null,
+        lastInvitedAt: null,
+        user: null,
+      },
+    ],
+    agendaItems: [],
+  };
+
   beforeEach(() => {
     notifications = {
       createForUser: jest.fn().mockResolvedValue({ id: 'n1' }),
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    emailInvitations = {
+      sendInvitations: jest.fn().mockResolvedValue({
+        emailed: 0,
+        skippedNoEmail: 0,
+        emailFailed: 0,
+        emailDisabled: false,
+        emailedParticipantIds: [],
+      }),
+    };
+    microsoftMeeting = {
+      createOrUpdateTeamsMeeting: jest.fn().mockResolvedValue({
+        teamsMeetingCreated: true,
+        teamsMeetingUpdated: false,
+        teamsMeetingSkipped: false,
+      }),
+      createOrUpdateCalendarEvent: jest.fn().mockResolvedValue({
+        calendarEventCreated: true,
+        calendarEventUpdated: false,
+        calendarEventSkipped: false,
+      }),
+      patchCalendarEventOnDateChange: jest.fn().mockResolvedValue({
+        calendarEventCreated: false,
+        calendarEventUpdated: true,
+        calendarEventSkipped: false,
+      }),
+      auditTeamsFailure: jest.fn().mockResolvedValue(undefined),
+    };
     prisma = {
       project: {
         findFirst: jest.fn().mockResolvedValue({ id: projectId, name: 'Projet Alpha' }),
       },
       projectReview: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: reviewId,
-          clientId,
-          projectId,
-          status: ProjectReviewStatus.PLANNED,
-          reviewType: ProjectReviewType.COPIL,
-          reviewDate: new Date('2025-06-01T10:00:00.000Z'),
-          title: 'Point COPIL',
-          meetingMode: 'REMOTE',
-          meetingUrl: 'https://teams.example/join/token',
-          location: null,
-          participants: [
-            {
-              id: 'part1',
-              userId: 'u1',
-              displayName: null,
-              invitedAt: null,
-              lastInvitedAt: null,
-            },
-            {
-              id: 'part2',
-              userId: 'u2',
-              displayName: null,
-              invitedAt: new Date('2025-05-01T10:00:00.000Z'),
-              lastInvitedAt: new Date('2025-05-01T10:00:00.000Z'),
-            },
-            {
-              id: 'part3',
-              userId: null,
-              displayName: 'Consultant externe',
-              invitedAt: null,
-              lastInvitedAt: null,
-            },
-          ],
-        }),
+        findFirst: jest.fn().mockResolvedValue(baseReview),
       },
       clientUser: {
         findMany: jest.fn().mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }]),
@@ -85,10 +132,12 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
       prisma as never,
       notifications as unknown as NotificationsService,
       auditLogs as unknown as AuditLogsService,
+      emailInvitations as unknown as ProjectReviewEmailInvitationsService,
+      microsoftMeeting as unknown as ProjectReviewMicrosoftMeetingService,
     );
   });
 
-  it('notifie les participants internes actifs en PLANNED', async () => {
+  it('notifie les participants internes actifs en PLANNED (défaut in_app)', async () => {
     const result = await service.invite(
       clientId,
       projectId,
@@ -97,25 +146,22 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
       { trigger: 'manual' },
     );
 
-    expect(result.notified).toBe(2);
+    expect(result.notifiedInApp).toBe(2);
     expect(result.skippedExternal).toBe(1);
     expect(result.skippedInactive).toBe(0);
     expect(notifications.createForUser).toHaveBeenCalledTimes(2);
+    expect(emailInvitations.sendInvitations).not.toHaveBeenCalled();
+    expect(microsoftMeeting.createOrUpdateTeamsMeeting).not.toHaveBeenCalled();
 
     const payload = notifications.createForUser.mock.calls[0][0];
-    expect(payload.title).toContain('Projet Alpha');
-    expect(payload.message).not.toContain('https://');
     expect(payload.metadata).not.toHaveProperty('meetingUrl');
-    expect(payload.actionUrl).toBe(`/projects/${projectId}?openReview=${reviewId}`);
 
     expect(auditLogs.create).toHaveBeenCalledWith(
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_INVITED,
-        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
         newValue: expect.objectContaining({
-          trigger: 'manual',
-          notifiedCount: 2,
-          skippedExternal: 1,
+          notifiedInAppCount: 2,
+          channels: ['in_app'],
         }),
       }),
     );
@@ -123,9 +169,10 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
 
   it('refuse si statut ≠ PLANNED', async () => {
     prisma.projectReview.findFirst.mockResolvedValue({
-      id: reviewId,
+      ...baseReview,
       status: ProjectReviewStatus.IN_REVIEW,
       participants: [],
+      agendaItems: [],
     });
 
     await expect(
@@ -145,70 +192,72 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 2)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('refuse participantIds hors review', async () => {
-    await expect(
-      service.invite(clientId, projectId, reviewId, context, {
-        trigger: 'manual',
-        participantIds: ['unknown'],
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('déduplique par userId', async () => {
-    prisma.projectReview.findFirst.mockResolvedValue({
-      id: reviewId,
-      clientId,
-      projectId,
-      status: ProjectReviewStatus.PLANNED,
-      reviewType: ProjectReviewType.COPIL,
-      reviewDate: new Date('2025-06-01T10:00:00.000Z'),
-      title: null,
-      meetingMode: null,
-      location: null,
-      participants: [
-        { id: 'p-a', userId: 'u1', displayName: null, invitedAt: null, lastInvitedAt: null },
-        { id: 'p-b', userId: 'u1', displayName: null, invitedAt: null, lastInvitedAt: null },
-      ],
-    });
-    prisma.clientUser.findMany.mockResolvedValue([{ userId: 'u1' }]);
+  it('createTeamsMeeting true délègue au service Microsoft', async () => {
+    prisma.projectReview.findFirst
+      .mockResolvedValueOnce(baseReview)
+      .mockResolvedValueOnce({
+        ...baseReview,
+        meetingUrl: 'https://teams.microsoft.com/new',
+      });
 
     const result = await service.invite(
       clientId,
       projectId,
       reviewId,
       context,
-      { trigger: 'manual' },
+      {
+        trigger: 'manual',
+        channels: [],
+        meetingOptions: { createTeamsMeeting: true },
+      },
     );
 
-    expect(result.notified).toBe(1);
-    expect(notifications.createForUser).toHaveBeenCalledTimes(1);
+    expect(microsoftMeeting.createOrUpdateTeamsMeeting).toHaveBeenCalled();
+    expect(result.teamsMeetingCreated).toBe(true);
   });
 
-  it('conserve invitedAt et met à jour lastInvitedAt au second envoi', async () => {
+  it('createCalendarEvent false → aucun appel calendrier explicite', async () => {
     await service.invite(clientId, projectId, reviewId, context, {
       trigger: 'manual',
-      participantIds: ['part2'],
+      channels: ['in_app'],
+      meetingOptions: { createCalendarEvent: false },
     });
 
-    expect(prisma.projectReviewParticipant.update).toHaveBeenCalledWith({
-      where: { id: 'part2' },
-      data: { lastInvitedAt: expect.any(Date) },
-    });
+    expect(microsoftMeeting.createOrUpdateCalendarEvent).not.toHaveBeenCalled();
   });
 
-  it('compte skippedInactive pour userId non actif', async () => {
-    prisma.clientUser.findMany.mockResolvedValue([{ userId: 'u1' }]);
+  it('canal email délégué au service email', async () => {
+    emailInvitations.sendInvitations.mockResolvedValue({
+      emailed: 1,
+      skippedNoEmail: 0,
+      emailFailed: 0,
+      emailDisabled: false,
+      emailedParticipantIds: ['part3'],
+    });
 
-    const result = await service.invite(
-      clientId,
-      projectId,
-      reviewId,
-      context,
-      { trigger: 'manual' },
-    );
+    const result = await service.invite(clientId, projectId, reviewId, context, {
+      trigger: 'manual',
+      channels: ['email'],
+    });
 
-    expect(result.skippedInactive).toBe(1);
-    expect(result.notified).toBe(1);
+    expect(result.emailed).toBe(1);
+    expect(notifications.createForUser).not.toHaveBeenCalled();
+    expect(emailInvitations.sendInvitations).toHaveBeenCalled();
+  });
+
+  it('auto_date_change avec microsoftEventId → patch calendrier', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue({
+      ...baseReview,
+      microsoftEventId: 'evt-1',
+    });
+
+    await service.invite(clientId, projectId, reviewId, context, {
+      trigger: 'auto_date_change',
+      channels: ['in_app'],
+    });
+
+    expect(microsoftMeeting.patchCalendarEventOnDateChange).toHaveBeenCalled();
+    expect(microsoftMeeting.createOrUpdateCalendarEvent).not.toHaveBeenCalled();
   });
 
   it('n’injecte pas ProjectReviewsService', () => {

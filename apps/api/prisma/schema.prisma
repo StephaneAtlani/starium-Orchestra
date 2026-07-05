@@ -556,6 +556,7 @@ model User {
   facilitatedProjectReviews            ProjectReview[]                 @relation("ProjectReviewFacilitator")
   finalizedProjectReviews              ProjectReview[]                 @relation("ProjectReviewFinalizedBy")
   startedProjectReviews                ProjectReview[]                 @relation("ProjectReviewStartedBy")
+  microsoftOrganizedProjectReviews     ProjectReview[]                 @relation("ProjectReviewMicrosoftOrganizer")
   ownedProjectReviewAgendaItems        ProjectReviewAgendaItem[]       @relation("ProjectReviewAgendaItemOwner")
   responsibleProjectReviewActionItems  ProjectReviewActionItem[]       @relation("ProjectReviewActionResponsible")
   projectReviewActionItemContributions ProjectReviewActionItemContributor[]
@@ -2204,6 +2205,11 @@ model ProjectReview {
   startedAt         DateTime?
   startedByUserId   String?
 
+  /// RFC-PROJ-013-1 Phase 3 — identifiants Microsoft Graph (réunion Teams / calendrier).
+  microsoftOnlineMeetingId        String?
+  microsoftEventId                  String?
+  microsoftMeetingOrganizerUserId String?
+
   facilitatorUserId String?
   finalizedAt       DateTime?
   finalizedByUserId String?
@@ -2220,6 +2226,7 @@ model ProjectReview {
   facilitator User?   @relation("ProjectReviewFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
   finalizedBy User?   @relation("ProjectReviewFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
   startedBy   User?   @relation("ProjectReviewStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  microsoftMeetingOrganizer User? @relation("ProjectReviewMicrosoftOrganizer", fields: [microsoftMeetingOrganizerUserId], references: [id], onDelete: SetNull)
 
   participants ProjectReviewParticipant[]
   decisions    ProjectReviewDecision[]
@@ -2229,6 +2236,7 @@ model ProjectReview {
   @@index([clientId, projectId, reviewDate])
   @@index([clientId, projectId, status])
   @@index([projectId, reviewDate])
+  @@index([clientId, microsoftEventId])
 }
 
 model ProjectReviewParticipant {
@@ -2246,6 +2254,10 @@ model ProjectReviewParticipant {
 
   invitedAt     DateTime?
   lastInvitedAt DateTime?
+
+  /// DCP — email externe pour invitation Phase 3 (participants sans userId).
+  externalEmail String?
+  lastEmailedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4435,6 +4447,7 @@ model EmailDelivery {
   id              String              @id @default(cuid())
   clientId        String
   alertId         String?
+  projectReviewId String?
   recipient       String
   subject         String
   /// Lien CTA (ex. vérification e-mail) — requis au traitement async car non porté par Alert.
@@ -4457,6 +4470,7 @@ model EmailDelivery {
   createdBy User? @relation("EmailDeliveryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId, status, createdAt])
+  @@index([clientId, projectReviewId])
   @@index([alertId])
   @@index([recipient])
 }

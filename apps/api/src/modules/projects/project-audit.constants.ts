@@ -115,6 +115,15 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_PARTICIPANT_REMOVED: 'project.review.participant.removed',
   PROJECT_REVIEW_INVITED: 'project.review.invited',
   PROJECT_REVIEW_INVITE_FAILED: 'project.review.invite_failed',
+  PROJECT_REVIEW_EMAILED: 'project.review.emailed',
+  PROJECT_REVIEW_EMAIL_FAILED: 'project.review.email_failed',
+  PROJECT_REVIEW_TEAMS_MEETING_CREATED: 'project.review.teams_meeting.created',
+  PROJECT_REVIEW_TEAMS_MEETING_UPDATED: 'project.review.teams_meeting.updated',
+  PROJECT_REVIEW_TEAMS_MEETING_OVERWRITE_CONFIRMED:
+    'project.review.teams_meeting.overwrite_confirmed',
+  PROJECT_REVIEW_TEAMS_FAILED: 'project.review.teams_failed',
+  PROJECT_REVIEW_CALENDAR_EVENT_CREATED: 'project.review.calendar_event.created',
+  PROJECT_REVIEW_CALENDAR_EVENT_UPDATED: 'project.review.calendar_event.updated',
 
   /** RFC-PROJ-DOC-001 */
   PROJECT_DOCUMENT_CREATED: 'project.document.created',

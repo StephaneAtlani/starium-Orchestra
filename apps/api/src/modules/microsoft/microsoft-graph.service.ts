@@ -154,6 +154,72 @@ export class MicrosoftGraphService {
     }) as Promise<void>;
   }
 
+  async postJsonForConnection<T>(
+    clientId: string,
+    connectionId: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T | void> {
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      connectionId,
+      clientId,
+    );
+    return this.postJson<T>(accessToken, path, body);
+  }
+
+  async patchJsonForConnection<T>(
+    clientId: string,
+    connectionId: string,
+    path: string,
+    body?: unknown,
+  ): Promise<T | void> {
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      connectionId,
+      clientId,
+    );
+    return this.patchJson<T>(accessToken, path, body);
+  }
+
+  async createOnlineMeeting(
+    clientId: string,
+    connectionId: string,
+    body: { startDateTime: string; endDateTime: string; subject: string },
+  ): Promise<{ id: string; joinWebUrl?: string }> {
+    const result = await this.postJsonForConnection<{
+      id: string;
+      joinWebUrl?: string;
+    }>(clientId, connectionId, 'me/onlineMeetings', body);
+    return result as { id: string; joinWebUrl?: string };
+  }
+
+  async createCalendarEvent(
+    clientId: string,
+    connectionId: string,
+    body: Record<string, unknown>,
+  ): Promise<{ id: string }> {
+    const result = await this.postJsonForConnection<{ id: string }>(
+      clientId,
+      connectionId,
+      'me/events',
+      body,
+    );
+    return result as { id: string };
+  }
+
+  async patchCalendarEvent(
+    clientId: string,
+    connectionId: string,
+    eventId: string,
+    body: Record<string, unknown>,
+  ): Promise<void> {
+    await this.patchJsonForConnection(
+      clientId,
+      connectionId,
+      `me/events/${encodeURIComponent(eventId)}`,
+      body,
+    );
+  }
+
   /** Exposé pour les tests unitaires (normalisation URL). */
   buildGraphUrl(path: string): string {
     const normalized = normalizeGraphPath(path);

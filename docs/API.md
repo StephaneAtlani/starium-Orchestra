@@ -2955,12 +2955,30 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 - **GET /api/projects/:projectId/reviews** — Liste (tri `reviewDate` desc, `createdAt` desc). Items **sans** `snapshotPayload`. Champs réunion + compteurs agenda. **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode` : `PLANNED` → statut planifié ; `IMMEDIATE` → `IN_REVIEW`. **`projects.update`**
-- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, participants avec `attendanceStatus`, `invitedAt`, `lastInvitedAt`). `snapshotPayload` : `null` si non finalisé. **`projects.read`**
+- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, participants avec `attendanceStatus`, `invitedAt`, `lastInvitedAt`, `externalEmail`, `lastEmailedAt` ; champs Graph `microsoftOnlineMeetingId`, `microsoftEventId`). `snapshotPayload` : `null` si non finalisé. **`projects.read`**
 - **PATCH /api/projects/:projectId/reviews/:reviewId** — Si **`IN_REVIEW`** (tolérance `DRAFT` legacy) : mise à jour compte rendu complète. Si **`PLANNED`** : champs planning uniquement (`reviewDate`, `title`, `meetingMode`, `meetingUrl`, `location`, `facilitatorUserId`) — refus explicite des champs compte rendu. Refus si `FINALIZED` / `CANCELLED`. Changement `reviewDate` en `PLANNED` → re-notification auto post-commit (échec non bloquant). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — `PLANNED → IN_REVIEW` (set `startedAt`, `startedByUserId`). Audit **`project.review.started`**. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_REVIEW → FINALIZED` ; **refus explicite si `PLANNED`**. Snapshot inclut `meetingMode`/`location`, participants, agenda — **sans** `meetingUrl`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Depuis `PLANNED` ou `IN_REVIEW`. Audit **`project.review.cancelled`**. **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Notifications in-app (`INFO`) aux participants internes actifs ; body optionnel `{ participantIds?: string[] }` (défaut = tous éligibles). Réponse `{ notified, skippedExternal, skippedInactive, participantIds }`. Audit **`project.review.invited`**. **`meetingUrl` interdit** dans notification/metadata/audit. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Invitations et actions Microsoft (revue **`PLANNED`** uniquement). Body optionnel :
+
+  ```json
+  {
+    "participantIds": ["..."],
+    "channels": ["in_app", "email"],
+    "createTeamsMeeting": false,
+    "createCalendarEvent": false,
+    "forceOverwriteMeetingUrl": false
+  }
+  ```
+
+  - **`channels`** (défaut `["in_app"]`) : canaux de **notification** uniquement — `in_app` \| `email` (whitelist stricte ; `teams` refusé).
+  - **`createTeamsMeeting`** / **`createCalendarEvent`** : actions Microsoft explicites (défaut `false`).
+  - **`forceOverwriteMeetingUrl`** : requis si `meetingUrl` manuel existe sans `microsoftOnlineMeetingId`.
+
+  Réponse : `{ notifiedInApp, skippedExternal, skippedInactive, participantIds, emailed, skippedNoEmail, emailFailed, emailDisabled?, teamsMeetingCreated, teamsMeetingUpdated, teamsMeetingSkipped, calendarEventCreated, calendarEventUpdated, calendarEventSkipped }`.
+
+  Audits : **`project.review.invited`**, **`emailed`**, **`email_failed`**, **`teams_meeting.*`**, **`calendar_event.*`**. **`meetingUrl` / join URL interdits** dans notification in-app metadata et audits. **`projects.update`**
 
 **Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PLANNED` ou `IN_REVIEW`) :
 
@@ -2971,13 +2989,13 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 **Participants** — `/api/projects/:projectId/reviews/:reviewId/participants` :
 
-- **POST** — `userId` (scoped client) ou `displayName` externe ; `attendanceStatus` (défaut `EXPECTED`). **`projects.update`**
-- **PATCH …/:participantId** — `attendanceStatus` source de vérité (présence en `IN_REVIEW`). **`projects.update`**
+- **POST** — `userId` (scoped client) ou `displayName` externe ; `externalEmail?` (externes uniquement, `@IsEmail`, normalisé trim/lowercase) ; `attendanceStatus` (défaut `EXPECTED`). **`projects.update`**
+- **PATCH …/:participantId** — `attendanceStatus`, `externalEmail?` (externes). Refus si `userId` + `externalEmail`. **`projects.update`**
 - **DELETE …/:participantId** — **`projects.update`**
 
 **Type `POST_MORTEM` (retour d’expérience)** : création autorisée seulement si le projet est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; **`creationMode=PLANNED` interdit** (400). **`nextReviewDate`** interdit. Corps : **`contentPayload.postMortem`**.
 
-Audits : **`project.review.created`**, **`updated`**, **`started`**, **`finalized`**, **`cancelled`**, **`invited`**, **`invite_failed`** (auto-triggers), **`agenda_item.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` en clair.
+Audits : **`project.review.created`**, **`updated`**, **`started`**, **`finalized`**, **`cancelled`**, **`invited`**, **`emailed`**, **`email_failed`**, **`invite_failed`**, **`teams_meeting.*`**, **`calendar_event.*`** (auto-triggers), **`agenda_item.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` / join URL en clair.
 
 ### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
 

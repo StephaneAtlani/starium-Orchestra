@@ -845,13 +845,33 @@ export type ProjectReviewParticipantApi = {
   attendanceStatus: ProjectReviewParticipantAttendanceStatus;
   invitedAt?: string | null;
   lastInvitedAt?: string | null;
+  externalEmail?: string | null;
+  lastEmailedAt?: string | null;
+};
+
+export type InviteProjectReviewPayload = {
+  participantIds?: string[];
+  channels?: ('in_app' | 'email')[];
+  createTeamsMeeting?: boolean;
+  createCalendarEvent?: boolean;
+  forceOverwriteMeetingUrl?: boolean;
 };
 
 export type InviteProjectReviewResult = {
-  notified: number;
+  notifiedInApp: number;
   skippedExternal: number;
   skippedInactive: number;
   participantIds: string[];
+  emailed: number;
+  skippedNoEmail: number;
+  emailFailed: number;
+  emailDisabled?: boolean;
+  teamsMeetingCreated: boolean;
+  teamsMeetingUpdated: boolean;
+  teamsMeetingSkipped: boolean;
+  calendarEventCreated: boolean;
+  calendarEventUpdated: boolean;
+  calendarEventSkipped: boolean;
 };
 
 export type ProjectReviewAgendaItemApi = {
@@ -909,6 +929,8 @@ export type ProjectReviewDetail = {
   contentPayload: unknown;
   meetingMode: ProjectReviewMeetingMode | null;
   meetingUrl: string | null;
+  microsoftOnlineMeetingId?: string | null;
+  microsoftEventId?: string | null;
   location: string | null;
   startedAt: string | null;
   startedByUserId: string | null;

@@ -98,7 +98,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
     };
     invitations = {
       invite: jest.fn().mockResolvedValue({
-        notified: 1,
+        notifiedInApp: 1,
         skippedExternal: 0,
         skippedInactive: 0,
         participantIds: ['part1'],
@@ -486,7 +486,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       projectId,
       reviewId,
       expect.any(Object),
-      { trigger: 'auto_create' },
+      { trigger: 'auto_create', channels: ['in_app'] },
     );
   });
 
@@ -537,7 +537,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-1)', () => {
       projectId,
       reviewId,
       expect.any(Object),
-      { trigger: 'auto_date_change' },
+      { trigger: 'auto_date_change', channels: ['in_app'] },
     );
   });
 

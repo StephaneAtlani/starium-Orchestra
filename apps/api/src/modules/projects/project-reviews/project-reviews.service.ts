@@ -374,6 +374,8 @@ export class ProjectReviewsService {
       attendanceStatus: p.attendanceStatus,
       invitedAt: p.invitedAt?.toISOString() ?? null,
       lastInvitedAt: p.lastInvitedAt?.toISOString() ?? null,
+      externalEmail: p.externalEmail ?? null,
+      lastEmailedAt: p.lastEmailedAt?.toISOString() ?? null,
     };
   }
 
@@ -399,6 +401,7 @@ export class ProjectReviewsService {
     try {
       await this.invitations.invite(clientId, projectId, reviewId, context, {
         trigger,
+        channels: ['in_app'],
       });
     } catch {
       await this.auditLogs.create({
@@ -465,6 +468,8 @@ export class ProjectReviewsService {
       executiveSummary: row.executiveSummary,
       meetingMode: row.meetingMode,
       meetingUrl: row.meetingUrl,
+      microsoftOnlineMeetingId: row.microsoftOnlineMeetingId ?? null,
+      microsoftEventId: row.microsoftEventId ?? null,
       location: row.location,
       startedAt: row.startedAt?.toISOString() ?? null,
       startedByUserId: row.startedByUserId,
@@ -494,6 +499,8 @@ export class ProjectReviewsService {
       contentPayload: row.contentPayload,
       meetingMode: row.meetingMode,
       meetingUrl: row.meetingUrl,
+      microsoftOnlineMeetingId: row.microsoftOnlineMeetingId ?? null,
+      microsoftEventId: row.microsoftEventId ?? null,
       location: row.location,
       startedAt: row.startedAt?.toISOString() ?? null,
       startedByUserId: row.startedByUserId,

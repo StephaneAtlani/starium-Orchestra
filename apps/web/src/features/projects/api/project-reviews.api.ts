@@ -1,6 +1,7 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  InviteProjectReviewPayload,
   InviteProjectReviewResult,
   ProjectReviewAgendaItemApi,
   ProjectReviewDetail,
@@ -99,7 +100,7 @@ export async function inviteProjectReview(
   authFetch: AuthFetch,
   projectId: string,
   reviewId: string,
-  body?: { participantIds?: string[] },
+  body?: InviteProjectReviewPayload,
 ): Promise<InviteProjectReviewResult> {
   const res = await authFetch(`${base(projectId)}/${reviewId}/invite`, {
     method: 'POST',

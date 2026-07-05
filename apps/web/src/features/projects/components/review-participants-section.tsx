@@ -13,7 +13,7 @@ import type {
   ProjectReviewStatus,
 } from '../types/project.types';
 import { toast } from '@/lib/toast';
-import { Trash2, UserPlus, Users } from 'lucide-react';
+import { Mail, Trash2, UserPlus, Users } from 'lucide-react';
 
 type Props = {
   projectId: string;
@@ -40,6 +40,10 @@ function formatAssignableUser(u: {
   return name || u.email;
 }
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export function ReviewParticipantsSection({
   projectId,
   reviewId,
@@ -54,16 +58,24 @@ export function ReviewParticipantsSection({
   const [userId, setUserId] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [roleLabel, setRoleLabel] = useState('');
+  const [externalEmail, setExternalEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const editable =
     canEdit && (status === 'PLANNED' || status === 'IN_REVIEW');
   const markAttendance = canEdit && status === 'IN_REVIEW';
+  const isExternalForm = !userId.trim();
 
   const onAdd = async () => {
     if (!userId.trim() && !displayName.trim()) {
       toast.error('Sélectionnez un utilisateur ou saisissez un nom.');
       return;
     }
+    if (isExternalForm && externalEmail.trim() && !isValidEmail(externalEmail)) {
+      setEmailError('Adresse e-mail invalide.');
+      return;
+    }
+    setEmailError(null);
     try {
       await createParticipant.mutateAsync({
         reviewId,
@@ -71,11 +83,13 @@ export function ReviewParticipantsSection({
           userId: userId.trim() || null,
           displayName: displayName.trim() || null,
           roleLabel: roleLabel.trim() || null,
+          externalEmail: isExternalForm ? externalEmail.trim() || null : null,
         },
       });
       setUserId('');
       setDisplayName('');
       setRoleLabel('');
+      setExternalEmail('');
     } catch {
       toast.error('Ajout du participant impossible.');
     }
@@ -97,10 +111,44 @@ export function ReviewParticipantsSection({
               key={p.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 p-3"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-medium">{p.displayName ?? 'Participant'}</p>
                 {p.roleLabel ? (
                   <p className="text-sm text-muted-foreground">{p.roleLabel}</p>
+                ) : null}
+                {!p.userId && editable ? (
+                  <div className="mt-2 max-w-md">
+                    <label
+                      htmlFor={`rp-email-${p.id}`}
+                      className="starium-form-label text-xs"
+                    >
+                      E-mail (externe, invitation)
+                    </label>
+                    <Input
+                      id={`rp-email-${p.id}`}
+                      type="email"
+                      className="starium-form-input min-h-11 mt-1"
+                      defaultValue={p.externalEmail ?? ''}
+                      placeholder="nom@entreprise.com"
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value && !isValidEmail(value)) {
+                          toast.error('Adresse e-mail invalide.');
+                          return;
+                        }
+                        void updateParticipant.mutateAsync({
+                          reviewId,
+                          participantId: p.id,
+                          body: { externalEmail: value || null },
+                        });
+                      }}
+                    />
+                  </div>
+                ) : !p.userId && p.externalEmail ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="size-3" aria-hidden />
+                    E-mail renseigné pour invitation
+                  </p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -111,6 +159,11 @@ export function ReviewParticipantsSection({
                 {p.lastInvitedAt ? (
                   <span className="starium-ds-badge starium-ds-badge--info text-xs">
                     Notifié le {formatProjectDateTimeFr(p.lastInvitedAt)}
+                  </span>
+                ) : null}
+                {p.lastEmailedAt ? (
+                  <span className="starium-ds-badge starium-ds-badge--info text-xs">
+                    E-mail le {formatProjectDateTimeFr(p.lastEmailedAt)}
                   </span>
                 ) : null}
                 {markAttendance ? (
@@ -178,7 +231,10 @@ export function ReviewParticipantsSection({
                   const id = e.target.value;
                   setUserId(id);
                   const u = assignable.data?.users.find((x) => x.id === id);
-                  if (u) setDisplayName(formatAssignableUser(u));
+                  if (u) {
+                    setDisplayName(formatAssignableUser(u));
+                    setExternalEmail('');
+                  }
                 }}
               >
                 <option value="">— Externe ou libre —</option>
@@ -201,6 +257,36 @@ export function ReviewParticipantsSection({
                 disabled={!!userId.trim()}
               />
             </div>
+            {isExternalForm ? (
+              <div className="starium-form-field starium-form-grid--span-2">
+                <label htmlFor="rp-email" className="starium-form-label">
+                  E-mail (externe, invitation)
+                </label>
+                <Input
+                  id="rp-email"
+                  type="email"
+                  className="starium-form-input min-h-11"
+                  value={externalEmail}
+                  aria-invalid={emailError ? true : undefined}
+                  aria-describedby={emailError ? 'rp-email-error' : undefined}
+                  onChange={(e) => {
+                    setExternalEmail(e.target.value);
+                    setEmailError(null);
+                  }}
+                  placeholder="nom@entreprise.com"
+                />
+                {emailError ? (
+                  <p id="rp-email-error" className="text-sm text-destructive">
+                    {emailError}
+                  </p>
+                ) : (
+                  <p className="starium-form-hint">
+                    Donnée personnelle — utilisée uniquement pour l&apos;invitation au
+                    point projet.
+                  </p>
+                )}
+              </div>
+            ) : null}
             <div className="starium-form-field starium-form-grid--span-2">
               <label htmlFor="rp-role" className="starium-form-label">
                 Rôle (optionnel)

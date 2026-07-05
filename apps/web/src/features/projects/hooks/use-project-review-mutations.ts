@@ -22,6 +22,7 @@ import {
 } from '../api/project-reviews.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { notificationsKeys } from '@/features/notifications/hooks/use-notifications';
+import type { InviteProjectReviewPayload } from '../types/project.types';
 
 export function useProjectReviewMutations(projectId: string) {
   const authFetch = useAuthenticatedFetch();
@@ -241,12 +242,11 @@ export function useProjectReviewMutations(projectId: string) {
   const inviteReview = useMutation({
     mutationFn: ({
       reviewId,
-      participantIds,
+      body,
     }: {
       reviewId: string;
-      participantIds?: string[];
-    }) =>
-      inviteProjectReview(authFetch, projectId, reviewId, { participantIds }),
+      body?: InviteProjectReviewPayload;
+    }) => inviteProjectReview(authFetch, projectId, reviewId, body),
     onSuccess: (_, { reviewId }) => {
       invalidateReview(reviewId);
       void qc.invalidateQueries({
