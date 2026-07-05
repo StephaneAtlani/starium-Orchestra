@@ -3,9 +3,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
+import { LoadingState } from '@/components/feedback/loading-state';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -34,11 +38,89 @@ import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
+import { CloudUpload, Loader2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 const textareaClass = cn(
-  'flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs',
-  'outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+  'starium-form-textarea',
+  'flex min-h-[88px] w-full shadow-xs outline-none',
 );
+
+function TaskDialogSection({
+  title,
+  id,
+  children,
+  className,
+}: {
+  title: string;
+  id: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn('starium-form-section', className)} aria-labelledby={id}>
+      <h3 id={id} className="starium-form-section-title">
+        {title}
+      </h3>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function ReadSlot({
+  label,
+  children,
+  disabled,
+  onActivate,
+}: {
+  label: string;
+  children: ReactNode;
+  disabled?: boolean;
+  onActivate: () => void;
+}) {
+  const valueClass = cn(
+    'starium-form-input flex min-h-[38px] h-auto w-full items-center py-2 text-left text-sm',
+    disabled
+      ? 'cursor-default border-transparent bg-muted/15 text-foreground'
+      : 'cursor-pointer hover:border-[color-mix(in_srgb,var(--brand-gold)_35%,var(--border))] hover:bg-muted/20',
+  );
+
+  return (
+    <div className="starium-form-field">
+      <span className="starium-form-label">{label}</span>
+      {disabled ? (
+        <div className={valueClass}>{children}</div>
+      ) : (
+        <button type="button" className={valueClass} onClick={onActivate}>
+          {children}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EditField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="starium-form-field">
+      {htmlFor ? (
+        <Label htmlFor={htmlFor} className="starium-form-label">
+          {label}
+        </Label>
+      ) : (
+        <span className="starium-form-label">{label}</span>
+      )}
+      {children}
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<string, string> = {
   TODO: 'À faire',
@@ -175,39 +257,6 @@ function draftToPayload(d: TaskDraft): UpdateActionPlanTaskPayload {
 
 function draftSnapshot(d: TaskDraft): string {
   return JSON.stringify(draftToPayload(d));
-}
-
-function ReadSlot({
-  label,
-  children,
-  disabled,
-  onActivate,
-}: {
-  label: string;
-  children: React.ReactNode;
-  disabled?: boolean;
-  onActivate: () => void;
-}) {
-  if (disabled) {
-    return (
-      <div className="space-y-1">
-        <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <div className="rounded-md px-2 py-1.5 text-sm">{children}</div>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-1">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <button
-        type="button"
-        className="w-full rounded-md border border-transparent px-2 py-1.5 text-left text-sm transition-colors hover:border-border hover:bg-muted/60"
-        onClick={onActivate}
-      >
-        {children}
-      </button>
-    </div>
-  );
 }
 
 export type ActionPlanTaskEditDialogProps = {
@@ -397,33 +446,65 @@ export function ActionPlanTaskEditDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-2xl"
-        aria-describedby={undefined}
+        showCloseButton
+        size="lg"
+        className="flex max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-4 sm:max-w-2xl"
       >
-        <DialogHeader>
-          <DialogTitle className="pr-8">Détail de la tâche</DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            {canEdit
-              ? 'Cliquez sur une valeur pour modifier. Les changements sont enregistrés automatiquement.'
-              : 'Lecture seule.'}
-          </p>
+        <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+          <div className="pr-8">
+            <div className="flex flex-wrap items-center gap-2 gap-y-1">
+              <DialogTitle className="text-left">Détail de la tâche</DialogTitle>
+              <Badge variant="secondary" className="font-normal text-muted-foreground">
+                Plan d&apos;action
+              </Badge>
+            </div>
+            <DialogDescription className="mt-2 text-left">
+              {canEdit
+                ? 'Cliquez sur une valeur pour la modifier.'
+                : 'Consultation en lecture seule.'}
+            </DialogDescription>
+          </div>
+          {canEdit ? (
+            <div
+              className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2
+                    className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]"
+                    aria-hidden
+                  />
+                  <span>Enregistrement en cours…</span>
+                </>
+              ) : (
+                <>
+                  <CloudUpload className="size-3.5 shrink-0" aria-hidden />
+                  <span>Sauvegarde automatique après modification.</span>
+                </>
+              )}
+            </div>
+          ) : null}
         </DialogHeader>
 
-        {!task || !draft ? (
-          <p className="py-4 text-sm text-muted-foreground">Chargement…</p>
-        ) : (
-        <div className="space-y-4 py-1">
+        <DialogBody className="min-h-0 flex-1 py-4">
+          {!task || !draft ? (
+            <LoadingState rows={4} />
+          ) : (
+            <div className="starium-form space-y-4">
+              <TaskDialogSection title="Identité" id="ap-task-identity">
           {editingKey === 'name' && canEdit ? (
-            <div className="space-y-1">
-              <Label htmlFor="ed-name">Intitulé</Label>
+            <EditField label="Intitulé" htmlFor="ed-name">
               <Input
                 id="ed-name"
                 autoFocus
+                className="starium-form-input h-[38px]"
                 value={draft.name}
                 onChange={(e) => setDraft((p) => (p ? { ...p, name: e.target.value } : p))}
                 onBlur={() => setEditingKey(null)}
               />
-            </div>
+            </EditField>
           ) : (
             <ReadSlot
               label="Intitulé"
@@ -435,8 +516,7 @@ export function ActionPlanTaskEditDialog({
           )}
 
           {editingKey === 'description' && canEdit ? (
-            <div className="space-y-1">
-              <Label htmlFor="ed-desc">Description</Label>
+            <EditField label="Description" htmlFor="ed-desc">
               <textarea
                 id="ed-desc"
                 autoFocus
@@ -447,7 +527,7 @@ export function ActionPlanTaskEditDialog({
                 onBlur={() => setEditingKey(null)}
                 className={textareaClass}
               />
-            </div>
+            </EditField>
           ) : (
             <ReadSlot
               label="Description"
@@ -459,8 +539,10 @@ export function ActionPlanTaskEditDialog({
               </span>
             </ReadSlot>
           )}
+              </TaskDialogSection>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+              <TaskDialogSection title="Exécution" id="ap-task-execution">
+          <div className="starium-form-grid starium-form-grid--2">
             {editingKey === 'status' && canEdit ? (
               <div className="space-y-1">
                 <Label>Statut</Label>
@@ -472,7 +554,7 @@ export function ActionPlanTaskEditDialog({
                     setEditingKey(null);
                   }}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -505,7 +587,7 @@ export function ActionPlanTaskEditDialog({
                     setEditingKey(null);
                   }}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -528,7 +610,7 @@ export function ActionPlanTaskEditDialog({
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="starium-form-grid starium-form-grid--2">
             {editingKey === 'plannedStart' && canEdit ? (
               <div className="space-y-1">
                 <Label htmlFor="ed-start">Début planifié</Label>
@@ -626,7 +708,9 @@ export function ActionPlanTaskEditDialog({
               {draft.tagsRaw.trim() ? draft.tagsRaw : '—'}
             </ReadSlot>
           )}
+              </TaskDialogSection>
 
+              <TaskDialogSection title="Rattachements" id="ap-task-links">
           {editingKey === 'project' && canEdit ? (
             <div className="space-y-1">
               <Label>Projet</Label>
@@ -646,7 +730,7 @@ export function ActionPlanTaskEditDialog({
                   setEditingKey(null);
                 }}
               >
-                <SelectTrigger className="w-full min-w-0">
+                <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                   <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
                 <SelectContent>
@@ -681,7 +765,7 @@ export function ActionPlanTaskEditDialog({
                     setEditingKey(null);
                   }}
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                     <SelectValue placeholder="Sans phase" />
                   </SelectTrigger>
                   <SelectContent>
@@ -716,7 +800,7 @@ export function ActionPlanTaskEditDialog({
                   setEditingKey(null);
                 }}
               >
-                <SelectTrigger className="w-full min-w-0">
+                <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                   <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
                 <SelectContent>
@@ -734,7 +818,9 @@ export function ActionPlanTaskEditDialog({
               {draft.riskId ? (riskSelectItems[draft.riskId] ?? displayRisk) : displayRisk}
             </ReadSlot>
           )}
+              </TaskDialogSection>
 
+              <TaskDialogSection title="Responsables" id="ap-task-owners">
           {editingKey === 'responsible' && canEdit ? (
             <div className="space-y-1">
               <Label>Responsable (ressource Humaine)</Label>
@@ -753,7 +839,7 @@ export function ActionPlanTaskEditDialog({
                   setEditingKey(null);
                 }}
               >
-                <SelectTrigger className="w-full min-w-0">
+                <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                   <SelectValue placeholder="Aucune ressource Humaine" />
                 </SelectTrigger>
                 <SelectContent>
@@ -791,7 +877,7 @@ export function ActionPlanTaskEditDialog({
                   setEditingKey(null);
                 }}
               >
-                <SelectTrigger className="w-full min-w-0">
+                <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
                   <SelectValue placeholder="Non assigné" />
                 </SelectTrigger>
                 <SelectContent>
@@ -813,12 +899,10 @@ export function ActionPlanTaskEditDialog({
               {formatUser(draft.ownerUserId, users)}
             </ReadSlot>
           )}
-        </div>
-        )}
-
-        <div className="flex items-center justify-end gap-2 border-t pt-3 text-xs text-muted-foreground">
-          {mutation.isPending ? <span>Enregistrement…</span> : <span>&nbsp;</span>}
-        </div>
+              </TaskDialogSection>
+            </div>
+          )}
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
