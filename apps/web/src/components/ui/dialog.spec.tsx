@@ -67,6 +67,15 @@ describe('DialogContent', () => {
     expect(cls).not.toContain('overflow-y-hidden');
   });
 
+  it('modal — animations ouverture/fermeture (motion-safe)', () => {
+    const cls = getDialogContentClass();
+    expect(cls).toContain('motion-safe:data-open:animate-in');
+    expect(cls).toContain('motion-safe:data-open:fade-in-0');
+    expect(cls).toContain('max-sm:motion-safe:data-open:slide-in-from-bottom-full');
+    expect(cls).toContain('sm:motion-safe:data-open:zoom-in-95');
+    expect(cls).toContain('motion-safe:data-closed:animate-out');
+  });
+
   it('sidePanel — inchangé, sans classes bottom-sheet modal', () => {
     const cls = getDialogContentClass({ sidePanel: true });
     expect(cls).toContain('inset-y-0');

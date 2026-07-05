@@ -923,25 +923,30 @@ export default function ActionPlanDetailPage() {
                     ref={tasksViewMode === 'table' ? tablePan.scrollRef : undefined}
                     onPointerDown={tasksViewMode === 'table' ? tablePan.onPointerDown : undefined}
                   >
-                    {tasksViewMode === 'table' ? (
-                      <ActionPlanTasksTable
-                        items={tasksQuery.data.items}
-                        users={users}
-                        sortBy={sortByField}
-                        sortOrder={sortOrder}
-                        onSort={applyTaskSort}
-                        onRowClick={(id) => setSelectedTaskId(id)}
-                      />
-                    ) : (
-                      <ActionPlanTasksKanban
-                        items={tasksQuery.data.items}
-                        statusFilter={statusF || undefined}
-                        canUpdate={canUpdateProjects}
-                        isUpdating={taskStatusMutation.isPending}
-                        onTaskClick={(id) => setSelectedTaskId(id)}
-                        onStatusDrop={handleTaskStatusDrop}
-                      />
-                    )}
+                    <div
+                      key={tasksViewMode}
+                      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-out"
+                    >
+                      {tasksViewMode === 'table' ? (
+                        <ActionPlanTasksTable
+                          items={tasksQuery.data.items}
+                          users={users}
+                          sortBy={sortByField}
+                          sortOrder={sortOrder}
+                          onSort={applyTaskSort}
+                          onRowClick={(id) => setSelectedTaskId(id)}
+                        />
+                      ) : (
+                        <ActionPlanTasksKanban
+                          items={tasksQuery.data.items}
+                          statusFilter={statusF || undefined}
+                          canUpdate={canUpdateProjects}
+                          isUpdating={taskStatusMutation.isPending}
+                          onTaskClick={(id) => setSelectedTaskId(id)}
+                          onStatusDrop={handleTaskStatusDrop}
+                        />
+                      )}
+                    </div>
                   </CardContent>
                   <CardFooter className="starium-table-footer border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
                     {tasksQuery.data.items.length === tasksQuery.data.total

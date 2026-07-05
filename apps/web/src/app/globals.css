@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../styles/tw-animate.css';
 @import '../styles/tokens.css';
 
 /*
