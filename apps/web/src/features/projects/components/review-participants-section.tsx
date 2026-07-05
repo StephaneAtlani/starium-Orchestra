@@ -96,10 +96,10 @@ export function ReviewParticipantsSection({
   };
 
   return (
-    <section className="starium-form-section" aria-labelledby="review-participants-title">
+    <section className="starium-form-section border-border/60" aria-labelledby="review-participants-title">
       <h3 id="review-participants-title" className="starium-form-section-title">
         <Users aria-hidden />
-        Participants
+        Parties prenantes
       </h3>
 
       {participants.length === 0 ? (

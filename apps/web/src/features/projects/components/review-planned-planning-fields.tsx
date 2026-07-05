@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { PROJECT_REVIEW_MEETING_MODE_LABEL } from '../constants/project-enum-labels';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import type { ProjectReviewDetail, ProjectReviewMeetingMode } from '../types/project.types';
+import { Video } from 'lucide-react';
 
 const MEETING_MODES: ProjectReviewMeetingMode[] = ['REMOTE', 'ONSITE', 'HYBRID'];
 
@@ -80,12 +81,10 @@ export function ReviewPlannedPlanningFields({
   const showLocation = meetingMode === 'ONSITE' || meetingMode === 'HYBRID';
 
   return (
-    <section
-      className="starium-form-section rounded-xl border border-border/70 bg-card p-4"
-      aria-labelledby="review-planned-meeting-title"
-    >
-      <h3 id="review-planned-meeting-title" className="mb-3 text-sm font-semibold">
-        Réunion
+    <section className="starium-form-section border-border/60" aria-labelledby="review-planned-meeting-title">
+      <h3 id="review-planned-meeting-title" className="starium-form-section-title">
+        <Video className="size-3.5" aria-hidden />
+        Tenue de la réunion
       </h3>
 
       <fieldset className="mb-4 space-y-2">

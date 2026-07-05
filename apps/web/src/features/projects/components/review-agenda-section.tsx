@@ -16,7 +16,7 @@ import type {
 } from '../types/project.types';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
-import { ChevronDown, ChevronUp, ListOrdered, Play, SkipForward, Square } from 'lucide-react';
+import { ChevronDown, ChevronUp, ListOrdered, Play, SkipForward, Square, Video } from 'lucide-react';
 
 type Props = {
   projectId: string;
@@ -99,7 +99,7 @@ export function ReviewAgendaSection({
   };
 
   return (
-    <section className="starium-form-section" aria-labelledby="review-agenda-title">
+    <section className="starium-form-section border-border/60" aria-labelledby="review-agenda-title">
       <h3 id="review-agenda-title" className="starium-form-section-title">
         <ListOrdered aria-hidden />
         Ordre du jour
@@ -270,29 +270,42 @@ export function ReviewMeetingInfoBlock({
     : null;
 
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
-      <p className="font-medium">Réunion</p>
-      {modeLabel ? <p className="mt-1">Mode : {modeLabel}</p> : null}
-      {detail.location ? <p className="mt-1">Lieu : {detail.location}</p> : null}
-      {detail.meetingUrl ? (
-        <p className="mt-2">
-          <a
-            href={detail.meetingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="starium-link min-h-11 inline-flex items-center"
-          >
-            Rejoindre la réunion
-          </a>
-        </p>
-      ) : null}
-      {detail.startedAt ? (
-        <p className="mt-1 text-muted-foreground">
-          Démarrée le {new Date(detail.startedAt).toLocaleString('fr-FR')}
-          {detail.startedByDisplayName ? ` par ${detail.startedByDisplayName}` : ''}
-        </p>
-      ) : null}
-    </div>
+    <section className="starium-form-section border-border/60" aria-labelledby="review-meeting-info">
+      <h3 id="review-meeting-info" className="starium-form-section-title">
+        <Video className="size-3.5" aria-hidden />
+        Infos réunion
+      </h3>
+      <div className="text-sm">
+        {modeLabel ? (
+          <p className="text-muted-foreground">
+            Format : <span className="font-medium text-foreground">{modeLabel}</span>
+          </p>
+        ) : null}
+        {detail.location ? (
+          <p className="mt-1 text-muted-foreground">
+            Lieu : <span className="font-medium text-foreground">{detail.location}</span>
+          </p>
+        ) : null}
+        {detail.meetingUrl ? (
+          <p className="mt-2">
+            <a
+              href={detail.meetingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="starium-link inline-flex min-h-11 items-center font-medium"
+            >
+              Rejoindre la réunion
+            </a>
+          </p>
+        ) : null}
+        {detail.startedAt ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Démarrée le {new Date(detail.startedAt).toLocaleString('fr-FR')}
+            {detail.startedByDisplayName ? ` par ${detail.startedByDisplayName}` : ''}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

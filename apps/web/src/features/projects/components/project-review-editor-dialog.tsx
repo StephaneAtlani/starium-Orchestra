@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -63,11 +64,13 @@ import {
   type PostMortemPayload,
 } from '../lib/project-post-mortem-payload';
 import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
+import { PROJECT_DATETIME_LOCAL_STEP_SECONDS } from '../lib/project-datetime-local';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
+import { ReviewEditorSection } from './review-editor-section';
 import { ReviewAgendaSection, ReviewMeetingInfoBlock } from './review-agenda-section';
 import { ReviewParticipantsSection } from './review-participants-section';
 import { ReviewInvitationsSection } from './review-invitations-section';
@@ -83,107 +86,21 @@ import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
-import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
-import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import type {
-  ProjectAssignableUser,
   ProjectDetail,
   ProjectReviewActionItemApi,
   ProjectReviewListItem,
   ProjectReviewType,
   ProjectSheet,
-  ProjectTeamMemberApi,
 } from '../types/project.types';
 
 const textareaClass = cn(
-  'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
-  'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-  'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
+  'starium-form-textarea min-h-[100px] resize-y',
 );
+
+const selectFieldClass = 'starium-form-select min-h-11';
 
 const ACTION_STATUSES = Object.keys(TASK_STATUS_LABEL) as Array<keyof typeof TASK_STATUS_LABEL>;
-
-/** Selects / champs — bordure tokenisée (FRONTEND_UI-UX §2). */
-const selectFieldClass = cn(
-  'border-input bg-background h-9 w-full rounded-md border border-border/70 px-2.5 text-sm shadow-xs',
-  'transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-  'disabled:cursor-not-allowed disabled:opacity-50',
-);
-
-const SECTION_ACCENTS = {
-  sky: {
-    bar: 'border-l-[3px] border-l-sky-500/70',
-    icon: 'bg-sky-500/10 text-sky-800 dark:text-sky-300',
-  },
-  violet: {
-    bar: 'border-l-[3px] border-l-violet-500/70',
-    icon: 'bg-violet-500/10 text-violet-800 dark:text-violet-300',
-  },
-  emerald: {
-    bar: 'border-l-[3px] border-l-emerald-500/70',
-    icon: 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
-  },
-  amber: {
-    bar: 'border-l-[3px] border-l-amber-500/70',
-    icon: 'bg-amber-500/15 text-amber-950 dark:text-amber-300',
-  },
-  slate: {
-    bar: 'border-l-[3px] border-l-slate-400/60',
-    icon: 'bg-muted text-muted-foreground',
-  },
-} as const;
-
-type SectionAccent = keyof typeof SECTION_ACCENTS;
-
-function ReviewFormSection({
-  sectionId,
-  title,
-  description,
-  icon: Icon,
-  accent = 'sky',
-  children,
-}: {
-  sectionId: string;
-  title: string;
-  description?: string;
-  icon: ComponentType<{ className?: string }>;
-  accent?: SectionAccent;
-  children: React.ReactNode;
-}) {
-  const a = SECTION_ACCENTS[accent];
-  return (
-    <section
-      className={cn(
-        'rounded-xl border border-border/70 bg-card p-4 shadow-sm',
-        a.bar,
-      )}
-      aria-labelledby={sectionId}
-    >
-      <div className="mb-4 flex gap-3">
-        <div
-          className={cn(
-            'flex size-9 shrink-0 items-center justify-center rounded-lg',
-            a.icon,
-          )}
-        >
-          <Icon className="size-4" aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2
-            id={sectionId}
-            className="text-sm font-semibold tracking-tight text-foreground"
-          >
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
 
 function toLocalDatetimeInput(iso: string): string {
   try {
@@ -209,45 +126,6 @@ function formatLocalDatetimeFr(local: string): string {
   } catch {
     return local;
   }
-}
-
-type ParticipantRow = {
-  displayName: string;
-  userId: string;
-  attended: boolean;
-  isRequired: boolean;
-  /** Membre matrice équipe projet vs saisie libre (interne / externe). */
-  source: 'team' | 'free';
-  /** `ProjectTeamMemberApi.id` si `source === 'team'`. */
-  teamMemberId?: string;
-  /** Fonction sur le projet (affichage, issu de la matrice). */
-  projectRoleName?: string | null;
-};
-
-function formatAssignableUserLabel(u: ProjectAssignableUser): string {
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name ? `${name} (${u.email})` : u.email;
-}
-
-function displayNameFromAssignable(u: ProjectAssignableUser): string {
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name || u.email;
-}
-
-function teamMembersSorted(team: ProjectTeamMemberApi[]): ProjectTeamMemberApi[] {
-  return [...team].sort((a, b) => {
-    const r = a.roleName.localeCompare(b.roleName, 'fr');
-    if (r !== 0) return r;
-    return a.displayName.localeCompare(b.displayName, 'fr');
-  });
-}
-
-function affiliationLabel(
-  a: ProjectTeamMemberApi['affiliation'],
-): string | null {
-  if (a === 'INTERNAL') return 'Interne';
-  if (a === 'EXTERNAL') return 'Externe';
-  return null;
 }
 
 type DecisionRow = { title: string; description: string };
@@ -277,7 +155,7 @@ function readCommitteeMood(raw: unknown): CommitteeMood | null {
   return null;
 }
 
-/** Bandeau indicateurs — carte légère, alignée FRONTEND_UI-UX §2. */
+/** Bandeau indicateurs projet (lecture seule). */
 function ProjectMeteoInline({
   project,
   badgeMerged,
@@ -289,45 +167,45 @@ function ProjectMeteoInline({
 }) {
   const av =
     project.derivedProgressPercent ?? project.progressPercent ?? null;
-  return (
-    <div
-      className={cn(
-        embedded
-          ? 'rounded-lg border border-border/60 bg-muted/25 p-3'
-          : 'rounded-xl border border-border/70 border-l-4 border-l-sky-500/50 bg-card p-3 shadow-sm',
-      )}
-    >
-      {!embedded ? (
-        <p className="mb-2.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-          Indicateurs projet
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <HealthBadge health={project.computedHealth} compact merged={badgeMerged} />
-          <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 pt-3 text-xs sm:border-t-0 sm:pt-0">
-          <span className="tabular-nums text-muted-foreground">
-            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/90">
-              Avancement{' '}
-            </span>
-            <span className="font-semibold text-foreground">
-              {av != null ? `${av} %` : '—'}
-            </span>
+  const content = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
+        <HealthBadge health={project.computedHealth} compact merged={badgeMerged} />
+        <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 pt-3 text-xs sm:border-t-0 sm:pt-0">
+        <span className="tabular-nums text-muted-foreground">
+          <span className="starium-overline mr-1">Avancement</span>
+          <span className="font-semibold text-foreground">
+            {av != null ? `${av} %` : '—'}
           </span>
-          <span className="hidden h-4 w-px bg-border/70 sm:block" aria-hidden />
-          <span className="tabular-nums text-muted-foreground" title="Tâches · Risques · Jalons en retard">
-            <span className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground/90">
-              T·R·J{' '}
-            </span>
-            <span className="font-semibold text-foreground">
-              {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
-            </span>
+        </span>
+        <span className="hidden h-4 w-px bg-border/70 sm:block" aria-hidden />
+        <span className="tabular-nums text-muted-foreground" title="Tâches · Risques · Jalons en retard">
+          <span className="starium-overline mr-1">T·R·J</span>
+          <span className="font-semibold text-foreground">
+            {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
           </span>
-        </div>
+        </span>
       </div>
     </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">{content}</div>
+    );
+  }
+
+  return (
+    <ReviewEditorSection
+      sectionId="pr-ed-meteo"
+      title="Indicateurs projet"
+      description="Santé, signaux et avancement au moment de la revue."
+      icon={Target}
+    >
+      {content}
+    </ReviewEditorSection>
   );
 }
 
@@ -433,12 +311,11 @@ function CommitteeMoodPicker({
   disabled?: boolean;
 }) {
   return (
-    <ReviewFormSection
+    <ReviewEditorSection
       sectionId="pr-section-committee-mood"
       title="Météo du comité"
       description="Ressenti à la fin du point : enregistré dans le point et figé à la finalisation avec le snapshot."
       icon={CloudSun}
-      accent="sky"
     >
       <div className="grid gap-3 sm:grid-cols-3">
         {MOOD_CARDS.map(({ id, label, hint, Icon, accent, iconWrap }) => {
@@ -482,7 +359,7 @@ function CommitteeMoodPicker({
           Effacer le choix
         </Button>
       )}
-    </ReviewFormSection>
+    </ReviewEditorSection>
   );
 }
 
@@ -562,9 +439,6 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: open });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: open });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: open });
-  const teamQuery = useProjectTeamQuery(projectId, { enabled: open });
-  const assignableUsersQuery = useProjectAssignableUsers({ enabled: open });
-
   const { update, finalize, cancel, startReview } = useProjectReviewMutations(projectId);
 
   const authFetch = useAuthenticatedFetch();
@@ -591,7 +465,6 @@ export function ProjectReviewEditorDialog({
   /** Créneau du prochain point accepté : envoyé au PATCH et déclenche la création du brouillon côté API. */
   const [committedNextReviewDate, setCommittedNextReviewDate] = useState<string | null>(null);
   const [confirmNextOpen, setConfirmNextOpen] = useState(false);
-  const [participants, setParticipants] = useState<ParticipantRow[]>([]);
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
@@ -611,29 +484,6 @@ export function ProjectReviewEditorDialog({
     const nextLocal = d.nextReviewDate ? toLocalDatetimeInput(d.nextReviewDate) : '';
     setNextReviewDate(nextLocal);
     setCommittedNextReviewDate(nextLocal === '' ? null : nextLocal);
-    setParticipants(
-      d.participants.length
-        ? d.participants.map((p) => ({
-            displayName: p.displayName ?? '',
-            userId: p.userId ?? '',
-            attended: p.attendanceStatus === 'PRESENT',
-            isRequired: false,
-            source: 'free' as const,
-            teamMemberId: undefined,
-            projectRoleName: null,
-          }))
-        : [
-            {
-              displayName: '',
-              userId: '',
-              attended: true,
-              isRequired: false,
-              source: 'team',
-              teamMemberId: '',
-              projectRoleName: null,
-            },
-          ],
-    );
     setDecisions(
       d.decisions.length
         ? d.decisions.map((x) => ({ title: x.title, description: x.description ?? '' }))
@@ -704,14 +554,6 @@ export function ProjectReviewEditorDialog({
         opts?.committedNextReviewOverride !== undefined
           ? opts.committedNextReviewOverride
           : committedNextReviewDate;
-      const parts = participants
-        .filter((p) => p.displayName.trim() || p.userId.trim())
-        .map((p) => ({
-          userId: p.userId.trim() || null,
-          displayName: p.displayName.trim() || null,
-          attended: p.attended,
-          isRequired: p.isRequired,
-        }));
       const dec = decisions
         .filter((x) => x.title.trim())
         .map((x) => ({
@@ -753,7 +595,6 @@ export function ProjectReviewEditorDialog({
             : committedForApi && committedForApi.trim()
               ? fromLocalDatetimeInput(committedForApi)
               : null,
-        participants: parts,
         decisions: dec,
         actionItems: act,
         contentPayload,
@@ -761,7 +602,6 @@ export function ProjectReviewEditorDialog({
     },
     [
       committedNextReviewDate,
-      participants,
       decisions,
       actions,
       d,
@@ -816,7 +656,6 @@ export function ProjectReviewEditorDialog({
     title,
     executiveSummary,
     committedNextReviewDate,
-    participants,
     decisions,
     actions,
     committeeMood,
@@ -887,15 +726,14 @@ export function ProjectReviewEditorDialog({
   );
 
   const nextReviewParticipantPreview = useMemo(() => {
-    return participants
-      .filter((p) => p.displayName.trim() || p.userId.trim())
-      .map((p, i) => ({
-        key: `${p.userId}-${p.displayName}-${i}`,
-        label: p.displayName.trim() || p.userId.trim(),
-        attended: p.attended,
-        isRequired: p.isRequired,
+    return (d?.participants ?? [])
+      .filter((p) => p.displayName?.trim() || p.userId?.trim())
+      .map((p) => ({
+        key: p.id,
+        label: p.displayName?.trim() || 'Participant',
+        isRequired: false,
       }));
-  }, [participants]);
+  }, [d?.participants]);
 
   const handleConfirmNextReview = async () => {
     if (!d || !editable) return;
@@ -968,100 +806,67 @@ export function ProjectReviewEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="flex h-[min(92vh,900px)] w-[90vw] max-w-[90vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[90vw]"
+        size="xl"
+        className="flex max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-4 lg:max-w-5xl"
       >
-        <DialogHeader
-          className={cn(
-            'shrink-0 space-y-0 border-b border-border/60 px-4 py-5 sm:px-6',
-            isPostMortemReview
-              ? 'bg-gradient-to-b from-amber-500/10 via-background to-background'
-              : 'bg-gradient-to-b from-muted/35 via-background to-background',
-          )}
-        >
+        <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
           <DialogDescription className="sr-only">
             {isPostMortemReview
               ? "Éditeur de retour d'expérience — bilan, écarts et leçons apprises"
               : 'Éditeur de point projet — compte rendu, décisions et actions'}
           </DialogDescription>
-          <div className="flex flex-wrap items-start gap-4">
-            <div
-              className={cn(
-                'flex size-11 shrink-0 items-center justify-center rounded-xl border shadow-inner',
-                isPostMortemReview
-                  ? 'border-amber-500/30 bg-amber-500/15 text-amber-950 dark:text-amber-300'
-                  : 'border-border/60 bg-muted/50 text-sky-700 dark:text-sky-400',
-              )}
-              aria-hidden
-            >
-              {isPostMortemReview ? (
-                <BookOpen className="size-5" />
-              ) : (
-                <CalendarClock className="size-5" />
-              )}
-            </div>
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="starium-overline mb-1">
-                    {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
-                  </p>
-                  <DialogTitle className="text-left text-xl font-semibold leading-snug tracking-tight text-foreground">
-                    {d ? (
-                      PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType
-                    ) : (
-                      'Point projet'
-                    )}
-                  </DialogTitle>
-                  {d && projectQuery.data?.name && (
-                    <p className="mt-1 text-sm font-medium text-foreground/90">
-                      {projectQuery.data.name}
-                    </p>
-                  )}
-                  {d && !projectQuery.data?.name && (
-                    <p className="mt-1 text-sm text-muted-foreground">Projet</p>
-                  )}
-                  {d && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
-                        <CalendarClock className="size-3 shrink-0" aria-hidden />
-                        {formatReviewDateTime(d.reviewDate)}
-                      </span>
-                      {d.title ? (
-                        <span className="text-xs text-muted-foreground">
-                          <span className="text-muted-foreground/80">Objet : </span>
-                          <span className="font-medium text-foreground">{d.title}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs italic text-muted-foreground">
-                          {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
-                        </span>
-                      )}
-                    </div>
+              <p className="starium-overline mb-1">
+                {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
+              </p>
+              <DialogTitle className="text-left text-lg font-semibold leading-snug">
+                {d
+                  ? `${PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType}${projectQuery.data?.name ? ` — ${projectQuery.data.name}` : ''}`
+                  : 'Point projet'}
+              </DialogTitle>
+              {d ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                  <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-muted-foreground">
+                    <CalendarClock className="size-3.5 shrink-0" aria-hidden />
+                    {formatReviewDateTime(d.reviewDate)}
+                  </span>
+                  {d.title ? (
+                    <span className="text-muted-foreground">
+                      Objet :{' '}
+                      <span className="font-medium text-foreground">{d.title}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs italic text-muted-foreground">
+                      {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
+                    </span>
                   )}
                 </div>
-                {d && (
-                  <span
-                    className={cn(
-                      'starium-ds-badge shrink-0',
-                      reviewEditorStatusBadgeClass(d.status),
-                    )}
-                  >
-                    {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
-                  </span>
-                )}
-              </div>
+              ) : null}
             </div>
+            {d ? (
+              <span
+                className={cn(
+                  'starium-ds-badge shrink-0',
+                  reviewEditorStatusBadgeClass(d.status),
+                )}
+              >
+                {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
+              </span>
+            ) : null}
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-4 py-5 sm:px-6">
+        <DialogBody className="min-h-0 flex-1 py-4">
           {detailQuery.isLoading || !reviewId ? (
             <LoadingState rows={6} />
           ) : detailQuery.error || !d ? (
-            <p className="text-sm text-destructive">Impossible de charger ce point.</p>
+            <p className="text-sm text-destructive" role="alert">
+              Impossible de charger ce point.
+            </p>
           ) : (
-            <div className="mx-auto flex max-w-4xl flex-col gap-5">
-              <ReviewFormSection
+            <div className="starium-form mx-auto max-w-4xl gap-4">
+              <ReviewEditorSection
                 sectionId="pr-ed-params"
                 title={isPostMortemReview ? 'Identification du bilan' : 'Paramètres du point'}
                 description={
@@ -1070,13 +875,12 @@ export function ProjectReviewEditorDialog({
                     : 'Type de revue, date et titre de la séance.'
                 }
                 icon={isPostMortemReview ? BookOpen : CalendarClock}
-                accent={isPostMortemReview ? 'amber' : 'sky'}
               >
-                <div className="grid gap-4 sm:grid-cols-12">
-                  <div className="grid gap-1.5 sm:col-span-4 lg:col-span-3">
-                    <Label htmlFor="pr-ed-type-h" className="text-xs font-medium text-foreground">
+                <div className="starium-form-grid starium-form-grid--2">
+                  <div className="starium-form-field">
+                    <label htmlFor="pr-ed-type-h" className="starium-form-label">
                       Type de revue
-                    </Label>
+                    </label>
                     <select
                       id="pr-ed-type-h"
                       className={selectFieldClass}
@@ -1091,23 +895,24 @@ export function ProjectReviewEditorDialog({
                       ))}
                     </select>
                   </div>
-                  <div className="grid gap-1.5 sm:col-span-4 lg:col-span-4">
-                    <Label htmlFor="pr-ed-date-h" className="text-xs font-medium text-foreground">
+                  <div className="starium-form-field">
+                    <label htmlFor="pr-ed-date-h" className="starium-form-label">
                       {isPostMortemReview ? 'Date du bilan' : 'Date et heure'}
-                    </Label>
+                    </label>
                     <Input
                       id="pr-ed-date-h"
                       type="datetime-local"
+                      step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
                       value={reviewDate}
                       disabled={!editable && !planningEditable}
                       onChange={(e) => setReviewDate(e.target.value)}
-                      className="border-border/70"
+                      className="starium-form-input min-h-11"
                     />
                   </div>
-                  <div className="grid gap-1.5 sm:col-span-12 lg:col-span-5">
-                    <Label htmlFor="pr-ed-title-h" className="text-xs font-medium text-foreground">
+                  <div className="starium-form-field starium-form-grid--span-2">
+                    <label htmlFor="pr-ed-title-h" className="starium-form-label">
                       {isPostMortemReview ? 'Titre du bilan' : 'Titre de la séance'}
-                    </Label>
+                    </label>
                     <Input
                       id="pr-ed-title-h"
                       value={title}
@@ -1119,11 +924,11 @@ export function ProjectReviewEditorDialog({
                           ? 'Ex. Retour d’expérience — intégration API éditeur'
                           : 'Ex. COPIL — revue budget T2'
                       }
-                      className="border-border/70"
+                      className="starium-form-input min-h-11"
                     />
                   </div>
                 </div>
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
               <ReviewMeetingInfoBlock detail={d} />
 
@@ -1164,19 +969,18 @@ export function ProjectReviewEditorDialog({
               />
 
               {isPostMortemReview && projectQuery.data && (
-                <ReviewFormSection
+                <ReviewEditorSection
                   sectionId="pr-ed-context"
                   title="Contexte à la clôture"
                   description="Indicateurs projet au moment du bilan — lecture seule."
                   icon={Target}
-                  accent="slate"
                 >
                   <ProjectMeteoInline
                     project={projectQuery.data}
                     badgeMerged={badgeMerged}
                     embedded
                   />
-                </ReviewFormSection>
+                </ReviewEditorSection>
               )}
 
               {!isPostMortemReview && projectQuery.isLoading && (
@@ -1209,299 +1013,15 @@ export function ProjectReviewEditorDialog({
                 </div>
               )}
 
-              <ReviewFormSection
-                sectionId="pr-section-participants"
-                title="Parties prenantes"
-                description="Choisissez des membres dans la matrice équipe projet (nom + fonction) ou ajoutez des collaborateurs internes / externes hors matrice."
-                icon={Users}
-                accent="amber"
-              >
-                <div className="flex flex-wrap justify-end gap-2">
-                  {editable && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setParticipants((prev) => [
-                            ...prev,
-                            {
-                              displayName: '',
-                              userId: '',
-                              attended: true,
-                              isRequired: false,
-                              source: 'team',
-                              teamMemberId: '',
-                              projectRoleName: null,
-                            },
-                          ])
-                        }
-                      >
-                        Ajouter (équipe projet)
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setParticipants((prev) => [
-                            ...prev,
-                            {
-                              displayName: '',
-                              userId: '',
-                              attended: true,
-                              isRequired: false,
-                              source: 'free',
-                              teamMemberId: undefined,
-                              projectRoleName: null,
-                            },
-                          ])
-                        }
-                      >
-                        Ajouter (autre collaborateur)
-                      </Button>
-                    </>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {participants.map((p, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-border/70 bg-muted/30 p-3 sm:p-4"
-                    >
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2">
-                        <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Participant {i + 1}
-                        </span>
-                        {editable && participants.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-destructive"
-                            onClick={() =>
-                              setParticipants((prev) => prev.filter((_, j) => j !== i))
-                            }
-                          >
-                            Retirer
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="grid gap-3">
-                        <div className="grid gap-1.5 sm:max-w-md">
-                          <Label htmlFor={`pr-part-source-${i}`}>Origine</Label>
-                          <select
-                            id={`pr-part-source-${i}`}
-                            className={selectFieldClass}
-                            value={p.source}
-                            disabled={!editable}
-                            onChange={(e) => {
-                              const src = e.target.value as 'team' | 'free';
-                              setParticipants((prev) =>
-                                prev.map((x, j) =>
-                                  j === i
-                                    ? {
-                                        ...x,
-                                        source: src,
-                                        teamMemberId: src === 'team' ? '' : undefined,
-                                        projectRoleName: null,
-                                        displayName: src === 'team' ? '' : x.displayName,
-                                        userId: src === 'team' ? '' : x.userId,
-                                      }
-                                    : x,
-                                ),
-                              );
-                            }}
-                          >
-                            <option value="team">Membre de l’équipe projet (matrice)</option>
-                            <option value="free">Autre collaborateur (interne ou externe)</option>
-                          </select>
-                        </div>
-
-                        {p.source === 'team' ? (
-                          <div className="grid gap-2">
-                            <div className="grid gap-1.5">
-                              <Label htmlFor={`pr-part-team-${i}`}>
-                                Membre et fonction sur le projet
-                              </Label>
-                              {teamQuery.isLoading ? (
-                                <p className="text-xs text-muted-foreground">
-                                  Chargement de l’équipe…
-                                </p>
-                              ) : (
-                                <select
-                                  id={`pr-part-team-${i}`}
-                                  className={selectFieldClass}
-                                  value={p.teamMemberId ?? ''}
-                                  disabled={!editable}
-                                  onChange={(e) => {
-                                    const id = e.target.value;
-                                    const m = teamQuery.data?.find((x) => x.id === id);
-                                    setParticipants((prev) =>
-                                      prev.map((x, j) =>
-                                        j === i
-                                          ? {
-                                              ...x,
-                                              teamMemberId: id,
-                                              userId: m?.userId ?? '',
-                                              displayName: m?.displayName ?? '',
-                                              projectRoleName: m?.roleName ?? null,
-                                            }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
-                                >
-                                  <option value="">— Choisir dans la matrice équipe —</option>
-                                  {teamMembersSorted(teamQuery.data ?? []).map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.displayName} — {m.roleName} ({m.email})
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
-                            {(() => {
-                              const tm = teamQuery.data?.find((x) => x.id === p.teamMemberId);
-                              const aff =
-                                tm?.affiliation != null
-                                  ? affiliationLabel(tm.affiliation)
-                                  : null;
-                              if (!p.projectRoleName && !aff) return null;
-                              return (
-                                <p className="text-xs text-muted-foreground">
-                                  {p.projectRoleName ? (
-                                    <>
-                                      <span className="font-medium text-foreground">
-                                        Fonction :{' '}
-                                      </span>
-                                      {p.projectRoleName}
-                                    </>
-                                  ) : null}
-                                  {aff ? (
-                                    <span>
-                                      {p.projectRoleName ? ' · ' : null}
-                                      {aff}
-                                    </span>
-                                  ) : null}
-                                </p>
-                              );
-                            })()}
-                          </div>
-                        ) : (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="grid gap-1.5 sm:col-span-2">
-                              <Label htmlFor={`pr-part-name-${i}`}>Nom affiché</Label>
-                              <Input
-                                id={`pr-part-name-${i}`}
-                                value={p.displayName}
-                                disabled={!editable}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setParticipants((prev) =>
-                                    prev.map((x, j) =>
-                                      j === i ? { ...x, displayName: v } : x,
-                                    ),
-                                  );
-                                }}
-                                placeholder="Nom, organisation, rôle invité…"
-                              />
-                            </div>
-                            <div className="grid gap-1.5 sm:col-span-2">
-                              <Label htmlFor={`pr-part-assign-${i}`}>
-                                Compte utilisateur (optionnel)
-                              </Label>
-                              <select
-                                id={`pr-part-assign-${i}`}
-                                className={selectFieldClass}
-                                value={p.userId}
-                                disabled={!editable}
-                                onChange={(e) => {
-                                  const id = e.target.value;
-                                  const u = assignableUsersQuery.data?.users?.find((x) => x.id === id);
-                                  setParticipants((prev) =>
-                                    prev.map((x, j) =>
-                                      j === i
-                                        ? {
-                                            ...x,
-                                            userId: id,
-                                            displayName: u
-                                              ? displayNameFromAssignable(u)
-                                              : x.displayName,
-                                          }
-                                        : x,
-                                    ),
-                                  );
-                                }}
-                              >
-                                <option value="">— Aucun compte / saisie manuelle du nom —</option>
-                                {assignableUsersQuery.data?.users?.map((u) => (
-                                  <option key={u.id} value={u.id}>
-                                    {formatAssignableUserLabel(u)}
-                                  </option>
-                                ))}
-                              </select>
-                              <p className="text-[0.7rem] text-muted-foreground">
-                                Rattachez un compte client si l’utilisateur existe sur la plateforme ;
-                                sinon laissez vide pour un externe ou un invité.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap gap-4 border-t border-border/50 pt-3">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border border-border/70"
-                              checked={p.attended}
-                              disabled={!editable}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setParticipants((prev) =>
-                                  prev.map((x, j) =>
-                                    j === i ? { ...x, attended: v } : x,
-                                  ),
-                                );
-                              }}
-                            />
-                            Présent
-                          </label>
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border border-border/70"
-                              checked={p.isRequired}
-                              disabled={!editable}
-                              onChange={(e) => {
-                                const v = e.target.checked;
-                                setParticipants((prev) =>
-                                  prev.map((x, j) =>
-                                    j === i ? { ...x, isRequired: v } : x,
-                                  ),
-                                );
-                              }}
-                            />
-                            Requis
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ReviewFormSection>
 
               {!isPostMortemReview && (
               <>
               {previousReviewId != null && (
-                <ReviewFormSection
+                <ReviewEditorSection
                   sectionId="pr-section-since"
                   title="Depuis le dernier point"
                   description="Indicateurs projet et activité depuis la clôture du point précédent (référence temporelle : date du point précédent)."
                   icon={TrendingUp}
-                  accent="sky"
                 >
                   {previousDetailQuery.isLoading || tasksQuery.isLoading ? (
                     <LoadingState rows={2} />
@@ -1535,15 +1055,14 @@ export function ProjectReviewEditorDialog({
                   ) : (
                     <p className="text-xs text-muted-foreground">Données projet indisponibles.</p>
                   )}
-                </ReviewFormSection>
+                </ReviewEditorSection>
               )}
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-prev-actions"
                 title="Suivi des actions du point précédent"
                 description="Actions issues du dernier point enregistré (statut et échéances)."
                 icon={History}
-                accent="amber"
               >
                 {!previousReviewId ? (
                   <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
@@ -1613,14 +1132,13 @@ export function ProjectReviewEditorDialog({
                     );
                   })()
                 )}
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-progress"
                 title="Avancement projet"
                 description="Vue consolidée : avancement, jalons atteints / à venir / en dérive."
                 icon={Target}
-                accent="sky"
               >
                 {milestonesQuery.isLoading ? (
                   <LoadingState rows={2} />
@@ -1694,14 +1212,13 @@ export function ProjectReviewEditorDialog({
                     </div>
                   </div>
                 )}
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-risks"
                 title="Risques et blocages"
                 description="Risques ouverts : criticité (probabilité × impact), plan d’action."
                 icon={Flag}
-                accent="violet"
               >
                 {risksQuery.isLoading ? (
                   <LoadingState rows={2} />
@@ -1745,14 +1262,13 @@ export function ProjectReviewEditorDialog({
                     )}
                   </ul>
                 )}
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-arb"
                 title="Arbitrage (fiche projet)"
                 description="Lecture seule : états des trois niveaux au moment de la consultation."
                 icon={Scale}
-                accent="violet"
               >
                 <Alert className="border-border/70 bg-muted/40">
                   <Info className="size-4 text-muted-foreground" aria-hidden />
@@ -1776,14 +1292,13 @@ export function ProjectReviewEditorDialog({
                     Fiche projet indisponible — ouvrez la fiche projet pour consulter l’arbitrage.
                   </p>
                 )}
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-decisions"
                 title="Décisions"
                 description="Décisions formelles prises pendant le point."
                 icon={ListChecks}
-                accent="sky"
               >
                 <div className="flex justify-end">
                   {editable && (
@@ -1845,14 +1360,13 @@ export function ProjectReviewEditorDialog({
                     </div>
                   ))}
                 </div>
-              </ReviewFormSection>
+              </ReviewEditorSection>
 
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-actions"
                 title="Actions et suivi"
                 description="Actions issues du point : statut type tâche, échéance, lien optionnel vers une tâche du projet."
                 icon={ListTodo}
-                accent="slate"
               >
                 <div className="flex justify-end">
                   {editable && (
@@ -1912,6 +1426,7 @@ export function ProjectReviewEditorDialog({
                           <Label>Échéance</Label>
                           <Input
                             type="datetime-local"
+                            step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
                             value={a.dueDate}
                             disabled={!editable}
                             onChange={(e) => {
@@ -1953,18 +1468,17 @@ export function ProjectReviewEditorDialog({
                     </div>
                   ))}
                 </div>
-              </ReviewFormSection>
+              </ReviewEditorSection>
               </>
               )}
 
               {isPostMortemReview ? (
                 <>
-                  <ReviewFormSection
+                  <ReviewEditorSection
                     sectionId="pr-section-rex-narrative"
                     title="Bilan narratif"
                     description="Structure RETEX : objectifs, résultats, écarts, causes, leçons et recommandations."
                     icon={FileText}
-                    accent="amber"
                   >
                     <div className="grid gap-4 lg:grid-cols-2">
                       {POST_MORTEM_NARRATIVE_FIELDS.map(([key, label]) => (
@@ -1993,14 +1507,13 @@ export function ProjectReviewEditorDialog({
                         </div>
                       ))}
                     </div>
-                  </ReviewFormSection>
+                  </ReviewEditorSection>
 
-                  <ReviewFormSection
+                  <ReviewEditorSection
                     sectionId="pr-section-rex-indicators"
                     title="Indicateurs de perception"
                     description="Notation 0–5 sur budget, délais, qualité, communication et pilotage des risques."
                     icon={Target}
-                    accent="violet"
                   >
                     <PostMortemIndicatorsBlock
                       indicateurs={postMortemForm.indicateurs}
@@ -2010,14 +1523,13 @@ export function ProjectReviewEditorDialog({
                         setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
                       }
                     />
-                  </ReviewFormSection>
+                  </ReviewEditorSection>
 
-                  <ReviewFormSection
+                  <ReviewEditorSection
                     sectionId="pr-section-summary"
                     title="Synthèse exécutive"
                     description="Message clé pour le CODIR — faits marquants et capitalisation."
                     icon={Sparkles}
-                    accent="emerald"
                   >
                     <div className="grid gap-3">
                       <div className="grid gap-1.5">
@@ -2070,15 +1582,14 @@ export function ProjectReviewEditorDialog({
                         </div>
                       )}
                     </div>
-                  </ReviewFormSection>
+                  </ReviewEditorSection>
                 </>
               ) : (
-              <ReviewFormSection
+              <ReviewEditorSection
                 sectionId="pr-section-summary"
                 title="Résumé exécutif"
                 description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
                 icon={Sparkles}
-                accent="emerald"
               >
                 <div className="grid gap-3">
                   <div className="grid gap-1.5">
@@ -2135,6 +1646,7 @@ export function ProjectReviewEditorDialog({
                     <Input
                       id="pr-ed-next"
                       type="datetime-local"
+                      step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
                       value={nextReviewDate}
                       disabled={!editable}
                       onChange={(e) => {
@@ -2178,7 +1690,7 @@ export function ProjectReviewEditorDialog({
                     ) : null}
                   </div>
                 </div>
-              </ReviewFormSection>
+              </ReviewEditorSection>
               )}
 
               {!isPostMortemReview && (
@@ -2190,18 +1702,13 @@ export function ProjectReviewEditorDialog({
               )}
             </div>
           )}
-        </div>
+        </DialogBody>
 
         {d && (
-          <DialogFooter
-            className={cn(
-              'border-t border-border/60 px-4 pt-3 pb-5 sm:px-6 sm:pb-6',
-              isPostMortemReview ? 'bg-amber-500/5' : 'bg-muted/20',
-            )}
-          >
+          <DialogFooter className="gap-2 border-t border-border/60 pt-4">
             <div className="flex w-full flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
                   Fermer
                 </Button>
                 {editable && (

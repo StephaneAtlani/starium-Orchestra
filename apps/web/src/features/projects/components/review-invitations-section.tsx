@@ -173,32 +173,20 @@ export function ReviewInvitationsSection({
     createCalendarEvent;
 
   return (
-    <section
-      className="starium-form-section rounded-xl border border-border/70 bg-card p-4"
-      aria-labelledby="review-invitations-title"
-    >
-      <div className="mb-3 flex items-start gap-3">
-        <div
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/40 text-sky-700 dark:text-sky-400"
-          aria-hidden
-        >
-          <Mail className="size-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 id="review-invitations-title" className="text-sm font-semibold">
-            Invitations et réunion
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Notifications et actions Microsoft sont indépendantes. Le calendrier peut
-            envoyer une invitation externe aux participants.
-          </p>
-          {microsoftOnlineMeetingId ? (
-            <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-              Réunion Teams créée
-            </p>
-          ) : null}
-        </div>
-      </div>
+    <section className="starium-form-section border-border/60" aria-labelledby="review-invitations-title">
+      <h3 id="review-invitations-title" className="starium-form-section-title">
+        <Mail aria-hidden />
+        Invitations et réunion
+      </h3>
+      <p className="starium-form-hint mb-4">
+        Notifications et actions Microsoft sont indépendantes. Le calendrier peut envoyer une
+        invitation externe aux participants.
+      </p>
+      {microsoftOnlineMeetingId ? (
+        <p className="mb-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+          Réunion Teams créée
+        </p>
+      ) : null}
 
       <div className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
         <p className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
