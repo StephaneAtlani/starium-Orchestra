@@ -61,7 +61,8 @@ export class QueueService {
       },
       removeOnComplete: 1000,
       removeOnFail: 2000,
-      jobId: `${LICENSE_EXPIRATION_SCAN_JOB}:${payload.windowStartIso}`,
+      // BullMQ interdit les ":" dans les jobId custom (délimiteur Redis interne).
+      jobId: `${LICENSE_EXPIRATION_SCAN_JOB}_${payload.windowStartIso.replace(/:/g, '-')}`,
     };
 
     const job = await this.licenseExpirationQueue.add(

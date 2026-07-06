@@ -12,13 +12,11 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { ActionPlanMetaBadges } from '@/features/projects/components/action-plan-meta-badges';
 import {
-  PROJECT_ENTITY_PRIORITY_KEYS,
-  type ProjectEntityPriorityKey,
-  type ProjectLifecycleStatusKey,
-} from '@/lib/ui/badge-registry';
-import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
+  ACTION_PLAN_PRIORITY_LABELS,
+  ACTION_PLAN_STATUS_LABELS,
+} from '@/features/projects/lib/action-plan-display';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -65,20 +63,6 @@ function fmtShortDate(iso: string | null | undefined): string {
   }
 }
 
-const ACTION_PLAN_STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Brouillon',
-  ACTIVE: 'Actif',
-  ON_HOLD: 'En pause',
-  COMPLETED: 'Terminé',
-  CANCELLED: 'Annulé',
-};
-
-const ACTION_PLAN_PRIORITY_LABELS: Record<string, string> = {
-  LOW: 'Basse',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-};
-
 const ACTION_PLAN_TASKS_VIEW_MODE_KEY = 'starium.action-plan.tasksViewMode';
 
 function sanitizeFileName(input: string): string {
@@ -119,51 +103,6 @@ function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
-
-/** Style = cycle de vie projet (RFC-PLA-001 `ACTIVE` ≈ `IN_PROGRESS`). */
-function actionPlanStatusToLifecycleKey(
-  status: string,
-): ProjectLifecycleStatusKey {
-  const m: Record<string, ProjectLifecycleStatusKey> = {
-    DRAFT: 'DRAFT',
-    ACTIVE: 'IN_PROGRESS',
-    ON_HOLD: 'ON_HOLD',
-    COMPLETED: 'COMPLETED',
-    CANCELLED: 'CANCELLED',
-  };
-  return m[status] ?? 'DRAFT';
-}
-
-function PlanMetaBadges({ plan }: { plan: ActionPlanApi }) {
-  const { merged } = useClientUiBadgeConfig();
-  const lifecycleKey = actionPlanStatusToLifecycleKey(plan.status);
-  const statusBadge = merged.projectLifecycleStatus[lifecycleKey];
-  const statusLabel = ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status;
-
-  const priorityKnown = (
-    PROJECT_ENTITY_PRIORITY_KEYS as readonly string[]
-  ).includes(plan.priority);
-  const priorityEntry = priorityKnown
-    ? merged.projectEntityPriority[plan.priority as ProjectEntityPriorityKey]
-    : undefined;
-  const priorityWord =
-    priorityEntry?.label ??
-    ACTION_PLAN_PRIORITY_LABELS[plan.priority] ??
-    plan.priority;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <RegistryBadge className={statusBadge.className}>{statusLabel}</RegistryBadge>
-      <RegistryBadge
-        className={
-          priorityEntry?.className ?? 'border-border/80 text-foreground'
-        }
-      >
-        Priorité {priorityWord}
-      </RegistryBadge>
-    </div>
-  );
 }
 
 export default function ActionPlanDetailPage() {
@@ -768,7 +707,7 @@ export default function ActionPlanDetailPage() {
                         className="rounded px-1 py-0.5 text-left hover:bg-muted"
                         onClick={() => setActiveMetaEdit('status')}
                       >
-                        <PlanMetaBadges plan={plan} />
+                        <ActionPlanMetaBadges plan={plan} />
                       </button>
                     )}
                     {plan.description?.trim() ? (
