@@ -87,7 +87,7 @@ Les triggers utilisent **`cursor-grab`** (et `active:cursor-grabbing` quand les 
 - Changer la **sync header / corps** : effets liés à `headerScrollRef` et `scrollRef`.
 - Ne pas réintroduire un wrapper `Table` avec `overflow-x-auto` **entre** le scroll principal et le tableau sans vérifier les régressions `sticky` (pattern connu sur la liste projets).
 
-**Tableaux (hors Gantt)** : le grab/pan générique des listes est documenté dans **[FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8** (`Table`, `useTablePan`, `noWrapper` pour sticky). Le Gantt conserve sa propre implémentation (`handleTimelineMouseDown`, exclusions `tooltip-trigger`).
+**Tableaux (hors Gantt)** : grab/pan générique — **`Table`** / **`TableContainer`** (shadcn) et **`StariumTableWrap`** pour les grilles `starium-dt` projet. Documenté dans **[FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8** (`useTablePan`, Pointer Events souris/doigt, `noWrapper` pour sticky). Le Gantt conserve sa propre implémentation (`handleTimelineMouseDown`, exclusions `tooltip-trigger`).
 
 ---
 

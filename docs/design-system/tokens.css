@@ -1,0 +1,185 @@
+/* =========================================================
+   Starium — Foundations
+   Tokens for color, type, spacing, radius, shadow, motion.
+   Apple-inspired sobriety + Starium gold accent.
+   ========================================================= */
+
+/* ---------- Webfonts ----------
+   Display + UI: Manrope — humaniste néo-grotesk, esprit Apple.
+   Variable font local. Mono: JetBrains Mono.
+   --------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');
+}
+
+:root {
+  /* ---------- Brand ---------- */
+  --brand-gold:        #E8A317;   /* ambre brûlé — accent principal */
+  --brand-gold-600:    #CC8E0E;   /* hover */
+  --brand-gold-700:    #5F3F00;   /* press / texte sur tint */
+  --brand-gold-100:    #F4D58A;   /* tints, badges */
+  --brand-gold-050:    #FBEAB5;   /* surface très claire */
+  --brand-ink:         #0E0E10;   /* logo black, primary text */
+
+  /* ---------- Neutrals (warm, paper-tinted) ---------- */
+  --neutral-0:    #FFFFFF;
+  --neutral-50:   #FAF9F7;        /* page bg */
+  --neutral-100:  #F4F2EE;        /* subtle surface */
+  --neutral-200:  #E9E6E0;        /* borders, dividers */
+  --neutral-300:  #D6D2CA;
+  --neutral-400:  #B6B0A4;
+  --neutral-500:  #8C8579;        /* bordures légères, placeholders — pas le corps muted */
+  --neutral-600:  #5F5A52;        /* texte secondaire lisible (AA sur fond papier) */
+  --neutral-700:  #403D38;
+  --neutral-800:  #26241F;
+  --neutral-900:  #14130F;
+
+  /* ---------- Semantic state ---------- */
+  --state-success:     #1F8A5B;
+  --state-success-bg:  #E6F4ED;
+  --state-warning:     #C77A00;
+  --state-warning-bg:  #FFF1DC;
+  --state-danger:      #B42318;
+  --state-danger-bg:   #FBE8E6;
+  --state-info:        #2A6FDB;
+  --state-info-bg:     #E3EEFB;
+
+  /* ---------- Foreground / Background tokens ---------- */
+  --fg-1:        var(--brand-ink);     /* primary text */
+  --fg-2:        var(--neutral-700);   /* body */
+  --fg-3:        var(--neutral-600);   /* muted/meta — lisible sur fond clair */
+  --fg-4:        var(--neutral-400);   /* placeholder */
+
+  --color-text-muted: var(--neutral-600);
+  --ds-text-muted-color: var(--color-text-muted);
+  --ds-kpi-label-color: var(--ds-text-muted-color);
+  --fg-on-gold:  var(--brand-ink);     /* text over gold */
+  --fg-on-ink:   var(--neutral-0);
+
+  --bg-app:      var(--neutral-50);
+  --bg-surface:  var(--neutral-0);
+  --bg-sunken:   var(--neutral-100);
+  --bg-tint:     var(--brand-gold-050);
+  --bg-ink:      var(--brand-ink);
+
+  --border-subtle:  var(--neutral-200);
+  --border-strong:  var(--neutral-300);
+  --border-focus:   var(--brand-gold);
+
+  /* ---------- Type ---------- */
+  --font-sans:    'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Display sizes — tight, heavy, Apple-flavored */
+  --text-display-xl: 800 64px/1.05 var(--font-display);
+  --text-display-l:  800 48px/1.08 var(--font-display);
+  --text-display-m:  700 36px/1.12 var(--font-display);
+
+  --text-h1:   700 28px/1.2 var(--font-sans);
+  --text-h2:   700 22px/1.25 var(--font-sans);
+  --text-h3:   600 18px/1.3 var(--font-sans);
+  --text-h4:   600 15px/1.35 var(--font-sans);
+
+  --text-body-l:    400 17px/1.55 var(--font-sans);
+  --text-body:      400 15px/1.55 var(--font-sans);
+  --text-body-s:    400 13px/1.5 var(--font-sans);
+  --text-caption:   500 12px/1.4 var(--font-sans);
+  --text-overline:  600 11px/1.2 var(--font-sans); /* uppercase, tracked */
+
+  --text-mono:   500 13px/1.5 var(--font-mono);
+
+  --tracking-tight:    -0.02em;
+  --tracking-normal:    0;
+  --tracking-wide:      0.04em;
+  --tracking-overline:  0.08em;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+  /* ---------- Radius ---------- */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* ---------- Shadow / elevation ---------- */
+  --shadow-1: 0 1px 2px rgba(14,14,16,0.04), 0 1px 1px rgba(14,14,16,0.03);
+  --shadow-2: 0 2px 6px rgba(14,14,16,0.06), 0 1px 2px rgba(14,14,16,0.04);
+  --shadow-3: 0 8px 24px rgba(14,14,16,0.08), 0 2px 6px rgba(14,14,16,0.04);
+  --shadow-4: 0 24px 60px rgba(14,14,16,0.12), 0 6px 16px rgba(14,14,16,0.06);
+  --shadow-focus: 0 0 0 3px rgba(232,163,23,0.32);
+
+  /* ---------- Motion ---------- */
+  --ease-standard:  cubic-bezier(0.2, 0, 0, 1);   /* @kind other */
+  --ease-emphasis:  cubic-bezier(0.2, 0, 0, 1.2); /* @kind other */
+  --ease-exit:      cubic-bezier(0.4, 0, 1, 1);   /* @kind other */
+  --duration-fast:    120ms; /* @kind other */
+  --duration-base:    200ms; /* @kind other */
+  --duration-slow:    320ms; /* @kind other */
+
+  /* ---------- Layout ---------- */
+  --container-max:    1280px;
+  --sidebar-width:    248px;
+  --topbar-height:    64px;
+}
+
+/* =========================================================
+   Semantic element styles — drop these on plain HTML.
+   ========================================================= */
+
+html, body {
+  background: var(--bg-app);
+  color: var(--fg-1);
+  font: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 { font: var(--text-h1); letter-spacing: var(--tracking-tight); color: var(--fg-1); }
+h2, .h2 { font: var(--text-h2); letter-spacing: var(--tracking-tight); color: var(--fg-1); }
+h3, .h3 { font: var(--text-h3); color: var(--fg-1); }
+h4, .h4 { font: var(--text-h4); color: var(--fg-1); }
+
+.display-xl { font: var(--text-display-xl); letter-spacing: var(--tracking-tight); }
+.display-l  { font: var(--text-display-l);  letter-spacing: var(--tracking-tight); }
+.display-m  { font: var(--text-display-m);  letter-spacing: var(--tracking-tight); }
+
+p { font: var(--text-body); color: var(--fg-2); margin: 0; }
+.body-l  { font: var(--text-body-l);  color: var(--fg-2); }
+.body    { font: var(--text-body);    color: var(--fg-2); }
+.body-s  { font: var(--text-body-s);  color: var(--fg-3); }
+.caption { font: var(--text-caption); color: var(--fg-3); }
+.overline {
+  font: var(--text-overline);
+  letter-spacing: var(--tracking-overline);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+code, .mono { font: var(--text-mono); }
+
+a { color: var(--brand-gold-700); text-decoration: none; }
+a:hover { color: var(--brand-gold-600); }
+
+::selection { background: var(--brand-gold-100); color: var(--brand-ink); }

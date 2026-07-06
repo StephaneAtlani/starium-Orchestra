@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -21,10 +22,6 @@ import {
   SelectLabel,
   SelectTrigger,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -58,6 +55,10 @@ import {
   RISK_STATUS_LABEL,
   RISK_TREATMENT_STRATEGY_LABEL,
 } from '../constants/project-enum-labels';
+import {
+  riskCriticalityDsBadgeClass,
+  riskCriticalityLabel,
+} from '../lib/project-risk-display';
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { ChevronDown, CloudUpload, ListPlus, Loader2 } from 'lucide-react';
 
@@ -184,7 +185,39 @@ function normalizeRiskSearchText(value: string): string {
 const selectTriggerLabelClass =
   'min-w-0 flex-1 truncate text-left text-sm leading-none';
 
-const requiredAsteriskClass = 'ml-1 text-destructive';
+const requiredAsteriskClass = 'ml-0.5 text-destructive';
+
+const EBIOS_INPUT_CLASS = 'starium-form-input';
+const EBIOS_TEXTAREA_CLASS = 'starium-form-textarea';
+const EBIOS_SELECT_TRIGGER_CLASS =
+  'starium-form-select h-[38px] w-full min-w-0 justify-between gap-2 px-3 text-left shadow-none';
+
+function EbiosField({
+  label,
+  htmlFor,
+  required,
+  hint,
+  children,
+  className,
+}: {
+  label: ReactNode;
+  htmlFor?: string;
+  required?: boolean;
+  hint?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('starium-form-field', className)}>
+      <label htmlFor={htmlFor} className="starium-form-label">
+        {label}
+        {required ? <span className={requiredAsteriskClass}>*</span> : null}
+      </label>
+      {children}
+      {hint ? <p className="starium-form-hint">{hint}</p> : null}
+    </div>
+  );
+}
 
 function InitialRiskSummary({
   probability,
@@ -202,45 +235,23 @@ function InitialRiskSummary({
   const score = probability * impact;
   const level = criticalityLevelFromPiScore(score);
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-1.5 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-sm shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1',
-      )}
-    >
-      <span className="font-medium text-foreground">Risque initial</span>
-      <span className="text-muted-foreground">(P×I)</span>
-      <span className="tabular-nums font-semibold text-foreground">{score}</span>
-      <span className="hidden text-muted-foreground sm:inline" aria-hidden>
-        ·
-      </span>
-      <Badge variant="outline" className={cn('font-normal', criticalityBadgeClass(level))}>
-        {PROJECT_RISK_CRITICALITY_LABEL[level] ?? level}
-      </Badge>
-      {piChanged && savedScore != null && savedLevel ? (
-        <span className="text-xs text-amber-700 dark:text-amber-400">
-          Enregistré : {savedScore} (
-          {PROJECT_RISK_CRITICALITY_LABEL[savedLevel as ProjectRiskCriticalityLevel] ?? savedLevel}
-          ) — enregistrez pour recalculer.
+    <div className="starium-form-section starium-form-section--inline-summary">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="font-bold text-[color:var(--brand-ink)]">Risque initial (P×I)</span>
+        <span className="tabular-nums text-lg font-extrabold">{score}</span>
+        <span className={cn('starium-ds-badge', riskCriticalityDsBadgeClass(level))}>
+          {riskCriticalityLabel(level)}
         </span>
-      ) : null}
+        {piChanged && savedScore != null && savedLevel ? (
+          <span className="text-xs font-semibold text-yellow-950 dark:text-amber-400">
+            Enregistré : {savedScore} ({riskCriticalityLabel(savedLevel)}) — enregistrez pour recalculer.
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function criticalityBadgeClass(level: string): string {
-  switch (level) {
-    case 'CRITICAL':
-      return 'border-violet-500/50 bg-violet-500/10 text-violet-950 dark:text-violet-300';
-    case 'HIGH':
-      return 'border-red-500/50 bg-red-500/10 text-red-800 dark:text-red-300';
-    case 'MEDIUM':
-      return 'border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-600';
-    default:
-      return 'border-emerald-600/45 bg-emerald-500/10 text-emerald-950 dark:text-emerald-500';
-  }
-}
-
-/** Aligné `project-risk-criticality.util.ts` (serveur). */
 function criticalityLevelFromPiScore(score: number): ProjectRiskCriticalityLevel {
   if (score <= 4) return 'LOW';
   if (score <= 9) return 'MEDIUM';
@@ -277,11 +288,12 @@ function CriticalityMatrix({
 
   return (
     <div className="space-y-2">
-      <Label className="text-foreground">Matrice de criticité (P×I)</Label>
+      <p className="starium-form-label">Matrice de criticité (P×I)</p>
       <p className="text-xs text-muted-foreground">
         Même grille que le serveur : score = vraisemblance × gravité. Cliquez une case pour
         appliquer P et I.
       </p>
+      {/* Matrice P×I dense : scroll horizontal contrôlé, exception RFC-FE-MOB-003 (pas DataTable). */}
       <div className="overflow-x-auto rounded-lg border border-border/60 bg-muted/10 p-2">
         <table className="w-full min-w-[280px] border-collapse text-center text-xs">
           <thead>
@@ -377,29 +389,24 @@ function EbiosSection({
   headerExtra?: ReactNode;
   children: ReactNode;
 }) {
+  const headingId = `ebios-section-${step}`;
   return (
-    <Card size="sm" className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="border-b border-border/50 px-3 pb-3 pt-3 sm:px-4">
-        <div className="flex flex-wrap items-start gap-3">
+    <section className="starium-form-section" aria-labelledby={headingId}>
+      <div className="mb-3 flex flex-wrap items-start gap-3">
+        <h3 id={headingId} className="starium-form-section-title min-w-0 flex-1">
           <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-xs font-semibold tabular-nums text-primary"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--brand-gold)_14%,transparent)] text-[10px] font-extrabold tabular-nums text-[color:var(--brand-gold-700)]"
             aria-hidden
           >
             {step}
           </span>
-          <div className="min-w-0 flex-1 space-y-1">
-            <CardTitle className="text-sm font-semibold leading-snug text-foreground">
-              {title}
-            </CardTitle>
-            {hint ? (
-              <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
-            ) : null}
-          </div>
-          {headerExtra ? <div className="shrink-0">{headerExtra}</div> : null}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 px-3 pb-3 pt-3 sm:px-4">{children}</CardContent>
-    </Card>
+          {title}
+        </h3>
+        {headerExtra ? <div className="shrink-0">{headerExtra}</div> : null}
+      </div>
+      {hint ? <p className="starium-form-hint mb-3">{hint}</p> : null}
+      <div className="starium-form-grid">{children}</div>
+    </section>
   );
 }
 
@@ -718,6 +725,7 @@ export function ProjectRiskEbiosDialog({
     complementaryTreatmentMeasures,
     ownerUserId,
     fallbackRiskTypeId,
+    mode,
   ]);
 
   const snapshot = useMemo(() => {
@@ -1076,17 +1084,15 @@ export function ProjectRiskEbiosDialog({
       Déjà lié à un plan d’action. Droits insuffisants pour ouvrir la tâche.
     </span>
   ) : canUpdateProjects ? (
-    <Button
+    <button
       type="button"
-      variant="outline"
-      size="sm"
-      className="gap-1.5"
+      className="starium-btn starium-btn-secondary gap-1.5 px-3 py-2 text-xs"
       onClick={() => setAddToPlanOpen(true)}
       disabled={isPending}
     >
       <ListPlus className="size-3.5 shrink-0" aria-hidden />
       Ajouter au plan d’action
-    </Button>
+    </button>
   ) : (
     <span className="max-w-[14rem] text-right text-xs text-muted-foreground">
       Droits insuffisants pour créer une tâche de plan.
@@ -1098,39 +1104,35 @@ export function ProjectRiskEbiosDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton
-        className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-4xl lg:max-w-5xl"
+        size="xl"
+        className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden p-4 lg:max-w-5xl"
       >
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-4"
-        >
-          <DialogHeader className="-mx-4 -mt-4 space-y-3 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+        <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
+          <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
             <div className="pr-8">
               <div className="flex flex-wrap items-center gap-2 gap-y-1">
                 <DialogTitle className="text-left">
                   {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
                 </DialogTitle>
-                <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
-                  EBIOS RM
-                </Badge>
+                <span className="starium-ds-badge starium-ds-badge--neutral">EBIOS RM</span>
               </div>
               <DialogDescription className="mt-2 text-left">
                 Scénario, évaluation, impact métier, traitement, résiduel et suivi (ISO 27005).
               </DialogDescription>
             </div>
             <div
-              className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
               role="status"
               aria-live="polite"
             >
               {isPending ? (
                 <>
-                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]" aria-hidden />
                   <span>Enregistrement en cours…</span>
                 </>
               ) : (
                 <>
-                  <CloudUpload className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+                  <CloudUpload className="size-3.5 shrink-0" aria-hidden />
                   <span>
                     Sauvegarde automatique lorsque le formulaire est valide (délai court après
                     modification).
@@ -1140,58 +1142,57 @@ export function ProjectRiskEbiosDialog({
             </div>
           </DialogHeader>
 
-          {riskApiScope === 'client' ? (
-            <div className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm">
-              <Label htmlFor="ebios-linked-project">Projet (facultatif)</Label>
-              <Select
-                value={linkedProjectId}
-                onValueChange={(v) => setLinkedProjectId(v && v.length > 0 ? v : PROJECT_NONE)}
-                disabled={isPending}
+          <DialogBody className="min-h-0 flex-1 py-4">
+            <div className="starium-form">
+              {riskApiScope === 'client' ? (
+                <section className="starium-form-section">
+                  <EbiosField
+                    label="Projet (facultatif)"
+                    htmlFor="ebios-linked-project"
+                    hint="« Hors projet » = risque transverse. Sinon choisissez un projet porteur."
+                  >
+                    <Select
+                      value={linkedProjectId}
+                      onValueChange={(v) => setLinkedProjectId(v && v.length > 0 ? v : PROJECT_NONE)}
+                      disabled={isPending}
+                    >
+                      <SelectTrigger id="ebios-linked-project" className={EBIOS_SELECT_TRIGGER_CLASS}>
+                        <span className={selectTriggerLabelClass}>{linkedProjectTriggerLabel}</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={PROJECT_NONE}>Hors projet</SelectItem>
+                        {projectOptions.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </EbiosField>
+                </section>
+              ) : null}
+
+              <div
+                className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground"
+                role="note"
               >
-                <SelectTrigger id="ebios-linked-project" className="w-full max-w-md">
-                  <span className={selectTriggerLabelClass}>{linkedProjectTriggerLabel}</span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={PROJECT_NONE}>Hors projet</SelectItem>
-                  {projectOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                « Hors projet » = risque transverse, non rattaché au portefeuille. Sinon choisissez un
-                projet porteur.
-              </p>
-            </div>
-          ) : null}
-
-          <Alert className="border-primary/30 bg-primary/5">
-            <AlertDescription className="text-xs text-foreground">
-              <span className="font-medium">Champs obligatoires :</span> Titre, Événement redouté,
-              Source de risque, Scénario, Impact métier, Type de risque, Stratégie de traitement.
-            </AlertDescription>
-          </Alert>
-
-          <div className="space-y-4 py-0.5">
+                <span className="font-semibold text-foreground">Champs obligatoires :</span> Titre,
+                Événement redouté, Source de risque, Scénario, Impact métier, Type de risque,
+                Stratégie de traitement.
+              </div>
             <EbiosSection
               step={1}
               title="Identification du scénario"
               hint="Domaine (via type), événement redouté, source de risque et scénario « Si X alors Y »."
               headerExtra={
                 mode === 'edit' && riskResolved ? (
-                  <Badge variant="outline" className="font-mono text-xs font-normal">
+                  <span className="starium-ds-badge starium-ds-badge--neutral font-mono text-[11px]">
                     {riskResolved.code}
-                  </Badge>
+                  </span>
                 ) : undefined
               }
             >
-              <div className="space-y-2">
-                <Label htmlFor="ebios-feared">
-                  Événement redouté
-                  <span className={requiredAsteriskClass}>*</span>
-                </Label>
+              <EbiosField label="Événement redouté" htmlFor="ebios-feared" required>
                 <textarea
                   id="ebios-feared"
                   value={fearedEvent}
@@ -1199,20 +1200,13 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={2}
                   placeholder="ex. Indisponibilité prolongée du SI métier, fuite de données personnelles…"
-                  className={cn(
-                    'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={EBIOS_TEXTAREA_CLASS}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-threat">
-                  Source de risque
-                  <span className={requiredAsteriskClass}>*</span>
-                </Label>
+              </EbiosField>
+              <EbiosField label="Source de risque" htmlFor="ebios-threat" required>
                 <Input
+                  className={EBIOS_INPUT_CLASS}
                   id="ebios-threat"
                   value={threatSource}
                   onChange={(e) => setThreatSource(e.target.value)}
@@ -1221,12 +1215,12 @@ export function ProjectRiskEbiosDialog({
                   placeholder="ex. cyberattaque, fournisseur, erreur humaine, défaillance technique"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-scenario">
-                  Scénario de risque (Si X alors Y)
-                  <span className={requiredAsteriskClass}>*</span>
-                </Label>
+              </EbiosField>
+              <EbiosField
+                label="Scénario de risque (Si X alors Y)"
+                htmlFor="ebios-scenario"
+                required
+              >
                 <textarea
                   id="ebios-scenario"
                   value={description}
@@ -1234,20 +1228,13 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={3}
                   placeholder="Si la migration est mal testée alors un incident majeur en production…"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className={cn(EBIOS_TEXTAREA_CLASS, 'min-h-[72px]')}
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-title">
-                  Titre court (registre / listes)
-                  <span className={requiredAsteriskClass}>*</span>
-                </Label>
+              </EbiosField>
+              <EbiosField label="Titre court (registre / listes)" htmlFor="ebios-title" required>
                 <Input
+                  className={EBIOS_INPUT_CLASS}
                   id="ebios-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -1256,12 +1243,8 @@ export function ProjectRiskEbiosDialog({
                   placeholder="ex. Indisponibilité SI post cut-over"
                   required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ebios-risk-type-trigger">
-                  Type de risque
-                  <span className={requiredAsteriskClass}>*</span>
-                </Label>
+              </EbiosField>
+              <EbiosField label="Type de risque" htmlFor="ebios-risk-type-trigger" required>
                 <PopoverPrimitive.Root
                   open={riskTypePickerOpen}
                   onOpenChange={(next) => {
@@ -1274,8 +1257,8 @@ export function ProjectRiskEbiosDialog({
                     type="button"
                     disabled={isPending || taxonomyQuery.isLoading}
                     className={cn(
-                      'flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm outline-none transition-colors',
-                      'select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                      EBIOS_SELECT_TRIGGER_CLASS,
+                      'h-8 justify-between px-2.5',
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       (isPending || taxonomyQuery.isLoading) && 'pointer-events-none',
                     )}
@@ -1314,7 +1297,7 @@ export function ProjectRiskEbiosDialog({
                               value={riskTypeSearch}
                               onChange={(e) => setRiskTypeSearch(e.target.value)}
                               placeholder="Rechercher un type, un domaine ou un code…"
-                              className="h-8"
+                              className={cn(EBIOS_INPUT_CLASS, 'h-8')}
                               autoComplete="off"
                               onKeyDown={(e) => {
                                 if (
@@ -1396,7 +1379,7 @@ export function ProjectRiskEbiosDialog({
                     Recherchez un type métier ; le domaine est déduit automatiquement.
                   </p>
                 )}
-              </div>
+              </EbiosField>
               {taxonomyQuery.isError ? (
                 <p className="text-xs text-destructive">Impossible de charger la taxonomie risques.</p>
               ) : null}
@@ -1407,15 +1390,15 @@ export function ProjectRiskEbiosDialog({
               title="Évaluation du risque"
               hint="Le score P×I et la criticité sont calculés côté serveur à l’enregistrement."
             >
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="starium-form-grid starium-form-grid--2">
                 <div className="space-y-2">
-                  <Label>Vraisemblance (1–5)</Label>
+                  <Label className="starium-form-label">Vraisemblance (1–5)</Label>
                   <Select
                     value={String(probability)}
                     onValueChange={(v) => setProbability(Number(v))}
                     disabled={isPending}
                   >
-                    <SelectTrigger className="w-full min-w-0">
+                    <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                       <span className={selectTriggerLabelClass}>
                         {RISK_PI_SCALE_LABEL[String(probability)] ?? String(probability)}
                       </span>
@@ -1430,13 +1413,13 @@ export function ProjectRiskEbiosDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Gravité d’impact (1–5)</Label>
+                  <Label className="starium-form-label">Gravité d’impact (1–5)</Label>
                   <Select
                     value={String(impact)}
                     onValueChange={(v) => setImpact(Number(v))}
                     disabled={isPending}
                   >
-                    <SelectTrigger className="w-full min-w-0">
+                    <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                       <span className={selectTriggerLabelClass}>
                         {RISK_PI_SCALE_LABEL[String(impact)] ?? String(impact)}
                       </span>
@@ -1461,7 +1444,7 @@ export function ProjectRiskEbiosDialog({
                 }}
               />
               <div className="space-y-2">
-                <Label htmlFor="ebios-likelihood-j">Justification de la vraisemblance (optionnel)</Label>
+                <Label className="starium-form-label" htmlFor="ebios-likelihood-j">Justification de la vraisemblance (optionnel)</Label>
                 <textarea
                   id="ebios-likelihood-j"
                   value={likelihoodJustification}
@@ -1469,11 +1452,7 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={2}
                   placeholder="Pourquoi ce score de probabilité…"
-                  className={cn(
-                    'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea"
                 />
               </div>
               <InitialRiskSummary
@@ -1491,7 +1470,7 @@ export function ProjectRiskEbiosDialog({
               hint="Conséquences pour l’organisation."
             >
               <div className="space-y-2">
-                <Label htmlFor="ebios-bi">
+                <Label className="starium-form-label" htmlFor="ebios-bi">
                   Impact métier
                   <span className={requiredAsteriskClass}>*</span>
                 </Label>
@@ -1502,11 +1481,7 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={3}
                   placeholder="Perte de revenus, interruption de service, image, obligations légales…"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea min-h-[72px]"
                   required
                 />
               </div>
@@ -1519,7 +1494,7 @@ export function ProjectRiskEbiosDialog({
               headerExtra={treatmentHeaderExtra}
             >
               <div className="space-y-2">
-                <Label>
+                <Label className="starium-form-label">
                   Stratégie de traitement
                   <span className={requiredAsteriskClass}>*</span>
                 </Label>
@@ -1528,7 +1503,7 @@ export function ProjectRiskEbiosDialog({
                   onValueChange={(v) => v && setTreatmentStrategy(v)}
                   disabled={isPending}
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                     <span className={selectTriggerLabelClass}>
                       {RISK_TREATMENT_STRATEGY_LABEL[treatmentStrategy] ??
                         'Stratégie de traitement'}
@@ -1544,7 +1519,7 @@ export function ProjectRiskEbiosDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-existing-measures">
+                <Label className="starium-form-label" htmlFor="ebios-existing-measures">
                   Mesures de sécurité existantes / préventives (optionnel)
                 </Label>
                 <textarea
@@ -1554,15 +1529,11 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={3}
                   placeholder="Contrôles, procédures ou dispositifs déjà en place avant traitement complémentaire…"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea min-h-[72px]"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-mitigation">Plan de réduction (mesures à mettre en œuvre, optionnel)</Label>
+                <Label className="starium-form-label" htmlFor="ebios-mitigation">Plan de réduction (mesures à mettre en œuvre, optionnel)</Label>
                 <textarea
                   id="ebios-mitigation"
                   value={mitigationPlan}
@@ -1570,15 +1541,11 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={3}
                   placeholder="Actions futures pour réduire la vraisemblance ou l’impact…"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea min-h-[72px]"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-contingency">Plan de continuité / secours (optionnel)</Label>
+                <Label className="starium-form-label" htmlFor="ebios-contingency">Plan de continuité / secours (optionnel)</Label>
                 <textarea
                   id="ebios-contingency"
                   value={contingencyPlan}
@@ -1586,15 +1553,11 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={2}
                   placeholder="Si le scénario se produit malgré tout…"
-                  className={cn(
-                    'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-complementary">
+                <Label className="starium-form-label" htmlFor="ebios-complementary">
                   Traitement / mesures complémentaires (optionnel)
                 </Label>
                 <textarea
@@ -1604,11 +1567,7 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={3}
                   placeholder="Actions ou garde-fous additionnels (surveillance, renforts, revues…)"
-                  className={cn(
-                    'flex min-h-[72px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea min-h-[72px]"
                 />
               </div>
             </EbiosSection>
@@ -1619,21 +1578,22 @@ export function ProjectRiskEbiosDialog({
               hint="Niveau cible après traitement ; cohérent avec le risque initial (indicatif)."
             >
               {residualSoftWarning ? (
-                <Alert className="border-amber-500/40 bg-amber-500/[0.06]">
-                  <AlertDescription className="text-xs">
-                    Le niveau résiduel semble supérieur à la criticité initiale (P×I) — vérifiez la
-                    cohérence.
-                  </AlertDescription>
-                </Alert>
+                <div
+                  className="rounded-lg border border-amber-500/40 bg-amber-500/[0.06] px-3 py-2.5 text-xs font-semibold text-yellow-950 dark:text-amber-400"
+                  role="status"
+                >
+                  Le niveau résiduel semble supérieur à la criticité initiale (P×I) — vérifiez la
+                  cohérence.
+                </div>
               ) : null}
               <div className="space-y-2">
-                <Label>Risque résiduel cible (optionnel)</Label>
+                <Label className="starium-form-label">Risque résiduel cible (optionnel)</Label>
                 <Select
                   value={residualRiskLevel}
                   onValueChange={(v) => setResidualRiskLevel(v ?? NONE)}
                   disabled={isPending}
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                     <span
                       className={cn(
                         selectTriggerLabelClass,
@@ -1656,7 +1616,7 @@ export function ProjectRiskEbiosDialog({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ebios-resid-j">Justification du résiduel (optionnel)</Label>
+                <Label className="starium-form-label" htmlFor="ebios-resid-j">Justification du résiduel (optionnel)</Label>
                 <textarea
                   id="ebios-resid-j"
                   value={residualJustification}
@@ -1664,11 +1624,7 @@ export function ProjectRiskEbiosDialog({
                   disabled={isPending}
                   rows={2}
                   placeholder="Pourquoi ce niveau résiduel est accepté…"
-                  className={cn(
-                    'flex min-h-[56px] w-full rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none transition-colors',
-                    'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
+                  className="starium-form-textarea"
                 />
               </div>
             </EbiosSection>
@@ -1679,7 +1635,7 @@ export function ProjectRiskEbiosDialog({
               hint="Statut et dates ; clôture dérivée du statut côté serveur."
             >
               <div className="space-y-2">
-                <Label>Responsable du risque (optionnel)</Label>
+                <Label className="starium-form-label">Responsable du risque (optionnel)</Label>
                 <Select
                   value={ownerUserId}
                   onValueChange={(v) => setOwnerUserId(v ?? OWNER_NONE)}
@@ -1687,7 +1643,7 @@ export function ProjectRiskEbiosDialog({
                     isPending || assignableQuery.isLoading || humanResourcesQuery.isLoading
                   }
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                     <span
                       className={cn(
                         selectTriggerLabelClass,
@@ -1736,13 +1692,13 @@ export function ProjectRiskEbiosDialog({
                 )}
               </div>
               <div className="space-y-2">
-                <Label>Statut du risque</Label>
+                <Label className="starium-form-label">Statut du risque</Label>
                 <Select
                   value={status}
                   onValueChange={(v) => v && setStatus(v)}
                   disabled={isPending}
                 >
-                  <SelectTrigger className="w-full min-w-0">
+                  <SelectTrigger className={EBIOS_SELECT_TRIGGER_CLASS}>
                     <span className={selectTriggerLabelClass}>
                       {RISK_STATUS_LABEL[status] ?? 'Statut enregistré'}
                     </span>
@@ -1756,10 +1712,11 @@ export function ProjectRiskEbiosDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="starium-form-grid starium-form-grid--3">
                 <div className="space-y-2">
-                  <Label htmlFor="ebios-due">Échéance</Label>
+                  <Label className="starium-form-label" htmlFor="ebios-due">Échéance</Label>
                   <Input
+                    className={EBIOS_INPUT_CLASS}
                     id="ebios-due"
                     type="date"
                     value={dueDate}
@@ -1768,8 +1725,9 @@ export function ProjectRiskEbiosDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ebios-detected">Date d’identification</Label>
+                  <Label className="starium-form-label" htmlFor="ebios-detected">Date d’identification</Label>
                   <Input
+                    className={EBIOS_INPUT_CLASS}
                     id="ebios-detected"
                     type="date"
                     value={detectedAt}
@@ -1778,8 +1736,9 @@ export function ProjectRiskEbiosDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ebios-review">Prochaine revue</Label>
+                  <Label className="starium-form-label" htmlFor="ebios-review">Prochaine revue</Label>
                   <Input
+                    className={EBIOS_INPUT_CLASS}
                     id="ebios-review"
                     type="date"
                     value={reviewDate}
@@ -1790,7 +1749,7 @@ export function ProjectRiskEbiosDialog({
               </div>
               {mode === 'edit' && riskResolved?.closedAt ? (
                 <div className="space-y-1">
-                  <Label className="text-muted-foreground">Date de clôture (lecture seule)</Label>
+                  <Label className="starium-form-label text-muted-foreground">Date de clôture (lecture seule)</Label>
                   <p className="text-sm tabular-nums">
                     {new Date(riskResolved.closedAt).toLocaleDateString('fr-FR', {
                       day: 'numeric',
@@ -1803,17 +1762,15 @@ export function ProjectRiskEbiosDialog({
             </EbiosSection>
 
             {mode === 'edit' && riskResolved && canDelete && onDelete ? (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 sm:px-5">
-                <p className="text-sm font-medium text-destructive">Supprimer ce risque</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+              <section className="starium-form-section border-[color-mix(in_srgb,var(--state-danger)_35%,var(--border))] bg-[color-mix(in_srgb,var(--state-danger)_6%,transparent)]">
+                <p className="text-sm font-bold text-[color:var(--state-danger)]">Supprimer ce risque</p>
+                <p className="starium-form-hint mt-1">
                   Retrait définitif du registre pour{' '}
-                  <span className="font-mono text-foreground">{riskResolved.code}</span>.
+                  <span className="font-mono font-semibold text-foreground">{riskResolved.code}</span>.
                 </p>
-                <Button
+                <button
                   type="button"
-                  variant="destructive"
-                  size="sm"
-                  className="mt-3"
+                  className="starium-btn mt-3 border-[color-mix(in_srgb,var(--state-danger)_45%,var(--border))] bg-[color-mix(in_srgb,var(--state-danger)_8%,var(--card))] text-[color:var(--state-danger)]"
                   disabled={isPending || isDeleting}
                   onClick={async () => {
                     if (
@@ -1827,26 +1784,29 @@ export function ProjectRiskEbiosDialog({
                   }}
                 >
                   {isDeleting ? 'Suppression…' : 'Supprimer du registre'}
-                </Button>
-              </div>
+                </button>
+              </section>
             ) : null}
-          </div>
-          <DialogFooter className="border-t border-border/60 pt-4">
-            <Button
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <button
               type="button"
-              variant="outline"
+              className="starium-btn starium-btn-secondary"
               onClick={() => void handleOpenChange(false)}
               disabled={isPending}
             >
               Annuler
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
+              className="starium-btn starium-btn-primary"
               onClick={() => void handleManualSave()}
               disabled={isPending || !canSubmit}
             >
               {isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
+            </button>
           </DialogFooter>
         </form>
       </DialogContent>

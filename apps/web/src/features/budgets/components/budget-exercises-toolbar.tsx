@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { TableToolbar } from '@/components/layout/table-toolbar';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,48 +50,81 @@ export function BudgetExercisesToolbar() {
 
   return (
     <TableToolbar>
-      <div className="flex flex-1 flex-wrap items-center gap-2">
-        <Input
-          placeholder="Rechercher (nom, code)…"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="max-w-xs"
-          data-testid="exercises-search"
-        />
-        <Select
-          value={filters.status ?? 'ALL'}
-          onValueChange={handleStatusChange}
-        >
-          <SelectTrigger size="sm" className="w-[140px]" data-testid="exercises-status">
-            <SelectValue placeholder="Statut">
-              {BUDGET_EXERCISE_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
-                ?.label ?? (filters.status ?? 'ALL')}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {BUDGET_EXERCISE_STATUS_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
-          <SelectTrigger size="sm" className="w-[100px]" data-testid="exercises-limit">
-            <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {LIMIT_OPTIONS.map((n) => (
-              <SelectItem key={n} value={String(n)}>
-                {n} / page
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" onClick={reset} data-testid="exercises-reset">
-          <RotateCcw className="size-4" />
-          Réinitialiser
-        </Button>
+      <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <FilterBar aria-label="Filtres exercices budgétaires" className="flex-1" desktopColumns="auto">
+          <FilterBarField id="exercises-search" label="Recherche">
+            {({ controlId }) => (
+              <Input
+                id={controlId}
+                placeholder="Rechercher (nom, code)…"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full"
+                data-testid="exercises-search"
+              />
+            )}
+          </FilterBarField>
+          <FilterBarField id="exercises-status" label="Statut">
+            {({ controlId, labelId }) => (
+              <Select
+                value={filters.status ?? 'ALL'}
+                onValueChange={handleStatusChange}
+              >
+                <SelectTrigger
+                  id={controlId}
+                  aria-labelledby={labelId}
+                  className="w-full"
+                  data-testid="exercises-status"
+                >
+                  <SelectValue placeholder="Statut">
+                    {BUDGET_EXERCISE_STATUS_OPTIONS.find(
+                      (o) => o.value === (filters.status ?? 'ALL'),
+                    )?.label ?? 'Tous statuts'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {BUDGET_EXERCISE_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FilterBarField>
+          <FilterBarField id="exercises-limit" label="Pagination">
+            {({ controlId, labelId }) => (
+              <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
+                <SelectTrigger
+                  id={controlId}
+                  aria-labelledby={labelId}
+                  className="w-full"
+                  data-testid="exercises-limit"
+                >
+                  <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {LIMIT_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n} / page
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FilterBarField>
+        </FilterBar>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={reset}
+            className="w-full sm:w-auto"
+            data-testid="exercises-reset"
+          >
+            <RotateCcw className="size-4" />
+            Réinitialiser
+          </Button>
+        </div>
       </div>
     </TableToolbar>
   );

@@ -2,7 +2,7 @@
 
 Document genere a partir des composants React trouves dans `apps/web/src` (`.tsx`, hors routes `app/` et hors tests).
 
-Total inventorie : **291 composants**.
+Total inventorie : **292 composants**.
 
 ## Lecture rapide
 
@@ -10,17 +10,18 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 
 ## Composants partages (3)
 
-- `ClientSwitcher` - `components/ClientSwitcher.tsx` - permet de changer client.
+- `ClientSwitcher` - `components/ClientSwitcher.tsx` - changement de client actif (menu compte, section Organisation).
 - `PermissionGate` - `components/PermissionGate.tsx` - controle l'acces a permission.
 - `RequireActiveClient` - `components/RequireActiveClient.tsx` - gere l'interface de require active client.
 
-## UI partagee (16)
+## UI partagee (17)
 
 - `alert` - `components/ui/alert.tsx` - gere l'interface de alerte.
 - `badge` - `components/ui/badge.tsx` - affiche un badge ou un etat pour badge.
 - `button` - `components/ui/button.tsx` - gere l'interface de button.
 - `card` - `components/ui/card.tsx` - affiche une carte de synthese pour carte.
-- `dialog` - `components/ui/dialog.tsx` - ouvre un dialogue pour dialogue.
+- `dialog` - `components/ui/dialog.tsx` - dialogue modal (bottom-sheet mobile, `size`, `DialogBody` scroll) ; exports `DialogHeader`, `DialogBody`, `DialogFooter`.
+- `icon-button` - `components/ui/icon-button.tsx` - bouton icone (wrapper `Button`, `aria-label` requis).
 - `input` - `components/ui/input.tsx` - gere l'interface de input.
 - `kpi-card` - `components/ui/kpi-card.tsx` - affiche une carte de synthese pour kpi.
 - `label` - `components/ui/label.tsx` - gere l'interface de label.
@@ -44,20 +45,27 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `page-container` - `components/layout/page-container.tsx` - compose la page pour container.
 - `page-header` - `components/layout/page-header.tsx` - compose la page pour page en-tete.
 - `table-toolbar` - `components/layout/table-toolbar.tsx` - affiche un tableau pour tableau barre.
+- `filter-bar` - `components/layout/filter-bar.tsx` - grille responsive de filtres liste (`section` + `grid-cols-1` mobile). Props : `desktopColumns`, `aria-label`, `asSearch` (optionnel).
+- `filter-bar-field` - `components/layout/filter-bar-field.tsx` - champ filtre accessible : `id`, `label`, `description?`, `children` en render props `{ controlId, labelId, descriptionId }` pour câbler Input/Select/Radix.
 
-## Shell applicatif (7)
+## Shell applicatif (11)
 
-- `app-shell` - `components/shell/app-shell.tsx` - structure le shell de app.
+- `app-shell` - `components/shell/app-shell.tsx` - structure le shell de app (`WorkspaceBreadcrumbProvider`, gutter workspace).
+- `account-menu-dropdown` - `components/shell/account-menu-dropdown.tsx` - menu compte, organisation et déconnexion.
+- `mobile-workspace-header-bar` - `components/shell/mobile-workspace-header-bar.tsx` - barre header mobile (ink).
 - `sidebar-dropdown` - `components/shell/sidebar-dropdown.tsx` - gere l'interface de sidebar dropdown.
 - `sidebar-item` - `components/shell/sidebar-item.tsx` - gere l'interface de sidebar item.
 - `sidebar-nav-context` - `components/shell/sidebar-nav-context.tsx` - expose le contexte React pour sidebar nav.
 - `sidebar-section` - `components/shell/sidebar-section.tsx` - regroupe une section dediee a sidebar.
 - `sidebar` - `components/shell/sidebar.tsx` - gere l'interface de sidebar.
-- `workspace-header` - `components/shell/workspace-header.tsx` - affiche l'en-tete pour espace.
+- `workspace-breadcrumb` - `components/shell/workspace-breadcrumb.tsx` - fil d'Ariane topbar.
+- `workspace-breadcrumb-context` - `components/shell/workspace-breadcrumb-context.tsx` - override libelle entite (`useWorkspaceBreadcrumbOverride`).
+- `workspace-header` - `components/shell/workspace-header.tsx` - topbar desktop et orchestration header mobile.
 
 ## Tableaux (1)
 
-- `data-table` - `components/data-table/data-table.tsx` - affiche un tableau pour data.
+- `data-table` - `components/data-table/data-table.tsx` - tableau générique avec double rendu : table desktop (`≥ md`) et cartes empilées mobile (`< md`, `ul > li > article`). Colonnes configurables via `mobilePriority` / `mobileLabel`. **Vigilance** : `cell(row)` appelée 2× par ligne (double mount DOM) — cellules pures, pas d'id fixe ni modale montée au render.
+- `data-table-card` - `components/data-table/data-table-card.tsx` - carte mobile d'une ligne (`article` + `dl`/`dt`/`dd`, zone actions). Consommé par `DataTable` ; ne pas utiliser seul sauf cas exceptionnel.
 
 ## Notifications (1)
 
@@ -327,7 +335,9 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `action-plan-task-edit-dialog` - `features/projects/components/action-plan-task-edit-dialog.tsx` - ouvre un dialogue pour action plan tache edition.
 - `action-plan-tasks-table` - `features/projects/components/action-plan-tasks-table.tsx` - affiche un tableau pour action plan taches.
 - `gantt-bar-color-legend` - `features/projects/components/gantt-bar-color-legend.tsx` - gere l'interface de gantt color legend.
-- `milestone-form-dialog-fields` - `features/projects/components/milestone-form-dialog-fields.tsx` - ouvre un dialogue pour milestone fields.
+- `project-milestones-stat-strip` - `features/projects/components/project-milestones-stat-strip.tsx` - affiche le bandeau KPI des jalons projet.
+- `milestone-form-dialog` - `features/projects/components/milestone-form-dialog.tsx` - modale création / édition jalon (gabarit Dialog §11.3.1, `DialogBody` scroll).
+- `milestone-form-dialog-fields` - `features/projects/components/milestone-form-dialog-fields.tsx` - champs formulaire jalon (`starium-form-*`).
 - `person-catalog-picker-dialog` - `features/projects/components/person-catalog-picker-dialog.tsx` - ouvre un dialogue pour person catalogue.
 - `portfolio-gantt-chart` - `features/projects/components/portfolio-gantt-chart.tsx` - affiche des graphiques pour portefeuille gantt.
 - `portfolio-gantt-legend` - `features/projects/components/portfolio-gantt-legend.tsx` - gere l'interface de portefeuille gantt legend.
@@ -342,26 +352,37 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-create-form` - `features/projects/components/project-create-form.tsx` - gere le formulaire de projet creation.
 - `project-detail-view` - `features/projects/components/project-detail-view.tsx` - affiche la vue de projet detail.
 - `project-documents-section` - `features/projects/components/project-documents-section.tsx` - regroupe une section dediee a projet documents.
-- `project-gantt-entity-tooltip` - `features/projects/components/project-gantt-entity-tooltip.tsx` - affiche une infobulle pour projet gantt entity.
+- `project-gantt-entity-tooltip` - `features/projects/components/project-gantt-entity-tooltip.tsx` - contenus infobulle Gantt (tâche, jalon, phase Macro).
+- `project-macro-gantt-bar` - `features/projects/components/project-macro-gantt-bar.tsx` - barre / losange Macro avec tooltip (frise planning `?sub=macro`).
 - `project-gantt-panel` - `features/projects/components/project-gantt-panel.tsx` - affiche un panneau pour projet gantt.
 - `project-gantt-task-bar` - `features/projects/components/project-gantt-task-bar.tsx` - gere l'interface de projet gantt tache.
 - `project-planning-kanban-tab` - `features/projects/components/project-planning-kanban-tab.tsx` - organise les onglets pour projet planning kanban.
-- `project-planning-milestones-tab` - `features/projects/components/project-planning-milestones-tab.tsx` - organise les onglets pour projet planning milestones.
+- `project-planning-milestones-tab` - `features/projects/components/project-planning-milestones-tab.tsx` - sous-onglet Jalons (tableau, `MilestoneFormDialog`).
+- `project-planning-macro-tab` - `features/projects/components/project-planning-macro-tab.tsx` - sous-onglet Macro (frise phases/jalons, déplier, infobulles).
 - `project-planning-tasks-tab` - `features/projects/components/project-planning-tasks-tab.tsx` - organise les onglets pour projet planning taches.
-- `project-planning-view` - `features/projects/components/project-planning-view.tsx` - affiche la vue de projet planning.
+- `project-pilotage-attention-panel` - `features/projects/components/project-pilotage-attention-panel.tsx` - panneau points d’attention pilotage sur l’aperçu projet (warnings API, libellés métier, CTA fiche).
+- `project-post-mortem-overview-banner` - `features/projects/components/project-post-mortem-overview-banner.tsx` - bandeau REX en tête de l’aperçu (projet clos ; CTA Continuer/Créer ; `?openReview=`).
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.
-- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - ouvre un dialogue pour projet revue editor.
-- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - organise les onglets pour projet revues.
+- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
+- `project-reviews-context-banner` - `features/projects/components/project-reviews-context-banner.tsx` - bannière contextuelle COPIL/REX (variantes `tab` | `overview`).
+- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (liste `starium-dt`, création, deep links `?createRetourExperience=`).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.
 - `project-sheet-view` - `features/projects/components/project-sheet-view.tsx` - affiche la vue de projet fiche.
+- `project-synthesis-overview-cards` - `features/projects/components/project-synthesis-overview-cards.tsx` - grille aperçu projet (KPI, bandeau REX, attention, données récentes, budget synthèse).
+- `project-synthesis-recent-data` - `features/projects/components/project-synthesis-recent-data.tsx` - tableau tâches récentes sur l’aperçu (`starium-dt`).
 - `project-task-planning-section` - `features/projects/components/project-task-planning-section.tsx` - regroupe une section dediee a projet tache planning.
 - `project-team-matrix` - `features/projects/components/project-team-matrix.tsx` - gere l'interface de projet equipe matrice.
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.
-- `projects-list-table` - `features/projects/components/projects-list-table.tsx` - affiche un tableau pour projets.
-- `projects-portfolio-filters-bar` - `features/projects/components/projects-portfolio-filters-bar.tsx` - centralise les actions et filtres pour projets portefeuille.
-- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - gere l'interface de projets portefeuille kpi.
-- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - centralise les actions et filtres pour projets.
+- `projects-list-table` - `features/projects/components/projects-list-table.tsx` - orchestre la liste projets (mobile cartes / desktop tableau).
+- `projects-list-table-desktop` - `features/projects/components/projects-list-table-desktop.tsx` - tableau portefeuille desktop (densité basic | extended).
+- `projects-list-mobile-view` - `features/projects/components/projects-list-mobile-view.tsx` - liste cartes mobile + bottom sheet filtres.
+- `projects-list-project-card` - `features/projects/components/projects-list-project-card.tsx` - carte projet (statut, progression, budget, responsable).
+- `projects-list-budget-summary` - `features/projects/components/projects-list-budget-summary.tsx` - affichage Budget cible + Consommé (liste).
+- `projects-list-row-actions-menu` - `features/projects/components/projects-list-row-actions-menu.tsx` - menu actions ligne/carte projet.
+- `projects-portfolio-filters-bar` - `features/projects/components/projects-portfolio-filters-bar.tsx` - filtres portefeuille (desktop inline / mobile sheet).
+- `projects-portfolio-kpi` - `features/projects/components/projects-portfolio-kpi.tsx` - KPI portefeuille (`.starium-module` + 4 × `KpiCard` dense).
+- `projects-toolbar` - `features/projects/components/projects-toolbar.tsx` - barre « Filtrer et trier » desktop (`.starium-filter-bar`, chips, tab-group, densité colonnes).
 - `task-form-dialog-fields` - `features/projects/components/task-form-dialog-fields.tsx` - ouvre un dialogue pour tache fields.
 
 ## Projets / Scénarios cockpit — RFC-FE-PROJ-SC-002 (8)

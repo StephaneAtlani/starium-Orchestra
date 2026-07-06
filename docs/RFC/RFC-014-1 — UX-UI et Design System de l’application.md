@@ -175,7 +175,7 @@ L'application utilise un **layout cockpit unique** (un seul board pour toute l'a
 **Structure visuelle** (conforme FRONTEND_ARCHITECTURE.md) :
 
 * **Menu à gauche** : Sidebar persistante (logo, navigation par sections, profil). Largeur `w-72`, fond noir, texte blanc.
-* **Header en haut** : WorkspaceHeader (breadcrumb, client actif, sélecteur de client, actions, menu compte avec avatar photo ou initiales). Fond blanc, bordure basse, sticky. Comportement détaillé : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §3.2.
+* **Header en haut** : WorkspaceHeader (fil d’Ariane métier, barre de recherche, notifications, menu compte avec avatar et section Organisation pour le client actif). Hauteur 64px, fond blanc, bordure basse, sticky. Comportement détaillé : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §3.2.
 * **Contenu au centre** : zone principale (`main`) où les pages rendent leur contenu (via `PageContainer`). Aucun second menu ni layout alternatif.
 
 Structure logique :
@@ -227,19 +227,22 @@ Un item actif doit être identifiable visuellement :
 
 # 7. Header (workspace header)
 
-Le header est la barre supérieure du cockpit.
+Le header est la barre supérieure du cockpit (64px desktop, classes `.starium-topbar-*`).
 
-Contenu possible :
+Contenu implémenté :
 
-* titre page
-* breadcrumb
-* actions rapides
-* profil utilisateur
-* recherche
+* fil d’Ariane métier (`WorkspaceBreadcrumb`, dérivé de la route)
+* barre de recherche globale (`GlobalSearchDialog`, raccourci clavier)
+* notifications (`NotificationBell`)
+* menu profil : compte, **Organisation** (client actif / `ClientSwitcher`), déconnexion
+
+Le titre de page et les actions métier restent dans `PageHeader` et les toolbars de page, pas dans la topbar.
+
+Référence détaillée : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §3.2.
 
 Style :
 
-* fond blanc
+* fond blanc (`--starium-surface`)
 * bordure basse légère
 * sticky en haut
 

@@ -4,7 +4,7 @@ import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { HealthBadge } from '../../components/project-badges';
-import { MILESTONE_STATUS_LABEL, PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, PROJECT_TYPE_LABEL } from '../../constants/project-enum-labels';
+import { MILESTONE_STATUS_LABEL, PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, PROJECT_TYPE_LABEL, projectWarningLabel } from '../../constants/project-enum-labels';
 import type {
   ProjectListItem,
   ProjectMilestoneApi,
@@ -337,7 +337,13 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     theme: 'ownership',
     enabledByDefault: true,
     size: 'single',
-    render: ({ project }) => <WidgetList title="Alertes & points d'attention" items={project.warnings} emptyLabel="Aucun point d'attention." />,
+    render: ({ project }) => (
+      <WidgetList
+        title="Alertes & points d'attention"
+        items={project.warnings.map(projectWarningLabel)}
+        emptyLabel="Aucun point d'attention."
+      />
+    ),
   },
   {
     id: 'tags',
@@ -428,7 +434,12 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     enabledByDefault: false,
     size: 'single',
     render: ({ reviews, isLoading }) => {
-      const in30 = reviews.filter((r) => daysUntil(r.reviewDate) <= 0 && daysUntil(r.reviewDate) >= -30).length;
+      const in30 = reviews.filter(
+        (r) =>
+          r.reviewDate &&
+          daysUntil(r.reviewDate) <= 0 &&
+          daysUntil(r.reviewDate) >= -30,
+      ).length;
       return (
         <WidgetBarList
           title="Cadence revues (30 jours)"

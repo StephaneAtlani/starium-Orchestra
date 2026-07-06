@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useMemo, useState, type ReactNode } from 'react';
 import { MILESTONE_STATUS_LABEL } from '../constants/project-enum-labels';
 import type { CreateProjectMilestonePayload } from '../api/projects.api';
-import { CalendarRange, Flag, X } from 'lucide-react';
+import { CalendarRange, Flag, Tag, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 function isoToDateInput(iso: string | null | undefined): string {
@@ -22,8 +21,29 @@ function dateInputToIso(s: string): string | undefined {
   return new Date(`${s}T12:00:00.000Z`).toISOString();
 }
 
-const fieldBase =
-  'border border-input bg-background text-sm shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
+function FormField({
+  label,
+  htmlFor,
+  hint,
+  className,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  hint?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn('starium-form-field', className)}>
+      <label htmlFor={htmlFor} className="starium-form-label">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="starium-form-hint">{hint}</p> : null}
+    </div>
+  );
+}
 
 export type MilestoneFormDialogFieldsProps = {
   form: CreateProjectMilestonePayload;
@@ -36,9 +56,6 @@ export type MilestoneFormDialogFieldsProps = {
   fieldIdPrefix: string;
 };
 
-/**
- * Formulaire jalon (planning) : sections alignées sur FRONTEND_UI-UX.md (cartes bordure token, hiérarchie).
- */
 export function MilestoneFormDialogFields({
   form,
   onPatch,
@@ -98,61 +115,51 @@ export function MilestoneFormDialogFields({
   };
 
   return (
-    <div className="space-y-4">
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-identity')}
-      >
-        <h3
-          id={fid('sec-identity')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <Flag className="size-3.5 shrink-0" aria-hidden />
+    <div className="starium-form">
+      <section className="starium-form-section" aria-labelledby={fid('sec-identity')}>
+        <h3 id={fid('sec-identity')} className="starium-form-section-title">
+          <Flag aria-hidden />
           Identité
         </h3>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('name')}>Nom</Label>
-            <Input
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField label="Nom" htmlFor={fid('name')} className="starium-form-grid--span-2">
+            <input
               id={fid('name')}
+              className="starium-form-input"
               value={form.name}
               onChange={(e) => onPatch({ name: e.target.value })}
               required
               autoComplete="off"
+              placeholder="Intitulé du jalon"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('desc')}>Description</Label>
+          </FormField>
+          <FormField
+            label="Description"
+            htmlFor={fid('desc')}
+            className="starium-form-grid--span-2"
+          >
             <textarea
               id={fid('desc')}
-              className={cn(
-                'min-h-[72px] w-full rounded-lg px-3 py-2 placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
-                fieldBase,
-              )}
+              className="starium-form-textarea"
               value={form.description ?? ''}
               onChange={(e) => onPatch({ description: e.target.value })}
+              placeholder="Objectif, critères d’atteinte, contexte…"
             />
-          </div>
+          </FormField>
         </div>
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-planning')}
-      >
-        <h3
-          id={fid('sec-planning')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
-          <CalendarRange className="size-3.5 shrink-0" aria-hidden />
+      <section className="starium-form-section" aria-labelledby={fid('sec-planning')}>
+        <h3 id={fid('sec-planning')} className="starium-form-section-title">
+          <CalendarRange aria-hidden />
           Dates & statut
         </h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('target')}>Date cible</Label>
-            <Input
+        <div className="starium-form-grid starium-form-grid--2">
+          <FormField label="Date cible" htmlFor={fid('target')}>
+            <input
               id={fid('target')}
               type="date"
+              className="starium-form-input"
               value={isoToDateInput(form.targetDate)}
               onChange={(e) =>
                 onPatch({
@@ -161,12 +168,11 @@ export function MilestoneFormDialogFields({
               }
               required
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={fid('status')}>Statut</Label>
+          </FormField>
+          <FormField label="Statut" htmlFor={fid('status')}>
             <select
               id={fid('status')}
-              className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+              className="starium-form-select"
               value={form.status ?? 'PLANNED'}
               onChange={(e) => onPatch({ status: e.target.value })}
             >
@@ -176,58 +182,57 @@ export function MilestoneFormDialogFields({
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-
-        <div className="mt-3 space-y-1.5">
-          <Label htmlFor={fid('phase')}>Libellé de phase</Label>
-          <select
-            id={fid('phase')}
-            className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
-            value={form.phaseId ?? ''}
-            onChange={(e) => onPatch({ phaseId: e.target.value || null })}
+          </FormField>
+          <FormField
+            label="Libellé de phase"
+            htmlFor={fid('phase')}
+            className="starium-form-grid--span-2"
           >
-            <option value="">Sans libellé de phase</option>
-            {phaseOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mt-3 space-y-1.5">
-          <Label htmlFor={fid('achieved')}>Date d’atteinte (optionnel)</Label>
-          <Input
-            id={fid('achieved')}
-            type="date"
-            value={isoToDateInput(form.achievedDate)}
-            onChange={(e) =>
-              onPatch({
-                achievedDate: e.target.value ? dateInputToIso(e.target.value) : undefined,
-              })
-            }
-          />
+            <select
+              id={fid('phase')}
+              className="starium-form-select"
+              value={form.phaseId ?? ''}
+              onChange={(e) => onPatch({ phaseId: e.target.value || null })}
+            >
+              <option value="">Sans libellé de phase</option>
+              {phaseOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField
+            label="Date d’atteinte"
+            htmlFor={fid('achieved')}
+            hint="Optionnel — renseigner lorsque le jalon est atteint."
+            className="starium-form-grid--span-2"
+          >
+            <input
+              id={fid('achieved')}
+              type="date"
+              className="starium-form-input"
+              value={isoToDateInput(form.achievedDate)}
+              onChange={(e) =>
+                onPatch({
+                  achievedDate: e.target.value ? dateInputToIso(e.target.value) : undefined,
+                })
+              }
+            />
+          </FormField>
         </div>
       </section>
 
-      <section
-        className="rounded-lg border border-border/70 bg-muted/30 p-4"
-        aria-labelledby={fid('sec-labels')}
-      >
-        <h3
-          id={fid('sec-labels')}
-          className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground"
-        >
+      <section className="starium-form-section" aria-labelledby={fid('sec-labels')}>
+        <h3 id={fid('sec-labels')} className="starium-form-section-title">
+          <Tag aria-hidden />
           Étiquettes
         </h3>
 
         {milestoneLabelOptions.length === 0 ? (
-          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
-            Aucune étiquette pour l’instant.
-          </p>
+          <p className="starium-form-hint">Aucune étiquette pour l’instant.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="starium-form-grid">
             {selectedLabelIds.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {selectedLabelIds.map((id) => (
@@ -250,17 +255,14 @@ export function MilestoneFormDialogFields({
                 ))}
               </div>
             ) : (
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                Aucune étiquette sélectionnée.
-              </p>
+              <p className="starium-form-hint">Aucune étiquette sélectionnée.</p>
             )}
 
             {availableLabelOptions.length > 0 ? (
-              <div className="space-y-1.5">
-                <Label htmlFor={fid('labels-picker')}>Ajouter une étiquette</Label>
+              <FormField label="Ajouter une étiquette" htmlFor={fid('labels-picker')}>
                 <select
                   id={fid('labels-picker')}
-                  className={cn('h-9 w-full rounded-lg border px-2', fieldBase)}
+                  className="starium-form-select"
                   value={labelPickerValue}
                   onChange={(e) => {
                     const id = e.target.value;
@@ -276,9 +278,9 @@ export function MilestoneFormDialogFields({
                     </option>
                   ))}
                 </select>
-              </div>
+              </FormField>
             ) : selectedLabelIds.length > 0 && milestoneLabelOptions.length > 0 ? (
-              <p className="text-[11px] leading-snug text-muted-foreground">
+              <p className="starium-form-hint">
                 Toutes les étiquettes disponibles sont sélectionnées.
               </p>
             ) : null}
@@ -286,11 +288,11 @@ export function MilestoneFormDialogFields({
         )}
 
         {canCreateMilestoneLabels ? (
-          <div className="mt-4 flex flex-wrap items-end gap-2">
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <Label htmlFor={fid('new-label')}>Nouvelle étiquette</Label>
-              <Input
+          <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
+            <FormField label="Nouvelle étiquette" htmlFor={fid('new-label')} className="min-w-[12rem] flex-1">
+              <input
                 id={fid('new-label')}
+                className="starium-form-input"
                 value={newLabelName}
                 placeholder="Nom d’étiquette"
                 onChange={(e) => setNewLabelName(e.target.value)}
@@ -302,15 +304,17 @@ export function MilestoneFormDialogFields({
                 }}
                 disabled={isCreatingLabel}
               />
-            </div>
-            <button
+            </FormField>
+            <Button
               type="button"
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
               disabled={!newLabelName.trim() || isCreatingLabel}
               onClick={() => void createAndSelectLabel()}
             >
               Ajouter
-            </button>
+            </Button>
           </div>
         ) : null}
       </section>

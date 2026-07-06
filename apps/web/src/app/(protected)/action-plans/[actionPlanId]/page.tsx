@@ -12,22 +12,13 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { ActionPlanMetaBadges } from '@/features/projects/components/action-plan-meta-badges';
 import {
-  PROJECT_ENTITY_PRIORITY_KEYS,
-  type ProjectEntityPriorityKey,
-  type ProjectLifecycleStatusKey,
-} from '@/lib/ui/badge-registry';
-import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
+  ACTION_PLAN_PRIORITY_LABELS,
+  ACTION_PLAN_STATUS_LABELS,
+} from '@/features/projects/lib/action-plan-display';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -35,19 +26,23 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { listClientRisks, listProjects } from '@/features/projects/api/projects.api';
 import {
   updateActionPlan,
+  updateActionPlanTask,
   type UpdateActionPlanPayload,
 } from '@/features/projects/api/action-plans.api';
 import { ActionPlanTaskCreateDialog } from '@/features/projects/components/action-plan-task-create-dialog';
 import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
+import { ActionPlanTasksKanban } from '@/features/projects/components/action-plan-tasks-kanban';
 import {
   ActionPlanTasksTable,
   type ActionPlanTaskSortField,
 } from '@/features/projects/components/action-plan-tasks-table';
+import { ActionPlanTasksToolbar } from '@/features/projects/components/action-plan-tasks-toolbar';
 import { useActionPlanDetailQuery } from '@/features/projects/hooks/use-action-plan-detail-query';
 import { useActionPlanTasksQuery } from '@/features/projects/hooks/use-action-plan-tasks-query';
 import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanApi, ActionPlanTaskApi } from '@/features/projects/types/project.types';
+import { useTablePan } from '@/hooks/use-table-pan';
 import { cn } from '@/lib/utils';
 import { AlertCircle, ChevronLeft, ClipboardList, Download, Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -68,19 +63,7 @@ function fmtShortDate(iso: string | null | undefined): string {
   }
 }
 
-const ACTION_PLAN_STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Brouillon',
-  ACTIVE: 'Actif',
-  ON_HOLD: 'En pause',
-  COMPLETED: 'Terminé',
-  CANCELLED: 'Annulé',
-};
-
-const ACTION_PLAN_PRIORITY_LABELS: Record<string, string> = {
-  LOW: 'Basse',
-  MEDIUM: 'Moyenne',
-  HIGH: 'Haute',
-};
+const ACTION_PLAN_TASKS_VIEW_MODE_KEY = 'starium.action-plan.tasksViewMode';
 
 function sanitizeFileName(input: string): string {
   return input
@@ -122,51 +105,6 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Style = cycle de vie projet (RFC-PLA-001 `ACTIVE` ≈ `IN_PROGRESS`). */
-function actionPlanStatusToLifecycleKey(
-  status: string,
-): ProjectLifecycleStatusKey {
-  const m: Record<string, ProjectLifecycleStatusKey> = {
-    DRAFT: 'DRAFT',
-    ACTIVE: 'IN_PROGRESS',
-    ON_HOLD: 'ON_HOLD',
-    COMPLETED: 'COMPLETED',
-    CANCELLED: 'CANCELLED',
-  };
-  return m[status] ?? 'DRAFT';
-}
-
-function PlanMetaBadges({ plan }: { plan: ActionPlanApi }) {
-  const { merged } = useClientUiBadgeConfig();
-  const lifecycleKey = actionPlanStatusToLifecycleKey(plan.status);
-  const statusBadge = merged.projectLifecycleStatus[lifecycleKey];
-  const statusLabel = ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status;
-
-  const priorityKnown = (
-    PROJECT_ENTITY_PRIORITY_KEYS as readonly string[]
-  ).includes(plan.priority);
-  const priorityEntry = priorityKnown
-    ? merged.projectEntityPriority[plan.priority as ProjectEntityPriorityKey]
-    : undefined;
-  const priorityWord =
-    priorityEntry?.label ??
-    ACTION_PLAN_PRIORITY_LABELS[plan.priority] ??
-    plan.priority;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <RegistryBadge className={statusBadge.className}>{statusLabel}</RegistryBadge>
-      <RegistryBadge
-        className={
-          priorityEntry?.className ?? 'border-border/80 text-foreground'
-        }
-      >
-        Priorité {priorityWord}
-      </RegistryBadge>
-    </div>
-  );
-}
-
 export default function ActionPlanDetailPage() {
   const params = useParams();
   const actionPlanId = typeof params.actionPlanId === 'string' ? params.actionPlanId : '';
@@ -187,6 +125,8 @@ export default function ActionPlanDetailPage() {
   const [ownerUserIdF, setOwnerUserIdF] = useState<string>('');
   const [sortByField, setSortByField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [tasksViewMode, setTasksViewMode] = useState<'table' | 'kanban'>('table');
+  const tablePan = useTablePan();
   const [activeMetaEdit, setActiveMetaEdit] = useState<
     'title' | 'status' | 'priority' | 'owner' | null
   >(null);
@@ -280,6 +220,31 @@ export default function ActionPlanDetailPage() {
         }),
       ]);
       setActiveMetaEdit(null);
+    },
+  });
+
+  const taskStatusMutation = useMutation({
+    mutationFn: ({
+      taskId,
+      toStatus,
+    }: {
+      taskId: string;
+      fromStatus: string;
+      toStatus: string;
+    }) => updateActionPlanTask(authFetch, actionPlanId, taskId, { status: toStatus }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [...projectQueryKeys.all, 'action-plan-tasks', clientId, actionPlanId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: projectQueryKeys.actionPlanDetail(clientId, actionPlanId),
+        }),
+      ]);
+      toast.success('Statut de la tâche mis à jour.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Impossible de déplacer la tâche.');
     },
   });
 
@@ -472,6 +437,24 @@ export default function ActionPlanDetailPage() {
     });
   }, []);
 
+  const handleTasksViewModeChange = useCallback((nextMode: 'table' | 'kanban') => {
+    setTasksViewMode(nextMode);
+    try {
+      window.localStorage.setItem(ACTION_PLAN_TASKS_VIEW_MODE_KEY, nextMode);
+    } catch {
+      // ignore localStorage failures
+    }
+  }, []);
+
+  const handleTaskStatusDrop = useCallback(
+    (payload: { taskId: string; fromStatus: string; toStatus: string }) => {
+      if (!canUpdateProjects) return;
+      if (payload.fromStatus === payload.toStatus) return;
+      taskStatusMutation.mutate(payload);
+    },
+    [canUpdateProjects, taskStatusMutation],
+  );
+
   const hasActiveFilters = Boolean(
     statusF ||
       priorityF ||
@@ -516,6 +499,17 @@ export default function ActionPlanDetailPage() {
     setEditablePriority(plan.priority);
     setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
   }, [plan]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(ACTION_PLAN_TASKS_VIEW_MODE_KEY);
+      if (stored === 'table' || stored === 'kanban') {
+        setTasksViewMode(stored);
+      }
+    } catch {
+      // ignore localStorage failures
+    }
+  }, []);
 
   return (
     <RequireActiveClient>
@@ -713,7 +707,7 @@ export default function ActionPlanDetailPage() {
                         className="rounded px-1 py-0.5 text-left hover:bg-muted"
                         onClick={() => setActiveMetaEdit('status')}
                       >
-                        <PlanMetaBadges plan={plan} />
+                        <ActionPlanMetaBadges plan={plan} />
                       </button>
                     )}
                     {plan.description?.trim() ? (
@@ -821,32 +815,29 @@ export default function ActionPlanDetailPage() {
               </div>
             </section>
 
-            {/* §7 — filtres + tableau (double en-tête, cf. portefeuille projets) */}
-            <Card
-              size="sm"
-              className="overflow-hidden shadow-sm"
-              role="search"
-              aria-label="Filtrer et trier les tâches du plan"
-            >
-              <CardHeader className="flex flex-col gap-2 border-b border-border/60 pb-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="space-y-0.5">
-                  <CardTitle className="text-sm font-medium">Filtrer et trier</CardTitle>
-                  <CardDescription className="text-xs">
-                    Filtres sur la deuxième ligne d’en-tête ; cliquez sur un libellé pour trier. Ligne de données
-                    : ouverture de la fiche tâche.
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 self-start"
-                  disabled={!hasActiveFilters}
-                  onClick={resetFilters}
-                >
-                  Réinitialiser
-                </Button>
-              </CardHeader>
+            {/* §7 — barre filtres DS + tableau (tri seulement, cf. FRONTEND_UI-UX §384) */}
+            <Card size="sm" className="starium-panel overflow-hidden shadow-sm">
+              <ActionPlanTasksToolbar
+                search={searchF}
+                onSearchChange={setSearchF}
+                status={statusF}
+                onStatusChange={setStatusF}
+                priority={priorityF}
+                onPriorityChange={setPriorityF}
+                projectId={projectIdF}
+                onProjectIdChange={setProjectIdF}
+                riskId={riskIdF}
+                onRiskIdChange={setRiskIdF}
+                ownerUserId={ownerUserIdF}
+                onOwnerUserIdChange={setOwnerUserIdF}
+                projectOptions={projectOptions}
+                riskOptions={riskOptions}
+                users={users}
+                onReset={resetFilters}
+                hasActiveFilters={hasActiveFilters}
+                viewMode={tasksViewMode}
+                onViewModeChange={handleTasksViewModeChange}
+              />
               {tasksQuery.isLoading && tasksQuery.data == null ? (
                 <CardContent className="py-8">
                   <LoadingState rows={5} />
@@ -860,31 +851,43 @@ export default function ActionPlanDetailPage() {
                 </CardContent>
               ) : tasksQuery.data && tasksQuery.data.items.length > 0 ? (
                 <>
-                  <CardContent className="p-0">
-                    <ActionPlanTasksTable
-                      items={tasksQuery.data.items}
-                      users={users}
-                      search={searchF}
-                      onSearchChange={setSearchF}
-                      status={statusF}
-                      onStatusChange={setStatusF}
-                      priority={priorityF}
-                      onPriorityChange={setPriorityF}
-                      projectId={projectIdF}
-                      onProjectIdChange={setProjectIdF}
-                      riskId={riskIdF}
-                      onRiskIdChange={setRiskIdF}
-                      ownerUserId={ownerUserIdF}
-                      onOwnerUserIdChange={setOwnerUserIdF}
-                      projectOptions={projectOptions}
-                      riskOptions={riskOptions}
-                      sortBy={sortByField}
-                      sortOrder={sortOrder}
-                      onSort={applyTaskSort}
-                      onRowClick={(id) => setSelectedTaskId(id)}
-                    />
+                  <CardContent
+                    className={cn(
+                      'p-0',
+                      tasksViewMode === 'table' &&
+                        (tablePan.isPanning
+                          ? 'cursor-grabbing select-none touch-none'
+                          : 'cursor-grab'),
+                    )}
+                    ref={tasksViewMode === 'table' ? tablePan.scrollRef : undefined}
+                    onPointerDown={tasksViewMode === 'table' ? tablePan.onPointerDown : undefined}
+                  >
+                    <div
+                      key={tasksViewMode}
+                      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-out"
+                    >
+                      {tasksViewMode === 'table' ? (
+                        <ActionPlanTasksTable
+                          items={tasksQuery.data.items}
+                          users={users}
+                          sortBy={sortByField}
+                          sortOrder={sortOrder}
+                          onSort={applyTaskSort}
+                          onRowClick={(id) => setSelectedTaskId(id)}
+                        />
+                      ) : (
+                        <ActionPlanTasksKanban
+                          items={tasksQuery.data.items}
+                          statusFilter={statusF || undefined}
+                          canUpdate={canUpdateProjects}
+                          isUpdating={taskStatusMutation.isPending}
+                          onTaskClick={(id) => setSelectedTaskId(id)}
+                          onStatusDrop={handleTaskStatusDrop}
+                        />
+                      )}
+                    </div>
                   </CardContent>
-                  <CardFooter className="border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
+                  <CardFooter className="starium-table-footer border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
                     {tasksQuery.data.items.length === tasksQuery.data.total
                       ? `${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`
                       : `Affichage de ${tasksQuery.data.items.length} sur ${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`}

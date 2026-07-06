@@ -9,14 +9,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -65,8 +57,8 @@ import type {
   UpdateProjectTaskPayload,
 } from '../api/projects.api';
 import { cn } from '@/lib/utils';
-import { MilestoneFormDialogFields } from './milestone-form-dialog-fields';
-import { TaskFormDialogFields } from './task-form-dialog-fields';
+import { MilestoneFormDialog } from './milestone-form-dialog';
+import { ProjectTaskFormDialog } from './project-task-form-dialog';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { toast } from '@/lib/toast';
 import {
@@ -1681,103 +1673,55 @@ export const ProjectTaskPlanningSection = forwardRef<
         </>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent
-          className="max-w-[min(80vw,72rem)] sm:max-w-[min(80vw,72rem)]"
-          showCloseButton
-        >
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier la tâche' : 'Nouvelle tâche'}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? 'Mettre à jour les informations de la tâche, le planning et les dépendances.'
-                : 'Créer une nouvelle tâche dans le planning du projet.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[min(65vh,520px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
-            <TaskFormDialogFields
-              form={createForm}
-              onPatch={(patch) =>
-                setCreateForm((prev) => ({
-                  ...prev,
-                  ...patch,
-                }))
-              }
-              phaseOptions={phaseOptions}
-              tasksForDepends={tasksForDepends}
-              assignableOptions={assignableOptions}
-              bucketOptions={bucketOptions}
-              taskLabelOptions={taskLabelOptions}
-              syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
-              canCreateTaskLabels={canCreateTaskLabels}
-              onCreateTaskLabel={onCreateTaskLabel}
-              canCreatePhase={canEdit}
-              onCreatePhase={onCreatePhase}
-              fieldIdPrefix="planning-task"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={submit}
-              disabled={
-                !createForm.name.trim() || createMut.isPending || updateMut.isPending
-              }
-            >
-              {editing ? 'Enregistrer' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProjectTaskFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={!!editing}
+        form={createForm}
+        onPatch={(patch) =>
+          setCreateForm((prev) => ({
+            ...prev,
+            ...patch,
+          }))
+        }
+        onSubmit={submit}
+        isSubmitting={createMut.isPending || updateMut.isPending}
+        phaseOptions={phaseOptions}
+        tasksForDepends={tasksForDepends}
+        assignableOptions={assignableOptions}
+        bucketOptions={bucketOptions}
+        taskLabelOptions={taskLabelOptions}
+        syncMicrosoftPlannerLabelsEnabled={syncMicrosoftPlannerLabelsEnabled}
+        canCreateTaskLabels={canCreateTaskLabels}
+        onCreateTaskLabel={onCreateTaskLabel}
+        canCreatePhase={canEdit}
+        onCreatePhase={onCreatePhase}
+        fieldIdPrefix="gantt-task"
+      />
 
-      <Dialog open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen}>
-        <DialogContent className="sm:max-w-lg" showCloseButton>
-          <DialogHeader>
-            <DialogTitle>{editingMilestone ? 'Modifier le jalon' : 'Nouveau jalon'}</DialogTitle>
-            <DialogDescription>
-              {editingMilestone
-                ? 'Mettre à jour le repère temporel et, si besoin, la liaison avec une tâche du projet.'
-                : 'Créer un nouveau jalon pour le projet.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[min(60vh,440px)] overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
-            <MilestoneFormDialogFields
-              form={milestoneForm}
-              onPatch={(p) =>
-                setMilestoneForm((prev) => ({
-                  ...prev,
-                  ...p,
-                }))
-              }
-              phaseOptions={phaseOptions}
-              milestoneLabelOptions={milestoneLabelOptions}
-              canCreateMilestoneLabels={canCreateMilestoneLabels}
-              onCreateMilestoneLabel={onCreateMilestoneLabel}
-              fieldIdPrefix="gantt-ms"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setMilestoneDialogOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={submitMilestone}
-              disabled={
-                !milestoneForm.name.trim() ||
-                createMilestoneMut.isPending ||
-                updateMilestoneMut.isPending ||
-                milestonesQuery.isLoading
-              }
-            >
-              Enregistrer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MilestoneFormDialog
+        open={milestoneDialogOpen}
+        onOpenChange={setMilestoneDialogOpen}
+        editing={Boolean(editingMilestone)}
+        onSubmit={submitMilestone}
+        isSubmitting={
+          createMilestoneMut.isPending ||
+          updateMilestoneMut.isPending ||
+          milestonesQuery.isLoading
+        }
+        form={milestoneForm}
+        onPatch={(p) =>
+          setMilestoneForm((prev) => ({
+            ...prev,
+            ...p,
+          }))
+        }
+        phaseOptions={phaseOptions}
+        milestoneLabelOptions={milestoneLabelOptions}
+        canCreateMilestoneLabels={canCreateMilestoneLabels}
+        onCreateMilestoneLabel={onCreateMilestoneLabel}
+        fieldIdPrefix="gantt-ms"
+      />
     </div>
   );
 });

@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectGanttQuery } from '../hooks/use-project-gantt-query';
@@ -52,11 +51,10 @@ import {
   type TimelineBounds,
 } from '../lib/gantt-timeline-layout';
 import { TASK_STATUS_LABEL } from '../constants/project-enum-labels';
-import { GanttProjectBanner, ProjectGanttView } from '../gantt/components/project-gantt-view';
+import { GanttProjectBanner, ProjectGanttCard, ProjectGanttResizeHandle, ProjectGanttToolbar, ProjectGanttView } from '../gantt/components/project-gantt-view';
 import { normalizeProjectGanttPayload } from '../gantt/mappers/normalize-project-gantt-payload';
 import { mapProjectGanttPayloadToRenderModel } from '../gantt/mappers/project-gantt-render-mapper';
 import { cn } from '@/lib/utils';
-import { GanttBarColorLegend } from './gantt-bar-color-legend';
 import {
   ProjectTaskPlanningSection,
   type ProjectTaskPlanningSectionHandle,
@@ -73,8 +71,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Info, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { toast } from '@/lib/toast';
+
+const GANTT_TASK_STATUS_OPTIONS = Object.keys(TASK_STATUS_LABEL).map((k) => ({
+  value: k,
+  label: TASK_STATUS_LABEL[k],
+}));
 
 type BarMode = 'move' | 'resize-start' | 'resize-end';
 
@@ -782,168 +785,30 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
     );
   }
 
-  const scaleLabels: Record<GanttTimelineScale, string> = {
-    day: 'Jour',
-    week: 'Semaine',
-    month: 'Mois',
-  };
-
   const toolbar = (
-    <div className="bg-muted/30 flex min-w-0 flex-col border-b border-border/60">
-      <div className="flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2">
-      <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground shrink-0">Échelle</span>
-          <div className="bg-background/80 inline-flex rounded-md border p-0.5 shadow-sm">
-            {(['day', 'week', 'month'] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={cn(
-                  'rounded px-2.5 py-1 text-[11px] font-medium transition-colors',
-                  timelineScale === s
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
-                )}
-                onClick={() => setTimelineScale(s)}
-              >
-                {scaleLabels[s]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div
-          className="flex items-center gap-1 border-border/60 border-l pl-3"
-          title="Ctrl + molette sur la frise pour zoomer"
-        >
-          <span className="text-muted-foreground shrink-0">Zoom temps</span>
-          <div className="bg-background/80 inline-flex items-center rounded-md border shadow-sm">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-r-none"
-              onClick={zoomTimeOut}
-              aria-label="Zoom arrière sur la frise"
-            >
-              <Minus className="size-3.5" />
-            </Button>
-            <span className="text-muted-foreground min-w-[2.75rem] px-1 text-center text-[11px] tabular-nums">
-              {Math.round(timeZoom * 100)}%
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-none border-x border-border/60"
-              onClick={zoomTimeIn}
-              aria-label="Zoom avant sur la frise"
-            >
-              <Plus className="size-3.5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-l-none"
-              onClick={resetTimeZoom}
-              aria-label="Réinitialiser le zoom temps"
-              title="100 %"
-            >
-              <RotateCcw className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground shrink-0">État</span>
-          <select
-            className="border-input bg-background h-8 max-w-[9rem] rounded-md border px-2 text-[11px]"
-            value={taskStatusFilter}
-            onChange={(e) => setTaskStatusFilter(e.target.value)}
-          >
-            <option value="all">Tous</option>
-            {Object.keys(TASK_STATUS_LABEL).map((k) => (
-              <option key={k} value={k}>
-                {TASK_STATUS_LABEL[k]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            className="border-input size-3.5 rounded"
-            checked={showMilestones}
-            onChange={(e) => setShowMilestones(e.target.checked)}
-          />
-          <span className="text-muted-foreground">Jalons</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            className="border-input size-3.5 rounded"
-            checked={showGanttBarLabels}
-            onChange={(e) => setShowGanttBarLabels(e.target.checked)}
-          />
-          <span className="text-muted-foreground">Libellés frise</span>
-        </label>
-        <label
-          className="flex cursor-pointer items-center gap-2"
-          title="Décocher pour masquer les infobulles sur les barres et jalons de la frise"
-        >
-          <input
-            type="checkbox"
-            className="border-input size-3.5 rounded"
-            checked={showGanttFriseTooltips}
-            onChange={(e) => setShowGanttFriseTooltips(e.target.checked)}
-          />
-          <span className="text-muted-foreground">Infobulles</span>
-        </label>
-        <div
-          className="flex items-center gap-1.5 border-border/60 border-l pl-3"
-          title="Couleur des barres sur la frise (lecture seule, ne modifie pas les données)"
-        >
-          <span className="text-muted-foreground shrink-0">Couleur barres</span>
-          <select
-            className="border-input bg-background h-8 max-w-[10rem] rounded-md border px-2 text-[11px]"
-            value={barColorMode}
-            onChange={(e) => setBarColorMode(e.target.value as GanttBarColorMode)}
-            aria-label="Mode de couleur des barres tâches"
-          >
-            <option value="default">Par défaut (thème)</option>
-            <option value="priority">Priorité</option>
-            <option value="status">Statut</option>
-            <option value="group">Arborescence (racine)</option>
-          </select>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="gap-1.5"
-          onClick={toggleGanttFullscreen}
-          aria-label={isFullscreen ? 'Quitter le plein écran' : 'Afficher le planning en plein écran'}
-          title={isFullscreen ? 'Quitter le plein écran (Échap)' : 'Plein écran'}
-        >
-          {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-          <span className="hidden sm:inline">
-            {isFullscreen ? 'Quitter' : 'Plein écran'}
-          </span>
-        </Button>
-        {canEdit ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => planningRef.current?.openCreate()}
-          >
-            Nouvelle tâche
-          </Button>
-        ) : null}
-      </div>
-      </div>
-      <GanttBarColorLegend mode={barColorMode} />
-    </div>
+    <ProjectGanttToolbar
+      timelineScale={timelineScale}
+      onTimelineScaleChange={setTimelineScale}
+      timeZoom={timeZoom}
+      onZoomIn={zoomTimeIn}
+      onZoomOut={zoomTimeOut}
+      onResetZoom={resetTimeZoom}
+      taskStatusFilter={taskStatusFilter}
+      onTaskStatusFilterChange={setTaskStatusFilter}
+      taskStatusOptions={GANTT_TASK_STATUS_OPTIONS}
+      showMilestones={showMilestones}
+      onShowMilestonesChange={setShowMilestones}
+      showGanttBarLabels={showGanttBarLabels}
+      onShowGanttBarLabelsChange={setShowGanttBarLabels}
+      showGanttFriseTooltips={showGanttFriseTooltips}
+      onShowGanttFriseTooltipsChange={setShowGanttFriseTooltips}
+      barColorMode={barColorMode}
+      onBarColorModeChange={setBarColorMode}
+      isFullscreen={isFullscreen}
+      onToggleFullscreen={toggleGanttFullscreen}
+      canEdit={canEdit}
+      onCreateTask={canEdit ? () => planningRef.current?.openCreate() : undefined}
+    />
   );
 
   if (!bounds || !layout) {
@@ -976,12 +841,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             cible. Vous pouvez créer des tâches ci-dessous.
           </AlertDescription>
         </Alert>
-        <div
-          className={cn(
-            'border-border/60 overflow-hidden rounded-lg border',
-            isFullscreen && 'flex min-h-0 flex-1 flex-col',
-          )}
-        >
+        <ProjectGanttCard className={isFullscreen ? 'flex min-h-0 flex-1 flex-col' : undefined}>
           {toolbar}
           <div className={cn('p-2', isFullscreen && 'min-h-0 flex-1')}>
             <ProjectTaskPlanningSection
@@ -994,7 +854,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               ganttUnifiedBodyRows={unifiedRows}
             />
           </div>
-        </div>
+        </ProjectGanttCard>
         </ProjectGanttView>
         </TooltipProvider>
       </div>
@@ -1039,11 +899,8 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
         </Alert>
       )}
 
-      <div
-        className={cn(
-          'border-border/60 flex min-w-0 flex-col overflow-hidden rounded-lg border',
-          isFullscreen ? 'min-h-0 flex-1' : 'min-h-[min(85vh,900px)]',
-        )}
+      <ProjectGanttCard
+        className={cn(isFullscreen ? 'min-h-0 flex-1' : 'min-h-[min(85vh,900px)]')}
       >
         {toolbar}
         <div
@@ -1055,7 +912,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             className="flex min-h-0 min-w-0 flex-1 flex-row"
           >
             <div
-              className="border-border/60 flex min-h-0 min-w-0 shrink-0 flex-col overflow-x-auto border-r border-border/60"
+              className="border-border/60 flex min-h-0 min-w-0 shrink-0 flex-col overflow-x-auto border-r bg-card"
               style={{
                 width: sidebarWidthPx,
                 minWidth: GANTT_SIDEBAR_MIN_PX,
@@ -1073,29 +930,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
               />
             </div>
 
-            <button
-              type="button"
-              aria-label="Redimensionner la colonne planification et la frise"
-              title="Glisser pour ajuster la largeur"
-              className="group bg-border/0 hover:bg-border/90 relative z-10 flex w-1 shrink-0 cursor-col-resize touch-none items-stretch justify-center border-0 p-0 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              onPointerDown={beginSidebarResize}
-            >
-              <span
-                className="bg-border group-hover:bg-primary/50 group-active:bg-primary/70 w-px flex-1"
-                aria-hidden
-              />
-            </button>
+            <ProjectGanttResizeHandle onPointerDown={beginSidebarResize} />
 
             <div
               ref={timelineScrollRef}
-              className="bg-muted/5 min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
+              className="starium-project-gantt-body min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-visible"
             >
             <div
               className="relative flex min-w-full flex-col"
               style={{ width: widthPx, minWidth: widthPx }}
             >
               <div
-                className="border-border/40 bg-muted/30 sticky top-0 z-20 relative"
+                className="starium-project-gantt-timeline-head relative"
                 style={{ width: widthPx }}
               >
                 <div
@@ -1109,19 +955,19 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   {weekendBands.map((b, i) => (
                     <div
                       key={`wknd-h-${i}-${b.leftPx}`}
-                      className="bg-muted/55 dark:bg-muted/40 absolute top-0 bottom-0"
+                      className="bg-muted/45 dark:bg-muted/35 absolute top-0 bottom-0"
                       style={{ left: b.leftPx, width: b.widthPx }}
                     />
                   ))}
                 </div>
                 <div
-                  className="border-border/40 relative z-[1] border-b"
+                  className="relative z-[1] border-b border-border/40"
                   style={{ height: GANTT_ROW_PX, width: widthPx }}
                 >
                   {monthBands.map((b, i) => (
                     <div
                       key={`m-${i}-${b.label}-${b.leftPx}`}
-                      className="border-border/50 absolute top-0 bottom-0 flex items-center border-r px-1 text-[10px] font-medium text-muted-foreground"
+                      className="starium-project-gantt-timeline-head__month"
                       style={{ left: b.leftPx, width: b.widthPx }}
                     >
                       <span className="truncate">{b.label}</span>
@@ -1129,13 +975,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   ))}
                 </div>
                 <div
-                  className="border-border/30 relative z-[1] border-b"
+                  className="relative z-[1] border-b border-border/30"
                   style={{ height: GANTT_ROW_PX, width: widthPx }}
                 >
                   {weekBands.map((b, i) => (
                     <div
                       key={`w-${i}-${b.label}-${b.leftPx}`}
-                      className="border-border/30 absolute top-0 bottom-0 flex items-center justify-center border-r px-0.5 text-[9px] text-muted-foreground"
+                      className="starium-project-gantt-timeline-head__week"
                       style={{ left: b.leftPx, width: b.widthPx }}
                     >
                       {b.label}
@@ -1144,13 +990,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 </div>
                 {showDayHeaders && (
                   <div
-                    className="border-border/40 relative z-[1] border-b"
+                    className="relative z-[1] border-b border-border/25"
                     style={{ height: GANTT_ROW_PX, width: widthPx }}
                   >
                     {dayBands.map((b, i) => (
                       <div
                         key={`d-${i}-${b.label}-${b.leftPx}`}
-                        className="border-border/25 absolute top-0 bottom-0 flex items-center justify-center border-r px-0.5 text-[8px] leading-none text-muted-foreground"
+                        className="starium-project-gantt-timeline-head__day"
                         style={{ left: b.leftPx, width: b.widthPx }}
                         title={b.label}
                       >
@@ -1231,9 +1077,12 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                 />
                 {todayPx !== null && (
                   <div
-                    className="bg-primary/60 pointer-events-none absolute top-0 bottom-0 z-[1] w-px"
+                    className="starium-project-gantt-today"
                     style={{ left: todayPx }}
-                  />
+                    aria-hidden
+                  >
+                    <span className="starium-project-gantt-today-flag">Aujourd&apos;hui</span>
+                  </div>
                 )}
 
                 {unifiedRows.map((ur, rowIndex) => {
@@ -1292,13 +1141,13 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     return (
                       <div
                         key={`phase:${ur.phaseId ?? 'none'}`}
-                        className="border-border/60 relative z-[2] box-border shrink-0 border-b"
+                        className="starium-project-gantt-row starium-project-gantt-row--phase relative z-[2]"
                         style={{ height: GANTT_ROW_PX, width: widthPx }}
                       >
                         {hasRollup && phaseMeta && (
                           <>
                             <div
-                              className="pointer-events-none absolute top-1/2 z-[1] h-1.5 -translate-y-1/2 rounded-sm border border-primary/45 bg-primary/25 shadow-sm"
+                              className="starium-project-gantt-phase-bar"
                               style={{ left: rollupLeftPx, width: rollupW }}
                               title={`Phase ${phaseMeta.name} : ${new Date(phaseStartMs!).toLocaleDateString('fr-FR')} → ${new Date(phaseEndMs!).toLocaleDateString('fr-FR')}${
                                 rollupProgressPct != null
@@ -1346,19 +1195,18 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                     return (
                       <div
                         key={`milestone:${m.id}`}
-                        className="border-border/60 relative z-[2] box-border shrink-0 border-b"
+                        className="starium-project-gantt-row relative z-[2]"
                         style={{ height: GANTT_ROW_PX, width: widthPx }}
                       >
                         {showGanttFriseTooltips ? (
                           <Tooltip>
                             <TooltipTrigger
                               className={cn(
-                                'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                                'starium-project-gantt-milestone',
                                 canEdit
-                                  ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                  ? 'cursor-grab touch-none hover:brightness-110 active:cursor-grabbing'
                                   : 'cursor-default',
-                                m.isLate &&
-                                  'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                                m.isLate && 'starium-project-gantt-milestone--late',
                               )}
                               style={{ left: leftPx }}
                               onPointerDown={
@@ -1394,12 +1242,11 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                         ) : (
                           <div
                             className={cn(
-                              'bg-amber-500 absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-sm shadow-sm',
+                              'starium-project-gantt-milestone',
                               canEdit
-                                ? 'cursor-grab touch-none hover:bg-amber-400 active:cursor-grabbing'
+                                ? 'cursor-grab touch-none hover:brightness-110 active:cursor-grabbing'
                                 : 'cursor-default',
-                              m.isLate &&
-                                'ring-2 ring-destructive/80 ring-offset-1 ring-offset-background',
+                              m.isLate && 'starium-project-gantt-milestone--late',
                             )}
                             style={{ left: leftPx }}
                             title={`${m.name} — ${new Date(tMs).toLocaleDateString('fr-FR')}`}
@@ -1439,7 +1286,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                   return (
                     <div
                       key={`task:${row.id}`}
-                      className="border-border/60 relative z-[2] box-border shrink-0 border-b"
+                      className="starium-project-gantt-row relative z-[2]"
                       style={{ height: GANTT_ROW_PX, width: widthPx }}
                     >
                       {eligible && dates && (
@@ -1514,7 +1361,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
             </div>
           </div>
         </div>
-      </div>
+      </ProjectGanttCard>
       </ProjectGanttView>
       </TooltipProvider>
     </div>

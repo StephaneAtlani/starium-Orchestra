@@ -1,0 +1,75 @@
+---
+alwaysApply: true
+---
+
+# Standards "by design" — Starium Orchestra
+
+Ces 5 exigences sont **non négociables** et s'appliquent dès la conception (PRD/RFC), pas en correctif a posteriori. Toute RFC, tout module, tout écran et toute API doit les respecter. La *Definition of Done* d'une tâche les inclut.
+
+---
+
+## 1. RGPD / Privacy by design & by default
+
+- **Minimisation** : ne collecter, stocker et exposer que les données strictement nécessaires. Pas de champ "au cas où".
+- **Base légale & finalité** : toute donnée personnelle (DCP) a une finalité documentée dans la RFC. Pas de réutilisation hors finalité.
+- **Données personnelles** identifiées explicitement dans le schéma (commentaire Prisma / tag) : email, nom, téléphone, identifiants RH, IP, etc.
+- **Droits des personnes** : prévoir dès la conception accès, rectification, **effacement** (suppression ou anonymisation), portabilité (export). Pas de DCP "non supprimable" sans justification légale (ex. obligation comptable).
+- **Rétention** : durée de conservation définie par catégorie de données ; prévoir purge/anonymisation automatisable (job).
+- **Consentement & traçabilité** : pour tracking/notifications/cookies, consentement explicite, révocable, horodaté.
+- **Sécurité du traitement** : chiffrement au repos pour DCP sensibles, en transit (TLS) systématique.
+- **Sous-traitance / transferts** : pas d'envoi de DCP à un tiers (IA, analytics, intégrations Microsoft, etc.) sans base et anonymisation/pseudonymisation quand possible.
+- **Logs** : ne jamais logger de DCP en clair (mots de passe, tokens, emails complets) ; masquer/pseudonymiser.
+- **Multi-client** : la DCP est scopée par client comme toute donnée métier ; aucune fuite inter-client (cf. `.cursorrules`).
+
+## 2. RGAA / Accessibilité (WCAG 2.1 AA cible)
+
+- **Sémantique HTML** : balises natives (`button`, `nav`, `main`, `header`, `table`, `label`) avant tout `div` cliquable. Un seul `h1` par page, hiérarchie de titres cohérente.
+- **Clavier** : tout est utilisable au clavier (Tab/Shift+Tab/Entrée/Échap/flèches). `focus-visible` toujours présent, jamais `outline:none` sans alternative. Ordre de tabulation logique. Pièges de focus gérés (modales, menus).
+- **ARIA** : utilisé uniquement si le natif ne suffit pas, et correctement (`aria-label`, `aria-describedby`, `aria-expanded`, `role` adaptés). Composants shadcn/ui (Radix) privilégiés car accessibles par défaut.
+- **Formulaires** : chaque champ a un `<label>` associé (pas seulement un placeholder). Erreurs reliées via `aria-invalid` + `aria-describedby`, annoncées, et explicites (pas seulement la couleur).
+- **Contrastes** : texte normal ≥ 4.5:1, texte large/UI ≥ 3:1. L'information n'est jamais portée par la couleur seule (ajouter icône/texte).
+- **Images & icônes** : `alt` pertinent ; icônes décoratives `aria-hidden`. Icônes porteuses de sens accompagnées d'un libellé accessible.
+- **Contenu dynamique** : toasts/alertes/chargements via `aria-live` (`polite`/`assertive`). États de chargement/vide/erreur annoncés.
+- **Média & mouvement** : respecter `prefers-reduced-motion` ; pas d'auto-play agressif ; cibles tactiles ≥ 44×44 px.
+- **Langue** : `lang="fr"` sur la racine ; libellés en français lisibles (cohérent avec la règle "valeur, pas ID").
+
+## 3. Design System (cohérence visuelle obligatoire)
+
+- **Source unique** : suivre `docs/FRONTEND_UI-UX.md` et `docs/RFC/RFC-014-1 — UX-UI et Design System de l'application.md`. En cas de doute, lire ces docs avant de coder de l'UI.
+- **Composants** : réutiliser shadcn/ui + composants maison existants (cf. `docs/INVENTAIRE-COMPOSANTS.md`). **Ne pas réinventer** un bouton, input, modale, table, badge déjà existant.
+- **Tokens** : couleurs, espacements, rayons, typo, ombres via les tokens Tailwind/thème du projet. **Jamais** de valeurs en dur (`#3b82f6`, `margin: 13px`) ni de couleur hors palette.
+- **Cohérence** : mêmes patterns pour mêmes intentions (états loading/empty/error, formulaires, tableaux, filtres, actions). Composants petits et composables.
+- **Dark mode / thèmes** : respecter les variables de thème, ne pas casser le contraste.
+- **Pas de logique métier dans l'UI** (cf. `.cursorrules`) ; l'UI consomme l'API.
+
+## 4. Sécurité by design
+
+- **Authz systématique** : chaque endpoint, query et mutation applique authentification, RBAC **client-aware** et isolation tenant. Jamais affaiblir une permission "pour que ça marche".
+- **Isolation tenant** : `clientId` jamais issu du payload brut ; toujours dérivé/validé depuis le scope authentifié. Toute requête filtrée par clients autorisés.
+- **Validation des entrées** : DTOs + class-validator sur **tous** les écrits ; jamais de payload non validé. Validation aussi côté UI mais la vérité est backend.
+- **Secrets** : uniquement via variables d'environnement / config ; jamais en clair dans le code, les logs ou le repo.
+- **Injection** : Prisma uniquement ; pas de SQL brut sauf nécessité isolée et documentée. Échapper/valider tout contenu rendu.
+- **Uploads & fichiers** : valider type/taille, assainir nom et métadonnées des documents.
+- **Audit** : toute action sensible produit un audit log (qui, quoi, quand, entité, client, résumé avant/après) — cf. `docs/RFC/RFC-013-1`.
+- **Sorties** : ne jamais renvoyer de données d'un autre client ; pas de sur-exposition de champs (whitelist dans les réponses).
+- **Headers/transport** : TLS, en-têtes de sécurité, CORS restreint, rate-limiting sur endpoints sensibles.
+
+## 5. Interface mobile (responsive / mobile-first)
+
+- **Mobile-first** : concevoir d'abord pour petit écran puis élargir via breakpoints Tailwind (`sm md lg xl`). Tester ≥ 320px de large.
+- **Layouts fluides** : pas de largeur fixe en px sur les conteneurs ; grilles/flex adaptatifs. Pas de scroll horizontal involontaire.
+- **Tableaux denses** : prévoir une stratégie mobile (cartes empilées, colonnes prioritaires, scroll horizontal contrôlé) — un tableau CODIR doit rester exploitable sur mobile.
+- **Navigation** : menu/sidebar repliables, client switcher accessible sur mobile, actions principales atteignables au pouce.
+- **Cibles tactiles** : ≥ 44×44 px, espacement suffisant ; pas d'interaction dépendant du survol (hover) seul.
+- **Performance mobile** : images dimensionnées/lazy, éviter le sur-rendu, pagination/virtualisation pour longues listes.
+- **Modales/drawers** : adaptés mobile (plein écran ou bottom sheet) plutôt que pop-ups étroites.
+
+---
+
+## Checklist Definition of Done (à valider en plus de celle de `.cursorrules`)
+
+- [ ] RGPD : DCP minimisées, finalité claire, effacement/anonymisation et rétention prévus, pas de DCP en clair dans les logs
+- [ ] RGAA : navigable clavier, labels, contrastes AA, `aria-live` sur dynamique, focus visible
+- [ ] Design System : composants/tokens existants réutilisés, aucune valeur en dur, états loading/empty/error
+- [ ] Sécurité : authz + isolation client, DTO validés, secrets en env, audit log si sensible
+- [ ] Mobile : responsive testé dès 320px, cibles tactiles ≥ 44px, tables exploitables sur mobile

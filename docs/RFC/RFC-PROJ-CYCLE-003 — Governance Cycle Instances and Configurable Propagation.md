@@ -3,7 +3,7 @@
 ## Statut
 
 **Implémenté** — 2026-06-01 (lots **003-A** à **003-F** livrés ; **003-G** décideurs nommés hors scope).  
-**Dernière synchro doc ↔ code** : 2026-06-01 (préparation séance FE, règles agenda candidats, `PATCH` instance `DRAFT`→`PLANNED`).  
+**Dernière synchro doc ↔ code** : 2026-06-17 (candidature via select arbitrage « Soumis à validation » + dialog cycle ; propagation `WRITE_ARBITRATION_CODIR` → `arbitrationMetierStatus` ; retrait bouton bandeau fiche).  
 Évolution V2 du module cycles de pilotage : instances de décision + propagation paramétrable.
 
 **Référence code** : `apps/api/src/modules/governance-cycles/` (`governance-cycle-instances.service.ts`, `governance-cycle-propagation.service.ts`, `governance-cycle-readiness.service.ts`, `lib/governance-cycle-config.schema.ts`, `lib/governance-cycle-agenda.util.ts`, `lib/governance-cycle-item-status.util.ts`) ; migrations `20260601120000_governance_cycle_instances`, `20260601130000_budget_governance_decision` ; UI `apps/web/src/features/governance-cycles/` (`governance-cycle-instances-tab.tsx`, `instance-decision-panel.tsx`, `instance-session-preparation.tsx`, `lib/governance-cycle-agenda-candidates.ts`, candidature fiche) ; **92** tests Jest module API.
@@ -16,7 +16,7 @@
 
 **Phasage implémentation** (voir §4.10) : livraison **minimale** = **003-A + 003-B + 003-C** ; livraison **projet complète** = + **003-D** (config, readiness, propagation) ; **003-E** (budget), **003-F** (génération), **003-G** (décideurs nommés) = optionnels, ne bloquent pas le socle.
 
-**Cas de référence produit** : programme « CODIR Projets & Budget 2026 » → candidature fiche (`CANDIDATE`) → instances par période (`periodLabel` T1…T4, `scheduledDecisionAt` = date de séance) → `GovernanceCycleInstanceDecision` figées à la clôture → `item.decisionStatus` = **dernière décision connue** → propagation **optionnelle** vers `arbitrationCodirStatus` uniquement si `WRITE_ARBITRATION_CODIR` — **jamais** `Project.status` ni `Budget.status`.
+**Cas de référence produit** : programme « CODIR Projets & Budget 2026 » → candidature fiche (select arbitrage **Soumis à validation** → dialog cycle → item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION`) → instances par période (`periodLabel` T1…T4, `scheduledDecisionAt` = date de séance) → `GovernanceCycleInstanceDecision` figées à la clôture → `item.decisionStatus` = **dernière décision connue** → propagation **optionnelle** vers `arbitrationMetierStatus` (niveau Métier) si `WRITE_ARBITRATION_CODIR` — **jamais** `Project.status` ni `Budget.status`.
 
 ---
 
@@ -45,7 +45,7 @@
 
 - **Items** : `sourceType`, FK, scoring, `@@unique([cycleId, projectId])` — conservés au niveau **cycle** (portefeuille stable).
 - `**ProjectReview`** (RFC-PROJ-013) : pattern date + participants + finalize — inspiration pour mode **réunion** (sans coupler au module projet).
-- **Arbitrage fiche projet** : `arbitrationMetierStatus` / `arbitrationComiteStatus` / `arbitrationCodirStatus` — cible possible de propagation **configurable** (éviter double saisie manuelle).
+- **Arbitrage fiche projet** : `arbitrationMetierStatus` / `arbitrationComiteStatus` / `arbitrationCodirStatus` — propagation cycle (**003-D**) cible le niveau **Métier** (`arbitrationMetierStatus`) si `WRITE_ARBITRATION_CODIR` ; niveaux Comité / CODIR restent manuels sur la fiche.
 
 ---
 
@@ -89,7 +89,7 @@
 
 **Frontend** :
 
-- bouton **« Soumettre au cycle de pilotage »** dans `project-sheet-view.tsx` (visible si `propose` + module actif)
+- **Select arbitrage** (niveau Métier, fiche projet) : passage à **« Soumis à validation »** ouvre `submit-project-to-cycle-dialog.tsx` (dialog contrôlé, sans bouton bandeau) si module `governance_cycles` actif + permission `propose` ; projet déjà candidat (`CANDIDATE` / `TO_ARBITRATE`) : statut Métier verrouillé sur « Soumis à validation ».
 
 **Interdit dans 003-C** : `governanceConfig`, `readinessRules`, propagation, `InstanceDecision`, modification `arbitrationCodirStatus` / `Project.status`, UI séances complète, décideurs.
 
@@ -135,10 +135,10 @@ Cette section consolide les règles **non ambiguës** entre fiche projet, candid
 
 | #     | Règle produit                                                                                                                                                                   | Norme RFC          | Réf. détail |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----------- |
-| **1** | **Candidature depuis la fiche** : fiche complétée → **« Soumettre au cycle de pilotage »** → upsert item `CANDIDATE` → **non décidé** → agenda = action **séparée**             | Lot **003-C** seul | §4.11.1     |
+| **1** | **Candidature depuis la fiche** : arbitrage Métier → **« Soumis à validation »** → dialog choix programme (si module actif + `propose`) → upsert item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` → agenda = action **séparée** | Lot **003-C** seul | §4.11.1     |
 | **2** | **Quatre objets distincts** (programme / séance / historique figé / dernière décision connue)                                                                                   | Normatif           | §4.1        |
 | **3** | `**periodLabel`** ≠ `**scheduledDecisionAt**`                                                                                                                                   | Normatif           | §4.4, §4.6  |
-| **4** | Fiche prépare ; cycle décide ; **pas** de lancement auto projet ; `arbitrationCodir` **uniquement** si `WRITE_ARBITRATION_CODIR` à la clôture (**003-D**)                       | Normatif           | §4.2, §4.8  |
+| **4** | Fiche prépare ; cycle décide ; **pas** de lancement auto projet ; `arbitrationMetierStatus` **uniquement** si `WRITE_ARBITRATION_CODIR` à la clôture (**003-D**) — clé config historique, cible niveau **Métier** | Normatif           | §4.2, §4.8  |
 | **5** | Pas de double CODIR                                                                                                                                                             | Normatif           | §4.8.1      |
 | **6** | Phasage : **A+B+C** minimal → **+D** projet complet → E/F/G optionnels                                                                                                          | §4.10              |             |
 | **7** | Hors plan : `WRITE_PROJECT_STATUS`, `Budget.status` auto, vote, BPM, 4ᵉ niveau fiche                                                                                            | Interdit           | §4.10       |
@@ -147,9 +147,10 @@ Cette section consolide les règles **non ambiguës** entre fiche projet, candid
 
 
 ```text
-[Fiche] ──003-C Soumettre──► Item CANDIDATE ──003-A agenda──► Séance OPEN
+[Fiche] ──003-C Soumis à validation + dialog──► Item CANDIDATE + arbitrationMetier SOUMIS_VALIDATION
+         ──003-A agenda──► Séance OPEN
          ──003-B close──► InstanceDecision + dernière décision connue
-         ──003-D (option) propagation──► arbitrationCodir
+         ──003-D (option) propagation──► arbitrationMetier (VALIDE / REFUSE / EN_COURS)
          ✗ Project.status (jamais auto)
 ```
 
@@ -187,7 +188,8 @@ GovernanceCycle (programme de pilotage — longue durée)
 | ---------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
 | `**GovernanceCycleInstanceDecision`**          | Décision **portefeuille CODIR** pour un item dans une instance | Brouillon pendant `OPEN` (`PATCH …/decisions`) ; **figée** à la clôture (**003-B**+) avec `decidedAt` / `decidedByUserId`                                 | **Oui** — seule source pour l’historique CODIR portefeuille |
 | `**GovernanceCycleItem.decisionStatus`**       | **Dernière décision connue** (affichage uniquement)            | À la clôture : copie de la décision figée de **cette** instance ; si plusieurs instances clôturées : reflète l’instance la plus récente (`closedAt` desc) | **Non** — libellé UI : *Dernière décision connue*           |
-| `**Project.arbitrationCodirStatus`**           | Reflet **optionnel** fiche (flux B, niveau Sponsor/CODIR)      | **Uniquement** via propagation à la clôture si `propagation.project = WRITE_ARBITRATION_CODIR` (**003-D**) ; **jamais** en candidature (**003-C**)        | Snapshots fiche pour le dossier interne                     |
+| `**Project.arbitrationMetierStatus`**           | Reflet **optionnel** fiche (niveau Métier — flux cycle)          | **Candidature (003-C)** : `SOUMIS_VALIDATION` à `POST …/candidacies` ; **clôture (003-D)** : mapping §4.2 si `WRITE_ARBITRATION_CODIR` | Snapshots fiche ; select arbitrage synchronisé avec `by-project` |
+| `**Project.arbitrationCodirStatus`**           | Reflet **optionnel** fiche (flux B, niveau Sponsor/CODIR)      | **Manuel** via fiche (`projects.update`) — **pas** écrit par propagation cycle en l’état du code (2026-06-17)        | Snapshots fiche pour le dossier interne                     |
 | `**BudgetGovernanceDecision`** (lot **003-E**) | Trace budget                                                   | Créée à la clôture si `propagation.budget = WRITE_BUDGET_GOVERNANCE_DECISION`                                                                             | **Oui** pour le budget                                      |
 
 
@@ -288,21 +290,22 @@ type GovernanceCycleConfig = {
 | Préparer le dossier (cockpit, Métier, Comité)        | **Fiche projet** ([RFC-PROJ-012](./RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md))                                      |
 | Mettre en **candidature** au programme               | **Fiche projet** → §4.11.1 (**003-C**) → `GovernanceCycleItem` `CANDIDATE` — **sans** propagation ni `InstanceDecision` |
 | Décider la **retenue portefeuille**                  | **Instance** → `GovernanceCycleInstanceDecision`                                                                        |
-| Reflet CODIR sur la fiche (`arbitrationCodirStatus`) | **Uniquement** si `propagation.project = WRITE_ARBITRATION_CODIR` à la clôture — **aucune** écriture fiche si `NONE`    |
+| Reflet Métier sur la fiche (`arbitrationMetierStatus`) | **Candidature** : `SOUMIS_VALIDATION` ; **clôture** : mapping §4.2 si `WRITE_ARBITRATION_CODIR` — **aucune** écriture fiche projet si `NONE`    |
+| Reflet CODIR sur la fiche (`arbitrationCodirStatus`) | **Manuel** (fiche, niveaux Comité / Sponsor) — hors propagation cycle livrée |
 | Décision cycle **ne lance pas** le projet            | `ACCEPTED` portefeuille ≠ `Project.status` ; pas de `WRITE_PROJECT_STATUS`                                              |
 | Lancer l’exécution                                   | `**Project.status`** — action manuelle séparée ; **jamais** automatique depuis le cycle                                 |
 
 
 **Propagation ≠ candidature** : la candidature (**003-C**) rend le projet **candidat** uniquement. La propagation projet s’exécute **uniquement** dans `POST …/close` (**003-D**), après validation du flux **003-A + 003-B + 003-C**.
 
-**Mapping décision → effet projet** (si et seulement si `WRITE_ARBITRATION_CODIR`, lot **003-D**) — enum `ProjectArbitrationLevelStatus` : `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE` :
+**Mapping décision → effet projet** (si et seulement si `WRITE_ARBITRATION_CODIR`, lot **003-D**) — champ cible : `**arbitrationMetierStatus**` (clé config `WRITE_ARBITRATION_CODIR` conservée pour rétrocompatibilité) — enum `ProjectArbitrationLevelStatus` : `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE` :
 
 
-| `decisionStatus` instance | `arbitrationCodirStatus` | Note                                                                                 |
-| ------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| `decisionStatus` instance | `arbitrationMetierStatus` | Note                                                                                 |
+| ------------------------- | ------------------------- | ------------------------------------------------------------------------------------ |
 | `ACCEPTED`                | `VALIDE`                 | —                                                                                    |
 | `REJECTED`                | `REFUSE`                 | —                                                                                    |
-| `DEFERRED`                | `BROUILLON`              | + `decisionReason` obligatoire recommandé                                            |
+| `DEFERRED`                | `EN_COURS`               | + `decisionReason` obligatoire recommandé                                            |
 | `NEEDS_INFORMATION`       | `EN_COURS`               | —                                                                                    |
 | `CANDIDATE`               | —                        | **Pas de propagation** — clôture d’instance interdite tant que l’item reste candidat |
 | `ACCEPTED_WITH_RESERVE`   | `VALIDE`                 | + mention dans `decisionReason` / note COPIL si besoin                               |
@@ -331,7 +334,7 @@ Si `propagation.project = NONE` : la clôture **ne modifie aucun** champ `arbitr
 | `governance_cycles.delete`    | Archiver programme ou ressources admin                                                                        | Admin client / PMO senior                        |
 
 
-**Lot 003-C** : ajoute `**governance_cycles.propose`** (seed + route candidature + bouton fiche). `**arbitrate**` reste en **003-B** / **003-D** (clôture). Un chef de projet peut **soumettre** sans clôturer ni propager.
+**Lot 003-C** : ajoute `**governance_cycles.propose`** (seed + route candidature + flux fiche §4.11.1). `**arbitrate**` reste en **003-B** / **003-D** (clôture). Un chef de projet peut **soumettre** sans clôturer ni propager.
 
 #### Matrice action → permission (normative)
 
@@ -340,7 +343,7 @@ Si `propagation.project = NONE` : la clôture **ne modifie aucun** champ `arbitr
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Voir `/cycles`, bloc fiche, `by-project`                                | `read`                                                                                                   | **403** ; UI masquée                                                                                              |
 | Créer programme                                                         | `create`                                                                                                 | **403**                                                                                                           |
-| **Soumettre au cycle** (fiche, §4.11.1)                                 | `**propose`**                                                                                            | **403** `GOVERNANCE_CYCLES_PROPOSE_FORBIDDEN`                                                                     |
+| **Soumettre au cycle** (fiche, §4.11.1) — select **Soumis à validation** + dialog | `**propose`**                                                                                            | **403** `GOVERNANCE_CYCLES_PROPOSE_FORBIDDEN`                                                                     |
 | Ajouter item projet/budget (`POST …/items`)                             | `**propose`** ou `create`                                                                                | **403** — préférer `**propose`** pour items métier ; `create` réservé création programme + premier peuplement PMO |
 | Modifier titre/scores item (hors décision)                              | `update`                                                                                                 | **403**                                                                                                           |
 | Créer / modifier séance, `PUT agenda`, `open`                           | `update`                                                                                                 | **403**                                                                                                           |
@@ -388,7 +391,7 @@ Les profils sont **configurables** par le admin client (RFC-011) ; le tableau ci
 
 #### Frontend (par lot)
 
-- **003-C** : bouton **« Soumettre au cycle de pilotage »** si `propose` + module actif (§4.11.1).
+- **003-C** : select arbitrage Métier **« Soumis à validation »** → dialog cycle (`SubmitProjectToCycleDialogContent`) si `propose` + module actif (§4.11.1) — **pas** de bouton bandeau dédié.
 - **003-B** : panneau décisions / **Clôturer** si `arbitrate` et instance `OPEN`.
 - **003-A** : onglet séances, agenda — pas de clôture ni candidature fiche dans ce lot.
 
@@ -691,7 +694,7 @@ async applyInTransaction(
 
 - Pour chaque `GovernanceCycleInstanceDecision` dont l’item a `sourceType = PROJECT` :
   - Vérifier `projectId`, projet dans client.
-  - Appliquer mapping §4.2 sur `arbitrationCodirStatus` ; recalcul `arbitrationStatus` via logique fiche projet.
+  - Appliquer mapping §4.2 sur `**arbitrationMetierStatus**` ; recalcul `arbitrationStatus` via `deriveLegacyArbitrationStatus` (fiche projet).
   - Audit `governance_cycle.propagation.project` (avant / après).
 - **Ne pas** modifier `Project.status` en MVP.
 
@@ -713,9 +716,10 @@ async applyInTransaction(
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source de vérité **historique CODIR portefeuille** ? | `**GovernanceCycleInstanceDecision`** uniquement                                                                                                                                                                                                                                                               |
 | Qui décide la **retenue portefeuille** ?             | `**GovernanceCycleInstanceDecision`** (historique) + `**item.decisionStatus**` (dernière décision connue — **pas** l’historique)                                                                                                                                                                               |
-| Rôle de `**arbitrationCodirStatus`** ?               | **Reflet optionnel** fiche — écrit **uniquement** par le cycle si `propagation.project = WRITE_ARBITRATION_CODIR` à la clôture ; **jamais** l’inverse (fiche ne crée pas `InstanceDecision`)                                                                                                                   |
+| Rôle de `**arbitrationMetierStatus`** (cycle) ?      | **Reflet optionnel** niveau Métier — `SOUMIS_VALIDATION` à la candidature ; **VALIDE** / **REFUSE** / **EN_COURS** à la clôture si `WRITE_ARBITRATION_CODIR` |
+| Rôle de `**arbitrationCodirStatus`** ?               | **Dossier interne** fiche (niveau Sponsor/CODIR) — **pas** alimenté par propagation cycle en l’état du code (2026-06-17) |
 | Saisie manuelle CODIR fiche après clôture cycle ?    | Autorisée pour le **dossier interne** (`projects.update`) mais **ne doit pas** être présentée comme décision portefeuille ; l’UI affiche la **dernière décision connue** cycle en priorité sur le bloc portefeuille                                                                                            |
-| Conflit propagation vs fiche ?                       | Si propagation active : après clôture, `arbitrationCodirStatus` = mapping §4.2 ; toute modification manuelle ultérieure sur la fiche **n’écrase pas** `InstanceDecision` — pour corriger la retenue portefeuille, passer par une **nouvelle instance** ou correction admin hors MVP                            |
+| Conflit propagation vs fiche ?                       | Si propagation active : après clôture, `arbitrationMetierStatus` = mapping §4.2 ; toute modification manuelle ultérieure sur la fiche **n’écrase pas** `InstanceDecision` — pour corriger la retenue portefeuille, passer par une **nouvelle instance** ou correction admin hors MVP                            |
 | Deux décisions contradictoires ?                     | **Interdit** côté produit : ne pas permettre `PATCH` direct sur `GovernanceCycleItem.decisionStatus` pour simuler une décision d’instance ; ne pas exposer deux badges « Retenu » / « Refusé » de sources différentes sans hiérarchie (priorité : **InstanceDecision clôturée** > fiche si propagation `NONE`) |
 
 
@@ -734,7 +738,7 @@ async applyInTransaction(
 - Permissions : masquer préparation sans `update` ; décisions/clôture sans `arbitrate`.
 - Règles affichage : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) — jamais d’UUID comme libellé principal.
 
-**Fiche projet** (003-C) : bouton **« Soumettre au cycle de pilotage »** (`submit-project-to-cycle-dialog.tsx`) — pas de clôture ni propagation dans ce lot.
+**Fiche projet** (003-C) : select arbitrage Métier → **« Soumis à validation »** ouvre `submit-project-to-cycle-dialog.tsx` (`SubmitProjectToCycleDialogContent`) — pas de bouton bandeau ; pas de clôture ni propagation dans ce lot.
 
 **Hors scope FE livré** : panneau admin dédié `governanceConfig` ; dialog séance séparé (création inline) ; pagination items cycle au-delà de 100 lignes dans l’UI séances (prévoir extension si portefeuilles très larges).
 
@@ -773,7 +777,7 @@ Règles UI : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) — libellés métier, pa
 | Jalón               | Lots                                                  | Exploitable en prod ?                                                                                 |
 | ------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | **Minimale**        | **003-A + 003-B + 003-C**                             | Oui — programme, séances, décisions, candidature fiche ; **sans** propagation fiche ni config avancée |
-| **Projet complète** | **+ 003-D**                                           | Oui — + config, readiness optionnelle, reflet `arbitrationCodir` à la clôture                         |
+| **Projet complète** | **+ 003-D**                                           | Oui — + config, readiness optionnelle, reflet `arbitrationMetier` à la clôture                         |
 | **Optionnelles**    | 003-E (budget), 003-F (génération), 003-G (décideurs) | Ne **bloquent pas** la minimale ni la complète projet                                                 |
 
 
@@ -815,13 +819,15 @@ Trois étapes **séparées** : (C) candidature au programme, (A) décision porte
 | 3   | Contrôle **module actif** `governance_cycles`                                             |
 | 4   | Upsert `**GovernanceCycleItem`** avec `**decisionStatus = CANDIDATE**`                    |
 | 5   | Audit `**governance_cycle.candidacy.submitted**`                                          |
-| 6   | Bouton FE **« Soumettre au cycle de pilotage »** (visible si `propose` + module actif)    |
+| 6   | Mise à jour `**arbitrationMetierStatus = SOUMIS_VALIDATION**` sur le projet (même transaction logique) |
+| 7   | FE : select arbitrage **« Soumis à validation »** → dialog programme (`SubmitProjectToCycleDialogContent`) si `propose` + module actif |
 
 
 **Interdictions explicites (003-C)** :
 
 - Créer ou modifier `**GovernanceCycleInstanceDecision`**
-- Modifier `**arbitrationCodirStatus**`, `**arbitrationStatus**`, `**Project.status**`
+- Modifier `**arbitrationCodirStatus**` via candidature (hors scope)
+- Modifier `**Project.status**`
 - Appeler `**governance-cycle-propagation.service**`
 - Écrire `**governanceConfig**` / `**readinessRules**`
 - Routes `**…/deciders**`, modèles `**GovernanceCycleDecider**`
@@ -838,8 +844,8 @@ Trois étapes **séparées** : (C) candidature au programme, (A) décision porte
 | Étape | Comportement                                                                                                      |
 | ----- | ----------------------------------------------------------------------------------------------------------------- |
 | 1     | **Fiche projet** complétée (recommandation UX — garde-fous readiness en **003-D**, §4.13.3)                       |
-| 2     | Action utilisateur : **« Soumettre au cycle de pilotage »** (choix du programme si plusieurs)                     |
-| 3     | **Création ou mise à jour** d’un `GovernanceCycleItem` avec `**decisionStatus = CANDIDATE`**                      |
+| 2     | Action utilisateur : select arbitrage Métier → **« Soumis à validation »** → dialog **choix du programme** (si module actif + `propose`) |
+| 3     | **Création ou mise à jour** d’un `GovernanceCycleItem` avec `**decisionStatus = CANDIDATE`** + `**arbitrationMetierStatus = SOUMIS_VALIDATION**` |
 | 4     | Le projet devient **candidat** au cycle — **pas encore décidé** (pas de `InstanceDecision`)                       |
 | 5     | **Ajout à une instance / agenda** : action **séparée**, `PUT …/agenda`, permission `**update`** — hors de ce flux |
 
@@ -851,8 +857,9 @@ Trois étapes **séparées** : (C) candidature au programme, (A) décision porte
 3. Service :
   - Vérifier `projectId` dans le client actif ;
   - **Upsert** `GovernanceCycleItem` (`@@unique([cycleId, projectId])`) avec `sourceType = PROJECT`, `**decisionStatus = CANDIDATE`** ;
+  - Mettre à jour `**Project.arbitrationMetierStatus = SOUMIS_VALIDATION**` et recalculer `arbitrationStatus` dérivé ;
   - Si l’item existait avec une décision antérieure : repasser en `**CANDIDATE**` uniquement si politique produit l’autorise (sinon **409** `GOVERNANCE_CYCLE_ITEM_ALREADY_DECIDED`) — MVP : autoriser re-soumission seulement si dernière décision connue ∈ `{ CANDIDATE, DEFERRED, NEEDS_INFORMATION }`.
-4. **Interdictions** : pas de `InstanceDecision` ; pas de `arbitrationCodir` ; pas de `Project.status` ; pas d’ajout agenda automatique.
+4. **Interdictions** : pas de `InstanceDecision` ; pas de `Project.status` ; pas d’ajout agenda automatique.
 5. **Action séparée** (gestionnaire cycles, **003-A**) : `PUT …/instances/:id/agenda`.
 
 **Interdictions** :
@@ -866,7 +873,7 @@ Trois étapes **séparées** : (C) candidature au programme, (A) décision porte
 ```mermaid
 flowchart LR
   F[Fiche projet complétée]
-  S[Soumettre au cycle]
+  S[Soumis à validation + dialog cycle]
   I[GovernanceCycleItem CANDIDATE]
   A[PUT agenda instance]
   D[Séance OPEN → décision]
@@ -880,7 +887,7 @@ flowchart LR
 
 |                                      | **Flux C — Candidature** | **Flux A — Séance**               | **Flux B — Fiche**                      |
 | ------------------------------------ | ------------------------ | --------------------------------- | --------------------------------------- |
-| **Déclencheur**                      | Bouton fiche projet      | Gestionnaire cycles + CODIR       | Valideurs Métier / Comité / CODIR fiche |
+| **Déclencheur**                      | Select fiche **Soumis à validation** | Gestionnaire cycles + CODIR       | Valideurs Métier / Comité / CODIR fiche |
 | **Objet écrit**                      | `GovernanceCycleItem`    | `GovernanceCycleInstanceDecision` | `arbitrationMetier/Comite/CodirStatus`  |
 | **Statut typique**                   | `CANDIDATE`              | `ACCEPTED`, `DEFERRED`, …         | `VALIDE` / `REFUSE`                     |
 | **Décide la retenue portefeuille ?** | Non                      | **Oui**                           | Non (dossier interne)                   |
@@ -932,7 +939,7 @@ flowchart TB
     CL2[400 si CANDIDATE]
     CL3[Figer InstanceDecision]
     CL4[item.decisionStatus dernier état]
-    CL5{Propagation CODIR fiche ?}
+    CL5{Propagation Métier fiche ?}
     CL6[CLOSED ou 409 ROLLBACK]
   end
 
@@ -1021,10 +1028,10 @@ sequenceDiagram
   participant Exec as Exécution
 
   Fiche->>Fiche: Compléter dossier Métier / Comité
-  Fiche->>PMO: Soumettre au cycle → Item CANDIDATE
+  Fiche->>PMO: Soumis à validation + dialog → Item CANDIDATE + arbitrationMetier SOUMIS_VALIDATION
   PMO->>Inst: PUT agenda — séance programmée
   Inst->>Inst: OPEN → décisions → clôture ACCEPTED
-  Inst->>Fiche: si WRITE_ARBITRATION_CODIR → arbitrationCodir VALIDE
+  Inst->>Fiche: si WRITE_ARBITRATION_CODIR → arbitrationMetier VALIDE / REFUSE
 
   Exec->>Exec: Project.status manuel — jamais auto
 
@@ -1075,7 +1082,7 @@ Sur le workspace projet (`/projects/[projectId]`, onglets Synthèse / **Fiche pr
 | Emplacement                               | Contenu                                                                                                                                      | Comportement                                                                                                                                                                                                                                      |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Synthèse**                              | Bloc existant [RFC-PROJ-CYCLE-002](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) enrichi (003)    | Lecture seule : cycles non archivés, `periodLabel`, **dernier** `decisionStatus` item, libellé **instance** + `scheduledDecisionAt` de la dernière instance **clôturée** si connue ; lien vers `/cycles/[cycleId]` (valeur métier, pas UUID seul) |
-| **Fiche projet** (`ProjectSheetView`)     | Bouton **« Soumettre au cycle de pilotage »** (**003-C**, §4.11.1) ; carte présence lecture (peut suivre **003-A** ou **003-D**, hors 003-C) | Soumission : `**propose`** uniquement                                                                                                                                                                                                             |
+| **Fiche projet** (`ProjectSheetView`)     | Select **« Soumis à validation »** → dialog cycle (**003-C**, §4.11.1) ; carte présence lecture (`by-project`) | Soumission : `**propose`** uniquement                                                                                                                                                                                                             |
 | **Arbitrage 3 niveaux** (section B fiche) | **Inchangé** — Métier → Comité → Sponsor/CODIR                                                                                               | Pas de 4ᵉ carte ; **pas** de saisie « retenu portefeuille » ici — c’est le flux A                                                                                                                                                                 |
 
 
@@ -1088,7 +1095,7 @@ Distinction obligatoire :
 
 | Action                                                            | Objet                                   | Prérequis fiche (recommandation produit)                                       |
 | ----------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
-| **Soumettre au cycle** (§4.11.1, `POST …/candidacies`, **003-C**) | Item `CANDIDATE`                        | Pas de readiness obligatoire en 003-C                                          |
+| **Soumettre au cycle** (§4.11.1, `POST …/candidacies`, **003-C**) | Item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` | Pas de readiness obligatoire en 003-C                                          |
 | Inscrire au programme (`POST …/items` depuis `/cycles`)           | Item `CANDIDATE`                        | Équivalent gestionnaire — même statut                                          |
 | Inscrire à l’**agenda** (`PUT agenda`)                            | `GovernanceCycleInstanceAgendaItem`     | Item déjà `CANDIDATE` au programme — **action séparée** de la soumission fiche |
 | **Retenir** à la clôture (`ACCEPTED`)                             | `GovernanceCycleInstanceDecision` figée | Cockpit + Métier/Comité si `readinessRules` actifs                             |
@@ -1103,7 +1110,7 @@ Distinction obligatoire :
 
 **Équipe** : le **Sponsor** (matrice équipe projet, rôle système) doit être affecté lorsque `readinessRules.onAcceptedDecision.requireSponsorOnProjectTeam = true`.
 
-**Arbitrage fiche (flux B)** : lorsque la config l’exige, `arbitrationMetierStatus` et/ou `arbitrationComiteStatus` = `VALIDE` **avant** clôture instance avec décision `ACCEPTED` sur l’item. Le niveau **Sponsor/CODIR** fiche peut être alimenté **après** retenue portefeuille via propagation §4.2 (`WRITE_ARBITRATION_CODIR`) — ce n’est pas un doublon du 4ᵉ niveau.
+**Arbitrage fiche (flux B)** : lorsque la config l’exige, `arbitrationComiteStatus` = `VALIDE` **avant** clôture instance avec décision `ACCEPTED` sur l’item (readiness). Le niveau **Métier** est positionné en `SOUMIS_VALIDATION` à la candidature ; la propagation §4.2 (`WRITE_ARBITRATION_CODIR`) met à jour `arbitrationMetierStatus` à la clôture (`VALIDE` / `REFUSE` / `EN_COURS`) — clé config historique, cible niveau Métier.
 
 #### 4.13.4 Garde-fous backend readiness (module actif + config — lot **003-D**)
 
@@ -1125,10 +1132,10 @@ Si `enforceOnInstanceClose === false` (défaut) : les prérequis §4.13.3 resten
   → Fiche RFC-012 seule, pas de §4.13
 
 [Module ACTIF]
-  → Flux C : Soumettre → item CANDIDATE (candidature)
+  → Flux C : Soumis à validation + dialog → item CANDIDATE + arbitrationMetier SOUMIS_VALIDATION
   → Flux A : agenda → séance → InstanceDecision (retenue portefeuille)
   → Flux B : Métier → Comité → CODIR fiche (dossier)
-  → Propagation CODIR fiche : uniquement si WRITE_ARBITRATION_CODIR
+  → Propagation Métier fiche : uniquement si WRITE_ARBITRATION_CODIR (clôture)
   → Exécution : Project.status manuel
 ```
 
@@ -1139,11 +1146,11 @@ flowchart LR
   end
 
   subgraph active [Module actif]
-    C0[Soumettre fiche → CANDIDATE]
+    C0[Soumis à validation + dialog → CANDIDATE]
     B0[Fiche Métier / Comité]
     A0[Agenda + séance]
     A1[ACCEPTED portefeuille]
-    P0[Propagation CODIR option]
+    P0[Propagation Métier option]
     E0[status manuel]
   end
 
@@ -1209,7 +1216,7 @@ flowchart LR
 ### Backend — clôture et propagation projet (lot **003-D**)
 
 - `propagation.project = NONE` : close OK ; `InstanceDecision` + `item.decisionStatus` OK ; `**arbitrationCodirStatus` inchangé**.
-- `WRITE_ARBITRATION_CODIR` + close OK : `arbitrationCodirStatus` mis à jour (ex. `ACCEPTED` → `VALIDE`) + audit `governance_cycle.propagation.project`.
+- `WRITE_ARBITRATION_CODIR` + close OK : `arbitrationMetierStatus` mis à jour (ex. `ACCEPTED` → `VALIDE`) + audit `governance_cycle.propagation.project`.
 - `WRITE_ARBITRATION_CODIR` + erreur propagation (projet hors client simulé) : **ROLLBACK** ; instance reste `**OPEN`** ; **409** `GOVERNANCE_CYCLE_INSTANCE_CLOSE_PROPAGATION_FAILED` ; `InstanceDecision` non figée ; **aucun** `item.decisionStatus` partiellement mis à jour.
 - Close avec 3 items projet : si le 2ᵉ échoue en propagation, **0** des 3 projets mis à jour (pas de 1/3 silencieux).
 
@@ -1233,7 +1240,7 @@ flowchart LR
 ### Backend — candidature fiche (lot **003-C**, §4.11.1)
 
 - Module inactif → `POST …/candidacies` → **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE`.
-- Soumission valide → item `CANDIDATE` ; **aucune** ligne agenda / `InstanceDecision` ; `**arbitrationCodirStatus` et `Project.status` inchangés**.
+- Soumission valide → item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` ; **aucune** ligne agenda / `InstanceDecision` ; `**Project.status` inchangé**.
 - Double soumission même `cycleId` + `projectId` → upsert idempotent `CANDIDATE`.
 - Item déjà `ACCEPTED` (dernière décision connue) → **409** si re-soumission interdite.
 
@@ -1257,7 +1264,7 @@ flowchart LR
 - Onglet masqué sans `governance_cycles.read`.
 - Clôture désactivée si décisions incomplètes ou ODJ vide.
 - Bloc projet : pas d’ID brut dans le texte principal.
-- **003-C** : module inactif → pas de bouton soumission ; module actif → soumission si `propose` (§4.11.1).
+- **003-C** : module inactif → pas de dialog cycle à la soumission ; module actif → select **Soumis à validation** + dialog si `propose` (§4.11.1).
 - **003-B** : clôture sans `arbitrate` masquée.
 - **003-G** (hors MVP) : UI décideurs nommés — noms affichés, pas d’ID brut.
 
@@ -1275,14 +1282,14 @@ flowchart LR
 
 ## 7) Récapitulatif final
 
-Cette RFC transforme le cycle de pilotage en **programme** + **séances de décision** (`periodLabel` / date de séance distinctes), avec **candidature depuis la fiche** (flux C, lot **003-C** seul), **historique** `GovernanceCycleInstanceDecision` et **dernière décision connue** sur l’item. La clôture **003-B** fige sans propagation ; **003-D** ajoute readiness + reflet `arbitrationCodir` (échec → instance `OPEN`). `**Project.status`** reste manuel. **Livraison minimale** = **003-A + B + C** ; **projet complète** = **+ 003-D** ; **003-E/F/G** optionnels (budget, génération, décideurs nommés).
+Cette RFC transforme le cycle de pilotage en **programme** + **séances de décision** (`periodLabel` / date de séance distinctes), avec **candidature depuis la fiche** (flux C, lot **003-C** seul — select **Soumis à validation**), **historique** `GovernanceCycleInstanceDecision` et **dernière décision connue** sur l’item. La clôture **003-B** fige sans propagation ; **003-D** ajoute readiness + reflet `arbitrationMetier` (échec → instance `OPEN`). `**Project.status`** reste manuel. **Livraison minimale** = **003-A + B + C** ; **projet complète** = **+ 003-D** ; **003-E/F/G** optionnels (budget, génération, décideurs nommés).
 
 ---
 
 ## 8) Points de vigilance
 
 1. **Triple filière** : candidature (flux C) ≠ décision séance (flux A) ≠ arbitrage dossier (flux B) — voir §4.11 et §4.8.1 (pas de double CODIR).
-2. **Double arbitrage (à éviter)** : historique portefeuille = `InstanceDecision` uniquement ; `item.decisionStatus` = dernière décision connue ; `arbitrationCodir` = reflet optionnel (**003-D** uniquement).
+2. **Double arbitrage (à éviter)** : historique portefeuille = `InstanceDecision` uniquement ; `item.decisionStatus` = dernière décision connue ; `arbitrationMetier` = reflet optionnel candidature + clôture (**003-C** / **003-D**).
 3. **Ne pas** exposer les instances sous `/api/projects/...` (candidature : `POST …/candidacies` — §4.11.1).
 4. **Budget** : lot **003-E** après socle projet — jamais `Budget.status`.
 5. **Performance** : clôture — propagation en batch.
@@ -1305,9 +1312,9 @@ Cette RFC transforme le cycle de pilotage en **programme** + **séances de déci
 | `**WRITE_PROJECT_STATUS`**               | **Hors MVP — ne pas coder.** Pas d’enum, pas de `switch`, pas de feature flag. Config avec cette valeur → **400**.                                                                                                            |
 | **Clôture atomique**                     | Un seul `prisma.$transaction` par `close` ; **003-B** : étapes 1–6 sans propagation ; **003-D/E** : échec readiness/propagation = **ROLLBACK** intégral.                                                                      |
 | `**GovernanceCycleItem.decisionStatus`** | **Uniquement le dernier état connu** (miroir de la dernière instance clôturée). **Jamais** l’historique. Historique = requêtes sur `GovernanceCycleInstanceDecision`. Libellé UI : **Candidat** / *À examiner* (`CANDIDATE`). |
-| **Candidature 003-C**                    | Upsert `CANDIDATE` uniquement — **pas** propagation, **pas** `InstanceDecision`, **pas** `arbitrationCodir` / `Project.status`.                                                                                               |
+| **Candidature 003-C**                    | Upsert `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` — **pas** propagation, **pas** `InstanceDecision`, **pas** `Project.status`.                                                                                               |
 | **§4.13 module actif**                   | Soumission fiche et blocs cycle — **uniquement** si module actif. Readiness clôture = **003-D**.                                                                                                                              |
-| **§4.8.1 double CODIR**                  | `InstanceDecision` = vérité portefeuille ; `arbitrationCodir` = reflet si `WRITE_ARBITRATION_CODIR` à la clôture (**003-D**) uniquement.                                                                                      |
+| **§4.8.1 double CODIR**                  | `InstanceDecision` = vérité portefeuille ; `arbitrationMetier` = reflet candidature + clôture si `WRITE_ARBITRATION_CODIR` (**003-D**).                                                                                      |
 | **Clôture**                              | Agenda avec `CANDIDATE` → **400** ; décisions finales figées ; échec propagation (**003-D/E**) → **OPEN** + **409**.                                                                                                          |
 | **RBAC §4.3**                            | `propose` / `arbitrate` / `update` sur routes dédiées ; verrou `PATCH item` si instance `OPEN`.                                                                                                                               |
 | **Décideurs §4.12**                      | **Hors A–F** — ne pas coder `GovernanceCycleDecider` ni `enforceOnInstanceArbitration` dans le socle.                                                                                                                         |

@@ -2,7 +2,15 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FilterBar } from '@/components/layout/filter-bar';
+import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { cn } from '@/lib/utils';
 import type {
   CollaboratorSource,
@@ -31,121 +39,137 @@ function toggleInArray<T extends string>(arr: T[] | undefined, value: T): T[] {
 }
 
 export function CollaboratorFiltersBar({ filters, setFilters, managerOptions }: Props) {
+  const managerLabel =
+    !filters.managerId
+      ? 'Tous'
+      : managerOptions.find((m) => m.id === filters.managerId)?.displayName ?? 'Manager';
+
   return (
-    <div className="rounded-lg border border-border/60 bg-card/30 p-4 space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="collaborators-search">Recherche</Label>
-          <Input
-            id="collaborators-search"
-            value={filters.search ?? ''}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value, offset: 0 })}
-            placeholder="Nom, email, département..."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="collaborators-manager">Manager</Label>
-          <select
-            id="collaborators-manager"
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            value={filters.managerId ?? ''}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                managerId: e.target.value || undefined,
-                offset: 0,
-              })
-            }
-          >
-            <option value="">Tous</option>
-            {managerOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.displayName}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="collaborators-tags">Tags (CSV)</Label>
-          <Input
-            id="collaborators-tags"
-            value={(filters.tag ?? []).join(', ')}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                tag: e.target.value
-                  .split(',')
-                  .map((item) => item.trim())
-                  .filter(Boolean),
-                offset: 0,
-              })
-            }
-            placeholder="run, critical"
-          />
-        </div>
-      </div>
+    <div className="space-y-4">
+      <FilterBar aria-label="Filtres collaborateurs" asSearch desktopColumns={3}>
+        <FilterBarField id="collaborators-search" label="Recherche">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              className="w-full"
+              value={filters.search ?? ''}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value, offset: 0 })}
+              placeholder="Nom, email, département..."
+            />
+          )}
+        </FilterBarField>
+        <FilterBarField id="collaborators-manager" label="Manager">
+          {({ controlId, labelId }) => (
+            <Select
+              value={filters.managerId ?? '__all__'}
+              onValueChange={(v) =>
+                setFilters({
+                  ...filters,
+                  managerId: v === '__all__' || !v ? undefined : v,
+                  offset: 0,
+                })
+              }
+            >
+              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                <SelectValue>{managerLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous</SelectItem>
+                {managerOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="collaborators-tags" label="Tags (CSV)">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              className="w-full"
+              value={(filters.tag ?? []).join(', ')}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  tag: e.target.value
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                  offset: 0,
+                })
+              }
+              placeholder="run, critical"
+            />
+          )}
+        </FilterBarField>
+      </FilterBar>
 
-      <div className="space-y-2">
-        <Label>Statuts</Label>
-        <div className="flex flex-wrap gap-2">
-          {STATUSES.map((status) => {
-            const active = (filters.status ?? []).includes(status);
-            return (
-              <Button
-                key={status}
-                type="button"
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                className={cn('capitalize')}
-                onClick={() =>
-                  setFilters({
-                    ...filters,
-                    status: toggleInArray(filters.status, status),
-                    offset: 0,
-                  })
-                }
-              >
-                {collaboratorStatusLabel(status)}
-              </Button>
-            );
-          })}
+      <div className="space-y-3 rounded-lg border border-border/70 bg-muted/15 p-3 sm:p-4">
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground">Statuts</span>
+          <div className="flex flex-wrap gap-2">
+            {STATUSES.map((status) => {
+              const active = (filters.status ?? []).includes(status);
+              return (
+                <Button
+                  key={status}
+                  type="button"
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
+                  className={cn('min-h-11 capitalize')}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      status: toggleInArray(filters.status, status),
+                      offset: 0,
+                    })
+                  }
+                >
+                  {collaboratorStatusLabel(status)}
+                </Button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label>Sources</Label>
-        <div className="flex flex-wrap gap-2">
-          {SOURCES.map((source) => {
-            const active = (filters.source ?? []).includes(source);
-            return (
-              <Button
-                key={source}
-                type="button"
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                onClick={() =>
-                  setFilters({
-                    ...filters,
-                    source: toggleInArray(filters.source, source),
-                    offset: 0,
-                  })
-                }
-              >
-                {collaboratorSourceLabel(source)}
-              </Button>
-            );
-          })}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setFilters({ offset: 0, limit: filters.limit ?? 20 })}
-          >
-            Réinitialiser
-          </Button>
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground">Sources</span>
+          <div className="flex flex-wrap gap-2">
+            {SOURCES.map((source) => {
+              const active = (filters.source ?? []).includes(source);
+              return (
+                <Button
+                  key={source}
+                  type="button"
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
+                  className="min-h-11"
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      source: toggleInArray(filters.source, source),
+                      offset: 0,
+                    })
+                  }
+                >
+                  {collaboratorSourceLabel(source)}
+                </Button>
+              );
+            })}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="min-h-11"
+              onClick={() => setFilters({ offset: 0, limit: filters.limit ?? 20 })}
+            >
+              Réinitialiser
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

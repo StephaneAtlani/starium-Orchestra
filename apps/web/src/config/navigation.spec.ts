@@ -16,10 +16,10 @@ describe('platform navigation', () => {
   });
 
   it('expose une entrée fournisseurs côté client avec procurement.read (sans contrats)', () => {
-    const financialSection = navigation.find((section) => section.section === 'PILOTAGE FINANCIER');
-    expect(financialSection).toBeDefined();
+    const moyensSection = navigation.find((section) => section.section === 'MOYENS');
+    expect(moyensSection).toBeDefined();
 
-    const suppliersParent = financialSection?.items.find((item) => item.label === 'Fournisseurs');
+    const suppliersParent = moyensSection?.items.find((item) => item.label === 'Fournisseurs');
     expect(suppliersParent).toBeDefined();
     expect(suppliersParent?.moduleCode).toBe('procurement');
     expect(suppliersParent?.requiredPermissions).toEqual(['procurement.read']);
@@ -32,10 +32,10 @@ describe('platform navigation', () => {
   });
 
   it('expose Contrats au niveau Pilotage financier (menu principal) avec registre et types', () => {
-    const financialSection = navigation.find((section) => section.section === 'PILOTAGE FINANCIER');
-    expect(financialSection).toBeDefined();
+    const moyensSection = navigation.find((section) => section.section === 'MOYENS');
+    expect(moyensSection).toBeDefined();
 
-    const contractsParent = financialSection?.items.find((item) => item.label === 'Contrats');
+    const contractsParent = moyensSection?.items.find((item) => item.label === 'Contrats');
     expect(contractsParent).toBeDefined();
     expect(contractsParent?.moduleCode).toBe('contracts');
     expect(contractsParent?.requiredPermissions).toEqual(['contracts.read']);
@@ -51,10 +51,10 @@ describe('platform navigation', () => {
   });
 
   it('expose une entrée Équipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {
-    const orgSection = navigation.find((section) => section.section === 'ORGANISATION');
-    expect(orgSection).toBeDefined();
+    const moyensSection = navigation.find((section) => section.section === 'MOYENS');
+    expect(moyensSection).toBeDefined();
 
-    const teamsItem = orgSection?.items.find((item) => item.label === 'Équipes');
+    const teamsItem = moyensSection?.items.find((item) => item.label === 'Équipes');
     expect(teamsItem).toBeDefined();
     expect(teamsItem?.href).toBeUndefined();
     expect(teamsItem?.moduleCode).toBeUndefined();
@@ -64,10 +64,10 @@ describe('platform navigation', () => {
   });
 
   it('expose Vision stratégique en menu parent (Vision stratégique, Stratégie)', () => {
-    const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
-    expect(strategicSection).toBeDefined();
+    const orientationSection = navigation.find((section) => section.section === 'ORIENTATION');
+    expect(orientationSection).toBeDefined();
 
-    const strategicVisionParent = strategicSection?.items.find((item) => item.label === 'Vision stratégique');
+    const strategicVisionParent = orientationSection?.items.find((item) => item.label === 'Vision stratégique');
     expect(strategicVisionParent).toBeDefined();
     expect(strategicVisionParent?.href).toBeUndefined();
     expect(strategicVisionParent?.requiredPermissionsMatch).toBe('any');
@@ -90,16 +90,16 @@ describe('platform navigation', () => {
     );
     expect(strategy?.requiredPermissions).toEqual(['strategic_direction_strategy.read']);
 
-    expect(strategicSection?.items.some((item) => item.href === '/strategic-direction-strategy')).toBe(
+    expect(orientationSection?.items.some((item) => item.href === '/strategic-direction-strategy')).toBe(
       false,
     );
   });
 
   it('expose Cycles de pilotage avec governance_cycles.read et moduleCode', () => {
-    const strategicSection = navigation.find((section) => section.section === 'PILOTAGE STRATÉGIQUE');
-    expect(strategicSection).toBeDefined();
+    const controleSection = navigation.find((section) => section.section === 'CONTRÔLE');
+    expect(controleSection).toBeDefined();
 
-    const cyclesItem = strategicSection?.items.find((item) => item.href === '/cycles');
+    const cyclesItem = controleSection?.items.find((item) => item.href === '/cycles');
     expect(cyclesItem).toBeDefined();
     expect(cyclesItem?.label).toBe('Cycles de pilotage');
     expect(cyclesItem?.moduleCode).toBe('governance_cycles');

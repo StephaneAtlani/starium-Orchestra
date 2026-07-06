@@ -11,8 +11,8 @@ Implémenté
 - **API** (préfixe `/api`) : `GET` / `POST` `/projects/:projectId/reviews`, `GET` / `PATCH` `/projects/:projectId/reviews/:reviewId`, `POST` `…/finalize`, `POST` `…/cancel`. Permissions : `projects.read` (lectures), `projects.update` (écritures). Réponse **détail** : `snapshotPayload` toujours présent dans le JSON — `null` si `status !== FINALIZED`, objet figé si `FINALIZED`. Liste : items sans charge `snapshotPayload`.
 - **Snapshot** : généré uniquement au `finalize` dans une transaction ; contrat léger (projet, health, arbitrage, compteurs tâches, risques + top 5, jalons max 5, budget synthèse, `generatedAt`).
 - **Audit** : `project.review.created`, `project.review.updated`, `project.review.finalized`, `project.review.cancelled` ; `resourceType` `project_review`.
-- **Frontend** : onglet **Points projet** sur le détail projet — [`project-detail-view.tsx`](../../apps/web/src/features/projects/components/project-detail-view.tsx) (onglets Synthèse / Points projet), [`project-reviews-tab.tsx`](../../apps/web/src/features/projects/components/project-reviews-tab.tsx), [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), types et clés React Query dans `project.types.ts` / `project-query-keys.ts`.
-- **Tests** : [`project-reviews.service.spec.ts`](../../apps/api/src/modules/projects/project-reviews/project-reviews.service.spec.ts).
+- **Frontend** : onglet **Synthèse** (aperçu) sur `/projects/[projectId]` — [`project-synthesis-overview-cards.tsx`](../../apps/web/src/features/projects/components/project-synthesis-overview-cards.tsx) : bandeau **REX** prioritaire [`ProjectPostMortemOverviewBanner`](../../apps/web/src/features/projects/components/project-post-mortem-overview-banner.tsx) (projets clos uniquement ; CTA « Continuer » ouvre l’éditeur sur l’aperçu ; `?openReview=<id>`) ; panneau **points d’attention** [`ProjectPilotageAttentionPanel`](../../apps/web/src/features/projects/components/project-pilotage-attention-panel.tsx). Onglet **Points projet** (`?tab=points`) — [`project-detail-view.tsx`](../../apps/web/src/features/projects/components/project-detail-view.tsx), [`project-reviews-tab.tsx`](../../apps/web/src/features/projects/components/project-reviews-tab.tsx) (liste `starium-tablecard` + `starium-dt`, bannière pilotage COPIL uniquement si projet non clos), [`project-reviews-context-banner.tsx`](../../apps/web/src/features/projects/components/project-reviews-context-banner.tsx), éditeur [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) (flux **POST_MORTEM** dédié : sections pilotage masquées, bilan narratif + indicateurs RETEX), [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), helpers [`project-review-post-mortem.ts`](../../apps/web/src/features/projects/lib/project-review-post-mortem.ts), types et clés React Query dans `project.types.ts` / `project-query-keys.ts`. Deep links : `?createRetourExperience=1` (onglet Points → création REX), `?openReview=<id>`.
+- **Tests** : [`project-reviews.service.spec.ts`](../../apps/api/src/modules/projects/project-reviews/project-reviews.service.spec.ts) ; extensions **RFC-PROJ-013-2** : cycle `PREPARING`/`SCHEDULED`/`IN_PROGRESS`, `schedule`/`start`, attachments, snapshot v2 — **51** tests sous `project-reviews/`.
 - **Seed démo** : [`seed-project-demo-reviews.ts`](../../apps/api/prisma/seed-project-demo-reviews.ts) — points projet riches sur les projets `{prefix}-SEED-01` … `10` ; inclut des **`POST_MORTEM`** exemples (finalisés et brouillon) sur certains jeux (`SEED-03`, `SEED-06`, `SEED-09`). Réinitialisation idempotente à chaque `prisma db seed`.
 
 ## Dépendances
@@ -379,31 +379,55 @@ POST `/api/projects/:id/reviews/:reviewId/cancel`
 # 10. Frontend
 
 Depuis :
-`/projects/[id]`
+`/projects/[id]` — onglet **Synthèse** (défaut) et onglet **Points projet** (`?tab=points`).
 
-## Ajouts UI
+## Synthèse (aperçu) — REX projet clos
+
+* bandeau contextuel **Retour d'expérience** en tête de [`ProjectSynthesisOverviewCards`](../../apps/web/src/features/projects/components/project-synthesis-overview-cards.tsx) si le projet est **`COMPLETED` \| `CANCELLED` \| `ARCHIVED`** ;
+* CTA **Continuer** / **Créer** : éditeur inline ou redirection `?tab=points&createRetourExperience=1` ;
+* paramètre `?openReview=<id>` consommé sur l’aperçu (ouvre l’éditeur puis retire le paramètre).
+
+## Onglet Points projet
+
+### Liste
+
+* tableau **`starium-dt`** dans **`starium-tablecard`** + **`StariumTableWrap`** ;
+* états loading / error / empty (`EmptyState`) ;
+* pour projet clos : pas de bannière REX sur cet onglet (CTA sur l’aperçu) ; historique des points / REX dans le tableau.
+
+### Création / édition
+
+* dialogue création (date, participants, type) puis **`ProjectReviewEditorDialog`** ;
+* type **`POST_MORTEM`** : en-tête ambre, sections **Identification**, **Contexte à la clôture**, **Parties prenantes**, **Bilan narratif** (`contentPayload.postMortem`), **Indicateurs de perception** ([`post-mortem-indicators-block.tsx`](../../apps/web/src/features/projects/components/post-mortem-indicators-block.tsx)), **Synthèse exécutive** — sans sections COPIL (décisions, actions, humeur comité, prochain point).
+
+### Lecture
+
+* détail + snapshot si `FINALIZED` ;
+* modification uniquement en **DRAFT**.
+
+## Ajouts UI (MVP initial)
 
 ### Bouton
 
-* “Créer un point projet”
+* « Créer un point projet » / « Créer un retour d'expérience »
 
 ### Onglet
 
-* “Points projet”
+* « Points projet »
 
 ### Vue liste
 
-* historique
-* tri par date
+* historique ;
+* tri par date.
 
 ### Vue détail
 
-* lecture complète
-* snapshot inclus
+* lecture complète ;
+* snapshot inclus.
 
 ### Mode édition
 
-* uniquement DRAFT
+* uniquement DRAFT.
 
 ---
 

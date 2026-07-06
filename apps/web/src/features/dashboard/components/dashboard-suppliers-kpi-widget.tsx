@@ -38,9 +38,9 @@ type ValueTone = 'default' | 'info' | 'success' | 'warning' | 'danger';
 
 const valueToneClass: Record<ValueTone, string> = {
   default: 'text-foreground',
-  info: 'text-primary',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-yellow-800 dark:text-yellow-400',
+  info: 'text-[color:var(--brand-gold-700)]',
+  success: 'text-[color:var(--state-success)]',
+  warning: 'text-[color:var(--state-warning)]',
   danger: 'text-destructive',
 };
 
@@ -83,28 +83,25 @@ function SupplierKpiStat({
   valueStr: string;
   title?: string;
   valueTone: ValueTone;
-  Icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  Icon: React.ComponentType<{
+    className?: string;
+    strokeWidth?: number;
+    'aria-hidden'?: boolean;
+  }>;
   href?: string;
 }) {
   const shellClassName = cn(
-    'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm',
-    'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
-    href &&
-      'cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    'starium-kpi-card',
+    href && 'starium-kpi-card--interactive',
   );
 
   const content = (
-    <div className="flex gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <Icon className="size-5" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+    <div className="flex items-center gap-[18px]">
+      <Icon className="starium-kpi-icon" strokeWidth={1.5} aria-hidden />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="starium-kpi-label">{label}</p>
         <p
-          className={cn(
-            'text-2xl font-semibold tabular-nums tracking-tight',
-            valueToneClass[valueTone],
-          )}
+          className={cn('starium-kpi-value', valueToneClass[valueTone])}
           title={title}
         >
           {valueStr}
@@ -130,17 +127,12 @@ function SupplierKpiStat({
 
 function KpiSkeleton() {
   return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm',
-        'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
-      )}
-    >
-      <div className="flex gap-3">
-        <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+    <div className="starium-kpi-card">
+      <div className="flex items-center gap-[18px]">
+        <Skeleton className="h-[38px] w-[38px] shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1 space-y-2">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-20" />
         </div>
       </div>
     </div>
@@ -358,10 +350,10 @@ export function DashboardSuppliersKpiWidget() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="starium-module space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="starium-section-title">
             Fournisseurs
           </h2>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

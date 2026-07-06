@@ -1,33 +1,135 @@
 /**
- * Tokens Starium Orchestra — palette officielle.
- * Les composants utilisent de préférence --primary, --sidebar, etc. (globals.css)
- * qui sont dérivés de ces variables pour permettre la surcharge par client.
+ * Tokens Starium Orchestra — Design System v1 (Apple-inspired + signature dorée).
+ * Source : docs/design-system/ (tokens.css, README.md).
+ *
+ * Deux couches :
+ *  1. Échelle brute du DS (--brand-gold-*, --neutral-*, --state-*, shadows, motion).
+ *  2. Pont sémantique (--color-*) consommé par globals.css et surchargeable par client
+ *     (BrandingProvider applique --color-primary / --color-primary-soft sur un wrapper).
  */
 :root {
-  --color-primary: #6F4BB8;
-  --color-primary-hover: #5E3FA3;
-  --color-primary-soft: #EFE7FB;
+  /* ---------- Échelle de marque (or ambré) ---------- */
+  --brand-gold: #e8a317;
+  --brand-gold-600: #cc8e0e;
+  --brand-gold-700: #5f3f00;
+  --brand-gold-100: #f4d58a;
+  --brand-gold-050: #fbeab5;
+  --brand-ink: #0e0e10;
 
-  --color-sidebar-bg: #6F4BB8;
-  --color-sidebar-hover: #5E3FA3;
-  --color-sidebar-active: #4E2F8E;
-  --color-sidebar-text: #FFFFFF;
+  /* ---------- Neutres chauds (papier) ---------- */
+  --neutral-0: #ffffff;
+  --neutral-50: #faf9f7;
+  --neutral-100: #f4f2ee;
+  --neutral-200: #e9e6e0;
+  --neutral-300: #d6d2ca;
+  --neutral-400: #b6b0a4;
+  --neutral-500: #8c8579;
+  --neutral-600: #5f5a52;
+  --neutral-700: #403d38;
+  --neutral-800: #26241f;
+  --neutral-900: #14130f;
 
-  --color-background: #F8F9FC;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F3F4F8;
+  /* ---------- États sémantiques ---------- */
+  --state-success: #1f8a5b;
+  --state-success-bg: #e6f4ed;
+  --state-warning: #c77a00;
+  --state-warning-bg: #fff1dc;
+  --state-danger: #b42318;
+  --state-danger-bg: #fbe8e6;
+  --state-info: #2a6fdb;
+  --state-info-bg: #e3eefb;
 
-  --color-border: #E6E8EF;
+  /* ---------- Pont sémantique (surchargeable par client) ---------- */
+  --color-primary: #e8a317;
+  --color-primary-hover: #cc8e0e;
+  --color-primary-soft: #fbeab5;
 
-  --color-text: #1B1B1B;
-  --color-text-muted: #6B7280;
+  --color-sidebar-bg: #0e0e10;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --color-sidebar-active: #e8a317;
+  --color-sidebar-text: #fffffd;
 
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: #3B82F6;
+  --color-background: #faf9f7;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4f2ee;
 
-  --radius: 0.625rem;
-  --radius-md: var(--radius);
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --color-border: #e9e6e0;
+
+  --color-text: #0e0e10;
+  /** Texte secondaire lisible (descriptions, métadonnées, sous-titres) — neutral-600, pas neutral-500. */
+  --color-text-muted: var(--neutral-600);
+  --ds-text-muted-color: var(--color-text-muted);
+
+  --color-success: #1f8a5b;
+  --color-warning: #c77a00;
+  --color-danger: #b42318;
+  --color-info: #2a6fdb;
+
+  --purple: #6b2fb2;
+  --purple-bg: #efe4fd;
+  --teal: #0e7462;
+  --teal-bg: #e2f5f1;
+
+  /* ---------- Rayons ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-pill: 999px;
+
+  /* ---------- Élévation (ombres noires faibles, jamais teintées) ---------- */
+  --shadow-1: 0 1px 2px rgba(14, 14, 16, 0.04), 0 1px 1px rgba(14, 14, 16, 0.03);
+  --shadow-2: 0 2px 6px rgba(14, 14, 16, 0.06), 0 1px 2px rgba(14, 14, 16, 0.04);
+  --shadow-3: 0 8px 24px rgba(14, 14, 16, 0.08), 0 2px 6px rgba(14, 14, 16, 0.04);
+  --shadow-4: 0 24px 60px rgba(14, 14, 16, 0.12), 0 6px 16px rgba(14, 14, 16, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(232, 163, 23, 0.32);
+  --shadow-card: var(--shadow-1);
+
+  /* ---------- Motion (Apple-like) ---------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasis: cubic-bezier(0.2, 0, 0, 1.2);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* ---------- Layout ---------- */
+  --container-max: 1280px;
+  --sidebar-width: 248px;
+  --topbar-control-size: 2.5rem;
+  --topbar-height: calc(var(--topbar-control-size) + 0.75rem);
+
+  /* ----------------------------------------------------------------------
+   * Primitives composants — LA charte structurelle centrale.
+   * Modifier ici = changer partout (cartes, sections, KPI, titres).
+   * Consommées par .starium-module (groupe sans cadre) / .starium-section (bloc cartonné)
+   * / .starium-kpi-card / .starium-section-title / .starium-kpi-* dans globals.css.
+   * -------------------------------------------------------------------- */
+  --ds-card-radius: var(--radius-lg);
+  --ds-card-pad: 1.25rem;
+  --ds-card-shadow: var(--shadow-1);
+  --ds-card-shadow-elevated: var(--shadow-2);
+  --ds-card-shadow-hover: var(--shadow-2);
+
+  --ds-table-head-py: 10px;
+  --ds-table-head-px: 14px;
+  --ds-table-cell-py: 10px;
+  --ds-table-cell-px: 14px;
+
+  --ds-section-title-size: 1rem;
+  --ds-section-title-weight: 600;
+
+  --ds-kpi-pad: 1.25rem;
+  --ds-kpi-icon-size: 38px;
+  --ds-kpi-icon-color: var(--brand-gold);
+  --ds-kpi-label-size: 0.8125rem;
+  --ds-kpi-label-color: var(--ds-text-muted-color);
+  --ds-kpi-value-size: 2.125rem;
+  --ds-kpi-value-size-dense: 1.25rem;
+  --ds-kpi-value-weight: 700;
+
+  --ds-section-label-color: var(--ds-text-muted-color);
 }

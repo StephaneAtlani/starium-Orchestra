@@ -258,38 +258,62 @@ type Props = {
   indicateurs: PostMortemIndicateursScores;
   editable: boolean;
   onChange: (next: PostMortemIndicateursScores) => void;
+  /** Masque l’intro quand le bloc est déjà titré par une section parente. */
+  embedded?: boolean;
 };
 
-export function PostMortemIndicatorsBlock({ indicateurs, editable, onChange }: Props) {
+export function PostMortemIndicatorsBlock({
+  indicateurs,
+  editable,
+  onChange,
+  embedded = false,
+}: Props) {
   const patch = (key: keyof PostMortemIndicateursScores, value: number | null) => {
     onChange({ ...indicateurs, [key]: value });
   };
 
   return (
-    <div className="mt-1 grid gap-4 border-t border-border/50 pt-4">
+    <div className="grid gap-4">
       <div className="rounded-xl border border-border/60 bg-muted/15 p-4 sm:p-5">
-        <p className="text-sm font-medium text-foreground">
-          Indicateurs de perception{' '}
-          <span className="font-normal text-muted-foreground">
-            (échelle {0}–{POST_MORTEM_INDICATEUR_MAX})
-          </span>
-        </p>
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-          Après la narrative, attribuez une note sur chaque dimension (collecte des faits, analyse des
-          écarts, capitalisation). 0 = très insatisfaisant, {POST_MORTEM_INDICATEUR_MAX} = tout à fait
-          satisfaisant.{' '}
-          <a
-            href="https://www.manager-go.com/gestion-de-projet/dossiers-methodes/comment-organiser-un-rex"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-primary underline-offset-2 hover:underline"
-          >
-            Méthode RETEX / REX
-          </a>
-          .
-        </p>
+        {!embedded ? (
+          <>
+            <p className="text-sm font-medium text-foreground">
+              Indicateurs de perception{' '}
+              <span className="font-normal text-muted-foreground">
+                (échelle {0}–{POST_MORTEM_INDICATEUR_MAX})
+              </span>
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              Après la narrative, attribuez une note sur chaque dimension (collecte des faits, analyse des
+              écarts, capitalisation). 0 = très insatisfaisant, {POST_MORTEM_INDICATEUR_MAX} = tout à fait
+              satisfaisant.{' '}
+              <a
+                href="https://www.manager-go.com/gestion-de-projet/dossiers-methodes/comment-organiser-un-rex"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Méthode RETEX / REX
+              </a>
+              .
+            </p>
+          </>
+        ) : (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Attribuez une note sur chaque dimension.{' '}
+            <a
+              href="https://www.manager-go.com/gestion-de-projet/dossiers-methodes/comment-organiser-un-rex"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Méthode RETEX / REX
+            </a>
+            .
+          </p>
+        )}
 
-        <div className="mt-4">
+        <div className={cn(embedded ? 'mt-3' : 'mt-4')}>
           <PostMortemRadarChart scores={indicateurs} />
         </div>
 

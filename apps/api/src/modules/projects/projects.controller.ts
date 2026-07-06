@@ -246,6 +246,17 @@ export class ProjectsController {
     return this.projectTeamService.removeMember(clientId!, projectId, memberId);
   }
 
+  @Get(':id/pilotage-snapshot')
+  @RequireAccessIntent({ module: 'projects', intent: 'read' })
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'read' })
+  getPilotageSnapshot(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.projectsService.getPilotageSnapshot(clientId!, id, userId);
+  }
+
   @Get(':id')
   @RequireAccessIntent({ module: 'projects', intent: 'read' })
   @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'read' })

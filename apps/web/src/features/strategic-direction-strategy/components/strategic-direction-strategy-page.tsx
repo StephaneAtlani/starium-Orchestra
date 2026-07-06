@@ -23,6 +23,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
@@ -658,54 +666,55 @@ export function StrategicDirectionStrategyPage() {
           <div
             ref={tablePan.scrollRef}
             data-slot="table-container"
-            onMouseDown={tablePan.onMouseDown}
+            onPointerDown={tablePan.onPointerDown}
             className={cn(
               'min-h-0 flex-1 overflow-auto',
-              tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab',
+              tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
             )}
           >
-            <table className="min-w-[52rem] w-full text-sm">
-              <thead className="sticky top-0 z-[1] border-b border-border/60 bg-muted/90 backdrop-blur">
-                <tr>
-                  <th className="p-3 text-left text-xs font-medium text-muted-foreground">Direction</th>
-                  <th className="p-3 text-left text-xs font-medium text-muted-foreground">Titre</th>
-                  <th className="p-3 text-left text-xs font-medium text-muted-foreground">Vision</th>
-                  <th className="p-3 text-left text-xs font-medium text-muted-foreground">Statut</th>
-                  <th className="p-3 text-left text-xs font-medium text-muted-foreground">MAJ</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="min-w-[52rem] w-full text-sm">
+              <TableHeader className="sticky top-0 z-[1] border-b border-border/60 bg-muted/90 backdrop-blur">
+                <TableRow>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Direction</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Titre</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Vision</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Statut</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">MAJ</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {(strategiesQ.data ?? []).length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-10 text-center text-muted-foreground">
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-10 text-center text-muted-foreground">
                       Aucune stratégie pour ces filtres. Réinitialise les filtres ou crée une stratégie.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   (strategiesQ.data ?? []).map((strategy) => (
-                    <tr
+                    <TableRow
                       key={strategy.id}
-                      className={`border-t border-border/50 transition-colors hover:bg-muted/30 ${
-                        selectedStrategyId === strategy.id && !isCreating ? 'bg-muted/40' : ''
-                      }`}
+                      className={cn(
+                        'cursor-pointer border-t border-border/50 transition-colors hover:bg-muted/30',
+                        selectedStrategyId === strategy.id && !isCreating ? 'bg-muted/40' : '',
+                      )}
                       onClick={() => {
                         setIsCreating(false);
                         setSelectedStrategyId(strategy.id);
                         setFormError('');
                       }}
                     >
-                      <td className="p-3 align-top">{directionLabel(strategy)}</td>
-                      <td className="p-3 align-top font-medium">{strategy.title ?? 'Sans titre'}</td>
-                      <td className="p-3 align-top text-muted-foreground">{visionTitleCell(strategy)}</td>
-                      <td className="p-3 align-top">{strategy.status}</td>
-                      <td className="p-3 align-top text-muted-foreground">
+                      <TableCell className="align-top">{directionLabel(strategy)}</TableCell>
+                      <TableCell className="align-top font-medium">{strategy.title ?? 'Sans titre'}</TableCell>
+                      <TableCell className="align-top text-muted-foreground">{visionTitleCell(strategy)}</TableCell>
+                      <TableCell className="align-top">{strategy.status}</TableCell>
+                      <TableCell className="align-top text-muted-foreground">
                         {new Date(strategy.updatedAt).toLocaleDateString('fr-FR')}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
 

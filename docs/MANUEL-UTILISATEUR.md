@@ -244,7 +244,8 @@ Référence: `MANUEL-70-CONFORMITE.md`.
 - `/projects/portfolio-gantt`
 - `/projects/[projectId]`
 - `/projects/[projectId]/sheet` (partiel)
-- `/projects/[projectId]/planning`
+- `/projects/[projectId]/planning` (`?sub=macro|gantt|milestones`, défaut macro)
+- `/projects/[projectId]/tasks`
 - `/projects/[projectId]/options`
 - `/projects/[projectId]/risks`
 - `/projects/[projectId]/scenarios`

@@ -14,7 +14,7 @@ export type PropagationAuditContext = {
   meta?: { ipAddress?: string; userAgent?: string; requestId?: string };
 };
 
-function mapDecisionToCodirStatus(
+function mapDecisionToMetierStatus(
   status: GovernanceCycleItemDecisionStatus,
 ): ProjectArbitrationLevelStatus | null {
   switch (status) {
@@ -24,7 +24,7 @@ function mapDecisionToCodirStatus(
     case GovernanceCycleItemDecisionStatus.REJECTED:
       return ProjectArbitrationLevelStatus.REFUSE;
     case GovernanceCycleItemDecisionStatus.DEFERRED:
-      return ProjectArbitrationLevelStatus.BROUILLON;
+      return ProjectArbitrationLevelStatus.EN_COURS;
     case GovernanceCycleItemDecisionStatus.NEEDS_INFORMATION:
       return ProjectArbitrationLevelStatus.EN_COURS;
     default:
@@ -82,8 +82,8 @@ export class GovernanceCyclePropagationService {
       if (d.sourceType !== GovernanceCycleItemSourceType.PROJECT || !d.projectId) {
         continue;
       }
-      const codir = mapDecisionToCodirStatus(d.decisionStatus);
-      if (!codir) continue;
+      const metierNext = mapDecisionToMetierStatus(d.decisionStatus);
+      if (!metierNext) continue;
 
       const existing = await tx.project.findFirst({
         where: { id: d.projectId, clientId },
@@ -92,25 +92,26 @@ export class GovernanceCyclePropagationService {
           arbitrationMetierStatus: true,
           arbitrationComiteStatus: true,
           arbitrationCodirStatus: true,
+          arbitrationStatus: true,
         },
       });
       if (!existing) {
         throw new Error(`Project ${d.projectId} not found for propagation`);
       }
 
-      const metier = existing.arbitrationMetierStatus ?? ProjectArbitrationLevelStatus.BROUILLON;
       const comite = existing.arbitrationComiteStatus;
-      const arbitrationStatus = deriveLegacyArbitrationStatus(metier, comite, codir);
+      const codir = existing.arbitrationCodirStatus;
+      const arbitrationStatus = deriveLegacyArbitrationStatus(metierNext, comite, codir);
 
       const updated = await tx.project.update({
         where: { id: d.projectId },
         data: {
-          arbitrationCodirStatus: codir,
+          arbitrationMetierStatus: metierNext,
           arbitrationStatus,
         },
         select: {
           id: true,
-          arbitrationCodirStatus: true,
+          arbitrationMetierStatus: true,
           arbitrationStatus: true,
         },
       });
@@ -122,11 +123,11 @@ export class GovernanceCyclePropagationService {
         resourceType: 'governance_cycle_item',
         resourceId: d.itemId,
         oldValue: {
-          arbitrationCodirStatus: existing.arbitrationCodirStatus,
-          arbitrationStatus: null,
+          arbitrationMetierStatus: existing.arbitrationMetierStatus,
+          arbitrationStatus: existing.arbitrationStatus,
         },
         newValue: {
-          arbitrationCodirStatus: updated.arbitrationCodirStatus,
+          arbitrationMetierStatus: updated.arbitrationMetierStatus,
           arbitrationStatus: updated.arbitrationStatus,
           projectId: d.projectId,
         },

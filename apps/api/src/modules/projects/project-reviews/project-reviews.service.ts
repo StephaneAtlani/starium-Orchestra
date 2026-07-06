@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  ProjectReviewDecisionStatus,
+  ProjectReviewDecisionType,
   ProjectReviewStatus,
   ProjectReviewType,
   ProjectStatus,
@@ -20,12 +22,55 @@ import { ProjectsPilotageService } from '../projects-pilotage.service';
 import { ProjectsService } from '../projects.service';
 import { CreateProjectReviewDto } from './dto/create-project-review.dto';
 import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
-import { buildProjectReviewSnapshotPayload } from './project-reviews-snapshot.builder';
+import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
+import { ProjectReviewActionItemInputDto } from './dto/project-review-action-item.dto';
+import { ProjectReviewDecisionInputDto } from './dto/project-review-decision.dto';
+import {
+  assertMeetingFieldsCoherence,
+  assertValidMeetingUrl,
+  resolveCreationStatus,
+} from './project-review-meeting.validation';
+import {
+  isReviewContentEditable,
+  isReviewPlanningEditable,
+  isReviewUpdateAllowed,
+  assertScheduledUpdatePayloadAllowed,
+  normalizeReviewStatus,
+} from './project-review-status.helpers';
+import { ProjectReviewInvitationsService } from './project-review-invitations.service';
+import {
+  formatProjectReviewUserDisplayName,
+  projectReviewUserSelect,
+} from './project-review-user-display';
+import {
+  buildProjectReviewSnapshotPayload,
+  type ProjectReviewSnapshotAgendaItem,
+} from './project-reviews-snapshot.builder';
 
 const reviewInclude = {
-  participants: true,
+  participants: {
+    include: { user: { select: projectReviewUserSelect } },
+    orderBy: { createdAt: 'asc' as const },
+  },
   decisions: { orderBy: { createdAt: 'asc' as const } },
-  actionItems: { orderBy: { id: 'asc' as const } },
+  actionItems: {
+    orderBy: { id: 'asc' as const },
+    include: {
+      responsibleUser: { select: projectReviewUserSelect },
+      contributors: {
+        include: { user: { select: projectReviewUserSelect } },
+      },
+    },
+  },
+  agendaItems: {
+    orderBy: { orderIndex: 'asc' as const },
+    include: {
+      ownerUser: { select: projectReviewUserSelect },
+    },
+  },
+  attachments: { orderBy: { createdAt: 'asc' as const } },
+  facilitator: { select: projectReviewUserSelect },
+  startedBy: { select: projectReviewUserSelect },
 } satisfies Prisma.ProjectReviewInclude;
 
 type ReviewWithChildren = Prisma.ProjectReviewGetPayload<{
@@ -49,6 +94,7 @@ export class ProjectReviewsService {
     private readonly projects: ProjectsService,
     private readonly pilotage: ProjectsPilotageService,
     private readonly auditLogs: AuditLogsService,
+    private readonly invitations: ProjectReviewInvitationsService,
   ) {}
 
   private async validateLinkedTasks(
@@ -149,7 +195,7 @@ export class ProjectReviewsService {
           projectId,
           reviewDate: nextReviewDate,
           reviewType: args.reviewType,
-          status: ProjectReviewStatus.DRAFT,
+          status: ProjectReviewStatus.SCHEDULED,
           facilitatorUserId: args.facilitatorUserId,
           participants: rows.length
             ? {
@@ -167,7 +213,10 @@ export class ProjectReviewsService {
       return created.id;
     }
 
-    if (dup.status === ProjectReviewStatus.DRAFT) {
+    if (
+      dup.status === ProjectReviewStatus.SCHEDULED ||
+      dup.status === ProjectReviewStatus.PLANNED
+    ) {
       await tx.projectReviewParticipant.deleteMany({
         where: { projectReviewId: dup.id, clientId },
       });
@@ -273,17 +322,235 @@ export class ProjectReviewsService {
     }
   }
 
+  private async validateActionItemUsers(
+    clientId: string,
+    items: ProjectReviewActionItemInputDto[] | undefined,
+  ): Promise<void> {
+    if (!items?.length) return;
+    const userIds = [
+      ...new Set(
+        items.flatMap((a) =>
+          [
+            a.responsibleUserId,
+            ...(a.contributors?.map((c) => c.userId) ?? []),
+          ].filter(Boolean),
+        ),
+      ),
+    ] as string[];
+    for (const uid of userIds) {
+      await this.projects.assertClientUser(clientId, uid);
+    }
+  }
+
+  private assertActionItemsResponsibleInReview(
+    reviewStatus: ProjectReviewStatus,
+    items: ProjectReviewActionItemInputDto[] | undefined,
+  ): void {
+    if (!items?.length) return;
+    if (
+      reviewStatus !== ProjectReviewStatus.IN_PROGRESS &&
+      reviewStatus !== ProjectReviewStatus.IN_REVIEW
+    ) {
+      return;
+    }
+    for (const item of items) {
+      if (!item.responsibleUserId?.trim()) {
+        throw new BadRequestException(
+          'Chaque action créée en revue doit avoir un responsable unique',
+        );
+      }
+    }
+  }
+
+  private resolveDecisionStatus(
+    reviewStatus: ProjectReviewStatus,
+    explicit?: ProjectReviewDecisionStatus,
+  ): ProjectReviewDecisionStatus {
+    if (explicit !== undefined) return explicit;
+    const normalized = normalizeReviewStatus(reviewStatus);
+    if (
+      normalized === ProjectReviewStatus.IN_PROGRESS ||
+      reviewStatus === ProjectReviewStatus.IN_REVIEW
+    ) {
+      return ProjectReviewDecisionStatus.DRAFT;
+    }
+    return ProjectReviewDecisionStatus.VALIDATED;
+  }
+
+  private buildDecisionCreateData(
+    clientId: string,
+    reviewStatus: ProjectReviewStatus,
+    d: ProjectReviewDecisionInputDto,
+  ) {
+    return {
+      clientId,
+      title: d.title.trim(),
+      description: d.description?.trim() ?? null,
+      agendaItemId: d.agendaItemId ?? null,
+      decisionType: d.decisionType ?? ProjectReviewDecisionType.OTHER,
+      status: this.resolveDecisionStatus(reviewStatus, d.status),
+      decidedByUserId: d.decidedByUserId ?? null,
+      decidedAt: d.decidedAt ? new Date(d.decidedAt) : null,
+      impact: d.impact?.trim() ?? null,
+    };
+  }
+
+  private resolveObjectiveText(dto: {
+    objective?: string | null;
+    executiveSummary?: string | null;
+  }): string | null {
+    return dto.objective?.trim() ?? dto.executiveSummary?.trim() ?? null;
+  }
+
+  private mapObjectiveResponse(row: {
+    objective?: string | null;
+    executiveSummary?: string | null;
+  }) {
+    const text = row.objective?.trim() ?? row.executiveSummary?.trim() ?? null;
+    return { objective: text, executiveSummary: text };
+  }
+
+  private resolveMeetingFields(dto: {
+    meetingMode?: CreateProjectReviewDto['meetingMode'];
+    meetingUrl?: string | null;
+    location?: string | null;
+  }) {
+    const meetingUrl = dto.meetingUrl?.trim() ?? null;
+    const location = dto.location?.trim() ?? null;
+    assertValidMeetingUrl(meetingUrl);
+    assertMeetingFieldsCoherence(dto.meetingMode, meetingUrl, location);
+    return {
+      meetingMode: dto.meetingMode ?? null,
+      meetingUrl,
+      location,
+    };
+  }
+
+  private mapParticipant(p: ReviewWithChildren['participants'][number]) {
+    const userDisplayName = formatProjectReviewUserDisplayName(p.user);
+    return {
+      id: p.id,
+      userId: p.userId,
+      displayName: p.displayName ?? userDisplayName,
+      roleLabel: p.roleLabel,
+      attendanceStatus: p.attendanceStatus,
+      invitedAt: p.invitedAt?.toISOString() ?? null,
+      lastInvitedAt: p.lastInvitedAt?.toISOString() ?? null,
+      externalEmail: p.externalEmail ?? null,
+      lastEmailedAt: p.lastEmailedAt?.toISOString() ?? null,
+    };
+  }
+
+  private reviewDatesEqualSecond(a: Date | null, b: Date | null): boolean {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return Math.floor(a.getTime() / 1000) === Math.floor(b.getTime() / 1000);
+  }
+
+  private auditMeta(context?: AuditContext) {
+    return {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+  }
+
+  private async tryAutoInvite(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context: AuditContext | undefined,
+    trigger: 'auto_create' | 'auto_date_change',
+  ): Promise<void> {
+    try {
+      await this.invitations.invite(clientId, projectId, reviewId, context, {
+        trigger,
+        channels: ['in_app'],
+      });
+    } catch {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_INVITE_FAILED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: { reviewId, trigger },
+        ...this.auditMeta(context),
+      });
+    }
+  }
+
+  private mapActionItem(a: ReviewWithChildren['actionItems'][number]) {
+    return {
+      id: a.id,
+      title: a.title,
+      description: a.description,
+      status: a.status,
+      priority: a.priority,
+      dueDate: a.dueDate?.toISOString() ?? null,
+      linkedTaskId: a.linkedTaskId,
+      agendaItemId: a.agendaItemId,
+      decisionId: a.decisionId,
+      responsibleUserId: a.responsibleUserId,
+      responsibleDisplayName: formatProjectReviewUserDisplayName(
+        a.responsibleUser,
+      ),
+      contributors: a.contributors.map((c) => ({
+        id: c.id,
+        userId: c.userId,
+        displayName:
+          c.displayName ?? formatProjectReviewUserDisplayName(c.user),
+        roleLabel: c.roleLabel,
+        contributionStatus: c.contributionStatus,
+      })),
+    };
+  }
+
+  private mapAgendaItem(item: ReviewWithChildren['agendaItems'][number]) {
+    return {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      itemType: item.itemType,
+      objective: item.objective,
+      expectedDecision: item.expectedDecision,
+      orderIndex: item.orderIndex,
+      plannedDurationMinutes: item.plannedDurationMinutes,
+      ownerUserId: item.ownerUserId,
+      ownerDisplayName: formatProjectReviewUserDisplayName(item.ownerUser),
+      status: item.status,
+      notes: item.notes,
+      decisionSummary: item.decisionSummary,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
+    };
+  }
+
   private mapReviewToListItem(row: ReviewWithChildren) {
+    const objectiveFields = this.mapObjectiveResponse(row);
     return {
       id: row.id,
       clientId: row.clientId,
       projectId: row.projectId,
-      reviewDate: row.reviewDate.toISOString(),
+      reviewDate: row.reviewDate?.toISOString() ?? null,
       reviewType: row.reviewType,
       status: row.status,
       title: row.title,
-      executiveSummary: row.executiveSummary,
+      ...objectiveFields,
+      periodStart: row.periodStart?.toISOString() ?? null,
+      periodEnd: row.periodEnd?.toISOString() ?? null,
+      durationMinutes: row.durationMinutes ?? null,
+      meetingMode: row.meetingMode,
+      meetingUrl: row.meetingUrl,
+      microsoftOnlineMeetingId: row.microsoftOnlineMeetingId ?? null,
+      microsoftEventId: row.microsoftEventId ?? null,
+      location: row.location,
+      startedAt: row.startedAt?.toISOString() ?? null,
+      startedByUserId: row.startedByUserId,
       facilitatorUserId: row.facilitatorUserId,
+      createdByUserId: row.createdByUserId ?? null,
+      cancelledAt: row.cancelledAt?.toISOString() ?? null,
+      cancelledByUserId: row.cancelledByUserId ?? null,
       nextReviewDate: row.nextReviewDate?.toISOString() ?? null,
       finalizedAt: row.finalizedAt?.toISOString() ?? null,
       finalizedByUserId: row.finalizedByUserId,
@@ -292,46 +559,80 @@ export class ProjectReviewsService {
       participantsCount: row.participants.length,
       decisionsCount: row.decisions.length,
       actionItemsCount: row.actionItems.length,
+      agendaItemsCount: row.agendaItems.length,
+    };
+  }
+
+  private mapAttachment(
+    item: ReviewWithChildren['attachments'][number],
+  ) {
+    return {
+      id: item.id,
+      attachmentType: item.attachmentType,
+      title: item.title,
+      description: item.description,
+      url: item.url,
+      documentId: item.documentId,
+      fileName: item.fileName,
+      mimeType: item.mimeType,
+      sizeBytes: item.sizeBytes,
+      agendaItemId: item.agendaItemId,
+      decisionId: item.decisionId,
+      actionItemId: item.actionItemId,
+      uploadedByUserId: item.uploadedByUserId,
+      createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
     };
   }
 
   private mapReviewToDetail(row: ReviewWithChildren) {
+    const objectiveFields = this.mapObjectiveResponse(row);
     const base = {
       id: row.id,
       clientId: row.clientId,
       projectId: row.projectId,
-      reviewDate: row.reviewDate.toISOString(),
+      reviewDate: row.reviewDate?.toISOString() ?? null,
       reviewType: row.reviewType,
       status: row.status,
       title: row.title,
-      executiveSummary: row.executiveSummary,
+      ...objectiveFields,
+      periodStart: row.periodStart?.toISOString() ?? null,
+      periodEnd: row.periodEnd?.toISOString() ?? null,
+      durationMinutes: row.durationMinutes ?? null,
       contentPayload: row.contentPayload,
+      meetingMode: row.meetingMode,
+      meetingUrl: row.meetingUrl,
+      microsoftOnlineMeetingId: row.microsoftOnlineMeetingId ?? null,
+      microsoftEventId: row.microsoftEventId ?? null,
+      location: row.location,
+      startedAt: row.startedAt?.toISOString() ?? null,
+      startedByUserId: row.startedByUserId,
+      startedByDisplayName: formatProjectReviewUserDisplayName(row.startedBy),
       facilitatorUserId: row.facilitatorUserId,
+      createdByUserId: row.createdByUserId ?? null,
+      cancelledAt: row.cancelledAt?.toISOString() ?? null,
+      cancelledByUserId: row.cancelledByUserId ?? null,
       nextReviewDate: row.nextReviewDate?.toISOString() ?? null,
       finalizedAt: row.finalizedAt?.toISOString() ?? null,
       finalizedByUserId: row.finalizedByUserId,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
-      participants: row.participants.map((p) => ({
-        id: p.id,
-        userId: p.userId,
-        displayName: p.displayName,
-        attended: p.attended,
-        isRequired: p.isRequired,
-      })),
+      participants: row.participants.map((p) => this.mapParticipant(p)),
+      agendaItems: row.agendaItems.map((item) => this.mapAgendaItem(item)),
       decisions: row.decisions.map((d) => ({
         id: d.id,
         title: d.title,
         description: d.description,
+        agendaItemId: d.agendaItemId,
+        decisionType: d.decisionType,
+        status: d.status,
+        decidedByUserId: d.decidedByUserId,
+        decidedAt: d.decidedAt?.toISOString() ?? null,
+        impact: d.impact,
         createdAt: d.createdAt.toISOString(),
       })),
-      actionItems: row.actionItems.map((a) => ({
-        id: a.id,
-        title: a.title,
-        status: a.status,
-        dueDate: a.dueDate?.toISOString() ?? null,
-        linkedTaskId: a.linkedTaskId,
-      })),
+      actionItems: row.actionItems.map((a) => this.mapActionItem(a)),
+      attachments: (row.attachments ?? []).map((a) => this.mapAttachment(a)),
     };
     return {
       ...base,
@@ -370,6 +671,26 @@ export class ProjectReviewsService {
   ) {
     const project = await this.projects.getProjectForScope(clientId, projectId);
     this.assertReviewTypeForProjectCreate(project.status, dto.reviewType);
+
+    const creationMode = dto.creationMode ?? 'PREPARING';
+    if (
+      dto.reviewType === ProjectReviewType.POST_MORTEM &&
+      (creationMode === 'SCHEDULED' || creationMode === 'PLANNED')
+    ) {
+      throw new BadRequestException(
+        "Un retour d'expérience ne peut pas être planifié : créez-le en mode immédiat.",
+      );
+    }
+
+    if (
+      (creationMode === 'SCHEDULED' || creationMode === 'PLANNED') &&
+      (dto.reviewDate == null || dto.reviewDate === '')
+    ) {
+      throw new BadRequestException(
+        'La date de revue est obligatoire pour un point planifié.',
+      );
+    }
+
     if (
       dto.reviewType === ProjectReviewType.POST_MORTEM &&
       dto.nextReviewDate != null &&
@@ -382,8 +703,18 @@ export class ProjectReviewsService {
     await this.validateFacilitator(clientId, dto.facilitatorUserId);
     await this.validateParticipantUsers(clientId, dto.participants ?? []);
     await this.validateLinkedTasks(clientId, projectId, dto.actionItems ?? []);
+    await this.validateActionItemUsers(clientId, dto.actionItems);
 
-    const reviewDate = new Date(dto.reviewDate);
+    const reviewStatus = resolveCreationStatus(creationMode);
+    this.assertActionItemsResponsibleInReview(reviewStatus, dto.actionItems);
+    const meeting = this.resolveMeetingFields(dto);
+
+    const reviewDate = dto.reviewDate ? new Date(dto.reviewDate) : null;
+    const periodStart = dto.periodStart ? new Date(dto.periodStart) : null;
+    const periodEnd = dto.periodEnd ? new Date(dto.periodEnd) : null;
+    const objectiveText = this.resolveObjectiveText(dto);
+    const isImmediate = creationMode === 'IMMEDIATE';
+    const startedAt = isImmediate ? new Date() : null;
     const nextReviewDate = dto.nextReviewDate
       ? new Date(dto.nextReviewDate)
       : null;
@@ -394,9 +725,19 @@ export class ProjectReviewsService {
         projectId,
         reviewDate,
         reviewType: dto.reviewType,
-        status: ProjectReviewStatus.DRAFT,
+        status: reviewStatus,
         title: dto.title?.trim() ?? null,
-        executiveSummary: dto.executiveSummary?.trim() ?? null,
+        objective: objectiveText,
+        executiveSummary: objectiveText,
+        periodStart,
+        periodEnd,
+        durationMinutes: dto.durationMinutes ?? null,
+        startedAt,
+        startedByUserId: isImmediate ? (context?.actorUserId ?? null) : null,
+        createdByUserId: context?.actorUserId ?? null,
+        meetingMode: meeting.meetingMode,
+        meetingUrl: meeting.meetingUrl,
+        location: meeting.location,
         ...(dto.contentPayload !== undefined && dto.contentPayload !== null
           ? {
               contentPayload: dto.contentPayload as Prisma.InputJsonValue,
@@ -417,11 +758,9 @@ export class ProjectReviewsService {
           : undefined,
         decisions: dto.decisions?.length
           ? {
-              create: dto.decisions.map((d) => ({
-                clientId,
-                title: d.title.trim(),
-                description: d.description?.trim() ?? null,
-              })),
+              create: dto.decisions.map((d) =>
+                this.buildDecisionCreateData(clientId, reviewStatus, d),
+              ),
             }
           : undefined,
         actionItems: dto.actionItems?.length
@@ -430,9 +769,25 @@ export class ProjectReviewsService {
                 clientId,
                 projectId,
                 title: a.title.trim(),
+                description: a.description?.trim() ?? null,
                 status: a.status,
+                priority: a.priority ?? null,
                 dueDate: a.dueDate ? new Date(a.dueDate) : null,
                 linkedTaskId: a.linkedTaskId ?? null,
+                responsibleUserId: a.responsibleUserId ?? null,
+                agendaItemId: a.agendaItemId ?? null,
+                decisionId: a.decisionId ?? null,
+                contributors: a.contributors?.length
+                  ? {
+                      create: a.contributors.map((c) => ({
+                        clientId,
+                        userId: c.userId ?? null,
+                        displayName: c.displayName?.trim() ?? null,
+                        roleLabel: c.roleLabel?.trim() ?? null,
+                        contributionStatus: c.contributionStatus ?? null,
+                      })),
+                    }
+                  : undefined,
               })),
             }
           : undefined,
@@ -459,7 +814,124 @@ export class ProjectReviewsService {
       ...meta,
     });
 
-    return this.mapReviewToDetail(created);
+    const detail = this.mapReviewToDetail(created);
+
+    const shouldAutoInvite =
+      (created.status === ProjectReviewStatus.SCHEDULED ||
+        created.status === ProjectReviewStatus.PLANNED) &&
+      dto.autoInviteOnCreate !== false &&
+      (created.participants ?? []).some((p) => p.userId != null);
+    if (shouldAutoInvite) {
+      await this.tryAutoInvite(
+        clientId,
+        projectId,
+        created.id,
+        context,
+        'auto_create',
+      );
+      return this.getById(clientId, projectId, created.id);
+    }
+
+    return detail;
+  }
+
+  private async updatePlanningReview(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    dto: UpdateProjectReviewDto,
+    existing: ReviewWithChildren,
+    context?: AuditContext,
+  ) {
+    assertScheduledUpdatePayloadAllowed(dto as Record<string, unknown>);
+
+    if (dto.facilitatorUserId !== undefined) {
+      await this.validateFacilitator(clientId, dto.facilitatorUserId);
+    }
+
+    const effectiveMeetingMode =
+      dto.meetingMode !== undefined ? dto.meetingMode : existing.meetingMode;
+    const effectiveMeetingUrl =
+      dto.meetingUrl !== undefined ? dto.meetingUrl : existing.meetingUrl;
+    const effectiveLocation =
+      dto.location !== undefined ? dto.location : existing.location;
+    if (
+      dto.meetingMode !== undefined ||
+      dto.meetingUrl !== undefined ||
+      dto.location !== undefined
+    ) {
+      this.resolveMeetingFields({
+        meetingMode: effectiveMeetingMode,
+        meetingUrl: effectiveMeetingUrl,
+        location: effectiveLocation,
+      });
+    }
+
+    const previousReviewDate = existing.reviewDate;
+    const data: Prisma.ProjectReviewUncheckedUpdateInput = {};
+    if (dto.reviewDate !== undefined) {
+      data.reviewDate = dto.reviewDate ? new Date(dto.reviewDate) : null;
+    }
+    if (dto.periodStart !== undefined) {
+      data.periodStart = dto.periodStart ? new Date(dto.periodStart) : null;
+    }
+    if (dto.periodEnd !== undefined) {
+      data.periodEnd = dto.periodEnd ? new Date(dto.periodEnd) : null;
+    }
+    if (dto.durationMinutes !== undefined) {
+      data.durationMinutes = dto.durationMinutes ?? null;
+    }
+    if (dto.title !== undefined) data.title = dto.title?.trim() ?? null;
+    if (dto.facilitatorUserId !== undefined) {
+      data.facilitatorUserId = dto.facilitatorUserId ?? null;
+    }
+    if (dto.meetingMode !== undefined) {
+      data.meetingMode = dto.meetingMode ?? null;
+    }
+    if (dto.meetingUrl !== undefined) {
+      data.meetingUrl = dto.meetingUrl?.trim() ?? null;
+    }
+    if (dto.location !== undefined) {
+      data.location = dto.location?.trim() ?? null;
+    }
+
+    if (Object.keys(data).length > 0) {
+      await this.prisma.projectReview.update({
+        where: { id: reviewId },
+        data,
+      });
+    }
+
+    const updated = await this.prisma.projectReview.findFirstOrThrow({
+      where: { id: reviewId, clientId, projectId },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_UPDATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: updated.id,
+      newValue: { projectId, status: updated.status },
+      ...this.auditMeta(context),
+    });
+
+    const reviewDateChanged =
+      dto.reviewDate !== undefined &&
+      !this.reviewDatesEqualSecond(previousReviewDate, updated.reviewDate);
+    if (reviewDateChanged) {
+      await this.tryAutoInvite(
+        clientId,
+        projectId,
+        reviewId,
+        context,
+        'auto_date_change',
+      );
+      return this.getById(clientId, projectId, reviewId);
+    }
+
+    return this.mapReviewToDetail(updated);
   }
 
   async update(
@@ -475,11 +947,52 @@ export class ProjectReviewsService {
       include: reviewInclude,
     });
     if (!existing) throw new NotFoundException('Review not found');
-    if (existing.status !== ProjectReviewStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT reviews can be updated');
+    if (!isReviewUpdateAllowed(existing.status)) {
+      throw new BadRequestException('Only editable reviews can be updated');
+    }
+
+    if (isReviewPlanningEditable(existing.status)) {
+      return this.updatePlanningReview(
+        clientId,
+        projectId,
+        reviewId,
+        dto,
+        existing,
+        context,
+      );
+    }
+
+    if (!isReviewContentEditable(existing.status)) {
+      throw new BadRequestException('Only editable reviews can be updated');
     }
 
     this.assertReviewTypeForProjectUpdate(project.status, existing.reviewType, dto);
+
+    if (dto.actionItems !== undefined) {
+      this.assertActionItemsResponsibleInReview(
+        existing.status,
+        dto.actionItems,
+      );
+      await this.validateActionItemUsers(clientId, dto.actionItems);
+    }
+
+    const effectiveMeetingMode =
+      dto.meetingMode !== undefined ? dto.meetingMode : existing.meetingMode;
+    const effectiveMeetingUrl =
+      dto.meetingUrl !== undefined ? dto.meetingUrl : existing.meetingUrl;
+    const effectiveLocation =
+      dto.location !== undefined ? dto.location : existing.location;
+    if (
+      dto.meetingMode !== undefined ||
+      dto.meetingUrl !== undefined ||
+      dto.location !== undefined
+    ) {
+      this.resolveMeetingFields({
+        meetingMode: effectiveMeetingMode,
+        meetingUrl: effectiveMeetingUrl,
+        location: effectiveLocation,
+      });
+    }
 
     const effectiveReviewType =
       dto.reviewType !== undefined ? dto.reviewType : existing.reviewType;
@@ -506,19 +1019,39 @@ export class ProjectReviewsService {
     if (dto.nextReviewDate !== undefined && dto.nextReviewDate !== null) {
       const nextAt = new Date(dto.nextReviewDate);
       const effectiveReviewDate =
-        dto.reviewDate !== undefined ? new Date(dto.reviewDate) : existing.reviewDate;
-      if (nextAt.getTime() !== effectiveReviewDate.getTime()) {
+        dto.reviewDate !== undefined
+          ? dto.reviewDate
+            ? new Date(dto.reviewDate)
+            : null
+          : existing.reviewDate;
+      if (
+        effectiveReviewDate == null ||
+        nextAt.getTime() !== effectiveReviewDate.getTime()
+      ) {
         const participantsForSpawn = this.resolveParticipantsForSpawn(dto, existing);
         await this.validateParticipantUsers(clientId, participantsForSpawn);
       }
     }
 
     const data: Prisma.ProjectReviewUncheckedUpdateInput = {};
-    if (dto.reviewDate !== undefined) data.reviewDate = new Date(dto.reviewDate);
+    if (dto.reviewDate !== undefined) {
+      data.reviewDate = dto.reviewDate ? new Date(dto.reviewDate) : null;
+    }
     if (dto.reviewType !== undefined) data.reviewType = dto.reviewType;
     if (dto.title !== undefined) data.title = dto.title?.trim() ?? null;
-    if (dto.executiveSummary !== undefined) {
-      data.executiveSummary = dto.executiveSummary?.trim() ?? null;
+    if (dto.objective !== undefined || dto.executiveSummary !== undefined) {
+      const objectiveText = this.resolveObjectiveText(dto);
+      data.objective = objectiveText;
+      data.executiveSummary = objectiveText;
+    }
+    if (dto.periodStart !== undefined) {
+      data.periodStart = dto.periodStart ? new Date(dto.periodStart) : null;
+    }
+    if (dto.periodEnd !== undefined) {
+      data.periodEnd = dto.periodEnd ? new Date(dto.periodEnd) : null;
+    }
+    if (dto.durationMinutes !== undefined) {
+      data.durationMinutes = dto.durationMinutes ?? null;
     }
     if (dto.contentPayload !== undefined) {
       data.contentPayload =
@@ -533,6 +1066,15 @@ export class ProjectReviewsService {
       data.nextReviewDate = dto.nextReviewDate
         ? new Date(dto.nextReviewDate)
         : null;
+    }
+    if (dto.meetingMode !== undefined) {
+      data.meetingMode = dto.meetingMode ?? null;
+    }
+    if (dto.meetingUrl !== undefined) {
+      data.meetingUrl = dto.meetingUrl?.trim() ?? null;
+    }
+    if (dto.location !== undefined) {
+      data.location = dto.location?.trim() ?? null;
     }
 
     const { row: updated, spawnedReviewId } = await this.prisma.$transaction(
@@ -569,31 +1111,52 @@ export class ProjectReviewsService {
           if (dto.decisions.length > 0) {
             await tx.projectReviewDecision.createMany({
               data: dto.decisions.map((d) => ({
-                clientId,
+                ...this.buildDecisionCreateData(clientId, existing.status, d),
                 projectReviewId: reviewId,
-                title: d.title.trim(),
-                description: d.description?.trim() ?? null,
               })),
             });
           }
         }
 
         if (dto.actionItems !== undefined) {
+          await tx.projectReviewActionItemContributor.deleteMany({
+            where: {
+              actionItem: { projectReviewId: reviewId, clientId },
+            },
+          });
           await tx.projectReviewActionItem.deleteMany({
             where: { projectReviewId: reviewId, clientId },
           });
           if (dto.actionItems.length > 0) {
-            await tx.projectReviewActionItem.createMany({
-              data: dto.actionItems.map((a) => ({
-                clientId,
-                projectReviewId: reviewId,
-                projectId,
-                title: a.title.trim(),
-                status: a.status,
-                dueDate: a.dueDate ? new Date(a.dueDate) : null,
-                linkedTaskId: a.linkedTaskId ?? null,
-              })),
-            });
+            for (const a of dto.actionItems) {
+              await tx.projectReviewActionItem.create({
+                data: {
+                  clientId,
+                  projectReviewId: reviewId,
+                  projectId,
+                  title: a.title.trim(),
+                  description: a.description?.trim() ?? null,
+                  status: a.status,
+                  priority: a.priority ?? null,
+                  dueDate: a.dueDate ? new Date(a.dueDate) : null,
+                  linkedTaskId: a.linkedTaskId ?? null,
+                  responsibleUserId: a.responsibleUserId ?? null,
+                  agendaItemId: a.agendaItemId ?? null,
+                  decisionId: a.decisionId ?? null,
+                  contributors: a.contributors?.length
+                    ? {
+                        create: a.contributors.map((c) => ({
+                          clientId,
+                          userId: c.userId ?? null,
+                          displayName: c.displayName?.trim() ?? null,
+                          roleLabel: c.roleLabel?.trim() ?? null,
+                          contributionStatus: c.contributionStatus ?? null,
+                        })),
+                      }
+                    : undefined,
+                },
+              });
+            }
           }
         }
 
@@ -607,8 +1170,15 @@ export class ProjectReviewsService {
         ) {
           const nextAt = new Date(dto.nextReviewDate);
           const effectiveReviewDate =
-            dto.reviewDate !== undefined ? new Date(dto.reviewDate) : existing.reviewDate;
-          if (nextAt.getTime() !== effectiveReviewDate.getTime()) {
+            dto.reviewDate !== undefined
+              ? dto.reviewDate
+                ? new Date(dto.reviewDate)
+                : null
+              : existing.reviewDate;
+          if (
+            effectiveReviewDate == null ||
+            nextAt.getTime() !== effectiveReviewDate.getTime()
+          ) {
             const participantsForSpawn = this.resolveParticipantsForSpawn(dto, existing);
             spawnedReviewId = await this.upsertSpawnedNextReview(tx, {
               clientId,
@@ -658,7 +1228,7 @@ export class ProjectReviewsService {
         newValue: {
           projectId,
           reviewType: dto.reviewType ?? existing.reviewType,
-          status: ProjectReviewStatus.DRAFT,
+          status: ProjectReviewStatus.SCHEDULED,
         },
         ...meta,
       });
@@ -692,6 +1262,220 @@ export class ProjectReviewsService {
     return { project, tasks, risks, milestones, budgetLinks };
   }
 
+  private buildSnapshotConductData(
+    review: ReviewWithChildren,
+  ): {
+    meeting: { meetingMode: ReviewWithChildren['meetingMode']; location: string | null };
+    participants: Array<{
+      userId: string | null;
+      displayName: string | null;
+      roleLabel: string | null;
+      attendanceStatus: ReviewWithChildren['participants'][number]['attendanceStatus'];
+    }>;
+    agenda: ProjectReviewSnapshotAgendaItem[];
+  } {
+    const participants = review.participants.map((p) => ({
+      userId: p.userId,
+      displayName: p.displayName ?? formatProjectReviewUserDisplayName(p.user),
+      roleLabel: p.roleLabel,
+      attendanceStatus: p.attendanceStatus,
+    }));
+
+    const agenda: ProjectReviewSnapshotAgendaItem[] = review.agendaItems.map(
+      (item) => ({
+        id: item.id,
+        title: item.title,
+        orderIndex: item.orderIndex,
+        status: item.status,
+        notes: item.notes,
+        decisionSummary: item.decisionSummary,
+        decisions: review.decisions
+          .filter((d) => d.agendaItemId === item.id)
+          .map((d) => ({
+            id: d.id,
+            title: d.title,
+            description: d.description,
+            decisionType: d.decisionType,
+            status: d.status,
+            impact: d.impact,
+          })),
+        actionItems: review.actionItems
+          .filter((a) => a.agendaItemId === item.id)
+          .map((a) => ({
+            id: a.id,
+            title: a.title,
+            status: a.status,
+            dueDate: a.dueDate?.toISOString() ?? null,
+            priority: a.priority,
+            responsibleUserId: a.responsibleUserId,
+            responsibleDisplayName: formatProjectReviewUserDisplayName(
+              a.responsibleUser,
+            ),
+            contributors: a.contributors.map((c) => ({
+              userId: c.userId,
+              displayName:
+                c.displayName ?? formatProjectReviewUserDisplayName(c.user),
+              roleLabel: c.roleLabel,
+            })),
+          })),
+      }),
+    );
+
+    return {
+      meeting: {
+        meetingMode: review.meetingMode,
+        location: review.location,
+      },
+      participants,
+      agenda,
+    };
+  }
+
+  async schedule(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    dto: ScheduleProjectReviewDto,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+
+    const existing = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!existing) throw new NotFoundException('Review not found');
+
+    const normalized = normalizeReviewStatus(
+      existing.status,
+      existing.startedAt,
+    );
+    if (
+      normalized !== ProjectReviewStatus.PREPARING &&
+      normalized !== ProjectReviewStatus.SCHEDULED
+    ) {
+      throw new BadRequestException(
+        'Seule une revue en préparation ou planifiée peut être (re)planifiée.',
+      );
+    }
+
+    const reviewDate = new Date(dto.reviewDate);
+    const previousReviewDate = existing.reviewDate;
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: {
+        status: ProjectReviewStatus.SCHEDULED,
+        reviewDate,
+      },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_UPDATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: updated.id,
+      newValue: {
+        projectId,
+        previousStatus: existing.status,
+        newStatus: ProjectReviewStatus.SCHEDULED,
+        reviewDate: reviewDate.toISOString(),
+      },
+      ...this.auditMeta(context),
+    });
+
+    const reviewDateChanged = !this.reviewDatesEqualSecond(
+      previousReviewDate,
+      updated.reviewDate,
+    );
+    if (reviewDateChanged) {
+      await this.tryAutoInvite(
+        clientId,
+        projectId,
+        reviewId,
+        context,
+        'auto_date_change',
+      );
+      return this.getById(clientId, projectId, reviewId);
+    }
+
+    return this.mapReviewToDetail(updated);
+  }
+
+  async start(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+
+    const existing = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!existing) throw new NotFoundException('Review not found');
+
+    if (
+      existing.status === ProjectReviewStatus.IN_PROGRESS ||
+      existing.status === ProjectReviewStatus.IN_REVIEW
+    ) {
+      throw new BadRequestException('La revue est déjà en cours.');
+    }
+
+    const normalized = normalizeReviewStatus(
+      existing.status,
+      existing.startedAt,
+    );
+    if (
+      normalized !== ProjectReviewStatus.SCHEDULED &&
+      normalized !== ProjectReviewStatus.PREPARING
+    ) {
+      throw new BadRequestException(
+        'Seule une revue en préparation ou planifiée peut être démarrée.',
+      );
+    }
+
+    const startedAt = new Date();
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: {
+        status: ProjectReviewStatus.IN_PROGRESS,
+        startedAt,
+        startedByUserId: context?.actorUserId ?? null,
+      },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_STARTED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: updated.id,
+      newValue: {
+        reviewId: updated.id,
+        projectId,
+        previousStatus: existing.status,
+        newStatus: ProjectReviewStatus.IN_PROGRESS,
+        startedByUserId: context?.actorUserId ?? null,
+        startedAt: startedAt.toISOString(),
+      },
+      ...this.auditMeta(context),
+    });
+
+    return this.mapReviewToDetail(updated);
+  }
+
+  /** Alias rétrocompat — délègue à {@link start}. */
+  async startReview(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    return this.start(clientId, projectId, reviewId, context);
+  }
+
   async finalize(
     clientId: string,
     projectId: string,
@@ -703,16 +1487,54 @@ export class ProjectReviewsService {
     const finalized = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const review = await tx.projectReview.findFirst({
         where: { id: reviewId, clientId, projectId },
+        include: reviewInclude,
       });
       if (!review) throw new NotFoundException('Review not found');
-      if (review.status !== ProjectReviewStatus.DRAFT) {
-        throw new BadRequestException('Only DRAFT reviews can be finalized');
+      const normalized = normalizeReviewStatus(review.status, review.startedAt);
+      if (
+        normalized === ProjectReviewStatus.PREPARING ||
+        normalized === ProjectReviewStatus.SCHEDULED
+      ) {
+        throw new BadRequestException('Démarrez d’abord la revue.');
+      }
+      if (
+        normalized !== ProjectReviewStatus.IN_PROGRESS &&
+        review.status !== ProjectReviewStatus.IN_REVIEW &&
+        review.status !== ProjectReviewStatus.DRAFT
+      ) {
+        throw new BadRequestException('Only editable reviews can be finalized');
       }
 
       const ctx = await this.loadSnapshotContext(tx, clientId, projectId);
+      const conduct = this.buildSnapshotConductData(review);
+      const agendaTitleById = new Map(
+        review.agendaItems.map((item) => [item.id, item.title]),
+      );
       const snapshotPayload = buildProjectReviewSnapshotPayload({
         ...ctx,
+        review,
+        facilitatorDisplayName: formatProjectReviewUserDisplayName(
+          review.facilitator,
+        ),
+        attachments: review.attachments ?? [],
+        standaloneDecisions: review.decisions,
+        standaloneActions: review.actionItems.map((a) => ({
+          id: a.id,
+          title: a.title,
+          dueDate: a.dueDate,
+          priority: a.priority,
+          responsibleDisplayName: formatProjectReviewUserDisplayName(
+            a.responsibleUser,
+          ),
+          contributors: a.contributors.map((c) => ({
+            displayName:
+              c.displayName ?? formatProjectReviewUserDisplayName(c.user),
+            roleLabel: c.roleLabel,
+          })),
+        })),
+        agendaTitleById,
         pilotage: this.pilotage,
+        ...conduct,
       });
 
       const row = await tx.projectReview.update({
@@ -767,7 +1589,11 @@ export class ProjectReviewsService {
 
     const updated = await this.prisma.projectReview.update({
       where: { id: reviewId },
-      data: { status: ProjectReviewStatus.CANCELLED },
+      data: {
+        status: ProjectReviewStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancelledByUserId: context?.actorUserId ?? null,
+      },
       include: reviewInclude,
     });
 

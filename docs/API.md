@@ -594,7 +594,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/governance-cycles/:id/summary (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — KPI global `GovernanceCycleGlobalSummaryDto` ; isolation `clientId` |
 | /api/governance-cycles/:id (DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.delete`) — archivage logique → **204** sans corps |
 | /api/governance-cycles/:id/restore (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.update` — désarchivage : restaure le statut d’avant archivage (audit `governance_cycle.archived`, sinon inférence `closedAt` / `validatedAt` / `DRAFT`) |
-| /api/governance-cycles/:id/candidacies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.propose` — body `{ projectId }` ; upsert item `CANDIDATE` (RFC-PROJ-CYCLE-003-C) ; **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE` |
+| /api/governance-cycles/:id/candidacies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.propose` — body `{ projectId }` ; upsert item `CANDIDATE` + `arbitrationMetierStatus = SOUMIS_VALIDATION` (RFC-PROJ-CYCLE-003-C) ; **404** `GOVERNANCE_CYCLES_MODULE_INACTIVE` |
 | /api/governance-cycles/:cycleId/instances (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` / `create` \| `update` — séances de décision (RFC-003-A) |
 | /api/governance-cycles/:cycleId/instances/generate (POST) | idem | `governance_cycles.update` — génération depuis `governanceConfig.instanceSchedule` (RFC-003-F) |
 | /api/governance-cycles/:cycleId/instances/:instanceId (GET, PATCH) | idem | détail séance ; `periodLabel` + `scheduledDecisionAt` requis si statut ≥ `PLANNED` |
@@ -1283,7 +1283,7 @@ Isolation **`clientId`** sur toutes les routes ; `cycleId` et `instanceId` doive
 | `PUT` `…/agenda` | `update` | Body `{ items: [{ itemId, sortOrder? }] }` — remplace l’ODJ. Items **PROJECT** ou **BUDGET** en statut candidat uniquement. |
 | `PATCH` `…/decisions` | `arbitrate` | Brouillon décisions séance si `OPEN`. |
 | `POST` `…/close` | `arbitrate` | Clôture atomique (**003-B** + readiness/propagation **003-D/E**). |
-| `POST` `…/candidacies` | `propose` | Body `{ projectId }` — upsert item **CANDIDATE** (**003-C**). |
+| `POST` `…/candidacies` | `propose` | Body `{ projectId }` — upsert item **CANDIDATE** + `arbitrationMetierStatus = SOUMIS_VALIDATION` (**003-C**). |
 
 **UI** (`apps/web/src/features/governance-cycles/`) : onglet Séances — préparation ODJ via `GET …/items?limit=100` (max API) ; libellés métier sur les lignes (pas d’UUID affiché seul). Voir [RFC-PROJ-CYCLE-003](RFC/RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) §4.9.
 
@@ -2755,7 +2755,7 @@ Référence : **RFC-019** (Budget Versioning). Gestion des versions de budgets :
 
 ## 21. Module Projets (RFC-PROJ-001 MVP) — `/api/projects`, `/api/projects/:projectId/tasks|task-buckets|gantt|activities|risks|milestones|budget-links|scenarios|.../financial-lines|.../financial-summary|project-sheet|reviews|documents`, `/api/projects/:projectId/microsoft-link`
 
-Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), **RFC-PROJ-SC-001** / **RFC-PROJ-SC-002** (scénarios + projections financières scénario), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
+Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011** (tâches enrichies, jalons, activités, payload **`GET /gantt`**), **RFC-PROJ-012** — *deux livrables distincts dans le dépôt* : [fiche décisionnelle Project Sheet](RFC/RFC-PROJ-012%20%E2%80%94%20Project%20Sheet.md) et [UI Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md), **RFC-PROJ-013** (points projet COPIL/COPRO), **RFC-PROJ-013-1** (cycle de vie réunion — Phase 1), **RFC-PROJ-DOC-001** (registre `ProjectDocument`), **RFC-PROJ-SC-001** / **RFC-PROJ-SC-002** (scénarios + projections financières scénario), détail : [docs/modules/projects-mvp.md](modules/projects-mvp.md).
 
 ### Guards et headers
 
@@ -2949,20 +2949,47 @@ Règles SC-004 :
 
 Audits mutations tâches : **`project.scenario_task.created`**, **`project.scenario_task.updated`**, **`project.scenario_task.deleted`**, **`project.scenario_task.bootstrapped`** (resourceType `project_scenario_task`). Aucun audit sur les lectures ni sur `GET .../timeline-summary`.
 
-### Points projet (RFC-PROJ-013) — `/api/projects/:projectId/reviews`
+### Points projet (RFC-PROJ-013 + RFC-PROJ-013-1 + RFC-PROJ-013-2) — `/api/projects/:projectId/reviews`
 
 Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne suffit pas à cibler une ressource.
 
-- **GET /api/projects/:projectId/reviews** — Liste des points (tri par `reviewDate` desc, `createdAt` desc). Items **sans** `snapshotPayload` (charge allégée). **`projects.read`**
-- **POST /api/projects/:projectId/reviews** — Création en brouillon (`ProjectReviewType`, `reviewDate`, `title`, `executiveSummary`, `contentPayload` optionnel, participants, etc.). **`projects.update`**
-- **GET /api/projects/:projectId/reviews/:reviewId** — Détail. `snapshotPayload` **toujours présent** dans le JSON : `null` si `status !== FINALIZED`, objet figé si finalisé. **`projects.read`**
-- **PATCH /api/projects/:projectId/reviews/:reviewId** — Mise à jour **uniquement** en statut brouillon. **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/finalize** — Finalisation : snapshot serveur en transaction, statut `FINALIZED`. Audits **`project.review.finalized`**. **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation depuis brouillon. Audit **`project.review.cancelled`**. **`projects.update`**
+**Statuts** (RFC-PROJ-013-2) : `PREPARING` (préparation, date optionnelle), `SCHEDULED` (planifié), `IN_PROGRESS` (tenue en cours), `FINALIZED`, `CANCELLED`. Legacy en lecture : `DRAFT`, `PLANNED`, `IN_REVIEW` (migrés en base).
 
-**Type `POST_MORTEM` (retour d’expérience)** : création autorisée seulement si le projet est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; si le projet est dans l’un de ces états, toute **nouvelle** revue doit être de ce type. **`nextReviewDate`** ne doit pas être renseigné (pas de prochain point après un REX). Le corps peut inclure **`contentPayload`** avec un objet **`postMortem`** (structure côté client).
+**Création** : champ métier **`creationMode`** (`PREPARING` \| `SCHEDULED` \| `IMMEDIATE`, défaut `PREPARING` ; alias legacy `PLANNED`→`SCHEDULED`). **`reviewDate`** optionnel en `PREPARING`, requis en `SCHEDULED`. Champs : `objective`, `periodStart`, `periodEnd`, `durationMinutes`, réunion (`meetingMode`, `meetingUrl`, `location`). **`autoInviteOnCreate`** (défaut `true`) : notifications in-app si `SCHEDULED` + participants internes.
 
-Audits complémentaires : **`project.review.created`**, **`project.review.updated`**.
+- **GET /api/projects/:projectId/reviews** — Liste (tri `reviewDate` desc, `createdAt` desc). **`projects.read`**
+- **POST /api/projects/:projectId/reviews** — Crée selon `creationMode`. **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`). `snapshotPayload` v2 si finalisé. **`projects.read`**
+- **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/schedule** — `PREPARING`→`SCHEDULED` ou replanification `SCHEDULED` (`reviewDate` requis). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
+
+**Pièces jointes** — `/api/projects/:projectId/reviews/:reviewId/attachments` :
+
+- **POST** — `attachmentType` (`URL`, `DOCUMENT_REFERENCE`, `POWERBI_LINK`, `SHAREPOINT_LINK`, `OTHER`, `FILE` via `documentId`), `title`, liens optionnels `agendaItemId`/`decisionId`/`actionItemId`. **`projects.update`**
+- **PATCH …/:attachmentId** — **`projects.update`**
+- **DELETE …/:attachmentId** — **`projects.update`**
+
+**Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PREPARING`, `SCHEDULED` ou `IN_PROGRESS`) :
+
+- **POST** — `title`, `itemType`, `objective?`, `expectedDecision?`, `plannedDurationMinutes?`, `ownerUserId?`. **`projects.update`**
+- **PATCH …/reorder** — `{ items: [{ id, orderIndex }] }` (déclaré avant `:agendaItemId`). **`projects.update`**
+- **PATCH …/:agendaItemId** — Modifier ; `notes` / `decisionSummary` **uniquement en `IN_PROGRESS`**. **`projects.update`**
+- **POST …/:agendaItemId/start** \| **complete** \| **skip** — **`projects.update`**
+
+**Participants** — `/api/projects/:projectId/reviews/:reviewId/participants` :
+
+- **POST** / **PATCH** / **DELETE** — inchangé (présence, email externe). **`projects.update`**
+
+**Décisions** — enrichies (`decisionType`, `status`, `impact`, `decidedByUserId`) ; nouvelles décisions en tenue créées en `DRAFT` par défaut.
+
+**Type `POST_MORTEM`** : création autorisée seulement si projet **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`** ; `creationMode` planifié interdit.
+
+Audits : **`project.review.*`**, **`agenda_item.*`**, **`attachment.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` / join URL / `url` attachment en clair.
 
 ### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
 
@@ -3010,7 +3037,7 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ### Gantt-ready — `/api/projects/:projectId/gantt` (RFC-PROJ-011)
 
-- **GET** — Agrégat **tâches + jalons** pour l’UI Gantt (les **activités** ne font pas partie de ce payload). **`projects.read`** — consommé par la route **`/projects/[projectId]/planning`** (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md)).
+- **GET** — Agrégat **tâches + jalons** pour l’UI **Gantt détaillé** (`/planning?sub=gantt`). Les **activités** ne font pas partie de ce payload. **`projects.read`** — la vue **Macro** (`?sub=macro`) consomme plutôt `GET …/tasks`, `GET …/milestones` et la liste des phases tâches (voir [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC/RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) §7.3.1).
 
 ### Activités — `/api/projects/:projectId/activities` (RFC-PROJ-011)
 
@@ -3037,8 +3064,9 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 
 ### Liens projet ↔ ligne budgétaire (RFC-PROJ-010) — module Nest `project-budget`
 
-- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. **`projects.read`**
-- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **GET /api/projects/:projectId/budget-links** — Liste paginée des liens (`query` : `limit` défaut 20 max 100, `offset`). Réponse `{ items, total, limit, offset }`. Chaque item expose la ligne budgétaire (libellés métier) et **`budgetLine.budgetTotalInitialAmount`** si mode **BUDGET_PERCENTAGE**. **`projects.read`**
+- **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| **`BUDGET_PERCENTAGE`** \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
+- **PATCH /api/project-budget-links/:id** — Mise à jour partielle (ligne, mode si un seul lien, `percentage`, `amount`). **`projects.update`**
 - **DELETE /api/project-budget-links/:id** — Suppression (204 si OK). **`projects.update`**
 
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).

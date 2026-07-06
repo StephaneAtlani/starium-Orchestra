@@ -1,143 +1,166 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+  Activity,
+  Briefcase,
+  CheckCircle2,
+  Clock3,
+  DollarSign,
+  type LucideIcon,
+} from 'lucide-react';
+import { KpiCard, type KpiCardFooterTone } from '@/components/ui/kpi-card';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  formatPortfolioBudgetCompact,
+  portfolioMonthCreationDeltaLabel,
+  portfolioPercentOfTotal,
+  portfolioQuarterCompletionDeltaLabel,
+} from '../lib/projects-list-display';
 import type { ProjectsPortfolioSummary } from '../types/project.types';
 
-/** Tons des chiffres uniquement (tokens §2 FRONTEND_UI-UX — pas de fond de section). */
-type ValueTone = 'default' | 'info' | 'success' | 'warning' | 'danger';
-
-const valueToneClass: Record<ValueTone, string> = {
-  default: 'text-foreground',
-  info: 'text-primary',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  /** Jaune plus net (palette yellow vs amber) */
-  warning: 'text-yellow-800 dark:text-yellow-400',
-  danger: 'text-destructive',
+type KpiCardDef = {
+  id: string;
+  label: string;
+  Icon: LucideIcon;
+  iconWrapperClassName: string;
+  footerTone: KpiCardFooterTone;
+  value: (summary: ProjectsPortfolioSummary | undefined, isLoading: boolean) => string;
+  footer: (summary: ProjectsPortfolioSummary | undefined) => string | null;
 };
+
+function portfolioBase(summary: ProjectsPortfolioSummary | undefined): number {
+  return summary?.totalProjects ?? 0;
+}
+
+const KPI_CARDS: KpiCardDef[] = [
+  {
+    id: 'active',
+    label: 'Projets actifs',
+    Icon: Briefcase,
+    iconWrapperClassName:
+      'bg-[color:var(--state-warning)]/12 text-[color:var(--state-warning)]',
+    footerTone: 'warning',
+    value: (summary, isLoading) =>
+      isLoading ? '—' : String(summary?.activeProjects ?? 0),
+    footer: (summary) =>
+      summary
+        ? portfolioMonthCreationDeltaLabel(
+            summary.projectsCreatedThisMonth,
+            summary.projectsCreatedPreviousMonth,
+          )
+        : null,
+  },
+  {
+    id: 'in-progress',
+    label: "En cours d'exécution",
+    Icon: Activity,
+    iconWrapperClassName: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400',
+    footerTone: 'success',
+    value: (summary, isLoading) =>
+      isLoading ? '—' : String(summary?.inProgressProjects ?? 0),
+    footer: (summary) =>
+      summary
+        ? portfolioPercentOfTotal(summary.inProgressProjects, portfolioBase(summary))
+        : null,
+  },
+  {
+    id: 'late',
+    label: 'En retard',
+    Icon: Clock3,
+    iconWrapperClassName: 'bg-destructive/10 text-destructive',
+    footerTone: 'danger',
+    value: (summary, isLoading) =>
+      isLoading ? '—' : String(summary?.lateProjects ?? 0),
+    footer: (summary) =>
+      summary
+        ? portfolioPercentOfTotal(summary.lateProjects, portfolioBase(summary))
+        : null,
+  },
+  {
+    id: 'completed-quarter',
+    label: 'Terminés ce trimestre',
+    Icon: CheckCircle2,
+    iconWrapperClassName: 'bg-violet-500/12 text-violet-700 dark:text-violet-400',
+    footerTone: 'violet',
+    value: (summary, isLoading) =>
+      isLoading ? '—' : String(summary?.completedThisQuarter ?? 0),
+    footer: (summary) =>
+      summary
+        ? portfolioQuarterCompletionDeltaLabel(
+            summary.completedThisQuarter,
+            summary.completedPreviousQuarter,
+          )
+        : null,
+  },
+  {
+    id: 'budget',
+    label: 'Budget total',
+    Icon: DollarSign,
+    iconWrapperClassName: 'bg-sky-500/12 text-sky-700 dark:text-sky-400',
+    footerTone: 'info',
+    value: (summary, isLoading) =>
+      isLoading ? '—' : formatPortfolioBudgetCompact(summary?.totalTargetBudgetAmount),
+    footer: (summary) => {
+      if (!summary?.totalConsumedBudgetAmount) return null;
+      return `Consommé : ${formatPortfolioBudgetCompact(summary.totalConsumedBudgetAmount)}`;
+    },
+  },
+];
 
 type Props = {
   summary: ProjectsPortfolioSummary | undefined;
   isLoading: boolean;
 };
 
-function val(n: number | undefined, loading: boolean) {
-  if (loading) return '—';
-  return String(n ?? 0);
-}
-
-/** Cellule compacte : libellé au-dessus, chiffre en dessous (peu de largeur). */
-function Stat({
-  label,
-  valueStr,
-  title,
-  valueTone = 'default',
-}: {
-  label: string;
-  valueStr: string;
-  /** Libellé long pour infobulle si raccourci à l’écran. */
-  title?: string;
-  valueTone?: ValueTone;
-}) {
+function KpiCardSkeleton() {
   return (
-    <div className="min-w-0" title={title}>
-      <div className="truncate text-center text-[0.62rem] font-medium leading-tight text-muted-foreground sm:text-left sm:text-[0.65rem]">
-        {label}
-      </div>
-      <div
-        className={cn(
-          'text-center text-base font-semibold tabular-nums tracking-tight sm:text-left sm:text-lg',
-          valueToneClass[valueTone],
-        )}
-      >
-        {valueStr}
+    <div className="starium-kpi-card !p-4">
+      <div className="flex items-center gap-3.5">
+        <Skeleton className="size-10 shrink-0 rounded-full" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Skeleton className="h-3 w-full max-w-[5.5rem]" />
+          <Skeleton className="h-7 w-10" />
+          <Skeleton className="h-3 w-24" />
+        </div>
       </div>
     </div>
   );
 }
 
-function KpiGroup({
-  sectionId,
-  label,
-  children,
-}: {
-  sectionId: string;
-  label: string;
-  children: ReactNode;
-}) {
-  const headingId = `projects-kpi-${sectionId}`;
-  return (
-    <section
-      className="min-w-0 rounded-lg border border-border bg-transparent px-2.5 py-2 sm:px-3 sm:py-2.5"
-      aria-labelledby={headingId}
-    >
-      <h2
-        id={headingId}
-        className="mb-1.5 border-b border-border/70 pb-1 text-[0.6rem] font-semibold uppercase tracking-wider text-muted-foreground"
-      >
-        {label}
-      </h2>
-      <div className="grid grid-cols-3 gap-x-2 gap-y-1.5 sm:gap-x-3">{children}</div>
-    </section>
-  );
-}
-
-/**
- * Synthèse portefeuille — version compacte (grille légère, pas de KpiCard empilés).
- */
+/** Synthèse portefeuille — 5 score cards alignées mockup (`KpiCard` dense). */
 export function ProjectsPortfolioKpi({ summary, isLoading }: Props) {
-  const s = summary;
-  const loading = isLoading;
-  const v = (n: number | undefined) => val(n, loading);
+  if (isLoading && !summary) {
+    return (
+      <section className="starium-module" data-testid="projects-portfolio-kpi">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 sm:gap-3">
+          {KPI_CARDS.map((card) => (
+            <KpiCardSkeleton key={card.id} />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <Card size="sm" className="overflow-hidden border-border shadow-sm" data-testid="projects-portfolio-kpi">
-      <CardHeader className="border-b border-border/60 pb-2 pt-3 sm:pb-2.5">
-        <CardTitle className="text-sm font-medium leading-tight">
-          Indicateurs portefeuille
-        </CardTitle>
-        <CardDescription className="text-xs leading-snug text-muted-foreground">
-          Synthèse client actif (serveur).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2.5 px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
-        <div className="grid gap-2.5 lg:grid-cols-3 lg:gap-3">
-          <KpiGroup sectionId="volume" label="Volume">
-            <Stat label="Projets" valueStr={v(s?.totalProjects)} valueTone="info" />
-            <Stat label="En cours" valueStr={v(s?.inProgressProjects)} valueTone="info" />
-            <Stat label="Terminés" valueStr={v(s?.completedProjects)} valueTone="success" />
-          </KpiGroup>
-
-          <KpiGroup sectionId="risks" label="Risques & échéances">
-            <Stat label="En retard" valueStr={v(s?.lateProjects)} valueTone="warning" />
-            <Stat label="Critiques" valueStr={v(s?.criticalProjects)} valueTone="danger" />
-            <Stat label="Bloqués" valueStr={v(s?.blockedProjects)} valueTone="danger" />
-          </KpiGroup>
-
-          <KpiGroup sectionId="completeness" label="Complétude">
-            <Stat
-              label="Sans étude de risque"
-              title="Aucune étude de risque enregistrée"
-              valueStr={v(s?.noRiskProjects)}
-              valueTone="warning"
+    <section className="starium-module" data-testid="projects-portfolio-kpi">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 sm:gap-3">
+        {KPI_CARDS.map((card) => {
+          const footer = card.footer(summary);
+          return (
+            <KpiCard
+              key={card.id}
+              variant="dense"
+              iconShape="circle"
+              title={card.label}
+              value={card.value(summary, isLoading)}
+              footer={footer ?? undefined}
+              footerTone={card.footerTone}
+              iconWrapperClassName={card.iconWrapperClassName}
+              icon={<card.Icon aria-hidden />}
             />
-            <Stat
-              label="Sans resp."
-              title="Sans responsable"
-              valueStr={v(s?.noOwnerProjects)}
-              valueTone="warning"
-            />
-            <Stat label="Sans jalons" valueStr={v(s?.noMilestoneProjects)} valueTone="warning" />
-          </KpiGroup>
-        </div>
-      </CardContent>
-    </Card>
+          );
+        })}
+      </div>
+    </section>
   );
 }

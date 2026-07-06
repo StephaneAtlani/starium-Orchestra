@@ -10,6 +10,16 @@ import { XIcon } from "lucide-react"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
 
+type DialogSize = "sm" | "md" | "lg" | "xl" | "full"
+
+const dialogModalSizeClasses: Record<DialogSize, string> = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+  xl: "sm:max-w-4xl",
+  full: "sm:max-w-[calc(100%_-_2rem)]",
+}
+
 const DialogDismissFromOverlayContext = React.createContext<(() => void) | null>(null)
 
 function Dialog({ onOpenChange, children, ...props }: DialogPrimitive.Root.Props) {
@@ -73,7 +83,7 @@ function DialogOverlay({
       forceRender
       className={cn(
         // Voile : scrim + léger flou ; forceRender = backdrop même en dialogue imbriqué (refs Base UI)
-        "fixed inset-0 z-[80] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-[80] bg-black/40 backdrop-blur-[2px] duration-300 ease-out dark:bg-black/55 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0",
         className,
       )}
       onPointerDown={handlePointerDown}
@@ -82,16 +92,17 @@ function DialogOverlay({
   )
 }
 
+/** Modal centré (desktop) / bottom-sheet (mobile) — scroll délégué à DialogBody. */
 const dialogContentModalClass =
-  "fixed top-1/2 left-1/2 z-[81] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border/60 bg-background/95 p-4 text-sm shadow-lg ring-1 ring-black/[0.04] backdrop-blur-2xl duration-200 outline-none dark:ring-white/[0.06] sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-top-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:slide-out-to-top-2"
+  "fixed z-[81] flex w-full flex-col gap-4 overflow-x-hidden overflow-y-hidden border border-border/60 bg-background/95 p-4 text-sm shadow-lg ring-1 ring-black/[0.04] backdrop-blur-2xl duration-300 ease-out outline-none dark:ring-white/[0.06] inset-x-0 bottom-0 max-h-[min(92dvh,calc(100dvh_-_1rem))] translate-y-0 rounded-t-2xl border-b-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-[calc(100%_-_2rem)] sm:max-h-[calc(100dvh_-_2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 max-sm:motion-safe:data-open:slide-in-from-bottom-full sm:motion-safe:data-open:zoom-in-95 sm:motion-safe:data-open:slide-in-from-top-2 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 max-sm:motion-safe:data-closed:slide-out-to-bottom-full sm:motion-safe:data-closed:zoom-out-95 sm:motion-safe:data-closed:slide-out-to-top-2"
 
 /** Panneau latéral droit pleine hauteur (chat, etc.) — évite le conflit de classes avec le modal centré. */
 const dialogContentSidePanelClass =
-  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-right data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-right sm:rounded-l-2xl"
+  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:slide-in-from-right motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:slide-out-to-right sm:rounded-l-2xl"
 
 /** Widget chat flottant bas-droite (type support / Dougs). */
 const dialogContentChatWidgetClass =
-  "fixed bottom-3 right-3 top-auto left-auto z-[81] flex h-[min(85dvh,640px)] max-h-[min(85dvh,640px)] w-[min(calc(100vw-1.5rem),400px)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border/50 bg-background p-0 text-sm shadow-[0_24px_64px_-12px_rgba(0,0,0,0.28)] outline-none ring-0 duration-300 sm:bottom-5 sm:right-5 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-4 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-4"
+  "fixed bottom-3 right-3 top-auto left-auto z-[81] flex h-[min(85dvh,640px)] max-h-[min(85dvh,640px)] w-[min(calc(100vw-1.5rem),400px)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border/50 bg-background p-0 text-sm shadow-[0_24px_64px_-12px_rgba(0,0,0,0.28)] outline-none ring-0 duration-300 ease-out sm:bottom-5 sm:right-5 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-open:slide-in-from-bottom-4 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 motion-safe:data-closed:slide-out-to-bottom-4"
 
 function DialogContent({
   className,
@@ -102,12 +113,15 @@ function DialogContent({
   sidePanel = false,
   /** true = carte flottante bas-droite (widget chat). Mutuellement exclusif avec sidePanel. */
   chatWidget = false,
+  /** Largeur normalisée du modal (desktop). Ignoré pour sidePanel / chatWidget. */
+  size = "sm",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
   overlayClassName?: string
   sidePanel?: boolean
   chatWidget?: boolean
+  size?: DialogSize
 }) {
   const layout = chatWidget ? "chat" : sidePanel ? "side" : "modal"
   const closeBtnClass =
@@ -117,12 +131,12 @@ function DialogContent({
         ? "absolute right-3 top-3 z-10 rounded-full bg-background/80 hover:bg-muted"
         : "absolute top-2 right-2"
 
-  const baseClass =
+  const popupClassName =
     layout === "chat"
-      ? dialogContentChatWidgetClass
+      ? cn(dialogContentChatWidgetClass, className)
       : sidePanel
-        ? dialogContentSidePanelClass
-        : dialogContentModalClass
+        ? cn(dialogContentSidePanelClass, className)
+        : cn(dialogContentModalClass, dialogModalSizeClasses[size], className)
 
   return (
     <DialogPortal>
@@ -131,7 +145,7 @@ function DialogContent({
         data-slot="dialog-content"
         data-side-panel={sidePanel ? "true" : undefined}
         data-chat-widget={chatWidget ? "true" : undefined}
-        className={cn(baseClass, className)}
+        className={popupClassName}
         {...props}
       >
         {children}
@@ -160,7 +174,20 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn("flex shrink-0 flex-col gap-2", className)}
+      {...props}
+    />
+  )
+}
+
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        "flex-1 min-h-0 overflow-y-auto overscroll-contain",
+        className,
+      )}
       {...props}
     />
   )
@@ -178,7 +205,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t border-border/60 bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 flex shrink-0 flex-col-reverse gap-2 rounded-b-xl border-t border-border/60 bg-muted/50 p-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -229,8 +256,10 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogBody,
   DialogOverlay,
   DialogPortal,
   DialogTitle,
   DialogTrigger,
 }
+export type { DialogSize }

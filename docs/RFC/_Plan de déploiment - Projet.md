@@ -2,13 +2,13 @@
 
 | RFC             | Nom                         | Description                                                         | État      |
 | --------------- | --------------------------- | ------------------------------------------------------------------- | --------- |
-| RFC-PROJ-010    | Budget Links                | Lier `Project` ↔ Budget / Envelope / Line sans dupliquer la finance | ❌ À faire |
+| RFC-PROJ-010    | Budget Links                | Lier `Project` ↔ Budget / Envelope / Line sans dupliquer la finance | ✅ MVP (modes FULL/PCT/BUDGET_PCT/FIXED + UI `/budget`) |
 | RFC-PROJ-011    | Supplier Links              | Lier projets aux fournisseurs / contrats / commandes                | ❌ À faire |
 | RFC-PROJ-012    | Documents & Attachments     | Attacher documents (cadrage, CR, specs, etc.)                       | ❌ À faire |
 | RFC-RES-002     | Resource Assignment Backend | Affecter des ressources aux projets (allocation, période, rôle)     | ❌ À faire |
 | RFC-RES-003     | Resource Metadata avancé    | Typage avancé ressources (interne/externe/licence/matériel)         | ❌ À faire |
 | RFC-FE-PROJ-005 | Resources Tab UI            | Onglet ressources dans la fiche projet                              | ❌ À faire |
-| RFC-FE-PROJ-006 | Budget Links Tab UI         | Onglet budget avec navigation vers module budget                    | ❌ À faire |
+| RFC-FE-PROJ-006 | Budget Links Tab UI         | Onglet budget avec navigation vers module budget                    | ✅ MVP (`/projects/:id/budget`) |
 | RFC-FE-PROJ-007 | Supplier Links Tab UI       | Onglet fournisseurs                                                 | ❌ À faire |
 | RFC-PROJ-014    | Alerts & Integrity Rules    | Moteur d’alertes projet (retard, risque critique, incohérences)     | ❌ À faire |
 
@@ -93,7 +93,7 @@ Aligné avec la vision produit :
 
 ## Ordre optimal :
 
-1. **RFC-PROJ-010 (Budget Links)**
+1. ~~**RFC-PROJ-010 (Budget Links)**~~ ✅ livré (MVP+ — voir RFC-PROJ-010)
    👉 clé pour connecter au core financier
 
 2. **RFC-RES-002 (Resource Assignment)**

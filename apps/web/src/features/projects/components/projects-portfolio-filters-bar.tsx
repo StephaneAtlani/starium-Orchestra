@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +41,14 @@ export interface ProjectsPortfolioFiltersBarProps {
   setFilters: (updates: Partial<ProjectsListFilters>) => void;
   /** Rôles dérivés des lignes chargées (Gantt / liste). */
   myRoleOptions: string[];
+  /** Chefs de projet (liste portefeuille mobile). */
+  ownerOptions?: { id: string; label: string }[];
+  /** Sans bordure/padding externe (panneau repliable mobile). */
+  embedded?: boolean;
+  /** Masque le champ recherche (déjà présent dans la barre mobile). */
+  hideSearch?: boolean;
+  /** Bottom sheet mobile : grille 2 col., champs plus hauts, sans cases rapides. */
+  mobileSheet?: boolean;
   /** Gantt portefeuille : pilotage du zoom temps (UI dans la barre de filtres). */
   portfolioGanttZoom?: {
     value: number;
@@ -68,6 +77,10 @@ export function ProjectsPortfolioFiltersBar({
   filters,
   setFilters,
   myRoleOptions,
+  ownerOptions,
+  embedded = false,
+  hideSearch = false,
+  mobileSheet = false,
   portfolioGanttZoom,
   portfolioGanttTooltips,
   portfolioGanttInlineInfos,
@@ -110,36 +123,55 @@ export function ProjectsPortfolioFiltersBar({
   const statusKey = filters.status ?? '__all__';
   const healthKey = filters.computedHealth ?? '__all__';
   const myRoleKey = filters.myRole ?? '__all__';
+  const ownerKey = filters.ownerUserId ?? '__all__';
+
+  const fieldLabelClass = mobileSheet ? 'text-sm font-medium' : 'text-xs';
+  const fieldTriggerClass = mobileSheet ? 'h-11 w-full text-sm' : 'h-8 w-full text-xs';
+  const fieldInputClass = mobileSheet ? 'h-11 text-sm' : 'h-8 text-xs';
 
   return (
     <div
-      className="border-border/60 bg-muted/20 space-y-3 border-b px-3 py-3 sm:px-4"
+      className={cn(
+        mobileSheet ? 'space-y-4' : 'space-y-3',
+        embedded
+          ? mobileSheet
+            ? 'p-0'
+            : 'px-3 pb-3 pt-0 sm:px-4'
+          : 'border-border/60 bg-muted/20 border-b px-3 py-3 sm:px-4',
+      )}
       role="search"
       aria-label="Filtres portefeuille projets"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="pf-search" className="text-xs">
-            Recherche
-          </Label>
-          <Input
-            id="pf-search"
-            value={filters.search ?? ''}
-            onChange={(e) => setFilters({ search: e.target.value || undefined })}
-            placeholder="Nom ou code…"
-            className="h-8 text-xs"
-          />
-        </div>
+      <div
+        className={cn(
+          'grid gap-3',
+          mobileSheet ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+        )}
+      >
+        {!hideSearch ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="pf-search" className={fieldLabelClass}>
+              Recherche
+            </Label>
+            <Input
+              id="pf-search"
+              value={filters.search ?? ''}
+              onChange={(e) => setFilters({ search: e.target.value || undefined })}
+              placeholder="Nom ou code…"
+              className={fieldInputClass}
+            />
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Catégorie portefeuille</Label>
+          <Label className={fieldLabelClass}>Catégorie portefeuille</Label>
           <Select
             value={categoryKey}
             onValueChange={(v) =>
               setFilters({ portfolioCategoryId: !v || v === '__all__' ? undefined : v })
             }
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>
                 {categoryKey === '__all__'
                   ? 'Toutes'
@@ -170,12 +202,12 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Nature</Label>
+          <Label className={fieldLabelClass}>Nature</Label>
           <Select
             value={kindKey}
             onValueChange={(v) => setFilters({ kind: !v || v === '__all__' ? undefined : v })}
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>
                 {kindKey === '__all__' ? 'Toutes' : PROJECT_KIND_LABEL[kindKey] ?? kindKey}
               </SelectValue>
@@ -189,7 +221,7 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Santé</Label>
+          <Label className={fieldLabelClass}>Santé</Label>
           <Select
             value={healthKey}
             onValueChange={(v) =>
@@ -198,7 +230,7 @@ export function ProjectsPortfolioFiltersBar({
               })
             }
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>
                 {healthKey === '__all__'
                   ? 'Toutes'
@@ -219,12 +251,12 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Statut</Label>
+          <Label className={fieldLabelClass}>Statut</Label>
           <Select
             value={statusKey}
             onValueChange={(v) => setFilters({ status: !v || v === '__all__' ? undefined : v })}
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>
                 {statusKey === '__all__' ? 'Tous' : PROJECT_STATUS_LABEL[statusKey] ?? statusKey}
               </SelectValue>
@@ -241,12 +273,12 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Mon rôle</Label>
+          <Label className={fieldLabelClass}>Mon rôle</Label>
           <Select
             value={myRoleKey}
             onValueChange={(v) => setFilters({ myRole: !v || v === '__all__' ? undefined : v })}
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>{myRoleKey === '__all__' ? 'Tous' : myRoleKey}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -260,8 +292,36 @@ export function ProjectsPortfolioFiltersBar({
           </Select>
         </div>
 
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Étiquettes</Label>
+        {ownerOptions && ownerOptions.length > 0 ? (
+          <div className="space-y-1.5">
+            <Label className={fieldLabelClass}>Chef de projets</Label>
+            <Select
+              value={ownerKey}
+              onValueChange={(v) =>
+                setFilters({ ownerUserId: !v || v === '__all__' ? undefined : v })
+              }
+            >
+              <SelectTrigger size="sm" className={fieldTriggerClass}>
+                <SelectValue>
+                  {ownerKey === '__all__'
+                    ? 'Tous'
+                    : ownerOptions.find((o) => o.id === ownerKey)?.label ?? 'Chef'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous les chefs</SelectItem>
+                {ownerOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        <div className={cn('space-y-1.5', mobileSheet ? 'col-span-2' : 'sm:col-span-2')}>
+          <Label className={fieldLabelClass}>Étiquettes</Label>
           <ProjectTagsFilter
             value={filters.tagIds ?? []}
             matchMode={filters.tagIdsMatch ?? 'any'}
@@ -273,7 +333,7 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Trier par</Label>
+          <Label className={fieldLabelClass}>Trier par</Label>
           <Select
             value={filters.sortBy}
             onValueChange={(v) =>
@@ -282,7 +342,7 @@ export function ProjectsPortfolioFiltersBar({
               })
             }
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>{SORT_LABEL[filters.sortBy]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -296,14 +356,14 @@ export function ProjectsPortfolioFiltersBar({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Ordre</Label>
+          <Label className={fieldLabelClass}>Ordre</Label>
           <Select
             value={filters.sortOrder}
             onValueChange={(v) =>
               setFilters({ sortOrder: v === 'desc' ? 'desc' : 'asc' })
             }
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
               <SelectValue>
                 {filters.sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}
               </SelectValue>
@@ -316,6 +376,7 @@ export function ProjectsPortfolioFiltersBar({
         </div>
       </div>
 
+      {!mobileSheet ? (
       <div className="flex flex-wrap items-center gap-4 pt-0.5">
         {portfolioGanttZoom ? (
           <div
@@ -426,6 +487,7 @@ export function ProjectsPortfolioFiltersBar({
           </label>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }

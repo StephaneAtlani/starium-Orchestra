@@ -1,22 +1,32 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
-import type { ProjectReviewType } from '@prisma/client';
+import type { ProjectReviewMeetingMode, ProjectReviewType } from '@prisma/client';
 import { ProjectReviewActionItemInputDto } from './project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './project-review-decision.dto';
 import { ProjectReviewParticipantInputDto } from './project-review-participant.dto';
 import { PROJECT_REVIEW_TYPE_VALUES } from './project-review-type-values';
+import {
+  PROJECT_REVIEW_CREATION_MODE_VALUES,
+  PROJECT_REVIEW_MEETING_MODE_VALUES,
+  type ProjectReviewCreationMode,
+} from '../project-review-meeting.validation';
 
 export class CreateProjectReviewDto {
+  @IsOptional()
   @IsDateString()
-  reviewDate!: string;
+  reviewDate?: string;
 
   @IsIn([...PROJECT_REVIEW_TYPE_VALUES])
   reviewType!: ProjectReviewType;
@@ -29,7 +39,25 @@ export class CreateProjectReviewDto {
   @IsOptional()
   @IsString()
   @MaxLength(20000)
+  objective?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
   executiveSummary?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodStart?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  periodEnd?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number | null;
 
   @IsOptional()
   contentPayload?: Record<string, unknown> | null;
@@ -41,6 +69,27 @@ export class CreateProjectReviewDto {
   @IsOptional()
   @IsDateString()
   nextReviewDate?: string | null;
+
+  @IsOptional()
+  @IsIn([...PROJECT_REVIEW_MEETING_MODE_VALUES])
+  meetingMode?: ProjectReviewMeetingMode | null;
+
+  @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  meetingUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  location?: string | null;
+
+  @IsOptional()
+  @IsIn([...PROJECT_REVIEW_CREATION_MODE_VALUES])
+  creationMode?: ProjectReviewCreationMode;
+
+  @IsOptional()
+  @IsBoolean()
+  autoInviteOnCreate?: boolean;
 
   @IsOptional()
   @IsArray()

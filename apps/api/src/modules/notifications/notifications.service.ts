@@ -1,7 +1,35 @@
 import { Injectable } from '@nestjs/common';
+import {
+  NotificationStatus,
+  NotificationType,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { GetNotificationsQueryDto } from './dto/get-notifications-query.dto';
+
+export type CreateNotificationForUserInput = {
+  clientId: string;
+  userId: string;
+  actorUserId?: string;
+  type?: NotificationType;
+  title: string;
+  message: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  entityLabel?: string | null;
+  actionUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function sanitizeNotificationMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull | undefined {
+  if (metadata == null) return undefined;
+  const { meetingUrl: _omit, ...rest } = metadata;
+  void _omit;
+  return rest as Prisma.InputJsonValue;
+}
 
 @Injectable()
 export class NotificationsService {
@@ -81,5 +109,36 @@ export class NotificationsService {
       newValue: { mode: 'read_all', updated: result.count },
     });
     return { updated: result.count };
+  }
+
+  async createForUser(input: CreateNotificationForUserInput) {
+    const type = input.type ?? NotificationType.INFO;
+    const metadata = sanitizeNotificationMetadata(input.metadata ?? undefined);
+
+    const notification = await this.prisma.notification.create({
+      data: {
+        clientId: input.clientId,
+        userId: input.userId,
+        type,
+        title: input.title,
+        message: input.message,
+        status: NotificationStatus.UNREAD,
+        entityType: input.entityType ?? null,
+        entityId: input.entityId ?? null,
+        entityLabel: input.entityLabel ?? null,
+        actionUrl: input.actionUrl ?? null,
+        ...(metadata !== undefined ? { metadata } : {}),
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId: input.clientId,
+      userId: input.actorUserId,
+      action: 'notification.created',
+      resourceType: 'notification',
+      resourceId: notification.id,
+    });
+
+    return notification;
   }
 }

@@ -1,6 +1,14 @@
 'use client';
 
 import type { DirectorySyncJob } from '../types/team-sync.types';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type Props = {
   jobs: DirectorySyncJob[] | undefined;
@@ -16,31 +24,31 @@ export function TeamSyncHistory({ jobs }: Props) {
   }
 
   return (
-    <div className="rounded-md border border-border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-left">
-          <tr>
-            <th className="p-2">Date</th>
-            <th className="p-2">Statut</th>
-            <th className="p-2">Trouvés</th>
-            <th className="p-2">Créés</th>
-            <th className="p-2">MAJ</th>
-            <th className="p-2">Désactivés</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="overflow-x-auto rounded-md border border-border">
+      <Table className="text-sm">
+        <TableHeader className="bg-muted/40">
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead>Trouvés</TableHead>
+            <TableHead>Créés</TableHead>
+            <TableHead>MAJ</TableHead>
+            <TableHead>Désactivés</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {jobs.map((job) => (
-            <tr key={job.id} className="border-t border-border">
-              <td className="p-2">{new Date(job.startedAt).toLocaleString('fr-FR')}</td>
-              <td className="p-2">{job.status}</td>
-              <td className="p-2">{job.totalFound}</td>
-              <td className="p-2">{job.createdCount}</td>
-              <td className="p-2">{job.updatedCount}</td>
-              <td className="p-2">{job.deactivatedCount}</td>
-            </tr>
+            <TableRow key={job.id}>
+              <TableCell>{new Date(job.startedAt).toLocaleString('fr-FR')}</TableCell>
+              <TableCell>{job.status}</TableCell>
+              <TableCell>{job.totalFound}</TableCell>
+              <TableCell>{job.createdCount}</TableCell>
+              <TableCell>{job.updatedCount}</TableCell>
+              <TableCell>{job.deactivatedCount}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

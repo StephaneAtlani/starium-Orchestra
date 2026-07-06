@@ -39,8 +39,18 @@ import { ProjectsService } from '../projects/projects.service';
 import { CreateProjectBudgetLinkDto } from './dto/create-project-budget-link.dto';
 import { ListProjectBudgetLinksQueryDto } from './dto/list-project-budget-links.query.dto';
 import { UpdateProjectBudgetLinkDto } from './dto/update-project-budget-link.dto';
+import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 
 const PERCENTAGE_SUM_EPSILON = new Prisma.Decimal('0.01');
+
+function isPercentageAllocationMode(
+  mode: ProjectBudgetAllocationType,
+): boolean {
+  return (
+    mode === ProjectBudgetAllocationType.PERCENTAGE ||
+    mode === ProjectBudgetAllocationType.BUDGET_PERCENTAGE
+  );
+}
 
 export type ProjectBudgetLinkInvariantRow = {
   allocationType: ProjectBudgetAllocationType;
@@ -67,7 +77,7 @@ export class ProjectBudgetLinksService {
     const types = new Set(links.map((l) => l.allocationType));
     if (types.size !== 1) {
       throw new BadRequestException(
-        'Un seul mode d’allocation par projet (FULL, PERCENTAGE ou FIXED)',
+        'Un seul mode d’allocation par projet (FULL, PERCENTAGE, BUDGET_PERCENTAGE ou FIXED)',
       );
     }
 
@@ -86,11 +96,11 @@ export class ProjectBudgetLinksService {
       return;
     }
 
-    if (mode === ProjectBudgetAllocationType.PERCENTAGE) {
+    if (isPercentageAllocationMode(mode)) {
       for (const l of links) {
         if (l.percentage == null) {
           throw new BadRequestException(
-            'Pourcentage requis pour chaque lien en mode PERCENTAGE',
+            'Pourcentage requis pour chaque lien en mode pourcentage',
           );
         }
       }
@@ -127,12 +137,12 @@ export class ProjectBudgetLinksService {
       }
       return;
     }
-    if (dto.allocationType === ProjectBudgetAllocationType.PERCENTAGE) {
+    if (isPercentageAllocationMode(dto.allocationType)) {
       if (dto.percentage == null) {
-        throw new BadRequestException('Le pourcentage est requis en mode PERCENTAGE');
+        throw new BadRequestException('Le pourcentage est requis en mode pourcentage');
       }
       if (dto.amount != null) {
-        throw new BadRequestException('Ne pas envoyer de montant en mode PERCENTAGE');
+        throw new BadRequestException('Ne pas envoyer de montant en mode pourcentage');
       }
       return;
     }
@@ -250,6 +260,32 @@ export class ProjectBudgetLinksService {
       };
     }
 
+    if (allocationType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE) {
+      const pct =
+        dto.percentage !== undefined
+          ? new Prisma.Decimal(dto.percentage)
+          : existing.allocationType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE &&
+              existing.percentage != null
+            ? existing.percentage
+            : null;
+      if (pct == null) {
+        throw new BadRequestException(
+          'Le pourcentage est requis en mode BUDGET_PERCENTAGE',
+        );
+      }
+      if (dto.amount != null) {
+        throw new BadRequestException(
+          'Ne pas envoyer de montant en mode BUDGET_PERCENTAGE',
+        );
+      }
+      return {
+        budgetLineId,
+        allocationType,
+        percentage: pct,
+        amount: null,
+      };
+    }
+
     const amt =
       dto.amount !== undefined
         ? new Prisma.Decimal(dto.amount)
@@ -277,7 +313,7 @@ export class ProjectBudgetLinksService {
     return {
       allocationType: dto.allocationType,
       percentage:
-        dto.allocationType === ProjectBudgetAllocationType.PERCENTAGE
+        isPercentageAllocationMode(dto.allocationType)
           ? new Prisma.Decimal(dto.percentage!)
           : null,
       amount:
@@ -336,6 +372,32 @@ export class ProjectBudgetLinksService {
     }
   }
 
+  private async loadBudgetInitialTotals(
+    clientId: string,
+    budgetIds: string[],
+  ): Promise<Map<string, number>> {
+    if (budgetIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.budgetLine.groupBy({
+      by: ['budgetId'],
+      where: {
+        clientId,
+        budgetId: { in: budgetIds },
+        status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+      },
+      _sum: { initialAmount: true },
+    });
+    const totals = new Map<string, number>();
+    for (const row of rows) {
+      totals.set(
+        row.budgetId,
+        fromDecimal(row._sum.initialAmount ?? new Prisma.Decimal(0)),
+      );
+    }
+    return totals;
+  }
+
   private serializeLink(
     link: {
       id: string;
@@ -355,8 +417,10 @@ export class ProjectBudgetLinksService {
       status: BudgetLineStatus;
       committedAmount: Prisma.Decimal | null;
       consumedAmount: Prisma.Decimal | null;
+      initialAmount: Prisma.Decimal | null;
       expenseType: string;
     },
+    budgetTotalInitialAmount?: number | null,
   ) {
     return {
       id: link.id,
@@ -381,6 +445,8 @@ export class ProjectBudgetLinksService {
         status: budgetLine.status,
         committedAmount: fromDecimal(budgetLine.committedAmount),
         consumedAmount: fromDecimal(budgetLine.consumedAmount),
+        initialAmount: fromDecimal(budgetLine.initialAmount),
+        budgetTotalInitialAmount: budgetTotalInitialAmount ?? null,
         expenseType: budgetLine.expenseType,
       },
     };
@@ -434,6 +500,7 @@ export class ProjectBudgetLinksService {
               status: true,
               committedAmount: true,
               consumedAmount: true,
+              initialAmount: true,
               expenseType: true,
             },
           },
@@ -441,8 +508,17 @@ export class ProjectBudgetLinksService {
       }),
     ]);
 
+    const budgetIds = [...new Set(rows.map((r) => r.budgetLine.budgetId))];
+    const budgetTotals = await this.loadBudgetInitialTotals(clientId, budgetIds);
+
     return {
-      items: rows.map((r) => this.serializeLink(r, r.budgetLine)),
+      items: rows.map((r) =>
+        this.serializeLink(
+          r,
+          r.budgetLine,
+          budgetTotals.get(r.budgetLine.budgetId) ?? null,
+        ),
+      ),
       total,
       limit,
       offset,
@@ -493,12 +569,17 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
           },
         });
       });
+
+      const budgetTotals = await this.loadBudgetInitialTotals(clientId, [
+        created.budgetLine.budgetId,
+      ]);
 
       const meta = {
         ipAddress: context?.meta?.ipAddress,
@@ -516,7 +597,11 @@ export class ProjectBudgetLinksService {
         ...meta,
       });
 
-      return this.serializeLink(created, created.budgetLine);
+      return this.serializeLink(
+        created,
+        created.budgetLine,
+        budgetTotals.get(created.budgetLine.budgetId) ?? null,
+      );
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -645,8 +730,8 @@ export class ProjectBudgetLinksService {
             status: true,
             committedAmount: true,
             consumedAmount: true,
-            expenseType: true,
             initialAmount: true,
+            expenseType: true,
           },
         },
       },
@@ -671,6 +756,9 @@ export class ProjectBudgetLinksService {
       links.map((l) => [l.id, this.auditPayload(l)] as const),
     );
 
+    const budgetIds = [...new Set(links.map((l) => l.budgetLine.budgetId))];
+    const budgetTotals = await this.loadBudgetInitialTotals(clientId, budgetIds);
+
     const rowsForInvariant: ProjectBudgetLinkInvariantRow[] = [];
 
     if (
@@ -693,6 +781,26 @@ export class ProjectBudgetLinksService {
         });
       }
     } else if (
+      oldType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE &&
+      newType === ProjectBudgetAllocationType.FIXED
+    ) {
+      for (const row of links) {
+        const pct = row.percentage!;
+        const budgetTotal = budgetTotals.get(row.budgetLine.budgetId) ?? 0;
+        let amt = pct.div(100).times(budgetTotal);
+        if (amt.lte(0)) {
+          amt = new Prisma.Decimal('0.01');
+        } else {
+          const ceiled = Math.ceil(fromDecimal(amt));
+          amt = new Prisma.Decimal(ceiled);
+        }
+        rowsForInvariant.push({
+          allocationType: ProjectBudgetAllocationType.FIXED,
+          percentage: null,
+          amount: amt,
+        });
+      }
+    } else if (
       oldType === ProjectBudgetAllocationType.FIXED &&
       newType === ProjectBudgetAllocationType.PERCENTAGE
     ) {
@@ -702,6 +810,27 @@ export class ProjectBudgetLinksService {
         rowsForInvariant.push({
           allocationType: ProjectBudgetAllocationType.PERCENTAGE,
           percentage: pcts[i]!,
+          amount: null,
+        });
+      }
+    } else if (
+      oldType === ProjectBudgetAllocationType.FIXED &&
+      newType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE
+    ) {
+      for (const row of links) {
+        const budgetTotal = budgetTotals.get(row.budgetLine.budgetId) ?? 0;
+        if (budgetTotal <= 0) {
+          throw new BadRequestException(
+            'Impossible de passer en pourcentage du budget : total budgétaire nul.',
+          );
+        }
+        const pct = row
+          .amount!.div(budgetTotal)
+          .times(100)
+          .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        rowsForInvariant.push({
+          allocationType: ProjectBudgetAllocationType.BUDGET_PERCENTAGE,
+          percentage: pct,
           amount: null,
         });
       }
@@ -741,6 +870,7 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
@@ -771,7 +901,15 @@ export class ProjectBudgetLinksService {
         });
       }
 
-      return this.serializeLink(updated, updated.budgetLine);
+      const budgetTotals = await this.loadBudgetInitialTotals(clientId, [
+        updated.budgetLine.budgetId,
+      ]);
+
+      return this.serializeLink(
+        updated,
+        updated.budgetLine,
+        budgetTotals.get(updated.budgetLine.budgetId) ?? null,
+      );
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -804,6 +942,7 @@ export class ProjectBudgetLinksService {
             status: true,
             committedAmount: true,
             consumedAmount: true,
+            initialAmount: true,
             expenseType: true,
           },
         },
@@ -887,6 +1026,7 @@ export class ProjectBudgetLinksService {
                 status: true,
                 committedAmount: true,
                 consumedAmount: true,
+                initialAmount: true,
                 expenseType: true,
               },
             },
@@ -911,7 +1051,15 @@ export class ProjectBudgetLinksService {
         ...meta,
       });
 
-      return this.serializeLink(updated, updated.budgetLine);
+      const budgetTotals = await this.loadBudgetInitialTotals(clientId, [
+        updated.budgetLine.budgetId,
+      ]);
+
+      return this.serializeLink(
+        updated,
+        updated.budgetLine,
+        budgetTotals.get(updated.budgetLine.budgetId) ?? null,
+      );
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&

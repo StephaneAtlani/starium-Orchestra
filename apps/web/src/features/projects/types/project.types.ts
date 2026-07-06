@@ -61,9 +61,33 @@ export type ProjectListItem = {
   warnings: string[];
   tags: ProjectTag[];
   portfolioCategory: ProjectPortfolioCategoryAssignment | null;
+  /** Budget cible (fiche projet). */
+  targetBudgetAmount?: string | null;
+  /** Consommé agrégé des lignes budgétaires liées (FIXED). */
+  consumedBudgetAmount?: string | null;
+  /** Faits concrets pour infobulles T·R·J et signaux. */
+  pilotageSnapshot?: ProjectListPilotageSnapshot;
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+};
+
+export type ProjectListPilotageItem = {
+  name: string;
+  targetDate?: string;
+  status?: string;
+};
+
+export type ProjectListPilotageSnapshot = {
+  delayedMilestones: ProjectListPilotageItem[];
+  nextMilestone: ProjectListPilotageItem | null;
+  openTasks: ProjectListPilotageItem[];
+  openRisks: Array<{ title: string }>;
+  ok: string[];
+  issues: string[];
+  moreOpenTasks: number;
+  moreOpenRisks: number;
+  moreDelayedMilestones: number;
 };
 
 export type ProjectsListResponse = {
@@ -75,14 +99,21 @@ export type ProjectsListResponse = {
 
 export type ProjectsPortfolioSummary = {
   totalProjects: number;
+  activeProjects: number;
   inProgressProjects: number;
   completedProjects: number;
+  completedThisQuarter: number;
+  completedPreviousQuarter: number;
   lateProjects: number;
   criticalProjects: number;
   blockedProjects: number;
   noRiskProjects: number;
   noOwnerProjects: number;
   noMilestoneProjects: number;
+  totalTargetBudgetAmount: string | null;
+  totalConsumedBudgetAmount: string | null;
+  projectsCreatedThisMonth: number;
+  projectsCreatedPreviousMonth: number;
 };
 
 export type ProjectDetail = ProjectListItem & {
@@ -94,6 +125,9 @@ export type ProjectDetail = ProjectListItem & {
   pilotNotes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Dernier audit sur l’entité projet (fiche / pilotage). */
+  lastModifiedAt: string | null;
+  lastModifiedByDisplayName: string | null;
 };
 
 export type ProjectTag = {
@@ -123,6 +157,10 @@ export type ProjectPortfolioCategoryAssignment = {
   name: string;
   parentId: string | null;
   parentName: string | null;
+  /** Couleur configurée (sous-catégorie ou racine). */
+  color: string | null;
+  /** Clé d’icône Lucide configurée (sous-catégorie ou racine). */
+  icon: string | null;
 };
 
 /** GET /api/projects/portfolio-gantt — une barre par projet (dates début / fin cible). */
@@ -508,7 +546,7 @@ export type CreateRetroplanMacroPayload = {
 };
 
 /** RFC-PROJ-010 — liaisons budget */
-export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'FIXED';
+export type ProjectBudgetAllocationType = 'FULL' | 'PERCENTAGE' | 'BUDGET_PERCENTAGE' | 'FIXED';
 
 export type ProjectBudgetLinkItem = {
   id: string;
@@ -528,6 +566,9 @@ export type ProjectBudgetLinkItem = {
     /** Agrégats ligne (Financial Core) — montants sur toute la ligne budgétaire. */
     committedAmount?: number;
     consumedAmount?: number;
+    initialAmount?: number;
+    /** Somme des montants initiaux des lignes du budget (pilotage). */
+    budgetTotalInitialAmount?: number | null;
     expenseType?: string;
   };
 };
@@ -743,17 +784,88 @@ export type ProjectReviewType =
   | 'AD_HOC'
   | 'POST_MORTEM';
 
-export type ProjectReviewStatus = 'DRAFT' | 'FINALIZED' | 'CANCELLED';
+export type ProjectReviewStatus =
+  | 'PREPARING'
+  | 'SCHEDULED'
+  | 'IN_PROGRESS'
+  | 'FINALIZED'
+  | 'CANCELLED'
+  /** Legacy — migré côté API */
+  | 'PLANNED'
+  | 'IN_REVIEW'
+  | 'DRAFT';
+
+export type ProjectReviewMeetingMode = 'REMOTE' | 'ONSITE' | 'HYBRID';
+
+export type ProjectReviewCreationMode =
+  | 'PREPARING'
+  | 'SCHEDULED'
+  | 'IMMEDIATE'
+  /** Legacy — mappé SCHEDULED */
+  | 'PLANNED';
+
+export type ProjectReviewAgendaItemStatus =
+  | 'TODO'
+  | 'IN_PROGRESS'
+  | 'DONE'
+  | 'SKIPPED';
+
+export type ProjectReviewAgendaItemType =
+  | 'INFORMATION'
+  | 'DECISION'
+  | 'ARBITRATION'
+  | 'RISK'
+  | 'ACTION_REVIEW'
+  | 'BUDGET'
+  | 'MILESTONE'
+  | 'OTHER';
+
+export type ProjectReviewAttachmentType =
+  | 'URL'
+  | 'DOCUMENT_REFERENCE'
+  | 'POWERBI_LINK'
+  | 'SHAREPOINT_LINK'
+  | 'OTHER'
+  | 'FILE';
+
+export type ProjectReviewDecisionType =
+  | 'GO'
+  | 'NO_GO'
+  | 'ARBITRATION'
+  | 'BUDGET_VALIDATION'
+  | 'SCOPE_CHANGE'
+  | 'OTHER';
+
+export type ProjectReviewDecisionStatus =
+  | 'DRAFT'
+  | 'VALIDATED'
+  | 'REJECTED'
+  | 'SUPERSEDED';
+
+export type ProjectReviewParticipantAttendanceStatus =
+  | 'EXPECTED'
+  | 'PRESENT'
+  | 'ABSENT'
+  | 'EXCUSED';
 
 export type ProjectReviewListItem = {
   id: string;
   clientId: string;
   projectId: string;
-  reviewDate: string;
+  reviewDate: string | null;
   reviewType: ProjectReviewType;
   status: ProjectReviewStatus;
   title: string | null;
+  objective: string | null;
   executiveSummary: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  durationMinutes: number | null;
+  meetingMode: ProjectReviewMeetingMode | null;
+  meetingUrl: string | null;
+  location: string | null;
+  startedAt: string | null;
+  startedByUserId: string | null;
   facilitatorUserId: string | null;
   nextReviewDate: string | null;
   finalizedAt: string | null;
@@ -763,6 +875,7 @@ export type ProjectReviewListItem = {
   participantsCount: number;
   decisionsCount: number;
   actionItemsCount: number;
+  agendaItemsCount: number;
 };
 
 export type ProjectReviewListResponse = {
@@ -773,35 +886,134 @@ export type ProjectReviewParticipantApi = {
   id: string;
   userId: string | null;
   displayName: string | null;
-  attended: boolean;
-  isRequired: boolean;
+  roleLabel: string | null;
+  attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+  invitedAt?: string | null;
+  lastInvitedAt?: string | null;
+  externalEmail?: string | null;
+  lastEmailedAt?: string | null;
+};
+
+export type InviteProjectReviewPayload = {
+  participantIds?: string[];
+  channels?: ('in_app' | 'email')[];
+  createTeamsMeeting?: boolean;
+  createCalendarEvent?: boolean;
+  forceOverwriteMeetingUrl?: boolean;
+};
+
+export type InviteProjectReviewResult = {
+  notifiedInApp: number;
+  skippedExternal: number;
+  skippedInactive: number;
+  participantIds: string[];
+  emailed: number;
+  skippedNoEmail: number;
+  emailFailed: number;
+  emailDisabled?: boolean;
+  teamsMeetingCreated: boolean;
+  teamsMeetingUpdated: boolean;
+  teamsMeetingSkipped: boolean;
+  calendarEventCreated: boolean;
+  calendarEventUpdated: boolean;
+  calendarEventSkipped: boolean;
+};
+
+export type ProjectReviewAgendaItemApi = {
+  id: string;
+  title: string;
+  description: string | null;
+  itemType: ProjectReviewAgendaItemType;
+  objective: string | null;
+  expectedDecision: string | null;
+  orderIndex: number;
+  plannedDurationMinutes: number | null;
+  ownerUserId: string | null;
+  ownerDisplayName: string | null;
+  status: ProjectReviewAgendaItemStatus;
+  notes: string | null;
+  decisionSummary: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectReviewActionItemContributorApi = {
+  id: string;
+  userId: string | null;
+  displayName: string | null;
+  roleLabel: string | null;
+  contributionStatus: string | null;
 };
 
 export type ProjectReviewDecisionApi = {
   id: string;
   title: string;
   description: string | null;
+  agendaItemId: string | null;
+  decisionType: ProjectReviewDecisionType;
+  status: ProjectReviewDecisionStatus;
+  decidedByUserId: string | null;
+  decidedAt: string | null;
+  impact: string | null;
   createdAt: string;
 };
 
 export type ProjectReviewActionItemApi = {
   id: string;
   title: string;
+  description: string | null;
   status: string;
+  priority: string | null;
   dueDate: string | null;
   linkedTaskId: string | null;
+  agendaItemId: string | null;
+  decisionId: string | null;
+  responsibleUserId: string | null;
+  responsibleDisplayName: string | null;
+  contributors: ProjectReviewActionItemContributorApi[];
+};
+
+export type ProjectReviewAttachmentApi = {
+  id: string;
+  attachmentType: ProjectReviewAttachmentType;
+  title: string;
+  description: string | null;
+  url: string | null;
+  documentId: string | null;
+  /** Libellé document projet — renvoyé par l’API quand document lié. */
+  documentName?: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  agendaItemId: string | null;
+  decisionId: string | null;
+  actionItemId: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProjectReviewDetail = {
   id: string;
   clientId: string;
   projectId: string;
-  reviewDate: string;
+  reviewDate: string | null;
   reviewType: ProjectReviewType;
   status: ProjectReviewStatus;
   title: string | null;
+  objective: string | null;
   executiveSummary: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  durationMinutes: number | null;
   contentPayload: unknown;
+  meetingMode: ProjectReviewMeetingMode | null;
+  meetingUrl: string | null;
+  microsoftOnlineMeetingId?: string | null;
+  microsoftEventId?: string | null;
+  location: string | null;
+  startedAt: string | null;
+  startedByUserId: string | null;
+  startedByDisplayName: string | null;
   facilitatorUserId: string | null;
   nextReviewDate: string | null;
   finalizedAt: string | null;
@@ -809,8 +1021,10 @@ export type ProjectReviewDetail = {
   createdAt: string;
   updatedAt: string;
   participants: ProjectReviewParticipantApi[];
+  agendaItems: ProjectReviewAgendaItemApi[];
   decisions: ProjectReviewDecisionApi[];
   actionItems: ProjectReviewActionItemApi[];
+  attachments?: ProjectReviewAttachmentApi[];
   /** Toujours présent ; `null` si status !== FINALIZED */
   snapshotPayload: Record<string, unknown> | null;
 };

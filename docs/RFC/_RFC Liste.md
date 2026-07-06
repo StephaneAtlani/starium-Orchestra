@@ -129,11 +129,13 @@
 | Ordre | RFC              | Nom                | Description                                    | État       | Commentaire             |
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ----------------------- |
 | 12    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | base OK                 |
-| 13    | **RFC-PROJ-010** | Project Budget KPI | Exposer KPI budget projet                      | ⚠️ Partiel | nécessaire fiche projet |
+| 13    | **RFC-PROJ-010** | Project Budget KPI | KPI budget projet (bandeau + synthèse onglet Budget) | 🟡 Partiel | UI livrée ; cockpit consolidé §8.3 RFC hors scope |
 | 14    | **RFC-PROJ-011** | Tasks / Activities | Tâches, activités, jalons, `GET /gantt`       | ✅ Couvert  | UI Gantt : [RFC-PROJ-012 — Gantt](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) (fichier distinct de *Project Sheet*) |
 | 14b   | **RFC-PROJ-017** | Project Tags       | Référentiel d’étiquettes + assignation projet  | ✅ Couvert  | options + fiche + liste |
 | 14c   | **RFC-PROJ-DOC-001** | ProjectDocument | Registre métier documents projet (Prisma + API + audit) | ✅ Couvert | MVP : pas d’upload binaire ; UI liste read-only fiche ; voir [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) |
 | 14d   | **RFC-PROJ-013** | Points projet COPIL/COPRO | Historique, snapshot, types dont **POST_MORTEM** (REX) | ✅ Couvert (MVP) | [RFC](./RFC-PROJ-013%20—%20Points%20Projet%20COPIL-COPRO%20et%20Historisation.md) — seed démo `seed-project-demo-reviews.ts` |
+| 14d′  | **RFC-PROJ-013-1** | Cycle de vie réunion Point projet | **Phases 1–3 ✅** : invitations in-app, email, Teams/calendrier ; cycle historique `PLANNED`/`IN_REVIEW` | ✅ Livré (cycle supersédé par 013-2) | [RFC](./RFC-PROJ-013-1%20—%20Cycle%20de%20vie%20réunion%20Point%20projet%20(planification,%20invitations,%20tenue).md) — migrations `20260704120*`, `20260705120000`, `20260705140000` |
+| 14d″  | **RFC-PROJ-013-2** | Point projet de pilotage | Cycle PREPARING→…, ODJ typé, attachments, snapshot v2, UI onglets | ✅ Implémenté | [RFC](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md) — migrations `20260705180000`…`80900` |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |
 
 ---
@@ -193,7 +195,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 23    | **RFC-FE-PROJ-002** | Project Detail UI | Cockpit projet (vue détaillée) | ✅ Couvert  | OK                  |
 | 24    | **RFC-FE-PROJ-014** | Project Sheet UI  | Fiche projet décisionnelle     | ✅ Couvert (MVP) | `/projects/[projectId]/sheet` — `ProjectSheetView` ; finitions / arbitrage CODIR avancé hors scope minimal |
 | 25    | **RFC-FE-PROJ-003** | Tasks UI          | Interface tâches               | ✅ Couvert  | stable              |
-| 25b   | **RFC-PROJ-012**    | Gantt UI (planning) | Frise + grille, deps, drag   | ✅ Couvert  | [Gantt Tâches et Jalons](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — `/projects/[projectId]/planning` |
+| 25b   | **RFC-PROJ-012**    | Gantt UI (planning) | Macro + Gantt + Jalons       | ✅ Couvert  | [Gantt Tâches et Jalons](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) — `/planning?sub=macro` (défaut), `gantt`, `milestones` ; tâches/Kanban sur `/tasks` |
 | 26    | **RFC-FE-PROJ-004** | Risks UI          | Interface risques              | ✅ Couvert  | EBIOS RM : [RFC-PROJ-018](./RFC-PROJ-018%20%E2%80%94%20ProjectRisk%20EBIOS%20RM%20minimal.md) — modale autosave, matrice P×I, suppression dans la modale |
 | 27    | **RFC-FE-PROJ-005** | Resources UI      | Vue ressources                 | ❌ À faire  | dépend RES          |
 | 28    | **RFC-FE-PROJ-006** | Budget Links UI   | Visualisation budgets          | ⚠️ Partiel | OK partiel          |
@@ -212,7 +214,7 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | 31a-1 | **RFC-PROJ-CYCLE-001** | Governance Cycles Core Backend | Modèle Prisma, module Nest, RBAC, CRUD cycles/items, scoring, summary, by-project | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Core%20Backend.md) — B1–B9 dont `GET …/by-project/:projectId` (RFC-002), 88 tests module |
 | 31a-2 | **RFC-FE-PROJ-CYCLE-001** | Governance Cycles Frontend UI | Pages `/cycles` et `/cycles/[cycleId]`, matrice arbitrage, dialogs, query keys tenant-aware | ✅ Implémenté | [RFC](./RFC-FE-PROJ-CYCLE-001%20%E2%80%94%20Governance%20Cycles%20Frontend%20UI.md) — règle UI valeur métier, pas ID |
 | 31a-3 | **RFC-PROJ-CYCLE-002** | Project Integration for Governance Cycles | Endpoint `by-project` + bloc lecture seule dans fiche projet | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-002%20%E2%80%94%20Project%20Integration%20for%20Governance%20Cycles.md) — bloc `/projects/[id]`, pas de mutation de `Project.status` |
-| 31a-4 | **RFC-PROJ-CYCLE-003** | Governance Cycle Instances and Configurable Propagation | Instances, agenda (candidats PROJECT/BUDGET), préparation séance FE, clôture, candidature fiche, `governanceConfig`, propagation, génération trimestres | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) — lots A–F (hors 003-G) ; 92 tests ; doc §4.9 / API §5.8 séances (2026-06-01) |
+| 31a-4 | **RFC-PROJ-CYCLE-003** | Governance Cycle Instances and Configurable Propagation | Instances, agenda (candidats PROJECT/BUDGET), préparation séance FE, clôture, candidature fiche (select Soumis à validation), `governanceConfig`, propagation Métier, génération trimestres | ✅ Implémenté | [RFC](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md) — lots A–F (hors 003-G) ; synchro doc 2026-06-17 |
 
 ---
 
@@ -293,6 +295,28 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 | **RFC-STRAT-009** | Vision stratégique V1 — Frontend cockpit et UX | ✅ Implémentée (Frontend V1) | Cockpit `/strategic-vision` aligné V1: onglets incluant **Alertes** + **Historique** (placeholder explicite), data-layer progressive (`api` + `queries` + `mutations` + hooks façade), query keys RFC tenant-aware, labels FR métier (pas d’ID brut), validation Zod formulaires vision/axe/objectif, tests FE anti-régression |
 | **RFC-STRAT-010** | Vision stratégique V1 — Plan de tests et trajectoire de delivery | 🟡 En cours (implémentation V1) | Delivery/QA actif : correction layout cockpit `/strategic-vision`, StrategicLink UI + invalidations KPI/alertes, filtres liste vision backend, hardening tests et garde-fous multi-client |
 | **PLAN-DEV-STRATEGIC-VISION** | Plan de développement ordonné | 📝 Draft | Plan en 11 phases (0→10), dépendances, risques, critères de sortie et préparation V2 |
+
+---
+
+## UX / Design System (socle frontend)
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-014** | Admin Studio | 📝 Draft / partiel | [RFC](./RFC-014%20%E2%80%94%20Admin%20Studio.md) |
+| **RFC-014-1** | UX/UI et Design System de l’application | 📝 Draft | Design system, layout, patterns pages — [RFC](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md) |
+| **RFC-014-2** | Login, bootstrap, navigation par rôle | 📝 Draft / partiel | Shell auth + navigation — [RFC](./RFC-014-2%20%E2%80%94%20Login%2C%20bootstrap%20applicatif%2C%20navigation%20et%20affichage%20par%20r%C3%B4le.md) |
+
+---
+
+## Frontend — mobile-first & by-design
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-FE-MOB-001** | Fondations mobile-first transverses | ✅ Implémenté | `Dialog` (bottom-sheet, `size`, `DialogBody`), `Button`/`IconButton`, `PageHeader`, `prefers-reduced-motion` ; tests §6.1 — [RFC](./RFC-FE-MOB-001%20%E2%80%94%20Fondations%20mobile-first%20transverses.md) |
+| **RFC-FE-MOB-002** | DataTable responsive et listes denses | ✅ Implémenté | Cartes `< md`, `mobilePriority`/`mobileLabel`, `data-table-card.tsx` ; tables denses = scroll horizontal — [RFC](./RFC-FE-MOB-002%20%E2%80%94%20DataTable%20responsive%20et%20listes%20denses.md) |
+| **RFC-FE-MOB-003** | FilterBar, toolbars et plan de migration modules | ✅ Implémenté | `FilterBar`/`FilterBarField`, lots 1–4, exceptions grilles denses documentées — [RFC](./RFC-FE-MOB-003%20%E2%80%94%20FilterBar%2C%20toolbars%20et%20plan%20de%20migration%20modules.md) |
+
+Références transverses : [RFC-014-1](./RFC-014-1%20%E2%80%94%20UX-UI%20et%20Design%20System%20de%20l%E2%80%99application.md), [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §1.1, `.cursor/rules/by-design-standards.mdc`.
 
 ---
 

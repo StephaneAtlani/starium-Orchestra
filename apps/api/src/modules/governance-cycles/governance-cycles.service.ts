@@ -11,11 +11,13 @@ import {
   GovernanceCycleItemDecisionStatus,
   GovernanceCycleItemSourceType,
   GovernanceCycleStatus,
+  ProjectArbitrationLevelStatus,
   Prisma,
 } from '@prisma/client';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { deriveLegacyArbitrationStatus } from '../projects/lib/project-arbitration-legacy.util';
 import { normalizeListPagination } from '../projects/lib/paginated-list.util';
 import { CreateGovernanceCycleDto } from './dto/create-governance-cycle.dto';
 import { CreateGovernanceCycleItemDto } from './dto/create-governance-cycle-item.dto';
@@ -1601,7 +1603,13 @@ export class GovernanceCyclesService {
 
     const project = await this.prisma.project.findFirst({
       where: { id: dto.projectId, clientId },
-      select: { id: true, name: true, code: true },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        arbitrationComiteStatus: true,
+        arbitrationCodirStatus: true,
+      },
     });
     if (!project) {
       throw new NotFoundException('Project not found for active client');
@@ -1649,6 +1657,19 @@ export class GovernanceCyclesService {
           },
           include: governanceCycleItemInclude,
         });
+
+    const metierStatus = ProjectArbitrationLevelStatus.SOUMIS_VALIDATION;
+    await this.prisma.project.update({
+      where: { id: dto.projectId },
+      data: {
+        arbitrationMetierStatus: metierStatus,
+        arbitrationStatus: deriveLegacyArbitrationStatus(
+          metierStatus,
+          project.arbitrationComiteStatus,
+          project.arbitrationCodirStatus,
+        ),
+      },
+    });
 
     await this.auditItem(
       clientId,

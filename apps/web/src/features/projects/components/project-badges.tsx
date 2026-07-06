@@ -15,7 +15,7 @@ import {
 const legacyHealthStyles: Record<ProjectListItem['computedHealth'], string> = {
   RED: 'border-destructive/35 bg-destructive/[0.08] text-destructive',
   ORANGE:
-    'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+    'border-amber-300/80 bg-amber-50 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90',
   GREEN: '!border-emerald-700 !bg-emerald-600 !text-white',
 };
 
@@ -92,7 +92,7 @@ const portfolioItems: {
 const legacyVariantClass = {
   danger:
     'border-destructive/35 bg-destructive/[0.08] text-destructive dark:border-destructive/50 dark:bg-destructive/15',
-  warn: 'border-amber-300/80 bg-amber-50 text-[#1c1917] dark:border-amber-400/40 dark:bg-amber-100/90',
+  warn: 'border-amber-300/80 bg-amber-50 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90',
   muted: 'border-border bg-muted/70 text-muted-foreground',
 } as const;
 
@@ -105,15 +105,18 @@ function legacyVariantForKey(key: ProjectPortfolioSignalKey): keyof typeof legac
 export function ProjectPortfolioBadges({
   signals,
   merged,
+  stacked = false,
 }: {
   signals: ProjectSignals;
   merged?: MergedUiBadges | null;
+  /** Colonne signaux tableau portefeuille (empilé à droite). */
+  stacked?: boolean;
 }) {
   const visible = portfolioItems.filter((i) => i.show(signals));
   if (visible.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className={cn('flex gap-1', stacked ? 'flex-col items-end' : 'flex-wrap')}>
       {visible.map((i) => {
         const label = merged
           ? merged.projectPortfolioSignal[i.key].label

@@ -17,6 +17,9 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_DOCUMENT: 'project_document',
   /** RFC-PROJ-013 */
   PROJECT_REVIEW: 'project_review',
+  PROJECT_REVIEW_AGENDA_ITEM: 'project_review_agenda_item',
+  PROJECT_REVIEW_PARTICIPANT: 'project_review_participant',
+  PROJECT_REVIEW_ATTACHMENT: 'project_review_attachment',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
 } as const;
 
@@ -99,6 +102,32 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_UPDATED: 'project.review.updated',
   PROJECT_REVIEW_FINALIZED: 'project.review.finalized',
   PROJECT_REVIEW_CANCELLED: 'project.review.cancelled',
+  PROJECT_REVIEW_STARTED: 'project.review.started',
+  PROJECT_REVIEW_AGENDA_ITEM_CREATED: 'project.review.agenda_item.created',
+  PROJECT_REVIEW_AGENDA_ITEM_UPDATED: 'project.review.agenda_item.updated',
+  PROJECT_REVIEW_AGENDA_ITEM_REORDERED: 'project.review.agenda_item.reordered',
+  PROJECT_REVIEW_AGENDA_ITEM_STARTED: 'project.review.agenda_item.started',
+  PROJECT_REVIEW_AGENDA_ITEM_COMPLETED: 'project.review.agenda_item.completed',
+  PROJECT_REVIEW_AGENDA_ITEM_SKIPPED: 'project.review.agenda_item.skipped',
+  PROJECT_REVIEW_ACTION_RESPONSIBILITY_ASSIGNED:
+    'project.review.action.responsibility_assigned',
+  PROJECT_REVIEW_PARTICIPANT_ADDED: 'project.review.participant.added',
+  PROJECT_REVIEW_PARTICIPANT_UPDATED: 'project.review.participant.updated',
+  PROJECT_REVIEW_PARTICIPANT_REMOVED: 'project.review.participant.removed',
+  PROJECT_REVIEW_ATTACHMENT_ADDED: 'project.review.attachment.added',
+  PROJECT_REVIEW_ATTACHMENT_UPDATED: 'project.review.attachment.updated',
+  PROJECT_REVIEW_ATTACHMENT_REMOVED: 'project.review.attachment.removed',
+  PROJECT_REVIEW_INVITED: 'project.review.invited',
+  PROJECT_REVIEW_INVITE_FAILED: 'project.review.invite_failed',
+  PROJECT_REVIEW_EMAILED: 'project.review.emailed',
+  PROJECT_REVIEW_EMAIL_FAILED: 'project.review.email_failed',
+  PROJECT_REVIEW_TEAMS_MEETING_CREATED: 'project.review.teams_meeting.created',
+  PROJECT_REVIEW_TEAMS_MEETING_UPDATED: 'project.review.teams_meeting.updated',
+  PROJECT_REVIEW_TEAMS_MEETING_OVERWRITE_CONFIRMED:
+    'project.review.teams_meeting.overwrite_confirmed',
+  PROJECT_REVIEW_TEAMS_FAILED: 'project.review.teams_failed',
+  PROJECT_REVIEW_CALENDAR_EVENT_CREATED: 'project.review.calendar_event.created',
+  PROJECT_REVIEW_CALENDAR_EVENT_UPDATED: 'project.review.calendar_event.updated',
 
   /** RFC-PROJ-DOC-001 */
   PROJECT_DOCUMENT_CREATED: 'project.document.created',

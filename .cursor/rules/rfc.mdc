@@ -12,6 +12,12 @@ Quand je te demande de développer une RFC pour Starium Orchestra, réponds touj
 6. Tests
 7. Récapitulatif final
 8. Points de vigilance
+9. **Conformité by design** (sections obligatoires dans la RFC) :
+   - **RGPD** : DCP concernées, finalité, base légale si pertinent, minimisation, rétention, effacement/anonymisation, export, logs (pas de DCP en clair), scope client
+   - **RGAA** : navigation clavier, sémantique HTML, labels, contrastes, `aria-live`, stratégie mobile des composants interactifs
+   - **Design System** : composants/tokens réutilisés, états loading/empty/error, libellés métier affichés (jamais d’ID brut en UI)
+   - **Sécurité** : authz + isolation client, DTO validés, audit log si sensible, pas de sur-exposition API
+   - **Interface mobile** : breakpoints, cibles tactiles ≥ 44px, comportement tableaux/modales sur petit écran
 
 Tu dois toujours :
 - respecter l’architecture existante
@@ -21,6 +27,7 @@ Tu dois toujours :
 - garder la logique métier dans le backend
 - produire du code propre, modulaire et maintenable
 - ne pas inventer de structure non demandée
+- intégrer les **5 standards by design** dès la conception (cf. `.cursor/rules/by-design-standards.mdc`, `docs/ARCHITECTURE.md` §0, `docs/FRONTEND_UI-UX.md` §1.1)
 
 La documentation est dans /docs/
 

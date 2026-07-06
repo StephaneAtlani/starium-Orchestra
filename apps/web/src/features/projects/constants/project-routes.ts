@@ -44,13 +44,23 @@ export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }
 
-/** Cockpit Planning : tâches, jalons, Gantt (RFC-PROJ-012). */
+/** Tâches projet : liste/table + Kanban (RFC-PROJ-012). */
+export function projectTasks(
+  projectId: string,
+  sub?: 'tasks' | 'kanban',
+): string {
+  const base = `/projects/${projectId}/tasks`;
+  if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
+  return `${base}?sub=${sub}`;
+}
+
+/** Cockpit Planning : macro, Gantt, jalons (RFC-PROJ-012). */
 export function projectPlanning(
   projectId: string,
-  sub?: 'tasks' | 'milestones' | 'gantt' | 'kanban',
+  sub?: 'macro' | 'milestones' | 'gantt',
 ): string {
   const base = `/projects/${projectId}/planning`;
-  if (!sub || sub === 'tasks') return `${base}?sub=tasks`;
+  if (!sub || sub === 'macro') return `${base}?sub=macro`;
   return `${base}?sub=${sub}`;
 }
 
@@ -77,6 +87,11 @@ export function projectProjectOptions(projectId: string): string {
 /** Registre des risques projet (RFC-PROJ-RISK-001). */
 export function projectRisks(projectId: string): string {
   return `/projects/${projectId}/risks`;
+}
+
+/** Cockpit budget projet — synthèse, KPI et liaisons budgétaires. */
+export function projectBudget(projectId: string): string {
+  return `/projects/${projectId}/budget`;
 }
 
 /** Vue transverse — registre risques tous projets (cockpit /risks). */

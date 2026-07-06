@@ -2,14 +2,6 @@
 
 import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -28,8 +20,6 @@ import {
 import type { ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import {
-  PROJECT_TASK_PRIORITIES,
-  PROJECT_TASK_STATUSES,
   taskPriorityBadgeClass,
   taskPriorityLabel,
   taskStatusBadgeClass,
@@ -143,20 +133,6 @@ function formatTagsCell(tags: unknown): string {
 export type ActionPlanTasksTableProps = {
   items: ActionPlanTaskApi[];
   users: { id: string; firstName: string | null; lastName: string | null; email: string }[];
-  search: string;
-  onSearchChange: (v: string) => void;
-  status: string;
-  onStatusChange: (v: string) => void;
-  priority: string;
-  onPriorityChange: (v: string) => void;
-  projectId: string;
-  onProjectIdChange: (v: string) => void;
-  riskId: string;
-  onRiskIdChange: (v: string) => void;
-  ownerUserId: string;
-  onOwnerUserIdChange: (v: string) => void;
-  projectOptions: { id: string; label: string }[];
-  riskOptions: { id: string; label: string }[];
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   onSort: (key: ActionPlanTaskSortField) => void;
@@ -166,55 +142,20 @@ export type ActionPlanTasksTableProps = {
 export function ActionPlanTasksTable({
   items,
   users,
-  search,
-  onSearchChange,
-  status,
-  onStatusChange,
-  priority,
-  onPriorityChange,
-  projectId,
-  onProjectIdChange,
-  riskId,
-  onRiskIdChange,
-  ownerUserId,
-  onOwnerUserIdChange,
-  projectOptions,
-  riskOptions,
   sortBy,
   sortOrder,
   onSort,
   onRowClick,
 }: ActionPlanTasksTableProps) {
   const { merged } = useClientUiBadgeConfig();
-  const statusKey = status || '__all';
-  const priorityKey = priority || '__all';
-  const projectKey = projectId || '__all';
-  const riskKey = riskId || '__all';
-  const ownerKey = ownerUserId || '__all';
-
-  /** Base UI : sans enfants, SelectValue affiche la valeur brute (`__all`) — libellés explicites. */
-  const statusFilterLabel =
-    statusKey === '__all' ? 'Tous' : taskStatusLabel(merged, statusKey);
-  const priorityFilterLabel =
-    priorityKey === '__all' ? 'Toutes' : taskPriorityLabel(merged, priorityKey);
-  const projectFilterLabel =
-    projectKey === '__all'
-      ? 'Tous projets'
-      : projectOptions.find((p) => p.id === projectId)?.label ?? '—';
-  const riskFilterLabel =
-    riskKey === '__all'
-      ? 'Tous risques'
-      : riskOptions.find((r) => r.id === riskId)?.label ?? '—';
-  const ownerFilterLabel =
-    ownerKey === '__all' ? 'Tous' : formatUser(ownerUserId, users);
 
   return (
     <TooltipProvider delay={250}>
       <Table className="min-w-[72rem] text-sm">
-        <TableHeader className="bg-muted/50 [&_tr]:border-b-0">
-          <TableRow className="border-0 hover:bg-transparent">
+        <TableHeader className="bg-muted/50">
+          <TableRow className="hover:bg-transparent">
             <TableHead className={cn(th, 'min-w-[11rem]')}>
-              <HeaderTip tip="Nom de la tâche — recherche partielle sur le libellé.">
+              <HeaderTip tip="Nom de la tâche. Cliquez pour trier.">
                 <SortHeaderButton
                   label="Tâche"
                   sortKey="name"
@@ -300,119 +241,6 @@ export function ActionPlanTasksTable({
                   onSort={onSort}
                 />
               </HeaderTip>
-            </TableHead>
-          </TableRow>
-          <TableRow className="border-t border-border/50 bg-muted/35 hover:bg-muted/35">
-            <TableHead className="p-2">
-              <Input
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Rechercher…"
-                className="h-7 text-xs"
-                aria-label="Filtrer par nom de tâche"
-              />
-            </TableHead>
-            <TableHead className="p-2">
-              <Select
-                value={statusKey}
-                onValueChange={(v) => onStatusChange(!v || v === '__all' ? '' : v)}
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous">{statusFilterLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">Tous</SelectItem>
-                  {PROJECT_TASK_STATUSES.map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {merged.projectTaskStatus[k].label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </TableHead>
-            <TableHead className="p-2">
-              <Select
-                value={priorityKey}
-                onValueChange={(v) => onPriorityChange(!v || v === '__all' ? '' : v)}
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Toutes">{priorityFilterLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">Toutes</SelectItem>
-                  {PROJECT_TASK_PRIORITIES.map((k) => (
-                    <SelectItem key={k} value={k}>
-                      {merged.projectTaskPriority[k].label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </TableHead>
-            <TableHead className="p-2">
-              <Select
-                value={projectKey}
-                onValueChange={(v) => onProjectIdChange(!v || v === '__all' ? '' : v)}
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous projets">{projectFilterLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">Tous projets</SelectItem>
-                  {projectOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </TableHead>
-            <TableHead className="p-2">
-              <Select
-                value={riskKey}
-                onValueChange={(v) => onRiskIdChange(!v || v === '__all' ? '' : v)}
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous risques">{riskFilterLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">Tous risques</SelectItem>
-                  {riskOptions.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </TableHead>
-            <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">
-              —
-            </TableHead>
-            <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">
-              —
-            </TableHead>
-            <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">
-              —
-            </TableHead>
-            <TableHead className="p-2 text-center text-[0.65rem] text-muted-foreground">
-              —
-            </TableHead>
-            <TableHead className="p-2">
-              <Select
-                value={ownerKey}
-                onValueChange={(v) => onOwnerUserIdChange(!v || v === '__all' ? '' : v)}
-              >
-                <SelectTrigger size="sm" className="h-7 w-full text-xs">
-                  <SelectValue placeholder="Tous">{ownerFilterLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">Tous</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {[u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </TableHead>
           </TableRow>
         </TableHeader>

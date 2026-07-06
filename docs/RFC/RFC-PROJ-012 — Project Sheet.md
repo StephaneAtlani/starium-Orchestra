@@ -4,7 +4,7 @@
 
 **Partiellement implémenté** — priorité produit maintenue.
 
-**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + statuts par niveau dont `SOUMIS_VALIDATION` + motifs de refus si `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`. **Navigation** : entrée **Projets** en menu déroulant (Portefeuille `/projects`, page placeholder **Option** `/projects/options`) — `apps/web/src/config/navigation.ts` + `sidebar.tsx`. Données strictement scopées `clientId` via guards existants.
+**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + statuts par niveau dont `SOUMIS_VALIDATION` + motifs de refus si `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`, intégration **cycles de pilotage** (select Soumis à validation → dialog programme, §6.3). **Navigation** : entrée **Projets** en menu déroulant (Portefeuille `/projects`, page placeholder **Option** `/projects/options`) — `apps/web/src/config/navigation.ts` + `sidebar.tsx`. Données strictement scopées `clientId` via guards existants.
 
 **Encore couvert par la vision RFC mais non exhaustivement dans ce fichier** : métriques portefeuille agrégées, règles de décision « APPROVED / ON_HOLD » au-delà du modèle arbitrage actuel, page dédiée `/projects/[id]/sheet` isolée (la fiche est intégrée au détail projet).
 
@@ -213,6 +213,10 @@ priorityScore =
 ### Arbitrage à trois niveaux (implémenté)
 
 Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbitrationLevelStatus` : `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION` (soumis à validation / en attente de décision), `VALIDE`, `REFUSE`. Le niveau suivant n’est éditable qu’après **`VALIDE`** sur le précédent (`SOUMIS_VALIDATION` ne déverrouille pas le niveau suivant). En cas de `REFUSE`, des champs texte optionnels **motif du refus** (un par niveau concerné) peuvent être renseignés ; ils sont effacés côté serveur si le statut du niveau n’est plus `REFUSE`.
+
+**UI fiche (`ProjectSheetView`)** : le select arbitrage **n’expose pas** `BROUILLON` (« Proposition de projet ») — valeur réservée à la création / données legacy ; options affichées : en préparation, soumis à validation, validé, refusé.
+
+**Intégration cycles de pilotage** ([RFC-PROJ-CYCLE-003](./RFC-PROJ-CYCLE-003%20%E2%80%94%20Governance%20Cycle%20Instances%20and%20Configurable%20Propagation.md)) : si le module `governance_cycles` est actif et l’utilisateur a `governance_cycles.propose`, le passage au niveau Métier en **« Soumis à validation »** ouvre le dialog de choix de programme (`SubmitProjectToCycleDialogContent`) ; `POST …/candidacies` positionne `arbitrationMetierStatus = SOUMIS_VALIDATION` et l’item en `CANDIDATE`. Tant que le projet est candidat (`CANDIDATE` / `TO_ARBITRATE`), le statut Métier reste sur « Soumis à validation ». À la clôture de séance avec `WRITE_ARBITRATION_CODIR`, la propagation met à jour `arbitrationMetierStatus` (`VALIDE` / `REFUSE` / `EN_COURS` selon la décision).
 
 `PATCH /api/projects/:id/project-sheet` met à jour ces niveaux et dérive `arbitrationStatus` (legacy) pour rétrocompatibilité / exports — notamment `SOUMIS_VALIDATION` et `VALIDE` au niveau métier peuvent mapper vers `TO_REVIEW` selon la logique serveur actuelle.
 

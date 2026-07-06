@@ -555,10 +555,10 @@ function LoginPageContent() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-primary/30 via-background to-primary/16 px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-8">
       <Card className="w-full max-w-4xl">
         <div className="grid gap-0 md:grid-cols-2">
-          <div className="relative hidden flex-col justify-between bg-muted/40 p-8 md:flex">
+          <div className="relative hidden flex-col items-center justify-center bg-muted/40 p-8 md:flex">
             <Image
               src="/login-hero.svg"
               alt=""
@@ -568,10 +568,15 @@ function LoginPageContent() {
               aria-hidden
               className="pointer-events-none object-cover opacity-45"
             />
-            <div className="text-sm font-medium tracking-tight text-muted-foreground">
-              Starium Orchestra
-            </div>
-            <div className="mt-8 text-xs text-muted-foreground">
+            <Image
+              src="/brand/logo-horizontal.png"
+              alt="Starium Orchestra"
+              width={320}
+              height={60}
+              priority
+              className="relative h-16 w-auto object-contain"
+            />
+            <div className="absolute inset-x-8 bottom-8 text-xs text-muted-foreground">
               <p className="font-medium">
                 « Votre cockpit de gouvernance IT, finance et opérations. »
               </p>
@@ -939,7 +944,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <main className="flex min-h-screen items-center justify-center bg-stone-100 p-6">
           <p className="text-sm text-muted-foreground">Chargement…</p>
         </main>
       }

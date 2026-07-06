@@ -19,47 +19,24 @@ export type BudgetKpiVisualVariant =
 
 export type BudgetKpiAmountTone = 'default' | 'danger' | 'success' | 'warning';
 
-const variantShell: Record<
-  BudgetKpiVisualVariant,
-  { ring: string; iconWrap: string; icon: string }
-> = {
-  primary: {
-    ring: 'ring-1 ring-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card',
-    iconWrap: 'border-primary/20 bg-primary/10 text-primary',
-    icon: 'text-primary',
-  },
-  committed: {
-    ring: 'ring-1 ring-sky-500/15 bg-gradient-to-br from-sky-500/[0.06] via-card to-card',
-    iconWrap: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    icon: 'text-sky-600 dark:text-sky-400',
-  },
-  consumed: {
-    ring: 'ring-1 ring-violet-500/15 bg-gradient-to-br from-violet-500/[0.06] via-card to-card',
-    iconWrap: 'border-violet-500/25 bg-violet-500/10 text-violet-800 dark:text-violet-300',
-    icon: 'text-violet-700 dark:text-violet-400',
-  },
-  liquidity: {
-    ring: 'ring-1 ring-amber-500/12 bg-gradient-to-br from-amber-500/[0.05] via-card to-card',
-    iconWrap: 'border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-200',
-    icon: 'text-amber-700 dark:text-amber-400',
-  },
-  forecast: {
-    ring: 'ring-1 ring-border bg-card',
-    iconWrap: 'border-border bg-muted/80 text-muted-foreground',
-    icon: 'text-muted-foreground',
-  },
-  variance: {
-    ring: 'ring-1 ring-border bg-card',
-    iconWrap: 'border-border bg-muted/80 text-muted-foreground',
-    icon: 'text-muted-foreground',
-  },
+/**
+ * Design System Starium (charte) : carte KPI = surface plate, icône dorée
+ * standalone (sans carré), valeur display. La teinte d'icône porte la catégorie.
+ */
+const variantShell: Record<BudgetKpiVisualVariant, { icon: string }> = {
+  primary: { icon: 'text-[color:var(--brand-gold)]' },
+  committed: { icon: 'text-sky-600 dark:text-sky-400' },
+  consumed: { icon: 'text-violet-600 dark:text-violet-400' },
+  liquidity: { icon: 'text-amber-600 dark:text-amber-400' },
+  forecast: { icon: 'text-muted-foreground' },
+  variance: { icon: 'text-muted-foreground' },
 };
 
 const amountToneClass: Record<BudgetKpiAmountTone, string> = {
   default: 'text-foreground',
   danger: 'text-destructive',
-  success: 'text-emerald-600 dark:text-emerald-400',
-  warning: 'text-amber-700 dark:text-amber-400',
+  success: 'text-[color:var(--state-success)]',
+  warning: 'text-[color:var(--state-warning)]',
 };
 
 function KpiAmountBlock({
@@ -147,31 +124,25 @@ export function BudgetKpiCard({
 }) {
   const shell = variantShell[variant];
   const shellClassName = cn(
-    'relative overflow-hidden rounded-2xl border border-border p-4 shadow-sm transition-shadow hover:shadow-md',
-    href &&
-      'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-    shell.ring,
+    'starium-kpi-card',
+    href && 'starium-kpi-card--interactive',
   );
   const ariaLabel =
     linkAriaLabel ??
     (href ? `${label}${description ? ` — ${description}` : ''} — voir le détail` : undefined);
 
   const content = (
-    <div className="flex gap-3">
+    <div className="flex items-center gap-[18px]">
       {Icon ? (
-        <div
-          className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-            shell.iconWrap,
-          )}
+        <Icon
+          className={cn('size-[38px] shrink-0', shell.icon)}
+          strokeWidth={1.5}
           aria-hidden
-        >
-          <Icon className={cn('h-5 w-5', shell.icon)} strokeWidth={1.75} />
-        </div>
+        />
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium leading-snug text-foreground">
+          <span className="text-[13px] leading-snug text-muted-foreground">
             {label}
           </span>
           {description ? (

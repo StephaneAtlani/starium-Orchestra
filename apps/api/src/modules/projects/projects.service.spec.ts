@@ -95,6 +95,9 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       },
       $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
+      auditLog: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     pilotage = {
@@ -646,6 +649,41 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         { id: TAG_A, name: 'Ops', color: '#aabbcc' },
         { id: TAG_B, name: 'Finance', color: null },
       ]);
+    });
+  });
+
+  describe('getById — dernière modification auditée', () => {
+    it('expose lastModifiedAt et lastModifiedByDisplayName depuis audit_logs', async () => {
+      const modifiedAt = new Date('2026-06-19T11:50:00.000Z');
+      prisma.project.findFirst.mockResolvedValue(withInclude(baseProject()));
+      prisma.auditLog.findFirst.mockResolvedValue({
+        createdAt: modifiedAt,
+        user: { firstName: 'Jean', lastName: 'Dupont', email: 'jean@example.com' },
+      });
+
+      const result = await service.getById(clientId, projectId);
+
+      expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId,
+            resourceId: projectId,
+            resourceType: { in: ['project', 'Project'] },
+          }),
+        }),
+      );
+      expect(result.lastModifiedAt).toBe(modifiedAt.toISOString());
+      expect(result.lastModifiedByDisplayName).toBe('Jean Dupont');
+    });
+
+    it('retourne null si aucun audit projet', async () => {
+      prisma.project.findFirst.mockResolvedValue(withInclude(baseProject()));
+      prisma.auditLog.findFirst.mockResolvedValue(null);
+
+      const result = await service.getById(clientId, projectId);
+
+      expect(result.lastModifiedAt).toBeNull();
+      expect(result.lastModifiedByDisplayName).toBeNull();
     });
   });
 });

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNavMenuLink } from './nav-menu-link-context';
 
 interface SidebarItemProps {
   label: string;
@@ -14,6 +15,7 @@ interface SidebarItemProps {
 
 export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
   const pathname = usePathname();
+  const { onLinkClick } = useNavMenuLink();
   const isActive =
     pathname === href ||
     (href !== '/' && pathname != null && pathname.startsWith(`${href}/`));
@@ -21,12 +23,16 @@ export function SidebarItem({ label, href, icon: Icon }: SidebarItemProps) {
   return (
     <Link
       href={href}
+      onClick={() => onLinkClick?.()}
       className={cn(
-        'group flex flex-row items-center gap-2 rounded-md rounded-r-md px-2.5 py-2 text-xs font-medium transition-colors starium-sidebar-item',
+        'group flex flex-row items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-11 starium-sidebar-item',
+        'md:min-h-0 md:gap-2 md:px-2.5 md:py-2 md:text-xs',
         isActive && 'starium-sidebar-item-active',
       )}
     >
-      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 opacity-90 text-inherit" />}
+      {Icon && (
+        <Icon className="h-4 w-4 shrink-0 opacity-90 text-inherit md:h-3.5 md:w-3.5" />
+      )}
       <span className="truncate">{label}</span>
     </Link>
   );

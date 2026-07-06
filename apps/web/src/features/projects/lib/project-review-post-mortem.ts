@@ -8,7 +8,9 @@ export function findDraftPostMortemReview(
 ): ProjectReviewListItem | null {
   if (!items?.length) return null;
   const drafts = items.filter(
-    (r) => r.reviewType === 'POST_MORTEM' && r.status === 'DRAFT',
+    (r) =>
+      r.reviewType === 'POST_MORTEM' &&
+      (r.status === 'IN_PROGRESS' || r.status === 'IN_REVIEW' || r.status === 'PREPARING'),
   );
   if (!drafts.length) return null;
   drafts.sort(

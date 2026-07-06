@@ -18,12 +18,18 @@ import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../../budget-management/types/audit-context';
 import { CreateProjectReviewDto } from './dto/create-project-review.dto';
 import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
+import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
+import { InviteProjectReviewDto } from './dto/invite-project-review.dto';
 import { ProjectReviewsService } from './project-reviews.service';
+import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 
 @Controller('projects/:projectId/reviews')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class ProjectReviewsController {
-  constructor(private readonly projectReviewsService: ProjectReviewsService) {}
+  constructor(
+    private readonly projectReviewsService: ProjectReviewsService,
+    private readonly projectReviewInvitationsService: ProjectReviewInvitationsService,
+  ) {}
 
   @Get()
   @RequirePermissions('projects.read')
@@ -77,6 +83,62 @@ export class ProjectReviewsController {
     );
   }
 
+  @Post(':reviewId/schedule')
+  @RequirePermissions('projects.update')
+  schedule(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() dto: ScheduleProjectReviewDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.schedule(
+      clientId!,
+      projectId,
+      reviewId,
+      dto,
+      context,
+    );
+  }
+
+  @Post(':reviewId/start')
+  @RequirePermissions('projects.update')
+  start(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.start(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
+  @Post(':reviewId/start-review')
+  @RequirePermissions('projects.update')
+  startReview(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.startReview(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
   @Post(':reviewId/finalize')
   @RequirePermissions('projects.update')
   finalize(
@@ -110,6 +172,35 @@ export class ProjectReviewsController {
       projectId,
       reviewId,
       context,
+    );
+  }
+
+  @Post(':reviewId/invite')
+  @RequirePermissions('projects.update')
+  invite(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() dto: InviteProjectReviewDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewInvitationsService.invite(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+      {
+        trigger: 'manual',
+        participantIds: dto.participantIds,
+        channels: dto.channels,
+        meetingOptions: {
+          createTeamsMeeting: dto.createTeamsMeeting,
+          createCalendarEvent: dto.createCalendarEvent,
+          forceOverwriteMeetingUrl: dto.forceOverwriteMeetingUrl,
+        },
+      },
     );
   }
 }

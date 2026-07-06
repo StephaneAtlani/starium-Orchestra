@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   formatCurrency,
@@ -91,22 +92,21 @@ export function ForecastKpiCards({
       data-testid="forecast-kpi-cards"
     >
       {items.map((item) => (
-        <Card key={item.label}>
-          <CardHeader className="pb-1">
-            <span className="text-sm text-muted-foreground">{item.label}</span>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div
-              className={`text-xl font-semibold ${item.valueClass ?? ''}`}
-              data-testid={`forecast-kpi-${item.label.replace(/\s/g, '-').toLowerCase()}`}
-            >
-              {item.value}
-            </div>
-            {item.sub ? (
-              <p className="text-xs leading-snug text-muted-foreground">{item.sub}</p>
-            ) : null}
-          </CardContent>
-        </Card>
+        <div key={item.label} className="starium-kpi-card">
+          <span className="starium-kpi-label block">{item.label}</span>
+          <div
+            className={cn(
+              'starium-kpi-value starium-kpi-value--dense',
+              item.valueClass,
+            )}
+            data-testid={`forecast-kpi-${item.label.replace(/\s/g, '-').toLowerCase()}`}
+          >
+            {item.value}
+          </div>
+          {item.sub ? (
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">{item.sub}</p>
+          ) : null}
+        </div>
       ))}
       {(data.alerts.overForecast > 0 || data.alerts.overConsumed > 0) && (
         <Card className="border-dashed sm:col-span-2 lg:col-span-3 xl:col-span-5">

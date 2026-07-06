@@ -11,6 +11,7 @@ import {
   OrgUnitType,
   Prisma,
   Project,
+  ProjectBudgetAllocationType,
   ProjectMilestone,
   ProjectRisk,
   ProjectStatus,
@@ -37,9 +38,11 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
+import { buildProjectListPilotageSnapshot } from './project-list-pilotage-snapshot';
 import {
   ProjectsPilotageService,
   derivedProgressPercentFromTasks,
+  isActiveProjectStatus,
 } from './projects-pilotage.service';
 import { ProjectTeamService } from './project-team.service';
 import type { ComputedHealth } from './projects.types';
@@ -99,8 +102,10 @@ const projectIncludeList = {
     select: {
       id: true,
       name: true,
+      color: true,
+      icon: true,
       parentId: true,
-      parent: { select: { id: true, name: true } },
+      parent: { select: { id: true, name: true, color: true, icon: true } },
     },
   },
   ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
@@ -112,6 +117,8 @@ export type ProjectTagItemDto = {
   name: string;
   color: string | null;
 };
+
+export type ProjectListPilotageSnapshotDto = import('./project-list-pilotage-snapshot').ProjectListPilotageSnapshotDto;
 
 export type ProjectListItemDto = {
   id: string;
@@ -141,23 +148,44 @@ export type ProjectListItemDto = {
     name: string;
     parentId: string | null;
     parentName: string | null;
+    color: string | null;
+    icon: string | null;
   } | null;
   ownerOrgUnitId: string | null;
   ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
   stewardResourceId: string | null;
   stewardSummary: StewardSummaryDto;
+  targetBudgetAmount: string | null;
+  /** Somme des `consumedAmount` des lignes liées en allocation FIXED. */
+  consumedBudgetAmount: string | null;
+  /** Noms et faits pour infobulles portefeuille (T·R·J, signaux). */
+  pilotageSnapshot: ProjectListPilotageSnapshotDto;
 };
 
 export type ProjectsPortfolioSummaryDto = {
   totalProjects: number;
+  /** Projets en statut actif (planifié, en cours, en pause). */
+  activeProjects: number;
   inProgressProjects: number;
   completedProjects: number;
+  /** Projets terminés dont la date de fin réelle tombe dans le trimestre civil courant (UTC). */
+  completedThisQuarter: number;
+  /** Idem trimestre civil précédent. */
+  completedPreviousQuarter: number;
   lateProjects: number;
   criticalProjects: number;
   blockedProjects: number;
   noRiskProjects: number;
   noOwnerProjects: number;
   noMilestoneProjects: number;
+  /** Somme des budgets cibles projet (montants renseignés). */
+  totalTargetBudgetAmount: string | null;
+  /** Somme des consommations agrégées (liens budget FIXED). */
+  totalConsumedBudgetAmount: string | null;
+  /** Projets créés ce mois civil (UTC). */
+  projectsCreatedThisMonth: number;
+  /** Projets créés le mois civil précédent (UTC). */
+  projectsCreatedPreviousMonth: number;
 };
 
 /** Une ligne projet pour la frise portefeuille (GET portfolio-gantt). */
@@ -199,6 +227,10 @@ export type ProjectDetailDto = ProjectListItemDto & {
   pilotNotes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Dernier audit sur l’entité projet (fiche / pilotage) — horodatage. */
+  lastModifiedAt: string | null;
+  /** Prénom nom de l’utilisateur ayant effectué la dernière modification auditée. */
+  lastModifiedByDisplayName: string | null;
 };
 
 @Injectable()
@@ -328,6 +360,32 @@ export class ProjectsService {
     const parts = [owner.firstName, owner.lastName].filter(Boolean);
     if (parts.length > 0) return parts.join(' ');
     return owner.email;
+  }
+
+  /** Dernière modification auditée sur la ligne projet (RFC-PROJ-009). */
+  private async findLastProjectModification(
+    clientId: string,
+    projectId: string,
+  ): Promise<{ at: string; userDisplayName: string | null } | null> {
+    const log = await this.prisma.auditLog.findFirst({
+      where: {
+        clientId,
+        resourceId: projectId,
+        resourceType: { in: ['project', 'Project'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        createdAt: true,
+        user: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+    if (!log) return null;
+    return {
+      at: log.createdAt.toISOString(),
+      userDisplayName: this.ownerDisplayName(log.user),
+    };
   }
 
   private normalizeIdentity(value: string | null | undefined): string {
@@ -538,8 +596,10 @@ export class ProjectsService {
       portfolioCategory: {
         id: string;
         name: string;
+        color: string | null;
+        icon: string | null;
         parentId: string | null;
-        parent: { id: string; name: string } | null;
+        parent: { id: string; name: string; color: string | null; icon: string | null } | null;
       } | null;
       ownerOrgUnit: {
         id: string;
@@ -608,13 +668,116 @@ export class ProjectsService {
             name: project.portfolioCategory.name,
             parentId: project.portfolioCategory.parentId,
             parentName: project.portfolioCategory.parent?.name ?? null,
+            color:
+              project.portfolioCategory.color ??
+              project.portfolioCategory.parent?.color ??
+              null,
+            icon:
+              project.portfolioCategory.icon ??
+              project.portfolioCategory.parent?.icon ??
+              null,
           }
         : null,
       ownerOrgUnitId: project.ownerOrgUnitId ?? null,
       ownerOrgUnitSummary: toOwnerOrgUnitSummary(project.ownerOrgUnit),
       stewardResourceId: project.stewardResourceId ?? null,
       stewardSummary: toStewardSummary(project.steward),
+      targetBudgetAmount: project.targetBudgetAmount?.toString() ?? null,
+      consumedBudgetAmount: null,
+      pilotageSnapshot: this.buildPilotageSnapshotForProject(project),
     };
+  }
+
+  private buildPilotageSnapshotForProject(
+    project: Project & {
+      tasks: ProjectTask[];
+      risks: ProjectRisk[];
+      milestones: ProjectMilestone[];
+      owner: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+      ownerFreeLabel?: string | null;
+      ownerUserId: string | null;
+    },
+  ): ProjectListPilotageSnapshotDto {
+    const ownerDisplayName = this.ownerDisplayResolved(project as any);
+    const health = this.pilotage.computedHealth(
+      project,
+      project.tasks,
+      project.risks,
+      project.milestones,
+    );
+    const signals = this.pilotage.buildSignals(
+      project,
+      project.tasks,
+      project.risks,
+      project.milestones,
+      health,
+    );
+    const normalizedSignals = {
+      ...signals,
+      hasNoOwner: ownerDisplayName == null,
+    };
+    return buildProjectListPilotageSnapshot({
+      project,
+      tasks: project.tasks,
+      risks: project.risks,
+      milestones: project.milestones,
+      signals: normalizedSignals,
+      ownerDisplayName,
+      openTasksCount: this.pilotage.openTasksCount(project.tasks),
+      openRisksCount: this.pilotage.openRisksCount(project.risks),
+    });
+  }
+
+  async getPilotageSnapshot(
+    clientId: string,
+    id: string,
+    userId?: string,
+  ): Promise<ProjectListPilotageSnapshotDto> {
+    const project = await this.prisma.project.findFirst({
+      where: { id, clientId },
+      include: projectIncludeList,
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (userId) {
+      await this.assertCanReadProject(clientId, userId, id);
+    }
+    return this.buildPilotageSnapshotForProject(project as any);
+  }
+
+  /** Consommé portefeuille : somme des consommations des lignes budgétaires (liens FIXED). */
+  private async consumedBudgetAmountsByProjectId(
+    clientId: string,
+    projectIds: string[],
+  ): Promise<Map<string, string>> {
+    if (projectIds.length === 0) return new Map();
+
+    const links = await this.prisma.projectBudgetLink.findMany({
+      where: {
+        clientId,
+        projectId: { in: projectIds },
+        allocationType: ProjectBudgetAllocationType.FIXED,
+      },
+      select: {
+        projectId: true,
+        budgetLine: { select: { consumedAmount: true } },
+      },
+    });
+
+    const sums = new Map<string, Prisma.Decimal>();
+    for (const link of links) {
+      const prev = sums.get(link.projectId) ?? new Prisma.Decimal(0);
+      sums.set(link.projectId, prev.add(link.budgetLine.consumedAmount));
+    }
+
+    return new Map(
+      [...sums.entries()].map(([projectId, total]) => [projectId, total.toString()]),
+    );
   }
 
   async assertProjectPortfolioSubCategory(
@@ -907,6 +1070,15 @@ export class ProjectsService {
       enriched = enriched.filter((item) => item.signals.isLate);
     }
 
+    const consumedByProjectId = await this.consumedBudgetAmountsByProjectId(
+      clientId,
+      enriched.map((item) => item.id),
+    );
+    enriched = enriched.map((item) => ({
+      ...item,
+      consumedBudgetAmount: consumedByProjectId.get(item.id) ?? null,
+    }));
+
     const sortBy = query.sortBy ?? 'targetEndDate';
     const order = query.sortOrder ?? 'asc';
     const mult = order === 'desc' ? -1 : 1;
@@ -1079,6 +1251,22 @@ export class ProjectsService {
       include: projectIncludeList,
     });
 
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const prevMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+    );
+    const quarterMonth = Math.floor(now.getUTCMonth() / 3) * 3;
+    const quarterStart = new Date(Date.UTC(now.getUTCFullYear(), quarterMonth, 1));
+    const prevQuarterStart = new Date(Date.UTC(now.getUTCFullYear(), quarterMonth - 3, 1));
+    const prevQuarterEnd = new Date(quarterStart.getTime() - 1);
+
+    const projectIds = rows.map((p) => p.id);
+    const consumedByProjectId = await this.consumedBudgetAmountsByProjectId(
+      clientId,
+      projectIds,
+    );
+
     let lateProjects = 0;
     let criticalProjects = 0;
     let blockedProjects = 0;
@@ -1087,9 +1275,20 @@ export class ProjectsService {
     let noMilestoneProjects = 0;
     let inProgressProjects = 0;
     let completedProjects = 0;
+    let activeProjects = 0;
+    let completedThisQuarter = 0;
+    let completedPreviousQuarter = 0;
+    let projectsCreatedThisMonth = 0;
+    let projectsCreatedPreviousMonth = 0;
+
+    let totalTarget = new Prisma.Decimal(0);
+    let totalConsumed = new Prisma.Decimal(0);
+    let hasTargetBudget = false;
+    let hasConsumedBudget = false;
 
     for (const p of rows) {
       const item = this.toListItem(p as any);
+      if (isActiveProjectStatus(p.status)) activeProjects += 1;
       if (p.status === 'IN_PROGRESS') inProgressProjects += 1;
       if (p.status === 'COMPLETED') completedProjects += 1;
       if (item.signals.isLate) lateProjects += 1;
@@ -1098,18 +1297,49 @@ export class ProjectsService {
       if (item.signals.hasNoRisks) noRiskProjects += 1;
       if (item.signals.hasNoOwner) noOwnerProjects += 1;
       if (item.signals.hasNoMilestones) noMilestoneProjects += 1;
+
+      const createdAt = p.createdAt;
+      if (createdAt >= monthStart) projectsCreatedThisMonth += 1;
+      else if (createdAt >= prevMonthStart && createdAt < monthStart) {
+        projectsCreatedPreviousMonth += 1;
+      }
+
+      if (p.status === 'COMPLETED') {
+        const endAt = p.actualEndDate ?? p.updatedAt;
+        if (endAt >= quarterStart) completedThisQuarter += 1;
+        else if (endAt >= prevQuarterStart && endAt <= prevQuarterEnd) {
+          completedPreviousQuarter += 1;
+        }
+      }
+
+      if (p.targetBudgetAmount != null) {
+        totalTarget = totalTarget.add(p.targetBudgetAmount);
+        hasTargetBudget = true;
+      }
+      const consumed = consumedByProjectId.get(p.id);
+      if (consumed != null) {
+        totalConsumed = totalConsumed.add(new Prisma.Decimal(consumed));
+        hasConsumedBudget = true;
+      }
     }
 
     return {
       totalProjects: rows.length,
+      activeProjects,
       inProgressProjects,
       completedProjects,
+      completedThisQuarter,
+      completedPreviousQuarter,
       lateProjects,
       criticalProjects,
       blockedProjects,
       noRiskProjects,
       noOwnerProjects,
       noMilestoneProjects,
+      totalTargetBudgetAmount: hasTargetBudget ? totalTarget.toString() : null,
+      totalConsumedBudgetAmount: hasConsumedBudget ? totalConsumed.toString() : null,
+      projectsCreatedThisMonth,
+      projectsCreatedPreviousMonth,
     };
   }
 
@@ -1129,6 +1359,7 @@ export class ProjectsService {
       await this.assertCanReadProject(clientId, userId, id);
     }
     const base = this.toListItem(project as any);
+    const lastModification = await this.findLastProjectModification(clientId, id);
     return {
       ...base,
       description: project.description,
@@ -1139,6 +1370,8 @@ export class ProjectsService {
       pilotNotes: project.pilotNotes,
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),
+      lastModifiedAt: lastModification?.at ?? null,
+      lastModifiedByDisplayName: lastModification?.userDisplayName ?? null,
     };
   }
 

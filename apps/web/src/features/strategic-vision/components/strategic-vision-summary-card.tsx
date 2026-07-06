@@ -28,10 +28,27 @@ export function StrategicVisionSummaryCard({
           <Badge variant="secondary">Horizon: {vision.horizonLabel}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">{vision.statement}</p>
-        <p className="text-sm">
-          Responsable: <span className="font-medium">{ownerLabel ?? 'Non defini'}</span>
+      <CardContent className="space-y-4">
+        <blockquote className="relative px-7 text-[19px] font-semibold leading-relaxed tracking-tight text-foreground">
+          <span
+            aria-hidden
+            className="absolute -left-1 -top-2 font-serif text-5xl leading-none text-[color:var(--brand-gold)]"
+          >
+            &ldquo;
+          </span>
+          {vision.statement}
+          <span
+            aria-hidden
+            className="ml-1 align-bottom font-serif text-5xl leading-none text-[color:var(--brand-gold)]"
+          >
+            &rdquo;
+          </span>
+        </blockquote>
+        <p className="text-sm text-muted-foreground">
+          Responsable :{' '}
+          <span className="font-medium text-foreground">
+            {ownerLabel ?? 'Non défini'}
+          </span>
         </p>
       </CardContent>
     </Card>

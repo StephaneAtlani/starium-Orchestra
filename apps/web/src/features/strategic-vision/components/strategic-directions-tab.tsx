@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
@@ -39,6 +40,111 @@ export function StrategicDirectionsTab({
     [directions],
   );
 
+  const columns = useMemo<DataTableColumn<StrategicDirectionDto>[]>(
+    () => [
+      {
+        key: 'code',
+        header: 'Code',
+        mobilePriority: 'secondary',
+        cell: (row) => <span className="font-mono text-xs">{row.code}</span>,
+      },
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (row) => <span className="font-medium">{row.name}</span>,
+      },
+      {
+        key: 'status',
+        header: 'Statut',
+        mobilePriority: 'secondary',
+        cell: (row) => (
+          <Badge variant={row.isActive ? 'secondary' : 'outline'} className="text-xs">
+            {row.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        ),
+      },
+      {
+        key: 'sortOrder',
+        header: 'Ordre',
+        mobilePriority: 'hidden-mobile',
+        className: 'text-right tabular-nums',
+        cell: (row) => row.sortOrder,
+      },
+      {
+        key: 'updatedAt',
+        header: 'MAJ',
+        mobilePriority: 'hidden-mobile',
+        className: 'text-right text-muted-foreground tabular-nums',
+        cell: (row) => new Date(row.updatedAt).toLocaleDateString('fr-FR'),
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (row) => (
+          <div className="flex justify-end gap-1">
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  disabled={!canManageDirections}
+                  onClick={() => setEditing(row)}
+                  aria-label={`Modifier ${row.name}`}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              {!canManageDirections ? (
+                <TooltipContent>
+                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
+                </TooltipContent>
+              ) : (
+                <TooltipContent>Modifier</TooltipContent>
+              )}
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex" />}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-destructive hover:text-destructive"
+                  disabled={!canManageDirections || deleteDirection.isPending}
+                  onClick={() => {
+                    const ok = window.confirm(
+                      `Supprimer la direction « ${row.name} » (${row.code}) ? Les objectifs rattachés redeviendront « non affectés ». Impossible si des stratégies de direction existent encore.`,
+                    );
+                    if (!ok) return;
+                    deleteDirection.mutate(row.id, {
+                      onSuccess: () => toast.success('Direction supprimée.'),
+                      onError: (error) =>
+                        toast.error(error instanceof Error ? error.message : 'Suppression impossible.'),
+                    });
+                  }}
+                  aria-label={`Supprimer ${row.name}`}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              {!canManageDirections ? (
+                <TooltipContent>
+                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
+                </TooltipContent>
+              ) : (
+                <TooltipContent>Supprimer</TooltipContent>
+              )}
+            </Tooltip>
+          </div>
+        ),
+      },
+    ],
+    [canManageDirections, deleteDirection],
+  );
+
   if (directionsQueryState.isLoading) {
     return (
       <section className="space-y-3">
@@ -57,121 +163,30 @@ export function StrategicDirectionsTab({
 
   return (
     <TooltipProvider>
-    <section className="space-y-4">
-      <Card size="sm" className="shadow-sm">
-        <CardHeader className="border-b border-border/60 pb-3">
-          <CardTitle className="text-sm font-semibold">Référentiel directions</CardTitle>
-          <CardDescription>
-            Utilisé dans Vision stratégique, objectifs et module Stratégie de direction. La suppression est refusée
-            tant qu&apos;une stratégie de direction existe encore pour cette ligne.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto border-b border-border/50">
-            <table className="min-w-full text-sm">
-              <thead className="bg-muted/40 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2">Code</th>
-                  <th className="px-4 py-2">Nom</th>
-                  <th className="px-4 py-2">Statut</th>
-                  <th className="px-4 py-2 text-right">Ordre</th>
-                  <th className="px-4 py-2 text-right">MAJ</th>
-                  <th className="px-4 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
-                      Aucune direction. Crée-en une avec le bouton ci-dessous.
-                    </td>
-                  </tr>
-                ) : (
-                  sorted.map((row) => (
-                    <tr key={row.id} className="border-t border-border/50 hover:bg-muted/20">
-                      <td className="px-4 py-2 font-mono text-xs">{row.code}</td>
-                      <td className="px-4 py-2 font-medium">{row.name}</td>
-                      <td className="px-4 py-2">
-                        <Badge variant={row.isActive ? 'secondary' : 'outline'} className="text-xs">
-                          {row.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{row.sortOrder}</td>
-                      <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">
-                        {new Date(row.updatedAt).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex justify-end gap-1">
-                            <Tooltip>
-                              <TooltipTrigger render={<span className="inline-flex" />}>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8"
-                                  disabled={!canManageDirections}
-                                  onClick={() => setEditing(row)}
-                                  aria-label={`Modifier ${row.name}`}
-                                >
-                                  <Pencil className="size-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              {!canManageDirections ? (
-                                <TooltipContent>
-                                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
-                                </TooltipContent>
-                              ) : (
-                                <TooltipContent>Modifier</TooltipContent>
-                              )}
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger render={<span className="inline-flex" />}>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="size-8 text-destructive hover:text-destructive"
-                                  disabled={!canManageDirections || deleteDirection.isPending}
-                                  onClick={() => {
-                                    const ok = window.confirm(
-                                      `Supprimer la direction « ${row.name} » (${row.code}) ? Les objectifs rattachés redeviendront « non affectés ». Impossible si des stratégies de direction existent encore.`,
-                                    );
-                                    if (!ok) return;
-                                    deleteDirection.mutate(row.id, {
-                                      onSuccess: () => toast.success('Direction supprimée.'),
-                                      onError: (error) =>
-                                        toast.error(
-                                          error instanceof Error ? error.message : 'Suppression impossible.',
-                                        ),
-                                    });
-                                  }}
-                                  aria-label={`Supprimer ${row.name}`}
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              {!canManageDirections ? (
-                                <TooltipContent>
-                                  Permission strategic_vision.update ou strategic_vision.manage_directions requise
-                                </TooltipContent>
-                              ) : (
-                                <TooltipContent>Supprimer</TooltipContent>
-                              )}
-                            </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3 border-t border-border/60 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] text-muted-foreground">
-            {(sorted.length ?? 0)} direction(s) · valeurs affichées = code et nom métier (pas les identifiants
-            techniques).
-          </p>
+      <section className="space-y-4">
+        <Card size="sm" className="shadow-sm">
+          <CardHeader className="border-b border-border/60 pb-3">
+            <CardTitle className="text-sm font-semibold">Référentiel directions</CardTitle>
+            <CardDescription>
+              Utilisé dans Vision stratégique, objectifs et module Stratégie de direction. La suppression est refusée
+              tant qu&apos;une stratégie de direction existe encore pour cette ligne.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              data={sorted}
+              getRowId={(row) => row.id}
+              mobileCardsAriaLabel="Référentiel des directions stratégiques"
+              emptyTitle="Aucune direction"
+              emptyDescription="Crée-en une avec le bouton ci-dessous."
+            />
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3 border-t border-border/60 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              {sorted.length} direction(s) · valeurs affichées = code et nom métier (pas les identifiants
+              techniques).
+            </p>
             <Tooltip>
               <TooltipTrigger render={<span className="inline-flex w-full justify-end sm:w-auto" />}>
                 <Button
@@ -189,24 +204,24 @@ export function StrategicDirectionsTab({
                 </TooltipContent>
               ) : null}
             </Tooltip>
-        </CardFooter>
-      </Card>
+          </CardFooter>
+        </Card>
 
-      <StrategicDirectionCreateEditDialog
-        mode="create"
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        direction={null}
-      />
-      <StrategicDirectionCreateEditDialog
-        mode="edit"
-        open={editing != null}
-        onOpenChange={(next) => {
-          if (!next) setEditing(null);
-        }}
-        direction={editing}
-      />
-    </section>
+        <StrategicDirectionCreateEditDialog
+          mode="create"
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          direction={null}
+        />
+        <StrategicDirectionCreateEditDialog
+          mode="edit"
+          open={editing != null}
+          onOpenChange={(next) => {
+            if (!next) setEditing(null);
+          }}
+          direction={editing}
+        />
+      </section>
     </TooltipProvider>
   );
 }

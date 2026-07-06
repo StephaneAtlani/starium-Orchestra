@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { useTablePan } from "@/hooks/use-table-pan"
+import { useHasHorizontalOverflow } from "@/hooks/use-has-horizontal-overflow"
 
 function Table({
   className,
@@ -23,14 +24,17 @@ function Table({
 
 function TableContainer({ children }: { children: React.ReactNode }) {
   const pan = useTablePan();
+  const hasOverflow = useHasHorizontalOverflow(pan.scrollRef);
   return (
     <div
       ref={pan.scrollRef}
-      onMouseDown={pan.onMouseDown}
+      onPointerDown={pan.onPointerDown}
       data-slot="table-container"
       className={cn(
         "relative w-full overflow-x-auto",
-        pan.isPanning ? "cursor-grabbing select-none" : "cursor-grab",
+        pan.isPanning ? "cursor-grabbing select-none touch-none" : "cursor-grab",
+        hasOverflow &&
+          "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden",
       )}
     >
       {children}
@@ -42,7 +46,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("bg-muted/60 [&_tr]:border-b", className)}
+      className={cn("[&_tr]:border-b-[1.5px] [&_tr]:border-border", className)}
       {...props}
     />
   )
@@ -76,7 +80,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-border/60 transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-border/60 transition-colors hover:bg-neutral-50 data-[state=selected]:bg-muted",
         className
       )}
       {...props}
@@ -89,7 +93,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-auto py-[var(--ds-table-head-py)] px-[var(--ds-table-head-px)] text-left align-middle text-[11px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -102,7 +106,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "py-[var(--ds-table-cell-py)] px-[var(--ds-table-cell-px)] align-middle text-[13px] whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

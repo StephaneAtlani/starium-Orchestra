@@ -1,20 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable } from '@/components/data-table/data-table';
+import type { DataTableColumn } from '@/components/data-table/data-table';
 import { useClientMembers } from '../hooks/use-client-members';
 import { UserRolesDialog } from './user-roles-dialog';
 import { AddMemberDialog } from './add-member-dialog';
@@ -47,13 +41,79 @@ export function MembersList() {
     }
   }, [editFromUrl, members, isLoading, router]);
 
+  const columns = useMemo<DataTableColumn<ClientMember>[]>(
+    () => [
+      {
+        key: 'name',
+        header: 'Nom',
+        mobilePriority: 'primary',
+        cell: (member) => (
+          <>
+            {[member.firstName, member.lastName].filter(Boolean).join(' ') || '—'}
+            {member.isDirectorySynced ? (
+              <RegistryBadge className="ml-2 bg-secondary text-secondary-foreground">
+                ADDS
+              </RegistryBadge>
+            ) : null}
+          </>
+        ),
+      },
+      {
+        key: 'email',
+        header: 'Email',
+        mobilePriority: 'secondary',
+        cell: (member) => member.email,
+      },
+      {
+        key: 'humanResource',
+        header: 'Fiche Humaine',
+        mobilePriority: 'secondary',
+        cell: (member) => member.humanResourceSummary?.displayName ?? '—',
+      },
+      {
+        key: 'role',
+        header: 'Rôle',
+        mobilePriority: 'secondary',
+        cell: (member) =>
+          member.role ? (CLIENT_ROLE_LABEL[member.role] ?? member.role) : '—',
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        mobilePriority: 'actions',
+        cell: (member) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11"
+              onClick={() => setEditMember(member)}
+              disabled={Boolean(member.isDirectoryLocked)}
+            >
+              Modifier
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11"
+              onClick={() => setRolesUserId(member.id)}
+            >
+              Rôles
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <PageContainer>
       <PageHeader
         title="Membres"
         description="Utilisateurs du client et assignation des rôles. Les administrateurs client peuvent ajouter des membres (compte existant ou nouveau)."
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <MembersSyncDialog />
             <AddMemberDialog />
           </div>
@@ -61,84 +121,17 @@ export function MembersList() {
       />
       <Card>
         <CardContent className="pt-4">
-          {isLoading && (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              Chargement…
-            </p>
-          )}
-          {error && (
-            <div className="py-8 text-center">
-              <p className="text-sm text-destructive mb-2">
-                Erreur lors du chargement des membres.
-              </p>
-              <Button variant="outline" size="sm" onClick={() => void refetch()}>
-                Réessayer
-              </Button>
-            </div>
-          )}
-          {!isLoading && !error && members.length === 0 && (
-            <p className="text-sm text-muted-foreground py-10 text-center">
-              Aucun membre pour ce client. Utilisez « Ajouter un membre »
-              ci-dessus.
-            </p>
-          )}
-          {!isLoading && !error && members.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Fiche Humaine</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members.map((member: ClientMember) => (
-                  <TableRow key={member.id}>
-                    <TableCell>
-                      {[member.firstName, member.lastName]
-                        .filter(Boolean)
-                        .join(' ') || '—'}
-                      {member.isDirectorySynced ? (
-                        <RegistryBadge className="ml-2 bg-secondary text-secondary-foreground">
-                          ADDS
-                        </RegistryBadge>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{member.email}</TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
-                      {member.humanResourceSummary?.displayName ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      {member.role
-                        ? (CLIENT_ROLE_LABEL[member.role] ?? member.role)
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditMember(member)}
-                          disabled={Boolean(member.isDirectoryLocked)}
-                        >
-                          Modifier
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRolesUserId(member.id)}
-                        >
-                          Rôles
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            columns={columns}
+            data={members}
+            isLoading={isLoading}
+            error={error ?? null}
+            onRetry={() => void refetch()}
+            getRowId={(member) => member.id}
+            mobileCardsAriaLabel="Liste des membres client"
+            emptyTitle="Aucun membre"
+            emptyDescription="Utilisez « Ajouter un membre » ci-dessus."
+          />
         </CardContent>
       </Card>
       <EditMemberDialog

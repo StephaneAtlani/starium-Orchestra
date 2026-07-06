@@ -16,7 +16,7 @@ export const STARIUM_FEEDBACK_CATEGORY_LABEL: Record<StariumFeedbackCategoryCode
   UX: 'Ergonomie, clarté, navigation',
   FEATURE: 'Idée ou besoin métier',
   PERFORMANCE: 'Lenteur ou fiabilité',
-  CHATBOT: 'Assistance Cursor Starium',
+  CHATBOT: 'Assistance Orion',
   ASSISTANCE: 'Assistance',
   OTHER: 'Autre',
 };

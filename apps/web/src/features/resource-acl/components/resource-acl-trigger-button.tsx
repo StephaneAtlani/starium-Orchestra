@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldIcon } from 'lucide-react';
+import { ShieldIcon, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { canEditResourceAcl } from '../lib/policy';
 import type { ResourceAclResourceType } from '../api/resource-acl.types';
@@ -16,6 +17,10 @@ interface ResourceAclTriggerButtonProps {
   size?: 'sm' | 'default';
   /** Texte du bouton (défaut : « Accès à la ressource »). */
   label?: string;
+  /** Icône affichée (défaut : bouclier). */
+  leadingIcon?: LucideIcon;
+  /** Affiche le libellé sur tous les breakpoints (défaut : masqué sur mobile). */
+  alwaysShowLabel?: boolean;
   className?: string;
 }
 
@@ -37,6 +42,8 @@ export function ResourceAclTriggerButton({
   variant = 'outline',
   size = 'default',
   label = 'Accès à la ressource',
+  leadingIcon: LeadingIcon = ShieldIcon,
+  alwaysShowLabel = false,
   className,
 }: ResourceAclTriggerButtonProps) {
   const { activeClient } = useActiveClient();
@@ -53,11 +60,12 @@ export function ResourceAclTriggerButton({
         variant={variant}
         size={size}
         className={className}
+        aria-label={label}
         onClick={() => setOpen(true)}
         data-testid="resource-acl-trigger-button"
       >
-        <ShieldIcon className="size-4" aria-hidden="true" />
-        <span className="ml-2">{label}</span>
+        <LeadingIcon className="size-4" aria-hidden="true" />
+        <span className={cn('ml-2', !alwaysShowLabel && 'max-md:sr-only')}>{label}</span>
       </Button>
       {open && (
         <ResourceAclDialog

@@ -11,11 +11,11 @@ export function GanttBarColorLegend({ mode }: { mode: GanttBarColorMode }) {
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/50 bg-muted/15 px-3 py-1.5 text-[10px] leading-tight text-muted-foreground"
+      className="starium-project-gantt-legend flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-[10px] leading-tight text-muted-foreground"
       role="list"
       aria-label="Légende des couleurs des barres de tâches"
     >
-      <span className="shrink-0 font-medium text-foreground/80">Légende</span>
+      <span className="starium-overline shrink-0">Légende</span>
       {items.map((item) => (
         <span
           key={item.id}

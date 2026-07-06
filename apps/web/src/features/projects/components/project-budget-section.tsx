@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from '@/lib/toast';
-import { ChevronDown, Link2, Pencil, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  Cloud,
+  Code2,
+  Link2,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,16 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { StariumTableWrap } from '@/components/ui/starium-table-wrap';
 import { useBudgetsList } from '@/features/budgets/hooks/use-budgets';
+import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
 import { useBudgetLinesByBudget } from '@/features/budgets/hooks/use-budget-lines';
 import { useBudgetEnvelopesAll } from '@/features/budgets/hooks/use-budget-envelopes';
 import type { ApiFormError } from '@/features/budgets/api/types';
@@ -38,11 +40,29 @@ import { useDeleteProjectBudgetLink } from '../hooks/use-delete-project-budget-l
 import { useCreateBudgetLineInline } from '../hooks/use-create-budget-line-inline';
 import { cn } from '@/lib/utils';
 import { ProjectBudgetHierarchyCombobox } from './project-budget-hierarchy-combobox';
+import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
+import {
+  ALLOCATION_MODE_LABELS,
+  canAddProjectBudgetLink,
+  computeFixedAllocationRemainder,
+  computePercentageAllocationRemainder,
+  computePercentageLineAllocationAmount,
+  humanizeProjectBudgetLinkError,
+  isAllocationRemainderMode,
+  isBudgetLineAllocationWarningMode,
+  isPercentageAllocationMode,
+  parseAllocationPercentage,
+  parseFixedLinkAmount,
+  resolveCreateAllocationMode,
+} from '../lib/project-budget-allocation';
+import { formatProjectBudgetAllocation } from '../scenario-workspace/scenario-budget-project-links';
+import { ProjectBudgetAllocationRemainder } from './project-budget-allocation-remainder';
+import { ProjectBudgetLineAllocationAlert } from './project-budget-line-allocation-alert';
+import { getBudgetLineAllocationWarning, isBlockingLineAllocationWarning } from '../lib/project-budget-line-allocation-check';
 import type {
   CreateProjectBudgetLinkPayload,
   ProjectBudgetAllocationType,
 } from '../types/project.types';
-import { ProjectBudgetLinkEditDialog } from './project-budget-link-edit-dialog';
 
 /** Valeur réservée pour « aucune sélection » — évite value undefined (Select contrôlé stable). */
 const SELECT_NONE = '__none__';
@@ -88,7 +108,7 @@ function buildCreateLinkPayload(
     budgetLineId,
     allocationType,
   };
-  if (allocationType === 'PERCENTAGE') {
+  if (allocationType === 'PERCENTAGE' || allocationType === 'BUDGET_PERCENTAGE') {
     const p = Number(percentage.replace(',', '.'));
     if (Number.isNaN(p)) {
       return { ok: false, message: 'Indiquez un pourcentage valide.' };
@@ -105,12 +125,6 @@ function buildCreateLinkPayload(
   return { ok: true, payload };
 }
 
-function parseFixedLinkAmount(amount: string | null): number | null {
-  if (amount == null || amount === '') return null;
-  const n = Number(String(amount).replace(',', '.'));
-  return Number.isNaN(n) ? null : n;
-}
-
 function formatCurrencyEur(value: number): string {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -120,7 +134,14 @@ function formatCurrencyEur(value: number): string {
   }).format(value);
 }
 
-export function ProjectBudgetSection({ projectId }: { projectId: string }) {
+export function ProjectBudgetSection({
+  projectId,
+  embedded = false,
+}: {
+  projectId: string;
+  /** Sans carte englobante (page Budget dédiée). */
+  embedded?: boolean;
+}) {
   const { has } = usePermissions();
   const { activeClient } = useActiveClient();
   const canCreateBudgetLine = has('budgets.create');
@@ -139,9 +160,15 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const envelopesQuery = useBudgetEnvelopesAll(
     budgetId === SELECT_NONE ? null : budgetId,
   );
+  const budgetSummaryQuery = useBudgetSummary(
+    budgetId === SELECT_NONE ? null : budgetId,
+  );
 
   const [budgetLineId, setBudgetLineId] = useState<string>(SELECT_NONE);
   const [amount, setAmount] = useState('');
+  const [percentage, setPercentage] = useState('');
+  const [createAllocationMode, setCreateAllocationMode] =
+    useState<ProjectBudgetAllocationType>('FIXED');
 
   const [newLineName, setNewLineName] = useState('');
   const [newLineCode, setNewLineCode] = useState('');
@@ -225,7 +252,25 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
   const resetForm = () => {
     setBudgetLineId(SELECT_NONE);
     setAmount('');
+    setPercentage('');
   };
+
+  const budgetLinks = useMemo(
+    () => linksQuery.data?.items ?? [],
+    [linksQuery.data?.items],
+  );
+  const canChooseCreateAllocationMode = budgetLinks.length === 0;
+  const effectiveCreateAllocationMode = useMemo(
+    () =>
+      canChooseCreateAllocationMode
+        ? createAllocationMode
+        : resolveCreateAllocationMode(budgetLinks),
+    [budgetLinks, canChooseCreateAllocationMode, createAllocationMode],
+  );
+  const addLinkGuard = useMemo(
+    () => canAddProjectBudgetLink(budgetLinks),
+    [budgetLinks],
+  );
 
   /** Crée la ligne budgétaire puis tente d’ajouter le lien projet (même règles que « Ajouter le lien »). */
   const handleCreateBudgetLineAndLink = async () => {
@@ -279,7 +324,12 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       setNewLineGeneralLedgerId(SELECT_NONE);
       setShowNewLineForm(false);
 
-      const built = buildCreateLinkPayload(line.id, 'FIXED', '', amount);
+      const built = buildCreateLinkPayload(
+        line.id,
+        effectiveCreateAllocationMode,
+        percentage,
+        amount,
+      );
       if (!built.ok) {
         toast.warning('Ligne créée et sélectionnée', {
           description: `${built.message} Complétez l’allocation ci-dessus, puis « Ajouter le lien ».`,
@@ -291,14 +341,25 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       toast.success('Ligne créée et lien budgétaire ajouté.');
       resetForm();
     } catch (err: unknown) {
-      const msg = isApiFormError(err) ? err.message : 'Création impossible.';
+      const msg = isApiFormError(err)
+        ? humanizeProjectBudgetLinkError(err.message)
+        : 'Création impossible.';
       toast.error(msg);
     }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const built = buildCreateLinkPayload(budgetLineId, 'FIXED', '', amount);
+    if (!addLinkGuard.ok) {
+      toast.error(addLinkGuard.message);
+      return;
+    }
+    const built = buildCreateLinkPayload(
+      budgetLineId,
+      effectiveCreateAllocationMode,
+      percentage,
+      amount,
+    );
     if (!built.ok) {
       toast.error(built.message);
       return;
@@ -310,7 +371,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       resetForm();
     } catch (err: unknown) {
       const msg = isApiFormError(err)
-        ? err.message
+        ? humanizeProjectBudgetLinkError(err.message)
         : 'Création impossible.';
       toast.error(msg);
     }
@@ -323,7 +384,7 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       toast.success('Lien supprimé.');
     } catch (err: unknown) {
       const msg = isApiFormError(err)
-        ? err.message
+        ? humanizeProjectBudgetLinkError(err.message)
         : 'Suppression impossible.';
       toast.error(msg);
     }
@@ -334,239 +395,256 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
       ? null
       : (linksQuery.data?.items ?? []).find((l) => l.id === editingLinkId) ?? null;
 
-  const fixedBudgetLinks = useMemo(
-    () =>
-      (linksQuery.data?.items ?? []).filter(
-        (row) => row.allocationType === 'FIXED',
-      ),
-    [linksQuery.data?.items],
-  );
-
-  const totalFixedAllocated = useMemo(() => {
-    let sum = 0;
-    for (const row of fixedBudgetLinks) {
-      const v = parseFixedLinkAmount(row.amount);
-      if (v != null) sum += v;
-    }
-    return sum;
-  }, [fixedBudgetLinks]);
-
   const sheetForecastCost = sheetQuery.data?.estimatedCost ?? null;
-  const forecastVsAllocatedGap =
-    sheetForecastCost != null
-      ? sheetForecastCost - totalFixedAllocated
-      : null;
+  const budgetTotalInitialAmount =
+    budgetSummaryQuery.data?.totalInitialAmount ?? null;
 
-  const lineKpisFromFixedLinks = useMemo(() => {
-    let committed = 0;
-    let consumed = 0;
-    let imputedCapex = 0;
-    let imputedOpex = 0;
-    for (const row of fixedBudgetLinks) {
-      committed += row.budgetLine.committedAmount ?? 0;
-      consumed += row.budgetLine.consumedAmount ?? 0;
-      const fixed = parseFixedLinkAmount(row.amount);
-      if (fixed == null) continue;
-      const et = row.budgetLine.expenseType;
-      if (et === 'CAPEX') imputedCapex += fixed;
-      else imputedOpex += fixed;
+  const allocationRemainder = useMemo(() => {
+    if (effectiveCreateAllocationMode === 'FIXED') {
+      return computeFixedAllocationRemainder(budgetLinks, sheetForecastCost, amount);
     }
-    return { committed, consumed, imputedCapex, imputedOpex };
-  }, [fixedBudgetLinks]);
+    if (isPercentageAllocationMode(effectiveCreateAllocationMode)) {
+      return computePercentageAllocationRemainder(budgetLinks, percentage);
+    }
+    return null;
+  }, [
+    amount,
+    budgetLinks,
+    effectiveCreateAllocationMode,
+    percentage,
+    sheetForecastCost,
+  ]);
 
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Budget</CardTitle>
-        <p className="text-sm font-normal text-muted-foreground">
-          Liez le projet à une ou plusieurs lignes budgétaires.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-6">
+  const selectedBudgetLine = useMemo(() => {
+    if (budgetLineId === SELECT_NONE || budgetId === SELECT_NONE) return null;
+    return (linesQuery.data ?? []).find((line) => line.id === budgetLineId) ?? null;
+  }, [budgetId, budgetLineId, linesQuery.data]);
+
+  const allocationLineRef = useMemo((): {
+    initialAmount: number;
+    remainingAmount: number;
+  } | null => {
+    if (selectedBudgetLine) {
+      return {
+        initialAmount: selectedBudgetLine.initialAmount,
+        remainingAmount: selectedBudgetLine.remainingAmount,
+      };
+    }
+    if (showNewLineForm && newLineInitial.trim()) {
+      const initial = Number(newLineInitial.replace(',', '.'));
+      if (Number.isNaN(initial) || initial < 0) return null;
+      return { initialAmount: initial, remainingAmount: initial };
+    }
+    return null;
+  }, [newLineInitial, selectedBudgetLine, showNewLineForm]);
+
+  const draftPercentageAmount = useMemo(() => {
+    if (!isPercentageAllocationMode(effectiveCreateAllocationMode)) return null;
+    const pct = parseAllocationPercentage(percentage);
+    if (pct == null) return null;
+    const base =
+      effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE'
+        ? budgetTotalInitialAmount
+        : allocationLineRef?.initialAmount ?? null;
+    if (base == null || base <= 0) return null;
+    return computePercentageLineAllocationAmount(base, pct);
+  }, [
+    allocationLineRef,
+    budgetTotalInitialAmount,
+    effectiveCreateAllocationMode,
+    percentage,
+  ]);
+
+  const lineAllocationWarning = useMemo(() => {
+    if (!isBudgetLineAllocationWarningMode(effectiveCreateAllocationMode)) {
+      return null;
+    }
+
+    const lineRef = selectedBudgetLine
+      ? {
+          code: selectedBudgetLine.code,
+          name: selectedBudgetLine.name,
+          initialAmount: selectedBudgetLine.initialAmount,
+          remainingAmount: selectedBudgetLine.remainingAmount,
+        }
+      : showNewLineForm && newLineInitial.trim()
+        ? (() => {
+            const initial = Number(newLineInitial.replace(',', '.'));
+            if (Number.isNaN(initial) || initial < 0) return null;
+            return {
+              code: newLineCode.trim() || null,
+              name: newLineName.trim() || 'Nouvelle ligne',
+              initialAmount: initial,
+              remainingAmount: initial,
+            };
+          })()
+        : null;
+
+    return getBudgetLineAllocationWarning(lineRef, {
+      mode: effectiveCreateAllocationMode,
+      amount,
+      percentage,
+      budgetTotalInitialAmount,
+    });
+  }, [
+    amount,
+    budgetTotalInitialAmount,
+    effectiveCreateAllocationMode,
+    newLineCode,
+    newLineInitial,
+    newLineName,
+    percentage,
+    selectedBudgetLine,
+    showNewLineForm,
+  ]);
+
+  const body = (
+    <>
         {linksQuery.isLoading ? (
           <LoadingState rows={2} />
         ) : (
           <>
-            {!fixedBudgetLinks.length ? (
-              <p className="text-sm text-muted-foreground">
-                Aucun lien en montants fixes.
+            <div className="starium-tablecard">
+              <StariumTableWrap scrollLabel="Liaisons budgétaires — glisser pour faire défiler">
+                <table className="starium-dt">
+                  <caption className="sr-only">
+                    Liaisons budgétaires du projet
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Ligne budgétaire</th>
+                      <th scope="col">Mode d&apos;allocation</th>
+                      <th scope="col" className="starium-dt__right">
+                        Valeur
+                      </th>
+                      <th scope="col" className="starium-dt__right w-[108px]">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {budgetLinks.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="py-10 text-center text-sm text-muted-foreground"
+                        >
+                          Aucun lien budgétaire. Ajoutez un lien ci-dessous pour rattacher le
+                          projet à une ligne active.
+                        </td>
+                      </tr>
+                    ) : (
+                      budgetLinks.map((row, index) => {
+                        const fixedAmount = parseFixedLinkAmount(row.amount);
+                        const lineLabel = row.budgetLine.code
+                          ? `${row.budgetLine.code} — ${row.budgetLine.name}`
+                          : row.budgetLine.name;
+                        const allocationLabel = formatProjectBudgetAllocation(row);
+                        const valueLabel =
+                          row.allocationType === 'FULL'
+                            ? '100 %'
+                            : row.allocationType === 'PERCENTAGE' ||
+                                row.allocationType === 'BUDGET_PERCENTAGE'
+                              ? row.percentage != null
+                                ? `${row.percentage} %`
+                                : '—'
+                              : fixedAmount != null
+                                ? formatCurrencyEur(fixedAmount)
+                                : '—';
+                        const tone =
+                          row.budgetLine.expenseType === 'CAPEX'
+                            ? 'starium-dt-ti-blue'
+                            : index % 2 === 0
+                              ? 'starium-dt-ti-gold'
+                              : 'starium-dt-ti-purple';
+                        const Icon =
+                          row.budgetLine.expenseType === 'CAPEX' ? Cloud : Code2;
+
+                        return (
+                          <tr key={row.id}>
+                            <td>
+                              <div className="starium-dt-tname">
+                                <div
+                                  className={cn('starium-dt-tname-ico', tone)}
+                                  aria-hidden
+                                >
+                                  <Icon strokeWidth={1.75} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="starium-dt-cell-strong truncate">
+                                    {lineLabel}
+                                  </div>
+                                  <div className="starium-dt-cell-sub">
+                                    {row.budgetLine.expenseType ?? 'OPEX'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="text-sm text-foreground">{allocationLabel}</div>
+                            </td>
+                            <td className="text-right tabular-nums font-semibold">
+                              {valueLabel}
+                            </td>
+                            <td className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {canEditBudgetLinks ? (
+                                  <button
+                                    type="button"
+                                    className="starium-btn-icon min-h-11 min-w-11"
+                                    onClick={() => setEditingLinkId(row.id)}
+                                    aria-label={`Modifier le lien sur ${lineLabel}`}
+                                  >
+                                    <Pencil aria-hidden />
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="starium-btn-icon min-h-11 min-w-11 text-[color:var(--state-danger)]"
+                                  disabled={deleteMut.isPending}
+                                  onClick={() => onDelete(row.id)}
+                                  aria-label={`Supprimer le lien sur ${lineLabel}`}
+                                >
+                                  <Trash2 aria-hidden />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </StariumTableWrap>
+              <p className="flex items-center gap-1.5 border-t border-[color:var(--neutral-100)] px-4 py-3 text-[11.5px] text-muted-foreground">
+                Montants ou pourcentages imputés sur chaque ligne selon le mode d&apos;allocation
+                du projet.
               </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ligne</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead className="w-[104px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fixedBudgetLinks.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <span className="font-medium">{row.budgetLine.code}</span>{' '}
-                        <span className="text-muted-foreground">{row.budgetLine.name}</span>
-                      </TableCell>
-                      <TableCell className="text-sm tabular-nums">
-                        <span className="text-muted-foreground">
-                          {row.amount != null ? row.amount : '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-0.5">
-                          {canEditBudgetLinks ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-foreground"
-                              onClick={() => setEditingLinkId(row.id)}
-                              aria-label="Modifier le lien budgétaire"
-                            >
-                              <Pencil className="size-4" />
-                            </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            disabled={deleteMut.isPending}
-                            onClick={() => onDelete(row.id)}
-                            aria-label="Supprimer le lien"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-
-            <div
-              className="rounded-lg border border-border/60 bg-muted/25 px-3 py-3 sm:px-4"
-              aria-live="polite"
-            >
-              <dl className="grid gap-3 sm:grid-cols-3 sm:gap-4">
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Coût prévisionnel (fiche projet)
-                  </dt>
-                  <dd className="text-base font-semibold tabular-nums text-foreground">
-                    {sheetQuery.isLoading ? (
-                      <span className="text-muted-foreground">Chargement…</span>
-                    ) : sheetQuery.isError ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : sheetForecastCost != null ? (
-                      formatCurrencyEur(sheetForecastCost)
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </dd>
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Total imputé (montants fixes)
-                  </dt>
-                  <dd className="text-base font-semibold tabular-nums text-foreground">
-                    {formatCurrencyEur(totalFixedAllocated)}
-                  </dd>
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Écart (prévisionnel − imputé)
-                  </dt>
-                  <dd
-                    className={cn(
-                      'text-base font-semibold tabular-nums',
-                      forecastVsAllocatedGap == null
-                        ? 'text-muted-foreground'
-                        : forecastVsAllocatedGap < 0
-                          ? 'text-destructive'
-                          : forecastVsAllocatedGap > 0
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-foreground',
-                    )}
-                  >
-                    {sheetQuery.isLoading ? (
-                      <span className="font-normal text-muted-foreground">
-                        Chargement…
-                      </span>
-                    ) : sheetForecastCost == null ||
-                      forecastVsAllocatedGap == null ||
-                      sheetQuery.isError ? (
-                      '—'
-                    ) : (
-                      formatCurrencyEur(forecastVsAllocatedGap)
-                    )}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-3 border-t border-border/50 pt-3">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Lignes budgétaires liées
-                </p>
-                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Engagé (lignes)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.committed)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Consommé (lignes)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.consumed)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      CAPEX (imputé)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedCapex)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      OPEX (imputé)
-                    </dt>
-                    <dd className="text-base font-semibold tabular-nums text-foreground">
-                      {formatCurrencyEur(lineKpisFromFixedLinks.imputedOpex)}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm dark:bg-card">
+            <div className="starium-proj-budget-add">
               <button
                 type="button"
-                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/30 sm:px-5"
+                className="starium-proj-budget-add__trigger"
                 onClick={() => setAddBudgetLinkOpen((o) => !o)}
                 aria-expanded={addBudgetLinkOpen}
                 aria-controls="pb-add-budget-link-panel"
                 id="pb-add-budget-link-trigger"
               >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-semibold tracking-tight">
+                <span className="starium-proj-budget-add__trigger-icon" aria-hidden="true">
+                  <Plus strokeWidth={2.25} />
+                </span>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="starium-proj-budget-add__trigger-title">
                     Ajouter un lien budgétaire
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Tapez pour filtrer, ou ouvrez la liste. Budget, puis enveloppe, puis une ligne
-                    active — libellés alignés sur le module Budget.
+                  <p className="starium-proj-budget-add__trigger-sub">
+                    Budget, enveloppe, puis ligne active — libellés alignés sur le module Budget.
                   </p>
                 </div>
                 <ChevronDown
                   className={cn(
-                    'size-4 shrink-0 text-muted-foreground transition-transform duration-200',
+                    'size-4 shrink-0 text-[color:var(--brand-gold-700)] transition-transform duration-200',
                     addBudgetLinkOpen && 'rotate-180',
                   )}
                   aria-hidden="true"
@@ -577,10 +655,19 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
             <form
               id="pb-add-budget-link-panel"
               onSubmit={onSubmit}
-              className="space-y-5 border-t border-border/80 bg-white px-4 pb-5 pt-4 dark:bg-card sm:px-5"
+              className="starium-proj-budget-add__panel space-y-5"
             >
+              {!addLinkGuard.ok ? (
+                <div
+                  className="rounded-lg border border-[color-mix(in_srgb,var(--state-warning)_35%,var(--border))] bg-[color-mix(in_srgb,var(--state-warning-bg)_80%,var(--card))] px-4 py-3 text-sm text-foreground"
+                  role="status"
+                >
+                  {addLinkGuard.message}
+                </div>
+              ) : (
+                <>
               <div className="space-y-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="starium-overline">
                   Sélection
                 </p>
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -669,23 +756,225 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
               </div>
 
               <div className="border-t border-border/60 pt-5">
-                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="starium-overline mb-1">
                   Allocation sur la ligne choisie ou à créer
                 </p>
-                <p className="mb-3 text-xs text-muted-foreground">
-                  Montants fixes sur la ligne sélectionnée.
-                </p>
-                <div className="max-w-md space-y-2">
-                  <Label htmlFor="pb-amt">Montant (devise budget)</Label>
-                  <Input
-                    id="pb-amt"
-                    inputMode="decimal"
-                    placeholder="ex. 12000"
-                    value={amount}
-                    onChange={(ev) => setAmount(ev.target.value)}
-                    className="h-9"
+
+                {canChooseCreateAllocationMode ? (
+                  <div className="mb-4 max-w-md space-y-2">
+                    <Label htmlFor="pb-create-mode">Mode d&apos;allocation</Label>
+                    <Select
+                      modal={false}
+                      value={createAllocationMode}
+                      onValueChange={(value) => {
+                        const mode = (value as ProjectBudgetAllocationType) ?? 'FIXED';
+                        setCreateAllocationMode(mode);
+                        setAmount('');
+                        setPercentage('');
+                      }}
+                    >
+                      <SelectTrigger id="pb-create-mode" className="h-10 w-full min-w-0">
+                        <SelectValue placeholder="Choisir un mode">
+                          {ALLOCATION_MODE_LABELS[createAllocationMode]}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(
+                          Object.entries(ALLOCATION_MODE_LABELS) as Array<
+                            [ProjectBudgetAllocationType, string]
+                          >
+                        ).map(([mode, label]) => (
+                          <SelectItem key={mode} value={mode}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Choix définitif pour ce projet : tous les liens utiliseront le même mode.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Mode du projet :{' '}
+                    <span className="font-medium text-foreground">
+                      {ALLOCATION_MODE_LABELS[effectiveCreateAllocationMode]}
+                    </span>
+                  </p>
+                )}
+
+                {isPercentageAllocationMode(effectiveCreateAllocationMode) ? (
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="pb-pct">
+                      {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE'
+                        ? 'Pourcentage du budget'
+                        : 'Pourcentage de la ligne'}
+                    </Label>
+                    <div className="relative max-w-[10rem]">
+                      <Input
+                        id="pb-pct"
+                        inputMode="decimal"
+                        placeholder="ex. 25"
+                        value={percentage}
+                        onChange={(ev) => setPercentage(ev.target.value)}
+                        className={cn(
+                          'h-10 pr-9 tabular-nums',
+                          lineAllocationWarning != null &&
+                            isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                            lineAllocationWarning.exceedsLineBudget &&
+                            'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
+                        )}
+                        aria-invalid={
+                          lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning)
+                        }
+                        aria-describedby={
+                          lineAllocationWarning
+                            ? 'pb-line-allocation-alert'
+                            : 'pb-pct-hint'
+                        }
+                      />
+                      <span
+                        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-muted-foreground"
+                        aria-hidden
+                      >
+                        %
+                      </span>
+                    </div>
+                    <p id="pb-pct-hint" className="text-xs text-muted-foreground">
+                      {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE'
+                        ? 'Enveloppe projet = part du budget parent (arrondi supérieur). Le budget validé de la ligne n’est pas modifié ; l’éventuel écart est imputé en dépassement.'
+                        : 'Part du projet sur cette ligne budgétaire (montant arrondi à l’entier supérieur).'}
+                      {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE' &&
+                      budgetTotalInitialAmount != null ? (
+                        <>
+                          {' '}
+                          Budget total :{' '}
+                          <span className="font-medium tabular-nums text-foreground">
+                            {formatCurrencyEur(budgetTotalInitialAmount)}
+                          </span>
+                        </>
+                      ) : null}
+                      {allocationLineRef ? (
+                        <>
+                          {effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE' ? (
+                            <>
+                              {' '}
+                              Budget ligne (validé) :{' '}
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCurrencyEur(allocationLineRef.initialAmount)}
+                              </span>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Enveloppe projet :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                  {draftPercentageAmount >
+                                  allocationLineRef.initialAmount ? (
+                                    <>
+                                      {' · '}
+                                      Dépassement imputé :{' '}
+                                      <span className="font-medium tabular-nums text-[color:var(--state-danger)]">
+                                        {formatCurrencyEur(
+                                          draftPercentageAmount -
+                                            allocationLineRef.initialAmount,
+                                        )}
+                                      </span>
+                                    </>
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </>
+                          ) : effectiveCreateAllocationMode === 'PERCENTAGE' ? (
+                            <>
+                              {' '}
+                              Budget ligne :{' '}
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCurrencyEur(allocationLineRef.initialAmount)}
+                              </span>
+                              {draftPercentageAmount != null ? (
+                                <>
+                                  {' · '}
+                                  Montant imputé :{' '}
+                                  <span className="font-medium tabular-nums text-foreground">
+                                    {formatCurrencyEur(draftPercentageAmount)}
+                                  </span>
+                                </>
+                              ) : null}
+                              {' · '}
+                              Disponible ligne :{' '}
+                              <span className="font-medium tabular-nums text-foreground">
+                                {formatCurrencyEur(
+                                  Math.max(0, allocationLineRef.remainingAmount),
+                                )}
+                              </span>
+                            </>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+                ) : effectiveCreateAllocationMode === 'FIXED' ? (
+                  <div className="max-w-xs space-y-2">
+                    <Label htmlFor="pb-amt">Montant ({selectedBudget?.currency ?? 'EUR'})</Label>
+                    <Input
+                      id="pb-amt"
+                      inputMode="decimal"
+                      placeholder="ex. 12000"
+                      value={amount}
+                      onChange={(ev) => setAmount(ev.target.value)}
+                      className={cn(
+                        'h-10 tabular-nums',
+                        lineAllocationWarning != null &&
+                          isBlockingLineAllocationWarning(lineAllocationWarning) &&
+                          lineAllocationWarning.exceedsLineBudget &&
+                          'border-[color:var(--state-danger)] ring-1 ring-[color:color-mix(in_srgb,var(--state-danger)_35%,transparent)]',
+                      )}
+                      aria-invalid={
+                        lineAllocationWarning != null &&
+                        isBlockingLineAllocationWarning(lineAllocationWarning)
+                      }
+                      aria-describedby={
+                        lineAllocationWarning ? 'pb-line-allocation-alert' : undefined
+                      }
+                    />
+                    {selectedBudgetLine ? (
+                      <p className="text-xs text-muted-foreground">
+                        Budget ligne :{' '}
+                        <span className="font-medium tabular-nums text-foreground">
+                          {formatCurrencyEur(selectedBudgetLine.initialAmount)}
+                        </span>
+                        {' · '}
+                        Disponible :{' '}
+                        <span className="font-medium tabular-nums text-foreground">
+                          {formatCurrencyEur(Math.max(0, selectedBudgetLine.remainingAmount))}
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Le projet prendra 100 % de la ligne sélectionnée. Aucun montant ni pourcentage
+                    à saisir.
+                  </p>
+                )}
+                {lineAllocationWarning ? (
+                  <ProjectBudgetLineAllocationAlert
+                    id="pb-line-allocation-alert"
+                    warning={lineAllocationWarning}
+                    currency={selectedBudget?.currency ?? 'EUR'}
                   />
-                </div>
+                ) : null}
+                {isAllocationRemainderMode(effectiveCreateAllocationMode) ? (
+                  <ProjectBudgetAllocationRemainder
+                    mode={effectiveCreateAllocationMode}
+                    remainder={allocationRemainder}
+                    forecastCost={sheetForecastCost}
+                    currency={selectedBudget?.currency ?? 'EUR'}
+                  />
+                ) : null}
               </div>
 
               {canCreateBudgetLine &&
@@ -717,7 +1006,12 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                       <div>
                         <p className="text-sm font-medium">Nouvelle ligne dans cette enveloppe</p>
                         <p className="text-xs text-muted-foreground">
-                          Indiquez le montant fixe au-dessus. Création rapide
+                          {effectiveCreateAllocationMode === 'PERCENTAGE'
+                            ? 'Indiquez le pourcentage de la ligne au-dessus. Création rapide'
+                            : effectiveCreateAllocationMode === 'BUDGET_PERCENTAGE'
+                              ? 'Indiquez le pourcentage du budget au-dessus. Création rapide'
+                              : 'Indiquez le montant fixe au-dessus. Création rapide'}
+                          {' '}
                           sans quitter la fiche projet (permission budgets.create).
                         </p>
                       </div>
@@ -855,10 +1149,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                   </div>
                 )}
 
-              <Button
+              <button
                 type="submit"
-                variant="secondary"
-                className="w-full sm:w-auto"
+                className="starium-btn starium-btn-primary w-full sm:w-auto"
                 disabled={
                   createMut.isPending ||
                   !budgetLineId ||
@@ -866,7 +1159,9 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
                 }
               >
                 {createMut.isPending ? 'Enregistrement…' : 'Ajouter le lien'}
-              </Button>
+              </button>
+                </>
+              )}
             </form>
               ) : null}
             </div>
@@ -876,12 +1171,29 @@ export function ProjectBudgetSection({ projectId }: { projectId: string }) {
         <ProjectBudgetLinkEditDialog
           projectId={projectId}
           link={editingLink}
+          budgetLinks={budgetLinks}
+          forecastCost={sheetForecastCost}
           open={editingLinkId !== null && editingLink !== null}
           onOpenChange={(o) => {
             if (!o) setEditingLinkId(null);
           }}
         />
-      </CardContent>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="starium-proj-budget-section">{body}</div>;
+  }
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>Budget</CardTitle>
+        <p className="text-sm font-normal text-muted-foreground">
+          Liez le projet à une ou plusieurs lignes budgétaires.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">{body}</CardContent>
     </Card>
   );
 }

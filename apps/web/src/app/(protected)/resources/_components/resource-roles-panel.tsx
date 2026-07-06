@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { DataTable, type DataTableColumn } from '@/components/data-table/data-table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -14,6 +16,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { createResourceRole, listResourceRoles } from '@/services/resources';
 import { AlertCircle } from 'lucide-react';
+
+type ResourceRoleRow = { id: string; name: string; code: string | null };
 
 export type ResourceRolesPanelProps = {
   /** Si false, pas de requête (ex. modale fermée). */
@@ -37,6 +41,19 @@ export function ResourceRolesPanel({ queryEnabled = true }: ResourceRolesPanelPr
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
 
+  const columns = useMemo<DataTableColumn<ResourceRoleRow>[]>(
+    () => [
+      { key: 'name', header: 'Nom', mobilePriority: 'primary' },
+      {
+        key: 'code',
+        header: 'Code',
+        mobilePriority: 'secondary',
+        cell: (row) => row.code ?? '—',
+      },
+    ],
+    [],
+  );
+
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
@@ -50,7 +67,7 @@ export function ResourceRolesPanel({ queryEnabled = true }: ResourceRolesPanelPr
     }
   }
 
-  const items = data?.items ?? [];
+  const items: ResourceRoleRow[] = data?.items ?? [];
 
   return (
     <>
@@ -64,8 +81,8 @@ export function ResourceRolesPanel({ queryEnabled = true }: ResourceRolesPanelPr
       )}
 
       <PermissionGate permission="resources.create">
-        <form onSubmit={onCreate} className="mb-6 flex max-w-lg flex-wrap items-end gap-2">
-          <div className="min-w-[200px] flex-1 space-y-2">
+        <form onSubmit={onCreate} className="mb-6 flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1 space-y-2 sm:min-w-[12rem]">
             <Label htmlFor="newName">Nouveau rôle</Label>
             <Input
               id="newName"
@@ -74,7 +91,7 @@ export function ResourceRolesPanel({ queryEnabled = true }: ResourceRolesPanelPr
               placeholder="Intitulé"
             />
           </div>
-          <Button type="submit" disabled={creating || !name.trim()}>
+          <Button type="submit" disabled={creating || !name.trim()} className="min-h-11">
             {creating ? 'Création…' : 'Ajouter'}
           </Button>
         </form>
@@ -84,24 +101,12 @@ export function ResourceRolesPanel({ queryEnabled = true }: ResourceRolesPanelPr
         <EmptyState title="Aucun rôle métier" description="Ajoutez un intitulé ci-dessus." />
       )}
       {enabled && !isLoading && !error && items.length > 0 && (
-        <div className="overflow-x-auto rounded-md border border-white/10">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-left">
-                <th className="p-3 font-medium">Nom</th>
-                <th className="p-3 font-medium">Code</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => (
-                <tr key={r.id} className="border-b border-white/5">
-                  <td className="p-3">{r.name}</td>
-                  <td className="p-3">{r.code ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={columns}
+          data={items}
+          getRowId={(row) => row.id}
+          mobileCardsAriaLabel="Rôles métier des ressources"
+        />
       )}
     </>
   );

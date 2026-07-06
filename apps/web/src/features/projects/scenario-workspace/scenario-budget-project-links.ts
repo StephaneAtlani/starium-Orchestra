@@ -8,6 +8,9 @@ export function formatAllocationRule(
 ): string {
   if (allocationType === 'FULL') return 'Projet : 100 % de la ligne';
   if (allocationType === 'PERCENTAGE') return `Projet : ${percentage ?? '—'} % de la ligne`;
+  if (allocationType === 'BUDGET_PERCENTAGE') {
+    return `Projet : ${percentage ?? '—'} % du budget`;
+  }
   if (allocationType === 'FIXED') return `Projet : montant fixe ${amount ?? '—'}`;
   return allocationType;
 }

@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Draft — la vue **Macro** lecture seule (`/projects/:projectId/planning?sub=macro`, défaut) et le **Gantt détaillé** interactif (`?sub=gantt`, zoom temps + échelle Jour/Semaine/Mois) sont **implémentés** sous [RFC-PROJ-012 — Gantt Tâches et Jalons](RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md). Ce document reste la spec component-first cible pour évolutions (virtualisation, pan frise unifié, etc.).
 
 ## Priorité
 

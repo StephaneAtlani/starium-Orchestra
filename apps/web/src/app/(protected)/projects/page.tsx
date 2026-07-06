@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -42,6 +43,14 @@ import {
 } from 'lucide-react';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { useUpdateProjectStatus } from '@/features/projects/hooks/use-update-project-status';
+import {
+  persistProjectsTableColumnDensity,
+  readProjectsTableColumnDensity,
+  type ProjectsTableColumnDensity,
+} from '@/features/projects/lib/projects-table-column-density';
+import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { listAssignableUsers } from '@/features/projects/api/projects.api';
+import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 
 const PROJECTS_VIEW_MODE_STORAGE_KEY = 'starium.projects.viewMode';
 
@@ -60,11 +69,28 @@ export default function ProjectsPortfolioPage() {
   const canUpdateProjects = hasIntent('projects', 'write', { serviceEnforced: true });
   const listEnabled = !!clientId && permsSuccess && canReadProjects;
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [columnDensity, setColumnDensity] = useState<ProjectsTableColumnDensity>('basic');
 
   const { filters, setFilters, reset, apiParams } = useProjectsListFilters();
   const { data, isLoading, error, refetch, isRefetching } = useProjectsListQuery(apiParams, {
     enabled: listEnabled,
   });
+  const authFetch = useAuthenticatedFetch();
+  const assignableUsersQuery = useQuery({
+    queryKey: projectQueryKeys.assignableUsers(clientId),
+    queryFn: () => listAssignableUsers(authFetch),
+    enabled: listEnabled,
+  });
+  const ownerOptions = useMemo(
+    () =>
+      (assignableUsersQuery.data?.users ?? [])
+        .map((user) => {
+          const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+          return { id: user.id, label: name || user.email };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr-FR')),
+    [assignableUsersQuery.data?.users],
+  );
   const updateStatusMutation = useUpdateProjectStatus(apiParams);
   const { data: summary, isLoading: summaryLoading } = usePortfolioSummaryQuery({
     enabled: listEnabled,
@@ -79,6 +105,10 @@ export default function ProjectsPortfolioPage() {
   const offset = data ? (data.page - 1) * data.limit : 0;
 
   useEffect(() => {
+    setColumnDensity(readProjectsTableColumnDensity());
+  }, []);
+
+  useEffect(() => {
     try {
       const stored = window.localStorage.getItem(PROJECTS_VIEW_MODE_STORAGE_KEY);
       if (stored === 'table' || stored === 'kanban') {
@@ -88,6 +118,11 @@ export default function ProjectsPortfolioPage() {
       // ignore localStorage failures
     }
   }, []);
+
+  const handleColumnDensityChange = (nextDensity: ProjectsTableColumnDensity) => {
+    setColumnDensity(nextDensity);
+    persistProjectsTableColumnDensity(nextDensity);
+  };
 
   const handleViewModeChange = (nextMode: 'table' | 'kanban') => {
     setViewMode(nextMode);
@@ -102,30 +137,51 @@ export default function ProjectsPortfolioPage() {
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
+          eyebrow="Pilotage › Projets"
           title="Projets"
-          description="Cockpit portefeuille — pilotage et signaux pour le client actif."
+          description="Portefeuille · pilotage et signaux client"
           actions={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full items-stretch gap-2 sm:w-auto sm:items-center">
               {permsSuccess && canReadProjects && (
                 <>
                   <Link
                     href={projectsCommitteeCodir()}
+                    aria-label="Présentation CODIR"
                     className={cn(
-                      buttonVariants({ variant: 'default', size: 'sm' }),
-                      'gap-1.5',
+                      buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+                      'shrink-0 sm:hidden',
                     )}
                   >
-                    <Presentation className="size-4" />
+                    <Presentation aria-hidden />
+                  </Link>
+                  <Link
+                    href={projectsCommitteeCodir()}
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'hidden gap-1.5 sm:inline-flex',
+                    )}
+                  >
+                    <Presentation className="size-4" aria-hidden />
                     Présentation CODIR
+                  </Link>
+                  <Link
+                    href={projectsPortfolioGantt()}
+                    aria-label="Gantt portefeuille"
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+                      'shrink-0 sm:hidden',
+                    )}
+                  >
+                    <CalendarRange aria-hidden />
                   </Link>
                   <Link
                     href={projectsPortfolioGantt()}
                     className={cn(
                       buttonVariants({ variant: 'outline', size: 'sm' }),
-                      'gap-1.5 border-primary/45 text-primary hover:border-primary/70 hover:bg-primary/10 hover:text-primary',
+                      'hidden gap-1.5 sm:inline-flex',
                     )}
                   >
-                    <CalendarRange className="size-4" />
+                    <CalendarRange className="size-4" aria-hidden />
                     Gantt portefeuille
                   </Link>
                 </>
@@ -133,10 +189,14 @@ export default function ProjectsPortfolioPage() {
               <PermissionGate permission="projects.create">
                 <Link
                   href={projectNew()}
-                  className={cn(buttonVariants({ variant: 'default', size: 'sm' }))}
+                  className={cn(
+                    buttonVariants({ variant: 'default', size: 'sm' }),
+                    'min-h-11 flex-1 gap-1.5 px-3 sm:min-h-0 sm:flex-initial',
+                  )}
                 >
-                  <Plus className="size-4" />
-                  Nouveau projet
+                  <Plus className="size-4" aria-hidden />
+                  <span className="sm:hidden">Nouveau</span>
+                  <span className="hidden sm:inline">Nouveau projet</span>
                 </Link>
               </PermissionGate>
             </div>
@@ -246,31 +306,46 @@ export default function ProjectsPortfolioPage() {
             )}
 
             {!error && (
-              <Card size="sm" className="max-h-[min(75vh,800px)] overflow-hidden shadow-sm">
-                <ProjectsToolbar
-                  filters={filters}
-                  setFilters={setFilters}
-                  onReset={reset}
-                  viewMode={viewMode}
-                  onViewModeChange={handleViewModeChange}
-                  embedded
-                />
+              <>
+                <div className="starium-projects-toolbar-shell hidden w-full min-w-0 overflow-hidden md:block">
+                  <ProjectsToolbar
+                    filters={filters}
+                    setFilters={setFilters}
+                    onReset={reset}
+                    viewMode={viewMode}
+                    onViewModeChange={handleViewModeChange}
+                    columnDensity={columnDensity}
+                    onColumnDensityChange={handleColumnDensityChange}
+                    portfolioItems={data?.items ?? []}
+                    ownerOptions={ownerOptions}
+                    embedded
+                  />
+                </div>
+
+                <Card
+                  size="sm"
+                  className="starium-panel max-md:max-h-none max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden md:max-h-[min(75vh,800px)]"
+                >
                 {data ? (
                   <>
                     <CardContent
                       className={cn(
                         'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
                         viewMode === 'table' &&
-                          (tablePan.isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'),
+                          (tablePan.isPanning
+                            ? 'cursor-grabbing select-none touch-none'
+                            : 'cursor-grab'),
                       )}
                       ref={viewMode === 'table' ? tablePan.scrollRef : undefined}
-                      onMouseDown={viewMode === 'table' ? tablePan.onMouseDown : undefined}
+                      onPointerDown={viewMode === 'table' ? tablePan.onPointerDown : undefined}
                     >
                       {viewMode === 'table' ? (
                         <ProjectsListTable
                           items={data.items}
                           filters={filters}
                           setFilters={setFilters}
+                          onReset={reset}
+                          columnDensity={columnDensity}
                         />
                       ) : (
                         <ProjectsListKanban
@@ -286,29 +361,40 @@ export default function ProjectsPortfolioPage() {
                         />
                       )}
                     </CardContent>
-                    <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
+                    <CardFooter className="starium-table-footer p-0">
+                      <PaginationSummary
+                        offset={offset}
+                        limit={data.limit}
+                        total={data.total}
+                        className="text-xs text-muted-foreground"
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
                           disabled={currentPage <= 1}
                           onClick={() => setFilters({ page: currentPage - 1 })}
                           data-testid="projects-pagination-prev"
                         >
-                          <ChevronLeft className="size-4" />
+                          <ChevronLeft className="size-3.5" aria-hidden />
                           Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        </button>
+                        <span className="starium-filter-chip starium-filter-chip--active px-2.5 py-1 text-[11.5px]">
+                          {currentPage}
+                        </span>
+                        {totalPages > 1 ? (
+                          <span className="px-1 text-xs text-muted-foreground">/ {totalPages}</span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
                           disabled={currentPage >= totalPages}
                           onClick={() => setFilters({ page: currentPage + 1 })}
                           data-testid="projects-pagination-next"
                         >
                           Suivant
-                          <ChevronRight className="size-4" />
-                        </Button>
+                          <ChevronRight className="size-3.5" aria-hidden />
+                        </button>
                       </div>
                     </CardFooter>
                   </>
@@ -317,7 +403,8 @@ export default function ProjectsPortfolioPage() {
                     <LoadingState rows={4} />
                   </CardContent>
                 ) : null}
-              </Card>
+                </Card>
+              </>
             )}
           </>
         )}

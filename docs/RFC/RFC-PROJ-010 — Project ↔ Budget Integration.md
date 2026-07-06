@@ -16,12 +16,13 @@
 | **Module NestJS** | `apps/api/src/modules/project-budget/` — `ProjectBudgetLinksService`, contrôleurs `projects/:projectId/budget-links` et `project-budget-links/:id` |
 | **Isolation** | Toutes les requêtes filtrent par `clientId` du client actif ; projet / ligne / lien résolus avec `findFirst` + scope |
 | **Transactions** | `POST` et `DELETE` dans `prisma.$transaction` (lecture des liens → validation d’invariant → écriture) |
-| **Invariants** | Un seul mode d’allocation par projet (FULL / PERCENTAGE / FIXED) ; 0 lien valide ; PERCENTAGE somme 100 % (± epsilon) ; FULL max 1 lien ; FIXED montants > 0 ; suppression refusée (`409`) si le résidu violerait l’invariant |
+| **Invariants** | Un seul mode d’allocation par projet (FULL / PERCENTAGE / **BUDGET_PERCENTAGE** / FIXED) ; 0 lien valide ; PERCENTAGE somme 100 % (± epsilon) ; FULL max 1 lien ; FIXED montants > 0 ; **BUDGET_PERCENTAGE** : `percentage` requis, pas de `amount` ; suppression refusée (`409`) si le résidu violerait l’invariant |
 | **Verrous création** | `BudgetLine` = `ACTIVE` ; `Budget` non `LOCKED` / `ARCHIVED` ; `BudgetExercise` non `CLOSED` / `ARCHIVED` (les statuts exacts sont ceux du schéma Prisma — pas de `CLOSED` sur `Budget`, utiliser `LOCKED`) |
-| **GET liste** | Pagination : `limit` (déf. 20, max 100), `offset` — réponse `{ items, total, limit, offset }` |
+| **GET liste** | Pagination : `limit` (déf. 20, max 100), `offset` — réponse `{ items, total, limit, offset }` ; chaque item inclut la ligne (`code`, `name`, `initialAmount`, …) et **`budgetTotalInitialAmount`** (total initial du budget parent — utile au mode **BUDGET_PERCENTAGE**) |
+| **PATCH lien** | `PATCH /api/project-budget-links/:id` — ligne, mode (si un seul lien), `percentage` / `amount` ; audit `project.budget_link.updated` |
 | **Financial core** | Aucun `FinancialEvent` créé ici ; convention future : `sourceType = PROJECT`, `sourceId = projectId` (RFC-PROJ-011) |
-| **Audit** | `project.budget_link.created` / `project.budget_link.deleted`, `resourceType` `project_budget_link`, payload avec `projectId`, `budgetLineId`, `allocationType`, `percentage`, `amount` |
-| **Frontend** | `apps/web/src/features/projects/` — API `project-budget.api.ts`, hooks, `ProjectBudgetSection` sur le détail projet |
+| **Audit** | `project.budget_link.created` / `project.budget_link.updated` / `project.budget_link.deleted`, `resourceType` `project_budget_link`, payload avec `projectId`, `budgetLineId`, `allocationType`, `percentage`, `amount` |
+| **Frontend** | `apps/web/src/features/projects/` — API `project-budget.api.ts`, hooks, **`ProjectBudgetSection`**, page **`/projects/:id/budget`** (`ProjectBudgetPageContent`, `ProjectBudgetSynthesis`, `ProjectBudgetKpiStrip`) ; tableaux denses via **`StariumTableWrap`** (grab/pan souris/doigt) |
 
 ---
 
@@ -161,11 +162,14 @@ model ProjectBudgetLink {
 
 ```prisma
 enum ProjectBudgetAllocationType {
-  FULL        // 100% sur une ligne
-  PERCENTAGE  // répartition %
-  FIXED       // montant fixe
+  FULL               // 100 % sur une ligne
+  PERCENTAGE         // % du montant initial de la ligne
+  BUDGET_PERCENTAGE  // % du total initial du budget parent (enveloppe projet ; dépassement imputé si > budget ligne)
+  FIXED              // montant fixe
 }
 ```
+
+Migration : `20260627120000_project_budget_allocation_budget_percentage`.
 
 ---
 
@@ -216,11 +220,25 @@ Projet → ligne → montant fixe
 
 ---
 
+### BUDGET_PERCENTAGE
+
+```
+Projet → ligne de rattachement → % du total initial du budget parent
+```
+
+* L’**enveloppe projet** = `% × total initial budget` (arrondi à l’entier supérieur côté UI).
+* Le **budget validé de la ligne** (`BudgetLine.initialAmount`) dans le module Budget **n’est pas modifié**.
+* Si l’enveloppe dépasse le budget ligne, l’**écart est imputé en dépassement** (affichage CODIR : colonne dédiée, alerte informative — pas une erreur bloquante).
+* Un seul mode par projet : incompatible avec mélange FULL / PERCENTAGE / FIXED sur le même projet.
+
+---
+
 ## 5.4 Validation
 
 | Règle            | Description               |
 | ---------------- | ------------------------- |
 | % total = 100    | obligatoire si PERCENTAGE |
+| % budget > 0     | obligatoire si BUDGET_PERCENTAGE (pas de `amount`) |
 | amount > 0       | si FIXED                  |
 | cohérence client | obligatoire               |
 | ligne ACTIVE     | obligatoire               |
@@ -319,6 +337,16 @@ DELETE /api/project-budget-links/:id
 
 ---
 
+### Modifier un lien
+
+```
+PATCH /api/project-budget-links/:id
+```
+
+Body partiel : `budgetLineId`, `allocationType` (si un seul lien sur le projet), `percentage`, `amount`. Réponse : lien sérialisé (même forme que la liste).
+
+---
+
 ## 7.2 Guards
 
 Standard :
@@ -341,7 +369,7 @@ projects.update
 budgets.read
 ```
 
-**Implémentation** : le `PermissionsGuard` n’autorise qu’**un seul préfixe de module** par route. Les endpoints utilisent **`projects.read`** (GET) et **`projects.update`** (POST, DELETE), comme les autres sous-ressources projet. La consultation des lignes budgétaires pour choisir une ligne reste couverte par les routes budget (`budgets.read`) côté module Budget.
+**Implémentation** : le `PermissionsGuard` n’autorise qu’**un seul préfixe de module** par route. Les endpoints utilisent **`projects.read`** (GET) et **`projects.update`** (POST, PATCH, DELETE), comme les autres sous-ressources projet. La consultation des lignes budgétaires pour choisir une ligne reste couverte par les routes budget (`budgets.read`) côté module Budget.
 
 ---
 
@@ -361,7 +389,13 @@ Ajouter :
 * sélection BudgetLine
 * répartition (% ou montant)
 
-**État actuel (MVP)** : section **Budget** sur la page détail projet (liste des liens + formulaire d’ajout : budget → ligne ACTIVE → mode FULL / PERCENTAGE / FIXED). Pas d’onglet navigation dédié séparé.
+**État actuel (MVP+)** :
+
+* Route **`/projects/:projectId/budget`** — onglet **Budget** (`ProjectWorkspaceTabs`).
+* **Liaisons** : liste + création / édition / suppression (`ProjectBudgetSection`, `ProjectBudgetLinkEditDialog`) ; modes **FULL**, **PERCENTAGE**, **BUDGET_PERCENTAGE**, **FIXED** ; choix du mode dès le **premier lien**.
+* **Synthèse CODIR** : `ProjectBudgetSynthesis` — bandeau KPI (`ProjectBudgetKpiStrip`), tableau par ligne avec colonnes **Mode**, **Budget ligne** (validé), **Enveloppe projet**, **Dépassement** (rouge si écart), engagé / réalisé / reste / consommation ; helpers `project-budget-display.ts`, contrôle dépassement `project-budget-line-allocation-check.ts`.
+* **Scroll tableaux** : wrapper **`StariumTableWrap`** (`apps/web/src/components/ui/starium-table-wrap.tsx`) — grab/pan souris et doigt, voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §8.
+* Aperçu budget également sur la **synthèse projet** (variante `overview`).
 
 ---
 
@@ -390,6 +424,7 @@ Chaque action génère :
 
 ```
 project.budget_link.created
+project.budget_link.updated
 project.budget_link.deleted
 ```
 

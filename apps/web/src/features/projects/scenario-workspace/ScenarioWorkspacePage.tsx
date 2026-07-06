@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -17,7 +17,7 @@ import { useProjectScenariosMutations } from '../hooks/use-project-scenarios-mut
 import { isProjectScenarioEditingAllowed } from '../lib/project-scenario-editing-allowed';
 import { buildScenarioMetaLabel } from '../scenarios/ScenarioCard';
 import type { ProjectScenarioApi } from '../types/project.types';
-import { ProjectWorkspaceTabs } from '../components/project-workspace-tabs';
+import { ProjectWorkspaceShell } from '../components/project-workspace-shell';
 import { ScenarioWorkspaceTabs } from './ScenarioWorkspaceTabs';
 
 const STATUS_LABEL: Record<ProjectScenarioApi['status'], string> = {
@@ -206,7 +206,7 @@ export function ScenarioWorkspacePage({
   }
 
   return (
-    <>
+    <ProjectWorkspaceShell projectId={projectId}>
       <header className="flex flex-col gap-5">
         <div className="space-y-3">
           <Link
@@ -237,11 +237,8 @@ export function ScenarioWorkspacePage({
       </header>
 
       <Card size="sm" className="min-w-0 overflow-hidden py-0 shadow-sm">
-        <CardHeader className="space-y-0 border-b border-border/60 bg-muted/35 px-3 py-3.5 sm:px-5">
-          <ProjectWorkspaceTabs projectId={projectId} projectStatus={project.status} />
-        </CardHeader>
         <CardContent className="flex flex-col gap-5 p-4 sm:p-6">{workspaceTabs}</CardContent>
       </Card>
-    </>
+    </ProjectWorkspaceShell>
   );
 }

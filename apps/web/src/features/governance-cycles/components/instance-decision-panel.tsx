@@ -127,7 +127,7 @@ export function InstanceDecisionPanel({
 
   const serverAgendaIds = useMemo(
     () => instance.agenda.map((a) => a.itemId),
-    [agendaSignature],
+    [instance.agenda],
   );
 
   const cycleItemsSignature = useMemo(
@@ -263,10 +263,12 @@ export function InstanceDecisionPanel({
     cycleItemsSignature,
     decisionsSignature,
     agendaSignature,
+    instance.agenda,
+    instance.decisions,
     instance.id,
     instance.updatedAt,
     canEditAgenda,
-    replaceAgenda.isPending,
+    replaceAgenda,
     cycleItems,
     cycleItemsReady,
   ]);

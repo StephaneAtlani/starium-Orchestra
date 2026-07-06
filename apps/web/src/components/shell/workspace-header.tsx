@@ -1,18 +1,18 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
+import { WorkspaceBreadcrumb } from './workspace-breadcrumb';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { useActiveClient } from '../../hooks/use-active-client';
-import { useActiveClientEmailDisplay } from '../../hooks/use-active-client-email-display';
-import { ClientSwitcher } from '../ClientSwitcher';
-import { Button } from '../ui/button';
-import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { ChevronDown, Menu, Search, UserCircle, X } from 'lucide-react';
+import { useMeClientsQuery } from '@/features/account/hooks/use-me-email-queries';
+import { Search } from 'lucide-react';
 import { useSidebarNav } from './sidebar-nav-context';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
 import { GlobalSearchDialog } from '@/features/global-search/global-search-dialog';
+import { MobileWorkspaceHeaderBar } from './mobile-workspace-header-bar';
+import { AccountMenuDropdown } from './account-menu-dropdown';
+import { Button } from '../ui/button';
 
 interface WorkspaceHeaderProps {
   contentClassName?: string;
@@ -23,11 +23,14 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   const router = useRouter();
   const { user, accessToken, logout } = useAuth();
   const { activeClient, setActiveClient } = useActiveClient();
-  const { identity: defaultEmail, clientsLoaded: emailClientsLoaded } =
-    useActiveClientEmailDisplay();
-  const accountMenuRef = useRef<HTMLDetailsElement>(null);
+  const { data: meClients } = useMeClientsQuery();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchShortcutLabel, setSearchShortcutLabel] = useState('⌘K');
+
+  const activeClientCount =
+    meClients?.filter((client) => client.status === 'ACTIVE').length ?? 0;
+  const multiClient = activeClientCount > 1;
 
   useEffect(() => {
     if (!accessToken || !user?.hasAvatar) {
@@ -60,34 +63,6 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   }, [accessToken, user?.hasAvatar, user]);
 
   useEffect(() => {
-    const el = accountMenuRef.current;
-    if (!el) return;
-
-    const closeIfOpen = () => {
-      if (el.open) el.open = false;
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (!el.open) return;
-      const target = e.target as Node | null;
-      if (target && el.contains(target)) return;
-      closeIfOpen();
-    };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || !el.open) return;
-      closeIfOpen();
-    };
-
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, []);
-
-  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -97,6 +72,13 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [accessToken, activeClient]);
+
+  useEffect(() => {
+    const isApple =
+      typeof navigator !== 'undefined' &&
+      /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
+    setSearchShortcutLabel(isApple ? '⌘K' : 'Ctrl+K');
+  }, []);
 
   async function handleLogout() {
     await logout();
@@ -120,143 +102,73 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
         : '';
 
   return (
-    <header className="starium-header sticky top-0 z-10 shrink-0 border-b border-border">
+    <header className="starium-header sticky top-0 z-10 shrink-0">
       <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
-      <div
-        className={`flex min-h-14 flex-col gap-2 py-2 sm:h-14 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-0 ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 md:hidden starium-text hover:starium-bg-muted"
-            aria-label={mobileOpen ? 'Fermer le menu de navigation' : 'Ouvrir le menu de navigation'}
-            aria-expanded={mobileOpen}
-            aria-controls="starium-app-sidebar"
-            onClick={toggleMobile}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-          <nav
-            aria-label="Fil d’Ariane"
-            className="flex min-w-0 flex-1 items-center gap-1 text-xs starium-text sm:gap-2 sm:text-sm"
-          >
-            <a href="/dashboard" className="shrink-0 starium-text hover:underline">
-              Home
-            </a>
-            <span className="shrink-0 starium-text-muted">/</span>
-            {activeClient ? (
-              <>
-                <span className="min-w-0 truncate starium-text" title={activeClient.name}>
-                  {activeClient.name}
-                </span>
-                {emailClientsLoaded ? (
-                  defaultEmail ? (
-                    <span
-                      className="hidden max-w-[min(18rem,40vw)] truncate text-xs text-muted-foreground lg:inline"
-                      title={
-                        defaultEmail.displayName
-                          ? `${defaultEmail.email} (${defaultEmail.displayName})`
-                          : defaultEmail.email
-                      }
-                    >
-                      ·{' '}
-                      {defaultEmail.displayName?.trim()
-                        ? `${defaultEmail.email} (${defaultEmail.displayName})`
-                        : defaultEmail.email}
-                      {!defaultEmail.isVerified ? (
-                        <span className="font-medium text-accent-foreground/90">
-                          {' '}
-                          (non vérifié)
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <span className="hidden text-xs text-muted-foreground lg:inline">
-                      · <span className="italic">e-mail client non défini</span>
-                    </span>
-                  )
-                ) : null}
-                <span className="shrink-0 starium-text-muted">/</span>
-              </>
-            ) : null}
-            <span className="shrink-0 font-medium starium-text">Dashboard</span>
-            {user?.platformRole === 'PLATFORM_ADMIN' && (
-              <RegistryBadge className="ml-1 hidden shrink-0 border border-border px-2 py-0.5 text-[0.65rem] sm:inline-flex starium-border starium-primary">
-                Admin
-              </RegistryBadge>
-            )}
-          </nav>
-        </div>
 
-        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 sm:gap-2 md:pl-2">
-          <div className="flex items-center gap-0.5">
+      <MobileWorkspaceHeaderBar
+        mobileOpen={mobileOpen}
+        onToggleMenu={toggleMobile}
+        accessToken={accessToken}
+        activeClient={activeClient}
+        multiClient={multiClient}
+        user={user}
+        avatarPreview={avatarPreview}
+        avatarInitials={avatarInitials}
+        onLogout={() => void handleLogout()}
+      />
+
+      <div
+        className={`starium-header-desktop hidden border-b border-border md:block ${contentClassName ?? 'mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8'}`}
+      >
+        <div className="starium-topbar flex items-center gap-3">
+          <WorkspaceBreadcrumb />
+
+          {accessToken && activeClient ? (
+            <button
+              type="button"
+              className="starium-topbar-search"
+              aria-label="Ouvrir la recherche globale"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search aria-hidden />
+              <span className="starium-topbar-search__placeholder">
+                Rechercher un projet, propriétaire…
+              </span>
+              <kbd>{searchShortcutLabel}</kbd>
+            </button>
+          ) : null}
+
+          <div className="starium-topbar-actions">
             {accessToken && activeClient ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="starium-text hover:starium-bg-muted"
+                className="starium-text hover:starium-bg-muted lg:hidden"
                 aria-label="Recherche globale"
                 onClick={() => setSearchOpen(true)}
               >
                 <Search className="h-4 w-4" />
               </Button>
             ) : null}
-            <NotificationBell />
-          </div>
-          {accessToken && (
-            <div className="min-w-0 max-w-[min(11rem,calc(100vw-8rem))] sm:max-w-[16rem]">
-              <ClientSwitcher accessToken={accessToken} className="w-full min-w-0" />
+            <div className="starium-topbar-icon">
+              <NotificationBell />
             </div>
-          )}
-          {user && (
-            <details ref={accountMenuRef} className="group/details relative shrink-0">
-              <summary className="list-none flex cursor-pointer items-center gap-0.5 sm:gap-1">
-                <span className="starium-avatar flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-medium">
-                  {avatarPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- URL objet blob
-                    <img
-                      src={avatarPreview}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    avatarInitials
-                  )}
-                </span>
-                <ChevronDown className="hidden h-4 w-4 starium-text sm:block" aria-hidden />
-              </summary>
-              <div className="starium-dropdown-panel absolute right-0 mt-1 min-w-[180px] rounded-lg py-1 text-sm shadow-lg pointer-events-none opacity-0 translate-y-1 scale-95 transition-all duration-150 ease-out group-open/details:pointer-events-auto group-open/details:opacity-100 group-open/details:translate-y-0 group-open/details:scale-100">
-                <Link
-                  href="/account"
-                  onClick={() => {
-                    const d = accountMenuRef.current;
-                    if (d) d.open = false;
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm starium-text hover:bg-accent"
-                >
-                  <UserCircle className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
-                  Compte
-                </Link>
-                <button
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left text-sm starium-text hover:bg-accent"
-                  onClick={() => {
-                    const d = accountMenuRef.current;
-                    if (d) d.open = false;
-                    void handleLogout();
-                  }}
-                >
-                  Déconnexion
-                </button>
-              </div>
-            </details>
-          )}
+            {user ? (
+              <AccountMenuDropdown
+                avatarPreview={avatarPreview}
+                avatarInitials={avatarInitials}
+                onLogout={() => void handleLogout()}
+                variant="topbar"
+                showChevron
+                accessToken={accessToken}
+                activeClient={activeClient}
+                multiClient={multiClient}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </header>
   );
 }
-

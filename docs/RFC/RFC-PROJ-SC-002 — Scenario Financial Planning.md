@@ -160,7 +160,7 @@ Le résumé API doit fournir :
 - `forecastTotal` = somme des `amountForecast` avec règle **`amountForecast ?? amountPlanned`** par ligne
 - `actualTotal` = somme des `amountActual` en traitant `null` comme **0**
 - **Baseline par ligne** (priorité stricte, lecture seule) :
-  1. si `projectBudgetLinkId` présent : baseline dérivée du lien — `FULL` ⇒ `initialAmount` de la ligne budgétaire liée ; `PERCENTAGE` ⇒ `initialAmount * percentage / 100` (arrondi 2 décimales) ; `FIXED` ⇒ montant `amount` du lien (arrondi 2 décimales)
+  1. si `projectBudgetLinkId` présent : baseline dérivée du lien — `FULL` ⇒ `initialAmount` de la ligne budgétaire liée ; `PERCENTAGE` ⇒ `initialAmount * percentage / 100` (arrondi 2 décimales) ; **`BUDGET_PERCENTAGE`** ⇒ `%` du total initial du budget parent (totaux chargés par `budgetId`) ; `FIXED` ⇒ montant `amount` du lien (arrondi 2 décimales)
   2. sinon si `budgetLineId` présent (ou dérivable du lien) : baseline = `initialAmount` de la `BudgetLine`
   3. sinon : pas de baseline exploitable pour cette ligne
 - `baselineTotal` = somme des baselines exploitables par ligne

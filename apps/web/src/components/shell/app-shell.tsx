@@ -5,7 +5,11 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { SidebarNavProvider } from './sidebar-nav-context';
 import { WorkspaceHeader } from './workspace-header';
+import { ChatDrawerProvider } from '@/features/chatbot/chat-drawer-context';
 import { StariumChatDrawer } from '@/features/chatbot/starium-chat-drawer';
+import { MobileBottomNav } from './mobile-bottom-nav';
+import { MobileNavMenu } from './mobile-nav-menu';
+import { WorkspaceBreadcrumbProvider } from './workspace-breadcrumb-context';
 
 /** Élément DOM pour le plein écran « sans sidebar » : colonne header + main (+ drawer). */
 export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
@@ -13,10 +17,12 @@ export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
 /** Classe ciblée par CSS `:fullscreen` pour étaler le contenu sur toute la largeur (ex. Gantt portefeuille). */
 const WORKSPACE_INNER = 'starium-workspace-inner';
 
-/** Contenu centré, même largeur pour header et main (alignement vertical). */
-const CONTENT_WRAPPER_NARROW = `mx-auto w-full max-w-7xl px-8 sm:px-10 lg:px-12 ${WORKSPACE_INNER}`;
-/** Présentation comité : toute la largeur utile à droite de la sidebar (pas de cap max-w-7xl). */
-const CONTENT_WRAPPER_WIDE = `w-full min-w-0 max-w-none px-8 sm:px-10 lg:px-12 ${WORKSPACE_INNER}`;
+/** Pleine largeur utile — léger gutter horizontal (ne colle pas aux bords). */
+const CONTENT_WRAPPER_GUTTER = `w-full min-w-0 px-4 sm:px-5 ${WORKSPACE_INNER}`;
+/** Contenu standard (dashboard, modules) : même gutter que le header. */
+const CONTENT_WRAPPER_NARROW = CONTENT_WRAPPER_GUTTER;
+/** Présentation comité : pleine largeur, même gutter. */
+const CONTENT_WRAPPER_WIDE = CONTENT_WRAPPER_GUTTER;
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -28,21 +34,27 @@ export function AppShell({ children }: AppShellProps) {
   const contentWrapper = wideMain ? CONTENT_WRAPPER_WIDE : CONTENT_WRAPPER_NARROW;
 
   return (
-    <SidebarNavProvider>
-      <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
-        <Sidebar />
-        <div
-          id={STARIUM_APP_WORKSPACE_DOM_ID}
-          className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-        >
-          <WorkspaceHeader contentClassName={contentWrapper} />
-          <main className="starium-main min-h-0 flex-1 overflow-auto">
-            <div className={`${contentWrapper} py-6 sm:py-8`}>{children}</div>
-          </main>
-          <StariumChatDrawer />
+    <ChatDrawerProvider>
+      <SidebarNavProvider>
+        <WorkspaceBreadcrumbProvider>
+        <div className="starium-main flex h-[100dvh] min-h-0 w-full flex-row overflow-hidden">
+          <Sidebar />
+          <div
+            id={STARIUM_APP_WORKSPACE_DOM_ID}
+            className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--starium-background)]"
+          >
+            <WorkspaceHeader contentClassName={contentWrapper} />
+            <main className="starium-main starium-workspace-sheet min-h-0 flex-1 overflow-auto md:pb-0">
+              <div className={`${contentWrapper} min-h-full py-6 sm:py-8 max-md:pt-5 md:pt-6`}>{children}</div>
+            </main>
+            <MobileBottomNav />
+            <MobileNavMenu />
+            <StariumChatDrawer />
+          </div>
         </div>
-      </div>
-    </SidebarNavProvider>
+        </WorkspaceBreadcrumbProvider>
+      </SidebarNavProvider>
+    </ChatDrawerProvider>
   );
 }
 

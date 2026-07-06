@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +26,11 @@ export type ProjectBudgetHierarchyComboboxProps = {
   className?: string;
 };
 
+type ListPosition = { top: number; left: number; width: number };
+
 /**
  * Input filtrable + liste déroulante (sans Base UI Select) pour budget / enveloppe / ligne.
+ * Liste portée sur `document.body` pour éviter le clipping dans les modales.
  */
 export function ProjectBudgetHierarchyCombobox({
   id: propId,
@@ -49,6 +53,12 @@ export function ProjectBudgetHierarchyCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [listPosition, setListPosition] = useState<ListPosition | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const selectedLabel = useMemo(() => {
     if (value === noneId) return '';
@@ -64,18 +74,40 @@ export function ProjectBudgetHierarchyCombobox({
   const close = useCallback(() => {
     setOpen(false);
     setQuery('');
+    setListPosition(null);
+  }, []);
+
+  const updateListPosition = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setListPosition({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    updateListPosition();
     const onDoc = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        close();
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      const listEl = document.getElementById(listId);
+      if (listEl?.contains(target)) return;
+      close();
     };
+    const onReposition = () => updateListPosition();
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open, close]);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  }, [close, listId, open, updateListPosition]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -87,9 +119,53 @@ export function ProjectBudgetHierarchyCombobox({
     }
   }, [open, close]);
 
-  const showList = open && !disabled && !loading;
+  const showList = open && !disabled && !loading && listPosition != null;
 
   const inputDisplay = open ? query : selectedLabel;
+
+  const listbox =
+    mounted && showList
+      ? createPortal(
+          <ul
+            id={listId}
+            role="listbox"
+            className="fixed z-[400] max-h-60 overflow-auto rounded-lg border border-border bg-popover p-1 text-sm shadow-md ring-1 ring-foreground/10"
+            style={{
+              top: listPosition.top,
+              left: listPosition.left,
+              width: listPosition.width,
+            }}
+          >
+            {filtered.length === 0 ? (
+              <li className="px-2 py-2 text-xs text-muted-foreground">Aucun résultat</li>
+            ) : (
+              filtered.map((o) => (
+                <li key={o.id} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={value === o.id}
+                    className={cn(
+                      'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60',
+                      value === o.id && 'bg-accent/40',
+                    )}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                    }}
+                    onClick={() => {
+                      onValueChange(o.id);
+                      close();
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>,
+          document.body,
+        )
+      : null;
 
   return (
     <div ref={containerRef} className={cn('relative space-y-2', className)}>
@@ -111,13 +187,15 @@ export function ProjectBudgetHierarchyCombobox({
           className="h-9 w-full min-w-0 pr-9"
           onChange={(e) => {
             setQuery(e.target.value);
-            if (!open) setOpen(true);
+            if (!open) {
+              setOpen(true);
+              updateListPosition();
+            }
           }}
           onFocus={() => {
             if (disabled || loading) return;
             setOpen(true);
-            // Ne pas préremplir avec le libellé sélectionné : le filtre « includes »
-            // masquerait toutes les autres options. Liste complète + saisie pour filtrer.
+            updateListPosition();
             setQuery('');
           }}
         />
@@ -131,49 +209,20 @@ export function ProjectBudgetHierarchyCombobox({
             e.preventDefault();
             if (disabled || loading) return;
             const wasOpen = open;
-            setOpen((o) => !o);
-            if (wasOpen) return;
-            setQuery('');
+            if (!wasOpen) {
+              setOpen(true);
+              updateListPosition();
+              setQuery('');
+            } else {
+              close();
+            }
           }}
         >
           <ChevronDown className="size-4 opacity-70" />
         </button>
       </div>
 
-      {showList && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-[200] mt-1 max-h-60 overflow-auto rounded-lg border border-border bg-popover p-1 text-sm shadow-md ring-1 ring-foreground/10"
-        >
-          {filtered.length === 0 ? (
-            <li className="px-2 py-2 text-xs text-muted-foreground">Aucun résultat</li>
-          ) : (
-            filtered.map((o) => (
-              <li key={o.id} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={value === o.id}
-                  className={cn(
-                    'w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60',
-                    value === o.id && 'bg-accent/40',
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                  }}
-                  onClick={() => {
-                    onValueChange(o.id);
-                    close();
-                  }}
-                >
-                  {o.label}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
+      {listbox}
 
       {errorText ? (
         <p className="text-xs text-destructive">{errorText}</p>

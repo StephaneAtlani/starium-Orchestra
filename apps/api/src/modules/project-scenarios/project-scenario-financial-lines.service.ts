@@ -63,19 +63,21 @@ export type ProjectScenarioFinancialSummaryDto = {
   budgetCoverageRate: number | null;
 };
 
+const financialLineRelationsInclude = {
+  budgetLine: {
+    select: { id: true, code: true, name: true, initialAmount: true, budgetId: true },
+  },
+  projectBudgetLink: {
+    include: {
+      budgetLine: {
+        select: { id: true, code: true, name: true, initialAmount: true, budgetId: true },
+      },
+    },
+  },
+} satisfies Prisma.ProjectScenarioFinancialLineInclude;
+
 type FinancialLineRecord = Prisma.ProjectScenarioFinancialLineGetPayload<{
-  include: {
-    budgetLine: {
-      select: { id: true; code: true; name: true; initialAmount: true };
-    };
-    projectBudgetLink: {
-      include: {
-        budgetLine: {
-          select: { id: true; code: true; name: true; initialAmount: true };
-        };
-      };
-    };
-  };
+  include: typeof financialLineRelationsInclude;
 }>;
 
 @Injectable()
@@ -110,18 +112,7 @@ export class ProjectScenarioFinancialLinesService {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
-        include: {
-          budgetLine: {
-            select: { id: true, code: true, name: true, initialAmount: true },
-          },
-          projectBudgetLink: {
-            include: {
-              budgetLine: {
-                select: { id: true, code: true, name: true, initialAmount: true },
-              },
-            },
-          },
-        },
+        include: financialLineRelationsInclude,
       }),
       this.prisma.projectScenarioFinancialLine.count({ where }),
     ]);
@@ -179,18 +170,7 @@ export class ProjectScenarioFinancialLinesService {
         endDate: dto.endDate ?? null,
         notes: this.normalizeNullableText(dto.notes),
       },
-      include: {
-        budgetLine: {
-          select: { id: true, code: true, name: true, initialAmount: true },
-        },
-        projectBudgetLink: {
-          include: {
-            budgetLine: {
-              select: { id: true, code: true, name: true, initialAmount: true },
-            },
-          },
-        },
-      },
+      include: financialLineRelationsInclude,
     });
 
     await this.auditLogs.create({
@@ -283,18 +263,7 @@ export class ProjectScenarioFinancialLinesService {
         ...(dto.endDate !== undefined ? { endDate: dto.endDate ?? null } : {}),
         ...(dto.notes !== undefined ? { notes: this.normalizeNullableText(dto.notes) } : {}),
       },
-      include: {
-        budgetLine: {
-          select: { id: true, code: true, name: true, initialAmount: true },
-        },
-        projectBudgetLink: {
-          include: {
-            budgetLine: {
-              select: { id: true, code: true, name: true, initialAmount: true },
-            },
-          },
-        },
-      },
+      include: financialLineRelationsInclude,
     });
 
     await this.auditLogs.create({
@@ -349,18 +318,7 @@ export class ProjectScenarioFinancialLinesService {
     await this.getScenarioForScope(clientId, projectId, scenarioId);
     const lines = await this.prisma.projectScenarioFinancialLine.findMany({
       where: { clientId, scenarioId },
-      include: {
-        budgetLine: {
-          select: { id: true, code: true, name: true, initialAmount: true },
-        },
-        projectBudgetLink: {
-          include: {
-            budgetLine: {
-              select: { id: true, code: true, name: true, initialAmount: true },
-            },
-          },
-        },
-      },
+      include: financialLineRelationsInclude,
     });
 
     let plannedTotal = new Prisma.Decimal(0);
@@ -369,6 +327,23 @@ export class ProjectScenarioFinancialLinesService {
     let baselineTotal = new Prisma.Decimal(0);
     let hasBaseline = false;
 
+    const budgetIds = [
+      ...new Set(
+        lines
+          .map((line) => {
+            if (line.projectBudgetLink?.allocationType === ProjectBudgetAllocationType.BUDGET_PERCENTAGE) {
+              return line.projectBudgetLink.budgetLine.budgetId;
+            }
+            return null;
+          })
+          .filter((id): id is string => id != null),
+      ),
+    ];
+    const budgetTotals = await this.loadBudgetInitialTotals(
+      clientId,
+      budgetIds,
+    );
+
     for (const line of lines) {
       plannedTotal = plannedTotal.plus(line.amountPlanned);
       forecastTotal = forecastTotal.plus(
@@ -376,7 +351,7 @@ export class ProjectScenarioFinancialLinesService {
       );
       actualTotal = actualTotal.plus(line.amountActual ?? new Prisma.Decimal(0));
 
-      const baseline = this.getLineBaseline(line);
+      const baseline = this.getLineBaseline(line, budgetTotals);
       if (baseline != null) {
         hasBaseline = true;
         baselineTotal = baselineTotal.plus(baseline);
@@ -453,18 +428,7 @@ export class ProjectScenarioFinancialLinesService {
         clientId,
         scenarioId,
       },
-      include: {
-        budgetLine: {
-          select: { id: true, code: true, name: true, initialAmount: true },
-        },
-        projectBudgetLink: {
-          include: {
-            budgetLine: {
-              select: { id: true, code: true, name: true, initialAmount: true },
-            },
-          },
-        },
-      },
+      include: financialLineRelationsInclude,
     });
 
     if (!line) {
@@ -560,7 +524,32 @@ export class ProjectScenarioFinancialLinesService {
     }
   }
 
-  private getLineBaseline(line: FinancialLineRecord): Prisma.Decimal | null {
+  private async loadBudgetInitialTotals(
+    clientId: string,
+    budgetIds: string[],
+  ): Promise<Map<string, number>> {
+    if (budgetIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.budgetLine.groupBy({
+      by: ['budgetId'],
+      where: { clientId, budgetId: { in: budgetIds } },
+      _sum: { initialAmount: true },
+    });
+    const totals = new Map<string, number>();
+    for (const row of rows) {
+      totals.set(
+        row.budgetId,
+        Number(row._sum.initialAmount ?? new Prisma.Decimal(0)),
+      );
+    }
+    return totals;
+  }
+
+  private getLineBaseline(
+    line: FinancialLineRecord,
+    budgetTotals: Map<string, number> = new Map(),
+  ): Prisma.Decimal | null {
     if (line.projectBudgetLink) {
       const budgetAmount = line.projectBudgetLink.budgetLine.initialAmount;
       if (line.projectBudgetLink.allocationType === ProjectBudgetAllocationType.FULL) {
@@ -573,6 +562,18 @@ export class ProjectScenarioFinancialLinesService {
           .times(line.projectBudgetLink.percentage ?? new Prisma.Decimal(0))
           .div(100)
           .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      }
+      if (
+        line.projectBudgetLink.allocationType ===
+        ProjectBudgetAllocationType.BUDGET_PERCENTAGE
+      ) {
+        const budgetTotal =
+          budgetTotals.get(line.projectBudgetLink.budgetLine.budgetId) ?? 0;
+        const raw = new Prisma.Decimal(budgetTotal)
+          .times(line.projectBudgetLink.percentage ?? new Prisma.Decimal(0))
+          .div(100);
+        const ceiled = Math.ceil(Number(raw.toString()));
+        return new Prisma.Decimal(ceiled);
       }
       if (line.projectBudgetLink.allocationType === ProjectBudgetAllocationType.FIXED) {
         return (line.projectBudgetLink.amount ?? new Prisma.Decimal(0)).toDecimalPlaces(
