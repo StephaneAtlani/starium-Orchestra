@@ -63,7 +63,7 @@ import {
   type PostMortemPayload,
 } from '../lib/project-post-mortem-payload';
 import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
-import { PROJECT_DATETIME_LOCAL_STEP_SECONDS } from '../lib/project-datetime-local';
+import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
@@ -977,14 +977,11 @@ export function ProjectReviewEditorDialog({
                     <label htmlFor="pr-ed-date-h" className="starium-form-label">
                       {isPostMortemReview ? 'Date du bilan' : 'Date et heure (optionnel en préparation)'}
                     </label>
-                    <Input
+                    <ProjectDatetimeLocalInput
                       id="pr-ed-date-h"
-                      type="datetime-local"
-                      step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
                       value={reviewDate}
                       disabled={!editable && !planningEditable}
-                      onChange={(e) => setReviewDate(e.target.value)}
-                      className="starium-form-input min-h-11"
+                      onChange={setReviewDate}
                     />
                   </div>
                   <div className="starium-form-field starium-form-grid--span-2">
@@ -1564,14 +1561,11 @@ export function ProjectReviewEditorDialog({
                   )}
                   <div className="grid gap-1.5 sm:max-w-xl">
                     <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
-                    <Input
+                    <ProjectDatetimeLocalInput
                       id="pr-ed-next"
-                      type="datetime-local"
-                      step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
                       value={nextReviewDate}
                       disabled={!editable}
-                      onChange={(e) => {
-                        const v = e.target.value;
+                      onChange={(v) => {
                         setNextReviewDate(v);
                         if (!v.trim()) {
                           setCommittedNextReviewDate(null);

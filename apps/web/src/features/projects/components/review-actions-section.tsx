@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import {
   PROJECT_PRIORITY_LABEL,
   TASK_STATUS_LABEL,
@@ -152,13 +153,11 @@ export function ReviewActionsSection({
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor={`pr-act-due-${i}`}>Échéance</Label>
-                <Input
+                <ProjectDatetimeLocalInput
                   id={`pr-act-due-${i}`}
-                  type="datetime-local"
                   value={a.dueDate}
                   disabled={!editable}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onChange={(v) => {
                     onChange(actions.map((x, j) => (j === i ? { ...x, dueDate: v } : x)));
                   }}
                 />

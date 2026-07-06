@@ -36,9 +36,7 @@ import {
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
-import {
-  PROJECT_DATETIME_LOCAL_STEP_SECONDS,
-} from '../lib/project-datetime-local';
+import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
   ProjectReviewCreationMode,
@@ -457,13 +455,10 @@ export function ProjectReviewCreateDialog({
                         <span className="font-normal text-muted-foreground">(optionnel)</span>
                       ) : null}
                     </label>
-                    <Input
+                    <ProjectDatetimeLocalInput
                       id="pr-date"
-                      type="datetime-local"
-                      step={PROJECT_DATETIME_LOCAL_STEP_SECONDS}
-                      className="starium-form-input min-h-11"
                       value={formDate}
-                      onChange={(e) => setFormDate(e.target.value)}
+                      onChange={setFormDate}
                       required={requiresDate}
                     />
                   </div>
