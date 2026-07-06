@@ -130,6 +130,7 @@ export type CreateActionPlanTaskPayload = {
   riskId?: string | null;
   phaseId?: string | null;
   responsibleResourceId?: string | null;
+  assignedResourceIds?: string[] | null;
   estimatedHours?: number | null;
   tags?: string[] | null;
 };

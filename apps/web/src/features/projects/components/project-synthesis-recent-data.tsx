@@ -93,7 +93,9 @@ function RecentTaskRow({ task, index }: { task: ProjectTaskApi; index: number })
               themeIndex={index}
               size="sm"
             />
-            <span className="starium-dt-assignee-name">{assignee}</span>
+            <span className="starium-dt-assignee-name" title={assigneeName}>
+              {assignee}
+            </span>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>

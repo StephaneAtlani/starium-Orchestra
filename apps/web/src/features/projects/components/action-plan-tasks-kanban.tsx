@@ -53,7 +53,7 @@ function priorityStripeColor(priority: string): string {
 }
 
 function assigneeSeed(task: ActionPlanTaskApi): string | null {
-  return task.responsibleResourceId ?? task.ownerUserId ?? null;
+  return task.assignedResourceIds?.[0] ?? task.assignedResources?.[0]?.id ?? task.responsibleResourceId ?? null;
 }
 
 export type ActionPlanTasksKanbanProps = {

@@ -18,6 +18,8 @@ import type {
   ProjectTaskApi,
   ProjectTaskPhaseApi,
   ProjectTeamMemberApi,
+  ProjectTeamRaciRowApi,
+  ProjectRaciKind,
   ProjectTeamRoleApi,
   ProjectListPilotageSnapshot,
   ProjectsListResponse,
@@ -991,6 +993,35 @@ export async function getProjectTeam(
   const res = await authFetch(`${BASE}/${projectId}/team`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectTeamMemberApi[]>;
+}
+
+export async function getProjectTeamRaci(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectTeamRaciRowApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/team-raci`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamRaciRowApi[]>;
+}
+
+export type UpdateProjectTeamRaciPayload = {
+  roleId: string;
+  kind: ProjectRaciKind;
+  enabled: boolean;
+};
+
+export async function updateProjectTeamRaci(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: UpdateProjectTeamRaciPayload,
+): Promise<ProjectTeamRaciRowApi[]> {
+  const res = await authFetch(`${BASE}/${projectId}/team-raci`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamRaciRowApi[]>;
 }
 
 export type AddProjectTeamMemberPayload =

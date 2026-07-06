@@ -108,10 +108,8 @@ export function projectOwnerInitials(name: string) {
 }
 
 export function projectOwnerShortLabel(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return name;
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  const trimmed = name.trim();
+  return trimmed || name;
 }
 
 export function projectListProgressPercent(project: ProjectListItem) {

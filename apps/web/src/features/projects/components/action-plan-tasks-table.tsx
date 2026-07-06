@@ -26,6 +26,7 @@ import {
   taskStatusLabel,
 } from '@/lib/ui/badge-registry';
 import { cn } from '@/lib/utils';
+import { formatAssignedResourcesLabel } from './human-resource-multi-picker';
 
 const th = 'text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground';
 
@@ -102,26 +103,6 @@ function fmtShortDate(iso: string | null | undefined): string {
   }
 }
 
-function formatUser(
-  id: string | null | undefined,
-  users: { id: string; firstName: string | null; lastName: string | null; email: string }[],
-): string {
-  if (!id) return '—';
-  const u = users.find((x) => x.id === id);
-  if (!u) return '—';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name || u.email;
-}
-
-function formatResourcePerson(r: {
-  firstName: string | null;
-  name: string;
-  code: string | null;
-}): string {
-  const label = [r.firstName, r.name].filter(Boolean).join(' ').trim();
-  return label || r.code || '—';
-}
-
 function formatTagsCell(tags: unknown): string {
   if (tags == null) return '—';
   if (Array.isArray(tags) && tags.every((x) => typeof x === 'string')) {
@@ -132,7 +113,6 @@ function formatTagsCell(tags: unknown): string {
 
 export type ActionPlanTasksTableProps = {
   items: ActionPlanTaskApi[];
-  users: { id: string; firstName: string | null; lastName: string | null; email: string }[];
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   onSort: (key: ActionPlanTaskSortField) => void;
@@ -141,7 +121,6 @@ export type ActionPlanTasksTableProps = {
 
 export function ActionPlanTasksTable({
   items,
-  users,
   sortBy,
   sortOrder,
   onSort,
@@ -232,14 +211,8 @@ export function ActionPlanTasksTable({
               <HeaderTip tip="Tags libres — pas de tri serveur.">Tags</HeaderTip>
             </TableHead>
             <TableHead className={cn(th, 'min-w-[9rem]')}>
-              <HeaderTip tip="Compte utilisateur responsable (tri sur l’identifiant).">
-                <SortHeaderButton
-                  label="Responsable"
-                  sortKey="ownerUserId"
-                  sortBy={sortBy}
-                  sortOrder={sortOrder}
-                  onSort={onSort}
-                />
+              <HeaderTip tip="Ressources humaines assignées à l’exécution.">
+                <span>Assignés</span>
               </HeaderTip>
             </TableHead>
           </TableRow>
@@ -285,10 +258,17 @@ export function ActionPlanTasksTable({
               <TableCell className="max-w-[140px] truncate text-muted-foreground">
                 {formatTagsCell(row.tags)}
               </TableCell>
-              <TableCell>
-                {row.responsibleResource
-                  ? formatResourcePerson(row.responsibleResource)
-                  : formatUser(row.ownerUserId, users)}
+              <TableCell className="max-w-[12rem]">
+                {row.assignedResources && row.assignedResources.length > 0 ? (
+                  <span
+                    className="block min-w-0 truncate"
+                    title={formatAssignedResourcesLabel(row.assignedResources)}
+                  >
+                    {formatAssignedResourcesLabel(row.assignedResources)}
+                  </span>
+                ) : (
+                  '—'
+                )}
               </TableCell>
             </TableRow>
           ))}

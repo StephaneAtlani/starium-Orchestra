@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProjectTeamRoleSystemKind } from '@prisma/client';
+import { ProjectRaciKind, ProjectTeamRoleSystemKind } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectTeamService } from './project-team.service';
 
@@ -21,6 +21,11 @@ describe('ProjectTeamService', () => {
       findFirst: jest.Mock;
       create: jest.Mock;
       delete: jest.Mock;
+    };
+    projectTeamRaci: {
+      findMany: jest.Mock;
+      deleteMany: jest.Mock;
+      upsert: jest.Mock;
     };
     project: { findFirst: jest.Mock; update: jest.Mock };
     clientUser: { findFirst: jest.Mock };
@@ -49,12 +54,18 @@ describe('ProjectTeamService', () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
+      projectTeamRaci: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        upsert: jest.fn(),
+      },
       project: { findFirst: jest.fn(), update: jest.fn() },
       clientUser: { findFirst: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
         fn({
           projectTeamMember: prisma.projectTeamMember,
           projectTeamRole: prisma.projectTeamRole,
+          projectTeamRaci: prisma.projectTeamRaci,
           project: prisma.project,
         }),
       ),
@@ -135,6 +146,103 @@ describe('ProjectTeamService', () => {
       await expect(service.getTeam(clientId, projectId)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('getRaciMatrix', () => {
+    it('propose des valeurs par défaut non persistées', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectTeamRole.findFirst
+        .mockResolvedValueOnce({ id: 'r-sponsor' })
+        .mockResolvedValueOnce({ id: 'r-owner' })
+        .mockResolvedValueOnce({ id: 'r-metier' });
+      prisma.projectTeamRole.findMany.mockResolvedValue([
+        {
+          id: 'r-sponsor',
+          name: 'Sponsor',
+          sortOrder: 0,
+          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
+        },
+        {
+          id: 'r-owner',
+          name: 'Responsable de projet',
+          sortOrder: 1,
+          systemKind: ProjectTeamRoleSystemKind.OWNER,
+        },
+        {
+          id: 'r-metier',
+          name: 'Référent métier',
+          sortOrder: 2,
+          systemKind: null,
+        },
+      ]);
+      prisma.projectTeamRaci.findMany.mockResolvedValue([]);
+
+      const rows = await service.getRaciMatrix(clientId, projectId);
+
+      expect(rows).toEqual([
+        expect.objectContaining({
+          roleId: 'r-sponsor',
+          kinds: [ProjectRaciKind.ACCOUNTABLE],
+          persisted: false,
+        }),
+        expect.objectContaining({
+          roleId: 'r-owner',
+          kinds: [ProjectRaciKind.RESPONSIBLE],
+          persisted: false,
+        }),
+        expect.objectContaining({
+          roleId: 'r-metier',
+          kinds: [ProjectRaciKind.CONSULTED],
+          persisted: false,
+        }),
+      ]);
+    });
+  });
+
+  describe('setRoleRaci', () => {
+    it('retire le A des autres rôles lors de l’activation', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectTeamRole.findFirst.mockResolvedValue({
+        id: roleId,
+        clientId,
+        name: 'Sponsor',
+        systemKind: ProjectTeamRoleSystemKind.SPONSOR,
+      });
+      prisma.projectTeamRaci.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.projectTeamRaci.upsert.mockResolvedValue({});
+      prisma.projectTeamRole.findMany.mockResolvedValue([
+        {
+          id: roleId,
+          name: 'Sponsor',
+          sortOrder: 0,
+          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
+        },
+      ]);
+      prisma.projectTeamRaci.findMany.mockResolvedValue([
+        {
+          roleId,
+          kind: ProjectRaciKind.ACCOUNTABLE,
+        },
+      ]);
+
+      await service.setRoleRaci(
+        clientId,
+        projectId,
+        roleId,
+        ProjectRaciKind.ACCOUNTABLE,
+        true,
+      );
+
+      expect(prisma.projectTeamRaci.deleteMany).toHaveBeenCalledWith({
+        where: {
+          clientId,
+          projectId,
+          kind: ProjectRaciKind.ACCOUNTABLE,
+          roleId: { not: roleId },
+        },
+      });
+      expect(prisma.projectTeamRaci.upsert).toHaveBeenCalled();
     });
   });
 });

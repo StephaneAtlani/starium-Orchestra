@@ -38,7 +38,7 @@ export function FilterBar({
       aria-label={ariaLabel}
       {...(asSearch ? { role: 'search' as const } : {})}
       className={cn(
-        'rounded-lg border border-border/70 bg-muted/15 p-3 sm:p-4',
+        'rounded-lg border border-border/70 bg-card p-3 sm:p-4',
         'grid grid-cols-1 gap-3 sm:grid-cols-2',
         columnClass,
         className,

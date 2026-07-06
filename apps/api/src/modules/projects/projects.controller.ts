@@ -33,6 +33,7 @@ import { ProjectTeamService } from './project-team.service';
 import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
 import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
 import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
+import { UpdateProjectTeamRaciDto } from './dto/update-project-team-raci.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
@@ -202,6 +203,31 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
   ) {
     return this.projectTeamService.getTeam(clientId!, projectId);
+  }
+
+  @Get(':projectId/team-raci')
+  @RequirePermissions('projects.read')
+  getProjectTeamRaci(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+  ) {
+    return this.projectTeamService.getRaciMatrix(clientId!, projectId);
+  }
+
+  @Patch(':projectId/team-raci')
+  @RequirePermissions('projects.update')
+  patchProjectTeamRaci(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Body() dto: UpdateProjectTeamRaciDto,
+  ) {
+    return this.projectTeamService.setRoleRaci(
+      clientId!,
+      projectId,
+      dto.roleId,
+      dto.kind,
+      dto.enabled,
+    );
   }
 
   @Get(':id/tags')

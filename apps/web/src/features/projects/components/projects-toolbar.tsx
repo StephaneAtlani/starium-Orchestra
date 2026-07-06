@@ -312,7 +312,7 @@ export function ProjectsToolbar({
   return (
     <>
       <div
-        className="starium-panel rounded-[var(--ds-card-radius)] border border-border bg-card shadow-[var(--ds-card-shadow-elevated)]"
+        className="starium-panel rounded-[var(--ds-card-radius)] border border-border bg-card"
         role="search"
         aria-label="Filtrer et trier la liste des projets"
       >

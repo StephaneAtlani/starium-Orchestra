@@ -737,7 +737,10 @@ export function ProjectsListTableDesktop({
                           >
                             {projectOwnerInitials(p.ownerDisplayName)}
                           </span>
-                          <span className="truncate font-medium text-foreground">
+                          <span
+                            className="truncate font-medium text-foreground"
+                            title={p.ownerDisplayName}
+                          >
                             {projectOwnerShortLabel(p.ownerDisplayName)}
                           </span>
                         </div>

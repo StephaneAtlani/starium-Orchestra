@@ -38,6 +38,14 @@ import {
 } from './project-audit-serialize';
 import { ProjectsService } from './projects.service';
 
+const TASK_HUMAN_RESOURCE_SELECT = {
+  id: true,
+  name: true,
+  firstName: true,
+  code: true,
+  type: true,
+} as const;
+
 @Injectable()
 export class ProjectTasksService {
   constructor(
@@ -46,6 +54,32 @@ export class ProjectTasksService {
     private readonly projects: ProjectsService,
     private readonly actionPlans: ActionPlansService,
   ) {}
+
+  private taskAssigneeInclude() {
+    return {
+      orderBy: { createdAt: 'asc' as const },
+      select: {
+        resource: { select: TASK_HUMAN_RESOURCE_SELECT },
+      },
+    };
+  }
+
+  private taskBaseInclude() {
+    return {
+      checklistItems: { orderBy: { sortOrder: 'asc' as const } },
+      labelAssignments: { select: { labelId: true } },
+      responsibleResource: { select: TASK_HUMAN_RESOURCE_SELECT },
+      assignees: this.taskAssigneeInclude(),
+    };
+  }
+
+  private taskActionPlanInclude() {
+    return {
+      ...this.taskBaseInclude(),
+      project: { select: { id: true, code: true, name: true } },
+      risk: { select: { id: true, code: true, title: true } },
+    };
+  }
 
   async list(
     clientId: string,
@@ -83,13 +117,7 @@ export class ProjectTasksService {
         ],
         skip: offset,
         take: limit,
-        include: {
-          checklistItems: { orderBy: { sortOrder: 'asc' } },
-          labelAssignments: { select: { labelId: true } },
-          responsibleResource: {
-            select: { id: true, name: true, firstName: true, code: true, type: true },
-          },
-        },
+        include: this.taskBaseInclude(),
       }),
       this.prisma.projectTask.count({ where }),
     ]);
@@ -135,15 +163,7 @@ export class ProjectTasksService {
         orderBy,
         skip: offset,
         take: limit,
-        include: {
-          checklistItems: { orderBy: { sortOrder: 'asc' } },
-          labelAssignments: { select: { labelId: true } },
-          project: { select: { id: true, code: true, name: true } },
-          risk: { select: { id: true, code: true, title: true } },
-          responsibleResource: {
-            select: { id: true, name: true, firstName: true, code: true, type: true },
-          },
-        },
+        include: this.taskActionPlanInclude(),
       }),
       this.prisma.projectTask.count({ where }),
     ]);
@@ -170,14 +190,8 @@ export class ProjectTasksService {
       },
       orderBy: [{ createdAt: 'desc' }],
       include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        project: { select: { id: true, code: true, name: true } },
-        risk: { select: { id: true, code: true, title: true } },
+        ...this.taskActionPlanInclude(),
         actionPlan: { select: { id: true, code: true, title: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
       },
     });
 
@@ -199,13 +213,7 @@ export class ProjectTasksService {
     await this.projects.getProjectForScope(clientId, projectId);
     const task = await this.prisma.projectTask.findFirst({
       where: { id: taskId, clientId, projectId },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskBaseInclude(),
     });
     if (!task) throw new NotFoundException('Task not found');
     return this.mapTaskWithChecklist(task);
@@ -219,15 +227,7 @@ export class ProjectTasksService {
     await this.actionPlans.getForScope(clientId, actionPlanId);
     const task = await this.prisma.projectTask.findFirst({
       where: { id: taskId, clientId, actionPlanId },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        project: { select: { id: true, code: true, name: true } },
-        risk: { select: { id: true, code: true, title: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskActionPlanInclude(),
     });
     if (!task) throw new NotFoundException('Task not found');
     return this.mapTaskWithChecklistAndLinks(task);
@@ -248,6 +248,9 @@ export class ProjectTasksService {
 
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
     await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.assertHumanResourcesInClient(clientId, dto.assignedResourceIds);
+    }
     await this.projects.assertBudgetLineInClient(clientId, dto.budgetLineId);
 
     let progress = dto.progress ?? 0;
@@ -358,13 +361,16 @@ export class ProjectTasksService {
             }
           : {}),
       },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskBaseInclude(),
+    });
+
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.replaceTaskAssignees(clientId, created.id, dto.assignedResourceIds);
+    }
+
+    const finalCreated = await this.prisma.projectTask.findFirstOrThrow({
+      where: { id: created.id, clientId, projectId },
+      include: this.taskBaseInclude(),
     });
 
     const meta = {
@@ -378,14 +384,17 @@ export class ProjectTasksService {
       userId: context?.actorUserId,
       action: PROJECT_AUDIT_ACTION.PROJECT_TASK_CREATED,
       resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
-      resourceId: created.id,
-      newValue: projectTaskEntityAuditSnapshot(created),
+      resourceId: finalCreated.id,
+      newValue: {
+        ...projectTaskEntityAuditSnapshot(finalCreated),
+        assignedResourceIds: this.extractAssignedResourceIds(finalCreated),
+      },
       ...meta,
     });
 
-    await this.actionPlans.touchProgressForPlans(clientId, [created.actionPlanId]);
+    await this.actionPlans.touchProgressForPlans(clientId, [finalCreated.actionPlanId]);
 
-    return this.mapTaskWithChecklist(created);
+    return this.mapTaskWithChecklist(finalCreated);
   }
 
   async createForActionPlan(
@@ -422,6 +431,9 @@ export class ProjectTasksService {
 
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
     await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.assertHumanResourcesInClient(clientId, dto.assignedResourceIds);
+    }
 
     let progress = dto.progress ?? 0;
     const status = dto.status ?? 'TODO';
@@ -468,15 +480,16 @@ export class ProjectTasksService {
         createdByUserId: actorUserId ?? null,
         updatedByUserId: actorUserId ?? null,
       },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        project: { select: { id: true, code: true, name: true } },
-        risk: { select: { id: true, code: true, title: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskActionPlanInclude(),
+    });
+
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.replaceTaskAssignees(clientId, created.id, dto.assignedResourceIds);
+    }
+
+    const finalCreated = await this.prisma.projectTask.findFirstOrThrow({
+      where: { id: created.id, clientId, actionPlanId },
+      include: this.taskActionPlanInclude(),
     });
 
     const meta = {
@@ -490,14 +503,17 @@ export class ProjectTasksService {
       userId: context?.actorUserId,
       action: PROJECT_AUDIT_ACTION.PROJECT_TASK_CREATED,
       resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_TASK,
-      resourceId: created.id,
-      newValue: projectTaskEntityAuditSnapshot(created),
+      resourceId: finalCreated.id,
+      newValue: {
+        ...projectTaskEntityAuditSnapshot(finalCreated),
+        assignedResourceIds: this.extractAssignedResourceIds(finalCreated),
+      },
       ...meta,
     });
 
     await this.actionPlans.touchProgressForPlans(clientId, [actionPlanId]);
 
-    return this.mapTaskWithChecklistAndLinks(created);
+    return this.mapTaskWithChecklistAndLinks(finalCreated);
   }
 
   async update(
@@ -528,6 +544,9 @@ export class ProjectTasksService {
     }
     if (dto.responsibleResourceId !== undefined) {
       await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
+    }
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.assertHumanResourcesInClient(clientId, dto.assignedResourceIds);
     }
     if (dto.budgetLineId !== undefined) {
       await this.projects.assertBudgetLineInClient(clientId, dto.budgetLineId);
@@ -579,6 +598,7 @@ export class ProjectTasksService {
 
     const prevPlanId = existing.actionPlanId;
     const tagsPayloadProj = this.tagsPayloadForPrisma(dto.tags);
+    const existingAssigneeIds = await this.listTaskAssigneeResourceIds(clientId, taskId);
 
     await this.prisma.projectTask.update({
       where: { id: taskId },
@@ -642,16 +662,13 @@ export class ProjectTasksService {
     if (dto.taskLabelIds !== undefined) {
       await this.replaceTaskLabels(clientId, projectId, taskId, dto.taskLabelIds);
     }
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.replaceTaskAssignees(clientId, taskId, dto.assignedResourceIds);
+    }
 
     const final = await this.prisma.projectTask.findFirstOrThrow({
       where: { id: taskId, clientId, projectId },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskBaseInclude(),
     });
 
     const meta = {
@@ -660,8 +677,14 @@ export class ProjectTasksService {
       requestId: context?.meta?.requestId,
     };
 
-    const oldSnap = projectTaskEntityAuditSnapshot(existing);
-    const newSnap = projectTaskEntityAuditSnapshot(final);
+    const oldSnap = {
+      ...projectTaskEntityAuditSnapshot(existing),
+      assignedResourceIds: existingAssigneeIds,
+    };
+    const newSnap = {
+      ...projectTaskEntityAuditSnapshot(final),
+      assignedResourceIds: this.extractAssignedResourceIds(final),
+    };
     let { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
     const statusChanged = existing.status !== final.status;
     const ownerChanged = existing.ownerUserId !== final.ownerUserId;
@@ -797,6 +820,9 @@ export class ProjectTasksService {
     if (dto.responsibleResourceId !== undefined) {
       await this.assertResponsibleHumanResourceInClient(clientId, dto.responsibleResourceId);
     }
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.assertHumanResourcesInClient(clientId, dto.assignedResourceIds);
+    }
 
     const status = dto.status ?? existing.status;
     let progress = dto.progress !== undefined ? dto.progress : existing.progress;
@@ -820,6 +846,7 @@ export class ProjectTasksService {
     );
 
     const tagsPayloadAp = this.tagsPayloadForPrisma(dto.tags);
+    const existingAssigneeIds = await this.listTaskAssigneeResourceIds(clientId, taskId);
 
     await this.prisma.projectTask.update({
       where: { id: taskId },
@@ -864,17 +891,13 @@ export class ProjectTasksService {
       },
     });
 
+    if (dto.assignedResourceIds !== undefined && dto.assignedResourceIds !== null) {
+      await this.replaceTaskAssignees(clientId, taskId, dto.assignedResourceIds);
+    }
+
     const final = await this.prisma.projectTask.findFirstOrThrow({
       where: { id: taskId, clientId, actionPlanId },
-      include: {
-        checklistItems: { orderBy: { sortOrder: 'asc' } },
-        labelAssignments: { select: { labelId: true } },
-        project: { select: { id: true, code: true, name: true } },
-        risk: { select: { id: true, code: true, title: true } },
-        responsibleResource: {
-          select: { id: true, name: true, firstName: true, code: true, type: true },
-        },
-      },
+      include: this.taskActionPlanInclude(),
     });
 
     const meta = {
@@ -883,8 +906,14 @@ export class ProjectTasksService {
       requestId: context?.meta?.requestId,
     };
 
-    const oldSnap = projectTaskEntityAuditSnapshot(existing);
-    const newSnap = projectTaskEntityAuditSnapshot(final);
+    const oldSnap = {
+      ...projectTaskEntityAuditSnapshot(existing),
+      assignedResourceIds: existingAssigneeIds,
+    };
+    const newSnap = {
+      ...projectTaskEntityAuditSnapshot(final),
+      assignedResourceIds: this.extractAssignedResourceIds(final),
+    };
     let { oldValue, newValue } = diffAuditSnapshots(oldSnap, newSnap);
     const statusChanged = existing.status !== final.status;
     const ownerChanged = existing.ownerUserId !== final.ownerUserId;
@@ -1050,18 +1079,72 @@ export class ProjectTasksService {
     resourceId: string | null | undefined,
   ): Promise<void> {
     if (resourceId == null || resourceId === '') return;
-    const r = await this.prisma.resource.findFirst({
-      where: { id: resourceId, clientId },
+    await this.assertHumanResourcesInClient(clientId, [resourceId]);
+  }
+
+  private async assertHumanResourcesInClient(
+    clientId: string,
+    resourceIds: string[],
+  ): Promise<void> {
+    const unique = Array.from(new Set(resourceIds.filter(Boolean)));
+    if (unique.length === 0) return;
+    const rows = await this.prisma.resource.findMany({
+      where: { id: { in: unique }, clientId },
       select: { id: true, type: true },
     });
-    if (!r) {
-      throw new BadRequestException('Ressource introuvable pour ce client');
-    }
-    if (r.type !== ResourceType.HUMAN) {
+    if (rows.length !== unique.length) {
       throw new BadRequestException(
-        'Le responsable doit être une ressource Humaine (type HUMAN)',
+        'Une ou plusieurs ressources sont introuvables pour ce client',
       );
     }
+    if (rows.some((row) => row.type !== ResourceType.HUMAN)) {
+      throw new BadRequestException(
+        'Les ressources doivent être de type Humain (HUMAN)',
+      );
+    }
+  }
+
+  private async listTaskAssigneeResourceIds(
+    clientId: string,
+    taskId: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.projectTaskAssignee.findMany({
+      where: { clientId, projectTaskId: taskId },
+      orderBy: { createdAt: 'asc' },
+      select: { resourceId: true },
+    });
+    return rows.map((row) => row.resourceId);
+  }
+
+  private extractAssignedResourceIds(task: {
+    assignees?: Array<{ resource: { id: string } }>;
+  }): string[] {
+    return task.assignees?.map((row) => row.resource.id) ?? [];
+  }
+
+  private async replaceTaskAssignees(
+    clientId: string,
+    taskId: string,
+    incoming: string[],
+  ): Promise<void> {
+    const uniqueIncoming = Array.from(new Set(incoming.filter(Boolean)));
+    await this.assertHumanResourcesInClient(clientId, uniqueIncoming);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectTaskAssignee.deleteMany({
+        where: { clientId, projectTaskId: taskId },
+      });
+
+      for (const resourceId of uniqueIncoming) {
+        await tx.projectTaskAssignee.create({
+          data: {
+            clientId,
+            projectTaskId: taskId,
+            resourceId,
+          },
+        });
+      }
+    });
   }
 
   private async validateRiskProjectCoherence(
@@ -1120,9 +1203,20 @@ export class ProjectTasksService {
     task: ProjectTask & {
       checklistItems?: ProjectTaskChecklistItem[];
       labelAssignments?: Array<{ labelId: string }>;
+      assignees?: Array<{
+        resource: {
+          id: string;
+          name: string;
+          firstName: string | null;
+          code: string | null;
+          type: string;
+        };
+      }>;
     },
   ) {
-    const { checklistItems, labelAssignments, ...rest } = task;
+    const { checklistItems, labelAssignments, assignees, ...rest } = task;
+    const assignedResources =
+      assignees?.map((row) => row.resource) ?? [];
     return {
       ...rest,
       checklistItems:
@@ -1133,6 +1227,8 @@ export class ProjectTasksService {
           sortOrder,
         })) ?? [],
       taskLabelIds: labelAssignments?.map((a) => a.labelId) ?? [],
+      assignedResources,
+      assignedResourceIds: assignedResources.map((resource) => resource.id),
     };
   }
 
@@ -1140,6 +1236,15 @@ export class ProjectTasksService {
     task: ProjectTask & {
       checklistItems?: ProjectTaskChecklistItem[];
       labelAssignments?: Array<{ labelId: string }>;
+      assignees?: Array<{
+        resource: {
+          id: string;
+          name: string;
+          firstName: string | null;
+          code: string | null;
+          type: string;
+        };
+      }>;
       project?: { id: string; code: string; name: string } | null;
       risk?: { id: string; code: string; title: string } | null;
       responsibleResource?: {

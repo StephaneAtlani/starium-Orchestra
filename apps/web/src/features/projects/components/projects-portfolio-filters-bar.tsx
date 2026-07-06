@@ -137,7 +137,7 @@ export function ProjectsPortfolioFiltersBar({
           ? mobileSheet
             ? 'p-0'
             : 'px-3 pb-3 pt-0 sm:px-4'
-          : 'border-border/60 bg-muted/20 border-b px-3 py-3 sm:px-4',
+          : 'border-border/60 bg-card border-b px-3 py-3 sm:px-4',
       )}
       role="search"
       aria-label="Filtres portefeuille projets"

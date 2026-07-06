@@ -91,6 +91,13 @@ export class CreateActionPlanTaskDto {
   @IsString()
   responsibleResourceId?: string | null;
 
+  /** Ressources humaines assignées à l'exécution (plusieurs possibles). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  assignedResourceIds?: string[] | null;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })

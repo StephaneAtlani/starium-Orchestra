@@ -81,6 +81,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'team-roles', clientId] as const,
   team: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'team', clientId, projectId] as const,
+  teamRaci: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'team-raci', clientId, projectId] as const,
   sheetDecisionSnapshots: (
     clientId: string,
     projectId: string,

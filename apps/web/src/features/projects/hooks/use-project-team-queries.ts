@@ -5,6 +5,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   getProjectTeam,
+  getProjectTeamRaci,
   listProjectTeamRoles,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -35,6 +36,22 @@ export function useProjectTeamQuery(
   return useQuery({
     queryKey: projectQueryKeys.team(clientId, projectId),
     queryFn: () => getProjectTeam(authFetch, projectId),
+    enabled: (options?.enabled !== false) && !!clientId && !!projectId,
+    staleTime: STALE,
+  });
+}
+
+export function useProjectTeamRaciQuery(
+  projectId: string,
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+
+  return useQuery({
+    queryKey: projectQueryKeys.teamRaci(clientId, projectId),
+    queryFn: () => getProjectTeamRaci(authFetch, projectId),
     enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });

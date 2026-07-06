@@ -26,12 +26,7 @@ export function assignableUserDisplayName(user: ProjectAssignableUser): string {
 }
 
 export function assignableUserShortLabel(user: ProjectAssignableUser): string {
-  if (user.firstName && user.lastName) {
-    return `${user.firstName} ${user.lastName.charAt(0)}.`;
-  }
-  if (user.lastName) return user.lastName;
-  if (user.firstName) return user.firstName;
-  return user.email;
+  return assignableUserDisplayName(user);
 }
 
 export function resolveMilestoneLabelNames(

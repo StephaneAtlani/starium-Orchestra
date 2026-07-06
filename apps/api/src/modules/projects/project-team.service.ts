@@ -7,6 +7,7 @@ import {
 import {
   ClientUserStatus,
   Prisma,
+  ProjectRaciKind,
   ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
 } from '@prisma/client';
@@ -34,6 +35,15 @@ export type ProjectTeamMemberResponse = {
   displayName: string;
   email: string;
   affiliation: ProjectTeamMemberAffiliation | null;
+};
+
+export type ProjectTeamRaciRowResponse = {
+  roleId: string;
+  roleName: string;
+  sortOrder: number;
+  systemKind: ProjectTeamRoleSystemKind | null;
+  kinds: ProjectRaciKind[];
+  persisted: boolean;
 };
 
 function normalizeFreeIdentityKey(freeLabel: string): string {
@@ -728,5 +738,112 @@ export class ProjectTeamService {
       await tx.projectTeamMember.delete({ where: { id: memberId } });
       await this.syncProjectSponsorOwner(tx, projectId, clientId);
     });
+  }
+
+  private defaultRaciKindsForRole(role: {
+    name: string;
+    systemKind: ProjectTeamRoleSystemKind | null;
+  }): ProjectRaciKind[] {
+    if (role.systemKind === ProjectTeamRoleSystemKind.SPONSOR) {
+      return [ProjectRaciKind.ACCOUNTABLE];
+    }
+    if (role.systemKind === ProjectTeamRoleSystemKind.OWNER) {
+      return [ProjectRaciKind.RESPONSIBLE];
+    }
+    if (role.name.trim().toLowerCase() === 'référent métier') {
+      return [ProjectRaciKind.CONSULTED];
+    }
+    return [];
+  }
+
+  async getRaciMatrix(
+    clientId: string,
+    projectId: string,
+  ): Promise<ProjectTeamRaciRowResponse[]> {
+    await this.getProjectOrThrow(clientId, projectId);
+    await this.ensureDefaultTeamRolesForClient(clientId);
+
+    const [roles, persisted] = await Promise.all([
+      this.prisma.projectTeamRole.findMany({
+        where: { clientId },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      }),
+      this.prisma.projectTeamRaci.findMany({
+        where: { clientId, projectId },
+      }),
+    ]);
+
+    const byRole = new Map<string, ProjectRaciKind[]>();
+    for (const row of persisted) {
+      const cur = byRole.get(row.roleId) ?? [];
+      cur.push(row.kind);
+      byRole.set(row.roleId, cur);
+    }
+
+    return roles.map((role) => {
+      const stored = byRole.get(role.id);
+      if (stored?.length) {
+        return {
+          roleId: role.id,
+          roleName: role.name,
+          sortOrder: role.sortOrder,
+          systemKind: role.systemKind,
+          kinds: stored,
+          persisted: true,
+        };
+      }
+      return {
+        roleId: role.id,
+        roleName: role.name,
+        sortOrder: role.sortOrder,
+        systemKind: role.systemKind,
+        kinds: this.defaultRaciKindsForRole(role),
+        persisted: false,
+      };
+    });
+  }
+
+  async setRoleRaci(
+    clientId: string,
+    projectId: string,
+    roleId: string,
+    kind: ProjectRaciKind,
+    enabled: boolean,
+  ): Promise<ProjectTeamRaciRowResponse[]> {
+    await this.getProjectOrThrow(clientId, projectId);
+    const role = await this.prisma.projectTeamRole.findFirst({
+      where: { id: roleId, clientId },
+    });
+    if (!role) {
+      throw new NotFoundException('Rôle équipe introuvable');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (enabled) {
+        if (kind === ProjectRaciKind.ACCOUNTABLE) {
+          await tx.projectTeamRaci.deleteMany({
+            where: {
+              clientId,
+              projectId,
+              kind: ProjectRaciKind.ACCOUNTABLE,
+              roleId: { not: roleId },
+            },
+          });
+        }
+        await tx.projectTeamRaci.upsert({
+          where: {
+            projectId_roleId_kind: { projectId, roleId, kind },
+          },
+          create: { clientId, projectId, roleId, kind },
+          update: {},
+        });
+        return;
+      }
+      await tx.projectTeamRaci.deleteMany({
+        where: { clientId, projectId, roleId, kind },
+      });
+    });
+
+    return this.getRaciMatrix(clientId, projectId);
   }
 }

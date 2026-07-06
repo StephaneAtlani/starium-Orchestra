@@ -165,7 +165,9 @@ function MilestoneTableRow({
               themeIndex={index}
               size="sm"
             />
-            <span className="starium-dt-assignee-name">{ownerLabel}</span>
+            <span className="starium-dt-assignee-name" title={ownerFullName}>
+              {ownerLabel}
+            </span>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>

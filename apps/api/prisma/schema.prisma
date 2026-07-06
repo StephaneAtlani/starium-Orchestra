@@ -295,6 +295,7 @@ model Client {
   projectBudgetLinks               ProjectBudgetLink[]
   projectTeamRoles                 ProjectTeamRole[]
   projectTeamMembers               ProjectTeamMember[]
+  projectTeamRaci                  ProjectTeamRaci[]
   projectSheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews                   ProjectReview[]
   projectReviewParticipants        ProjectReviewParticipant[]
@@ -338,6 +339,7 @@ model Client {
   projectTaskChecklistItems        ProjectTaskChecklistItem[]
   projectTaskLabels                ProjectTaskLabel[]
   projectTaskLabelAssignments      ProjectTaskLabelAssignment[]
+  projectTaskAssignees             ProjectTaskAssignee[]
   projectMilestoneLabels           ProjectMilestoneLabel[]
   projectMilestoneLabelAssignments ProjectMilestoneLabelAssignment[]
   directoryConnections             DirectoryConnection[]
@@ -952,6 +954,8 @@ model Resource {
   resourceRole                     ResourceRole?                     @relation(fields: [roleId], references: [id], onDelete: SetNull)
   /// Tâches projet / plan dont cette ressource humaine est responsable (MVP pilotage).
   responsibleForProjectTasks       ProjectTask[]                     @relation("ProjectTaskResponsibleResource")
+  /// Tâches projet / plan auxquelles cette ressource humaine est assignée (exécution).
+  assignedProjectTasks             ProjectTaskAssignee[]             @relation("ProjectTaskAssigneeResource")
   workTeamMemberships              WorkTeamMembership[]
   ledWorkTeams                     WorkTeam[]                        @relation("WorkTeamLeadResource")
   managerScopeConfig               ManagerScopeConfig?
@@ -1381,6 +1385,14 @@ enum ProjectTeamMemberAffiliation {
   EXTERNAL
 }
 
+/// Dimension RACI par rôle d’équipe projet (gouvernance fiche projet).
+enum ProjectRaciKind {
+  RESPONSIBLE
+  ACCOUNTABLE
+  CONSULTED
+  INFORMED
+}
+
 /// RFC-PROJ-013 — point projet (COPIL / COPRO / …)
 enum ProjectReviewType {
   COPIL
@@ -1667,6 +1679,7 @@ model Project {
   scenarios                 ProjectScenario[]
   scenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
   teamMembers               ProjectTeamMember[]
+  teamRaci                  ProjectTeamRaci[]
   tagAssignments            ProjectTagAssignment[]
   sheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews            ProjectReview[]
@@ -2518,11 +2531,33 @@ model ProjectTeamRole {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  members ProjectTeamMember[]
+  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members         ProjectTeamMember[]
+  raciAssignments ProjectTeamRaci[]
 
   @@unique([clientId, name])
   @@index([clientId])
+}
+
+/// RACI par rôle d’équipe sur un projet (une ligne par lettre active).
+model ProjectTeamRaci {
+  id        String          @id @default(cuid())
+  clientId  String
+  projectId String
+  roleId    String
+  kind      ProjectRaciKind
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role    ProjectTeamRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, roleId, kind])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([roleId])
 }
 
 /// Membre d’équipe projet : utilisateur plateforme ou nom libre (prestataire / contact externe).
@@ -2712,6 +2747,7 @@ model ProjectTask {
   microsoftTaskSync ProjectTaskMicrosoftSync?
   checklistItems    ProjectTaskChecklistItem[]
   labelAssignments  ProjectTaskLabelAssignment[]
+  assignees         ProjectTaskAssignee[]
 
   @@index([clientId])
   @@index([projectId])
@@ -2729,6 +2765,26 @@ model ProjectTask {
   @@index([plannedEndDate])
   @@index([bucketId])
   @@index([responsibleResourceId])
+}
+
+/// Ressources humaines assignées à une tâche (exécution — plusieurs possibles).
+model ProjectTaskAssignee {
+  id            String @id @default(cuid())
+  clientId      String
+  projectTaskId String
+  resourceId    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  task     ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  resource Resource    @relation("ProjectTaskAssigneeResource", fields: [resourceId], references: [id], onDelete: Restrict)
+
+  @@unique([clientId, projectTaskId, resourceId])
+  @@index([clientId])
+  @@index([projectTaskId])
+  @@index([resourceId])
 }
 
 /// Sous-éléments type « liste de contrôle » (sync Microsoft Planner : plannerTaskDetails.checklist).

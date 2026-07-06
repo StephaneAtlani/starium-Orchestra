@@ -816,7 +816,7 @@ export default function ActionPlanDetailPage() {
             </section>
 
             {/* §7 — barre filtres DS + tableau (tri seulement, cf. FRONTEND_UI-UX §384) */}
-            <Card size="sm" className="starium-panel overflow-hidden shadow-sm">
+            <Card size="sm" className="starium-panel overflow-hidden shadow-none">
               <ActionPlanTasksToolbar
                 search={searchF}
                 onSearchChange={setSearchF}
@@ -869,7 +869,6 @@ export default function ActionPlanDetailPage() {
                       {tasksViewMode === 'table' ? (
                         <ActionPlanTasksTable
                           items={tasksQuery.data.items}
-                          users={users}
                           sortBy={sortByField}
                           sortOrder={sortOrder}
                           onSort={applyTaskSort}

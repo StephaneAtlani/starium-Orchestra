@@ -106,7 +106,7 @@ export function CollaboratorFiltersBar({ filters, setFilters, managerOptions }: 
         </FilterBarField>
       </FilterBar>
 
-      <div className="space-y-3 rounded-lg border border-border/70 bg-muted/15 p-3 sm:p-4">
+      <div className="space-y-3 rounded-lg border border-border/70 bg-card p-3 sm:p-4">
         <div className="space-y-2">
           <span className="text-xs font-medium text-muted-foreground">Statuts</span>
           <div className="flex flex-wrap gap-2">

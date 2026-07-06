@@ -20,7 +20,6 @@ import {
   formatProjectBudget,
   formatProjectDateLong,
   projectListProgressPercent,
-  projectOwnerShortLabel,
 } from '../lib/projects-list-display';
 import { projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
@@ -105,9 +104,7 @@ export function ProjectSynthesisBanner({
   const priorityLabel =
     PROJECT_PRIORITY_LABEL[project.priority as keyof typeof PROJECT_PRIORITY_LABEL] ??
     project.priority;
-  const ownerLabel = project.ownerDisplayName
-    ? projectOwnerShortLabel(project.ownerDisplayName)
-    : '—';
+  const ownerLabel = project.ownerDisplayName?.trim() || '—';
 
   return (
     <section

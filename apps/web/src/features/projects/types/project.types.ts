@@ -352,6 +352,15 @@ export type ProjectTaskApi = {
     code: string | null;
     type: string;
   } | null;
+  /** Ressources humaines assignées à l'exécution (plusieurs possibles). */
+  assignedResources?: Array<{
+    id: string;
+    name: string;
+    firstName: string | null;
+    code: string | null;
+    type: string;
+  }>;
+  assignedResourceIds?: string[];
   estimatedHours?: number | null;
   /** Tags libres (JSON string[] côté API). */
   tags?: unknown;
@@ -643,6 +652,21 @@ export type ProjectTeamMemberApi = {
   displayName: string;
   email: string;
   affiliation: ProjectTeamMemberAffiliationApi | null;
+};
+
+export type ProjectRaciKind =
+  | 'RESPONSIBLE'
+  | 'ACCOUNTABLE'
+  | 'CONSULTED'
+  | 'INFORMED';
+
+export type ProjectTeamRaciRowApi = {
+  roleId: string;
+  roleName: string;
+  sortOrder: number;
+  systemKind: ProjectTeamRoleSystemKind | null;
+  kinds: ProjectRaciKind[];
+  persisted: boolean;
 };
 
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';

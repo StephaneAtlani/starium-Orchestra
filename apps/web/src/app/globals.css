@@ -1623,6 +1623,7 @@ table.starium-dt {
   display: flex;
   align-items: center;
   gap: 9px;
+  min-width: 0;
 }
 .starium-dt-assignee .starium-avatar-chip {
   width: 28px;
@@ -1631,6 +1632,10 @@ table.starium-dt {
   border-width: 2px;
 }
 .starium-dt-assignee-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12.5px;
   font-weight: 500;
   color: var(--neutral-700, var(--foreground));
@@ -3983,9 +3988,9 @@ table.starium-dt {
     color: var(--ds-kpi-icon-color);
   }
 
-  /* Panneau de données (tableau, liste filtrable) — élévation DS shadow-2 */
+  /* Panneau de données (tableau, liste filtrable) — contour seul, sans ombre */
   .starium-panel {
-    box-shadow: var(--ds-card-shadow-elevated);
+    box-shadow: none;
   }
 
   /* En-tête de barre d'outils dans un panneau */
@@ -4152,7 +4157,7 @@ table.starium-dt {
     align-items: stretch;
     gap: 10px;
     padding: 10px 14px;
-    background-color: var(--muted);
+    background-color: var(--card);
     border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   }
   .starium-filter-bar-left {

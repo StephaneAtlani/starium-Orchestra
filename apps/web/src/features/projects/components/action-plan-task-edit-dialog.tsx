@@ -34,12 +34,16 @@ import {
   listProjectTaskPhases,
   listProjects,
 } from '@/features/projects/api/projects.api';
-import { useProjectAssignableUsers } from '@/features/projects/hooks/use-project-assignable-users';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
 import { CloudUpload, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import {
+  formatAssignedResourcesLabel,
+  formatHumanResourcePerson,
+  HumanResourceMultiPicker,
+} from './human-resource-multi-picker';
 
 const textareaClass = cn(
   'starium-form-textarea',
@@ -175,24 +179,12 @@ function formatTagsCell(tags: unknown): string {
   return '—';
 }
 
-function formatUser(
-  id: string | null | undefined,
-  users: { id: string; firstName: string | null; lastName: string | null; email: string }[],
-): string {
-  if (!id) return '—';
-  const u = users.find((x) => x.id === id);
-  if (!u) return '—';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name || u.email;
-}
-
 function formatResourcePerson(r: {
   firstName: string | null;
   name: string;
   code: string | null;
 }): string {
-  const label = [r.firstName, r.name].filter(Boolean).join(' ').trim();
-  return label || r.code || '—';
+  return formatHumanResourcePerson(r);
 }
 
 type TaskDraft = {
@@ -208,7 +200,7 @@ type TaskDraft = {
   riskId: string;
   phaseId: string;
   responsibleResourceId: string;
-  ownerUserId: string;
+  assignedResourceIds: string[];
 };
 
 function taskToDraft(t: ActionPlanTaskApi): TaskDraft {
@@ -228,7 +220,7 @@ function taskToDraft(t: ActionPlanTaskApi): TaskDraft {
     riskId: t.riskId ?? '',
     phaseId: t.phaseId ?? '',
     responsibleResourceId: t.responsibleResourceId ?? '',
-    ownerUserId: t.ownerUserId ?? '',
+    assignedResourceIds: t.assignedResourceIds ?? t.assignedResources?.map((r) => r.id) ?? [],
   };
 }
 
@@ -251,7 +243,7 @@ function draftToPayload(d: TaskDraft): UpdateActionPlanTaskPayload {
     riskId: d.riskId || null,
     phaseId: d.projectId ? (d.phaseId || null) : null,
     responsibleResourceId: d.responsibleResourceId || null,
-    ownerUserId: d.ownerUserId || null,
+    assignedResourceIds: d.assignedResourceIds,
   };
 }
 
@@ -278,11 +270,6 @@ export function ActionPlanTaskEditDialog({
   const clientId = activeClient?.id ?? '';
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
-  const assignable = useProjectAssignableUsers({ enabled: open && !!clientId });
-  const users = useMemo(
-    () => assignable.data?.users ?? [],
-    [assignable.data?.users],
-  );
 
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -423,15 +410,6 @@ export function ActionPlanTaskEditDialog({
     return items;
   }, [phasesPick.data]);
 
-  const ownerSelectItems = useMemo(() => {
-    const items: Record<string, string> = { __none: 'Non assigné' };
-    for (const u of users) {
-      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-      items[u.id] = name || u.email;
-    }
-    return items;
-  }, [users]);
-
   const displayProject =
     task?.project != null ? `${task.project.code} — ${task.project.name}` : '—';
   const displayRisk =
@@ -440,7 +418,11 @@ export function ActionPlanTaskEditDialog({
     task && draft
       ? task.responsibleResource
         ? formatResourcePerson(task.responsibleResource)
-        : formatUser(task.ownerUserId, users)
+        : '—'
+      : '—';
+  const displayAssigned =
+    task?.assignedResources && task.assignedResources.length > 0
+      ? formatAssignedResourcesLabel(task.assignedResources)
       : '—';
 
   return (
@@ -864,39 +846,30 @@ export function ActionPlanTaskEditDialog({
             </ReadSlot>
           )}
 
-          {editingKey === 'owner' && canEdit ? (
-            <div className="space-y-1">
-              <Label>Assigné (compte utilisateur)</Label>
-              <Select
-                value={draft.ownerUserId || '__none'}
-                items={ownerSelectItems}
-                onValueChange={(v) => {
-                  setDraft((p) =>
-                    p ? { ...p, ownerUserId: !v || v === '__none' ? '' : v } : p,
-                  );
-                  setEditingKey(null);
-                }}
-              >
-                <SelectTrigger className="starium-form-select h-[38px] w-full min-w-0">
-                  <SelectValue placeholder="Non assigné" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">Non assigné</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {[u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {editingKey === 'assignees' && canEdit ? (
+            <HumanResourceMultiPicker
+              id="ap-task-assignees"
+              label="Assignés (ressources Humaines)"
+              options={humanResources}
+              selectedIds={draft.assignedResourceIds}
+              onChange={(nextIds) =>
+                setDraft((p) => (p ? { ...p, assignedResourceIds: nextIds } : p))
+              }
+            />
           ) : (
             <ReadSlot
-              label="Assigné (compte utilisateur)"
+              label="Assignés (ressources Humaines)"
               disabled={!canEdit}
-              onActivate={() => setEditingKey('owner')}
+              onActivate={() => setEditingKey('assignees')}
             >
-              {formatUser(draft.ownerUserId, users)}
+              {draft.assignedResourceIds.length > 0
+                ? formatAssignedResourcesLabel(
+                    humanResources.filter((resource) =>
+                      draft.assignedResourceIds.includes(resource.id),
+                    ),
+                    draft.assignedResourceIds,
+                  )
+                : displayAssigned}
             </ReadSlot>
           )}
               </TaskDialogSection>

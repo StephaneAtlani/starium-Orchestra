@@ -41,6 +41,7 @@ import {
 } from '@/features/projects/api/projects.api';
 import { useActionPlansListQuery } from '@/features/projects/hooks/use-action-plans-list-query';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
+import { HumanResourceMultiPicker } from './human-resource-multi-picker';
 import { cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -232,6 +233,7 @@ export function ActionPlanTaskCreateDialog({
   const [tRiskId, setTRiskId] = useState<string>('');
   const [tPhaseId, setTPhaseId] = useState<string>('');
   const [tResponsibleResourceId, setTResponsibleResourceId] = useState<string>('');
+  const [tAssignedResourceIds, setTAssignedResourceIds] = useState<string[]>([]);
   const [tPlannedStart, setTPlannedStart] = useState<string>('');
   const [tPlannedEnd, setTPlannedEnd] = useState<string>('');
   const [tEstimatedHours, setTEstimatedHours] = useState<string>('');
@@ -294,6 +296,7 @@ export function ActionPlanTaskCreateDialog({
     setTRiskId('');
     setTPhaseId('');
     setTResponsibleResourceId('');
+    setTAssignedResourceIds([]);
     setTPlannedStart('');
     setTPlannedEnd('');
     setTEstimatedHours('');
@@ -310,6 +313,7 @@ export function ActionPlanTaskCreateDialog({
     setTRiskId(p.riskId ?? '');
     setTPhaseId('');
     setTResponsibleResourceId('');
+    setTAssignedResourceIds([]);
     setTPlannedStart('');
     setTPlannedEnd('');
     setTEstimatedHours('');
@@ -362,6 +366,7 @@ export function ActionPlanTaskCreateDialog({
         riskId: tRiskId || null,
         phaseId: tProjectId ? (tPhaseId || null) : null,
         responsibleResourceId: tResponsibleResourceId || null,
+        assignedResourceIds: tAssignedResourceIds,
         plannedStartDate: dateInputToIsoDay(tPlannedStart) ?? null,
         plannedEndDate: dateInputToIsoDay(tPlannedEnd) ?? null,
         ...(estimatedHoursParsed !== undefined &&
@@ -820,6 +825,13 @@ export function ActionPlanTaskCreateDialog({
                   Ressource Humaine du catalogue RH — distincte d’un compte utilisateur Starium.
                 </p>
               </div>
+              <HumanResourceMultiPicker
+                id="ap-task-create-assignees"
+                label="Assignés (ressources Humaines)"
+                options={humanResources}
+                selectedIds={tAssignedResourceIds}
+                onChange={setTAssignedResourceIds}
+              />
             </DialogFormSection>
             </div>
           </div>

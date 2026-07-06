@@ -43,7 +43,7 @@ export function TimelineFilters({
 
   return (
     <div
-      className="mb-4 rounded-xl border border-border/60 bg-muted/30 p-3 sm:p-4"
+      className="mb-4 rounded-xl border border-border/60 bg-card p-3 sm:p-4"
       role="region"
       aria-label="Filtres de la chronologie"
     >

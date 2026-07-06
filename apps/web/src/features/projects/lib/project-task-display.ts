@@ -35,15 +35,28 @@ export function getVisiblePageNumbers(currentPage: number, totalPages: number): 
 }
 
 export function taskAssigneeShortLabel(task: ProjectTaskApi): string {
-  const resource = task.responsibleResource;
+  const resources = task.assignedResources;
+  if (resources && resources.length > 1) {
+    return `${resources.length} assignés`;
+  }
+  const resource = resources?.[0] ?? task.responsibleResource;
   if (resource?.firstName && resource?.name) {
-    return `${resource.firstName} ${resource.name.charAt(0)}.`;
+    return `${resource.firstName} ${resource.name}`;
   }
   if (resource?.name) return resource.name;
   return '—';
 }
 
 export function taskAssigneeDisplayName(task: ProjectTaskApi): string {
+  if (task.assignedResources && task.assignedResources.length > 0) {
+    return task.assignedResources
+      .map((resource) =>
+        resource.firstName && resource.name
+          ? `${resource.firstName} ${resource.name}`
+          : resource.name,
+      )
+      .join(', ');
+  }
   const resource = task.responsibleResource;
   if (resource?.firstName && resource?.name) {
     return `${resource.firstName} ${resource.name}`;

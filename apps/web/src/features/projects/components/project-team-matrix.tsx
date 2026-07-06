@@ -3,10 +3,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import { AlertCircle, Plus, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Info, Plus, Trash2, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Card,
   CardContent,
@@ -24,6 +25,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatResourceDisplayName } from '@/lib/resource-labels';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -36,11 +43,25 @@ import {
   createProjectTeamRole,
   deleteProjectTeamRole,
   removeProjectTeamMember,
+  updateProjectTeamRaci,
   type AddProjectTeamMemberPayload,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import { useProjectTeamQuery, useProjectTeamRolesQuery } from '../hooks/use-project-team-queries';
+import {
+  PROJECT_RACI_DESCRIPTION,
+  PROJECT_RACI_FULL_LABEL,
+  PROJECT_RACI_HELP_DETAIL,
+  PROJECT_RACI_HELP_INTRO,
+  PROJECT_RACI_KINDS,
+  PROJECT_RACI_SHORT_LABEL,
+} from '../lib/project-raci-labels';
+import {
+  useProjectTeamQuery,
+  useProjectTeamRaciQuery,
+  useProjectTeamRolesQuery,
+} from '../hooks/use-project-team-queries';
 import type {
+  ProjectRaciKind,
   ProjectTeamMemberApi,
   ProjectTeamRoleApi,
 } from '../types/project.types';
@@ -57,6 +78,152 @@ function membersByRole(
   return m;
 }
 
+const TEAM_GRID_COLS_EDIT =
+  'lg:grid-cols-[minmax(0,10.5rem)_5.75rem_minmax(0,1fr)_2.25rem_2.25rem]';
+const TEAM_GRID_COLS_READ =
+  'lg:grid-cols-[minmax(0,10.5rem)_5.75rem_minmax(0,1fr)]';
+
+function ProjectTeamRaciHelpTrigger() {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Qu’est-ce que le RACI ?"
+          >
+            <Info className="size-4" aria-hidden />
+          </button>
+        }
+      />
+      <TooltipContent side="bottom" align="start" className="max-w-sm space-y-2 text-xs">
+        <p className="font-medium text-foreground">Matrice RACI</p>
+        <p className="text-muted-foreground">{PROJECT_RACI_HELP_INTRO}</p>
+        <ul className="space-y-1 text-muted-foreground">
+          {PROJECT_RACI_KINDS.map((kind) => (
+            <li key={kind} className="flex gap-2">
+              <span className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border/70 bg-muted/30 text-[10px] font-bold text-foreground">
+                {PROJECT_RACI_SHORT_LABEL[kind]}
+              </span>
+              <span>
+                <span className="font-medium text-foreground">
+                  {PROJECT_RACI_FULL_LABEL[kind]}
+                </span>
+                {' — '}
+                {PROJECT_RACI_DESCRIPTION[kind]}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-muted-foreground">{PROJECT_RACI_HELP_DETAIL}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ProjectTeamRaciLegend() {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-0.5">
+        <span className="text-xs font-semibold text-foreground">RACI</span>
+        <ProjectTeamRaciHelpTrigger />
+      </div>
+      <div
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+        aria-label="Légende des lettres RACI"
+      >
+        {PROJECT_RACI_KINDS.map((kind) => (
+          <span key={kind} className="inline-flex items-center gap-1">
+            <span className="inline-flex size-4 shrink-0 items-center justify-center rounded border border-border/70 bg-muted/30 text-[10px] font-bold text-foreground">
+              {PROJECT_RACI_SHORT_LABEL[kind]}
+            </span>
+            <span>{PROJECT_RACI_FULL_LABEL[kind]}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProjectTeamRaciToggles({
+  roleName,
+  kinds,
+  persisted,
+  disabled,
+  canEdit,
+  onToggle,
+}: {
+  roleName: string;
+  kinds: ProjectRaciKind[];
+  persisted: boolean;
+  disabled: boolean;
+  canEdit: boolean;
+  onToggle: (kind: ProjectRaciKind, checked: boolean) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'grid w-full max-w-full grid-cols-4 overflow-hidden rounded-md border border-border/70 sm:max-w-[6.5rem] lg:max-w-[5.75rem]',
+        !persisted && kinds.length > 0 && 'border-dashed',
+      )}
+      role="group"
+      aria-label={`RACI pour le rôle ${roleName}`}
+    >
+      {PROJECT_RACI_KINDS.map((kind, index) => {
+        const checked = kinds.includes(kind);
+        const short = PROJECT_RACI_SHORT_LABEL[kind];
+        const full = PROJECT_RACI_FULL_LABEL[kind];
+        const description = PROJECT_RACI_DESCRIPTION[kind];
+        const controlId = `raci-${roleName}-${kind}`.replace(/\s+/g, '-').toLowerCase();
+
+        const toggle = (
+          <label
+            htmlFor={canEdit ? controlId : undefined}
+            className={cn(
+              'flex min-h-11 min-w-0 items-center justify-center text-[11px] font-bold transition-colors sm:min-h-10 lg:min-h-9',
+              index > 0 && 'border-l border-border/70',
+              checked
+                ? 'bg-violet-900/35 text-violet-950 dark:bg-violet-950/55 dark:text-violet-100'
+                : 'bg-muted/15 text-muted-foreground',
+              canEdit && !disabled && 'cursor-pointer hover:bg-muted/40',
+              (!canEdit || disabled) && 'opacity-80',
+            )}
+            title={`${full} — ${description}`}
+          >
+            {canEdit ? (
+              <Checkbox
+                id={controlId}
+                checked={checked}
+                disabled={disabled}
+                className="sr-only"
+                onCheckedChange={(value) => onToggle(kind, value === true)}
+                aria-label={`${full} (${short}) pour ${roleName}`}
+              />
+            ) : null}
+            <span aria-hidden>{short}</span>
+          </label>
+        );
+
+        return (
+          <Tooltip key={kind}>
+            <TooltipTrigger render={toggle} />
+            <TooltipContent side="top" className="max-w-xs text-xs">
+              <p className="font-medium">
+                {short} — {full}
+              </p>
+              <p className="text-muted-foreground">{description}</p>
+              {!persisted && checked ? (
+                <p className="mt-1 text-muted-foreground">Valeur suggérée (non enregistrée)</p>
+              ) : null}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -67,6 +234,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
   const rolesQuery = useProjectTeamRolesQuery();
   const teamQuery = useProjectTeamQuery(projectId);
+  const raciQuery = useProjectTeamRaciQuery(projectId);
 
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [addMemberDialogRoleId, setAddMemberDialogRoleId] = useState<string | null>(null);
@@ -80,9 +248,20 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
 
   const byRole = useMemo(() => membersByRole(members), [members]);
 
+  const raciByRole = useMemo(() => {
+    const m = new Map<string, { kinds: ProjectRaciKind[]; persisted: boolean }>();
+    for (const row of raciQuery.data ?? []) {
+      m.set(row.roleId, { kinds: row.kinds, persisted: row.persisted });
+    }
+    return m;
+  }, [raciQuery.data]);
+
   const invalidate = () => {
     void queryClient.invalidateQueries({
       queryKey: projectQueryKeys.team(clientId, projectId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.teamRaci(clientId, projectId),
     });
     void queryClient.invalidateQueries({
       queryKey: projectQueryKeys.detail(clientId, projectId),
@@ -131,6 +310,15 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
       setTeamOwnerResourceId('');
       setTeamOwnerResourceDetails(null);
       invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message || 'Erreur'),
+  });
+
+  const raciMutation = useMutation({
+    mutationFn: (payload: { roleId: string; kind: ProjectRaciKind; enabled: boolean }) =>
+      updateProjectTeamRaci(authFetch, projectId, payload),
+    onSuccess: (rows) => {
+      queryClient.setQueryData(projectQueryKeys.teamRaci(clientId, projectId), rows);
     },
     onError: (e: Error) => toast.error(e.message || 'Erreur'),
   });
@@ -209,15 +397,15 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
   );
 
   return (
-    <>
+    <TooltipProvider delay={250}>
       <Card
         size="sm"
-        className="overflow-hidden border-l-[3px] border-l-violet-500/70 shadow-sm"
+        className="overflow-hidden border-l-[3px] border-l-violet-950 shadow-sm dark:border-l-violet-800"
       >
         <CardHeader className="border-b border-border/60 pb-4">
           <div className="flex gap-3">
             <div
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-violet-500/10 text-violet-800 shadow-inner dark:text-violet-300"
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-violet-900/35 bg-violet-900/20 text-violet-950 shadow-inner dark:border-violet-700/40 dark:bg-violet-950/50 dark:text-violet-100"
               aria-hidden
             >
               <Users className="size-5" />
@@ -230,19 +418,18 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                 Composition de l&apos;équipe
               </CardTitle>
               <CardDescription className="text-xs leading-relaxed text-muted-foreground">
-                Chaque ligne est un <strong>rôle équipe</strong> du client. Les deux rôles{' '}
-                <strong>système</strong> (créés à la création du client) sont{' '}
-                <strong>Sponsor</strong> et <strong>Responsable de projet</strong> : repérez-les au
-                badge dédié — ils restent alignés sur les champs sponsor / responsable du
-                portefeuille. Les autres lignes sont des rôles métier ou personnalisés.
+                Chaque ligne est un <strong>rôle équipe</strong> du client. Les bordures en
+                pointillés indiquent des suggestions RACI non encore enregistrées. Les rôles{' '}
+                <strong>système</strong> Sponsor et Responsable de projet restent alignés sur le
+                portefeuille.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="min-w-0 space-y-4 pt-4">
-          {rolesQuery.isLoading || teamQuery.isLoading ? (
+          {rolesQuery.isLoading || teamQuery.isLoading || raciQuery.isLoading ? (
             <LoadingState rows={5} />
-          ) : rolesQuery.error || teamQuery.error ? (
+          ) : rolesQuery.error || teamQuery.error || raciQuery.error ? (
             <Alert variant="destructive" className="border-destructive/40">
               <AlertCircle aria-hidden />
               <AlertTitle>Équipe indisponible</AlertTitle>
@@ -251,23 +438,25 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="min-w-0 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-card shadow-sm">
+            <div className="min-w-0 max-w-full rounded-xl border border-border/70 bg-card shadow-sm">
+              <div className="border-b border-border/60 bg-muted/20 px-3 py-2 sm:px-4">
+                <ProjectTeamRaciLegend />
+              </div>
+
               {/* En-tête (desktop) */}
               <div
                 className={cn(
-                  'hidden gap-4 border-b border-border/60 bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground lg:grid lg:items-center',
-                  canEdit
-                    ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_auto_auto]'
-                    : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]',
+                  'hidden gap-3 border-b border-border/60 bg-muted/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:px-4 lg:grid lg:items-center',
+                  canEdit ? TEAM_GRID_COLS_EDIT : TEAM_GRID_COLS_READ,
                 )}
-                aria-hidden
               >
                 <span>Rôle</span>
+                <span className="text-center">RACI</span>
                 <span>Membres</span>
                 {canEdit ? (
                   <>
-                    <span className="text-center">Affecter</span>
-                    <span className="w-9 text-center" />
+                    <span className="sr-only">Affecter</span>
+                    <span className="sr-only">Supprimer</span>
                   </>
                 ) : null}
               </div>
@@ -275,8 +464,13 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
               <ul className="divide-y divide-border/60" aria-labelledby="project-team-matrix-title">
                 {sortedRoles.map((role: ProjectTeamRoleApi, idx: number) => {
                   const rowMembers = byRole.get(role.id) ?? [];
+                  const raciRow = raciByRole.get(role.id);
+                  const raciKinds = raciRow?.kinds ?? [];
+                  const raciPersisted = raciRow?.persisted ?? false;
                   const busy =
-                    addMemberMutation.isPending || removeMemberMutation.isPending;
+                    addMemberMutation.isPending ||
+                    removeMemberMutation.isPending ||
+                    raciMutation.isPending;
                   const deleteRoleConfirmMessage =
                     role.systemKind != null
                       ? 'Supprimer ce rôle système ? Aucun membre ne doit y être affecté. Les champs sponsor / responsable projet (portefeuille) seront recalculés.'
@@ -286,10 +480,8 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                     <li
                       key={role.id}
                       className={cn(
-                        'min-w-0 px-3 py-3.5 sm:px-4 sm:py-4 lg:grid lg:gap-4 lg:items-start',
-                        canEdit
-                          ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_auto_auto]'
-                          : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]',
+                        'min-w-0 px-3 py-3.5 sm:px-4 sm:py-3 lg:grid lg:items-center lg:gap-3',
+                        canEdit ? TEAM_GRID_COLS_EDIT : TEAM_GRID_COLS_READ,
                         idx % 2 === 1 && 'bg-muted/25',
                       )}
                     >
@@ -320,6 +512,26 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                             <Trash2 className="size-4" />
                           </Button>
                         ) : null}
+                      </div>
+
+                      <div className="mb-3 min-w-0 lg:mb-0">
+                        <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:hidden">
+                          RACI
+                        </span>
+                        <ProjectTeamRaciToggles
+                          roleName={role.name}
+                          kinds={raciKinds}
+                          persisted={raciPersisted}
+                          disabled={busy || raciMutation.isPending}
+                          canEdit={canEdit}
+                          onToggle={(kind, checked) => {
+                            raciMutation.mutate({
+                              roleId: role.id,
+                              kind,
+                              enabled: checked,
+                            });
+                          }}
+                        />
                       </div>
 
                       <div className="mb-3 lg:mb-0">
@@ -384,7 +596,7 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                               Affecter une ressource humaine
                             </Button>
                           </div>
-                          <div className="hidden min-w-0 items-start justify-center pt-0 lg:flex">
+                          <div className="hidden min-w-0 items-center justify-center lg:flex">
                             <Button
                               type="button"
                               size="icon"
@@ -406,12 +618,12 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
                       ) : null}
 
                       {canEdit ? (
-                        <div className="hidden lg:flex lg:mt-0 lg:justify-end lg:pt-0">
+                        <div className="hidden items-center justify-center lg:flex">
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
-                            className="size-9 text-muted-foreground hover:text-destructive"
+                            className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
                             disabled={deleteRoleMutation.isPending}
                             title="Supprimer ce rôle (aucun membre affecté)"
                             aria-label={`Supprimer le rôle ${role.name}`}
@@ -543,6 +755,6 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
           description: 'Aucune ressource Humaine ne correspond à ce filtre pour ce rôle.',
         }}
       />
-    </>
+    </TooltipProvider>
   );
 }
