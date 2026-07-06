@@ -12,8 +12,10 @@ import { computeTaskStats } from '../lib/project-task-display';
 
 export function ProjectTasksStatStrip({ projectId }: { projectId: string }) {
   const tasksQuery = useProjectTasksQuery(projectId);
-  const tasks = tasksQuery.data?.items ?? [];
-  const stats = useMemo(() => computeTaskStats(tasks), [tasks]);
+  const stats = useMemo(
+    () => computeTaskStats(tasksQuery.data?.items ?? []),
+    [tasksQuery.data?.items],
+  );
 
   return (
     <div className="starium-stat-cards" aria-label="Synthèse des tâches du projet">

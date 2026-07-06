@@ -758,7 +758,10 @@ export function ProjectSheetView({
   const cyclesByProjectQuery = useGovernanceCyclesByProjectQuery(projectId, {
     enabled: governanceCyclesEnabled && has('governance_cycles.read') && !sheetReadOnlyOverride,
   });
-  const cycleItems = cyclesByProjectQuery.data?.items ?? [];
+  const cycleItems = useMemo(
+    () => cyclesByProjectQuery.data?.items ?? [],
+    [cyclesByProjectQuery.data?.items],
+  );
   const hasOpenCycleCandidacy = useMemo(
     () =>
       cycleItems.some(

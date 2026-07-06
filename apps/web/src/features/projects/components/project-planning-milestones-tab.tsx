@@ -248,7 +248,7 @@ export function ProjectPlanningMilestonesTab({ projectId }: { projectId: string 
       m.set(u.id, u);
     }
     return m;
-  }, [assignableQuery.data?.users]);
+  }, [assignableQuery]);
 
   const renderPhaseLabel = (phaseId: string | null | undefined) => {
     if (!phaseId) return 'Sans libellé de phase';

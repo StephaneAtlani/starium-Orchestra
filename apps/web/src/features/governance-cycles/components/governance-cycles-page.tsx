@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -108,7 +108,10 @@ export function GovernanceCyclesPage() {
   const listQuery = useGovernanceCyclesListQuery(listParams, { enabled: listEnabled });
   const archiveMutation = useArchiveGovernanceCycleMutation();
 
-  const serverItems = listQuery.data?.items ?? [];
+  const serverItems = useMemo(
+    () => listQuery.data?.items ?? [],
+    [listQuery.data?.items],
+  );
   const visibleItems = useMemo(
     () => serverItems.filter((c) => matchesPeriodFilter(c, periodStart, periodEnd)),
     [serverItems, periodStart, periodEnd],
@@ -129,15 +132,18 @@ export function GovernanceCyclesPage() {
 
   const pageSummary = computePageSummary(visibleItems);
 
-  async function handleArchive(cycle: GovernanceCycleResponseDto) {
-    if (!window.confirm(`Archiver le cycle « ${cycle.name} » ?`)) return;
-    try {
-      await archiveMutation.mutateAsync(cycle.id);
-      toast.success('Cycle archivé');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
-  }
+  const handleArchive = useCallback(
+    async (cycle: GovernanceCycleResponseDto) => {
+      if (!window.confirm(`Archiver le cycle « ${cycle.name} » ?`)) return;
+      try {
+        await archiveMutation.mutateAsync(cycle.id);
+        toast.success('Cycle archivé');
+      } catch (error) {
+        toast.error(getApiErrorMessage(error));
+      }
+    },
+    [archiveMutation],
+  );
 
   const cycleColumns = useMemo<DataTableColumn<GovernanceCycleResponseDto>[]>(() => {
     return [
@@ -268,7 +274,7 @@ export function GovernanceCyclesPage() {
         ),
       },
     ];
-  }, [archiveMutation.isPending, summaryByCycleId, summaryQueries, visibleIds]);
+  }, [archiveMutation.isPending, handleArchive, summaryByCycleId, summaryQueries, visibleIds]);
 
   if (!canRead && permsSuccess) {
     return (

@@ -725,6 +725,7 @@ export function ProjectRiskEbiosDialog({
     complementaryTreatmentMeasures,
     ownerUserId,
     fallbackRiskTypeId,
+    mode,
   ]);
 
   const snapshot = useMemo(() => {

@@ -7,8 +7,10 @@ import { computeMilestoneStats } from '../lib/project-milestone-display';
 
 export function ProjectMilestonesStatStrip({ projectId }: { projectId: string }) {
   const milestonesQuery = useProjectMilestonesQuery(projectId);
-  const milestones = milestonesQuery.data?.items ?? [];
-  const stats = useMemo(() => computeMilestoneStats(milestones), [milestones]);
+  const stats = useMemo(
+    () => computeMilestoneStats(milestonesQuery.data?.items ?? []),
+    [milestonesQuery.data?.items],
+  );
 
   return (
     <div className="starium-stat-cards" aria-label="Synthèse des jalons du projet">

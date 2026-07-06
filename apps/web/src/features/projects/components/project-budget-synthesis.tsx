@@ -581,7 +581,10 @@ export function ProjectBudgetSynthesis({
 }) {
   const linksQuery = useProjectBudgetLinksQuery(projectId);
   const sheetQuery = useProjectSheetQuery(projectId);
-  const links = linksQuery.data?.items ?? [];
+  const links = useMemo(
+    () => linksQuery.data?.items ?? [],
+    [linksQuery.data?.items],
+  );
 
   const metrics = useMemo(
     () =>

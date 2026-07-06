@@ -122,7 +122,10 @@ export function ProjectSynthesisRecentData({
   project: ProjectDetail;
 }) {
   const tasksQuery = useProjectTasksQuery(projectId);
-  const tasks = tasksQuery.data?.items ?? [];
+  const tasks = useMemo(
+    () => tasksQuery.data?.items ?? [],
+    [tasksQuery.data?.items],
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(TASK_PAGE_SIZE_OPTIONS[0]);
 

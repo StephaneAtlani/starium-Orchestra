@@ -255,7 +255,10 @@ export function ProjectBudgetSection({
     setPercentage('');
   };
 
-  const budgetLinks = linksQuery.data?.items ?? [];
+  const budgetLinks = useMemo(
+    () => linksQuery.data?.items ?? [],
+    [linksQuery.data?.items],
+  );
   const canChooseCreateAllocationMode = budgetLinks.length === 0;
   const effectiveCreateAllocationMode = useMemo(
     () =>
