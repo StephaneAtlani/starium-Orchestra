@@ -32,6 +32,7 @@ import {
   createProjectRequest,
   fetchValidatorOptions,
   fetchWorkflowSettings,
+  type ProjectRequestDto,
 } from '../api/project-requests.api';
 import { PROJECT_REQUEST_URGENCY_LABELS } from '../constants/project-request-labels';
 
@@ -90,7 +91,7 @@ export function CreateProjectRequestDialog({
     enabled: !!clientId && open && canPickValidator,
   });
 
-  const mutation = useMutation({
+  const mutation = useMutation<ProjectRequestDto, ApiFormError>({
     mutationFn: () => {
       const budgetRaw = form.estimatedBudget.trim().replace(/\s/g, '').replace(',', '.');
       const estimatedBudget =
@@ -118,9 +119,8 @@ export function CreateProjectRequestDialog({
         router.push(`/projects/requests/${row.id}`);
       }
     },
-    onError: async (err) => {
-      const apiErr = err as ApiFormError;
-      setFormError(apiErr.message ?? 'Création impossible.');
+    onError: (err) => {
+      setFormError(err.message ?? 'Création impossible.');
     },
   });
 

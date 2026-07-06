@@ -102,7 +102,8 @@ export function ProjectRequestWorkflowSettingsPage() {
   const options = data?.options;
   const pilotingAvailable = options?.pilotingCycleTargetAvailable ?? false;
 
-  const patchTarget = (value: string) => {
+  const patchTarget = (value: string | null) => {
+    if (!value) return;
     if (value === 'PILOTING_CYCLE' && !pilotingAvailable) return;
     mutation.mutate({
       defaultApprovedTarget: value,
@@ -110,8 +111,9 @@ export function ProjectRequestWorkflowSettingsPage() {
     });
   };
 
-  const patchCycle = (value: string) => {
-    mutation.mutate({ defaultGovernanceCycleId: value || null });
+  const patchCycle = (value: string | null) => {
+    if (!value) return;
+    mutation.mutate({ defaultGovernanceCycleId: value });
   };
 
   return (
