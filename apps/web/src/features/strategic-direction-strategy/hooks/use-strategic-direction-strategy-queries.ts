@@ -13,10 +13,15 @@ import {
   getStrategicDirectionStrategy,
   getStrategicDirectionStrategyLinks,
   archiveStrategicDirectionStrategy,
+  compareStrategicDirectionStrategyVersions,
   listStrategicDirectionStrategies,
+  getStrategicDirectionStrategyVersions,
   putStrategicDirectionStrategyAxes,
   putStrategicDirectionStrategyObjectives,
   reviewStrategicDirectionStrategy,
+  fetchStrategicDirectionStrategyValidatorOptions,
+  fetchStrategicDirectionStrategyWorkflowSettings,
+  patchStrategicDirectionStrategyWorkflowSettings,
   submitStrategicDirectionStrategy,
   updateStrategicDirectionStrategy,
   type UpdateStrategicDirectionStrategyInput,
@@ -120,6 +125,89 @@ export function useStrategicDirectionStrategyLinksQuery(
   });
 }
 
+export function useStrategicDirectionStrategyVersionsQuery(
+  strategyId: string | null,
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.versions(clientId, strategyId),
+    queryFn: () => getStrategicDirectionStrategyVersions(authFetch, strategyId!),
+    enabled: Boolean(clientId) && Boolean(strategyId) && enabled,
+  });
+}
+
+export function useStrategicDirectionStrategyCompareQuery(
+  baseStrategyId: string | null,
+  targetStrategyId: string | null,
+  options?: { enabled?: boolean },
+) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled !== false;
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.compare(clientId, baseStrategyId, targetStrategyId),
+    queryFn: () =>
+      compareStrategicDirectionStrategyVersions(authFetch, baseStrategyId!, targetStrategyId!),
+    enabled:
+      Boolean(clientId) &&
+      Boolean(baseStrategyId) &&
+      Boolean(targetStrategyId) &&
+      baseStrategyId !== targetStrategyId &&
+      enabled,
+  });
+}
+
+export function useStrategicDirectionStrategyWorkflowSettingsQuery(options?: { enabled?: boolean }) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.workflowSettings(clientId),
+    queryFn: () => fetchStrategicDirectionStrategyWorkflowSettings(authFetch),
+    enabled: Boolean(clientId) && (options?.enabled ?? true),
+  });
+}
+
+export function usePatchStrategicDirectionStrategyWorkflowSettingsMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      patchStrategicDirectionStrategyWorkflowSettings(authFetch, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: strategicDirectionStrategyKeys.workflowSettings(clientId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: strategicDirectionStrategyKeys.validatorOptions(clientId),
+      });
+    },
+  });
+}
+
+export function useStrategicDirectionStrategyValidatorOptionsQuery(options?: { enabled?: boolean }) {
+  const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+
+  return useQuery({
+    queryKey: strategicDirectionStrategyKeys.validatorOptions(clientId),
+    queryFn: () => fetchStrategicDirectionStrategyValidatorOptions(authFetch),
+    enabled: Boolean(clientId) && (options?.enabled ?? true),
+  });
+}
+
 export function useCreateStrategicDirectionStrategyMutation() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -154,8 +242,19 @@ export function useSubmitStrategicDirectionStrategyMutation() {
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ strategyId, alignedVisionId }: { strategyId: string; alignedVisionId: string }) =>
-      submitStrategicDirectionStrategy(authFetch, strategyId, alignedVisionId),
+    mutationFn: ({
+      strategyId,
+      alignedVisionId,
+      validatorUserId,
+    }: {
+      strategyId: string;
+      alignedVisionId: string;
+      validatorUserId?: string;
+    }) =>
+      submitStrategicDirectionStrategy(authFetch, strategyId, {
+        alignedVisionId,
+        validatorUserId,
+      }),
     onSuccess: async () => {
       await invalidateStrategicDirectionStrategyScope(queryClient, clientId);
     },

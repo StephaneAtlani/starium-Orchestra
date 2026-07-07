@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -75,6 +76,20 @@ import {
   toStewardSummary,
   type StewardSummaryDto,
 } from '../organization/steward-resource.helpers';
+import {
+  buildAncestorChain,
+  buildChildrenByParentId,
+  collectDescendantIds,
+  computeDepthFromRoot,
+  computeSubtreeHeight,
+  MAX_PROJECT_HIERARCHY_DEPTH,
+  PROJECT_DELETE_HAS_CHILDREN_MESSAGE,
+  PROJECT_HIERARCHY_FILTER_CONFLICT_MESSAGE,
+  PROJECT_SELF_PARENT_MESSAGE,
+  wouldExceedMaxDepthAfterReparent,
+  wouldSetParentCreateCycle,
+  type ProjectParentSummary,
+} from './project-hierarchy.util';
 
 const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
@@ -108,6 +123,10 @@ const projectIncludeList = {
       parent: { select: { id: true, name: true, color: true, icon: true } },
     },
   },
+  parentProject: {
+    select: { id: true, name: true, code: true, status: true, kind: true },
+  },
+  _count: { select: { children: true } },
   ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
   steward: stewardSelect,
 } as const;
@@ -160,6 +179,26 @@ export type ProjectListItemDto = {
   consumedBudgetAmount: string | null;
   /** Noms et faits pour infobulles portefeuille (T·R·J, signaux). */
   pilotageSnapshot: ProjectListPilotageSnapshotDto;
+  /** RFC-PROJ-019 */
+  parentProject: ProjectParentSummary | null;
+  childrenCount: number;
+};
+
+export type ProjectDetailDto = ProjectListItemDto & {
+  description: string | null;
+  sponsorUserId: string | null;
+  startDate: string | null;
+  actualEndDate: string | null;
+  targetBudgetAmount: string | null;
+  pilotNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Dernier audit sur l’entité projet (fiche / pilotage) — horodatage. */
+  lastModifiedAt: string | null;
+  /** Prénom nom de l’utilisateur ayant effectué la dernière modification auditée. */
+  lastModifiedByDisplayName: string | null;
+  /** RFC-PROJ-019 — ancêtres ordonnés racine → parent direct. */
+  ancestorChain: ProjectParentSummary[];
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -218,23 +257,10 @@ export type PortfolioGanttRowDto = {
   stakeholderLines: string[];
 };
 
-export type ProjectDetailDto = ProjectListItemDto & {
-  description: string | null;
-  sponsorUserId: string | null;
-  startDate: string | null;
-  actualEndDate: string | null;
-  targetBudgetAmount: string | null;
-  pilotNotes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  /** Dernier audit sur l’entité projet (fiche / pilotage) — horodatage. */
-  lastModifiedAt: string | null;
-  /** Prénom nom de l’utilisateur ayant effectué la dernière modification auditée. */
-  lastModifiedByDisplayName: string | null;
-};
-
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
@@ -613,6 +639,14 @@ export class ProjectsService {
         firstName: string | null;
         email: string | null;
       } | null;
+      parentProject: {
+        id: string;
+        name: string;
+        code: string;
+        status: string;
+        kind: string;
+      } | null;
+      _count: { children: number };
     },
   ): ProjectListItemDto {
     const ownerDisplayName = this.ownerDisplayResolved(project);
@@ -685,6 +719,16 @@ export class ProjectsService {
       targetBudgetAmount: project.targetBudgetAmount?.toString() ?? null,
       consumedBudgetAmount: null,
       pilotageSnapshot: this.buildPilotageSnapshotForProject(project),
+      parentProject: project.parentProject
+        ? {
+            id: project.parentProject.id,
+            name: project.parentProject.name,
+            code: project.parentProject.code,
+            status: project.parentProject.status,
+            kind: project.parentProject.kind,
+          }
+        : null,
+      childrenCount: project._count?.children ?? 0,
     };
   }
 
@@ -804,6 +848,95 @@ export class ProjectsService {
     if (!category.parentId) {
       throw new BadRequestException(
         'A project can only be assigned to a level-2 portfolio sub-category',
+      );
+    }
+  }
+
+  private assertListHierarchyFilters(query: ListProjectsQueryDto): void {
+    if (query.rootOnly && query.parentProjectId?.trim()) {
+      throw new BadRequestException(PROJECT_HIERARCHY_FILTER_CONFLICT_MESSAGE);
+    }
+  }
+
+  private async loadClientHierarchyMaps(clientId: string) {
+    const rows = await this.prisma.project.findMany({
+      where: { clientId },
+      select: {
+        id: true,
+        parentProjectId: true,
+        name: true,
+        code: true,
+        status: true,
+        kind: true,
+      },
+    });
+    const parentById = new Map<string, string | null>();
+    const summaryById = new Map<string, ProjectParentSummary>();
+    for (const row of rows) {
+      parentById.set(row.id, row.parentProjectId);
+      summaryById.set(row.id, {
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        status: row.status,
+        kind: row.kind,
+      });
+    }
+    const childrenByParentId = buildChildrenByParentId(parentById);
+    return { parentById, childrenByParentId, summaryById };
+  }
+
+  private async assertParentProjectForWrite(
+    clientId: string,
+    projectId: string | null,
+    parentProjectId: string | null | undefined,
+    isCreate: boolean,
+  ): Promise<void> {
+    if (parentProjectId === undefined || parentProjectId === null) return;
+    const trimmedParent = parentProjectId.trim();
+    if (!trimmedParent) return;
+
+    if (projectId && trimmedParent === projectId) {
+      throw new BadRequestException(PROJECT_SELF_PARENT_MESSAGE);
+    }
+
+    const parent = await this.prisma.project.findFirst({
+      where: { id: trimmedParent, clientId },
+      select: { id: true },
+    });
+    if (!parent) {
+      throw new BadRequestException(
+        'Parent project not found for active client',
+      );
+    }
+
+    const { parentById, childrenByParentId } =
+      await this.loadClientHierarchyMaps(clientId);
+
+    if (
+      projectId &&
+      wouldSetParentCreateCycle({
+        projectId,
+        newParentId: trimmedParent,
+        parentById,
+      })
+    ) {
+      throw new BadRequestException(
+        'Assigning this parent would create a cycle in the project hierarchy',
+      );
+    }
+
+    if (
+      wouldExceedMaxDepthAfterReparent({
+        newParentId: trimmedParent,
+        projectId: projectId ?? '__new__',
+        parentById,
+        childrenByParentId,
+        isCreate,
+      })
+    ) {
+      throw new BadRequestException(
+        'Assigning this parent would exceed the maximum project hierarchy depth',
       );
     }
   }
@@ -943,6 +1076,8 @@ export class ProjectsService {
     query: ListProjectsQueryDto,
     userId?: string,
   ): Promise<ProjectListItemDto[]> {
+    this.assertListHierarchyFilters(query);
+
     const where: Prisma.ProjectWhereInput = { clientId };
     const andFilters: Prisma.ProjectWhereInput[] = [];
 
@@ -953,6 +1088,10 @@ export class ProjectsService {
     if (query.portfolioCategoryId) where.portfolioCategoryId = query.portfolioCategoryId;
     if (query.ownerUserId) where.ownerUserId = query.ownerUserId;
     if (query.ownerOrgUnitId) where.ownerOrgUnitId = query.ownerOrgUnitId;
+    if (query.rootOnly) where.parentProjectId = null;
+    if (query.parentProjectId?.trim()) {
+      where.parentProjectId = query.parentProjectId.trim();
+    }
 
     if (query.search?.trim()) {
       const s = query.search.trim();
@@ -1359,6 +1498,13 @@ export class ProjectsService {
       await this.assertCanReadProject(clientId, userId, id);
     }
     const base = this.toListItem(project as any);
+    const { parentById, summaryById } = await this.loadClientHierarchyMaps(clientId);
+    const ancestorChain = buildAncestorChain(id, parentById, summaryById, (reason, detail) => {
+      this.logger.warn(
+        `Project hierarchy anomaly (${reason}) for project ${detail.projectId}`,
+        detail,
+      );
+    });
     const lastModification = await this.findLastProjectModification(clientId, id);
     return {
       ...base,
@@ -1372,6 +1518,7 @@ export class ProjectsService {
       updatedAt: project.updatedAt.toISOString(),
       lastModifiedAt: lastModification?.at ?? null,
       lastModifiedByDisplayName: lastModification?.userDisplayName ?? null,
+      ancestorChain,
     };
   }
 
@@ -1384,6 +1531,13 @@ export class ProjectsService {
     await this.assertClientUser(clientId, dto.sponsorUserId);
     await this.assertClientUser(clientId, dto.ownerUserId);
     await this.assertProjectPortfolioSubCategory(clientId, dto.portfolioCategoryId);
+    const parentProjectId = dto.parentProjectId?.trim() || null;
+    await this.assertParentProjectForWrite(
+      clientId,
+      null,
+      parentProjectId,
+      true,
+    );
     if (dto.ownerOrgUnitId?.trim()) {
       await assertOrgUnitInClient(this.prisma, clientId, dto.ownerOrgUnitId.trim());
     }
@@ -1465,6 +1619,7 @@ export class ProjectsService {
       sponsorUserId: dto.sponsorUserId ?? null,
       ownerUserId: dto.ownerUserId ?? null,
       portfolioCategoryId: dto.portfolioCategoryId ?? null,
+      parentProjectId,
       ownerOrgUnitId,
       ...(stewardResourceId !== undefined && { stewardResourceId }),
       startDate: dto.startDate ? new Date(dto.startDate) : null,
@@ -1557,6 +1712,11 @@ export class ProjectsService {
     await this.assertClientUser(clientId, dto.ownerUserId);
     await this.assertProjectPortfolioSubCategory(clientId, dto.portfolioCategoryId);
 
+    if (dto.parentProjectId !== undefined) {
+      const nextParent = dto.parentProjectId?.trim() || null;
+      await this.assertParentProjectForWrite(clientId, id, nextParent, false);
+    }
+
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.code !== undefined) data.code = dto.code.trim();
@@ -1582,6 +1742,9 @@ export class ProjectsService {
     }
     if (dto.portfolioCategoryId !== undefined) {
       data.portfolioCategoryId = dto.portfolioCategoryId ?? null;
+    }
+    if (dto.parentProjectId !== undefined) {
+      data.parentProjectId = dto.parentProjectId?.trim() || null;
     }
     if (dto.ownerOrgUnitId !== undefined) {
       const nextOwner = dto.ownerOrgUnitId?.trim() || null;
@@ -1661,10 +1824,13 @@ export class ProjectsService {
     const ownerChanged = existing.ownerUserId !== updated.ownerUserId;
     const portfolioCategoryChanged =
       existing.portfolioCategoryId !== updated.portfolioCategoryId;
+    const parentProjectChanged =
+      existing.parentProjectId !== updated.parentProjectId;
     const keysToOmit: string[] = [];
     if (statusChanged) keysToOmit.push('status');
     if (ownerChanged) keysToOmit.push('ownerUserId');
     if (portfolioCategoryChanged) keysToOmit.push('portfolioCategoryId');
+    if (parentProjectChanged) keysToOmit.push('parentProjectId');
     ({ oldValue, newValue } = omitKeysFromDiff(oldValue, newValue, keysToOmit));
 
     const meta = {
@@ -1721,6 +1887,31 @@ export class ProjectsService {
         resourceId: id,
         oldValue: { portfolioCategoryId: existing.portfolioCategoryId ?? null },
         newValue: { portfolioCategoryId: updated.portfolioCategoryId ?? null },
+        ...meta,
+      });
+    }
+
+    if (parentProjectChanged) {
+      const prevParent = existing.parentProjectId ?? null;
+      const nextParent = updated.parentProjectId ?? null;
+      let parentAction:
+        | typeof PROJECT_AUDIT_ACTION.PROJECT_PARENT_ASSIGNED
+        | typeof PROJECT_AUDIT_ACTION.PROJECT_PARENT_DETACHED
+        | typeof PROJECT_AUDIT_ACTION.PROJECT_PARENT_CHANGED =
+        PROJECT_AUDIT_ACTION.PROJECT_PARENT_CHANGED;
+      if (prevParent == null && nextParent != null) {
+        parentAction = PROJECT_AUDIT_ACTION.PROJECT_PARENT_ASSIGNED;
+      } else if (prevParent != null && nextParent == null) {
+        parentAction = PROJECT_AUDIT_ACTION.PROJECT_PARENT_DETACHED;
+      }
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: parentAction,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+        resourceId: id,
+        oldValue: { previousParentProjectId: prevParent },
+        newValue: { nextParentProjectId: nextParent },
         ...meta,
       });
     }
@@ -1788,6 +1979,13 @@ export class ProjectsService {
     }
     await this.assertCanAdminProject(clientId, context.actorUserId, id, request);
 
+    const childCount = await this.prisma.project.count({
+      where: { clientId, parentProjectId: id },
+    });
+    if (childCount > 0) {
+      throw new ConflictException(PROJECT_DELETE_HAS_CHILDREN_MESSAGE);
+    }
+
     await this.prisma.project.delete({ where: { id } });
 
     await this.auditLogs.create({
@@ -1805,6 +2003,76 @@ export class ProjectsService {
       userAgent: context?.meta?.userAgent,
       requestId: context?.meta?.requestId,
     });
+  }
+
+  async listChildren(
+    clientId: string,
+    projectId: string,
+    query: ListProjectsQueryDto,
+    userId?: string,
+  ) {
+    const parent = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+    if (!parent) {
+      throw new NotFoundException('Project not found');
+    }
+    if (userId) {
+      await this.assertCanReadProject(clientId, userId, projectId);
+    }
+    const childQuery: ListProjectsQueryDto = {
+      ...query,
+      parentProjectId: projectId,
+      rootOnly: undefined,
+    };
+    return this.list(clientId, childQuery, userId);
+  }
+
+  async listAssignableParents(
+    clientId: string,
+    params: {
+      excludeProjectId?: string;
+      search?: string;
+      limit?: number;
+    },
+  ): Promise<{ items: ProjectParentSummary[] }> {
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 50);
+    const { parentById, childrenByParentId, summaryById } =
+      await this.loadClientHierarchyMaps(clientId);
+
+    let excluded = new Set<string>();
+    if (params.excludeProjectId?.trim()) {
+      const excludeId = params.excludeProjectId.trim();
+      excluded.add(excludeId);
+      for (const desc of collectDescendantIds(excludeId, childrenByParentId)) {
+        excluded.add(desc);
+      }
+    }
+
+    const subtreeHeight = params.excludeProjectId?.trim()
+      ? computeSubtreeHeight(params.excludeProjectId.trim(), childrenByParentId)
+      : 1;
+
+    const search = params.search?.trim().toLowerCase();
+    const items: ProjectParentSummary[] = [];
+
+    for (const [id, summary] of summaryById) {
+      if (excluded.has(id)) continue;
+      const depth = computeDepthFromRoot(id, parentById);
+      if (depth + subtreeHeight > MAX_PROJECT_HIERARCHY_DEPTH) continue;
+      if (search) {
+        const hay = `${summary.code} ${summary.name}`.toLowerCase();
+        if (!hay.includes(search)) continue;
+      }
+      items.push(summary);
+    }
+
+    items.sort((a, b) =>
+      a.code.localeCompare(b.code, 'fr') || a.name.localeCompare(b.name, 'fr'),
+    );
+
+    return { items: items.slice(0, limit) };
   }
 
   async listTags(clientId: string): Promise<ProjectTagItemDto[]> {

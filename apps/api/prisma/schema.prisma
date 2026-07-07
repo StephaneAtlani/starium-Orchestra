@@ -295,7 +295,8 @@ model Client {
   projectBudgetLinks               ProjectBudgetLink[]
   projectTeamRoles                 ProjectTeamRole[]
   projectTeamMembers               ProjectTeamMember[]
-  projectTeamRaci                  ProjectTeamRaci[]
+  projectRaciActions               ProjectRaciAction[]
+  projectRaciCells                 ProjectRaciCell[]
   projectSheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews                   ProjectReview[]
   projectReviewParticipants        ProjectReviewParticipant[]
@@ -324,6 +325,7 @@ model Client {
   projectPortfolioCategories       ProjectPortfolioCategory[]
   projectRequests                  ProjectRequest[]
   projectRequestWorkflowSettings   ProjectRequestWorkflowSettings?
+  strategicDirectionStrategyWorkflowSettings StrategicDirectionStrategyWorkflowSettings?
   actionPlans                      ActionPlan[]
   budgetLinePlanningMonths         BudgetLinePlanningMonth[]
   budgetLinePlanningScenarios      BudgetLinePlanningScenario[]
@@ -583,6 +585,8 @@ model User {
   resolvedAlerts                       Alert[]                         @relation("AlertResolvedBy")
   dismissedAlerts                      Alert[]                         @relation("AlertDismissedBy")
   approvedStrategicDirectionStrategies StrategicDirectionStrategy[]    @relation("StrategicDirectionStrategyApprovedBy")
+  validatorStrategicDirectionStrategies StrategicDirectionStrategy[] @relation("StrategicDirectionStrategyValidator")
+  defaultValidatorStrategicDirectionStrategySettings StrategicDirectionStrategyWorkflowSettings[] @relation("StrategicDirectionStrategyDefaultValidator")
   ownedStrategicObjectives             StrategicObjective[]            @relation("StrategicObjectiveOwner")
   emailDeliveries                      EmailDelivery[]                 @relation("EmailDeliveryCreatedBy")
   chatbotKnowledgeEntriesCreated       ChatbotKnowledgeEntry[]         @relation("ChatbotEntryCreatedBy")
@@ -1385,10 +1389,11 @@ enum ProjectTeamMemberAffiliation {
   EXTERNAL
 }
 
-/// Dimension RACI par rôle d’équipe projet (gouvernance fiche projet).
+/// Dimension RASCI (matrice acteur × action) — gouvernance fiche projet.
 enum ProjectRaciKind {
   RESPONSIBLE
   ACCOUNTABLE
+  SUPPORT
   CONSULTED
   INFORMED
 }
@@ -1651,6 +1656,9 @@ model Project {
   swotThreats       Json?
   towsActions       Json?
 
+  /// RFC-PROJ-019 — projet parent optionnel (même client).
+  parentProjectId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1660,6 +1668,8 @@ model Project {
   ownerOrgUnit           OrgUnit?                       @relation("OrgUnitOwnedProject", fields: [ownerOrgUnitId], references: [id], onDelete: Restrict)
   steward                Resource?                      @relation("ProjectStewardResource", fields: [stewardResourceId], references: [id], onDelete: SetNull)
   portfolioCategory      ProjectPortfolioCategory?      @relation(fields: [portfolioCategoryId], references: [id], onDelete: SetNull)
+  parentProject          Project?                       @relation("ProjectHierarchy", fields: [parentProjectId], references: [id], onDelete: Restrict)
+  children               Project[]                      @relation("ProjectHierarchy")
   microsoftLink          ProjectMicrosoftLink?
   microsoftTaskSyncs     ProjectTaskMicrosoftSync[]
   microsoftDocumentSyncs ProjectDocumentMicrosoftSync[]
@@ -1679,7 +1689,8 @@ model Project {
   scenarios                 ProjectScenario[]
   scenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
   teamMembers               ProjectTeamMember[]
-  teamRaci                  ProjectTeamRaci[]
+  raciActions               ProjectRaciAction[]
+  raciCells                 ProjectRaciCell[]
   tagAssignments            ProjectTagAssignment[]
   sheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews            ProjectReview[]
@@ -1696,6 +1707,7 @@ model Project {
   @@index([clientId, portfolioCategoryId])
   @@index([clientId, ownerOrgUnitId])
   @@index([clientId, stewardResourceId])
+  @@index([clientId, parentProjectId])
   @@index([targetEndDate])
 }
 
@@ -1917,6 +1929,7 @@ model StrategicDirectionStrategy {
   status           StrategicDirectionStrategyStatus @default(DRAFT)
   submittedAt      DateTime?
   submittedByUserId String?
+  validatorUserId  String?
   approvedAt       DateTime?
   approvedByUserId String?
   rejectionReason  String?
@@ -1929,6 +1942,7 @@ model StrategicDirectionStrategy {
   direction     StrategicDirection @relation(fields: [directionId], references: [id], onDelete: Cascade)
   alignedVision StrategicVision    @relation(fields: [alignedVisionId], references: [id], onDelete: Cascade)
   approvedBy    User?              @relation("StrategicDirectionStrategyApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  validator     User?              @relation("StrategicDirectionStrategyValidator", fields: [validatorUserId], references: [id], onDelete: SetNull)
   axisLinks      StrategicDirectionStrategyAxisLink[]
   objectiveLinks StrategicDirectionStrategyObjectiveLink[]
 
@@ -1936,6 +1950,27 @@ model StrategicDirectionStrategy {
   @@index([clientId])
   @@index([clientId, directionId])
   @@index([clientId, status])
+  @@index([validatorUserId])
+}
+
+model StrategicDirectionStrategyWorkflowSettings {
+  id       String @id @default(cuid())
+  clientId String @unique
+
+  /// Si vrai, le soumissionnaire choisit le validateur à la soumission ; sinon `defaultValidatorUserId` est appliqué.
+  allowSubmitterToSelectValidator Boolean @default(true)
+  authorizedValidatorUserIds      String[] @default([])
+  authorizedValidatorRoleIds        String[] @default([])
+  defaultValidatorUserId            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client           Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultValidator User?  @relation("StrategicDirectionStrategyDefaultValidator", fields: [defaultValidatorUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([defaultValidatorUserId])
 }
 
 model StrategicDirectionStrategyAxisLink {
@@ -2533,30 +2568,52 @@ model ProjectTeamRole {
 
   client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   members         ProjectTeamMember[]
-  raciAssignments ProjectTeamRaci[]
+  raciCells ProjectRaciCell[]
 
   @@unique([clientId, name])
   @@index([clientId])
 }
 
-/// RACI par rôle d’équipe sur un projet (une ligne par lettre active).
-model ProjectTeamRaci {
-  id        String          @id @default(cuid())
+/// Ligne d’action RACI (axe vertical : activités / livrables du projet).
+model ProjectRaciAction {
+  id        String @id @default(cuid())
   clientId  String
   projectId String
-  roleId    String
-  kind      ProjectRaciKind
+  label     String @db.VarChar(500)
+  sortOrder Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   client  Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  role    ProjectTeamRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  cells   ProjectRaciCell[]
 
-  @@unique([projectId, roleId, kind])
   @@index([clientId])
   @@index([projectId])
+}
+
+/// Cellule RACI : une lettre par intersection action × acteur (rôle équipe).
+model ProjectRaciCell {
+  id        String          @id @default(cuid())
+  clientId  String
+  projectId String
+  actionId  String
+  roleId    String
+  kind      ProjectRaciKind
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client  Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  action  ProjectRaciAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  role    ProjectTeamRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, actionId, roleId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([actionId])
   @@index([roleId])
 }
 

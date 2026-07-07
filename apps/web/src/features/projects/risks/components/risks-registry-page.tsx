@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import { AlertCircle, AlertTriangle, Plus, RefreshCw } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Plus } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -36,6 +37,7 @@ import {
   type RisksRegistrySortKey,
 } from '../lib/risks-registry-table-sort';
 import { RisksRegistryKpi } from './risks-registry-kpi';
+import { RisksRegistryFiltersBar } from './risks-registry-filters-bar';
 import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -213,32 +215,12 @@ export function RisksRegistryPage() {
   const dialogPending =
     createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
-  const ownerOptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const r of registry.rows) {
-      if (!r.ownerUserId) continue;
-      if (!map.has(r.ownerUserId)) map.set(r.ownerUserId, r.ownerDisplayLabel);
-    }
-    return [...map.entries()]
-      .map(([userId, label]) => ({ userId, label }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
-  }, [registry.rows]);
-
   const filtered = useMemo(() => applyFilters(registry.rows, filters), [registry.rows, filters]);
 
   const sortedFiltered = useMemo(
     () => sortRisksRegistryRows(filtered, sort.key, sort.order),
     [filtered, sort.key, sort.order],
   );
-
-  const ownerOptionsWithUnassigned = useMemo(() => {
-    const hasUnassigned = registry.rows.some((r) => !r.ownerUserId);
-    const base = [...ownerOptions];
-    if (hasUnassigned) {
-      return [{ userId: '__unassigned__', label: 'Non assigné' }, ...base];
-    }
-    return base;
-  }, [registry.rows, ownerOptions]);
 
   const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / risksRegistryPageSize()));
   const slice = sliceRisksRegistryPage(sortedFiltered, Math.min(page, totalPages));
@@ -273,52 +255,28 @@ export function RisksRegistryPage() {
   const filtersBusy = showProjectsLoading || showRisksLoading;
   const listEnabled =
     initialized && !!clientId && permsSuccess && canReadProjects;
+  const filtersActive = hasActiveFilters(filters);
 
   return (
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
+          eyebrow="Contrôle › Risques"
           title="Gestion des risques"
           description="Registre EBIOS RM — domaine, événement redouté, évaluation P×I, mesures et risque résiduel cible."
           actions={
-            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-              {listEnabled ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={resetFilters}
-                  disabled={
-                    filtersBusy ||
-                    (!hasActiveFilters(filters) && isDefaultRegistrySort(sort))
-                  }
-                  data-testid="risks-filters-reset"
-                >
-                  Réinitialiser
-                </Button>
-              ) : null}
+            canEdit ? (
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
-                onClick={() => void registry.refetch()}
-                disabled={filtersBusy || !listEnabled}
+                className="min-h-11 gap-1.5 md:min-h-0"
+                onClick={openCreateRisk}
+                disabled={!listEnabled}
               >
-                <RefreshCw className="mr-1.5 h-4 w-4" />
-                Actualiser
+                <Plus className="size-4" aria-hidden />
+                Nouveau risque
               </Button>
-              {canEdit && (
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={openCreateRisk}
-                  disabled={!listEnabled}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Nouveau risque
-                </Button>
-              )}
-            </div>
+            ) : undefined
           }
         />
 
@@ -361,8 +319,20 @@ export function RisksRegistryPage() {
               isLoading={showProjectsLoading || showRisksLoading}
             />
 
+            <RisksRegistryFiltersBar
+              filters={filters}
+              onFiltersChange={patchFilters}
+              onReset={resetFilters}
+              onRefresh={() => void registry.refetch()}
+              isRefreshing={registry.isFetching}
+              hasActiveFilters={filtersActive || !isDefaultRegistrySort(sort)}
+              filtersDisabled={filtersBusy}
+              projectItems={registry.projectItems ?? []}
+              taxonomyDomains={taxonomyQuery.data?.domains ?? []}
+            />
+
             {showProjectsLoading && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
+              <Card size="sm" className="starium-panel overflow-hidden border border-border shadow-sm">
                 <CardContent className="py-8" data-testid="risks-registry-loading-projects">
                   <p className="mb-3 text-sm font-medium text-foreground">Préparation du registre</p>
                   <p className="mb-4 text-sm text-muted-foreground">
@@ -374,7 +344,7 @@ export function RisksRegistryPage() {
             )}
 
             {!showProjectsLoading && showRisksLoading && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
+              <Card size="sm" className="starium-panel overflow-hidden border border-border shadow-sm">
                 <CardContent className="py-8" data-testid="risks-registry-loading-risks">
                   <p className="mb-3 text-sm font-medium text-foreground">Chargement des risques</p>
                   <p className="mb-4 text-sm text-muted-foreground">Consolidation du registre…</p>
@@ -401,15 +371,15 @@ export function RisksRegistryPage() {
             )}
 
             {showTable && filtered.length === 0 && registry.rows.length === 0 && (
-              <Card size="sm" className="overflow-hidden border-dashed border-border/80 shadow-sm">
+              <Card size="sm" className="overflow-hidden border border-dashed border-border/80 shadow-sm">
                 <CardContent className="py-10">
                   <EmptyState
                     title="Aucun risque enregistré"
-                    description="Aucun risque ne figure encore dans votre registre. Créez une fiche ou vérifiez vos droits d’accès."
+                    description="Aucun risque ne figure encore dans votre registre. Créez une fiche ou vérifiez vos droits d'accès."
                     action={
                       canEdit ? (
                         <Button type="button" size="sm" onClick={openCreateRisk}>
-                          <Plus className="mr-1.5 h-4 w-4" />
+                          <Plus className="mr-1.5 h-4 w-4" aria-hidden />
                           Nouveau risque
                         </Button>
                       ) : undefined
@@ -419,8 +389,8 @@ export function RisksRegistryPage() {
               </Card>
             )}
 
-            {showTable && filtered.length === 0 && registry.rows.length > 0 && hasActiveFilters(filters) && (
-              <Card size="sm" className="overflow-hidden border-dashed border-border/80 shadow-sm">
+            {showTable && filtered.length === 0 && registry.rows.length > 0 && filtersActive && (
+              <Card size="sm" className="overflow-hidden border border-dashed border-border/80 shadow-sm">
                 <CardContent className="py-10">
                   <EmptyState
                     title="Aucun résultat pour ces filtres"
@@ -436,9 +406,15 @@ export function RisksRegistryPage() {
             )}
 
             {showTable && sortedFiltered.length > 0 && (
-              <Card size="sm" className="overflow-hidden shadow-sm">
+              <Card
+                size="sm"
+                className="starium-panel max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden border border-border shadow-sm"
+              >
                 <CardHeader className="border-b border-border/60 pb-3">
-                  <CardTitle className="text-sm font-medium">Registre des risques</CardTitle>
+                  <CardTitle className="text-sm font-semibold">Registre des risques</CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Cliquez sur une ligne pour ouvrir la fiche EBIOS RM.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <RisksRegistryTable
@@ -448,15 +424,9 @@ export function RisksRegistryPage() {
                     sortKey={sort.key}
                     sortOrder={sort.order}
                     onSort={handleSort}
-                    filters={filters}
-                    onFiltersPatch={patchFilters}
-                    projectItems={registry.projectItems ?? []}
-                    ownerOptions={ownerOptionsWithUnassigned}
-                    taxonomyDomains={taxonomyQuery.data?.domains ?? []}
-                    filtersDisabled={filtersBusy}
                   />
                 </CardContent>
-                <CardFooter className="flex flex-col gap-3 border-t border-border/60 sm:flex-row sm:items-center sm:justify-between">
+                <CardFooter className="starium-table-footer flex flex-col gap-3 border-t border-border/60 bg-muted/15 py-2 sm:flex-row sm:items-center sm:justify-between">
                   <RisksRegistryPagination
                     total={slice.total}
                     safePage={slice.safePage}

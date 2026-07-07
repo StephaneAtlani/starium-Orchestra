@@ -38,6 +38,11 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_PORTFOLIO_CATEGORY_UPDATED_ON_PROJECT:
     'project.portfolio-category.updated',
 
+  /** RFC-PROJ-019 */
+  PROJECT_PARENT_ASSIGNED: 'project.parent.assigned',
+  PROJECT_PARENT_DETACHED: 'project.parent.detached',
+  PROJECT_PARENT_CHANGED: 'project.parent.changed',
+
   PROJECT_TASK_CREATED: 'project_task.created',
   PROJECT_TASK_UPDATED: 'project_task.updated',
   PROJECT_TASK_DELETED: 'project_task.deleted',

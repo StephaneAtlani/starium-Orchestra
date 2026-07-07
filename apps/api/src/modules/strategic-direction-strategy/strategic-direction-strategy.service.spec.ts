@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { ClientStrategicDirectionStrategyWorkflowSettingsService } from '../clients/client-strategic-direction-strategy-workflow-settings.service';
+import { EmailService } from '../email/email.service';
 import { StrategicDirectionStrategyService } from './strategic-direction-strategy.service';
 
 describe('StrategicDirectionStrategyService', () => {
@@ -23,8 +25,23 @@ describe('StrategicDirectionStrategyService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    user: { findUnique: jest.fn() },
+    notification: { create: jest.fn().mockResolvedValue(undefined) },
   };
   const auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+  const emailService = { queueEmail: jest.fn().mockResolvedValue(undefined) };
+  const workflowSettings = {
+    getActive: jest.fn().mockResolvedValue({
+      stored: {
+        allowSubmitterToSelectValidator: true,
+        defaultValidatorUserId: null,
+        authorizedValidatorUserIds: [],
+        authorizedValidatorRoleIds: [],
+      },
+    }),
+    assertValidatorEligible: jest.fn().mockResolvedValue(undefined),
+    listEligibleValidators: jest.fn().mockResolvedValue([]),
+  };
   let service: StrategicDirectionStrategyService;
 
   beforeEach(() => {
@@ -32,6 +49,8 @@ describe('StrategicDirectionStrategyService', () => {
     service = new StrategicDirectionStrategyService(
       prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
+      workflowSettings as unknown as ClientStrategicDirectionStrategyWorkflowSettingsService,
+      emailService as unknown as EmailService,
     );
   });
 
@@ -96,6 +115,76 @@ describe('StrategicDirectionStrategyService', () => {
     await expect(
       service.submit('c1', 's1', { alignedVisionId: 'foreign-v1' }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('submit notifie le validateur (cloche + e-mail)', async () => {
+    prisma.strategicDirectionStrategy.findFirst.mockResolvedValueOnce({
+      id: 's1',
+      clientId: 'c1',
+      directionId: 'd1',
+      alignedVisionId: 'v1',
+      title: 'Stratégie DSI 2028',
+      ambition: 'Ambition',
+      context: 'Contexte',
+      statement: 'Legacy',
+      status: 'DRAFT',
+    });
+    prisma.strategicDirection.findFirst.mockResolvedValueOnce({ id: 'd1', isActive: true });
+    prisma.strategicVision.findFirst.mockResolvedValueOnce({ id: 'v1' });
+    prisma.strategicDirectionStrategy.update.mockResolvedValueOnce({
+      id: 's1',
+      title: 'Stratégie DSI 2028',
+      status: 'SUBMITTED',
+      submittedByUserId: 'submitter-1',
+      validatorUserId: 'validator-1',
+      direction: { id: 'd1', code: 'DSI', name: 'DSI' },
+      alignedVision: { id: 'v1', title: 'Vision', horizonLabel: '2028', isActive: true },
+      validator: null,
+    });
+    prisma.user.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => {
+      if (where.id === 'validator-1') {
+        return {
+          id: 'validator-1',
+          email: 'validator@test.com',
+          firstName: 'Val',
+          lastName: 'Idateur',
+        };
+      }
+      if (where.id === 'submitter-1') {
+        return {
+          id: 'submitter-1',
+          email: 'submitter@test.com',
+          firstName: 'Sou',
+          lastName: 'Metteur',
+        };
+      }
+      return null;
+    });
+
+    await service.submit(
+      'c1',
+      's1',
+      { alignedVisionId: 'v1', validatorUserId: 'validator-1' },
+      { actorUserId: 'submitter-1' },
+    );
+
+    expect(prisma.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: 'validator-1',
+          entityType: 'strategic_direction_strategy',
+          entityId: 's1',
+          title: 'Stratégie à valider',
+        }),
+      }),
+    );
+    expect(emailService.queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient: 'validator@test.com',
+        templateKey: 'generic_notification',
+        title: 'Stratégie à valider',
+      }),
+    );
   });
 
   it('getLinks lève NotFound si stratégie absente', async () => {

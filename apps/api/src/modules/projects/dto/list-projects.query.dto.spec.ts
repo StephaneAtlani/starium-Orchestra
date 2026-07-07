@@ -67,4 +67,11 @@ describe('ListProjectsQueryDto — filtres booléens', () => {
     expect(dto.lateOnly).toBe(true);
     expect(dto.atRiskOnly).toBe(true);
   });
+
+  it('parse rootOnly depuis true', async () => {
+    const dto = plainToInstance(ListProjectsQueryDto, { rootOnly: 'true' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.rootOnly).toBe(true);
+  });
 });

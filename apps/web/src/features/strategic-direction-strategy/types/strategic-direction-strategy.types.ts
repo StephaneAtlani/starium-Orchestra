@@ -24,6 +24,78 @@ export type StrategicDirectionStrategyLinksDto = {
   objectives: StrategicDirectionStrategyLinkedObjectiveDto[];
 };
 
+export type StrategicDirectionStrategyVersionSummaryDto = {
+  id: string;
+  versionNumber: number;
+  versionLabel: string;
+  status: StrategicDirectionStrategyStatus;
+  title: string | null;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  approvedAt: string | null;
+  updatedAt: string;
+  isCurrent: boolean;
+};
+
+export type StrategicDirectionStrategyVersionsDto = {
+  direction: { id: string; code: string; name: string };
+  alignedVision: { id: string; title: string; horizonLabel: string; isActive: boolean };
+  currentStrategyId: string;
+  versions: StrategicDirectionStrategyVersionSummaryDto[];
+};
+
+export type StrategicDirectionStrategyFieldDiffDto = {
+  field: string;
+  label: string;
+  left: string;
+  right: string;
+  changed: boolean;
+};
+
+export type StrategicDirectionStrategyCollectionDiffDto = {
+  label: string;
+  added: string[];
+  removed: string[];
+  unchanged: string[];
+};
+
+export type StrategicDirectionStrategyCompareDto = {
+  left: { id: string; versionLabel: string };
+  right: { id: string; versionLabel: string };
+  fields: StrategicDirectionStrategyFieldDiffDto[];
+  collections: StrategicDirectionStrategyCollectionDiffDto[];
+  axes: { added: string[]; removed: string[]; unchanged: string[] };
+  objectives: { added: string[]; removed: string[]; unchanged: string[] };
+  hasChanges: boolean;
+};
+
+export type StrategicDirectionStrategyUserSummaryDto = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string;
+};
+
+export type StrategicDirectionStrategyWorkflowSettingsResponse = {
+  stored: {
+    allowSubmitterToSelectValidator: boolean;
+    authorizedValidatorUserIds: string[];
+    authorizedValidatorRoleIds: string[];
+    defaultValidatorUserId: string | null;
+  };
+  resolved: {
+    allowSubmitterToSelectValidator: boolean;
+    authorizedValidatorUserIds: string[];
+    authorizedValidatorRoleIds: string[];
+    defaultValidatorUserId: string | null;
+  };
+  options: {
+    eligibleValidators: StrategicDirectionStrategyUserSummaryDto[];
+    potentialValidators: StrategicDirectionStrategyUserSummaryDto[];
+  };
+};
+
 export type StrategicDirectionStrategyDto = {
   id: string;
   clientId: string;
@@ -43,6 +115,8 @@ export type StrategicDirectionStrategyDto = {
   status: StrategicDirectionStrategyStatus;
   submittedAt: string | null;
   submittedByUserId: string | null;
+  validatorUserId: string | null;
+  validatorSummary: StrategicDirectionStrategyUserSummaryDto | null;
   approvedAt: string | null;
   approvedByUserId: string | null;
   rejectionReason: string | null;

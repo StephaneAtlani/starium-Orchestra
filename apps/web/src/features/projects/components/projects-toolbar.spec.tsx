@@ -13,6 +13,7 @@ const baseFilters: ProjectsListFilters = {
   lateOnly: false,
   atRiskOnly: false,
   myProjectsOnly: false,
+  rootOnly: false,
 };
 
 describe('ProjectsToolbar', () => {

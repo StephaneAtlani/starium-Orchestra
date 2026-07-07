@@ -9,21 +9,33 @@ import {
   Folder,
   Pencil,
   Share2,
+  Tag,
   UserRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RegistryBadge } from '@/lib/ui/registry-badge';
 import {
+  type ProjectKindBadgeKey,
+  projectKindBadgeClass,
+} from '@/lib/ui/badge-registry';
+import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
+import {
+  PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
   PROJECT_STATUS_LABEL,
+  PROJECT_TYPE_LABEL,
 } from '../constants/project-enum-labels';
 import {
   formatProjectBudget,
   formatProjectDateLong,
   projectListProgressPercent,
+  projectPortfolioCategoryIcon,
+  projectPortfolioCategoryIconPresentation,
+  projectPortfolioCategoryLabel,
 } from '../lib/projects-list-display';
+import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 import { projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
-import { PROJECT_TYPE_LABEL } from '../constants/project-enum-labels';
 
 function statusPillClass(status: string): string {
   switch (status) {
@@ -94,8 +106,17 @@ export function ProjectSynthesisBanner({
   moreActions,
   shareAction,
 }: ProjectSynthesisBannerProps) {
-  const subtitle =
+  const { merged: badgeMerged } = useClientUiBadgeConfig();
+  const typeLabel =
     PROJECT_TYPE_LABEL[project.type as keyof typeof PROJECT_TYPE_LABEL] ?? project.type;
+  const kindLabel =
+    badgeMerged.projectKind[project.kind as ProjectKindBadgeKey]?.label ??
+    PROJECT_KIND_LABEL[project.kind] ??
+    project.kind;
+  const categoryLabel = projectPortfolioCategoryLabel(project);
+  const CategoryIcon = projectPortfolioCategoryIcon(project);
+  const categoryIconPresentation = projectPortfolioCategoryIconPresentation(project);
+  const tags = project.tags ?? [];
   const progress = projectListProgressPercent(project);
   const budgetLabel = formatProjectBudget(project.targetBudgetAmount) ?? '—';
   const statusLabel =
@@ -105,6 +126,7 @@ export function ProjectSynthesisBanner({
     PROJECT_PRIORITY_LABEL[project.priority as keyof typeof PROJECT_PRIORITY_LABEL] ??
     project.priority;
   const ownerLabel = project.ownerDisplayName?.trim() || '—';
+  const showContextRow = Boolean(categoryLabel) || tags.length > 0;
 
   return (
     <section
@@ -112,8 +134,16 @@ export function ProjectSynthesisBanner({
       aria-labelledby="project-synthesis-banner-title"
     >
       <div className="starium-proj-head__top">
-        <div className="starium-proj-head__folder" aria-hidden>
-          <Folder className="size-[26px]" strokeWidth={1.75} />
+        <div
+          className="starium-proj-head__folder"
+          style={categoryLabel ? categoryIconPresentation.style : undefined}
+          aria-hidden
+        >
+          {categoryLabel ? (
+            <CategoryIcon className="size-[26px]" strokeWidth={1.75} />
+          ) : (
+            <Folder className="size-[26px]" strokeWidth={1.75} />
+          )}
         </div>
 
         <div className="starium-proj-head__titlewrap">
@@ -125,7 +155,58 @@ export function ProjectSynthesisBanner({
               {statusLabel}
             </span>
           </div>
-          <p className="starium-proj-head__sub">{subtitle}</p>
+          <p className="starium-proj-head__sub">
+            <span>{typeLabel}</span>
+            <span className="starium-proj-head__sub-sep" aria-hidden>
+              ·
+            </span>
+            <RegistryBadge
+              className={cn(
+                'rounded-full px-2 py-px text-[11px] font-semibold',
+                projectKindBadgeClass(badgeMerged, project.kind),
+              )}
+            >
+              {kindLabel}
+            </RegistryBadge>
+            {project.code?.trim() ? (
+              <>
+                <span className="starium-proj-head__sub-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="font-mono text-[12px] font-semibold tabular-nums text-muted-foreground">
+                  {project.code}
+                </span>
+              </>
+            ) : null}
+          </p>
+          {showContextRow ? (
+            <div className="starium-proj-head__context">
+              {categoryLabel ? (
+                <span className="starium-proj-head__category-chip">
+                  <CategoryIcon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                  <span className="truncate">{categoryLabel}</span>
+                </span>
+              ) : null}
+              {tags.length > 0 ? (
+                <ul
+                  className="starium-proj-head__tags"
+                  aria-label="Étiquettes du projet"
+                >
+                  {tags.map((tag) => (
+                    <li key={tag.id}>
+                      <RegistryBadge
+                        className="text-[0.7rem] font-semibold"
+                        style={projectTagBadgeStyle(tag.color)}
+                      >
+                        <Tag className="mr-1 size-3 opacity-80" aria-hidden />
+                        {tag.name}
+                      </RegistryBadge>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="starium-proj-head__actions">

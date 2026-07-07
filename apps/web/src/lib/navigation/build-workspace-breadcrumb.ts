@@ -16,6 +16,9 @@ export type WorkspaceBreadcrumbOverride = {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** Prisma cuid / cuid2 et identifiants techniques sans libellé métier. */
+const TECHNICAL_ID_RE = /^[a-z0-9]{20,}$/i;
+
 const SECTION_LABELS: Record<string, string> = {
   ACCUEIL: 'Accueil',
   ORIENTATION: 'Orientation',
@@ -79,7 +82,11 @@ function sectionCrumb(sectionKey: string, href?: string): WorkspaceBreadcrumbIte
 }
 
 function isDynamicSegment(segment: string): boolean {
-  return UUID_RE.test(segment) || /^\d+$/.test(segment);
+  if (STATIC_SEGMENT_LABELS[segment]) return false;
+  if (UUID_RE.test(segment)) return true;
+  if (/^\d+$/.test(segment)) return true;
+  if (TECHNICAL_ID_RE.test(segment)) return true;
+  return false;
 }
 
 function humanizeSegment(segment: string): string {

@@ -22,7 +22,16 @@ describe('ProjectTeamService', () => {
       create: jest.Mock;
       delete: jest.Mock;
     };
-    projectTeamRaci: {
+    projectRaciAction: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      createMany: jest.Mock;
+      delete: jest.Mock;
+      aggregate: jest.Mock;
+    };
+    projectRaciCell: {
       findMany: jest.Mock;
       deleteMany: jest.Mock;
       upsert: jest.Mock;
@@ -54,7 +63,16 @@ describe('ProjectTeamService', () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
-      projectTeamRaci: {
+      projectRaciAction: {
+        count: jest.fn(),
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        createMany: jest.fn(),
+        delete: jest.fn(),
+        aggregate: jest.fn(),
+      },
+      projectRaciCell: {
         findMany: jest.fn(),
         deleteMany: jest.fn(),
         upsert: jest.fn(),
@@ -65,7 +83,8 @@ describe('ProjectTeamService', () => {
         fn({
           projectTeamMember: prisma.projectTeamMember,
           projectTeamRole: prisma.projectTeamRole,
-          projectTeamRaci: prisma.projectTeamRaci,
+          projectRaciAction: prisma.projectRaciAction,
+          projectRaciCell: prisma.projectRaciCell,
           project: prisma.project,
         }),
       ),
@@ -150,99 +169,157 @@ describe('ProjectTeamService', () => {
   });
 
   describe('getRaciMatrix', () => {
-    it('propose des valeurs par défaut non persistées', async () => {
+    it('retourne actions, acteurs et cellules', async () => {
       prisma.project.findFirst.mockResolvedValue({ id: projectId });
       prisma.projectTeamRole.findFirst
         .mockResolvedValueOnce({ id: 'r-sponsor' })
         .mockResolvedValueOnce({ id: 'r-owner' })
         .mockResolvedValueOnce({ id: 'r-metier' });
-      prisma.projectTeamRole.findMany.mockResolvedValue([
-        {
-          id: 'r-sponsor',
-          name: 'Sponsor',
-          sortOrder: 0,
-          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
-        },
-        {
-          id: 'r-owner',
-          name: 'Responsable de projet',
-          sortOrder: 1,
-          systemKind: ProjectTeamRoleSystemKind.OWNER,
-        },
-        {
-          id: 'r-metier',
-          name: 'Référent métier',
-          sortOrder: 2,
-          systemKind: null,
-        },
+      prisma.projectRaciAction.count.mockResolvedValue(1);
+      prisma.projectRaciAction.findMany.mockResolvedValue([
+        { id: 'a1', label: 'Définition du projet', sortOrder: 0 },
       ]);
-      prisma.projectTeamRaci.findMany.mockResolvedValue([]);
-
-      const rows = await service.getRaciMatrix(clientId, projectId);
-
-      expect(rows).toEqual([
-        expect.objectContaining({
+      prisma.projectTeamRole.findMany.mockResolvedValue([
+        { id: 'r-sponsor', name: 'Sponsor', sortOrder: 0 },
+        { id: 'r-owner', name: 'Responsable de projet', sortOrder: 1 },
+      ]);
+      prisma.projectRaciCell.findMany.mockResolvedValue([
+        {
+          actionId: 'a1',
           roleId: 'r-sponsor',
-          kinds: [ProjectRaciKind.ACCOUNTABLE],
-          persisted: false,
-        }),
-        expect.objectContaining({
-          roleId: 'r-owner',
-          kinds: [ProjectRaciKind.RESPONSIBLE],
-          persisted: false,
-        }),
-        expect.objectContaining({
-          roleId: 'r-metier',
-          kinds: [ProjectRaciKind.CONSULTED],
-          persisted: false,
-        }),
-      ]);
-    });
-  });
-
-  describe('setRoleRaci', () => {
-    it('retire le A des autres rôles lors de l’activation', async () => {
-      prisma.project.findFirst.mockResolvedValue({ id: projectId });
-      prisma.projectTeamRole.findFirst.mockResolvedValue({
-        id: roleId,
-        clientId,
-        name: 'Sponsor',
-        systemKind: ProjectTeamRoleSystemKind.SPONSOR,
-      });
-      prisma.projectTeamRaci.deleteMany.mockResolvedValue({ count: 1 });
-      prisma.projectTeamRaci.upsert.mockResolvedValue({});
-      prisma.projectTeamRole.findMany.mockResolvedValue([
-        {
-          id: roleId,
-          name: 'Sponsor',
-          sortOrder: 0,
-          systemKind: ProjectTeamRoleSystemKind.SPONSOR,
-        },
-      ]);
-      prisma.projectTeamRaci.findMany.mockResolvedValue([
-        {
-          roleId,
           kind: ProjectRaciKind.ACCOUNTABLE,
         },
       ]);
 
-      await service.setRoleRaci(
+      const matrix = await service.getRaciMatrix(clientId, projectId);
+
+      expect(matrix.actions).toHaveLength(1);
+      expect(matrix.actors).toHaveLength(2);
+      expect(matrix.cells).toEqual([
+        {
+          actionId: 'a1',
+          roleId: 'r-sponsor',
+          kind: ProjectRaciKind.ACCOUNTABLE,
+        },
+      ]);
+    });
+
+    it('amorce les actions par défaut si aucune', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectTeamRole.findFirst
+        .mockResolvedValueOnce({ id: 'r1' })
+        .mockResolvedValueOnce({ id: 'r2' })
+        .mockResolvedValueOnce({ id: 'r3' });
+      prisma.projectRaciAction.count.mockResolvedValue(0);
+      prisma.projectRaciAction.createMany.mockResolvedValue({ count: 8 });
+      prisma.projectRaciAction.findMany.mockResolvedValue([]);
+      prisma.projectTeamRole.findMany.mockResolvedValue([]);
+      prisma.projectRaciCell.findMany.mockResolvedValue([]);
+
+      await service.getRaciMatrix(clientId, projectId);
+
+      expect(prisma.projectRaciAction.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            clientId,
+            projectId,
+            label: 'Analyser les besoins internes',
+          }),
+        ]),
+      });
+    });
+  });
+
+  describe('setRaciCell', () => {
+    it('upsert une cellule RACI', async () => {
+      const actionId = 'a1';
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectRaciAction.findFirst.mockResolvedValue({ id: actionId });
+      prisma.projectTeamRole.findFirst.mockResolvedValue({ id: roleId, clientId });
+      prisma.projectRaciCell.upsert.mockResolvedValue({});
+      prisma.projectRaciAction.count.mockResolvedValue(1);
+      prisma.projectRaciAction.findMany.mockResolvedValue([]);
+      prisma.projectTeamRole.findMany.mockResolvedValue([]);
+      prisma.projectRaciCell.findMany.mockResolvedValue([]);
+
+      await service.setRaciCell(
         clientId,
         projectId,
+        actionId,
         roleId,
-        ProjectRaciKind.ACCOUNTABLE,
-        true,
+        ProjectRaciKind.RESPONSIBLE,
       );
 
-      expect(prisma.projectTeamRaci.deleteMany).toHaveBeenCalledWith({
+      expect(prisma.projectRaciCell.upsert).toHaveBeenCalledWith({
+        where: {
+          projectId_actionId_roleId: { projectId, actionId, roleId },
+        },
+        create: {
+          clientId,
+          projectId,
+          actionId,
+          roleId,
+          kind: ProjectRaciKind.RESPONSIBLE,
+        },
+        update: { kind: ProjectRaciKind.RESPONSIBLE },
+      });
+    });
+
+    it('retire le A des autres acteurs sur la même action', async () => {
+      const actionId = 'a1';
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectRaciAction.findFirst.mockResolvedValue({ id: actionId });
+      prisma.projectTeamRole.findFirst.mockResolvedValue({ id: roleId, clientId });
+      prisma.projectRaciCell.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.projectRaciCell.upsert.mockResolvedValue({});
+      prisma.projectRaciAction.count.mockResolvedValue(1);
+      prisma.projectRaciAction.findMany.mockResolvedValue([]);
+      prisma.projectTeamRole.findMany.mockResolvedValue([]);
+      prisma.projectRaciCell.findMany.mockResolvedValue([]);
+
+      await service.setRaciCell(
+        clientId,
+        projectId,
+        actionId,
+        roleId,
+        ProjectRaciKind.ACCOUNTABLE,
+      );
+
+      expect(prisma.projectRaciCell.deleteMany).toHaveBeenCalledWith({
         where: {
           clientId,
           projectId,
+          actionId,
           kind: ProjectRaciKind.ACCOUNTABLE,
           roleId: { not: roleId },
         },
       });
-      expect(prisma.projectTeamRaci.upsert).toHaveBeenCalled();
+      expect(prisma.projectRaciCell.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            roleId,
+            kind: ProjectRaciKind.ACCOUNTABLE,
+          }),
+        }),
+      );
+    });
+
+    it('efface la cellule quand kind est null', async () => {
+      const actionId = 'a1';
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.projectRaciAction.findFirst.mockResolvedValue({ id: actionId });
+      prisma.projectTeamRole.findFirst.mockResolvedValue({ id: roleId, clientId });
+      prisma.projectRaciCell.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.projectRaciAction.count.mockResolvedValue(1);
+      prisma.projectRaciAction.findMany.mockResolvedValue([]);
+      prisma.projectTeamRole.findMany.mockResolvedValue([]);
+      prisma.projectRaciCell.findMany.mockResolvedValue([]);
+
+      await service.setRaciCell(clientId, projectId, actionId, roleId, null);
+
+      expect(prisma.projectRaciCell.deleteMany).toHaveBeenCalledWith({
+        where: { clientId, projectId, actionId, roleId },
+      });
     });
   });
 });

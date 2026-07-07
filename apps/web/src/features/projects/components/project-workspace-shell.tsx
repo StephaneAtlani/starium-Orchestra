@@ -11,6 +11,8 @@ import { projectDetail } from '../constants/project-routes';
 import { ProjectSynthesisBanner } from './project-synthesis-banner';
 import { ProjectsListRowActionsMenu } from './projects-list-row-actions-menu';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
+import { ProjectHierarchyBreadcrumb } from './project-hierarchy-breadcrumb';
+import { ProjectParentEditField } from './project-parent-edit-field';
 
 export interface ProjectWorkspaceShellProps {
   projectId: string;
@@ -82,6 +84,14 @@ export function ProjectWorkspaceShell({
           </>
         }
       />
+
+      <div className="space-y-4 px-4 pt-4 md:px-6">
+        <ProjectHierarchyBreadcrumb
+          ancestorChain={project.ancestorChain ?? []}
+          currentName={project.name}
+        />
+        <ProjectParentEditField project={project} />
+      </div>
 
       <ProjectWorkspaceTabs
         projectId={projectId}

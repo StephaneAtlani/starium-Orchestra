@@ -43,6 +43,9 @@ export type ProjectsListFilters = {
   /** Projets en retard (`signals.isLate`) — aligné KPI dashboard. */
   lateOnly: boolean;
   myProjectsOnly: boolean;
+  /** RFC-PROJ-019 */
+  parentProjectId?: string;
+  rootOnly: boolean;
 };
 
 function parseNumber(value: string | null, fallback: number): number {
@@ -118,6 +121,8 @@ export function useProjectsListFilters(): {
     atRiskOnly: false,
     lateOnly: false,
     myProjectsOnly: false,
+    parentProjectId: undefined,
+    rootOnly: false,
     ...urlFilters,
   }));
 
@@ -152,7 +157,9 @@ export function useProjectsListFilters(): {
             'sortOrder' in updates ||
             'atRiskOnly' in updates ||
             'lateOnly' in updates ||
-            'myProjectsOnly' in updates) &&
+            'myProjectsOnly' in updates ||
+            'parentProjectId' in updates ||
+            'rootOnly' in updates) &&
           updates.page === undefined
         ) {
           next.page = PROJECTS_DEFAULT_PAGE;
@@ -183,6 +190,8 @@ export function useProjectsListFilters(): {
       atRiskOnly: false,
       lateOnly: false,
       myProjectsOnly: false,
+      parentProjectId: undefined,
+      rootOnly: false,
     });
   }, []);
 
@@ -211,6 +220,8 @@ export function useProjectsListFilters(): {
       ...(filters.atRiskOnly && { atRiskOnly: true }),
       ...(filters.lateOnly && { lateOnly: true }),
       ...(filters.myProjectsOnly && { myProjectsOnly: true }),
+      ...(filters.parentProjectId && { parentProjectId: filters.parentProjectId }),
+      ...(filters.rootOnly && { rootOnly: true }),
     };
   }, [filters]);
 

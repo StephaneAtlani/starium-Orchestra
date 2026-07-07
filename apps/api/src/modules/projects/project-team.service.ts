@@ -37,13 +37,28 @@ export type ProjectTeamMemberResponse = {
   affiliation: ProjectTeamMemberAffiliation | null;
 };
 
-export type ProjectTeamRaciRowResponse = {
-  roleId: string;
-  roleName: string;
+export type ProjectRaciActionResponse = {
+  id: string;
+  label: string;
   sortOrder: number;
-  systemKind: ProjectTeamRoleSystemKind | null;
-  kinds: ProjectRaciKind[];
-  persisted: boolean;
+};
+
+export type ProjectRaciActorResponse = {
+  id: string;
+  name: string;
+  sortOrder: number;
+};
+
+export type ProjectRaciCellResponse = {
+  actionId: string;
+  roleId: string;
+  kind: ProjectRaciKind;
+};
+
+export type ProjectRaciMatrixResponse = {
+  actions: ProjectRaciActionResponse[];
+  actors: ProjectRaciActorResponse[];
+  cells: ProjectRaciCellResponse[];
 };
 
 function normalizeFreeIdentityKey(freeLabel: string): string {
@@ -740,77 +755,94 @@ export class ProjectTeamService {
     });
   }
 
-  private defaultRaciKindsForRole(role: {
-    name: string;
-    systemKind: ProjectTeamRoleSystemKind | null;
-  }): ProjectRaciKind[] {
-    if (role.systemKind === ProjectTeamRoleSystemKind.SPONSOR) {
-      return [ProjectRaciKind.ACCOUNTABLE];
-    }
-    if (role.systemKind === ProjectTeamRoleSystemKind.OWNER) {
-      return [ProjectRaciKind.RESPONSIBLE];
-    }
-    if (role.name.trim().toLowerCase() === 'référent métier') {
-      return [ProjectRaciKind.CONSULTED];
-    }
-    return [];
+  private readonly defaultRaciActionLabels = [
+    'Analyser les besoins internes',
+    'Rechercher un outil BPM qui répond aux besoins',
+    'Choisir le prestataire',
+    'Contractualiser avec prestataire',
+    'Former les collaborateurs',
+    'Modéliser les processus',
+    'Publier les processus',
+    'Communiquer aux collaborateurs',
+  ];
+
+  private async ensureDefaultRaciActions(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    projectId: string,
+  ): Promise<void> {
+    const count = await tx.projectRaciAction.count({ where: { clientId, projectId } });
+    if (count > 0) return;
+    await tx.projectRaciAction.createMany({
+      data: this.defaultRaciActionLabels.map((label, index) => ({
+        clientId,
+        projectId,
+        label,
+        sortOrder: index,
+      })),
+    });
   }
 
   async getRaciMatrix(
     clientId: string,
     projectId: string,
-  ): Promise<ProjectTeamRaciRowResponse[]> {
+  ): Promise<ProjectRaciMatrixResponse> {
     await this.getProjectOrThrow(clientId, projectId);
     await this.ensureDefaultTeamRolesForClient(clientId);
 
-    const [roles, persisted] = await Promise.all([
+    await this.prisma.$transaction(async (tx) => {
+      await this.ensureDefaultRaciActions(tx, clientId, projectId);
+    });
+
+    const [actions, roles, cells] = await Promise.all([
+      this.prisma.projectRaciAction.findMany({
+        where: { clientId, projectId },
+        orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+      }),
       this.prisma.projectTeamRole.findMany({
         where: { clientId },
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       }),
-      this.prisma.projectTeamRaci.findMany({
+      this.prisma.projectRaciCell.findMany({
         where: { clientId, projectId },
       }),
     ]);
 
-    const byRole = new Map<string, ProjectRaciKind[]>();
-    for (const row of persisted) {
-      const cur = byRole.get(row.roleId) ?? [];
-      cur.push(row.kind);
-      byRole.set(row.roleId, cur);
-    }
-
-    return roles.map((role) => {
-      const stored = byRole.get(role.id);
-      if (stored?.length) {
-        return {
-          roleId: role.id,
-          roleName: role.name,
-          sortOrder: role.sortOrder,
-          systemKind: role.systemKind,
-          kinds: stored,
-          persisted: true,
-        };
-      }
-      return {
-        roleId: role.id,
-        roleName: role.name,
+    return {
+      actions: actions.map((action) => ({
+        id: action.id,
+        label: action.label,
+        sortOrder: action.sortOrder,
+      })),
+      actors: roles.map((role) => ({
+        id: role.id,
+        name: role.name,
         sortOrder: role.sortOrder,
-        systemKind: role.systemKind,
-        kinds: this.defaultRaciKindsForRole(role),
-        persisted: false,
-      };
-    });
+      })),
+      cells: cells.map((cell) => ({
+        actionId: cell.actionId,
+        roleId: cell.roleId,
+        kind: cell.kind,
+      })),
+    };
   }
 
-  async setRoleRaci(
+  async setRaciCell(
     clientId: string,
     projectId: string,
+    actionId: string,
     roleId: string,
-    kind: ProjectRaciKind,
-    enabled: boolean,
-  ): Promise<ProjectTeamRaciRowResponse[]> {
+    kind: ProjectRaciKind | null | undefined,
+  ): Promise<ProjectRaciMatrixResponse> {
     await this.getProjectOrThrow(clientId, projectId);
+
+    const action = await this.prisma.projectRaciAction.findFirst({
+      where: { id: actionId, clientId, projectId },
+    });
+    if (!action) {
+      throw new NotFoundException('Action RACI introuvable');
+    }
+
     const role = await this.prisma.projectTeamRole.findFirst({
       where: { id: roleId, clientId },
     });
@@ -818,32 +850,80 @@ export class ProjectTeamService {
       throw new NotFoundException('Rôle équipe introuvable');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (enabled) {
+    if (kind == null) {
+      await this.prisma.projectRaciCell.deleteMany({
+        where: { clientId, projectId, actionId, roleId },
+      });
+    } else {
+      await this.prisma.$transaction(async (tx) => {
         if (kind === ProjectRaciKind.ACCOUNTABLE) {
-          await tx.projectTeamRaci.deleteMany({
+          await tx.projectRaciCell.deleteMany({
             where: {
               clientId,
               projectId,
+              actionId,
               kind: ProjectRaciKind.ACCOUNTABLE,
               roleId: { not: roleId },
             },
           });
         }
-        await tx.projectTeamRaci.upsert({
+        await tx.projectRaciCell.upsert({
           where: {
-            projectId_roleId_kind: { projectId, roleId, kind },
+            projectId_actionId_roleId: { projectId, actionId, roleId },
           },
-          create: { clientId, projectId, roleId, kind },
-          update: {},
+          create: { clientId, projectId, actionId, roleId, kind },
+          update: { kind },
         });
-        return;
-      }
-      await tx.projectTeamRaci.deleteMany({
-        where: { clientId, projectId, roleId, kind },
       });
+    }
+
+    return this.getRaciMatrix(clientId, projectId);
+  }
+
+  async createRaciAction(
+    clientId: string,
+    projectId: string,
+    label: string,
+    sortOrder?: number,
+  ): Promise<ProjectRaciMatrixResponse> {
+    await this.getProjectOrThrow(clientId, projectId);
+    const trimmed = label.trim();
+    if (!trimmed.length) {
+      throw new BadRequestException('Le libellé de l’action est requis');
+    }
+
+    const maxSort = await this.prisma.projectRaciAction.aggregate({
+      where: { clientId, projectId },
+      _max: { sortOrder: true },
     });
 
+    await this.prisma.projectRaciAction.create({
+      data: {
+        clientId,
+        projectId,
+        label: trimmed.slice(0, 500),
+        sortOrder: sortOrder ?? (maxSort._max.sortOrder ?? -1) + 1,
+      },
+    });
+
+    return this.getRaciMatrix(clientId, projectId);
+  }
+
+  async deleteRaciAction(
+    clientId: string,
+    projectId: string,
+    actionId: string,
+  ): Promise<ProjectRaciMatrixResponse> {
+    await this.getProjectOrThrow(clientId, projectId);
+
+    const action = await this.prisma.projectRaciAction.findFirst({
+      where: { id: actionId, clientId, projectId },
+    });
+    if (!action) {
+      throw new NotFoundException('Action RACI introuvable');
+    }
+
+    await this.prisma.projectRaciAction.delete({ where: { id: actionId } });
     return this.getRaciMatrix(clientId, projectId);
   }
 }

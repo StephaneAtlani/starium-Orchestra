@@ -53,6 +53,7 @@ import { listProjectPortfolioCategories, listProjectTags } from '../api/projects
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
+import { ProjectParentCombobox } from './project-parent-combobox';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -126,6 +127,7 @@ export function ProjectCreateForm() {
   const [startDate, setStartDate] = useState('');
   const [targetEndDate, setTargetEndDate] = useState('');
   const [portfolioCategoryId, setPortfolioCategoryId] = useState('');
+  const [parentProjectId, setParentProjectId] = useState<string | null>(null);
   const [ownerDialogOpen, setOwnerDialogOpen] = useState(false);
   const [ownerResourceId, setOwnerResourceId] = useState('');
   /** Détails pour libellé / soumission (liste ou ressource tout juste créée). */
@@ -218,6 +220,7 @@ export function ProjectCreateForm() {
     if (startDate) body.startDate = startDate;
     if (targetEndDate) body.targetEndDate = targetEndDate;
     if (portfolioCategoryId) body.portfolioCategoryId = portfolioCategoryId;
+    if (parentProjectId) body.parentProjectId = parentProjectId;
     if (ownerResourceId && ownerResourceDetails?.id === ownerResourceId) {
       const r = ownerResourceDetails;
       body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
@@ -472,6 +475,14 @@ export function ProjectCreateForm() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className={cn(field, 'sm:col-span-2')}>
+                <ProjectParentCombobox
+                  id="p-parent-project"
+                  label="Projet parent"
+                  value={parentProjectId}
+                  onValueChange={setParentProjectId}
+                />
               </div>
               <div className={cn(field, 'sm:col-span-2')}>
                 <Label htmlFor="p-portfolio-category">Sous-categorie portefeuille</Label>

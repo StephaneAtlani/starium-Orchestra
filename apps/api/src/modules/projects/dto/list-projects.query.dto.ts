@@ -121,6 +121,18 @@ export class ListProjectsQueryDto {
   @MinLength(1)
   portfolioCategoryId?: string;
 
+  /** RFC-PROJ-019 — filtre enfants directs d'un parent. */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  parentProjectId?: string;
+
+  /** RFC-PROJ-019 — projets sans parent (racines). */
+  @IsOptional()
+  @Transform(({ value }) => parseBooleanQuery(value))
+  @IsBoolean()
+  rootOnly?: boolean;
+
   /** Filtre par chef de projet (utilisateur client). */
   @IsOptional()
   @IsString()

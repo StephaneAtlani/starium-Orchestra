@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -14,8 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -23,6 +25,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Compass, FileText, Loader2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -33,6 +44,7 @@ import {
 } from '@/components/ui/table';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useAuth } from '@/context/auth-context';
 import { cn } from '@/lib/utils';
 import {
   useArchiveStrategicDirectionStrategyMutation,
@@ -44,6 +56,8 @@ import {
   useStrategicDirectionStrategiesQuery,
   useStrategicDirectionStrategyDetailQuery,
   useStrategicDirectionStrategyLinksQuery,
+  useStrategicDirectionStrategyValidatorOptionsQuery,
+  useStrategicDirectionStrategyWorkflowSettingsQuery,
   useStrategicVisionOptionsQuery,
   useSubmitStrategicDirectionStrategyMutation,
   useUpdateStrategicDirectionStrategyMutation,
@@ -61,6 +75,19 @@ import { splitAxisLogoAndTitle } from '@/features/strategic-vision/lib/strategic
 import { StrategicDirectionCreateEditDialog } from '@/features/strategic-vision/components/strategic-direction-create-edit-dialog';
 import { HumanResourceCombobox } from '@/features/teams/work-teams/components/human-resource-combobox';
 import { humanResourceLeadLabel } from '@/features/teams/work-teams/components/work-team-lead-combobox';
+import type { ApiFormError } from '@/features/budgets/api/types';
+import { toast } from '@/lib/toast';
+import { StrategicDirectionStrategyAlignmentSection } from './strategic-direction-strategy-alignment-section';
+import { StrategicDirectionStrategyVersionComparePanel } from './strategic-direction-strategy-version-compare-panel';
+import {
+  getStrategicDirectionStrategyStatusLabel,
+  STRATEGIC_DIRECTION_STRATEGY_APPROVE_LABEL,
+  STRATEGIC_DIRECTION_STRATEGY_REJECT_LABEL,
+  STRATEGIC_DIRECTION_STRATEGY_STATUS_FILTER_OPTIONS,
+  STRATEGIC_DIRECTION_STRATEGY_STATUS_LABELS,
+  STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL,
+  STRATEGIC_DIRECTION_STRATEGY_VALIDATION_SECTION_TITLE,
+} from '../lib/strategic-direction-strategy-labels';
 
 function rowId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -85,8 +112,21 @@ function objectiveStatusLabel(status: string): string {
   return OBJECTIVE_STATUS_LABELS[status] ?? status;
 }
 
+function isApiFormError(error: unknown): error is ApiFormError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as ApiFormError).message === 'string'
+  );
+}
+
 function sectionShellClass(): string {
-  return 'space-y-3 rounded-lg border border-border/70 bg-muted/30 p-4';
+  return 'starium-form-section space-y-3 border-border/60';
+}
+
+function sectionTitleClass(): string {
+  return 'starium-form-section-title';
 }
 
 function emptyPriority(): PriorityRow {
@@ -219,6 +259,7 @@ function toRisksPayload(rows: RiskRow[]): Array<Record<string, unknown>> {
 
 export function StrategicDirectionStrategyPage() {
   const { has } = usePermissions();
+  const { user } = useAuth();
   const canRead = has('strategic_direction_strategy.read');
   const canCreate = has('strategic_direction_strategy.create');
   const canUpdate = has('strategic_direction_strategy.update');
@@ -250,15 +291,21 @@ export function StrategicDirectionStrategyPage() {
   const [riskRows, setRiskRows] = useState<RiskRow[]>([emptyRisk()]);
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
+  const formErrorRef = useRef<HTMLDivElement | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [adaptationReason, setAdaptationReason] = useState('');
   const [adaptationDialogOpen, setAdaptationDialogOpen] = useState(false);
   const [adaptationEditEnabled, setAdaptationEditEnabled] = useState(false);
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [submitValidatorUserId, setSubmitValidatorUserId] = useState('');
   const [createDirectionOpen, setCreateDirectionOpen] = useState(false);
   const [ownerResourceId, setOwnerResourceId] = useState<string>('');
   const [selectedAxisIds, setSelectedAxisIds] = useState<string[]>([]);
   const [selectedObjectiveIds, setSelectedObjectiveIds] = useState<string[]>([]);
+  const [extraDirectionOptions, setExtraDirectionOptions] = useState<
+    Array<{ id: string; name: string; code: string }>
+  >([]);
 
   const directionsQ = useStrategicDirectionOptionsQuery({ enabled: canRead });
   const visionsQ = useStrategicVisionOptionsQuery({ enabled: canRead });
@@ -301,17 +348,61 @@ export function StrategicDirectionStrategyPage() {
     ? null
     : strategyInList ?? detailQ.data ?? null;
 
+  const directionOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; code: string }>();
+    for (const direction of directionsQ.data ?? []) {
+      byId.set(direction.id, direction);
+    }
+    for (const direction of extraDirectionOptions) {
+      byId.set(direction.id, direction);
+    }
+    const rel = selectedStrategy?.direction;
+    if (rel?.name) {
+      byId.set(rel.id, { id: rel.id, name: rel.name, code: rel.code });
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  }, [directionsQ.data, extraDirectionOptions, selectedStrategy?.direction]);
+
   const directionById = useMemo(() => {
     const map = new Map<string, { id: string; name: string; code: string }>();
-    for (const d of directionsQ.data ?? []) map.set(d.id, d);
+    for (const direction of directionOptions) map.set(direction.id, direction);
     return map;
-  }, [directionsQ.data]);
+  }, [directionOptions]);
+
+  const visionOptions = useMemo(() => {
+    const byId = new Map<
+      string,
+      { id: string; title: string; horizonLabel: string; isActive?: boolean }
+    >();
+    for (const vision of visionsQ.data ?? []) {
+      byId.set(vision.id, vision);
+    }
+    const rel = selectedStrategy?.alignedVision;
+    if (rel?.title) {
+      byId.set(rel.id, {
+        id: rel.id,
+        title: rel.title,
+        horizonLabel: rel.horizonLabel,
+        isActive: rel.isActive,
+      });
+    }
+    return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+  }, [visionsQ.data, selectedStrategy?.alignedVision]);
 
   const visionById = useMemo(() => {
     const map = new Map<string, { id: string; title: string; horizonLabel: string }>();
-    for (const v of visionsQ.data ?? []) map.set(v.id, v);
+    for (const vision of visionOptions) {
+      map.set(vision.id, vision);
+    }
     return map;
-  }, [visionsQ.data]);
+  }, [visionOptions]);
+
+  const formatDirectionLabel = (direction: { name: string; code: string }) =>
+    `${direction.name} (${direction.code})`;
+
+  const selectedDirectionLabel = directionId
+    ? directionById.get(directionId)
+    : null;
 
   const directionLabel = (strategy: StrategicDirectionStrategyDto) => {
     const rel = strategy.direction;
@@ -335,6 +426,18 @@ export function StrategicDirectionStrategyPage() {
   const archiveMutation = useArchiveStrategicDirectionStrategyMutation();
   const replaceAxesMutation = useReplaceStrategicDirectionStrategyAxesMutation();
   const replaceObjectivesMutation = useReplaceStrategicDirectionStrategyObjectivesMutation();
+
+  const workflowSettingsQ = useStrategicDirectionStrategyWorkflowSettingsQuery({
+    enabled: canRead,
+  });
+  const allowSubmitterToPickValidator =
+    workflowSettingsQ.data?.resolved.allowSubmitterToSelectValidator !== false;
+  const defaultValidatorSummary = workflowSettingsQ.data?.options.eligibleValidators.find(
+    (candidate) => candidate.id === workflowSettingsQ.data?.resolved.defaultValidatorUserId,
+  );
+  const validatorOptionsQ = useStrategicDirectionStrategyValidatorOptionsQuery({
+    enabled: canUpdate && allowSubmitterToPickValidator,
+  });
 
   const tablePan = useTablePan();
 
@@ -367,6 +470,14 @@ export function StrategicDirectionStrategyPage() {
     canUpdate &&
     canEditFields &&
     visionAlignedWithServer;
+
+  const canDecideOnStrategy =
+    canReview &&
+    Boolean(selectedStrategy) &&
+    status === 'SUBMITTED' &&
+    user?.id != null &&
+    user.id !== selectedStrategy?.submittedByUserId &&
+    (!selectedStrategy?.validatorUserId || selectedStrategy.validatorUserId === user.id);
 
   const alignmentCreateOpen =
     isCreating && canCreate && Boolean(directionId && alignedVisionId);
@@ -433,6 +544,12 @@ export function StrategicDirectionStrategyPage() {
     );
   }, []);
 
+  const alignmentDirectionLabel = useMemo(() => {
+    if (!directionId) return null;
+    const direction = directionById.get(directionId);
+    return direction ? formatDirectionLabel(direction) : null;
+  }, [directionId, directionById]);
+
   const alignedVisionMeta = useMemo(() => {
     const sv = selectedStrategy?.alignedVision;
     const fromStrategy =
@@ -450,6 +567,191 @@ export function StrategicDirectionStrategyPage() {
   }, [selectedStrategy?.alignedVision, alignedVisionId, visionsQ.data, visionById]);
 
   const showFormPanel = isCreating || (Boolean(selectedStrategyId) && !isLockedDetailView);
+
+  const reportFormError = useCallback((message: string) => {
+    setFormError(message);
+    requestAnimationFrame(() => {
+      formErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, []);
+
+  const handleConfirmSubmit = useCallback(async () => {
+    if (!selectedStrategy) return;
+    if (allowSubmitterToPickValidator && !submitValidatorUserId) {
+      reportFormError('Sélectionnez un validateur avant la soumission.');
+      return;
+    }
+    setFormError('');
+    try {
+      await submitMutation.mutateAsync({
+        strategyId: selectedStrategy.id,
+        alignedVisionId: selectedStrategy.alignedVisionId,
+        validatorUserId: allowSubmitterToPickValidator ? submitValidatorUserId : undefined,
+      });
+      setSubmitDialogOpen(false);
+      setSubmitValidatorUserId('');
+      toast.success('Stratégie soumise pour validation.');
+    } catch (error) {
+      const message =
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error &&
+        typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : 'Soumission impossible.';
+      reportFormError(message);
+    }
+  }, [
+    allowSubmitterToPickValidator,
+    reportFormError,
+    selectedStrategy,
+    submitMutation,
+    submitValidatorUserId,
+  ]);
+
+  const handleSaveStrategy = useCallback(async () => {
+    setFormError('');
+    const strategicPriorities = toStrategicPrioritiesPayload(priorityRows);
+    const expectedOutcomes = toExpectedOutcomesPayload(outcomeRows);
+    const kpisPayload = toKpisPayload(kpiRows);
+    const majorInitiatives = toMajorInitiativesPayload(initiativeRows);
+    const risks = toRisksPayload(riskRows);
+    const resolvedHorizon =
+      horizonLabel.trim() || alignedVisionMeta.horizonLabel.trim() || '';
+
+    if (!directionId || !alignedVisionId || !title.trim() || !ambition.trim() || !context.trim()) {
+      reportFormError('Direction, vision, titre, ambition et contexte sont requis.');
+      return;
+    }
+    if (!resolvedHorizon) {
+      reportFormError('L’horizon est requis (saisie ou vision alignée).');
+      return;
+    }
+    if (
+      !isCreating &&
+      selectedStrategy?.status === 'APPROVED' &&
+      approvedAdaptationMode &&
+      adaptationReason.trim().length === 0
+    ) {
+      reportFormError('Le motif d’adaptation est requis pour modifier une stratégie validée.');
+      return;
+    }
+
+    const strategyBody = {
+      alignedVisionId,
+      title: title.trim(),
+      ambition: ambition.trim(),
+      context: context.trim(),
+      strategicPriorities,
+      expectedOutcomes,
+      kpis: kpisPayload,
+      majorInitiatives,
+      risks,
+      horizonLabel: resolvedHorizon,
+      ownerLabel: ownerLabel.trim() || undefined,
+      archiveReason:
+        selectedStrategy?.status === 'APPROVED' && approvedAdaptationMode
+          ? adaptationReason.trim()
+          : undefined,
+    };
+
+    try {
+      if (isCreating && canCreate) {
+        const axisIdsSnapshot = [...selectedAxisIds];
+        const objectiveIdsSnapshot = [...selectedObjectiveIds];
+        const created = await createMutation.mutateAsync({
+          directionId,
+          alignedVisionId,
+          title: title.trim(),
+          ambition: ambition.trim(),
+          context: context.trim(),
+          strategicPriorities,
+          expectedOutcomes,
+          kpis: kpisPayload,
+          majorInitiatives,
+          risks,
+          horizonLabel: resolvedHorizon,
+          ownerLabel: ownerLabel.trim() || undefined,
+        });
+        setIsCreating(false);
+        setSelectedStrategyId(created.id);
+        if (canUpdate) {
+          await replaceAxesMutation.mutateAsync({
+            strategyId: created.id,
+            strategicAxisIds: axisIdsSnapshot,
+          });
+          await replaceObjectivesMutation.mutateAsync({
+            strategyId: created.id,
+            strategicObjectiveIds: objectiveIdsSnapshot,
+          });
+        }
+        toast.success('Brouillon créé.');
+        return;
+      }
+
+      if (!selectedStrategy) return;
+
+      await updateMutation.mutateAsync({
+        strategyId: selectedStrategy.id,
+        body: strategyBody,
+      });
+
+      if (canEditLinks && visionAlignedWithServer) {
+        await replaceAxesMutation.mutateAsync({
+          strategyId: selectedStrategy.id,
+          strategicAxisIds: selectedAxisIds,
+        });
+        await replaceObjectivesMutation.mutateAsync({
+          strategyId: selectedStrategy.id,
+          strategicObjectiveIds: selectedObjectiveIds,
+        });
+      }
+
+      if (approvedAdaptationMode) {
+        setAdaptationEditEnabled(false);
+        setAdaptationReason('');
+      }
+
+      toast.success('Stratégie enregistrée.');
+    } catch (error) {
+      const message = isApiFormError(error)
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Enregistrement impossible — vérifie les champs ou les permissions.';
+      reportFormError(message);
+      toast.error(message);
+    }
+  }, [
+    priorityRows,
+    outcomeRows,
+    kpiRows,
+    initiativeRows,
+    riskRows,
+    horizonLabel,
+    alignedVisionMeta.horizonLabel,
+    directionId,
+    alignedVisionId,
+    title,
+    ambition,
+    context,
+    isCreating,
+    selectedStrategy,
+    approvedAdaptationMode,
+    adaptationReason,
+    ownerLabel,
+    canCreate,
+    createMutation,
+    replaceAxesMutation,
+    replaceObjectivesMutation,
+    canUpdate,
+    updateMutation,
+    canEditLinks,
+    visionAlignedWithServer,
+    selectedAxisIds,
+    selectedObjectiveIds,
+    reportFormError,
+  ]);
 
   const resetEmptyDraft = useCallback(() => {
     const activeVision = (visionsQ.data ?? []).find((v) => v.isActive) ?? visionsQ.data?.[0] ?? null;
@@ -549,7 +851,7 @@ export function StrategicDirectionStrategyPage() {
     <PageContainer>
       <PageHeader
         title="Stratégie de direction"
-        description="Liste, création et mise à jour des stratégies par direction — soumission et revue CODIR."
+        description="Liste, création et mise à jour des stratégies par direction — soumission et validation."
         actions={
           <div className="flex flex-wrap gap-2">
             {canCreate ? (
@@ -633,11 +935,11 @@ export function StrategicDirectionStrategyPage() {
                 }
               >
                 <option value="">Tous (hors archivées)</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="SUBMITTED">SUBMITTED</option>
-                <option value="APPROVED">APPROVED</option>
-                <option value="REJECTED">REJECTED</option>
-                <option value="ARCHIVED">ARCHIVED</option>
+                {STRATEGIC_DIRECTION_STRATEGY_STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="flex cursor-pointer items-center gap-2 py-1 text-xs text-muted-foreground sm:mt-5">
@@ -706,7 +1008,9 @@ export function StrategicDirectionStrategyPage() {
                       <TableCell className="align-top">{directionLabel(strategy)}</TableCell>
                       <TableCell className="align-top font-medium">{strategy.title ?? 'Sans titre'}</TableCell>
                       <TableCell className="align-top text-muted-foreground">{visionTitleCell(strategy)}</TableCell>
-                      <TableCell className="align-top">{strategy.status}</TableCell>
+                      <TableCell className="align-top">
+                        {getStrategicDirectionStrategyStatusLabel(strategy.status)}
+                      </TableCell>
                       <TableCell className="align-top text-muted-foreground">
                         {new Date(strategy.updatedAt).toLocaleDateString('fr-FR')}
                       </TableCell>
@@ -748,7 +1052,7 @@ export function StrategicDirectionStrategyPage() {
           <Alert>
             <AlertDescription>
               Clique une ligne pour ouvrir la fiche, ou utilise <strong>Nouvelle stratégie</strong>. Les versions
-              <em> approuvées</em> et <em>archivées</em> s’affichent en lecture seule sous la liste.
+              <em> validées</em> et <em>archivées</em> s’affichent en lecture seule sous la liste.
             </AlertDescription>
           </Alert>
         )}
@@ -761,7 +1065,11 @@ export function StrategicDirectionStrategyPage() {
           closePanel();
         }}
       >
-        <DialogContent className="sm:max-w-6xl max-h-[85dvh] overflow-y-auto" showCloseButton>
+        <DialogContent
+          size="full"
+          showCloseButton
+          className="flex min-h-0 max-h-[min(92dvh,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden sm:max-w-6xl"
+        >
           {formLoading ? (
             <Alert>
               <AlertDescription>Chargement de la stratégie…</AlertDescription>
@@ -774,28 +1082,28 @@ export function StrategicDirectionStrategyPage() {
               </AlertDescription>
             </Alert>
           ) : (
-            <Card size="sm" className="shadow-sm">
-              <CardHeader className="border-b border-border/60 pb-3">
-                <CardTitle className="text-base">
-                  {isCreating ? 'Nouvelle stratégie' : selectedStrategy?.title ?? 'Stratégie'}
-                </CardTitle>
-                <CardDescription>
-                  {isCreating
-                    ? 'Renseigne la direction, la vision alignée, puis le contenu — enregistre pour créer le brouillon.'
-                    : `Statut : ${status}${selectedStrategy ? ` · ${directionLabel(selectedStrategy)}` : ''}`}
-                </CardDescription>
-                {!isCreating && selectedStrategy ? (
-                  <CardAction>
-                    <span className="rounded-md border border-border/60 bg-muted/50 px-2 py-1 text-xs font-medium">
-                      {status}
-                    </span>
-                  </CardAction>
-                ) : null}
-              </CardHeader>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <DialogHeader className="shrink-0 gap-1 border-b border-border/60 pb-3 pr-10">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <DialogTitle>
+                      {isCreating ? 'Nouvelle stratégie' : selectedStrategy?.title ?? 'Stratégie'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {isCreating
+                        ? 'Direction, vision alignée, puis contenu — enregistre pour créer le brouillon.'
+                        : `Statut : ${getStrategicDirectionStrategyStatusLabel(status)}${selectedStrategy ? ` · ${directionLabel(selectedStrategy)}` : ''}`}
+                    </DialogDescription>
+                  </div>
+                  {!isCreating && selectedStrategy ? (
+                    <Badge variant="outline" className="shrink-0 px-2.5 py-1 text-xs font-medium">
+                      {getStrategicDirectionStrategyStatusLabel(status)}
+                    </Badge>
+                  ) : null}
+                </div>
+              </DialogHeader>
 
-              {/* Le contenu du formulaire reste inchangé, mais est désormais rendu dans la modale.
-                 On évite ici de recopier tout le JSX : on conserve le bloc existant en dessous via un wrapper. */}
-              <CardContent className="space-y-6">
+              <DialogBody className="min-h-0 flex-1 space-y-4 py-4">
                 {status === 'ARCHIVED' ? (
                   <Alert>
                     <AlertDescription>
@@ -822,24 +1130,42 @@ export function StrategicDirectionStrategyPage() {
                   </Alert>
                 ) : null}
 
-                <section className={sectionShellClass()}>
-                  <h3 className="text-sm font-semibold text-foreground">Synthèse</h3>
-                  <label className="space-y-1 text-sm">
-                    <span className="font-medium text-foreground">Direction</span>
+                <section className={sectionShellClass()} aria-labelledby="strategy-synthesis">
+                  <h3 id="strategy-synthesis" className={sectionTitleClass()}>
+                    <Compass aria-hidden />
+                    Synthèse
+                  </h3>
+                  <div className="starium-form-field">
+                    <Label htmlFor="strategy-direction" className="starium-form-label">
+                      Direction
+                    </Label>
                     <div className="flex gap-2">
-                      <select
-                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      <Select
                         value={directionId}
-                        onChange={(event) => setDirectionId(event.target.value)}
+                        onValueChange={(value) => {
+                          if (value != null) setDirectionId(value);
+                        }}
                         disabled={!canEditFields || (!isCreating && Boolean(selectedStrategy))}
                       >
-                        <option value="">Choisir une direction</option>
-                        {(directionsQ.data ?? []).map((direction) => (
-                          <option key={direction.id} value={direction.id}>
-                            {direction.name} ({direction.code})
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger
+                          id="strategy-direction"
+                          className="starium-form-input h-9 w-full min-w-0"
+                          aria-label="Direction"
+                        >
+                          <SelectValue placeholder="Choisir une direction">
+                            {selectedDirectionLabel
+                              ? formatDirectionLabel(selectedDirectionLabel)
+                              : null}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {directionOptions.map((direction) => (
+                            <SelectItem key={direction.id} value={direction.id}>
+                              {formatDirectionLabel(direction)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {canManageDirections ? (
                         <Button
                           type="button"
@@ -852,28 +1178,38 @@ export function StrategicDirectionStrategyPage() {
                         </Button>
                       ) : null}
                     </div>
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span className="font-medium text-foreground">Titre</span>
+                  </div>
+                  <div className="starium-form-field">
+                    <Label htmlFor="strategy-title" className="starium-form-label">
+                      Titre
+                    </Label>
                     <Input
+                      id="strategy-title"
+                      className="starium-form-input"
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
                       placeholder="Titre de la stratégie"
                       disabled={!canEditFields}
                     />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span className="font-medium text-foreground">Ambition</span>
+                  </div>
+                  <div className="starium-form-field">
+                    <Label htmlFor="strategy-ambition" className="starium-form-label">
+                      Ambition
+                    </Label>
                     <textarea
+                      id="strategy-ambition"
                       value={ambition}
                       onChange={(event) => setAmbition(event.target.value)}
-                      className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      className="starium-form-textarea min-h-24 w-full"
                       placeholder="Ambition stratégique de la direction"
                       disabled={!canEditFields}
                     />
-                  </label>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Statut CODIR : <span className="font-medium text-foreground">{status}</span>
+                    Statut :{' '}
+                    <span className="font-medium text-foreground">
+                      {getStrategicDirectionStrategyStatusLabel(status)}
+                    </span>
                     {status === 'ARCHIVED' && selectedStrategy?.archivedAt ? (
                       <span className="ml-2 text-muted-foreground">
                         · archivée le {new Date(selectedStrategy.archivedAt).toLocaleDateString('fr-FR')}
@@ -883,9 +1219,9 @@ export function StrategicDirectionStrategyPage() {
                   {selectedStrategy && status === 'APPROVED' && !approvedAdaptationMode ? (
                     <Alert>
                       <AlertDescription>
-                        Cette version approuvée est verrouillée. Utilise{' '}
+                        Cette version validée est verrouillée. Utilise{' '}
                         <strong>Adapter cette stratégie</strong> pour ouvrir une session d’édition avec archivage
-                        automatique de l’état approuvé.
+                        automatique de la version validée.
                       </AlertDescription>
                     </Alert>
                   ) : null}
@@ -943,353 +1279,81 @@ export function StrategicDirectionStrategyPage() {
                   onOpenChange={setCreateDirectionOpen}
                   direction={null}
                   onSuccess={(created) => {
+                    setExtraDirectionOptions((prev) => {
+                      if (prev.some((direction) => direction.id === created.id)) return prev;
+                      return [...prev, { id: created.id, name: created.name, code: created.code }];
+                    });
                     setDirectionId(created.id);
                     setCreateDirectionOpen(false);
                   }}
                 />
 
-                <section className={sectionShellClass()}>
-                  <h3 className="text-sm font-semibold text-foreground">Alignement stratégique</h3>
-                  <label className="space-y-1 text-sm">
-                    <span className="font-medium text-foreground">Vision alignée</span>
-                    <select
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={alignedVisionId}
-                      onChange={(event) => setAlignedVisionId(event.target.value)}
-                      disabled={!canEditFields}
-                    >
-                      <option value="">Choisir une vision</option>
-                      {(visionsQ.data ?? []).map((vision) => (
-                        <option key={vision.id} value={vision.id}>
-                          {vision.title} ({vision.horizonLabel})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <StrategicDirectionStrategyAlignmentSection
+                  directionLabel={alignmentDirectionLabel}
+                  alignedVisionId={alignedVisionId}
+                  onAlignedVisionChange={setAlignedVisionId}
+                  visions={visionOptions}
+                  alignedVisionMeta={alignedVisionMeta}
+                  canEditFields={canEditFields}
+                  isCreating={isCreating}
+                  canCreate={canCreate}
+                  canUpdate={canUpdate}
+                  visionAlignedWithServer={visionAlignedWithServer}
+                  showAlignmentWorkbench={showAlignmentWorkbench}
+                  alignmentEditOpen={alignmentEditOpen}
+                  pickAlignmentEnabled={pickAlignmentEnabled}
+                  alignmentCreateOpen={alignmentCreateOpen}
+                  linksLoading={linksQ.isLoading}
+                  linksError={linksQ.isError}
+                  axesForVision={axesForVision}
+                  objectivesEligible={objectivesEligible}
+                  selectedAxisIds={selectedAxisIds}
+                  selectedObjectiveIds={selectedObjectiveIds}
+                  onToggleAxis={toggleLinkedAxis}
+                  onToggleObjective={toggleLinkedObjective}
+                  getAxisPresentation={getAxisPresentation}
+                  objectiveStatusLabel={objectiveStatusLabel}
+                  isPersistedStrategy={!isCreating}
+                  selectedStrategyId={selectedStrategyId}
+                  onSaveAxes={() => {
+                    if (!selectedStrategyId) return;
+                    replaceAxesMutation.mutate({
+                      strategyId: selectedStrategyId,
+                      strategicAxisIds: selectedAxisIds,
+                    });
+                  }}
+                  onSaveObjectives={() => {
+                    if (!selectedStrategyId) return;
+                    replaceObjectivesMutation.mutate({
+                      strategyId: selectedStrategyId,
+                      strategicObjectiveIds: selectedObjectiveIds,
+                    });
+                  }}
+                  axesSavePending={replaceAxesMutation.isPending}
+                  objectivesSavePending={replaceObjectivesMutation.isPending}
+                  readOnlyLinks={
+                    alignmentEditOpen && !pickAlignmentEnabled && linksQ.data ? linksQ.data : null
+                  }
+                />
 
-                  {alignedVisionId ? (
-                    <div className="rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm">
-                      <p className="font-medium text-foreground">{alignedVisionMeta.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Période : {alignedVisionMeta.horizonLabel || '—'} ·{' '}
-                        {alignedVisionMeta.isActive ? 'Vision active' : 'Vision inactive'}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Choisis une vision pour afficher l’alignement.</p>
-                  )}
-
-                  {isCreating && canCreate ? (
-                    !directionId || !alignedVisionId ? (
-                      <Alert>
-                        <AlertDescription>
-                          {!directionId && !alignedVisionId
-                            ? 'Choisis une direction et une vision : les axes et objectifs proposés se mettent à jour dynamiquement selon cette vision.'
-                            : !directionId
-                              ? 'Choisis une direction pour continuer.'
-                              : 'Choisis une vision alignée : les listes axes / objectifs suivent cette vision dans le référentiel.'}
-                        </AlertDescription>
-                      </Alert>
-                    ) : !canUpdate ? (
-                      <Alert>
-                        <AlertDescription>
-                          Sans la permission{' '}
-                          <code className="text-xs">strategic_direction_strategy.update</code>, tu peux consulter les
-                          listes ci-dessous mais les coches ne seront pas persistées à la création du brouillon.
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Listes dynamiques selon ta vision sélectionnée : les coches sont enregistrées quand tu cliques
-                        sur « Créer le brouillon ».
-                      </p>
-                    )
-                  ) : null}
-
-                  {!isCreating && !visionAlignedWithServer ? (
-                    <Alert>
-                      <AlertDescription>
-                        La vision sélectionnée diffère de celle enregistrée sur la stratégie. Enregistre la fiche pour
-                        pouvoir mettre à jour les liens axes / objectifs.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-
-                  {showAlignmentWorkbench ? (
-                    <div className="space-y-4">
-                      {alignmentEditOpen && linksQ.isLoading ? (
-                        <p className="text-xs text-muted-foreground">Chargement des liens…</p>
-                      ) : null}
-                      {alignmentEditOpen && linksQ.isError ? (
-                        <Alert variant="destructive">
-                          <AlertDescription>
-                            Impossible de charger les liens vision / axes / objectifs.
-                          </AlertDescription>
-                        </Alert>
-                      ) : null}
-
-                      {pickAlignmentEnabled || alignmentCreateOpen ? (
-                        <>
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Axes de la vision
-                            </p>
-                            <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-background p-2">
-                              {axesForVision.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">
-                                  Aucun axe pour cette vision dans le référentiel.
-                                </p>
-                              ) : (
-                                axesForVision.map((axis) => (
-                                  <label key={axis.id} className="flex cursor-pointer items-start gap-2 text-sm">
-                                    <input
-                                      type="checkbox"
-                                      className="mt-1 h-4 w-4 rounded border-input"
-                                      disabled={!pickAlignmentEnabled}
-                                      checked={selectedAxisIds.includes(axis.id)}
-                                      onChange={() => toggleLinkedAxis(axis.id)}
-                                    />
-                                    <span>
-                                      <span className="font-medium text-foreground">
-                                        {(() => {
-                                          const { title, AxisIcon, colorClass } = getAxisPresentation(axis.name);
-                                          return (
-                                            <>
-                                              {AxisIcon ? (
-                                                <AxisIcon
-                                                  className={cn(
-                                                    'mr-1 inline-block size-4 align-text-bottom',
-                                                    colorClass,
-                                                  )}
-                                                />
-                                              ) : null}
-                                              {title}
-                                            </>
-                                          );
-                                        })()}
-                                      </span>
-                                      {axis.orderIndex != null ? (
-                                        <span className="ml-1 text-xs text-muted-foreground">
-                                          (ordre {axis.orderIndex})
-                                        </span>
-                                      ) : null}
-                                    </span>
-                                  </label>
-                                ))
-                              )}
-                            </div>
-                            {selectedAxisIds.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                Aucun axe lié pour l’instant — coche les axes stratégiques de la vision pour commencer
-                                l’alignement.
-                              </p>
-                            ) : (
-                              <ul className="list-inside list-disc text-xs text-muted-foreground">
-                                {selectedAxisIds.map((id) => {
-                                  const ax = axesForVision.find((a) => a.id === id);
-                                  if (!ax) return <li key={id}>—</li>;
-                                  const { title, AxisIcon, colorClass } = getAxisPresentation(ax.name);
-                                  return (
-                                    <li key={id}>
-                                      {AxisIcon ? (
-                                        <AxisIcon
-                                          className={cn(
-                                            'mr-1 inline-block size-3.5 align-text-bottom',
-                                            colorClass,
-                                          )}
-                                        />
-                                      ) : null}
-                                      {title}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                            {!isCreating ? (
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                disabled={replaceAxesMutation.isPending}
-                                onClick={() => {
-                                  if (!selectedStrategyId) return;
-                                  replaceAxesMutation.mutate({
-                                    strategyId: selectedStrategyId,
-                                    strategicAxisIds: selectedAxisIds,
-                                  });
-                                }}
-                              >
-                                {replaceAxesMutation.isPending ? 'Enregistrement…' : 'Enregistrer les axes liés'}
-                              </Button>
-                            ) : null}
-                          </div>
-
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Objectifs stratégiques
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {selectedAxisIds.length > 0
-                                ? 'Seuls les objectifs rattachés aux axes cochés sont proposés (aligné avec la règle serveur).'
-                                : 'Aucun axe coché : tous les objectifs de la vision sont proposés ; dès qu’au moins un axe est lié, la sélection se restreint à ces axes.'}
-                            </p>
-                            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border/50 bg-background p-2">
-                              {objectivesEligible.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">
-                                  Aucun objectif disponible avec les filtres actuels.
-                                </p>
-                              ) : (
-                                objectivesEligible.map((obj) => (
-                                  <label key={obj.id} className="flex cursor-pointer items-start gap-2 text-sm">
-                                    <input
-                                      type="checkbox"
-                                      className="mt-1 h-4 w-4 rounded border-input"
-                                      disabled={!pickAlignmentEnabled}
-                                      checked={selectedObjectiveIds.includes(obj.id)}
-                                      onChange={() => toggleLinkedObjective(obj.id)}
-                                    />
-                                    <span>
-                                      <span className="font-medium text-foreground">{obj.title}</span>
-                                      <span className="ml-1 text-xs text-muted-foreground">
-                                        {(() => {
-                                          const axisName =
-                                            axesForVision.find((a) => a.id === obj.axisId)?.name ?? '';
-                                          const { title, AxisIcon, colorClass } =
-                                            getAxisPresentation(axisName);
-                                          return (
-                                            <>
-                                              {' · axe '}
-                                              {AxisIcon ? (
-                                                <AxisIcon
-                                                  className={cn(
-                                                    'mr-1 inline-block size-3.5 align-text-bottom',
-                                                    colorClass,
-                                                  )}
-                                                />
-                                              ) : null}
-                                              {title}
-                                              {' · '}
-                                              {objectiveStatusLabel(obj.status)}
-                                            </>
-                                          );
-                                        })()}
-                                      </span>
-                                    </span>
-                                  </label>
-                                ))
-                              )}
-                            </div>
-                            {selectedObjectiveIds.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                Aucun objectif lié pour l’instant — coche les objectifs qui concrétisent l’alignement
-                                avec la vision.
-                              </p>
-                            ) : (
-                              <ul className="list-inside list-disc text-xs text-muted-foreground">
-                                {selectedObjectiveIds.map((oid) => {
-                                  const obj = objectivesQ.data?.find((o) => o.id === oid);
-                                  const axisName = axesForVision.find((a) => a.id === obj?.axisId)?.name ?? '';
-                                  const { title, AxisIcon, colorClass } = getAxisPresentation(axisName);
-                                  return (
-                                    <li key={oid}>
-                                      {obj?.title ?? '—'}
-                                      <span className="text-muted-foreground">
-                                        {' · '}
-                                        {AxisIcon ? (
-                                          <AxisIcon
-                                            className={cn(
-                                              'mr-1 inline-block size-3.5 align-text-bottom',
-                                              colorClass,
-                                            )}
-                                          />
-                                        ) : null}
-                                        {title}
-                                      </span>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                            {!isCreating ? (
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                disabled={replaceObjectivesMutation.isPending}
-                                onClick={() => {
-                                  if (!selectedStrategyId) return;
-                                  replaceObjectivesMutation.mutate({
-                                    strategyId: selectedStrategyId,
-                                    strategicObjectiveIds: selectedObjectiveIds,
-                                  });
-                                }}
-                              >
-                                {replaceObjectivesMutation.isPending
-                                  ? 'Enregistrement…'
-                                  : 'Enregistrer les objectifs liés'}
-                              </Button>
-                            ) : null}
-                          </div>
-                        </>
-                      ) : null}
-
-                      {alignmentEditOpen && !pickAlignmentEnabled && linksQ.data ? (
-                        <>
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Axes liés</p>
-                            {linksQ.data.axes.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                Aucun axe lié pour l’instant — coche les axes stratégiques de la vision pour commencer
-                                l’alignement.
-                              </p>
-                            ) : (
-                              <ul className="list-inside list-disc text-xs text-muted-foreground">
-                                {linksQ.data.axes.map((axis) => (
-                                  <li key={axis.id}>{axis.name}</li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Objectifs liés
-                            </p>
-                            {linksQ.data.objectives.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                Aucun objectif lié pour l’instant — coche les objectifs qui concrétisent l’alignement
-                                avec la vision.
-                              </p>
-                            ) : (
-                              <ul className="list-inside list-disc text-xs text-muted-foreground">
-                                {linksQ.data.objectives.map((obj) => (
-                                  <li key={obj.id}>
-                                    {obj.title}{' '}
-                                    <span className="text-muted-foreground">
-                                      · axe {obj.axis.name} · {objectiveStatusLabel(obj.status)}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-
-                <section className={sectionShellClass()}>
-                  <h3 className="text-sm font-semibold text-foreground">Cadre</h3>
-                  <label className="space-y-1 text-sm">
-                    <span className="font-medium text-foreground">Contexte</span>
+                <section className={sectionShellClass()} aria-labelledby="strategy-frame">
+                  <h3 id="strategy-frame" className={sectionTitleClass()}>
+                    <FileText aria-hidden />
+                    Cadre
+                  </h3>
+                  <div className="starium-form-field">
+                    <Label htmlFor="strategy-context" className="starium-form-label">
+                      Contexte
+                    </Label>
                     <textarea
+                      id="strategy-context"
                       value={context}
                       onChange={(event) => setContext(event.target.value)}
-                      className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      className="starium-form-textarea min-h-24 w-full"
                       placeholder="Contexte et enjeux"
                       disabled={!canEditFields}
                     />
-                  </label>
+                  </div>
                 </section>
 
                 <section className={sectionShellClass()}>
@@ -1600,25 +1664,50 @@ export function StrategicDirectionStrategyPage() {
                 </section>
 
                 <section className={sectionShellClass()}>
-                  <h3 className="text-sm font-semibold text-foreground">Décision CODIR</h3>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {STRATEGIC_DIRECTION_STRATEGY_VALIDATION_SECTION_TITLE}
+                  </h3>
 
-                  {formError ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>{formError}</AlertDescription>
-                    </Alert>
+                  {status === 'SUBMITTED' && selectedStrategy?.validatorSummary ? (
+                    <p className="text-sm text-muted-foreground">
+                      Validateur désigné :{' '}
+                      <span className="font-medium text-foreground">
+                        {selectedStrategy.validatorSummary.displayName}
+                      </span>
+                    </p>
+                  ) : null}
+
+                  {!allowSubmitterToPickValidator &&
+                  (status === 'DRAFT' || status === 'REJECTED') &&
+                  defaultValidatorSummary ? (
+                    <p className="text-sm text-muted-foreground">
+                      À la soumission, la validation sera demandée à{' '}
+                      <span className="font-medium text-foreground">
+                        {defaultValidatorSummary.displayName}
+                      </span>{' '}
+                      (paramétrage module).
+                    </p>
                   ) : null}
 
                   {(status === 'SUBMITTED' || status === 'REJECTED') && selectedStrategy ? (
                     <label className="space-y-1 text-sm">
-                      <span className="text-muted-foreground">Motif de rejet (requis pour rejeter)</span>
+                      <span className="text-muted-foreground">Motif de refus (requis pour refuser)</span>
                       <textarea
                         value={rejectionReason}
                         onChange={(event) => setRejectionReason(event.target.value)}
                         className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         placeholder="Préciser les ajustements attendus…"
-                        disabled={!canReview || status !== 'SUBMITTED'}
+                        disabled={!canReview || status !== 'SUBMITTED' || !canDecideOnStrategy}
                       />
                     </label>
+                  ) : null}
+
+                  {formError ? (
+                    <div ref={formErrorRef} className="scroll-mt-4" tabIndex={-1}>
+                      <Alert variant="destructive" role="alert" aria-live="assertive">
+                        <AlertDescription>{formError}</AlertDescription>
+                      </Alert>
+                    </div>
                   ) : null}
 
                   <div className="flex flex-wrap gap-2 border-t border-border/60 pt-4">
@@ -1662,91 +1751,24 @@ export function StrategicDirectionStrategyPage() {
                         (status === 'DRAFT' || status === 'REJECTED' || approvedAdaptationMode))) ? (
                       <Button
                         type="button"
+                        disabled={
+                          createMutation.isPending ||
+                          updateMutation.isPending ||
+                          replaceAxesMutation.isPending ||
+                          replaceObjectivesMutation.isPending
+                        }
                         onClick={() => {
-                          setFormError('');
-                          const strategicPriorities = toStrategicPrioritiesPayload(priorityRows);
-                          const expectedOutcomes = toExpectedOutcomesPayload(outcomeRows);
-                          const kpis = toKpisPayload(kpiRows);
-                          const majorInitiatives = toMajorInitiativesPayload(initiativeRows);
-                          const risks = toRisksPayload(riskRows);
-                          if (!directionId || !alignedVisionId || !title.trim() || !ambition.trim() || !context.trim()) {
-                            setFormError('Direction, vision, titre, ambition et contexte sont requis.');
-                            return;
-                          }
-                          if (
-                            !isCreating &&
-                            selectedStrategy?.status === 'APPROVED' &&
-                            approvedAdaptationMode &&
-                            adaptationReason.trim().length === 0
-                          ) {
-                            setFormError(
-                              'Le motif d’adaptation est requis pour modifier une stratégie approuvée.',
-                            );
-                            return;
-                          }
-                          if (isCreating && canCreate) {
-                            const axisIdsSnapshot = [...selectedAxisIds];
-                            const objectiveIdsSnapshot = [...selectedObjectiveIds];
-                            void (async () => {
-                              try {
-                                const created = await createMutation.mutateAsync({
-                                  directionId,
-                                  alignedVisionId,
-                                  title: title.trim(),
-                                  ambition: ambition.trim(),
-                                  context: context.trim(),
-                                  strategicPriorities,
-                                  expectedOutcomes,
-                                  kpis,
-                                  majorInitiatives,
-                                  risks,
-                                  horizonLabel: horizonLabel.trim(),
-                                  ownerLabel: ownerLabel.trim() || undefined,
-                                });
-                                setIsCreating(false);
-                                setSelectedStrategyId(created.id);
-                                if (!canUpdate) return;
-                                await replaceAxesMutation.mutateAsync({
-                                  strategyId: created.id,
-                                  strategicAxisIds: axisIdsSnapshot,
-                                });
-                                await replaceObjectivesMutation.mutateAsync({
-                                  strategyId: created.id,
-                                  strategicObjectiveIds: objectiveIdsSnapshot,
-                                });
-                              } catch {
-                                setFormError(
-                                  'Création ou enregistrement des liens impossible — vérifie les champs ou les permissions.',
-                                );
-                              }
-                            })();
-                            return;
-                          }
-                          if (selectedStrategy) {
-                            updateMutation.mutate({
-                              strategyId: selectedStrategy.id,
-                              body: {
-                                alignedVisionId,
-                                title: title.trim(),
-                                ambition: ambition.trim(),
-                                context: context.trim(),
-                                strategicPriorities,
-                                expectedOutcomes,
-                                kpis,
-                                majorInitiatives,
-                                risks,
-                                horizonLabel: horizonLabel.trim(),
-                                ownerLabel: ownerLabel.trim() || undefined,
-                                archiveReason:
-                                  selectedStrategy.status === 'APPROVED' && approvedAdaptationMode
-                                    ? adaptationReason.trim()
-                                    : undefined,
-                              },
-                            });
-                          }
+                          void handleSaveStrategy();
                         }}
                       >
-                        {isCreating ? 'Créer le brouillon' : 'Enregistrer'}
+                        {createMutation.isPending ||
+                        updateMutation.isPending ||
+                        replaceAxesMutation.isPending ||
+                        replaceObjectivesMutation.isPending
+                          ? 'Enregistrement…'
+                          : isCreating
+                            ? 'Créer le brouillon'
+                            : 'Enregistrer'}
                       </Button>
                     ) : null}
 
@@ -1761,21 +1783,24 @@ export function StrategicDirectionStrategyPage() {
                         disabled={!visionAlignedWithServer}
                         title={
                           !visionAlignedWithServer
-                            ? 'Enregistre la stratégie après changement de vision avant la soumission au CODIR.'
+                            ? 'Enregistre la stratégie après changement de vision avant la soumission pour validation.'
                             : undefined
                         }
-                        onClick={() =>
-                          submitMutation.mutate({
-                            strategyId: selectedStrategy.id,
-                            alignedVisionId: selectedStrategy.alignedVisionId,
-                          })
-                        }
+                        onClick={() => {
+                          setFormError('');
+                          if (allowSubmitterToPickValidator) {
+                            setSubmitValidatorUserId('');
+                            setSubmitDialogOpen(true);
+                            return;
+                          }
+                          void handleConfirmSubmit();
+                        }}
                       >
-                        Soumettre au CODIR
+                        {STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
                       </Button>
                     ) : null}
 
-                    {canReview && selectedStrategy && status === 'SUBMITTED' ? (
+                    {canDecideOnStrategy && selectedStrategy ? (
                       <>
                         <Button
                           type="button"
@@ -1786,7 +1811,7 @@ export function StrategicDirectionStrategyPage() {
                             })
                           }
                         >
-                          Approuver
+                          {STRATEGIC_DIRECTION_STRATEGY_APPROVE_LABEL}
                         </Button>
                         <Button
                           type="button"
@@ -1798,7 +1823,7 @@ export function StrategicDirectionStrategyPage() {
                             })
                           }
                         >
-                          Rejeter
+                          {STRATEGIC_DIRECTION_STRATEGY_REJECT_LABEL}
                         </Button>
                       </>
                     ) : null}
@@ -1810,117 +1835,195 @@ export function StrategicDirectionStrategyPage() {
                         disabled={archiveMutation.isPending}
                         onClick={() => setArchiveDialogOpen(true)}
                       >
-                        {archiveMutation.isPending ? 'Archivage…' : 'Archiver cette version approuvée'}
+                        {archiveMutation.isPending ? 'Archivage…' : 'Archiver cette version validée'}
                       </Button>
                     ) : null}
                   </div>
                 </section>
 
-                <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
-                  <DialogContent showCloseButton={!archiveMutation.isPending}>
-                    <DialogHeader>
-                      <DialogTitle>Archiver la stratégie approuvée</DialogTitle>
-                      <DialogDescription>
-                        La stratégie passera en lecture seule (`ARCHIVED`) et un nouveau cycle pourra être créé pour la
-                        même direction et vision. Renseigne le motif d’archivage.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    <label className="space-y-1 text-sm">
-                      <span className="font-medium text-foreground">Motif d’archivage</span>
-                      <textarea
-                        className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={archiveReason}
-                        onChange={(event) => setArchiveReason(event.target.value)}
-                        placeholder="Ex. Fin de cycle CODIR 2026, lancement d’une nouvelle version..."
-                        disabled={archiveMutation.isPending}
-                      />
-                    </label>
-
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={archiveMutation.isPending}
-                        onClick={() => {
-                          setArchiveDialogOpen(false);
-                          setArchiveReason('');
-                        }}
-                      >
-                        Annuler
-                      </Button>
-                      <Button
-                        type="button"
-                        disabled={archiveMutation.isPending || archiveReason.trim().length === 0}
-                        onClick={() => {
-                          if (!selectedStrategy || archiveReason.trim().length === 0) return;
-                          const archiveReasonSnapshot = archiveReason.trim();
-                          setArchiveDialogOpen(false);
-                          setArchiveReason('');
-                          archiveMutation.mutate(
-                            { strategyId: selectedStrategy.id, reason: archiveReasonSnapshot },
-                            {
-                              onSuccess: () => {
-                                setSelectedStrategyId(null);
-                                setFormError('');
-                              },
-                              onError: (error) => {
-                                const message =
-                                  error instanceof Error ? error.message : 'Archivage impossible. Réessaie.';
-                                setFormError(message);
-                              },
-                            },
-                          );
-                        }}
-                      >
-                        {archiveMutation.isPending ? 'Archivage…' : 'Confirmer l’archivage'}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog open={adaptationDialogOpen} onOpenChange={setAdaptationDialogOpen}>
-                  <DialogContent showCloseButton>
-                    <DialogHeader>
-                      <DialogTitle>Adapter une stratégie approuvée</DialogTitle>
-                      <DialogDescription>
-                        Cette action ouvre l’édition et déclenchera l’archivage automatique de l’ancienne version
-                        approuvée au moment de l’enregistrement.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    <label className="space-y-1 text-sm">
-                      <span className="font-medium text-foreground">Motif d’adaptation</span>
-                      <textarea
-                        className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={adaptationReason}
-                        onChange={(event) => setAdaptationReason(event.target.value)}
-                        placeholder="Ex. Nouveau contexte business, évolution du cadrage, arbitrage CODIR…"
-                      />
-                    </label>
-
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setAdaptationDialogOpen(false)}>
-                        Annuler
-                      </Button>
-                      <Button
-                        type="button"
-                        disabled={adaptationReason.trim().length === 0}
-                        onClick={() => {
-                          if (adaptationReason.trim().length === 0) return;
-                          setAdaptationEditEnabled(true);
-                          setAdaptationDialogOpen(false);
-                        }}
-                      >
-                        Démarrer l’adaptation
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-              </CardContent>
-            </Card>
+              </DialogBody>
+            </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={submitDialogOpen}
+        onOpenChange={(open) => {
+          setSubmitDialogOpen(open);
+          if (!open) {
+            setSubmitValidatorUserId('');
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!submitMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle>Soumettre pour validation</DialogTitle>
+            <DialogDescription>
+              Choisis la personne qui validera cette stratégie. Tu ne pourras pas valider ta propre
+              soumission.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="starium-form-field">
+            <Label htmlFor="strategy-submit-validator" className="starium-form-label">
+              Validateur
+            </Label>
+            {validatorOptionsQ.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden />
+            ) : (validatorOptionsQ.data ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucun validateur disponible. Configure les options du module ou les permissions de
+                revue.
+              </p>
+            ) : (
+              <Select
+                value={submitValidatorUserId}
+                onValueChange={(value) => setSubmitValidatorUserId(value ?? '')}
+              >
+                <SelectTrigger id="strategy-submit-validator" className="w-full">
+                  <SelectValue placeholder="Choisir un validateur" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(validatorOptionsQ.data ?? []).map((validator) => (
+                    <SelectItem key={validator.id} value={validator.id}>
+                      {validator.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {formError && submitDialogOpen ? (
+            <Alert variant="destructive">
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitMutation.isPending}
+              onClick={() => setSubmitDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                submitMutation.isPending ||
+                validatorOptionsQ.isLoading ||
+                (allowSubmitterToPickValidator && !submitValidatorUserId)
+              }
+              onClick={() => void handleConfirmSubmit()}
+            >
+              {submitMutation.isPending ? 'Soumission…' : STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent showCloseButton={!archiveMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle>Archiver la stratégie validée</DialogTitle>
+            <DialogDescription>
+              La stratégie passera en lecture seule ({STRATEGIC_DIRECTION_STRATEGY_STATUS_LABELS.ARCHIVED}) et un nouveau cycle pourra être créé pour la même
+              direction et vision. Renseigne le motif d’archivage.
+            </DialogDescription>
+          </DialogHeader>
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-foreground">Motif d’archivage</span>
+            <textarea
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={archiveReason}
+              onChange={(event) => setArchiveReason(event.target.value)}
+              placeholder="Ex. Fin de cycle stratégique 2026, lancement d’une nouvelle version…"
+              disabled={archiveMutation.isPending}
+            />
+          </label>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={archiveMutation.isPending}
+              onClick={() => {
+                setArchiveDialogOpen(false);
+                setArchiveReason('');
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={archiveMutation.isPending || archiveReason.trim().length === 0}
+              onClick={() => {
+                if (!selectedStrategy || archiveReason.trim().length === 0) return;
+                const archiveReasonSnapshot = archiveReason.trim();
+                setArchiveDialogOpen(false);
+                setArchiveReason('');
+                archiveMutation.mutate(
+                  { strategyId: selectedStrategy.id, reason: archiveReasonSnapshot },
+                  {
+                    onSuccess: () => {
+                      setSelectedStrategyId(null);
+                      setFormError('');
+                    },
+                    onError: (error) => {
+                      const message =
+                        error instanceof Error ? error.message : 'Archivage impossible. Réessaie.';
+                      setFormError(message);
+                    },
+                  },
+                );
+              }}
+            >
+              {archiveMutation.isPending ? 'Archivage…' : 'Confirmer l’archivage'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={adaptationDialogOpen} onOpenChange={setAdaptationDialogOpen}>
+        <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Adapter une stratégie validée</DialogTitle>
+            <DialogDescription>
+              Cette action ouvre l’édition et déclenchera l’archivage automatique de l’ancienne version validée au
+              moment de l’enregistrement.
+            </DialogDescription>
+          </DialogHeader>
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-foreground">Motif d’adaptation</span>
+            <textarea
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={adaptationReason}
+              onChange={(event) => setAdaptationReason(event.target.value)}
+              placeholder="Ex. Nouveau contexte business, évolution du cadrage, arbitrage direction…"
+            />
+          </label>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAdaptationDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={adaptationReason.trim().length === 0}
+              onClick={() => {
+                if (adaptationReason.trim().length === 0) return;
+                setAdaptationEditEnabled(true);
+                setAdaptationDialogOpen(false);
+              }}
+            >
+              Démarrer l’adaptation
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageContainer>
@@ -1968,12 +2071,12 @@ function ReadOnlyStrategyDetail({
       <CardHeader className="border-b border-border/60 pb-3">
         <CardTitle className="text-base">{strategy.title ?? 'Stratégie'}</CardTitle>
         <CardDescription>
-          {directionLabel} · Statut : {strategy.status}
+          {directionLabel} · Statut : {getStrategicDirectionStrategyStatusLabel(strategy.status)}
           {strategy.alignedVision ? ` · Vision : ${strategy.alignedVision.title}` : ''}
         </CardDescription>
         <CardAction className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border border-border/60 bg-muted/50 px-2 py-1 text-xs font-medium">
-            {strategy.status}
+            {getStrategicDirectionStrategyStatusLabel(strategy.status)}
           </span>
           {canUpdate && !isArchived ? (
             <Button type="button" size="sm" onClick={onAdapt}>
@@ -2102,6 +2205,8 @@ function ReadOnlyStrategyDetail({
           )}
         </section>
 
+        <StrategicDirectionStrategyVersionComparePanel strategyId={strategy.id} />
+
         <DetailListSection title="Priorités stratégiques" empty="Aucune priorité enregistrée.">
           {priorities.length > 0 ? (
             <ul className="space-y-1.5 text-sm">
@@ -2201,7 +2306,7 @@ function ReadOnlyStrategyDetail({
             />
             <ExecutionPlaceholder
               title="Alertes"
-              description="Les alertes opérationnelles ou CODIR remontées sur cette stratégie s’afficheront ici — module non connecté pour l’instant."
+              description="Les alertes opérationnelles ou de gouvernance remontées sur cette stratégie s’afficheront ici — module non connecté pour l’instant."
             />
           </div>
         </section>

@@ -8,6 +8,12 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'committee-codir-deck', clientId] as const,
   assignableUsers: (clientId: string) =>
     [...projectQueryKeys.all, 'assignable-users', clientId] as const,
+  assignableParents: (
+    clientId: string,
+    params: { excludeProjectId?: string; search?: string; limit?: number },
+  ) => [...projectQueryKeys.all, 'assignable-parents', clientId, params] as const,
+  projectChildren: (clientId: string, projectId: string, params?: Record<string, unknown>) =>
+    [...projectQueryKeys.all, 'children', clientId, projectId, params ?? {}] as const,
   list: (clientId: string, params: ProjectsListFilters | Record<string, unknown>) =>
     [...projectQueryKeys.all, 'list', clientId, params] as const,
   portfolioGantt: (clientId: string, params: Record<string, unknown>) =>
@@ -81,8 +87,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'team-roles', clientId] as const,
   team: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'team', clientId, projectId] as const,
-  teamRaci: (clientId: string, projectId: string) =>
-    [...projectQueryKeys.all, 'team-raci', clientId, projectId] as const,
+  raciMatrix: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'raci-matrix', 'v2', clientId, projectId] as const,
   sheetDecisionSnapshots: (
     clientId: string,
     projectId: string,

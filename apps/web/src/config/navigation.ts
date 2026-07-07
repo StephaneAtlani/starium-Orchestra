@@ -86,6 +86,12 @@ export const navigation: NavigationSection[] = [
             scope: 'client',
             requiredPermissions: ['strategic_direction_strategy.read'],
           },
+          {
+            label: 'Option',
+            href: '/strategic-direction-strategy/options',
+            scope: 'client',
+            requiredPermissions: ['strategic_direction_strategy.read'],
+          },
         ],
       },
     ],

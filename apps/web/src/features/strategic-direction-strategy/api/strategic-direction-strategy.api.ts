@@ -1,8 +1,12 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type {
+  StrategicDirectionStrategyCompareDto,
   StrategicDirectionStrategyDto,
   StrategicDirectionStrategyLinksDto,
+  StrategicDirectionStrategyUserSummaryDto,
+  StrategicDirectionStrategyVersionsDto,
+  StrategicDirectionStrategyWorkflowSettingsResponse,
 } from '../types/strategic-direction-strategy.types';
 
 export type CreateStrategicDirectionStrategyInput = {
@@ -140,12 +144,12 @@ export async function updateStrategicDirectionStrategy(
 export async function submitStrategicDirectionStrategy(
   authFetch: AuthFetch,
   strategyId: string,
-  alignedVisionId: string,
+  body: { alignedVisionId: string; validatorUserId?: string },
 ): Promise<StrategicDirectionStrategyDto> {
   const res = await authFetch(`/api/strategic-direction-strategies/${strategyId}/submit`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ alignedVisionId }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicDirectionStrategyDto>;
@@ -177,4 +181,54 @@ export async function archiveStrategicDirectionStrategy(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<StrategicDirectionStrategyDto>;
+}
+
+export async function getStrategicDirectionStrategyVersions(
+  authFetch: AuthFetch,
+  strategyId: string,
+): Promise<StrategicDirectionStrategyVersionsDto> {
+  const res = await authFetch(`/api/strategic-direction-strategies/${strategyId}/versions`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionStrategyVersionsDto>;
+}
+
+export async function compareStrategicDirectionStrategyVersions(
+  authFetch: AuthFetch,
+  baseStrategyId: string,
+  targetStrategyId: string,
+): Promise<StrategicDirectionStrategyCompareDto> {
+  const res = await authFetch(
+    `/api/strategic-direction-strategies/${baseStrategyId}/compare/${targetStrategyId}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionStrategyCompareDto>;
+}
+
+export async function fetchStrategicDirectionStrategyValidatorOptions(
+  authFetch: AuthFetch,
+): Promise<StrategicDirectionStrategyUserSummaryDto[]> {
+  const res = await authFetch('/api/strategic-direction-strategies/validator-options');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionStrategyUserSummaryDto[]>;
+}
+
+export async function fetchStrategicDirectionStrategyWorkflowSettings(
+  authFetch: AuthFetch,
+): Promise<StrategicDirectionStrategyWorkflowSettingsResponse> {
+  const res = await authFetch('/api/clients/active/strategic-direction-strategy-workflow-settings');
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionStrategyWorkflowSettingsResponse>;
+}
+
+export async function patchStrategicDirectionStrategyWorkflowSettings(
+  authFetch: AuthFetch,
+  body: Record<string, unknown>,
+): Promise<StrategicDirectionStrategyWorkflowSettingsResponse> {
+  const res = await authFetch('/api/clients/active/strategic-direction-strategy-workflow-settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<StrategicDirectionStrategyWorkflowSettingsResponse>;
 }

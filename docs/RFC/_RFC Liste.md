@@ -110,6 +110,7 @@
 | 5     | **RFC-PROJ-014** | Portfolio Categories       | Référentiel catégories + sous-catégories (arbre 2 niveaux, client-scoped) | ❌ À faire | **STRUCTURANT PRODUIT (cockpit)**           |
 | 6     | **RFC-PROJ-015** | Project / Activity Mapping | Rattachement Project + Activity à une sous-catégorie                      | ❌ À faire | obligatoire pour structuration portefeuille |
 | 7     | **RFC-PROJ-016** | Portfolio Aggregation      | KPI par catégorie (budget, santé, risques, ROI)                           | ❌ À faire | base arbitrage CODIR                        |
+| 7b    | **RFC-PROJ-019** | Hiérarchie parent / sous-projets | Relation self `parentProjectId` sur `Project` (programme, lot, sous-projet) | ❌ Proposé | [RFC](./RFC-PROJ-019%20%E2%80%94%20Hi%C3%A9rarchie%20parent%20sous-projets.md) — pattern **nouveau** ; agrégation → RFC-PROJ-020 |
 
 ---
 

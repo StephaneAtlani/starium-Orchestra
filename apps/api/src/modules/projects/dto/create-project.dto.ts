@@ -59,6 +59,12 @@ export class CreateProjectDto {
   @MinLength(1)
   portfolioCategoryId?: string | null;
 
+  /** RFC-PROJ-019 — projet parent optionnel (même client). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  parentProjectId?: string | null;
+
   /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
   @IsOptional()
   @IsString()

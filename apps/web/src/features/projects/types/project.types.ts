@@ -70,6 +70,9 @@ export type ProjectListItem = {
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+  /** RFC-PROJ-019 */
+  parentProject?: ProjectParentSummary | null;
+  childrenCount?: number;
 };
 
 export type ProjectListPilotageItem = {
@@ -128,12 +131,23 @@ export type ProjectDetail = ProjectListItem & {
   /** Dernier audit sur l’entité projet (fiche / pilotage). */
   lastModifiedAt: string | null;
   lastModifiedByDisplayName: string | null;
+  /** RFC-PROJ-019 — ancêtres ordonnés racine → parent direct. */
+  ancestorChain: ProjectParentSummary[];
 };
 
 export type ProjectTag = {
   id: string;
   name: string;
   color: string | null;
+};
+
+/** RFC-PROJ-019 — résumé projet parent / ancêtre. */
+export type ProjectParentSummary = {
+  id: string;
+  name: string;
+  code: string;
+  status: string;
+  kind: string;
 };
 
 export type ProjectPortfolioCategoryNode = {
@@ -657,16 +671,32 @@ export type ProjectTeamMemberApi = {
 export type ProjectRaciKind =
   | 'RESPONSIBLE'
   | 'ACCOUNTABLE'
+  | 'SUPPORT'
   | 'CONSULTED'
   | 'INFORMED';
 
-export type ProjectTeamRaciRowApi = {
-  roleId: string;
-  roleName: string;
+export type ProjectRaciActionApi = {
+  id: string;
+  label: string;
   sortOrder: number;
-  systemKind: ProjectTeamRoleSystemKind | null;
-  kinds: ProjectRaciKind[];
-  persisted: boolean;
+};
+
+export type ProjectRaciActorApi = {
+  id: string;
+  name: string;
+  sortOrder: number;
+};
+
+export type ProjectRaciCellApi = {
+  actionId: string;
+  roleId: string;
+  kind: ProjectRaciKind;
+};
+
+export type ProjectRaciMatrixApi = {
+  actions: ProjectRaciActionApi[];
+  actors: ProjectRaciActorApi[];
+  cells: ProjectRaciCellApi[];
 };
 
 export type ProjectSheetRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';

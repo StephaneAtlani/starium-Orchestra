@@ -1,6 +1,7 @@
 import type { AuthFetch } from '@/features/budgets/api/budget-management.api';
 import { parseApiFormError } from '@/features/budgets/api/budget-management.api';
 import type { Paginated, ResourceListItem } from '@/services/resources';
+import { normalizeProjectRaciMatrix } from '../lib/normalize-project-raci-matrix';
 import type {
   CreateRetroplanMacroPayload,
   CreateProjectScenarioPayload,
@@ -18,11 +19,12 @@ import type {
   ProjectTaskApi,
   ProjectTaskPhaseApi,
   ProjectTeamMemberApi,
-  ProjectTeamRaciRowApi,
+  ProjectRaciMatrixApi,
   ProjectRaciKind,
   ProjectTeamRoleApi,
   ProjectListPilotageSnapshot,
   ProjectsListResponse,
+  ProjectParentSummary,
   PortfolioGanttResponse,
   ProjectsPortfolioSummary,
   ProjectSheetDecisionSnapshotDetail,
@@ -124,9 +126,42 @@ export async function listProjects(
     atRiskOnly?: boolean;
     lateOnly?: boolean;
     myProjectsOnly?: boolean;
+    parentProjectId?: string;
+    rootOnly?: boolean;
   },
 ): Promise<ProjectsListResponse> {
   const res = await authFetch(`${BASE}${qs(params)}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectsListResponse>;
+}
+
+export async function listAssignableParents(
+  authFetch: AuthFetch,
+  params?: {
+    excludeProjectId?: string;
+    search?: string;
+    limit?: number;
+  },
+): Promise<{ items: ProjectParentSummary[] }> {
+  const res = await authFetch(`${BASE}/assignable-parents${qs(params)}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ items: ProjectParentSummary[] }>;
+}
+
+export async function listProjectChildren(
+  authFetch: AuthFetch,
+  projectId: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    kind?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  },
+): Promise<ProjectsListResponse> {
+  const res = await authFetch(`${BASE}/${projectId}/children${qs(params)}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectsListResponse>;
 }
@@ -998,30 +1033,56 @@ export async function getProjectTeam(
 export async function getProjectTeamRaci(
   authFetch: AuthFetch,
   projectId: string,
-): Promise<ProjectTeamRaciRowApi[]> {
+): Promise<ProjectRaciMatrixApi> {
   const res = await authFetch(`${BASE}/${projectId}/team-raci`);
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<ProjectTeamRaciRowApi[]>;
+  return normalizeProjectRaciMatrix(await res.json());
 }
 
 export type UpdateProjectTeamRaciPayload = {
+  actionId: string;
   roleId: string;
-  kind: ProjectRaciKind;
-  enabled: boolean;
+  kind: ProjectRaciKind | null;
 };
 
 export async function updateProjectTeamRaci(
   authFetch: AuthFetch,
   projectId: string,
   body: UpdateProjectTeamRaciPayload,
-): Promise<ProjectTeamRaciRowApi[]> {
+): Promise<ProjectRaciMatrixApi> {
   const res = await authFetch(`${BASE}/${projectId}/team-raci`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<ProjectTeamRaciRowApi[]>;
+  return normalizeProjectRaciMatrix(await res.json());
+}
+
+export async function createProjectRaciAction(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: { label: string; sortOrder?: number },
+): Promise<ProjectRaciMatrixApi> {
+  const res = await authFetch(`${BASE}/${projectId}/raci-actions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return normalizeProjectRaciMatrix(await res.json());
+}
+
+export async function deleteProjectRaciAction(
+  authFetch: AuthFetch,
+  projectId: string,
+  actionId: string,
+): Promise<ProjectRaciMatrixApi> {
+  const res = await authFetch(`${BASE}/${projectId}/raci-actions/${actionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return normalizeProjectRaciMatrix(await res.json());
 }
 
 export type AddProjectTeamMemberPayload =

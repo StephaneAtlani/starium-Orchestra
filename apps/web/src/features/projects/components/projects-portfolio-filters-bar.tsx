@@ -21,7 +21,7 @@ import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL } from '../constants/project-enum-labels';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { listProjectPortfolioCategories } from '../api/projects.api';
+import { listProjectPortfolioCategories, listAssignableParents } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { ProjectTagsFilter } from './project-tags-filter';
 
@@ -118,12 +118,28 @@ export function ProjectsPortfolioFiltersBar({
     [categoryGroups],
   );
 
+  const parentsQuery = useQuery({
+    queryKey: projectQueryKeys.assignableParents(clientId, { limit: 50 }),
+    queryFn: () => listAssignableParents(authFetch, { limit: 50 }),
+    enabled: Boolean(clientId),
+  });
+
+  const parentOptions = useMemo(
+    () =>
+      (parentsQuery.data?.items ?? []).map((item) => ({
+        id: item.id,
+        label: `${item.code} — ${item.name}`,
+      })),
+    [parentsQuery.data?.items],
+  );
+
   const categoryKey = filters.portfolioCategoryId ?? '__all__';
   const kindKey = filters.kind ?? '__all__';
   const statusKey = filters.status ?? '__all__';
   const healthKey = filters.computedHealth ?? '__all__';
   const myRoleKey = filters.myRole ?? '__all__';
   const ownerKey = filters.ownerUserId ?? '__all__';
+  const parentKey = filters.parentProjectId ?? '__all__';
 
   const fieldLabelClass = mobileSheet ? 'text-sm font-medium' : 'text-xs';
   const fieldTriggerClass = mobileSheet ? 'h-11 w-full text-sm' : 'h-8 w-full text-xs';
@@ -320,6 +336,36 @@ export function ProjectsPortfolioFiltersBar({
           </div>
         ) : null}
 
+        <div className="space-y-1.5">
+          <Label className={fieldLabelClass}>Projet parent</Label>
+          <Select
+            value={parentKey}
+            disabled={filters.rootOnly}
+            onValueChange={(v) =>
+              setFilters({
+                parentProjectId: !v || v === '__all__' ? undefined : v,
+                rootOnly: false,
+              })
+            }
+          >
+            <SelectTrigger size="sm" className={fieldTriggerClass}>
+              <SelectValue>
+                {parentKey === '__all__'
+                  ? 'Tous'
+                  : parentOptions.find((o) => o.id === parentKey)?.label ?? 'Parent'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Tous</SelectItem>
+              {parentOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className={cn('space-y-1.5', mobileSheet ? 'col-span-2' : 'sm:col-span-2')}>
           <Label className={fieldLabelClass}>Étiquettes</Label>
           <ProjectTagsFilter
@@ -422,6 +468,20 @@ export function ProjectsPortfolioFiltersBar({
             </div>
           </div>
         ) : null}
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+            checked={filters.rootOnly}
+            onChange={(e) =>
+              setFilters({
+                rootOnly: e.target.checked,
+                parentProjectId: e.target.checked ? undefined : filters.parentProjectId,
+              })
+            }
+          />
+          <span>Racines uniquement (sans parent)</span>
+        </label>
         <label className="flex cursor-pointer items-center gap-2 text-xs">
           <input
             type="checkbox"

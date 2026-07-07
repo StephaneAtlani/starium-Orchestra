@@ -51,6 +51,8 @@ function countActivePortfolioFilters(filters: ProjectsListFilters): number {
   if (filters.lateOnly) count += 1;
   if (filters.atRiskOnly) count += 1;
   if (filters.myProjectsOnly) count += 1;
+  if (filters.parentProjectId) count += 1;
+  if (filters.rootOnly) count += 1;
   if ((filters.tagIds?.length ?? 0) > 0) count += 1;
   if (filters.sortBy !== 'name' || filters.sortOrder !== 'asc') count += 1;
   return count;

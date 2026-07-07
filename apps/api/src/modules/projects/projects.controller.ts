@@ -27,6 +27,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
+import { ListAssignableParentsQueryDto } from './dto/list-assignable-parents.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
 import { ProjectTeamService } from './project-team.service';
@@ -34,6 +35,7 @@ import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
 import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
 import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
 import { UpdateProjectTeamRaciDto } from './dto/update-project-team-raci.dto';
+import { CreateProjectRaciActionDto } from './dto/create-project-raci-action.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
@@ -94,6 +96,20 @@ export class ProjectsController {
       type: ResourceType.HUMAN,
       limit: 100,
       offset: 0,
+    });
+  }
+
+  /** RFC-PROJ-019 — projets éligibles comme parent (hors self + descendants). */
+  @Get('assignable-parents')
+  @RequirePermissions('projects.read')
+  listAssignableParents(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: ListAssignableParentsQueryDto,
+  ) {
+    return this.projectsService.listAssignableParents(clientId!, {
+      excludeProjectId: query.excludeProjectId,
+      search: query.search,
+      limit: query.limit,
     });
   }
 
@@ -221,13 +237,38 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
     @Body() dto: UpdateProjectTeamRaciDto,
   ) {
-    return this.projectTeamService.setRoleRaci(
+    return this.projectTeamService.setRaciCell(
       clientId!,
       projectId,
+      dto.actionId,
       dto.roleId,
       dto.kind,
-      dto.enabled,
     );
+  }
+
+  @Post(':projectId/raci-actions')
+  @RequirePermissions('projects.update')
+  createProjectRaciAction(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateProjectRaciActionDto,
+  ) {
+    return this.projectTeamService.createRaciAction(
+      clientId!,
+      projectId,
+      dto.label,
+      dto.sortOrder,
+    );
+  }
+
+  @Delete(':projectId/raci-actions/:actionId')
+  @RequirePermissions('projects.update')
+  deleteProjectRaciAction(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('actionId') actionId: string,
+  ) {
+    return this.projectTeamService.deleteRaciAction(clientId!, projectId, actionId);
   }
 
   @Get(':id/tags')
@@ -281,6 +322,19 @@ export class ProjectsController {
     @RequestUserId() userId: string | undefined,
   ) {
     return this.projectsService.getPilotageSnapshot(clientId!, id, userId);
+  }
+
+  /** RFC-PROJ-019 — sous-projets directs. */
+  @Get(':id/children')
+  @RequirePermissions('projects.read')
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'read' })
+  listChildren(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Query() query: ListProjectsQueryDto,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.projectsService.listChildren(clientId!, id, query, userId);
   }
 
   @Get(':id')

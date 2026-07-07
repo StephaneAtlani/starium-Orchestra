@@ -79,6 +79,7 @@ describe('platform navigation', () => {
     const childHrefs = (strategicVisionParent?.children ?? []).map((c) => c.href);
     expect(childHrefs).toContain('/strategic-vision');
     expect(childHrefs).toContain('/strategic-direction-strategy');
+    expect(childHrefs).toContain('/strategic-direction-strategy/options');
 
     const enterprise = strategicVisionParent?.children?.find(
       (c) => c.href === '/strategic-vision',

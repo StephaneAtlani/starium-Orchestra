@@ -19,11 +19,14 @@ describe('StrategicDirectionStrategyController', () => {
     getLinks: jest.fn(),
     replaceStrategyAxes: jest.fn(),
     replaceStrategyObjectives: jest.fn(),
+    listVersions: jest.fn(),
+    compareVersions: jest.fn(),
     getById: jest.fn(),
     update: jest.fn(),
     submit: jest.fn(),
     archive: jest.fn(),
     review: jest.fn(),
+    validatorOptions: jest.fn(),
   };
 
   let controller: StrategicDirectionStrategyController;
@@ -52,11 +55,20 @@ describe('StrategicDirectionStrategyController', () => {
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.list),
     ).toBe('/');
     expect(
+      Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.validatorOptions),
+    ).toBe('validator-options');
+    expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.create),
     ).toBe('/');
     expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.getLinks),
     ).toBe(':id/links');
+    expect(
+      Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.listVersions),
+    ).toBe(':id/versions');
+    expect(
+      Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.compareVersions),
+    ).toBe(':id/compare/:otherId');
     expect(
       Reflect.getMetadata(PATH_METADATA, StrategicDirectionStrategyController.prototype.replaceAxes),
     ).toBe(':id/axes');
@@ -133,6 +145,12 @@ describe('StrategicDirectionStrategyController', () => {
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
         StrategicDirectionStrategyController.prototype.submit,
+      ),
+    ).toEqual(['strategic_direction_strategy.update']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
+        StrategicDirectionStrategyController.prototype.validatorOptions,
       ),
     ).toEqual(['strategic_direction_strategy.update']);
     expect(

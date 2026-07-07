@@ -267,10 +267,48 @@ html.dark {
   color: var(--brand-ink, var(--foreground));
 }
 .starium-proj-head__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   margin-top: 5px;
   font-size: 13px;
   font-weight: 500;
   color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
+}
+.starium-proj-head__sub-sep {
+  font-weight: 400;
+  opacity: 0.45;
+}
+.starium-proj-head__context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 10px;
+}
+.starium-proj-head__category-chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--neutral-200, var(--border));
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--foreground);
+}
+.starium-proj-head__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .starium-proj-head__progress {
   margin: 20px 0 4px;

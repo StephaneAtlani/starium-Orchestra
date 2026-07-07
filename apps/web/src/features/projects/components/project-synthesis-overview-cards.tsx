@@ -28,6 +28,8 @@ import { ProjectBudgetSynthesis } from './project-budget-synthesis';
 import { ProjectPilotageAttentionPanel } from './project-pilotage-attention-panel';
 import { ProjectPostMortemOverviewBanner } from './project-post-mortem-overview-banner';
 import { ProjectSynthesisRecentData } from './project-synthesis-recent-data';
+import { ProjectChildrenSection } from './project-children-section';
+import { ProjectParentEditField } from './project-parent-edit-field';
 
 function OvCard({
   title,
@@ -129,6 +131,10 @@ export function ProjectSynthesisOverviewCards({
   return (
     <div className="starium-proj-synthesis">
       <ProjectPostMortemOverviewBanner projectId={projectId} projectStatus={project.status} />
+
+      <div className="mb-6">
+        <ProjectChildrenSection projectId={projectId} />
+      </div>
 
       <div className="starium-proj-overview-grid">
       <OvCard

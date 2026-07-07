@@ -21,6 +21,8 @@ import { ClientBudgetWorkflowSettingsController } from './client-budget-workflow
 import { ClientBudgetWorkflowSettingsService } from './client-budget-workflow-settings.service';
 import { ClientProjectRequestWorkflowSettingsController } from './client-project-request-workflow-settings.controller';
 import { ClientProjectRequestWorkflowSettingsService } from './client-project-request-workflow-settings.service';
+import { ClientStrategicDirectionStrategyWorkflowSettingsController } from './client-strategic-direction-strategy-workflow-settings.controller';
+import { ClientStrategicDirectionStrategyWorkflowSettingsService } from './client-strategic-direction-strategy-workflow-settings.service';
 import { ClientResourceTimesheetSettingsController } from './client-resource-timesheet-settings.controller';
 import { ClientResourceTimesheetSettingsService } from './client-resource-timesheet-settings.service';
 import { ClientUiBadgesController } from './client-ui-badges.controller';
@@ -51,6 +53,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientTaxSettingsController,
     ClientBudgetWorkflowSettingsController,
     ClientProjectRequestWorkflowSettingsController,
+    ClientStrategicDirectionStrategyWorkflowSettingsController,
     ClientResourceTimesheetSettingsController,
     ClientUiBadgesController,
     PlatformUiBadgeSettingsController,
@@ -63,6 +66,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientTaxSettingsService,
     ClientBudgetWorkflowSettingsService,
     ClientProjectRequestWorkflowSettingsService,
+    ClientStrategicDirectionStrategyWorkflowSettingsService,
     ClientResourceTimesheetSettingsService,
     ClientUiBadgesService,
     PlatformUiBadgeSettingsService,
@@ -79,6 +83,7 @@ import { ProcurementModule } from '../procurement/procurement.module';
     ClientModulesService,
     ClientBudgetWorkflowSettingsService,
     ClientProjectRequestWorkflowSettingsService,
+    ClientStrategicDirectionStrategyWorkflowSettingsService,
   ],
 })
 export class ClientsModule {}

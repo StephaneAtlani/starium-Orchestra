@@ -95,6 +95,7 @@ import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { CreateScenarioDialog } from '../scenarios/CreateScenarioDialog';
 import { ScenarioWorkspacePage } from '../scenario-workspace/ScenarioWorkspacePage';
 import { ProjectDocumentsSection } from './project-documents-section';
+import { ProjectRaciMatrix } from './project-raci-matrix';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceShell } from './project-workspace-shell';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
@@ -2809,6 +2810,8 @@ export function ProjectSheetView({
           ) : null}
         </>
       ) : null}
+
+      {embedMode === 'page' ? <ProjectRaciMatrix projectId={projectId} /> : null}
 
       {canEdit && (
         <div className="flex flex-col items-end gap-0.5 text-right">

@@ -9,6 +9,7 @@ import {
   listProjectTeamRoles,
 } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
+import { normalizeProjectRaciMatrix } from '../lib/normalize-project-raci-matrix';
 
 const STALE = 30_000;
 
@@ -50,8 +51,9 @@ export function useProjectTeamRaciQuery(
   const clientId = activeClient?.id ?? '';
 
   return useQuery({
-    queryKey: projectQueryKeys.teamRaci(clientId, projectId),
+    queryKey: projectQueryKeys.raciMatrix(clientId, projectId),
     queryFn: () => getProjectTeamRaci(authFetch, projectId),
+    select: normalizeProjectRaciMatrix,
     enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
   });

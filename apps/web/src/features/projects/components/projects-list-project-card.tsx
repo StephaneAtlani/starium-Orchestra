@@ -164,6 +164,12 @@ export function ProjectsListProjectCard({
                 </RegistryBadge>
               </div>
 
+              {p.parentProject ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Parent : {p.parentProject.code} — {p.parentProject.name}
+                </p>
+              ) : null}
+
               <div className="mt-1.5 flex items-center gap-2">
                 <div className="starium-progress-track min-w-0 flex-1">
                   <div

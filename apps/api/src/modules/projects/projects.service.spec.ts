@@ -65,7 +65,28 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       milestones: [],
       owner: null,
       tagAssignments: [],
+      teamMembers: [],
+      portfolioCategory: null,
+      ownerOrgUnit: null,
+      steward: null,
+      parentProject: null,
+      _count: { children: 0 },
     };
+  }
+
+  function mockHierarchyRows(
+    rows: Array<{ id: string; parentProjectId: string | null; code?: string; name?: string }>,
+  ) {
+    prisma.project.findMany.mockResolvedValue(
+      rows.map((r) => ({
+        id: r.id,
+        parentProjectId: r.parentProjectId,
+        name: r.name ?? r.id,
+        code: r.code ?? r.id,
+        status: ProjectStatus.DRAFT,
+        kind: 'PROJECT',
+      })),
+    );
   }
 
   beforeEach(() => {
@@ -73,9 +94,11 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       project: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       projectTag: {
         findMany: jest.fn(),
@@ -92,6 +115,9 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       },
       projectPortfolioCategory: {
         findFirst: jest.fn(),
+      },
+      projectBudgetLink: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -434,6 +460,113 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
           newValue: { portfolioCategoryId: 'sub-1' },
         }),
       );
+    });
+  });
+
+  describe('project hierarchy — RFC-PROJ-019', () => {
+    it('update refuse self-parent', async () => {
+      const existing = baseProject();
+      prisma.project.findFirst.mockResolvedValue(existing);
+
+      await expect(
+        service.update(
+          clientId,
+          projectId,
+          { parentProjectId: projectId },
+          { actorUserId: 'u1', meta: {} },
+        ),
+      ).rejects.toThrow('A project cannot be its own parent');
+    });
+
+    it('delete refuse si enfants', async () => {
+      prisma.project.findFirst.mockResolvedValue(baseProject());
+      prisma.project.count.mockResolvedValue(2);
+
+      await expect(
+        service.delete(clientId, projectId, { actorUserId: 'u1', meta: {} }),
+      ).rejects.toThrow('Cannot delete a project that has child projects');
+      expect(prisma.project.delete).not.toHaveBeenCalled();
+    });
+
+    it('update audit parent changed A → B', async () => {
+      const existing = baseProject({ parentProjectId: 'parent-a' as any });
+      const updated = { ...existing, parentProjectId: 'parent-b' };
+      prisma.project.findFirst
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(withInclude(updated as any));
+      prisma.project.update.mockResolvedValue(updated);
+      mockHierarchyRows([
+        { id: projectId, parentProjectId: 'parent-a' },
+        { id: 'parent-a', parentProjectId: null, code: 'PA', name: 'Parent A' },
+        { id: 'parent-b', parentProjectId: null, code: 'PB', name: 'Parent B' },
+      ]);
+      prisma.project.findFirst.mockImplementation(async (args: any) => {
+        if (args?.where?.id === 'parent-b') {
+          return { id: 'parent-b', clientId };
+        }
+        if (args?.where?.id === projectId) {
+          return args.include ? withInclude(updated as any) : updated;
+        }
+        return existing;
+      });
+
+      await service.update(
+        clientId,
+        projectId,
+        { parentProjectId: 'parent-b' },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: PROJECT_AUDIT_ACTION.PROJECT_PARENT_CHANGED,
+          oldValue: { previousParentProjectId: 'parent-a' },
+          newValue: { nextParentProjectId: 'parent-b' },
+        }),
+      );
+    });
+
+    it('list rootOnly + parentProjectId → 400 stable', async () => {
+      await expect(
+        service.list(clientId, {
+          rootOnly: true,
+          parentProjectId: 'parent-1',
+        }),
+      ).rejects.toThrow('rootOnly and parentProjectId are mutually exclusive');
+    });
+
+    it('getById retourne ancestorChain ordonné', async () => {
+      const project = withInclude(
+        baseProject({ id: 'leaf', parentProjectId: 'mid' as any } as any),
+      );
+      prisma.project.findFirst.mockResolvedValue(project);
+      mockHierarchyRows([
+        { id: 'root', parentProjectId: null, code: 'R', name: 'Root' },
+        { id: 'mid', parentProjectId: 'root', code: 'M', name: 'Mid' },
+        { id: 'leaf', parentProjectId: 'mid', code: 'L', name: 'Leaf' },
+      ]);
+
+      const detail = await service.getById(clientId, 'leaf');
+      expect(detail.ancestorChain).toEqual([
+        expect.objectContaining({ id: 'root', code: 'R' }),
+        expect.objectContaining({ id: 'mid', code: 'M' }),
+      ]);
+    });
+
+    it('listAssignableParents exclut self et descendants', async () => {
+      mockHierarchyRows([
+        { id: 'root', parentProjectId: null, code: 'R', name: 'Root' },
+        { id: 'mid', parentProjectId: 'root', code: 'M', name: 'Mid' },
+        { id: 'leaf', parentProjectId: 'mid', code: 'L', name: 'Leaf' },
+      ]);
+
+      const { items } = await service.listAssignableParents(clientId, {
+        excludeProjectId: 'mid',
+      });
+      const ids = items.map((i) => i.id);
+      expect(ids).not.toContain('mid');
+      expect(ids).not.toContain('leaf');
+      expect(ids).toContain('root');
     });
   });
 

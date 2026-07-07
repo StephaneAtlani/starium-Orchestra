@@ -35,6 +35,7 @@ describe('ProjectsPilotageService', () => {
     sponsorUserId: null,
     ownerUserId: 'u1',
     portfolioCategoryId: null,
+    parentProjectId: null,
     ownerOrgUnitId: null,
     stewardResourceId: null,
     ownerFreeLabel: null,

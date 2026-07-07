@@ -99,6 +99,7 @@ export function useProjectRisksRegistryQuery() {
     isLoadingRisks: aggregateQuery.isLoading && projectsQuery.isSuccess,
     isError: projectsQuery.isError || aggregateQuery.isError,
     isSuccess: aggregateQuery.isSuccess,
+    isFetching: projectsQuery.isFetching || aggregateQuery.isFetching,
     refetch: async () => {
       await projectsQuery.refetch();
       await aggregateQuery.refetch();

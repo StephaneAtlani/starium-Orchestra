@@ -32,6 +32,15 @@ import { StrategicDirectionStrategyService } from './strategic-direction-strateg
 export class StrategicDirectionStrategyController {
   constructor(private readonly service: StrategicDirectionStrategyService) {}
 
+  @Get('validator-options')
+  @RequirePermissions('strategic_direction_strategy.update')
+  validatorOptions(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+  ) {
+    return this.service.validatorOptions(clientId!, actorUserId!);
+  }
+
   @Get()
   @RequirePermissions('strategic_direction_strategy.read')
   list(
@@ -86,6 +95,22 @@ export class StrategicDirectionStrategyController {
       actorUserId,
       meta,
     });
+  }
+
+  @Get(':id/versions')
+  @RequirePermissions('strategic_direction_strategy.read')
+  listVersions(@ActiveClientId() clientId: string | undefined, @Param('id') id: string) {
+    return this.service.listVersions(clientId!, id);
+  }
+
+  @Get(':id/compare/:otherId')
+  @RequirePermissions('strategic_direction_strategy.read')
+  compareVersions(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Param('otherId') otherId: string,
+  ) {
+    return this.service.compareVersions(clientId!, id, otherId);
   }
 
   @Get(':id')
