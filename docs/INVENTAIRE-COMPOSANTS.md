@@ -373,6 +373,11 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-synthesis-recent-data` - `features/projects/components/project-synthesis-recent-data.tsx` - tableau tâches récentes sur l’aperçu (`starium-dt`).
 - `project-task-planning-section` - `features/projects/components/project-task-planning-section.tsx` - regroupe une section dediee a projet tache planning.
 - `project-team-matrix` - `features/projects/components/project-team-matrix.tsx` - gere l'interface de projet equipe matrice.
+- `project-raci-matrix` - `features/projects/components/project-raci-matrix.tsx` - matrice RASCI actions x roles (fiche projet).
+- `project-hierarchy-breadcrumb` - `features/projects/components/project-hierarchy-breadcrumb.tsx` - fil d'Ariane ancetres projet (RFC-PROJ-019).
+- `project-parent-combobox` - `features/projects/components/project-parent-combobox.tsx` - combobox projet parent (libelle metier).
+- `project-parent-edit-field` - `features/projects/components/project-parent-edit-field.tsx` - edition parent sur fiche projet.
+- `project-children-section` - `features/projects/components/project-children-section.tsx` - liste sous-projets directs.
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.
 - `projects-list-table` - `features/projects/components/projects-list-table.tsx` - orchestre la liste projets (mobile cartes / desktop tableau).
 - `projects-list-table-desktop` - `features/projects/components/projects-list-table-desktop.tsx` - tableau portefeuille desktop (densité basic | extended).

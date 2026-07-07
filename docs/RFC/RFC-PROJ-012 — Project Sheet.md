@@ -407,7 +407,12 @@ Deux options :
 
 **Implémenté** : la fiche est intégrée au **détail projet** (`/projects/[projectId]`), composant `ProjectSheetView`, avec autosave sur les champs (dont type, statut, arbitrage, motifs de refus).
 
-**UX** : blocs **A–H** (équipes, résumé & indicateurs de lecture, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **indicateurs de lecture** regroupent en cartes synthétiques le ROI, la priorité portefeuille, les critères valeur (ROE / scores) et la recommandation COPIL.
+**Équipe et RASCI** (hors corps RFC initial, livré 2026-07) :
+
+* **`ProjectTeamMatrix`** — rôles et membres (`/api/projects/:id/team`).
+* **`ProjectRaciMatrix`** — matrice **actions × acteurs** (rôles équipe) ; lettres R/A/S/C/I ; règle **un A par action** (API) ; section distincte en bas de fiche ; voir `docs/API.md` §21 « Équipe projet et matrice RASCI ».
+
+**UX** : blocs **A–H** (équipes, résumé & indicateurs de lecture, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée ; **indicateurs de lecture** regroupent en cartes synthétiques le ROI, la priorité portefeuille, les critères valeur (ROE / scores) et la recommandation COPIL.
 
 **Piste optionnelle** : route dédiée `/projects/[id]/sheet` si l’on veut une page plein écran plus tard.
 

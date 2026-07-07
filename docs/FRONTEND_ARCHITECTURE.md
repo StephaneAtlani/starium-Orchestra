@@ -299,7 +299,7 @@ Le header est limité à la zone droite (colonne workspace, à droite de la side
 ### Exemple
 
 ```text
-Pilotage / Projets / Refonte Portail Client
+Exécution / Projets / Refonte Portail Client
 
 [Rechercher… ⌘K]   [Notifications]   [Avatar ▼]
 ```
@@ -308,7 +308,7 @@ Le client actif est sélectionné dans le menu profil (section **Organisation**)
 
 ### Règles
 
-* le fil d’Ariane reflète la navigation métier (`navigation.ts` + override entité si UUID)
+* le fil d’Ariane reflète la navigation métier (`navigation.ts` + override entité pour identifiants techniques : UUID, CUID Prisma, entiers)
 * les actions de page restent dans le contenu (`PageHeader`, toolbars)
 * le header ne porte pas de logique métier
 * il expose le contexte de navigation et les raccourcis transverses (recherche, notifications, compte)
@@ -1063,7 +1063,7 @@ Cette section décrit rapidement **l’état réel** du frontend dans `apps/web`
 - `src/components/shell/` :
   - `sidebar.tsx` : navigation principale (colonne gauche compacte, icône + label en dessous, typographie réduite).
   - `workspace-header.tsx` : topbar desktop (fil d’Ariane, recherche, notifications, menu compte) + barre mobile ink (`mobile-workspace-header-bar.tsx`).
-  - `workspace-breadcrumb.tsx` + `lib/navigation/build-workspace-breadcrumb.ts` : fil d’Ariane dynamique ; `useWorkspaceBreadcrumbOverride` pour les libellés entité (projet, budget…).
+  - `workspace-breadcrumb.tsx` + `lib/navigation/build-workspace-breadcrumb.ts` : fil d’Ariane dynamique (placeholder `…` pour UUID, CUID Prisma, entiers) ; `useWorkspaceBreadcrumbOverride` pour les libellés entité (projet, budget…).
   - `account-menu-dropdown.tsx` : Compte, Déconnexion, section Organisation (`ClientSwitcher` ou nom client).
   - `app-shell.tsx` : composition globale ; `WorkspaceBreadcrumbProvider` + gutter `px-4 sm:px-5` (`starium-workspace-inner`). Détail : [FRONTEND_UI-UX.md](./FRONTEND_UI-UX.md) §3.2.
 

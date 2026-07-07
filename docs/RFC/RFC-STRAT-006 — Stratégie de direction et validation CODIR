@@ -50,7 +50,7 @@ Cette RFC matérialise un module autonome **Stratégie de direction** relié au 
 Préfixe API canonique du module :
 
 - `/api/strategic-direction-strategies`
-- endpoints : `GET/POST /`, `GET/:id/links`, `PUT/:id/axes`, `PUT/:id/objectives`, `GET/PATCH /:id`, `POST /:id/submit`, `POST /:id/archive`, `POST /:id/review` (ordre Nest : `:id/links` et `PUT …/axes|objectives` déclarés avant `GET /:id` générique).
+- endpoints : `GET/POST /`, `GET/:id/links`, `PUT/:id/axes`, `PUT/:id/objectives`, `GET/PATCH /:id`, `GET/:id/versions`, `GET/:id/compare/:otherId`, `POST /:id/submit`, `POST /:id/archive`, `POST /:id/review` (ordre Nest : routes spécifiques avant `GET /:id` générique).
 - permissions : `strategic_direction_strategy.read|create|update|review`
 
 Compatibilité : aucune route stratégie ne doit rester exposée sous `/api/strategic-vision`.
@@ -64,6 +64,8 @@ Compatibilité : aucune route stratégie ne doit rester exposée sous `/api/stra
 Voir aussi `docs/API.md` §5.6 pour le détail corps / réponses.
 
 **UI** : route cockpit `apps/web/src/app/(protected)/strategic-direction-strategy/page.tsx`, feature `apps/web/src/features/strategic-direction-strategy/` ; accès depuis la sidebar sous **Vision stratégique › Stratégie** (voir [RFC-STRAT-003](./RFC-STRAT-003%20%E2%80%94%20Strategic%20Vision%20Frontend%20UI.md) § compléments). Permission lecture : `strategic_direction_strategy.read`.
+
+**Versioning et comparaison** (2026-07) : `GET /:id/versions` liste la famille `(client, direction, vision)` avec libellés `versionLabel` lisibles ; `GET /:id/compare/:otherId` retourne les diffs texte + liaisons axes/objectifs. UI : `StrategicDirectionStrategyVersionComparePanel` + section alignement. Logique pure : `strategic-direction-strategy-versioning.ts`.
 
 La stratégie de direction est une couche de formalisation et de validation au-dessus du référentiel déjà existant :
 

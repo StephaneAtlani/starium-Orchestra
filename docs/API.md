@@ -585,6 +585,8 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-direction-strategies/:id/objectives (PUT) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/strategic-direction-strategies/:id (PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
+| /api/strategic-direction-strategies/:id/versions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
+| /api/strategic-direction-strategies/:id/compare/:otherId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/strategic-direction-strategies/:id/submit | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
@@ -976,6 +978,13 @@ Workflow RFC-STRAT-006 (phase 2) client-scopé, sans duplication d’axes/object
   - Body : `{ "strategicObjectiveIds": ["…"] }` ; règle de périmètre axes décrite ci-dessus. Réponse 200 : `GET …/links`.
 - **GET /api/strategic-direction-strategies/:id**
   - Permission : `strategic_direction_strategy.read`
+- **GET /api/strategic-direction-strategies/:id/versions**
+  - Permission : `strategic_direction_strategy.read`
+  - Liste les versions de la **famille** `(clientId, directionId, alignedVisionId)` : snapshots `ARCHIVED` ordonnés chronologiquement + version courante ; chaque entrée expose `versionNumber`, `versionLabel` (libellé FR lisible, ex. `v2 · archivée 06/07/26`), `status`, `title`, `isCurrent`, horodatages.
+- **GET /api/strategic-direction-strategies/:id/compare/:otherId**
+  - Permission : `strategic_direction_strategy.read`
+  - Compare deux versions **distinctes** de la même famille direction/vision ; `400` si IDs identiques ou familles différentes.
+  - Réponse : métadonnées des deux versions + diffs champ par champ (textes stratégiques, liaisons axes/objectifs) pour le panneau UI `StrategicDirectionStrategyVersionComparePanel`.
 - **PATCH /api/strategic-direction-strategies/:id**
   - Permission : `strategic_direction_strategy.update`
   - Autorisé en `DRAFT`, `REJECTED` et `APPROVED` (interdit en `SUBMITTED` et `ARCHIVED`).
@@ -2766,15 +2775,31 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 ### Projets — `/api/projects`
 
 - **GET /api/projects** — Liste **paginée et enrichie** (pilotage calculé côté serveur : `derivedProgressPercent`, `computedHealth`, `signals`, `warnings`, compteurs).  
-  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `kind`, `portfolioCategoryId`, `computedHealth`, `myRole`, `ownerUserId`, `myProjectsOnly`, `tagIds` (format `id1,id2`, CUID validés), `tagIdsMatch` (`any` = OU défaut, `all` = ET — pertinent à partir de 2 étiquettes), `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent` \| `owner`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen).  
-  Réponse : `{ items, total, page, limit }` ; chaque item inclut `tags: [{ id, name, color }]`. Permission **`projects.read`**.
-- **GET /api/projects/portfolio-gantt** — Frise portefeuille : **mêmes filtres query** que `GET /api/projects` (dont `tagIds`), sans pagination ; une ligne par projet avec `startDate`, `targetEndDate`, `tags`, etc. Permission **`projects.read`**.
+  Query : `page`, `limit`, `search`, `status`, `priority`, `criticality`, `kind`, `portfolioCategoryId`, `computedHealth`, `myRole`, `ownerUserId`, `myProjectsOnly`, `tagIds` (format `id1,id2`, CUID validés), `tagIdsMatch` (`any` = OU défaut, `all` = ET — pertinent à partir de 2 étiquettes), `sortBy` (`name` \| `targetEndDate` \| `status` \| `priority` \| `criticality` \| `computedHealth` \| `progressPercent` \| `owner`), `sortOrder` (`asc` \| `desc`), `atRiskOnly` (booléen), **`parentProjectId`** (enfants directs d’un parent), **`rootOnly`** (projets sans parent — **mutuellement exclusif** avec `parentProjectId`, sinon `400`).  
+  Réponse : `{ items, total, page, limit }` ; chaque item inclut `tags: [{ id, name, color }]`, **`parentProject`** (`{ id, name, code, status, kind } \| null`), **`childrenCount`** (enfants directs). Permission **`projects.read`**.
+- **GET /api/projects/portfolio-gantt** — Frise portefeuille : **mêmes filtres query** que `GET /api/projects` (dont `tagIds`, `parentProjectId`, `rootOnly`), sans pagination ; une ligne par projet avec `startDate`, `targetEndDate`, `tags`, etc. Permission **`projects.read`**.
 - **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste, **non filtré** par `tagIds`). Permission **`projects.read`**.
 - **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
-- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, etc.). Permission **`projects.create`**.
-- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.). Permission **`projects.read`**.
-- **PATCH /api/projects/:id** — Mise à jour partielle. Permission **`projects.update`**.
-- **DELETE /api/projects/:id** — Suppression. Permission **`projects.delete`**.
+- **GET /api/projects/assignable-parents** — Projets **éligibles comme parent** (même client ; exclut `excludeProjectId`, ses descendants, candidats qui feraient dépasser la profondeur max). Query : `excludeProjectId?`, `search?`, `limit?` (défaut 20, max 50). Réponse : `{ items: [{ id, name, code, status, kind }] }`. Permission **`projects.read`**. *(RFC-PROJ-019)*
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
+- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.) ; inclut **`ancestorChain`** (ancêtres racine → parent direct). Permission **`projects.read`**.
+- **GET /api/projects/:id/children** — Liste paginée des **enfants directs** (format item liste enrichie ; mêmes filtres query optionnels que la liste, restreints aux enfants). Permission **`projects.read`**. *(RFC-PROJ-019)*
+- **PATCH /api/projects/:id** — Mise à jour partielle (`parentProjectId` nullable pour détacher). Audits dédiés `project.parent.assigned` / `detached` / `changed` si le parent change. Permission **`projects.update`** (+ décision d’accès intent `write` sur le projet).
+- **DELETE /api/projects/:id** — Suppression. Refus **`409`** si le projet a des enfants directs. Permission **`projects.delete`**.
+
+### Équipe projet et matrice RASCI — `/api/projects/:projectId/team*`, `team-raci`, `raci-actions`
+
+Matrice **actions × rôles équipe** (une lettre max par cellule). Modèles : `ProjectRaciAction`, `ProjectRaciCell`, enum `ProjectRaciKind` (`RESPONSIBLE`, `ACCOUNTABLE`, `SUPPORT`, `CONSULTED`, `INFORMED`). Règle serveur : **au plus un `ACCOUNTABLE` par action** (les autres A de la même action sont retirés à l’upsert).
+
+- **GET /api/projects/team-roles** — Rôles équipe du client (Sponsor / Responsable système + rôles personnalisés). **`projects.read`**
+- **POST /api/projects/team-roles** / **PATCH|DELETE /api/projects/team-roles/:roleId** — CRUD rôles (renommage interdit sur rôles système). **`projects.update`**
+- **GET /api/projects/:projectId/team** — Rôles + membres affectés (dont membres virtuels Sponsor / Responsable). **`projects.read`**
+- **GET /api/projects/:projectId/team-raci** — `{ actions, actors, cells }` ; provisionne **8 actions BPM par défaut** si le projet n’en a encore aucune. **`projects.read`**
+- **PATCH /api/projects/:projectId/team-raci** — Body `{ actionId, roleId, kind }` ; `kind: null` efface la cellule ; réponse = matrice complète. **`projects.update`**
+- **POST /api/projects/:projectId/raci-actions** — Body `{ label, sortOrder? }`. **`projects.update`**
+- **DELETE /api/projects/:projectId/raci-actions/:actionId** — Supprime une action (cascade cellules). **`projects.update`**
+
+**UI** : `ProjectTeamMatrix` + `ProjectRaciMatrix` sur `ProjectSheetView` ; libellés rôles et actions uniquement (pas d’ID en affichage).
 
 ### Fiche projet décisionnelle (RFC-PROJ-012) — `/api/projects/:id/project-sheet`
 

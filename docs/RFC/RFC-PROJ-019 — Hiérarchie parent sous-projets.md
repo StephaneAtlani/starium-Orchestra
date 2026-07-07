@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Proposé** — 2026-07-06
+**Implémenté** — 2026-07-07 (MVP livré : schéma, API, UI portefeuille et fiche projet)
 
 ## Objectif
 
@@ -14,11 +14,13 @@ Exemple métier :
   * **Migration ERP** (sous-projet)
   * **Refonte portail** (sous-projet)
 
-Cette RFC **crée un nouveau pattern** dans le module Projets. À ce jour, **aucune relation hiérarchique n’existe entre projets** : chaque `Project` est un nœud plat, indépendant des autres projets.
+Cette RFC introduit le **premier mécanisme de hiérarchie inter-projets** de Starium Orchestra (livré — voir §16). Elle complète la structuration portefeuille (catégories RFC-PROJ-014) par une **relation métier directe** entre initiatives.
 
 ---
 
 # 1. Analyse de l’existant
+
+> **Note** : cette section décrit l’état **avant** implémentation (rédaction 2026-07-06). Le livrable est documenté en **§16**.
 
 ## 1.1 Modèle `Project` actuel
 
@@ -46,19 +48,23 @@ Chaque projet possède :
 ## 1.3 Backend / API actuels
 
 * CRUD : `apps/api/src/modules/projects/projects.service.ts`, `projects.controller.ts`
-* DTO création : `create-project.dto.ts` — **sans** `parentProjectId`
-* Liste : `list-projects.query.dto.ts` — filtres `portfolioCategoryId`, `tagIds`, etc. — **sans** filtre parent
-* Réponses enrichies : pilotage (`computedHealth`, signaux) — **par projet**, pas d’agrégation parent
+* DTO création / mise à jour : `parentProjectId` optionnel (`create-project.dto.ts`, `update-project.dto.ts`)
+* Liste : `list-projects.query.dto.ts` — filtres `parentProjectId`, `rootOnly` (mutuellement exclusifs)
+* Utilitaires : `project-hierarchy.util.ts` (cycle, profondeur, descendants)
+* Endpoints dédiés : `GET /api/projects/assignable-parents`, `GET /api/projects/:id/children`
+* Réponses enrichies : `parentProject`, `childrenCount`, `ancestorChain` sur le détail
+* Audits : `project.parent.assigned` / `detached` / `changed`
 
 ## 1.4 Frontend actuel
 
-* Portefeuille : liste / cartes plates (`apps/web/src/features/projects/`)
-* Fiche projet : pas de fil d’Ariane ni section « sous-projets »
-* Création / édition : pas de sélecteur « projet parent »
+* Portefeuille : filtres parent / racines (`projects-portfolio-filters-bar`, `projects-toolbar`)
+* Fiche projet : `ProjectHierarchyBreadcrumb` (ancêtres cliquables), `ProjectChildrenSection`, `ProjectParentEditField`
+* Création / édition : `ProjectParentCombobox` (libellé `code — name`, option « Aucun (projet racine) »)
+* Topbar : fil d’Ariane workspace via `ProjectWorkspaceShell` + `useWorkspaceBreadcrumbOverride` (nom projet, pas le CUID)
 
-## 1.5 Conclusion analyse
+## 1.5 Conclusion analyse (état avant livraison)
 
-Le besoin **projet parent / sous-projets** n’est couvert par **aucun mécanisme existant**. Il faut introduire :
+Le besoin **projet parent / sous-projets** n’était couvert par **aucun mécanisme** au moment de la rédaction initiale. Le MVP (§16) apporte :
 
 1. une colonne relationnelle self sur `Project`
 2. des règles métier anti-cycle et anti-fuite inter-client
@@ -111,7 +117,7 @@ Un projet **sans parent** est un nœud **racine** du portefeuille (au sens hiér
 * endpoint options pour sélecteur parent (exclut soi-même et descendants)
 * UI : sélecteur parent (création / édition), fil d’Ariane, section sous-projets sur fiche parent, filtre portefeuille
 * audit log sur changement de parent
-* tests unitaires service + controller
+* tests unitaires service + util (convention module : **pas** de `projects.controller.spec.ts` dédié)
 
 ## Exclu (MVP)
 
@@ -132,7 +138,10 @@ Un projet **sans parent** est un nœud **racine** du portefeuille (au sens hiér
 * `parentProjectId` renseigné : le parent doit exister, appartenir au **même `clientId`**, et être accessible avec `projects.read`
 * un projet **ne peut pas être son propre parent**
 * **aucun cycle** : un projet ne peut pas avoir parmi ses ancêtres un de ses descendants
-* **profondeur maximale** : `MAX_PROJECT_HIERARCHY_DEPTH = 5` (racine = niveau 1). Assigner un parent qui porterait l’enfant au niveau 6+ → **refus** `400 Bad Request`
+* **profondeur maximale** : `MAX_PROJECT_HIERARCHY_DEPTH = 5` (racine = niveau 1)
+  * **création** : `profondeur(parent) + 1 ≤ MAX`
+  * **mise à jour** (déplacement d’un sous-arbre) : `profondeur(nouveau parent) + hauteur sous-arbre(projet) ≤ MAX` — ne pas se limiter à « parent + 1 » si le projet déplacé a des enfants
+  * dépassement → **refus** `400 Bad Request`
 
 ## 4.2 Kind (`PROJECT` / `ACTIVITY`)
 
@@ -150,7 +159,7 @@ Recommandation UX (non bloquante) : privilégier un `PROJECT` comme parent d’i
 
 ## 4.4 Suppression
 
-* suppression d’un projet **ayant des enfants** : **refusée** (`409 Conflict` ou `400` avec message explicite)
+* suppression d’un projet **ayant des enfants** : **refusée** (`409 Conflict`, message stable `Cannot delete a project that has child projects`) + garde-fou FK `onDelete: Restrict`
 * pour supprimer un parent : d’abord **détacher** les enfants (`parentProjectId = null`) ou les **réaffecter** à un autre parent
 * suppression d’une feuille (sans enfant) : comportement actuel inchangé
 
@@ -216,6 +225,7 @@ CREATE INDEX "Project_clientId_parentProjectId_idx"
 | `dto/create-project.dto.ts` | Ajouter `parentProjectId?: string \| null` |
 | `dto/update-project.dto.ts` | Idem (nullable explicite pour détacher) |
 | `dto/list-projects.query.dto.ts` | Ajouter `parentProjectId?`, `rootOnly?` |
+| `dto/list-assignable-parents.query.dto.ts` | **Nouveau** — `excludeProjectId?`, `search?`, `limit?` |
 | `projects.service.ts` | Validation parent, enrichissement réponses, liste enfants |
 | `projects.controller.ts` | Route enfants + assignable-parents si dédiée |
 | `project-hierarchy.util.ts` | **Nouveau** — anti-cycle, profondeur, exclusion descendants |
@@ -245,7 +255,20 @@ export function collectDescendantIds(
   rootId: string,
   childrenByParentId: Map<string, string[]>,
 ): Set<string>;
+
+export function computeSubtreeHeight(
+  rootId: string,
+  childrenByParentId: Map<string, string[]>,
+): number;
+
+export function buildAncestorChain(
+  projectId: string,
+  parentById: Map<string, string | null>,
+  projectSummaryById: Map<string, ProjectParentSummary>,
+): ProjectParentSummary[];
 ```
+
+En cas d’incohérence en base (cycle, profondeur anormale) : `buildAncestorChain` **tronque** la chaîne, log `warn` structuré, **pas d’exception HTTP** (fiche projet reste utilisable).
 
 ## 6.3 Routes
 
@@ -256,7 +279,7 @@ export function collectDescendantIds(
 | `POST` | `/api/projects` | Body accepte `parentProjectId` |
 | `PATCH` | `/api/projects/:id` | Body accepte `parentProjectId` (null = détacher) |
 | `GET` | `/api/projects` | Query `parentProjectId`, `rootOnly=true` |
-| `GET` | `/api/projects/:id` | Réponse inclut `parentProject` + `childrenCount` |
+| `GET` | `/api/projects/:id` | Réponse inclut `parentProject`, `childrenCount` ; **détail** inclut aussi `ancestorChain` (racine → parent direct) |
 
 ### Nouvelles routes
 
@@ -302,6 +325,12 @@ Ajouter :
 * `parentProject: { id, name, code, status, kind } | null`
 * `childrenCount: number` — nombre d’**enfants directs** (pas tout le sous-arbre)
 
+### Détail projet (`GET /api/projects/:id`)
+
+En plus des champs liste :
+
+* `ancestorChain: { id, name, code, status, kind }[]` — ordre **racine → parent direct** (le projet courant n’est pas dans la chaîne) ; calcul serveur via `buildAncestorChain`
+
 ## 6.5 DTO
 
 ### `CreateProjectDto` / `UpdateProjectDto`
@@ -333,9 +362,8 @@ Règle : si `parentProjectId` et `rootOnly` sont tous deux fournis → `400` (fi
 
 | Code | Cas |
 |------|-----|
-| `400` | parent inexistant, cycle, profondeur max dépassée, parent autre client, filtres contradictoires |
-| `404` | `parentProjectId` hors scope client |
-| `409` | suppression projet avec enfants |
+| `400` | parent inexistant ou hors client, cycle, profondeur max dépassée, self-parent, filtres contradictoires (`rootOnly and parentProjectId are mutually exclusive`) |
+| `409` | suppression projet avec enfants (`Cannot delete a project that has child projects`) |
 
 ## 6.7 Audit
 
@@ -355,15 +383,20 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 
 | Fichier | Action |
 |---------|--------|
-| `apps/web/src/features/projects/types/project.types.ts` | Types `parentProject`, `childrenCount` |
-| `apps/web/src/features/projects/api/projects.api.ts` | Paramètres API + `fetchProjectChildren`, `fetchAssignableParents` |
-| `apps/web/src/features/projects/hooks/use-project-queries.ts` | Queries enfants / parents assignables |
-| `apps/web/src/features/projects/components/project-parent-combobox.tsx` | **Nouveau** — sélecteur parent |
-| `apps/web/src/features/projects/components/project-hierarchy-breadcrumb.tsx` | **Nouveau** — fil d’Ariane |
-| `apps/web/src/features/projects/components/project-children-section.tsx` | **Nouveau** — liste enfants sur fiche parent |
-| `apps/web/src/features/projects/components/projects-toolbar.tsx` | Filtre parent / racines seulement |
-| `apps/web/src/features/projects/components/projects-list-mobile-view.tsx` | Affichage parent (ligne secondaire) |
-| Formulaire création / édition projet | Intégration combobox parent |
+| `apps/web/src/features/projects/types/project.types.ts` | Types `ProjectParentSummary`, `parentProject`, `childrenCount`, `ancestorChain` |
+| `apps/web/src/features/projects/api/projects.api.ts` | `parentProjectId` / `rootOnly` sur liste ; `listAssignableParents`, `listProjectChildren` |
+| `apps/web/src/features/projects/lib/project-query-keys.ts` | Clés `assignableParents`, `projectChildren` |
+| `apps/web/src/features/projects/hooks/use-projects-list-filters.ts` | Filtres `parentProjectId`, `rootOnly` (exclusion mutuelle côté UI) |
+| `apps/web/src/features/projects/components/project-parent-combobox.tsx` | **Nouveau** — sélecteur parent (recherche debounced, clavier) |
+| `apps/web/src/features/projects/components/project-parent-edit-field.tsx` | **Nouveau** — édition parent sur fiche (`PATCH` + `projects.update`) |
+| `apps/web/src/features/projects/components/project-hierarchy-breadcrumb.tsx` | **Nouveau** — fil d’Ariane (`ancestorChain` serveur) |
+| `apps/web/src/features/projects/components/project-children-section.tsx` | **Nouveau** — liste enfants sur fiche |
+| `apps/web/src/features/projects/components/project-workspace-shell.tsx` | Intégration breadcrumb + édition parent |
+| `apps/web/src/features/projects/components/project-create-form.tsx` | Combobox parent à la création |
+| `apps/web/src/features/projects/components/projects-portfolio-filters-bar.tsx` | Filtre parent + case « Racines uniquement » |
+| `apps/web/src/features/projects/components/projects-toolbar.tsx` | Compteur filtres actifs |
+| `apps/web/src/features/projects/components/projects-list-mobile-view.tsx` | Sous-ligne « Parent : code — name » |
+| `apps/web/src/features/projects/components/projects-list-project-card.tsx` | Sous-ligne parent sur carte |
 
 ## 7.2 Comportements UI
 
@@ -376,13 +409,14 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 
 ### Fiche projet
 
-* fil d’Ariane cliquable : `Programme > Lot > Ce projet` (ancêtres jusqu’à la racine)
-* section **« Sous-projets »** si `childrenCount > 0` ou toujours visible avec état vide
+* fil d’Ariane cliquable : ancêtres **racine → parent direct** via `ancestorChain` (aucun fetch récursif client)
+* champ **Projet parent** éditable dans le workspace shell (`ProjectParentEditField`) si `projects.update`
+* section **« Sous-projets »** toujours visible (états loading / empty / error)
 * lien vers chaque enfant (nom + code + badge statut)
 
 ### Portefeuille
 
-* filtre « Projet parent » (combobox) + case « Racines uniquement »
+* filtre « Projet parent » (select) + case « Racines uniquement » — **exclusion mutuelle** : cocher racines vide le parent ; sélectionner un parent décoche racines
 * colonne ou sous-ligne optionnelle « Parent : … » en vue liste / cartes mobile
 
 ### États
@@ -418,10 +452,9 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 * liste `rootOnly=true` ne retourne que `parentProjectId IS NULL`
 * liste `parentProjectId=X` ne retourne que enfants directs de X
 
-## 8.3 Backend — `projects.controller.spec.ts`
+## 8.3 Backend — tests controller
 
-* `GET …/children` — authz, isolation client
-* `GET …/assignable-parents` — exclusion descendants
+* **Non livré** — convention module projets : couverture via `projects.service.spec.ts` + `project-hierarchy.util.spec.ts` + `list-projects.query.dto.spec.ts` (49+ cas dont hiérarchie, audit parent, filtres contradictoires).
 
 ## 8.4 Frontend (ciblé)
 
@@ -461,7 +494,7 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 * **Ne pas confondre** catégorie portefeuille et parent projet — deux axes de structuration complémentaires
 * **Performance** : `childrenCount` via `_count` Prisma sur enfants directs ; éviter de charger tout le sous-arbre dans la liste paginée
 * **Cycles** : toujours valider côté **serveur** (l’UI seule est insuffisante)
-* **Permissions** : rattacher à un parent nécessite `projects.update` sur l’enfant ; lecture du parent avec `projects.read`
+* **Permissions** : création avec parent → `projects.create` ; rattachement / détachement → `projects.update` (+ `@AccessDecision` intent `write` sur le projet cible) ; lecture parent / enfants / assignable → `projects.read`
 * **Microsoft / sync** : pas d’impact sur `ProjectMicrosoftLink` en MVP (chaque projet garde son lien)
 * **Recherche globale** (RFC-CORE-SEARCH-001) : indexer le nom du parent en lecture seule optionnel en V2 pour faciliter la recherche « enfants de X »
 
@@ -534,24 +567,24 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 
 ## Backend
 
-- [ ] `parentProjectId` migré sur `Project` avec index `(clientId, parentProjectId)`
-- [ ] Create / update avec validation anti-cycle, profondeur max, même client
-- [ ] Delete refusé si enfants présents
-- [ ] `GET /projects` supporte `parentProjectId` et `rootOnly`
-- [ ] `GET /projects/:id` retourne `parentProject` et `childrenCount`
-- [ ] `GET /projects/:id/children` paginé, scopé client
-- [ ] `GET /projects/assignable-parents` exclut self + descendants
-- [ ] Audit sur assign / detach / change parent
-- [ ] Tests unitaires et controller couvrant isolation client et cas limites
+- [x] `parentProjectId` migré sur `Project` avec index `(clientId, parentProjectId)` — migration `20260706190000_project_parent_hierarchy`
+- [x] Create / update avec validation anti-cycle, profondeur max (subtree height au update), même client
+- [x] Delete refusé si enfants présents (`409 Conflict`)
+- [x] `GET /projects` supporte `parentProjectId` et `rootOnly`
+- [x] `GET /projects/:id` retourne `parentProject`, `childrenCount`, `ancestorChain`
+- [x] `GET /projects/:id/children` paginé, scopé client
+- [x] `GET /projects/assignable-parents` exclut self + descendants + profondeur
+- [x] Audit sur assign / detach / change parent (`project-audit.constants.ts`)
+- [x] Tests service + util + DTO (isolation client, cas limites)
 
 ## Frontend
 
-- [ ] Sélecteur parent avec libellé métier et option « racine »
-- [ ] Fil d’Ariane sur fiche projet
-- [ ] Section sous-projets sur fiche parent
-- [ ] Filtres portefeuille parent / racines
-- [ ] États loading / empty / error
-- [ ] Accessible clavier + labels FR
+- [x] Sélecteur parent avec libellé métier et option « racine »
+- [x] Fil d’Ariane sur fiche projet (`ancestorChain`)
+- [x] Section sous-projets sur fiche projet
+- [x] Filtres portefeuille parent / racines (exclusion mutuelle)
+- [x] États loading / empty / error
+- [x] Accessible clavier + labels FR
 
 ---
 
@@ -560,3 +593,38 @@ Payload audit (résumé, pas de DCP) : `projectId`, `previousParentProjectId`, `
 Cette RFC introduit le **premier mécanisme de hiérarchie inter-projets** de Starium Orchestra. Elle complète la structuration portefeuille (catégories RFC-PROJ-014) par une **relation métier directe** entre initiatives, sans fusionner les concepts ni réutiliser un pattern inexistant côté `Project`.
 
 Sans agrégation (RFC-PROJ-020), la valeur immédiate est **navigation, regroupement et lisibilité CODIR** ; avec la suite, le parent devient un **nœud de consolidation** pilotable.
+
+---
+
+# 16. Implémentation livrée (2026-07-07)
+
+## 16.1 Backend
+
+| Élément | Chemin / détail |
+|---------|-----------------|
+| Migration | `apps/api/prisma/migrations/20260706190000_project_parent_hierarchy/migration.sql` |
+| Schéma | `parentProjectId`, relation `ProjectHierarchy`, `onDelete: Restrict`, `@@index([clientId, parentProjectId])` |
+| Util | `apps/api/src/modules/projects/project-hierarchy.util.ts` + `project-hierarchy.util.spec.ts` |
+| Service | `projects.service.ts` — `assertParentProjectForWrite`, `listChildren`, `listAssignableParents`, `ancestorChain` |
+| Controller | `GET assignable-parents` (avant `:id`), `GET :id/children` |
+| Audit | `PROJECT_PARENT_ASSIGNED` / `DETACHED` / `CHANGED` dans `project-audit.constants.ts` |
+| DTO query assignable | `dto/list-assignable-parents.query.dto.ts` |
+
+## 16.2 Frontend
+
+| Composant | Rôle |
+|-----------|------|
+| `project-parent-combobox.tsx` | Sélection parent (API assignable-parents, debounce, clavier) |
+| `project-parent-edit-field.tsx` | Édition sur fiche workspace |
+| `project-hierarchy-breadcrumb.tsx` | Navigation ancêtres |
+| `project-children-section.tsx` | Liste enfants directs |
+| `project-create-form.tsx` | Parent à la création |
+| `projects-portfolio-filters-bar.tsx` | Filtres portefeuille |
+
+## 16.3 Écarts documentés (acceptés)
+
+* Édition parent sur **workspace shell**, pas dans `project-sheet-view.tsx` (même API `PATCH /projects/:id`).
+* Filtre portefeuille « Projet parent » : **select** (liste `assignable-parents`) plutôt que combobox searchable — suffisant MVP.
+* Pas de données seed hiérarchiques démo : tous les projets seed restent racines (`parentProjectId = null`).
+* Référence API détaillée : [API.md](../API.md) §21 (routes `assignable-parents`, `children`, query `parentProjectId` / `rootOnly`).
+* **Topbar workspace** : `ProjectWorkspaceShell` alimente `useWorkspaceBreadcrumbOverride` avec le **nom** du projet ; `build-workspace-breadcrumb.ts` masque les CUID (placeholder `…` puis libellé) — voir [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §3.2.

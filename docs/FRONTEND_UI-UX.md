@@ -148,12 +148,12 @@ export function PageContainer({ children, className }: PageContainerProps) {
 
 | Zone | Comportement |
 |------|----------------|
-| Fil d’Ariane | `WorkspaceBreadcrumb` : segments dérivés de `pathname` + `config/navigation.ts` (section → module → sous-route). Ex. `/projects` → `Pilotage / Projets` ; `/projects/{id}` → `Pilotage / Projets / {nom projet}`. Dernier segment sans lien (`aria-current="page"`). |
+| Fil d’Ariane | `WorkspaceBreadcrumb` : segments dérivés de `pathname` + `config/navigation.ts` (section → module → sous-route). Ex. `/projects` → `Exécution / Projets` ; `/projects/{id}` → `Exécution / Projets / {nom projet}`. Dernier segment sans lien (`aria-current="page"`). |
 | Recherche | Bouton `.starium-topbar-search` (placeholder + raccourci `⌘K` / `Ctrl+K`) ; icône seule entre `md` et `lg`. Ouvre `GlobalSearchDialog`. |
 | Notifications | `NotificationBell` (`.starium-topbar-icon`). |
 | Menu compte | Avatar `.starium-topbar-avatar` (ink + bordure or) + chevron ; panneau Compte / Déconnexion. |
 
-**Fil d’Ariane — libellés dynamiques (UUID)** : le builder pose un placeholder `…` pour les segments dynamiques. Les pages chargent le libellé métier via :
+**Fil d’Ariane — libellés dynamiques (identifiants techniques)** : le builder (`build-workspace-breadcrumb.ts`) pose un placeholder `…` pour tout segment dynamique : **UUID**, **entier**, **CUID Prisma** (`/^[a-z0-9]{20,}$/i`, hors segments statiques connus). Les pages chargent le libellé métier via :
 
 ```tsx
 useWorkspaceBreadcrumbOverride({
@@ -162,7 +162,7 @@ useWorkspaceBreadcrumbOverride({
 });
 ```
 
-Références : `ProjectWorkspaceShell`, `budgets/[budgetId]/page.tsx`. Override complet possible avec `items: WorkspaceBreadcrumbItem[]`.
+Références : `ProjectWorkspaceShell` (topbar : nom projet via `useWorkspaceBreadcrumbOverride`), `budgets/[budgetId]/page.tsx`. Override complet possible avec `items: WorkspaceBreadcrumbItem[]`. **Jamais d’ID technique visible** dans le fil topbar une fois le libellé chargé.
 
 **Sélection client** : plus dans la topbar. Section **Organisation** en tête du menu compte (`AccountMenuDropdown`) : `ClientSwitcher` si multi-client, sinon nom du client actif. Même logique sur mobile.
 
@@ -594,7 +594,12 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant `**ProjectSheetView**` (`features/projects/components/project-sheet-view.tsx`). Données via `**GET/PATCH /api/projects/:id/project-sheet**` (TanStack Query, autosave debounced) — pas de calcul ROI / priorité côté client (affichage des valeurs API).
 
-**Structure UX (blocs successifs dans des `Card size="sm"`)** : sections étiquetées **A–H** (équipes, résumé & indicateurs, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; titres `**CardTitle`** + séparateurs `**border-t border-border**` entre zones denses dans une même carte.
+**Structure UX (blocs successifs dans des `Card size="sm"`)** : sections étiquetées **A–H** (équipes, résumé & indicateurs, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée en bas de fiche (distincte de la carte équipe) ; titres `**CardTitle`** + séparateurs `**border-t border-border**` entre zones denses dans une même carte.
+
+**Équipe vs RASCI** :
+
+- **`ProjectTeamMatrix`** — rôles équipe projet + affectation membres (`GET/PATCH /api/projects/:id/team`, rôles client `team-roles`).
+- **`ProjectRaciMatrix`** — grille **actions × acteurs (rôles)** ; cellule = une lettre `R` / `A` / `S` / `C` / `I` (`ProjectRaciKind`) ; règle métier **un seul A par action** (côté API) ; 8 actions BPM par défaut au premier accès ; cycle UI avec confirmation ~1,8 s avant de remplacer un A existant ; libellés métier uniquement (jamais d’UUID en colonnes). API : `GET|PATCH /api/projects/:projectId/team-raci`, `POST|DELETE …/raci-actions`. Permission édition : `projects.update`.
 
 **Indicateurs de lecture** (sous-bloc dans la carte « Résumé ») :
 
