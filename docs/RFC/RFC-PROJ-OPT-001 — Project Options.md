@@ -62,7 +62,7 @@ Donc :
 
 ## Exclus
 
-* création automatique Teams / Planner / SharePoint
+* création automatique Teams / Planner / SharePoint *(hors scope OPT-001 — voir [RFC-PROJ-INT-010](./RFC-PROJ-INT-010%20—%20Provisioning%20Teams%20et%20canaux%20par%20défaut.md) pour le provisioning Teams)*
 * mapping avancé Planner (hors bucket de tâche + sync position colonne)
 * sync bidirectionnelle complète
 * gestion des conflits avancés
@@ -424,7 +424,7 @@ Aucune UI custom brute.
 # 17. Évolutions futures
 
 * sélection dynamique Teams/Planner via Graph
-* création automatique Team/Plan
+* création automatique Team/Plan — **cadrée** par [RFC-PROJ-INT-010](./RFC-PROJ-INT-010%20—%20Provisioning%20Teams%20et%20canaux%20par%20défaut.md) (Teams + canaux ; Planner hors MVP INT-010)
 * sync bidirectionnelle contrôlée
 * audit détaillé
 * logs de sync détaillés
