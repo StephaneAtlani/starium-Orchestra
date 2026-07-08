@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -594,12 +593,9 @@ function LoginPageContent() {
                   className="h-11 w-auto object-contain"
                 />
               </div>
-              <div className="mb-6 flex items-center justify-between text-xs text-muted-foreground">
-                <Link href="/" className="hover:text-foreground">
-                  Accueil
-                </Link>
-                <span className="font-medium">Connexion</span>
-              </div>
+              <p className="mb-6 text-xs font-medium text-muted-foreground">
+                Connexion
+              </p>
               <CardTitle className="mb-1 text-2xl font-semibold tracking-tight">
                 Se connecter
               </CardTitle>
