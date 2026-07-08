@@ -13,6 +13,8 @@ import {
   Target,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ErrorState } from '@/components/feedback/error-state';
+import { LoadingState } from '@/components/feedback/loading-state';
 import {
   WorkspaceTabBar,
   type WorkspaceTabBarItem,
@@ -33,10 +35,7 @@ import { StrategicVisionEnterpriseTab } from './strategic-vision-enterprise-tab'
 import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
-import { StrategicAlignmentTrendCard } from './strategic-alignment-trend-card';
-import { StrategicLinkedDocsCard } from './strategic-linked-docs-card';
 import { StrategicDirectionsTab } from './strategic-directions-tab';
-import { StrategicKpiCards } from './strategic-kpi-cards';
 
 type QueryState = {
   isLoading: boolean;
@@ -105,19 +104,11 @@ function QueryStateBlock({
   queryState: QueryState;
 }) {
   if (queryState.isLoading) {
-    return (
-      <Alert>
-        <AlertDescription>{loadingLabel}</AlertDescription>
-      </Alert>
-    );
+    return <LoadingState rows={3} />;
   }
 
   if (queryState.isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>{errorLabel}</AlertDescription>
-      </Alert>
-    );
+    return <ErrorState message={errorLabel} />;
   }
 
   return null;
@@ -220,41 +211,10 @@ export function StrategicVisionTabs({
 
       <section className="space-y-4">
           {activeMenu === 'overview' ? (
-            <div className="space-y-4">
-        {queryStates.kpis.isLoading ? (
-          <Alert>
-            <AlertDescription>Chargement des KPI stratégiques...</AlertDescription>
-          </Alert>
-        ) : queryStates.kpis.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>Impossible de charger les KPI stratégiques.</AlertDescription>
-          </Alert>
-        ) : kpis ? (
-          <StrategicKpiCards kpis={kpis} />
-        ) : (
-          <Alert>
-            <AlertDescription>Aucun KPI stratégique disponible.</AlertDescription>
-          </Alert>
-        )}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
             <StrategicVisionOverviewTab
               vision={vision}
               axes={axes}
               objectives={filteredObjectives}
-              isLoading={baseState.isLoading}
-              isError={baseState.isError}
-              isEditMode={isEditMode}
-              canUpdate={canUpdate}
-            />
-          </div>
-          <div className="space-y-6 lg:col-span-1">
-            <StrategicAlertsPanel
-              alerts={alerts}
-              isLoading={queryStates.alerts.isLoading}
-              isError={queryStates.alerts.isError}
-            />
-            <StrategicAlignmentTrendCard
               kpis={
                 directionFilter === 'ALL' || !selectedDirectionRow
                   ? kpis
@@ -267,13 +227,13 @@ export function StrategicVisionTabs({
                       generatedAt: kpisByDirection?.generatedAt ?? kpis?.generatedAt ?? '',
                     }
               }
-              isLoading={queryStates.kpis.isLoading}
-              isError={queryStates.kpis.isError}
+              kpisLoading={queryStates.kpis.isLoading}
+              kpisError={queryStates.kpis.isError}
+              isLoading={baseState.isLoading}
+              isError={baseState.isError}
+              isEditMode={isEditMode}
+              canUpdate={canUpdate}
             />
-            <StrategicLinkedDocsCard objectives={filteredObjectives} />
-          </div>
-        </div>
-            </div>
           ) : null}
 
           {activeMenu === 'enterprise' ? (

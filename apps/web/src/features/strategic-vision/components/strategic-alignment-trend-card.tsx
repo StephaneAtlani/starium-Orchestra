@@ -1,8 +1,9 @@
 'use client';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import type { StrategicVisionKpisResponseDto } from '../types/strategic-vision.types';
 
 const TARGET_RATE = 0.85;
@@ -22,7 +23,7 @@ export function StrategicAlignmentTrendCard({
 }) {
   if (isLoading) {
     return (
-      <Card>
+      <Card size="sm" className="starium-panel">
         <CardHeader>
           <CardTitle>Évolution du score d&apos;alignement</CardTitle>
         </CardHeader>
@@ -34,20 +35,22 @@ export function StrategicAlignmentTrendCard({
   }
 
   if (isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          Impossible de charger le score d&apos;alignement.
-        </AlertDescription>
-      </Alert>
-    );
+    return <ErrorState message="Impossible de charger le score d'alignement." />;
   }
 
   if (!kpis) {
     return (
-      <Alert>
-        <AlertDescription>Aucun indicateur d&apos;alignement disponible.</AlertDescription>
-      </Alert>
+      <Card size="sm" className="starium-panel">
+        <CardHeader>
+          <CardTitle>Évolution du score d&apos;alignement</CardTitle>
+        </CardHeader>
+        <CardContent className="py-8">
+          <EmptyState
+            title="Indicateur indisponible"
+            description="Aucun indicateur d'alignement disponible pour ce périmètre."
+          />
+        </CardContent>
+      </Card>
     );
   }
 
@@ -55,22 +58,22 @@ export function StrategicAlignmentTrendCard({
   const targetPct = Math.round(TARGET_RATE * 100);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card size="sm" className="starium-panel">
+      <CardHeader className="border-b border-border/70">
         <CardTitle>Évolution du score d&apos;alignement</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-4">
         <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-bold tabular-nums tracking-tight text-[color:var(--brand-gold-700)]">
+          <span className="starium-kpi-value starium-kpi-value--portfolio text-[color:var(--brand-gold-700)]">
             {pctLabel(rate)}
           </span>
           <span className="text-sm text-muted-foreground">score global actuel</span>
         </div>
 
         <div className="space-y-1.5">
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-[color:var(--neutral-200)]">
+          <div className="relative starium-progress-track h-2">
             <div
-              className="h-full rounded-full bg-[color:var(--brand-gold)]"
+              className="starium-progress-fill starium-progress-fill--ok"
               style={{ width: `${Math.round(rate * 100)}%` }}
             />
             <span

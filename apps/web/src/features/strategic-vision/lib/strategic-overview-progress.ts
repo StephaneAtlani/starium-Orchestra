@@ -57,6 +57,14 @@ export function toneColorVar(tone: StrategicTone): string {
   }[tone];
 }
 
+export function toneProgressFillClass(tone: StrategicTone): string {
+  return {
+    success: 'starium-progress-fill--ok',
+    warning: 'starium-progress-fill--warn',
+    danger: 'starium-progress-fill--danger',
+  }[tone];
+}
+
 export function toneStatusLabel(tone: StrategicTone): string {
   return {
     success: 'En bonne trajectoire',

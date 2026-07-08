@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
 import type { StrategicVisionAlertsResponseDto } from '../types/strategic-vision.types';
 import { getAlertSeverityLabel, getAlertTypeLabel } from '../lib/strategic-vision-labels';
@@ -63,26 +64,35 @@ export function StrategicAlertsPanel({
 
   if (isLoading) {
     return (
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Alertes de desalignement</h2>
-        <Skeleton className="h-20 w-full" />
-      </section>
+      <Card size="sm" className="starium-panel">
+        <CardHeader>
+          <CardTitle>Alertes de désalignement</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </CardContent>
+      </Card>
     );
   }
 
   if (isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>Impossible de charger les alertes de desalignement.</AlertDescription>
-      </Alert>
-    );
+    return <ErrorState message="Impossible de charger les alertes de désalignement." />;
   }
 
   if (items.length === 0) {
     return (
-      <Alert>
-        <AlertDescription>Alertes de desalignement: aucune alerte active pour ce client.</AlertDescription>
-      </Alert>
+      <Card size="sm" className="starium-panel">
+        <CardHeader>
+          <CardTitle>Alertes de désalignement</CardTitle>
+        </CardHeader>
+        <CardContent className="py-8">
+          <EmptyState
+            title="Aucune alerte"
+            description="Aucune alerte active pour ce périmètre."
+          />
+        </CardContent>
+      </Card>
     );
   }
 
@@ -93,11 +103,11 @@ export function StrategicAlertsPanel({
   );
 
   return (
-    <Card>
-      <CardHeader>
+    <Card size="sm" className="starium-panel">
+      <CardHeader className="border-b border-border/70">
         <CardTitle>Alertes de désalignement</CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-4">
         <ul className="divide-y divide-border" aria-live="polite" aria-relevant="additions removals">
           {pageItems.map((alert) => (
             <li key={alert.id} className="flex items-start gap-3 py-3 first:pt-0">

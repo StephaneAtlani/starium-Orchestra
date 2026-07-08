@@ -3966,6 +3966,11 @@ table.starium-dt {
     padding: var(--ds-card-pad);
   }
 
+  /* Hero vision stratégique — fond carte uni (sans dégradé) */
+  .starium-vision-hero {
+    background-color: var(--card);
+  }
+
   /* Carte KPI (même surface, padding KPI) */
   .starium-kpi-card {
     position: relative;

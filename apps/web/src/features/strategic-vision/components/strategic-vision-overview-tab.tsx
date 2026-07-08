@@ -1,65 +1,118 @@
 'use client';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckSquare } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Eye } from 'lucide-react';
+import { EmptyState } from '@/components/feedback/empty-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import type {
   StrategicAxisDto,
   StrategicObjectiveDto,
   StrategicVisionDto,
+  StrategicVisionKpisResponseDto,
 } from '../types/strategic-vision.types';
 import { buildAxisNameMap, splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
-import { getObjectiveStatusLabel } from '../lib/strategic-vision-labels';
 import {
   axisProgress,
-  initials,
-  objectiveProgress,
-  objectiveTone,
   progressTone,
-  toneColorVar,
   toneStatusLabel,
-  type StrategicTone,
 } from '../lib/strategic-overview-progress';
+import {
+  axisObjectiveTrajectoryCounts,
+  countAxesOnTrack,
+  trajectoryBadgeClass,
+} from '../lib/strategic-overview-view';
+import {
+  getAxisTheme,
+  STRATEGIC_OVERVIEW_ICON_SIZE,
+} from '../lib/strategic-overview-theme';
 import { STRATEGIC_AXIS_ICONS } from './strategic-axis-icons';
+import { StrategicAlignmentDonut } from './strategic-alignment-donut';
+import { StrategicKpiCards } from './strategic-kpi-cards';
+import { StrategicVisionHero } from './strategic-vision-hero';
+import { StrategicObjectivesOverviewTable } from './strategic-objectives-overview-table';
 import { cn } from '@/lib/utils';
 
-const OVERVIEW_OBJECTIVES_LIMIT = 6;
-
-function formatDeadline(value: string | null): string {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+function AxisProgressBar({ pct, barClass }: { pct: number; barClass: string }) {
+  return (
+    <div className="h-2 overflow-hidden rounded-full bg-[color:var(--neutral-200)]">
+      <div className={cn('h-full rounded-full', barClass)} style={{ width: `${pct}%` }} />
+    </div>
+  );
 }
 
-const badgeToneClass: Record<StrategicTone, string> = {
-  success: 'bg-[color:var(--state-success-bg)] text-[color:var(--state-success)]',
-  warning: 'bg-[color:var(--state-warning-bg)] text-[color:var(--state-warning)]',
-  danger: 'bg-[color:var(--state-danger-bg)] text-[color:var(--state-danger)]',
-};
+function StrategicOverviewAxisCard({
+  axis,
+  index,
+}: {
+  axis: StrategicAxisDto;
+  index: number;
+}) {
+  const { logo, title, color } = splitAxisLogoAndTitle(axis.name);
+  const AxisIcon = logo ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS] : null;
+  const pct = axisProgress(axis.objectives);
+  const tone = progressTone(pct);
+  const theme = getAxisTheme(color, index);
+  const { onTrajectory, total } = axisObjectiveTrajectoryCounts(axis);
+  const axisNumber = String(index + 1).padStart(2, '0');
 
-function ProgressBar({ pct, tone }: { pct: number; tone: StrategicTone }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--neutral-200)]">
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${pct}%`, background: toneColorVar(tone) }}
-      />
-    </div>
+    <article className="starium-section flex flex-col gap-4 !p-5">
+      <div className="flex items-start gap-3">
+        <span className={theme.iconShell} aria-hidden>
+          {AxisIcon ? (
+            <AxisIcon className={STRATEGIC_OVERVIEW_ICON_SIZE} />
+          ) : (
+            <span className="text-sm font-bold">{axisNumber}</span>
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="starium-overline text-muted-foreground">Axe {axisNumber}</p>
+          <div className="mt-0.5 flex items-start justify-between gap-3">
+            <h3 className="text-base font-semibold leading-snug text-foreground">{title}</h3>
+            <span
+              className={cn(
+                'shrink-0 text-2xl font-bold leading-none tracking-tight tabular-nums',
+                theme.pctText,
+              )}
+            >
+              {pct}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {axis.description ? (
+        <p className="text-sm leading-relaxed text-muted-foreground">{axis.description}</p>
+      ) : null}
+
+      <AxisProgressBar pct={pct} barClass={theme.barClass} />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+            trajectoryBadgeClass(tone),
+          )}
+        >
+          <span
+            aria-hidden
+            className={cn('size-1.5 rounded-full', {
+              'bg-[color:var(--state-success)]': tone === 'success',
+              'bg-[color:var(--state-warning)]': tone === 'warning',
+              'bg-[color:var(--state-danger)]': tone === 'danger',
+            })}
+          />
+          {toneStatusLabel(tone)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CheckSquare className={cn(STRATEGIC_OVERVIEW_ICON_SIZE, 'size-3.5')} aria-hidden />
+          <span className="tabular-nums">
+            {onTrajectory}/{total || 0} objectif{total === 1 ? '' : 's'}
+          </span>
+        </span>
+      </div>
+    </article>
   );
 }
 
@@ -67,12 +120,18 @@ export function StrategicVisionOverviewTab({
   vision,
   axes,
   objectives,
+  kpis,
+  kpisLoading,
+  kpisError,
   isLoading,
   isError,
 }: {
   vision: StrategicVisionDto | null;
   axes: StrategicAxisDto[];
   objectives: StrategicObjectiveDto[];
+  kpis?: StrategicVisionKpisResponseDto;
+  kpisLoading?: boolean;
+  kpisError?: boolean;
   isLoading: boolean;
   isError: boolean;
   isEditMode: boolean;
@@ -80,198 +139,108 @@ export function StrategicVisionOverviewTab({
 }) {
   if (isLoading) {
     return (
-      <section className="space-y-6">
-        <Skeleton className="h-44 w-full rounded-[14px]" />
-        <Skeleton className="h-56 w-full rounded-[14px]" />
+      <section className="space-y-6" aria-busy="true">
+        <Skeleton className="h-52 w-full rounded-xl" />
+        <Skeleton className="h-36 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </section>
     );
   }
 
   if (isError) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          Impossible de charger la vue d&apos;ensemble de la vision stratégique.
-        </AlertDescription>
-      </Alert>
+      <ErrorState message="Impossible de charger la vue d'ensemble de la vision stratégique." />
     );
   }
 
   if (!vision) {
     return (
-      <Alert>
-        <AlertDescription>Aucune vision disponible pour ce client.</AlertDescription>
-      </Alert>
+      <Card size="sm" className="starium-panel">
+        <CardContent className="py-10">
+          <EmptyState
+            title="Aucune vision"
+            description="Aucune vision disponible pour ce client."
+          />
+        </CardContent>
+      </Card>
     );
   }
 
   const axisNameMap = buildAxisNameMap(axes);
-  const visibleObjectives = objectives.slice(0, OVERVIEW_OBJECTIVES_LIMIT);
+  const axesOnTrack = countAxesOnTrack(axes);
+  const alignmentRate = kpis?.projectAlignmentRate ?? 0;
 
   return (
     <section className="space-y-6">
-      {/* Notre vision */}
-      <Card className="px-2 py-1">
-        <CardContent className="space-y-3 p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-full bg-[color:var(--brand-gold-100)] text-[color:var(--brand-gold-700)]">
-              <Eye className="size-5" />
-            </span>
-            <span className="font-semibold text-foreground">Notre vision</span>
+      <StrategicVisionHero vision={vision} />
+
+      <section className="starium-section !p-0" aria-labelledby="sv-alignment-heading">
+        <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:gap-8 sm:p-6">
+          {kpisLoading ? (
+            <Skeleton className="size-[130px] shrink-0 rounded-full" />
+          ) : kpisError || !kpis ? (
+            <div className="flex size-[130px] shrink-0 items-center justify-center rounded-full border border-dashed border-border text-sm text-muted-foreground">
+              —
+            </div>
+          ) : (
+            <StrategicAlignmentDonut rate={alignmentRate} />
+          )}
+          <div className="min-w-0 flex-1 space-y-2">
+            <h2 id="sv-alignment-heading" className="starium-section-title">
+              Alignement stratégique global
+            </h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Mesure de l&apos;adéquation entre le portefeuille de projets et les{' '}
+              {axes.length} axe{axes.length > 1 ? 's' : ''} stratégique
+              {axes.length > 1 ? 's' : ''}.
+              {axes.length > 0 ? (
+                <>
+                  {' '}
+                  {axesOnTrack} axe{axesOnTrack > 1 ? 's' : ''} sur {axes.length}{' '}
+                  {axesOnTrack > 1 ? 'sont' : 'est'} en bonne trajectoire.
+                </>
+              ) : null}
+            </p>
+            {kpis && kpis.unalignedProjectsCount > 0 ? (
+              <p className="text-sm font-medium text-[color:var(--state-warning)]">
+                {kpis.unalignedProjectsCount} projet
+                {kpis.unalignedProjectsCount > 1 ? 's' : ''} non aligné
+                {kpis.unalignedProjectsCount > 1 ? 's' : ''} sur le portefeuille actif.
+              </p>
+            ) : null}
           </div>
-          <blockquote className="relative px-7 text-[19px] font-semibold leading-relaxed tracking-tight text-foreground">
-            <span
-              aria-hidden
-              className="absolute -left-1 -top-2 font-serif text-5xl leading-none text-[color:var(--brand-gold)]"
-            >
-              &ldquo;
-            </span>
-            {vision.statement}
-            <span
-              aria-hidden
-              className="ml-1 align-bottom font-serif text-5xl leading-none text-[color:var(--brand-gold)]"
-            >
-              &rdquo;
-            </span>
-          </blockquote>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      {/* Axes stratégiques */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Axes stratégiques</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {axes.length === 0 ? (
-            <Alert>
-              <AlertDescription>
-                Aucun axe stratégique disponible pour ce client.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {axes.map((axis, index) => {
-                const { logo, title } = splitAxisLogoAndTitle(axis.name);
-                const AxisIcon = logo
-                  ? STRATEGIC_AXIS_ICONS[logo as keyof typeof STRATEGIC_AXIS_ICONS]
-                  : null;
-                const pct = axisProgress(axis.objectives);
-                const tone = progressTone(pct);
-                return (
-                  <div
-                    key={axis.id}
-                    className="flex flex-col gap-2.5 rounded-[14px] border border-border bg-card p-4 transition-shadow hover:shadow-[var(--shadow-2)]"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-gold-100)] text-[color:var(--brand-gold-700)]">
-                        {AxisIcon ? (
-                          <AxisIcon className="size-[18px]" />
-                        ) : (
-                          <span className="text-sm font-semibold">{index + 1}</span>
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">
-                        {index + 1}. {title}
-                      </span>
-                      <span className="text-[22px] font-bold leading-none tracking-tight tabular-nums">
-                        {pct}%
-                      </span>
-                    </div>
-                    <ProgressBar pct={pct} tone={tone} />
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span
-                        aria-hidden
-                        className="size-1.5 rounded-full"
-                        style={{ background: toneColorVar(tone) }}
-                      />
-                      <span>{toneStatusLabel(tone)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <StrategicKpiCards
+        kpis={kpis}
+        isLoading={kpisLoading}
+        isError={kpisError}
+      />
 
-      {/* Objectifs stratégiques */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Objectifs stratégiques</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {visibleObjectives.length === 0 ? (
-            <Alert>
-              <AlertDescription>Aucun objectif pour ce périmètre.</AlertDescription>
-            </Alert>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Objectif</TableHead>
-                    <TableHead>Axe</TableHead>
-                    <TableHead>Responsable</TableHead>
-                    <TableHead>Échéance</TableHead>
-                    <TableHead className="w-[18%]">Avancement</TableHead>
-                    <TableHead>Statut</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleObjectives.map((objective) => {
-                    const owner =
-                      objective.ownerLabel ??
-                      objective.ownerOrgUnitSummary?.name ??
-                      'Non défini';
-                    const pct = objectiveProgress(objective.status);
-                    const tone = objectiveTone(objective.status);
-                    return (
-                      <TableRow key={objective.id}>
-                        <TableCell className="font-medium text-foreground">
-                          {objective.title}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {axisNameMap.get(objective.axisId) ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[color:var(--neutral-200)] text-[10px] font-bold text-[color:var(--neutral-700)]">
-                              {initials(owner)}
-                            </span>
-                            <span className="text-muted-foreground">{owner}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                          {formatDeadline(objective.deadline)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center gap-2.5">
-                            <ProgressBar pct={pct} tone={tone} />
-                            <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
-                              {pct}%
-                            </span>
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={cn(
-                              'rounded-full border-0 font-semibold',
-                              badgeToneClass[tone],
-                            )}
-                          >
-                            {getObjectiveStatusLabel(objective.status)}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <section aria-labelledby="sv-axes-heading">
+        <h2 id="sv-axes-heading" className="starium-section-title">
+          {axes.length > 0
+            ? `Les ${axes.length} axes stratégiques`
+            : 'Axes stratégiques'}
+        </h2>
+        {axes.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Aucun axe stratégique disponible pour ce client.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {axes.map((axis, index) => (
+              <StrategicOverviewAxisCard key={axis.id} axis={axis} index={index} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <StrategicObjectivesOverviewTable
+        objectives={objectives}
+        axisNameById={axisNameMap}
+      />
     </section>
   );
 }
