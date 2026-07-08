@@ -23,6 +23,21 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Starium Orchestra',
   description: 'Plateforme de pilotage opérationnel',
+  icons: {
+    icon: [
+      {
+        url: '/brand/favicon-black.png',
+        type: 'image/png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/brand/favicon-white.png',
+        type: 'image/png',
+        media: '(prefers-color-scheme: dark)',
+      },
+    ],
+    apple: '/brand/favicon-black.png',
+  },
 };
 
 export default function RootLayout({

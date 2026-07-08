@@ -291,7 +291,7 @@ export function ProjectsListTableDesktop({
         )}
       >
         <TableHeader className="sticky top-0 z-50 [&_tr]:border-b-0">
-          <TableRow className="border-0 hover:bg-transparent">
+          <TableRow className="starium-projects-table-label-row border-0 hover:bg-transparent">
             <TableHead
               rowSpan={2}
               className={cn(

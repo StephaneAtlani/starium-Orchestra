@@ -380,7 +380,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `project-children-section` - `features/projects/components/project-children-section.tsx` - liste sous-projets directs.
 - `project-workspace-tabs` - `features/projects/components/project-workspace-tabs.tsx` - organise les onglets pour projet espace.
 - `projects-list-table` - `features/projects/components/projects-list-table.tsx` - orchestre la liste projets (mobile cartes / desktop tableau).
-- `projects-list-table-desktop` - `features/projects/components/projects-list-table-desktop.tsx` - tableau portefeuille desktop (densité basic | extended).
+- `projects-list-table-desktop` - `features/projects/components/projects-list-table-desktop.tsx` - tableau portefeuille desktop (densité basic | extended ; double en-tête label + filtres `starium-projects-table-label-row` / `starium-projects-table-filter-row`).
 - `projects-list-mobile-view` - `features/projects/components/projects-list-mobile-view.tsx` - liste cartes mobile + bottom sheet filtres.
 - `projects-list-project-card` - `features/projects/components/projects-list-project-card.tsx` - carte projet (statut, progression, budget, responsable).
 - `projects-list-budget-summary` - `features/projects/components/projects-list-budget-summary.tsx` - affichage Budget cible + Consommé (liste).

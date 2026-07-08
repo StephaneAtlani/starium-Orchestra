@@ -15,6 +15,10 @@ import {
 } from '../lib/strategic-axis-objective-count-badge';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { STRATEGIC_AXIS_ICONS, strategicAxisIconColorClass } from './strategic-axis-icons';
+import {
+  getObjectiveStatusLabel,
+  STRATEGIC_OBJECTIVE_STATUS_OPTIONS,
+} from '../lib/strategic-vision-labels';
 
 function countByStatus(
   objectives: StrategicObjectiveDto[],
@@ -98,13 +102,24 @@ export function StrategicAxisCard({
             {"Aucune description d'axe."}
           </p>
         )}
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground md:grid-cols-5">
-          <span>ON_TRACK: {countByStatus(axis.objectives, 'ON_TRACK')}</span>
-          <span>AT_RISK: {countByStatus(axis.objectives, 'AT_RISK')}</span>
-          <span>OFF_TRACK: {countByStatus(axis.objectives, 'OFF_TRACK')}</span>
-          <span>COMPLETED: {countByStatus(axis.objectives, 'COMPLETED')}</span>
-          <span>ARCHIVED: {countByStatus(axis.objectives, 'ARCHIVED')}</span>
-        </div>
+        <ul className="flex flex-wrap gap-1.5 text-xs text-muted-foreground md:grid md:grid-cols-5 md:gap-2">
+          {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((option) => {
+            const count = countByStatus(axis.objectives, option.value);
+            return (
+              <li
+                key={option.value}
+                className={
+                  count === 0
+                    ? 'hidden md:flex md:items-baseline md:gap-1'
+                    : 'flex items-baseline gap-1 rounded-md bg-muted px-2 py-1 md:rounded-none md:bg-transparent md:px-0 md:py-0'
+                }
+              >
+                <span className="font-semibold text-foreground tabular-nums">{count}</span>
+                <span className="truncate">{getObjectiveStatusLabel(option.value)}</span>
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );

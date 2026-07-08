@@ -59,11 +59,11 @@ export function StrategicAlignmentScoreCard({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">Objectifs a risque</p>
+              <p className="text-xs text-muted-foreground">Objectifs à risque</p>
               <p className="text-xl font-semibold">{objectivesAtRisk}</p>
             </div>
             <div className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">Objectifs OFF_TRACK</p>
+              <p className="text-xs text-muted-foreground">Objectifs hors trajectoire</p>
               <p className="text-xl font-semibold">{kpis.objectivesOffTrackCount}</p>
             </div>
           </div>

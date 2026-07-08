@@ -1156,7 +1156,7 @@ body {
 4. **Liste** — `ProjectsListTable` orchestre :
    * **mobile** : `ProjectsListMobileView` + `ProjectsListProjectCard` ;
    * **desktop** : `ProjectsListTableDesktop` (`Table noWrapper`, `starium-projects-table`, densité `basic` | `extended`, persistance `localStorage`).
-5. **Tableau desktop** — mode `basic` : budget/consommé (`ProjectsListBudgetSummary`, champs API `targetBudgetAmount` / `consumedBudgetAmount`) ; mode `extended` : `HealthBadge` **`compact`**, barres avancement, **T · R · J**, `ProjectPortfolioBadges` **`stacked`**, filtres inline, tooltips `HeaderTip` / `CellTip`.
+5. **Tableau desktop** — mode `basic` : budget/consommé (`ProjectsListBudgetSummary`, champs API `targetBudgetAmount` / `consumedBudgetAmount`) ; mode `extended` : `HealthBadge` **`compact`**, barres avancement, **T · R · J**, `ProjectPortfolioBadges` **`stacked`**, double ligne d’en-tête (`starium-projects-table-label-row` + `starium-projects-table-filter-row`), tooltips `HeaderTip` / `CellTip`.
 6. **États** — `LoadingState`, erreur API, `EmptyState`.
 7. **Pagination** — `CardFooter` **`.starium-table-footer`** + `PaginationSummary` + boutons `.starium-filter-chip`.
 

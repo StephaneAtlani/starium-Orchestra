@@ -91,7 +91,7 @@ Ajouts structure frontend réalisés:
 - `api/strategic-vision.queries.ts`
 - `api/strategic-vision.mutations.ts`
 - `schemas/strategic-vision.schemas.ts`
-- `lib/strategic-vision-labels.ts`
+- `lib/strategic-vision-labels.ts` — mappings FR statuts objectif (`getObjectiveStatusLabel`, `STRATEGIC_OBJECTIVE_STATUS_OPTIONS`) ; consommé par `objective-status-badge`, `strategic-objectives-tab`, **`strategic-axis-card`** (compteurs par statut), **`strategic-alignment-score-card`** (libellés KPI).
 
 ## 5. Modifications Prisma si nécessaire
 

@@ -21,6 +21,12 @@ Hors scope de cette livraison :
 - **Navigation cockpit** (`apps/web/src/config/navigation.ts`, `components/shell/sidebar.tsx`) : entrée **Vision stratégique** sous forme de **menu déroulant** (hover) avec au minimum **Vision Entreprise** (`/strategic-vision?tab=enterprise`) et **Stratégie** (`/strategic-direction-strategy`, module [RFC-STRAT-006](./RFC-STRAT-006%20%E2%80%94%20Stratégie%20de%20direction%20et%20validation%20CODIR)) ; filtres permissions par sous-lien.
 - Page `/strategic-vision` : onglets internes (query `tab=`) incluant entre autres **Directions** pour le référentiel `StrategicDirection` (CRUD autorisé `strategic_vision.update` ou `strategic_vision.manage_directions`) — voir aussi [RFC-STRAT-005](./RFC-STRAT-005%20%E2%80%94%20Stratégie%20par%20direction%20et%20vision%20stratégique.md) §6.2.
 
+## Compléments livrés (libellés métier — 2026-07)
+
+- **`lib/strategic-vision-labels.ts`** : source unique des libellés FR pour statuts objectif (`ON_TRACK` → « Sur la trajectoire », `OFF_TRACK` → « Hors trajectoire », etc.).
+- **`StrategicAxisCard`** : compteurs par statut affichés via `getObjectiveStatusLabel` / `STRATEGIC_OBJECTIVE_STATUS_OPTIONS` — **jamais** de clés enum brutes (`ON_TRACK`, `OFF_TRACK`…) en UI.
+- **`StrategicAlignmentScoreCard`** : libellés KPI en français (« Objectifs à risque », « Objectifs hors trajectoire ») — aligné règle *valeur affichée, pas ID*.
+
 ## 1) Contexte UX
 
 Le module Strategic Vision côté frontend doit offrir une lecture claire de l'alignement stratégique, orientée pilotage et arbitrage.  

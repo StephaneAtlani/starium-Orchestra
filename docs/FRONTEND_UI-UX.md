@@ -84,7 +84,7 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-filter-bar` | Barre « Filtrer et trier » (titre + actions) dans un panneau liste | — |
 | `.starium-filter-chip` | Bouton filtre outline ; `--active` = fond or ; `--muted` = Réinitialiser | — |
 | `.starium-tab-group` / `.starium-tab-btn` | Segmented control Tableau / Kanban (actif = or) | — |
-| `.starium-projects-table` | Densité et en-têtes overline du tableau portefeuille Projets | — |
+| `.starium-projects-table` | Densité et en-têtes overline du tableau portefeuille Projets ; sous-classes `starium-projects-table-label-row` (ligne libellés) et `starium-projects-table-filter-row` (filtres inline) — voir §7.2 | — |
 | `.starium-table-footer` | Pied pagination panneau liste (mockup Projets) | — |
 | `.starium-overline` | Libellé uppercase 11px (groupes compacts) | — |
 | `.starium-text-muted` | Texte secondaire lisible (descriptions, métadonnées, sous-titres module) — `neutral-600` | — |
@@ -349,8 +349,12 @@ Effet attendu : les filtres inline du tableau Projets (ligne 2 des en-têtes) re
   - **`extended`** (12 colonnes) : tableau historique dense — Catégorie, Projet (code + criticité), Nature, Santé, Statut, Mon rôle, Chef de projets, Avancement manuel/dérivé, Échéance, T · R · J, Signaux, Étiquettes ; double ligne d’en-tête + filtres inline (détail ci-dessous).
 - Bascule **Toutes les colonnes** / **Colonnes de base** dans `ProjectsToolbar` (mode Tableau uniquement).
 - **`TooltipProvider delay={250}`** ; classe racine **`starium-projects-table`** (`Table noWrapper`, `min-w-[64rem]` en mode extended).
-- **Mode extended** — première ligne d’en-tête : `HeaderTip`, `SortHeaderButton` ; colonnes Catégorie, Projet, Nature, Santé, Statut, Mon rôle, Avancement, Échéance, T · R · J, Signaux, Étiquettes.
-- **Mode extended** — deuxième ligne : filtres `Select` / `Input` (`.starium-col-filter`, `h-7`) alignés sur les colonnes ; em dash `—` sur colonnes sans filtre.
+- **Double ligne d’en-tête** (modes `basic` et `extended`) :
+  - **Ligne 1** — classe `starium-projects-table-label-row` : libellés de colonnes (`HeaderTip`, `SortHeaderButton`) ; colonne **Projet** en `rowSpan={2}` avec slot filtre dédié (`starium-projects-table-project-head`).
+  - **Ligne 2** — classe `starium-projects-table-filter-row` : `Select` / `Input` inline (`.starium-col-filter`, `h-6` en extended) alignés sous chaque colonne filtrable ; em dash `—` sur colonnes sans filtre.
+  - **CSS** (`globals.css`) : la ligne libellés supprime le `padding-bottom` des `th` (sauf colonne Projet) et `vertical-align: bottom` pour que les libellés **collent** au trait de séparation puis aux filtres — pas d’espace vide entre « Santé » et le select « Toutes ».
+- **Mode extended** — première ligne d’en-tête : colonnes Catégorie, Projet, Nature, Santé, Statut, Mon rôle, Avancement, Échéance, T · R · J, Signaux, Étiquettes.
+- **Mode extended** — deuxième ligne : filtres `Select` / `Input` sur Nature, Santé, Statut, Mon rôle, Chef de projets, etc.
 - **Lignes** : catégorie deux lignes ; lien projet `.starium-proj-name` ; barres `.starium-progress-track` / `.starium-progress-fill` ; `ProjectPortfolioBadges` `stacked` ; colonnes sticky catégorie + projet (`starium-table-sticky-edge`).
 
 ### 7.4 Liste mobile — cartes (`ProjectsListMobileView`)

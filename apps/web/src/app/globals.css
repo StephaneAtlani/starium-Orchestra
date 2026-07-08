@@ -4570,6 +4570,10 @@ table.starium-dt {
     color: var(--muted-foreground);
     border-bottom: none;
   }
+  .starium-projects-table thead tr.starium-projects-table-label-row th:not(.starium-projects-table-project-head) {
+    padding-bottom: 0 !important;
+    vertical-align: bottom;
+  }
   .starium-projects-table thead tr:first-child th[rowspan] {
     vertical-align: top;
   }

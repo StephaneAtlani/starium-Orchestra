@@ -584,6 +584,16 @@ function LoginPageContent() {
           </div>
           <div className="flex items-center justify-center p-6 md:p-8">
             <div className="w-full max-w-sm">
+              <div className="mb-6 flex justify-center md:hidden">
+                <Image
+                  src="/brand/logo-horizontal.png"
+                  alt="Starium Orchestra"
+                  width={240}
+                  height={45}
+                  priority
+                  className="h-11 w-auto object-contain"
+                />
+              </div>
               <div className="mb-6 flex items-center justify-between text-xs text-muted-foreground">
                 <Link href="/" className="hover:text-foreground">
                   Accueil

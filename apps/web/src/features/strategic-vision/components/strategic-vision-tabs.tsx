@@ -1,17 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+  AlertTriangle,
+  Building2,
+  Crosshair,
+  History,
+  LayoutGrid,
+  Link2,
+  Signpost,
+  Target,
+} from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  WorkspaceTabBar,
+  type WorkspaceTabBarItem,
+} from '@/components/layout/workspace-tab-bar';
 import type {
   StrategicAxisDto,
   StrategicDirectionDto,
@@ -70,16 +75,25 @@ export const STRATEGIC_VISION_HISTORY_PLACEHOLDER_MESSAGE =
 export const STRATEGIC_VISION_TABS: ReadonlyArray<{
   key: StrategicVisionMenuKey;
   label: string;
+  icon: ComponentType<{ className?: string }>;
 }> = [
-  { key: 'overview', label: "Vue d'ensemble" },
-  { key: 'enterprise', label: 'Vision entreprise' },
-  { key: 'directions', label: 'Directions' },
-  { key: 'axes', label: 'Axes stratégiques' },
-  { key: 'objectives', label: 'Objectifs' },
-  { key: 'alignment', label: 'Alignement' },
-  { key: 'alerts', label: 'Alertes' },
-  { key: 'history', label: 'Historique' },
+  { key: 'overview', label: "Vue d'ensemble", icon: LayoutGrid },
+  { key: 'enterprise', label: 'Vision entreprise', icon: Building2 },
+  { key: 'directions', label: 'Directions', icon: Signpost },
+  { key: 'axes', label: 'Axes stratégiques', icon: Crosshair },
+  { key: 'objectives', label: 'Objectifs', icon: Target },
+  { key: 'alignment', label: 'Alignement', icon: Link2 },
+  { key: 'alerts', label: 'Alertes', icon: AlertTriangle },
+  { key: 'history', label: 'Historique', icon: History },
 ] as const;
+
+const STRATEGIC_VISION_TAB_BAR_ITEMS: WorkspaceTabBarItem[] = STRATEGIC_VISION_TABS.map(
+  (tab) => ({
+    id: tab.key,
+    label: tab.label,
+    icon: tab.icon,
+  }),
+);
 
 function QueryStateBlock({
   loadingLabel,
@@ -188,68 +202,21 @@ export function StrategicVisionTabs({
     }
   }, [searchParams]);
 
-  const tabClass = (isActive: boolean) =>
-    cn(
-      '-mb-px border-b-2 px-1 py-3 text-sm transition-colors whitespace-nowrap',
-      isActive
-        ? 'border-[color:var(--brand-gold)] font-semibold text-[color:var(--brand-gold-700)]'
-        : 'border-transparent font-medium text-muted-foreground hover:text-foreground',
-    );
-
   return (
     <div className="space-y-5">
-      <div
-        className="border-b border-border pb-3 md:pb-0"
-        aria-label="Onglets strategic vision"
+      <WorkspaceTabBar
+        items={STRATEGIC_VISION_TAB_BAR_ITEMS}
+        activeId={activeMenu}
+        onSelect={(id) => {
+          const next = parseMenuKey(id);
+          if (next) setActiveMenu(next);
+        }}
+        ariaLabel="Sections vision stratégique"
+        mobileEyebrow="Section"
+        selectId="strategic-vision-tab-select"
+        mobileAriaLabel="Choisir une section de la vision stratégique"
         data-testid="strategic-tabs-container"
-      >
-        {/* Mobile : sélecteur compact (évite le wrap sur 8 onglets) */}
-        <div className="md:hidden">
-          <Label htmlFor="strategic-vision-tab-select" className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            Section
-          </Label>
-          <Select
-            value={activeMenu}
-            onValueChange={(value) => {
-              const next = parseMenuKey(value);
-              if (next) setActiveMenu(next);
-            }}
-          >
-            <SelectTrigger
-              id="strategic-vision-tab-select"
-              className="h-11 w-full min-h-11"
-              aria-label="Choisir une section de la vision stratégique"
-            >
-              <SelectValue placeholder="Choisir une section" />
-            </SelectTrigger>
-            <SelectContent>
-              {STRATEGIC_VISION_TABS.map((tab) => (
-                <SelectItem key={tab.key} value={tab.key}>
-                  {tab.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Desktop : onglets ligne */}
-        <nav
-          className="hidden flex-nowrap items-center gap-6 overflow-x-auto md:flex"
-          aria-label="Sections vision stratégique"
-        >
-          {STRATEGIC_VISION_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveMenu(tab.key)}
-              className={tabClass(activeMenu === tab.key)}
-              aria-current={activeMenu === tab.key ? 'page' : undefined}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      />
 
       <section className="space-y-4">
           {activeMenu === 'overview' ? (

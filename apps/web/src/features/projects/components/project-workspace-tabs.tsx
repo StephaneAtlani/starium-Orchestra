@@ -15,14 +15,10 @@ import {
   Settings,
   Split,
 } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  WorkspaceTabBar,
+  type WorkspaceTabBarItem,
+} from '@/components/layout/workspace-tab-bar';
 import { cn } from '@/lib/utils';
 import {
   projectBudget,
@@ -46,15 +42,7 @@ export type WorkspaceTabId =
   | 'scenarios'
   | 'options';
 
-function tabLinkClass(active: boolean, presentation: 'default' | 'bar') {
-  if (presentation === 'bar') {
-    return cn(
-      'starium-project-workspace-tab',
-      active && 'starium-project-workspace-tab--active',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-    );
-  }
-
+function tabLinkClass(active: boolean) {
   return cn(
     'group relative inline-flex h-[calc(100%-1px)] min-h-9 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap transition-all',
     'hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring',
@@ -216,11 +204,9 @@ function buildWorkspaceTabs(
 function WorkspaceTabLinks({
   tabs,
   tabState,
-  presentation,
 }: {
   tabs: WorkspaceTabDef[];
   tabState: ProjectWorkspaceTabState;
-  presentation: 'default' | 'bar';
 }) {
   return (
     <>
@@ -234,7 +220,7 @@ function WorkspaceTabLinks({
             role="tab"
             aria-current={active ? 'page' : undefined}
             aria-label={tab.ariaLabel ?? tab.label}
-            className={tabLinkClass(active, presentation)}
+            className={tabLinkClass(active)}
           >
             <Icon className="shrink-0" aria-hidden />
             <span className={barTabLabelClass}>{tab.label}</span>
@@ -242,90 +228,6 @@ function WorkspaceTabLinks({
         );
       })}
     </>
-  );
-}
-
-function ProjectWorkspaceTabsMobileSelect({
-  tabs,
-  activeTabId,
-}: {
-  tabs: WorkspaceTabDef[];
-  activeTabId: WorkspaceTabId;
-}) {
-  const router = useRouter();
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
-  const ActiveIcon = activeTab.icon;
-
-  return (
-    <div className="starium-project-workspace-tabs-mobile max-md:block md:hidden">
-      <Label htmlFor="project-workspace-tab-select" className="sr-only">
-        Section du projet
-      </Label>
-      <Select
-        value={activeTabId}
-        onValueChange={(value) => {
-          if (!value) return;
-          const next = tabs.find((t) => t.id === value);
-          if (next) router.push(next.href);
-        }}
-      >
-        <SelectTrigger
-          id="project-workspace-tab-select"
-          className="starium-project-workspace-tabs-mobile__trigger"
-          aria-label="Choisir une section du projet"
-        >
-          <SelectValue>
-            <span className="flex min-w-0 flex-1 items-center gap-3">
-              <span
-                className="starium-synthesis-icon-well starium-project-workspace-tabs-mobile__icon-well"
-                aria-hidden
-              >
-                <ActiveIcon className="size-[18px] shrink-0" />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                <span className="starium-project-workspace-tabs-mobile__eyebrow">
-                  Section du projet
-                </span>
-                <span className="starium-project-workspace-tabs-mobile__value truncate">
-                  {activeTab.label}
-                </span>
-              </span>
-            </span>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent align="start" sideOffset={6}>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = tab.id === activeTabId;
-            return (
-              <SelectItem
-                key={tab.id}
-                value={tab.id}
-                className={cn(
-                  'min-h-11 py-2.5 text-sm',
-                  isActive && 'starium-project-workspace-tabs-mobile__item--active',
-                )}
-              >
-                <span className="flex items-center gap-2.5">
-                  <span
-                    className={cn(
-                      'flex size-8 shrink-0 items-center justify-center rounded-md',
-                      isActive
-                        ? 'starium-synthesis-icon-well'
-                        : 'bg-muted/60 text-muted-foreground',
-                    )}
-                    aria-hidden
-                  >
-                    <Icon className="size-4 shrink-0" />
-                  </span>
-                  <span className="truncate">{tab.label}</span>
-                </span>
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }
 
@@ -345,6 +247,7 @@ export function ProjectWorkspaceTabs({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tabState = deriveProjectWorkspaceTabState(pathname, searchParams.get('tab'));
   const activeTabId = getActiveWorkspaceTabId(tabState);
 
@@ -357,25 +260,39 @@ export function ProjectWorkspaceTabs({
     [projectId, detailHref, scenariosReadOnly],
   );
 
+  const barItems = useMemo<WorkspaceTabBarItem[]>(
+    () =>
+      tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        icon: tab.icon,
+        ariaLabel: tab.ariaLabel,
+        href: tab.href,
+      })),
+    [tabs],
+  );
+
   if (presentation === 'bar') {
     return (
-      <>
-        <ProjectWorkspaceTabsMobileSelect tabs={tabs} activeTabId={activeTabId} />
-        <nav
-          className="starium-project-workspace-tabs relative z-0 hidden min-w-0 md:flex"
-          role="tablist"
-          aria-label="Navigation projet"
-        >
-          <WorkspaceTabLinks tabs={tabs} tabState={tabState} presentation="bar" />
-        </nav>
-      </>
+      <WorkspaceTabBar
+        items={barItems}
+        activeId={activeTabId}
+        onSelect={(id) => {
+          const next = tabs.find((tab) => tab.id === id);
+          if (next) router.push(next.href);
+        }}
+        ariaLabel="Navigation projet"
+        mobileEyebrow="Section du projet"
+        selectId="project-workspace-tab-select"
+        mobileAriaLabel="Choisir une section du projet"
+      />
     );
   }
 
   return (
     <div className="min-w-0 overflow-x-auto [-webkit-overflow-scrolling:touch]">
       <div role="tablist" aria-label="Navigation projet" className={tablistClassNameDefault}>
-        <WorkspaceTabLinks tabs={tabs} tabState={tabState} presentation="default" />
+        <WorkspaceTabLinks tabs={tabs} tabState={tabState} />
       </div>
     </div>
   );

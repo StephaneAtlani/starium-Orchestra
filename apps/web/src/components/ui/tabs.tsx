@@ -1,5 +1,10 @@
 "use client"
 
+/**
+ * Onglets inline (formulaires, modales, panneaux).
+ * Pour la navigation de page (bandeau icône + soulignement or, mobile sélecteur),
+ * utiliser `WorkspaceTabBar` — `@/components/layout/workspace-tab-bar`.
+ */
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 
