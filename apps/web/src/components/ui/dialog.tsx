@@ -102,7 +102,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       forceRender
       className={cn(
-        "fixed inset-0 z-[80] bg-black/40 backdrop-blur-[2px] duration-300 ease-out dark:bg-black/55 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0",
+        "fixed inset-0 z-[80] bg-black/45 backdrop-blur-[3px] duration-300 ease-out dark:bg-black/60 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0",
         className,
       )}
       onPointerDown={handlePointerDown}
@@ -113,7 +113,7 @@ function DialogOverlay({
 
 /** Modale Starium centrée (défaut) — ref. DS Modal.jsx */
 const dialogContentStariumModalClass =
-  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex min-h-0 w-full max-w-[calc(100%-2rem)] max-h-[min(92dvh,calc(100dvh-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-xl border border-border/60 bg-card p-0 text-sm shadow-xl outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95"
+  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex min-h-0 w-full max-w-[calc(100%-2rem)] max-h-[min(92dvh,calc(100dvh-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-2xl border border-[var(--ds-modal-ring)] bg-card p-0 text-sm shadow-[var(--ds-modal-shadow)] ring-1 ring-black/[0.04] outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 dark:ring-white/[0.06]"
 
 /** Legacy bottom-sheet mobile — opt-in via layout="legacy" */
 const dialogContentLegacyModalClass =
@@ -219,7 +219,7 @@ function normalizeStariumDialogChildren(children: React.ReactNode): React.ReactN
 function DialogHeaderClose({ className, ...props }: DialogPrimitive.Close.Props) {
   return (
     <DialogClose className={cn(className)} aria-label="Fermer" {...props}>
-      <XIcon className="size-[18px]" aria-hidden />
+      <XIcon className="size-[18px] stroke-[2]" aria-hidden />
     </DialogClose>
   )
 }
@@ -233,7 +233,7 @@ function DialogHeaderIcon({
 }) {
   return (
     <div className={cn("starium-modal__icon", className)} aria-hidden>
-      <Icon />
+      <Icon className="size-5 stroke-[2]" />
     </div>
   )
 }

@@ -132,4 +132,19 @@
   --ds-kpi-value-weight: 700;
 
   --ds-section-label-color: var(--ds-text-muted-color);
+
+  /* Modales Starium (header, icône, pied) */
+  --ds-modal-icon-size: 40px;
+  --ds-modal-icon-bg: color-mix(in srgb, var(--brand-gold) 14%, var(--card));
+  --ds-modal-icon-border: color-mix(in srgb, var(--brand-gold) 24%, var(--border));
+  --ds-modal-icon-color: var(--brand-gold-700);
+  --ds-modal-header-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--brand-gold) 6%, var(--card)) 0%,
+    var(--card) 100%
+  );
+  --ds-modal-body-bg: color-mix(in srgb, var(--neutral-50) 40%, var(--card));
+  --ds-modal-footer-bg: color-mix(in srgb, var(--neutral-100) 65%, var(--card));
+  --ds-modal-shadow: var(--shadow-4);
+  --ds-modal-ring: color-mix(in srgb, var(--brand-gold) 12%, var(--border));
 }
