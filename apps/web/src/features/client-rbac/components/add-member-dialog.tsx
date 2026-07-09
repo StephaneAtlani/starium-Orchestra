@@ -1,15 +1,8 @@
 'use client';
 
 import React, { useId, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { UserPlus } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useCreateClientMember } from '../hooks/use-create-client-member';
-import { UserPlus } from 'lucide-react';
 
 const ROLE_LABEL: Record<'CLIENT_ADMIN' | 'CLIENT_USER', string> = {
   CLIENT_ADMIN: 'Administrateur client',
@@ -64,7 +56,7 @@ export function AddMemberDialog() {
     setErr(null);
     const trimmed = email.trim();
     if (!trimmed) {
-      setErr('L’email est requis.');
+      setErr("L'email est requis.");
       return;
     }
 
@@ -90,25 +82,40 @@ export function AddMemberDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button" size="sm">
-            <UserPlus className="mr-2 h-4 w-4" aria-hidden />
-            Ajouter un membre
-          </Button>
+    <>
+      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="mr-2 h-4 w-4" aria-hidden />
+        Ajouter un membre
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Ajouter un membre"
+        description="Compte déjà présent sur la plateforme : saisissez l'email sans mot de passe. Sinon, mot de passe initial (≥ 8 caractères) pour créer le compte et le rattacher à ce client."
+        icon={UserPlus}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => handleOpenChange(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form={formId}
+              className="min-h-11 sm:min-h-9"
+              disabled={createMember.isPending}
+            >
+              {createMember.isPending ? 'Enregistrement…' : 'Ajouter'}
+            </Button>
+          </>
         }
-      />
-      <DialogContent className="sm:max-w-md" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Ajouter un membre</DialogTitle>
-          <DialogDescription>
-            Compte déjà présent sur la plateforme : saisissez l’email sans mot
-            de passe. Sinon, mot de passe initial (≥ 8 caractères) pour créer le
-            compte et le rattacher à ce client.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={(e) => void submit(e)} className="space-y-3">
+      >
+        <form id={formId} onSubmit={(e) => void submit(e)} className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor={`${formId}-email`}>Email</Label>
             <Input
@@ -170,10 +177,10 @@ export function AddMemberDialog() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={8}
-              placeholder="Obligatoire si le compte n’existe pas encore"
+              placeholder="Obligatoire si le compte n'existe pas encore"
             />
             <p className="text-xs text-muted-foreground">
-              Si l’email existe déjà sur la plateforme, laissez vide : le membre
+              Si l'email existe déjà sur la plateforme, laissez vide : le membre
               est rattaché sans changer son mot de passe.
             </p>
           </div>
@@ -188,7 +195,7 @@ export function AddMemberDialog() {
               <span className="font-medium">Masquer ce compte au catalogue de ressources</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Par défaut, une fiche Humaine est créée pour le planning. Cochez pour ne pas
-                l’exposer dans le catalogue sur ce client.
+                l'exposer dans le catalogue sur ce client.
               </span>
             </span>
           </label>
@@ -197,20 +204,8 @@ export function AddMemberDialog() {
               {err}
             </p>
           )}
-          <DialogFooter showCloseButton={false} className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={createMember.isPending}>
-              {createMember.isPending ? 'Enregistrement…' : 'Ajouter'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }

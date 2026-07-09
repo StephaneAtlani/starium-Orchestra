@@ -1,14 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { ClipboardList } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,80 +85,17 @@ export function ActionPlanCreateDialog({
   }
 
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
         if (!next) resetCreateForm();
       }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Nouveau plan d&apos;action</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="ap-titre">Titre</Label>
-            <Input
-              id="ap-titre"
-              value={formTitle}
-              onChange={(e) => onTitleChange(e.target.value)}
-              placeholder="Ex. Plan conformité Q2"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ap-code">Code</Label>
-            <Input
-              id="ap-code"
-              value={formCode}
-              onChange={(e) => onCodeChange(e.target.value)}
-              placeholder="Rempli automatiquement depuis le titre"
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              Généré à partir du titre (préfixe PA-) ; vous pouvez le modifier.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="ap-create-status">Statut</Label>
-              <Select
-                value={formStatus}
-                onValueChange={(v) => setFormStatus(v ?? 'DRAFT')}
-              >
-                <SelectTrigger id="ap-create-status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACTION_PLAN_STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="ap-create-priority">Priorité</Label>
-              <Select
-                value={formPriority}
-                onValueChange={(v) => setFormPriority(v ?? 'MEDIUM')}
-              >
-                <SelectTrigger id="ap-create-priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACTION_PLAN_PRIORITY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
+      title="Nouveau plan d'action"
+      icon={ClipboardList}
+      size="md"
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -174,8 +106,71 @@ export function ActionPlanCreateDialog({
           >
             {creating ? 'Création…' : 'Créer'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="ap-titre">Titre</Label>
+          <Input
+            id="ap-titre"
+            value={formTitle}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder="Ex. Plan conformité Q2"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ap-code">Code</Label>
+          <Input
+            id="ap-code"
+            value={formCode}
+            onChange={(e) => onCodeChange(e.target.value)}
+            placeholder="Rempli automatiquement depuis le titre"
+            className="font-mono text-sm"
+          />
+          <p className="text-xs text-muted-foreground">
+            Généré à partir du titre (préfixe PA-) ; vous pouvez le modifier.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="ap-create-status">Statut</Label>
+            <Select
+              value={formStatus}
+              onValueChange={(v) => setFormStatus(v ?? 'DRAFT')}
+            >
+              <SelectTrigger id="ap-create-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTION_PLAN_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ap-create-priority">Priorité</Label>
+            <Select
+              value={formPriority}
+              onValueChange={(v) => setFormPriority(v ?? 'MEDIUM')}
+            >
+              <SelectTrigger id="ap-create-priority">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTION_PLAN_PRIORITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </StariumModal>
   );
 }

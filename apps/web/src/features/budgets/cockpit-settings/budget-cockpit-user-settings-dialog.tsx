@@ -26,16 +26,8 @@ import type {
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -219,56 +211,68 @@ export function BudgetCockpitUserSettingsDialog({
   const total = draftWidgets.length;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className="flex max-h-[min(90vh,800px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
-      >
-        {/* §11.3.1 — bandeau d’en-tête ; corps scrollable ; pied toujours visible (évite footer hors viewport) */}
-        <DialogHeader className="shrink-0 space-y-3 rounded-t-xl border-b border-border/60 bg-card px-4 pb-4 pt-4 text-left shadow-sm sm:px-6 sm:pl-8 sm:pt-5">
-          <div className="pr-8">
-            <div className="flex flex-wrap items-center gap-2 gap-y-1">
-              <DialogTitle className="text-left text-lg font-semibold tracking-tight text-foreground">
-                {title}
-              </DialogTitle>
-              <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
-                Cockpit
-              </Badge>
-            </div>
-            <DialogDescription className="mt-2 text-left text-sm text-muted-foreground">
-              {description}
-            </DialogDescription>
-          </div>
-          <div
-            className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-            role="status"
-            aria-live="polite"
-          >
-            <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
-            <span>
-              <span className="font-medium tabular-nums text-foreground">{activeCount}</span>
-              {' actif'}
-              {activeCount > 1 ? 's' : ''} sur {total}
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+      icon={LayoutGrid}
+      size="xl"
+      contentClassName="flex max-h-[min(90vh,800px)] flex-col gap-0 overflow-hidden p-0"
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6"
+      status={
+        <>
+          <LayoutGrid className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+          <span>
+            <span className="font-medium tabular-nums text-foreground">{activeCount}</span>
+            {' actif'}
+            {activeCount > 1 ? 's' : ''} sur {total}
+          </span>
+          {saveMutation.isPending ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground">
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+              Enregistrement…
             </span>
-            {saveMutation.isPending ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground">
-                <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
-                Enregistrement…
-              </span>
-            ) : dirty ? (
-              <span className="rounded-md border border-amber-600/50 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950 shadow-sm dark:border-amber-500/60 dark:bg-amber-950/90 dark:text-amber-50 dark:shadow-none">
-                En attente d’enregistrement…
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-950 dark:border-emerald-500/50 dark:bg-emerald-950/70 dark:text-emerald-50">
-                <Check className="size-3.5 shrink-0" aria-hidden />
-                À jour
-              </span>
-            )}
-          </div>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+          ) : dirty ? (
+            <span className="rounded-md border border-amber-600/50 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950 shadow-sm dark:border-amber-500/60 dark:bg-amber-950/90 dark:text-amber-50 dark:shadow-none">
+              En attente d’enregistrement…
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/40 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-950 dark:border-emerald-500/50 dark:bg-emerald-950/70 dark:text-emerald-50">
+              <Check className="size-3.5 shrink-0" aria-hidden />
+              À jour
+            </span>
+          )}
+        </>
+      }
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-border/80"
+            disabled={!dirty || saveMutation.isPending}
+            onClick={() => {
+              setDraftWidgets(initialWidgets);
+              setDirty(false);
+            }}
+          >
+            <RotateCcw className="mr-2 size-4" aria-hidden />
+            Réinitialiser
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            disabled={saveMutation.isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            Fermer
+          </Button>
+        </>
+      }
+    >
           {saveMutation.isError ? (
             <Alert variant="destructive" className="border-destructive/40">
               <AlertCircle className="size-4" aria-hidden />
@@ -490,34 +494,6 @@ export function BudgetCockpitUserSettingsDialog({
               </Table>
             </div>
           </div>
-        </div>
-
-        <DialogFooter className="!mx-0 !mb-0 shrink-0 sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-border/80"
-            disabled={!dirty || saveMutation.isPending}
-            onClick={() => {
-              setDraftWidgets(initialWidgets);
-              setDirty(false);
-            }}
-          >
-            <RotateCcw className="mr-2 size-4" aria-hidden />
-            Réinitialiser
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            disabled={saveMutation.isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

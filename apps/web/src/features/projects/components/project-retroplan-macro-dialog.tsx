@@ -3,15 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import { Plus, Trash2 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { CalendarClock, Plus, Trash2 } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +35,7 @@ function todayIsoDate(): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Même logique que l’API (date-only → UTC midi, − n jours calendaires). */
+/** Même logique que l'API (date-only → UTC midi, − n jours calendaires). */
 function formatComputedTargetDate(
   anchorEndDate: string,
   daysBeforeEndStr: string,
@@ -139,124 +132,21 @@ export function ProjectRetroplanMacroDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Rétroplanning macro</DialogTitle>
-          <DialogDescription>
-            Définissez une <strong>date de fin</strong> (livraison cible), puis des étapes avec
-            leur <strong>écart en jours avant cette fin</strong>. Chaque étape devient un jalon
-            planifié — du plus proche de la fin au plus éloigné.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-1">
-          <div className="space-y-2">
-            <Label htmlFor="retro-anchor">Date de fin (ancrage)</Label>
-            <Input
-              id="retro-anchor"
-              type="date"
-              value={anchorEndDate}
-              onChange={(e) => setAnchorEndDate(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Par défaut : échéance cible du projet si renseignée.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Étapes (macro)</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={() => setSteps((prev) => [...prev, { name: '', daysBeforeEnd: '14' }])}
-              >
-                <Plus className="mr-1 size-3.5" />
-                Étape
-              </Button>
-            </div>
-            <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
-              {steps.map((row, i) => {
-                const computedDate = formatComputedTargetDate(anchorEndDate, row.daysBeforeEnd);
-                return (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-border/50 bg-muted/15 p-2 sm:border-0 sm:bg-transparent sm:p-0"
-                  >
-                    <div className="flex flex-wrap items-end gap-2">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <span className="text-[10px] uppercase text-muted-foreground">Libellé</span>
-                        <Input
-                          value={row.name}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setSteps((prev) => {
-                              const next = [...prev];
-                              next[i] = { ...next[i], name: v };
-                              return next;
-                            });
-                          }}
-                          placeholder="Ex. Recette"
-                          maxLength={500}
-                        />
-                      </div>
-                      <div className="w-full space-y-1 sm:w-28">
-                        <span className="text-[10px] uppercase text-muted-foreground">
-                          J. avant fin
-                        </span>
-                        <Input
-                          inputMode="numeric"
-                          value={row.daysBeforeEnd}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setSteps((prev) => {
-                              const next = [...prev];
-                              next[i] = { ...next[i], daysBeforeEnd: v };
-                              return next;
-                            });
-                          }}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="w-full min-w-0 space-y-1 sm:w-[9.5rem]">
-                        <span className="text-[10px] uppercase text-muted-foreground">
-                          Date cible
-                        </span>
-                        <div
-                          className="flex h-9 items-center rounded-md border border-transparent bg-background/80 px-2.5 text-sm tabular-nums text-foreground sm:border-input sm:bg-background"
-                          title="Calcul : date de fin − jours avant fin"
-                        >
-                          {computedDate ?? '—'}
-                        </div>
-                      </div>
-                      {steps.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 text-muted-foreground hover:text-destructive"
-                          aria-label={`Supprimer l’étape ${i + 1}`}
-                          onClick={() =>
-                            setSteps((prev) =>
-                              prev.length <= 1 ? prev : prev.filter((_, j) => j !== i),
-                            )
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-0">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Rétroplanning macro"
+      description={
+        <>
+          Définissez une <strong>date de fin</strong> (livraison cible), puis des étapes avec leur{' '}
+          <strong>écart en jours avant cette fin</strong>. Chaque étape devient un jalon planifié —
+          du plus proche de la fin au plus éloigné.
+        </>
+      }
+      icon={CalendarClock}
+      size="lg"
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -267,8 +157,114 @@ export function ProjectRetroplanMacroDialog({
           >
             {mutation.isPending ? 'Création…' : 'Créer les jalons'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="retro-anchor">Date de fin (ancrage)</Label>
+          <Input
+            id="retro-anchor"
+            type="date"
+            value={anchorEndDate}
+            onChange={(e) => setAnchorEndDate(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Par défaut : échéance cible du projet si renseignée.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label>Étapes (macro)</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setSteps((prev) => [...prev, { name: '', daysBeforeEnd: '14' }])}
+            >
+              <Plus className="mr-1 size-3.5" />
+              Étape
+            </Button>
+          </div>
+          <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+            {steps.map((row, i) => {
+              const computedDate = formatComputedTargetDate(anchorEndDate, row.daysBeforeEnd);
+              return (
+                <div
+                  key={i}
+                  className="rounded-lg border border-border/50 bg-muted/15 p-2 sm:border-0 sm:bg-transparent sm:p-0"
+                >
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <span className="text-[10px] uppercase text-muted-foreground">Libellé</span>
+                      <Input
+                        value={row.name}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setSteps((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...next[i], name: v };
+                            return next;
+                          });
+                        }}
+                        placeholder="Ex. Recette"
+                        maxLength={500}
+                      />
+                    </div>
+                    <div className="w-full space-y-1 sm:w-28">
+                      <span className="text-[10px] uppercase text-muted-foreground">
+                        J. avant fin
+                      </span>
+                      <Input
+                        inputMode="numeric"
+                        value={row.daysBeforeEnd}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setSteps((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...next[i], daysBeforeEnd: v };
+                            return next;
+                          });
+                        }}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="w-full min-w-0 space-y-1 sm:w-[9.5rem]">
+                      <span className="text-[10px] uppercase text-muted-foreground">
+                        Date cible
+                      </span>
+                      <div
+                        className="flex h-9 items-center rounded-md border border-transparent bg-background/80 px-2.5 text-sm tabular-nums text-foreground sm:border-input sm:bg-background"
+                        title="Calcul : date de fin − jours avant fin"
+                      >
+                        {computedDate ?? '—'}
+                      </div>
+                    </div>
+                    {steps.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Supprimer l'étape ${i + 1}`}
+                        onClick={() =>
+                          setSteps((prev) =>
+                            prev.length <= 1 ? prev : prev.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </StariumModal>
   );
 }

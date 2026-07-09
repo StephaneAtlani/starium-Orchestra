@@ -1,15 +1,8 @@
 'use client';
 
+import { Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import {
   MilestoneFormDialogFields,
   type MilestoneFormDialogFieldsProps,
@@ -35,26 +28,20 @@ export function MilestoneFormDialog({
   const canSubmit = form.name.trim().length > 0 && !isSubmitting;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton size="lg">
-        <DialogHeader>
-          <div className="pr-8">
-            <DialogTitle className="text-left">
-              {editing ? 'Modifier le jalon' : 'Nouveau jalon'}
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-left">
-              {editing
-                ? 'Mettre à jour le repère temporel et la liaison éventuelle avec une tâche.'
-                : 'Définir un jalon sur la ligne de temps du projet ; liaison avec une tâche optionnelle.'}
-            </DialogDescription>
-          </div>
-        </DialogHeader>
-
-        <DialogBody className="min-h-0 flex-1 py-4">
-          <MilestoneFormDialogFields form={form} {...fieldsProps} />
-        </DialogBody>
-
-        <DialogFooter>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? 'Modifier le jalon' : 'Nouveau jalon'}
+      description={
+        editing
+          ? 'Mettre à jour le repère temporel et la liaison éventuelle avec une tâche.'
+          : 'Définir un jalon sur la ligne de temps du projet ; liaison avec une tâche optionnelle.'
+      }
+      icon={Flag}
+      size="lg"
+      bodyClassName="min-h-0 flex-1 py-4"
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -67,8 +54,10 @@ export function MilestoneFormDialog({
                 ? 'Enregistrer'
                 : 'Créer'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <MilestoneFormDialogFields form={form} {...fieldsProps} />
+    </StariumModal>
   );
 }

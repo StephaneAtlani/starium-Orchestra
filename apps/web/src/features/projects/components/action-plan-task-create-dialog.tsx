@@ -12,15 +12,8 @@ import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -427,57 +420,69 @@ export function ActionPlanTaskCreateDialog({
     : 'Enregistrement au clic sur « Créer la tâche » (pas d’autosave).';
 
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(o) => {
         onOpenChange(o);
         if (!o) resetTaskForm();
       }}
-    >
-      <DialogContent
-        showCloseButton
-        className="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
-      >
-        <DialogHeader>
-          <div className="pr-8">
-            <div className="flex flex-wrap items-center gap-2 gap-y-1">
-              <DialogTitle className="text-left">{dialogTitle}</DialogTitle>
-              {hasPrefill ? (
-                <RegistryBadge className="shrink-0 border border-border bg-muted/50 text-muted-foreground">
-                  Prérempli (risque)
-                </RegistryBadge>
-              ) : null}
-            </div>
-            <DialogDescription className="mt-2 text-left">{headerDescription}</DialogDescription>
-          </div>
-          <div
-            className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-            role="status"
-            aria-live="polite"
+      title={
+        <span className="flex flex-wrap items-center gap-2 gap-y-1">
+          {dialogTitle}
+          {hasPrefill ? (
+            <RegistryBadge className="shrink-0 border border-border bg-muted/50 text-muted-foreground">
+              Prérempli (risque)
+            </RegistryBadge>
+          ) : null}
+        </span>
+      }
+      description={headerDescription}
+      icon={ClipboardList}
+      size="xl"
+      contentClassName="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
+      status={
+        creating ? (
+          <>
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+            <span>Création en cours…</span>
+          </>
+        ) : (
+          <>
+            <CloudUpload className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+            <span>{statusHint}</span>
+          </>
+        )
+      }
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="submit"
+            form="ap-task-create-form"
+            disabled={
+              creating ||
+              !tName.trim() ||
+              !effectivePlanId ||
+              (needsPlanPick && !actionPlansQuery.data?.items?.length)
+            }
           >
-            {creating ? (
-              <>
-                <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
-                <span>Création en cours…</span>
-              </>
-            ) : (
-              <>
-                <CloudUpload className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
-                <span>{statusHint}</span>
-              </>
-            )}
-          </div>
-        </DialogHeader>
-
-        <form
-          className="flex min-h-0 flex-1 flex-col gap-0"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void onCreateTask();
-          }}
-          noValidate
-        >
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
+            {creating ? 'Création…' : 'Créer la tâche'}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="ap-task-create-form"
+        className="flex min-h-0 flex-1 flex-col gap-0"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void onCreateTask();
+        }}
+        noValidate
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
             <div className="space-y-4 sm:space-y-5">
             {hasPrefill ? (
               <div className={dialogBodyEncartClass} role="note" aria-label="Contexte préremplissage">
@@ -845,26 +850,7 @@ export function ActionPlanTaskCreateDialog({
               </Alert>
             </div>
           ) : null}
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={
-                creating ||
-                !tName.trim() ||
-                !effectivePlanId ||
-                (needsPlanPick && !actionPlansQuery.data?.items?.length)
-              }
-              onClick={() => void onCreateTask()}
-            >
-              {creating ? 'Création…' : 'Créer la tâche'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </StariumModal>
   );
 }

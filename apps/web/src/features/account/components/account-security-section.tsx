@@ -16,13 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { KeyRound, Shield, ShieldOff } from 'lucide-react';
 
 export function AccountSecuritySection() {
   const router = useRouter();
@@ -176,13 +171,38 @@ function ChangePasswordDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline">Changer le mot de passe</Button>} />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Changer le mot de passe</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={(e) => void submit(e)} className="space-y-3">
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Changer le mot de passe
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Changer le mot de passe"
+        icon={KeyRound}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form="change-password-form"
+              className="min-h-11 sm:min-h-9"
+              disabled={pending || !accessToken}
+            >
+              {pending ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
+        }
+      >
+        <form id="change-password-form" onSubmit={(e) => void submit(e)} className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="cur-pw">Mot de passe actuel</Label>
             <Input
@@ -222,21 +242,9 @@ function ChangePasswordDialog({
               {err}
             </p>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending || !accessToken}>
-              {pending ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }
 
@@ -305,7 +313,7 @@ function EnrollTwoFactorFlow({
       <Button onClick={() => void start()} disabled={pending}>
         {pending ? 'Préparation…' : 'Activer la 2FA'}
       </Button>
-      <Dialog
+      <StariumModal
         open={open}
         onOpenChange={(o) => {
           if (!o) {
@@ -318,17 +326,46 @@ function EnrollTwoFactorFlow({
             setOpen(o);
           }
         }}
+        title={
+          step === 'codes'
+            ? 'Codes de secours'
+            : 'Scanner le QR code (Google Authenticator, etc.)'
+        }
+        icon={Shield}
+        size="lg"
+        bodyClassName="max-h-[70vh] overflow-y-auto"
+        footer={
+          step === 'qr' ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 sm:min-h-9"
+                onClick={() => setOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                form="enroll-2fa-form"
+                className="min-h-11 sm:min-h-9"
+                disabled={pending}
+              >
+                {pending ? 'Vérification…' : 'Activer'}
+              </Button>
+            </>
+          ) : recoveryCodes ? (
+            <Button
+              className="min-h-11 sm:min-h-9 w-full sm:w-auto"
+              onClick={() => finishAndClose()}
+            >
+              J'ai noté les codes
+            </Button>
+          ) : undefined
+        }
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {step === 'codes'
-                ? 'Codes de secours'
-                : 'Scanner le QR code (Google Authenticator, etc.)'}
-            </DialogTitle>
-          </DialogHeader>
-          {step === 'qr' && enroll && (
-            <form onSubmit={(e) => void confirmEnroll(e)} className="space-y-4">
+        {step === 'qr' && enroll && (
+          <form id="enroll-2fa-form" onSubmit={(e) => void confirmEnroll(e)} className="space-y-4">
               <div className="flex justify-center rounded-lg border bg-white p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL from API */}
                 <img
@@ -359,38 +396,22 @@ function EnrollTwoFactorFlow({
                   {err}
                 </p>
               )}
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setOpen(false)}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit" disabled={pending}>
-                  {pending ? 'Vérification…' : 'Activer'}
-                </Button>
-              </div>
-            </form>
-          )}
-          {step === 'codes' && recoveryCodes && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Conservez ces codes en lieu sûr ; chaque code ne fonctionne
-                qu’une fois.
-              </p>
-              <ul className="rounded-md border bg-muted/40 p-3 font-mono text-sm">
-                {recoveryCodes.map((c) => (
-                  <li key={c}>{c}</li>
-                ))}
-              </ul>
-              <Button className="w-full" onClick={() => finishAndClose()}>
-                J’ai noté les codes
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </form>
+        )}
+        {step === 'codes' && recoveryCodes && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Conservez ces codes en lieu sûr ; chaque code ne fonctionne
+              qu'une fois.
+            </p>
+            <ul className="rounded-md border bg-muted/40 p-3 font-mono text-sm">
+              {recoveryCodes.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </StariumModal>
     </>
   );
 }
@@ -426,15 +447,39 @@ function DisableTwoFactorDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button variant="outline">Désactiver la 2FA</Button>}
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Désactiver la 2FA</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={(e) => void submit(e)} className="space-y-3">
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Désactiver la 2FA
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Désactiver la 2FA"
+        icon={ShieldOff}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form="disable-2fa-form"
+              variant="destructive"
+              className="min-h-11 sm:min-h-9"
+              disabled={pending}
+            >
+              {pending ? 'Désactivation…' : 'Désactiver'}
+            </Button>
+          </>
+        }
+      >
+        <form id="disable-2fa-form" onSubmit={(e) => void submit(e)} className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="dis-pw">Mot de passe actuel</Label>
             <Input
@@ -460,16 +505,8 @@ function DisableTwoFactorDialog({
               {err}
             </p>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" variant="destructive" disabled={pending}>
-              {pending ? 'Désactivation…' : 'Désactiver'}
-            </Button>
-          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }

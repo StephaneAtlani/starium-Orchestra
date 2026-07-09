@@ -14,13 +14,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { toast } from '@/lib/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { AlertTriangle } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -191,12 +186,33 @@ export function ScenarioRiskPanel({ projectId, scenario, canMutate }: Props) {
         </Table>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nouveau risque scénario</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
+      <StariumModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Nouveau risque scénario"
+        icon={AlertTriangle}
+        size="md"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                createMutation.isPending ||
+                title.trim().length === 0 ||
+                Number.isNaN(Number.parseInt(probability, 10)) ||
+                Number.isNaN(Number.parseInt(impact, 10))
+              }
+              onClick={() => createMutation.mutate()}
+            >
+              Créer
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3">
             <div className="grid gap-2">
               <Label htmlFor="sr-title">Titre</Label>
               <Input id="sr-title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -223,26 +239,8 @@ export function ScenarioRiskPanel({ projectId, scenario, canMutate }: Props) {
                 onChange={(e) => setImpact(e.target.value)}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={
-                createMutation.isPending ||
-                title.trim().length === 0 ||
-                Number.isNaN(Number.parseInt(probability, 10)) ||
-                Number.isNaN(Number.parseInt(impact, 10))
-              }
-              onClick={() => createMutation.mutate()}
-            >
-              Créer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </StariumModal>
     </div>
   );
 }

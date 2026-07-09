@@ -17,13 +17,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { toast } from '@/lib/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Users } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -268,12 +263,29 @@ export function ScenarioResourcePanel({ projectId, scenario, canMutate }: Props)
         </Table>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouveau plan ressource</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
+      <StariumModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Nouveau plan ressource"
+        icon={Users}
+        size="md"
+        contentClassName="max-h-[90vh] overflow-y-auto"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={createMutation.isPending || !resourceId}
+              onClick={() => createMutation.mutate()}
+            >
+              Créer
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3">
             <div className="grid gap-2">
               <Label htmlFor="resource-plan-search">Ressource humaine</Label>
               <Input
@@ -346,21 +358,8 @@ export function ScenarioResourcePanel({ projectId, scenario, canMutate }: Props)
                 placeholder="ex. 10"
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={createMutation.isPending || !resourceId}
-              onClick={() => createMutation.mutate()}
-            >
-              Créer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </StariumModal>
     </div>
   );
 }

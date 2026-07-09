@@ -2,12 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -112,11 +107,18 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-hidden border-border p-0 gap-0 sm:max-w-xl">
-        <DialogHeader className="border-b border-border px-4 py-3 text-left">
-          <DialogTitle className="text-base font-semibold">Recherche globale</DialogTitle>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Recherche globale"
+      icon={Search}
+      headless
+      contentClassName="max-h-[85vh] max-w-lg overflow-hidden border-border p-0 gap-0 sm:max-w-xl"
+      bodyClassName="p-0"
+    >
+        <header className="border-b border-border px-4 py-3 text-left">
+          <h2 className="text-base font-semibold">Recherche globale</h2>
+        </header>
         <div className="border-b border-border px-3 py-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -187,7 +189,6 @@ export function GlobalSearchDialog({ open, onOpenChange }: GlobalSearchDialogPro
             </div>
           ) : null}
         </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

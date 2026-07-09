@@ -23,25 +23,15 @@ vi.mock('@/context/auth-context', () => ({
   useAuth: () => ({ user: { id: 'u-current' } }),
 }));
 
-vi.mock('@/components/ui/dialog', () => {
-  const Dialog = ({
+vi.mock('@/components/layout/form-dialog-shell', () => {
+  const StariumModal = ({
     open,
     children,
   }: {
     open?: boolean;
     children: React.ReactNode;
   }) => (open ? <div data-testid="dialog-mock">{children}</div> : null);
-  const Pass = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-  return {
-    Dialog,
-    DialogContent: Pass,
-    DialogDescription: Pass,
-    DialogFooter: Pass,
-    DialogHeader: Pass,
-    DialogTitle: Pass,
-    DialogTrigger: Pass,
-    DialogClose: Pass,
-  };
+  return { StariumModal };
 });
 
 import { ResourceAclTriggerButton } from './resource-acl-trigger-button';

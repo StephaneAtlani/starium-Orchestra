@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ChevronLeft,
   Eye,
+  History,
   Info,
   LayoutDashboard,
   Layers3,
@@ -20,6 +21,7 @@ import {
   Pencil,
   Percent,
   Plus,
+  Scale,
   Split,
   Trash2,
   TrendingUp,
@@ -30,14 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -94,6 +89,8 @@ import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-
 import { ProjectRetroplanMacroDialog } from './project-retroplan-macro-dialog';
 import { CreateScenarioDialog } from '../scenarios/CreateScenarioDialog';
 import { ScenarioWorkspacePage } from '../scenario-workspace/ScenarioWorkspacePage';
+import { ProjectParentField } from './project-parent-edit-field';
+import { ProjectHierarchyBreadcrumb } from './project-hierarchy-breadcrumb';
 import { ProjectDocumentsSection } from './project-documents-section';
 import { ProjectRaciMatrix } from './project-raci-matrix';
 import { ProjectTeamMatrix } from './project-team-matrix';
@@ -1244,6 +1241,11 @@ export function ProjectSheetView({
               <span className="text-muted-foreground">Nature : </span>
               {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
             </div>
+            {embedMode === 'page' && projectDetailQuery.data ? (
+              <div className="sm:col-span-2">
+                <ProjectParentField project={projectDetailQuery.data} />
+              </div>
+            ) : null}
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
               <span className="text-sm text-muted-foreground shrink-0">Statut :</span>
               {canEdit ? (
@@ -2579,47 +2581,41 @@ export function ProjectSheetView({
         }}
       />
 
-      <Dialog
+      <StariumModal
         open={scenarioWorkspaceModal !== null}
         onOpenChange={(open) => {
           if (!open) setScenarioWorkspaceModal(null);
         }}
+        title="Détail scénario"
+        description="Édition et synthèses du scénario ouvert depuis la fiche projet."
+        headless
+        size="xl"
+        contentClassName={cn(
+          'flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[min(96vw,1200px)] flex-col gap-0 overflow-hidden p-0',
+          'border-border/60 bg-background shadow-2xl ring-1 ring-black/[0.06] sm:max-w-[min(96vw,1200px)]',
+          'dark:ring-white/[0.08]',
+        )}
       >
-        <DialogContent
-          className={cn(
-            'flex max-h-[min(92vh,900px)] w-[min(96vw,1200px)] max-w-[min(96vw,1200px)] flex-col gap-0 overflow-hidden p-0',
-            'border-border/60 bg-background shadow-2xl ring-1 ring-black/[0.06] sm:max-w-[min(96vw,1200px)]',
-            'dark:ring-white/[0.08]',
-          )}
-          showCloseButton
-        >
-          <div className="sr-only">
-            <DialogTitle>Détail scénario</DialogTitle>
-            <DialogDescription>
-              Édition et synthèses du scénario ouvert depuis la fiche projet.
-            </DialogDescription>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 border-b border-border/50 bg-background/80 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5 sm:pr-14">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Workspace scénario
+            </p>
+            <p className="mt-0.5 text-sm text-foreground/90">Fiche projet — aperçu rapide</p>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 border-b border-border/50 bg-background/80 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5 sm:pr-14">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Workspace scénario
-              </p>
-              <p className="mt-0.5 text-sm text-foreground/90">Fiche projet — aperçu rapide</p>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-6 sm:pb-7 sm:pr-14 sm:pt-5">
-              {scenarioWorkspaceModal ? (
-                <ScenarioWorkspacePage
-                  projectId={projectId}
-                  scenarioId={scenarioWorkspaceModal.id}
-                  embedded
-                  embedForceReadOnly={scenarioWorkspaceModal.mode === 'view'}
-                  onEmbeddedDismiss={() => setScenarioWorkspaceModal(null)}
-                />
-              ) : null}
-            </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4 sm:px-6 sm:pb-7 sm:pr-14 sm:pt-5">
+            {scenarioWorkspaceModal ? (
+              <ScenarioWorkspacePage
+                projectId={projectId}
+                scenarioId={scenarioWorkspaceModal.id}
+                embedded
+                embedForceReadOnly={scenarioWorkspaceModal.mode === 'view'}
+                onEmbeddedDismiss={() => setScenarioWorkspaceModal(null)}
+              />
+            ) : null}
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </StariumModal>
 
       <ProjectDocumentsSection projectId={projectId} />
       </>
@@ -2627,7 +2623,7 @@ export function ProjectSheetView({
 
       {embedMode === 'page' ? (
         <>
-          <Dialog
+          <StariumModal
             open={snapshotDialogOpen}
             onOpenChange={(open) => {
               if (!open) {
@@ -2635,25 +2631,26 @@ export function ProjectSheetView({
                 setPendingArbValidation(null);
               }
             }}
-          >
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Confirmer la décision</DialogTitle>
-                <DialogDescription>
-                  <span className="block space-y-2">
-                    <span className="block">
-                      Changement : « {LEVEL_STATUS_LABEL[pendingArbValidation?.previousValue ?? 'BROUILLON']} » → «{' '}
-                      {LEVEL_STATUS_LABEL[pendingArbValidation?.next ?? 'BROUILLON']} » pour ce niveau
-                      d&apos;arbitrage.
-                    </span>
-                    <span className="block">
-                      La version actuelle de la fiche sera ajoutée à l&apos;historique des décisions.
-                      Souhaitez-vous continuer ?
-                    </span>
+            title="Confirmer la décision"
+            description={
+              <>
+                <span className="block space-y-2">
+                  <span className="block">
+                    Changement : « {LEVEL_STATUS_LABEL[pendingArbValidation?.previousValue ?? 'BROUILLON']} » → «{' '}
+                    {LEVEL_STATUS_LABEL[pendingArbValidation?.next ?? 'BROUILLON']} » pour ce niveau
+                    d&apos;arbitrage.
                   </span>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <span className="block">
+                    La version actuelle de la fiche sera ajoutée à l&apos;historique des décisions.
+                    Souhaitez-vous continuer ?
+                  </span>
+                </span>
+              </>
+            }
+            icon={Scale}
+            size="md"
+            footer={
+              <>
                 <Button
                   type="button"
                   variant="outline"
@@ -2667,11 +2664,13 @@ export function ProjectSheetView({
                 <Button type="button" onClick={confirmPendingArbitrationDecision}>
                   Continuer
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </>
+            }
+          >
+            <></>
+          </StariumModal>
 
-          <Dialog
+          <StariumModal
             open={historyDialogOpen}
             onOpenChange={(open) => {
               setHistoryDialogOpen(open);
@@ -2679,15 +2678,12 @@ export function ProjectSheetView({
                 setSelectedSnapshotId(null);
               }
             }}
+            title="Historique des décisions"
+            description="Snapshots lors d'un changement de statut impliquant « Validé » ou « Refusé » (entrée ou sortie). Sélectionnez une entrée pour ouvrir la fiche complète en lecture seule."
+            icon={History}
+            size="xl"
+            contentClassName="max-h-[min(90vh,720px)] w-[75vw] max-w-[75vw] overflow-hidden sm:max-w-[75vw]"
           >
-            <DialogContent className="max-h-[min(90vh,720px)] w-[75vw] max-w-[75vw] overflow-hidden sm:max-w-[75vw]">
-              <DialogHeader>
-                <DialogTitle>Historique des décisions</DialogTitle>
-                <DialogDescription>
-                  Snapshots lors d&apos;un changement de statut impliquant « Validé » ou « Refusé » (entrée ou
-                  sortie). Sélectionnez une entrée pour ouvrir la fiche complète en lecture seule.
-                </DialogDescription>
-              </DialogHeader>
               <div className="max-h-[min(60vh,480px)] space-y-2 overflow-y-auto">
                 {snapshotsListQuery.isLoading ? (
                   <p className="text-sm text-muted-foreground">Chargement…</p>
@@ -2738,10 +2734,9 @@ export function ProjectSheetView({
                   </ul>
                 )}
               </div>
-            </DialogContent>
-          </Dialog>
+          </StariumModal>
 
-          <Dialog
+          <StariumModal
             open={snapshotSheetViewerOpen && !!selectedSnapshotId}
             onOpenChange={(open) => {
               if (!open) {
@@ -2749,31 +2744,31 @@ export function ProjectSheetView({
                 setSelectedSnapshotId(null);
               }
             }}
-          >
-            <DialogContent className="flex max-h-[92vh] w-[75vw] max-w-[75vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[75vw]">
-              <DialogHeader className="shrink-0 space-y-1 border-b border-border/60 px-6 py-4">
-                <DialogTitle>Fiche projet — version historisée</DialogTitle>
-                <DialogDescription>
-                  {snapshotDetailQuery.data ? (
-                    <span className="block space-y-0.5">
-                      <span className="block">
-                        {DECISION_LEVEL_LABEL[snapshotDetailQuery.data.decisionLevel] ??
-                          snapshotDetailQuery.data.decisionLevel}{' '}
-                        · {formatSnapshotHistoryDate(snapshotDetailQuery.data.createdAt)}
-                      </span>
-                      {snapshotDetailQuery.data.createdByDisplayName ? (
-                        <span className="block text-muted-foreground">
-                          Par {snapshotDetailQuery.data.createdByDisplayName}
-                        </span>
-                      ) : null}
-                      <span className="block text-muted-foreground">Lecture seule.</span>
+            title="Fiche projet — version historisée"
+            description={
+              snapshotDetailQuery.data ? (
+                <span className="block space-y-0.5">
+                  <span className="block">
+                    {DECISION_LEVEL_LABEL[snapshotDetailQuery.data.decisionLevel] ??
+                      snapshotDetailQuery.data.decisionLevel}{' '}
+                    · {formatSnapshotHistoryDate(snapshotDetailQuery.data.createdAt)}
+                  </span>
+                  {snapshotDetailQuery.data.createdByDisplayName ? (
+                    <span className="block text-muted-foreground">
+                      Par {snapshotDetailQuery.data.createdByDisplayName}
                     </span>
-                  ) : (
-                    'Chargement…'
-                  )}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 sm:px-6">
+                  ) : null}
+                  <span className="block text-muted-foreground">Lecture seule.</span>
+                </span>
+              ) : (
+                'Chargement…'
+              )
+            }
+            icon={Eye}
+            size="xl"
+            contentClassName="flex max-h-[92vh] w-[75vw] max-w-[75vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[75vw]"
+            bodyClassName="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 sm:px-6"
+          >
                 {snapshotDetailQuery.isLoading ? (
                   <LoadingState rows={10} />
                 ) : snapshotDetailQuery.isError || !snapshotDetailQuery.data ? (
@@ -2789,9 +2784,7 @@ export function ProjectSheetView({
                     )}
                   />
                 )}
-              </div>
-            </DialogContent>
-          </Dialog>
+          </StariumModal>
 
           <ProjectRetroplanMacroDialog
             projectId={projectId}

@@ -4,13 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Archive } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { CreateScenarioDialog } from './CreateScenarioDialog';
 import { ScenarioCard } from './ScenarioCard';
@@ -145,20 +140,17 @@ export function ProjectScenariosTab({
         }}
       />
 
-      <Dialog
+      <StariumModal
         open={archiveScenario != null}
         onOpenChange={(open) => {
           if (!open) setArchiveScenario(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmer l’archivage</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Confirmez l’archivage du scénario «&nbsp;{archiveScenario?.name ?? ''}&nbsp;».
-          </p>
-          <DialogFooter>
+        title="Confirmer l'archivage"
+        description={`Confirmez l'archivage du scénario « ${archiveScenario?.name ?? ''} ».`}
+        icon={Archive}
+        size="md"
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setArchiveScenario(null)}>
               Annuler
             </Button>
@@ -174,9 +166,11 @@ export function ProjectScenariosTab({
             >
               Archiver
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <></>
+      </StariumModal>
     </section>
   );
 }

@@ -5,15 +5,7 @@ import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,25 +77,30 @@ export function MembersSyncDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button type="button" size="sm">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Synchronisation
+    <>
+      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Synchronisation
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Synchronisation ADDS"
+        description="Lance une previsualisation puis une synchronisation depuis l'annuaire."
+        icon={RefreshCw}
+        size="xl"
+        bodyClassName="max-h-[60vh] overflow-y-auto"
+        footer={
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => setOpen(false)}
+          >
+            Fermer
           </Button>
         }
-      />
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-5xl" showCloseButton>
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold tracking-tight">
-            Synchronisation ADDS
-          </DialogTitle>
-          <DialogDescription>
-            Lance une previsualisation puis une synchronisation depuis l’annuaire.
-          </DialogDescription>
-        </DialogHeader>
-
+      >
         {connectionsQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Chargement des connexions annuaire...</p>
         ) : connections.length === 0 ? (
@@ -159,13 +156,7 @@ export function MembersSyncDialog() {
             </CardContent>
           </Card>
         )}
-
-        <DialogFooter showCloseButton={false}>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }

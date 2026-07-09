@@ -1,6 +1,7 @@
 'use client';
 
 import type { ComponentType, ReactNode } from 'react';
+import { LayoutPanelTop } from 'lucide-react';
 import {
   Dialog,
   DialogBody,
@@ -26,56 +27,89 @@ export const FORM_DIALOG_BODY_ENCART_CLASS =
 export type StariumModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: string;
-  /** Sous-titre court (DS Modal `subtitle`) */
-  description: string;
-  icon: ComponentType<{ className?: string }>;
+  title: ReactNode;
+  /** Sous-titre court (DS Modal `subtitle`). Omis si `headless`. */
+  description?: ReactNode;
+  /** Icône header ; défaut `LayoutPanelTop` si header standard. */
+  icon?: ComponentType<{ className?: string }>;
+  /** Sans header Starium (nav mobile, palette recherche) — `title` reste requis (souvent sr-only). */
+  headless?: boolean;
   status?: ReactNode;
   size?: DialogSize;
+  showCloseButton?: boolean;
+  sidePanel?: boolean;
+  chatWidget?: boolean;
+  layout?: 'starium' | 'legacy';
   contentClassName?: string;
+  overlayClassName?: string;
   bodyClassName?: string;
+  id?: string;
   footer?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
 };
 
 /**
  * Modale Starium complète (icône + titre + sous-titre + corps + pied).
- * S’appuie sur `Dialog*` dont le layout Starium est le défaut.
+ * Point d'entrée unique pour toutes les modales applicatives.
  */
 export function StariumModal({
   open,
   onOpenChange,
   title,
   description,
-  icon,
+  icon: Icon = LayoutPanelTop,
+  headless = false,
   status,
   size = 'lg',
+  showCloseButton = true,
+  sidePanel = false,
+  chatWidget = false,
+  layout = 'starium',
   contentClassName,
+  overlayClassName,
   bodyClassName,
+  id,
   footer,
   children,
 }: StariumModalProps) {
+  const withStandardHeader = !headless && !sidePanel && !chatWidget && layout === 'starium';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton size={size} className={contentClassName}>
-        <DialogHeader>
-          <DialogHeaderIcon icon={icon} />
-          <div className="starium-modal__titles">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
-            {status ? (
-              <div
-                className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-                role="status"
-                aria-live="polite"
-              >
-                {status}
-              </div>
-            ) : null}
-          </div>
-        </DialogHeader>
+      <DialogContent
+        id={id}
+        showCloseButton={showCloseButton}
+        size={size}
+        layout={layout}
+        sidePanel={sidePanel}
+        chatWidget={chatWidget}
+        overlayClassName={overlayClassName}
+        className={contentClassName}
+      >
+        {withStandardHeader ? (
+          <DialogHeader>
+            <DialogHeaderIcon icon={Icon} />
+            <div className="starium-modal__titles">
+              <DialogTitle>{title}</DialogTitle>
+              {description != null && description !== '' ? (
+                <DialogDescription>{description}</DialogDescription>
+              ) : null}
+              {status ? (
+                <div
+                  className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {status}
+                </div>
+              ) : null}
+            </div>
+          </DialogHeader>
+        ) : (
+          <DialogTitle className={headless ? 'sr-only' : undefined}>{title}</DialogTitle>
+        )}
 
-        <DialogBody className={bodyClassName}>{children}</DialogBody>
+        <DialogBody className={bodyClassName}>{children ?? null}</DialogBody>
 
         {footer ? <DialogFooter>{footer}</DialogFooter> : null}
       </DialogContent>

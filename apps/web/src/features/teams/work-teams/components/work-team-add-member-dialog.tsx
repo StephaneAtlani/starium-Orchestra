@@ -3,15 +3,8 @@
 import { useEffect, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAddWorkTeamMember } from '../hooks/use-work-team-mutations';
@@ -77,17 +70,33 @@ export function WorkTeamAddMemberDialog({
 
   const canSubmit = canReadResources && !!resourceId && !addMutation.isPending;
 
+  const formId = 'work-team-add-member-form';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
-            <DialogTitle>Ajouter un membre</DialogTitle>
-            <DialogDescription>
-              Choisissez une ressource du catalogue <strong>Humaine</strong> du client actif. Le membre
-              d’équipe est identifié par <code className="text-xs">resourceId</code> (Resource HUMAN).
-            </DialogDescription>
-          </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Ajouter un membre"
+      description={
+        <>
+          Choisissez une ressource du catalogue <strong>Humaine</strong> du client actif. Le membre
+          d’équipe est identifié par <code className="text-xs">resourceId</code> (Resource HUMAN).
+        </>
+      }
+      size="md"
+      contentClassName="sm:max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form={formId} disabled={!canSubmit}>
+            Ajouter
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={onSubmit}>
           <div className="grid gap-4 py-2">
             {!canReadResources && (
               <Alert className="border-amber-500/35 bg-amber-500/5 dark:bg-amber-500/10">
@@ -131,16 +140,7 @@ export function WorkTeamAddMemberDialog({
               </select>
             </div>
           </div>
-          <DialogFooter showCloseButton={false}>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={!canSubmit}>
-              Ajouter
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

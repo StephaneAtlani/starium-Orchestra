@@ -5,19 +5,18 @@ import { ChevronRight } from 'lucide-react';
 import type { ProjectParentSummary } from '../types/project.types';
 import { projectDetail } from '../constants/project-routes';
 
+/** Ancêtres cliquables uniquement (le projet courant n’apparaît pas). */
 export function ProjectHierarchyBreadcrumb({
   ancestorChain,
-  currentName,
 }: {
   ancestorChain: ProjectParentSummary[];
-  currentName: string;
 }) {
   if (ancestorChain.length === 0) return null;
 
   return (
-    <nav aria-label="Fil d'Ariane projet" className="mb-3 min-w-0">
+    <nav aria-label="Fil d'Ariane projet" className="starium-project-hierarchy-strip__breadcrumb min-w-0">
       <ol className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-        {ancestorChain.map((ancestor) => (
+        {ancestorChain.map((ancestor, index) => (
           <li key={ancestor.id} className="flex min-w-0 items-center gap-1">
             <Link
               href={projectDetail(ancestor.id)}
@@ -25,12 +24,11 @@ export function ProjectHierarchyBreadcrumb({
             >
               {ancestor.code} — {ancestor.name}
             </Link>
-            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            {index < ancestorChain.length - 1 ? (
+              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+            ) : null}
           </li>
         ))}
-        <li className="min-w-0 truncate font-medium text-foreground" aria-current="page">
-          {currentName}
-        </li>
       </ol>
     </nav>
   );

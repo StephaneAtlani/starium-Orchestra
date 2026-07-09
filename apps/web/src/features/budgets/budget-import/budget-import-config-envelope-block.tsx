@@ -2,14 +2,8 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -199,15 +193,51 @@ export function BudgetImportConfigEnvelopeBlock({
         </Select>
       </div>
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Créer une enveloppe</DialogTitle>
-            <DialogDescription>
-              L’enveloppe sera ajoutée au budget courant puis disponible immédiatement dans la liste.
-            </DialogDescription>
-          </DialogHeader>
-
+      <StariumModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Créer une enveloppe"
+        description="L’enveloppe sera ajoutée au budget courant puis disponible immédiatement dans la liste."
+        icon={Layers}
+        size="lg"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={createLoading}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={createLoading || !createName.trim()}
+              onClick={async () => {
+                setCreateError(null);
+                setCreateLoading(true);
+                try {
+                  const created = await onCreateEnvelope({
+                    name: createName.trim(),
+                    code: createCode.trim() || undefined,
+                    description: createDescription.trim() || undefined,
+                    type: createType,
+                    status: createStatus,
+                  });
+                  onOptionsChange({ ...options, defaultEnvelopeId: created.id });
+                  setCreateName('');
+                  setCreateCode('');
+                  setCreateDescription('');
+                  setCreateType('RUN');
+                  setCreateStatus('ACTIVE');
+                  setModalOpen(false);
+                } catch (e) {
+                  setCreateError(e instanceof Error ? e.message : 'Impossible de créer l’enveloppe.');
+                } finally {
+                  setCreateLoading(false);
+                }
+              }}
+            >
+              {createLoading ? 'Création…' : 'Créer'}
+            </Button>
+          </>
+        }
+      >
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="new-envelope-name">Nom</Label>
@@ -266,44 +296,7 @@ export function BudgetImportConfigEnvelopeBlock({
             </div>
             {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setModalOpen(false)} disabled={createLoading}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={createLoading || !createName.trim()}
-              onClick={async () => {
-                setCreateError(null);
-                setCreateLoading(true);
-                try {
-                  const created = await onCreateEnvelope({
-                    name: createName.trim(),
-                    code: createCode.trim() || undefined,
-                    description: createDescription.trim() || undefined,
-                    type: createType,
-                    status: createStatus,
-                  });
-                  onOptionsChange({ ...options, defaultEnvelopeId: created.id });
-                  setCreateName('');
-                  setCreateCode('');
-                  setCreateDescription('');
-                  setCreateType('RUN');
-                  setCreateStatus('ACTIVE');
-                  setModalOpen(false);
-                } catch (e) {
-                  setCreateError(e instanceof Error ? e.message : 'Impossible de créer l’enveloppe.');
-                } finally {
-                  setCreateLoading(false);
-                }
-              }}
-            >
-              {createLoading ? 'Création…' : 'Créer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </section>
   );
 }

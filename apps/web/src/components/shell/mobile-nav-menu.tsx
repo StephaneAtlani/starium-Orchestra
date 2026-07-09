@@ -4,11 +4,7 @@ import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { X } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useSidebarNav } from './sidebar-nav-context';
@@ -30,19 +26,19 @@ export function MobileNavMenu() {
   }, [pathname, closeMobile]);
 
   return (
-    <Dialog
+    <StariumModal
       open={mobileOpen}
       onOpenChange={(open) => {
         if (!open) closeMobile();
       }}
+      title="Navigation principale"
+      headless
+      showCloseButton={false}
+      contentClassName="starium-mobile-nav-dialog md:hidden"
+      id="starium-mobile-nav-menu"
+      overlayClassName="md:hidden"
+      bodyClassName="p-0"
     >
-      <DialogContent
-        showCloseButton={false}
-        className="starium-mobile-nav-dialog md:hidden"
-        id="starium-mobile-nav-menu"
-        overlayClassName="md:hidden"
-      >
-        <DialogTitle className="sr-only">Navigation principale</DialogTitle>
         <div className="starium-mobile-nav-menu flex h-full min-h-0 flex-col">
           <SidebarDropdownContext.Provider value={contextValue}>
             <NavMenuLinkContext.Provider value={{ onLinkClick: closeMobile }}>
@@ -81,7 +77,6 @@ export function MobileNavMenu() {
             </NavMenuLinkContext.Provider>
           </SidebarDropdownContext.Provider>
         </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

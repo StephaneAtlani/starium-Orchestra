@@ -5,14 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -37,7 +30,7 @@ import {
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { cn } from '@/lib/utils';
-import { CloudUpload, Loader2 } from 'lucide-react';
+import { ClipboardList, CloudUpload, Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   formatAssignedResourcesLabel,
@@ -426,51 +419,48 @@ export function ActionPlanTaskEditDialog({
       : '—';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton size="lg">
-        <DialogHeader>
-          <div className="pr-8">
-            <div className="flex flex-wrap items-center gap-2 gap-y-1">
-              <DialogTitle className="text-left">Détail de la tâche</DialogTitle>
-              <Badge variant="secondary" className="font-normal text-muted-foreground">
-                Plan d&apos;action
-              </Badge>
-            </div>
-            <DialogDescription className="mt-2 text-left">
-              {canEdit
-                ? 'Cliquez sur une valeur pour la modifier.'
-                : 'Consultation en lecture seule.'}
-            </DialogDescription>
-          </div>
-          {canEdit ? (
-            <div
-              className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-              role="status"
-              aria-live="polite"
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2
-                    className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]"
-                    aria-hidden
-                  />
-                  <span>Enregistrement en cours…</span>
-                </>
-              ) : (
-                <>
-                  <CloudUpload className="size-3.5 shrink-0" aria-hidden />
-                  <span>Sauvegarde automatique après modification.</span>
-                </>
-              )}
-            </div>
-          ) : null}
-        </DialogHeader>
-
-        <DialogBody className="min-h-0 flex-1 py-4">
-          {!task || !draft ? (
-            <LoadingState rows={4} />
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        <span className="flex flex-wrap items-center gap-2 gap-y-1">
+          Détail de la tâche
+          <Badge variant="secondary" className="font-normal text-muted-foreground">
+            Plan d&apos;action
+          </Badge>
+        </span>
+      }
+      description={
+        canEdit
+          ? 'Cliquez sur une valeur pour la modifier.'
+          : 'Consultation en lecture seule.'
+      }
+      icon={ClipboardList}
+      size="lg"
+      bodyClassName="min-h-0 flex-1 py-4"
+      status={
+        canEdit ? (
+          mutation.isPending ? (
+            <>
+              <Loader2
+                className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]"
+                aria-hidden
+              />
+              <span>Enregistrement en cours…</span>
+            </>
           ) : (
-            <div className="starium-form space-y-4">
+            <>
+              <CloudUpload className="size-3.5 shrink-0" aria-hidden />
+              <span>Sauvegarde automatique après modification.</span>
+            </>
+          )
+        ) : undefined
+      }
+    >
+      {!task || !draft ? (
+        <LoadingState rows={4} />
+      ) : (
+        <div className="starium-form space-y-4">
               <TaskDialogSection title="Identité" id="ap-task-identity">
           {editingKey === 'name' && canEdit ? (
             <EditField label="Intitulé" htmlFor="ed-name">
@@ -870,9 +860,7 @@ export function ActionPlanTaskEditDialog({
           )}
               </TaskDialogSection>
             </div>
-          )}
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+      )}
+    </StariumModal>
   );
 }

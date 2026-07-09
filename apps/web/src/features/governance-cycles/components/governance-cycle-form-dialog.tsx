@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -123,13 +117,26 @@ export function GovernanceCycleFormDialog({
     }
   }
 
+  const formId = 'governance-cycle-form';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{mode === 'create' ? 'Nouveau cycle de pilotage' : 'Modifier le cycle'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === 'create' ? 'Nouveau cycle de pilotage' : 'Modifier le cycle'}
+      contentClassName="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form={formId} disabled={pending}>
+            {pending ? 'Enregistrement…' : mode === 'create' ? 'Créer' : 'Enregistrer'}
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cycle-name">Nom</Label>
             <Input
@@ -230,16 +237,7 @@ export function GovernanceCycleFormDialog({
               rows={2}
             />
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Enregistrement…' : mode === 'create' ? 'Créer' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

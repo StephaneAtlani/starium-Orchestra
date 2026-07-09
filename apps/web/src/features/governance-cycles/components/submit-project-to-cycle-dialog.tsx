@@ -3,15 +3,8 @@
 import { useState } from 'react';
 import { SendHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -73,15 +66,23 @@ export function SubmitProjectToCycleDialogContent({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Soumettre au cycle de pilotage</DialogTitle>
-          <DialogDescription>
-            Le projet sera inscrit comme candidat au programme choisi (pas encore décidé en
-            séance).
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title="Soumettre au cycle de pilotage"
+      description="Le projet sera inscrit comme candidat au programme choisi (pas encore décidé en séance)."
+      icon={SendHorizontal}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
+            Soumettre
+          </Button>
+        </>
+      }
+    >
         <Select value={cycleId} onValueChange={(v) => setCycleId(v ?? '')}>
           <SelectTrigger>
             <SelectValue placeholder="Programme de pilotage" />
@@ -97,16 +98,7 @@ export function SubmitProjectToCycleDialogContent({
             ))}
           </SelectContent>
         </Select>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitMutation.isPending}>
-            Soumettre
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

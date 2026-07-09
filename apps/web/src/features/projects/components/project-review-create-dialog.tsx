@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
@@ -416,24 +408,42 @@ export function ProjectReviewCreateDialog({
   const showLocation = formMeetingMode === 'ONSITE' || formMeetingMode === 'HYBRID';
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showCloseButton size="xl">
-        <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader>
-            <div className="pr-8">
-              <DialogTitle className="text-left text-lg">
-                {postMortemEligible ? 'Retour d’expérience' : 'Nouveau point projet'}
-              </DialogTitle>
-              <DialogDescription className="mt-1.5 max-w-prose text-left text-sm">
-                {postMortemEligible
-                  ? 'Bilan de clôture : date, équipe, puis grille REX dans l’éditeur.'
-                  : 'Planifiez ou lancez un point de pilotage — le détail se complète dans l’éditeur.'}
-              </DialogDescription>
-            </div>
-          </DialogHeader>
-
-          <DialogBody className="min-h-0 flex-1 py-4">
-            <div className="starium-form gap-4">
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title={postMortemEligible ? "Retour d'expérience" : 'Nouveau point projet'}
+      description={
+        postMortemEligible
+          ? "Bilan de clôture : date, équipe, puis grille REX dans l'éditeur."
+          : "Planifiez ou lancez un point de pilotage — le détail se complète dans l'éditeur."
+      }
+      icon={ClipboardPen}
+      size="xl"
+      bodyClassName="min-h-0 flex-1 py-4"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => onOpenChange(false)}
+            disabled={create.isPending}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            className="min-h-11"
+            onClick={() => void onSubmit()}
+            disabled={create.isPending || (requiresDate && !formDate.trim())}
+          >
+            {create.isPending ? 'Création…' : submitLabel}
+          </Button>
+        </>
+      }
+    >
+      <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
+        <div className="starium-form gap-4">
               {/* Essentiel */}
               <section
                 className="starium-form-section border-border/60"
@@ -895,29 +905,7 @@ export function ProjectReviewCreateDialog({
                 </OptionalBlock>
               </div>
             </div>
-          </DialogBody>
-
-          <DialogFooter className="gap-2 border-t border-border/60 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11"
-              onClick={() => onOpenChange(false)}
-              disabled={create.isPending}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              className="min-h-11"
-              onClick={() => void onSubmit()}
-              disabled={create.isPending || (requiresDate && !formDate.trim())}
-            >
-              {create.isPending ? 'Création…' : submitLabel}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </StariumModal>
   );
 }

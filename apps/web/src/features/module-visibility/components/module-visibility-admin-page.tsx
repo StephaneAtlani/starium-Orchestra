@@ -4,14 +4,7 @@ import React, { useId, useMemo, useState } from 'react';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -213,20 +206,31 @@ export function ModuleVisibilityAdminPage() {
         </p>
       )}
 
-      <Dialog
+      <StariumModal
         open={dialogOpen}
         onOpenChange={(o) => {
           setDialogOpen(o);
           if (!o) resetDialog();
         }}
+        title="Nouvelle règle de visibilité"
+        description="La combinaison module + portée doit être unique. Priorité effective : utilisateur &gt; groupe &gt; client."
+        size="md"
+        contentClassName="sm:max-w-md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" form={formId} disabled={setVis.isPending || !canWrite}>
+              Enregistrer
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouvelle règle de visibilité</DialogTitle>
-            <DialogDescription>
-              La combinaison module + portée doit être unique. Priorité effective : utilisateur &gt; groupe &gt; client.
-            </DialogDescription>
-          </DialogHeader>
           <form id={formId} onSubmit={submitOverride} className="space-y-4">
             <div className="space-y-2">
               <Label>Module</Label>
@@ -322,20 +326,7 @@ export function ModuleVisibilityAdminPage() {
               </Select>
             </div>
           </form>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" form={formId} disabled={setVis.isPending || !canWrite}>
-              Enregistrer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </PageContainer>
   );
 }

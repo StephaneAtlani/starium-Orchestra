@@ -16,12 +16,8 @@ import {
 } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  StariumModal,
+} from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -451,22 +447,14 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nouveau rôle d&apos;équipe</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="new-role-name">Nom du rôle</Label>
-            <Input
-              id="new-role-name"
-              value={newRoleName}
-              onChange={(e) => setNewRoleName(e.target.value)}
-              placeholder="Ex. : RSSI, MOA…"
-              maxLength={200}
-            />
-          </div>
-          <DialogFooter>
+      <StariumModal
+        open={roleDialogOpen}
+        onOpenChange={setRoleDialogOpen}
+        title="Nouveau rôle d'équipe"
+        icon={Users}
+        size="md"
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setRoleDialogOpen(false)}>
               Annuler
             </Button>
@@ -477,9 +465,20 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
             >
               {createRoleMutation.isPending ? 'Création…' : 'Créer'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="new-role-name">Nom du rôle</Label>
+          <Input
+            id="new-role-name"
+            value={newRoleName}
+            onChange={(e) => setNewRoleName(e.target.value)}
+            placeholder="Ex. : RSSI, MOA…"
+            maxLength={200}
+          />
+        </div>
+      </StariumModal>
 
       <PersonCatalogPickerDialog
         open={addMemberDialogRoleId !== null}

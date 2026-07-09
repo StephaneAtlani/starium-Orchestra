@@ -17,14 +17,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { cn } from '@/lib/utils';
 import { dashboardSupplierKpiHref } from '../lib/dashboard-card-links';
 import { useDashboardWidgets } from '../hooks/use-dashboard-widgets';
@@ -205,15 +198,35 @@ function SupplierWidgetSettingsDialog({
   const selected = new Set(config.supplierKpis.kpis);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Widget Fournisseurs</DialogTitle>
-          <DialogDescription>
-            Indicateurs achats / fournisseurs (client actif) — enregistrés pour ce
-            client et votre compte.
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Widget Fournisseurs"
+      description="Indicateurs achats / fournisseurs (client actif) — enregistrés pour ce client et votre compte."
+      icon={Settings2}
+      size="lg"
+      contentClassName="sm:max-w-lg"
+      footer={
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => resetSupplierKpisDefaults()}
+          >
+            Réinitialiser les KPI
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
+            Fermer
+          </Button>
+        </div>
+      }
+    >
         <div className="space-y-4 py-2">
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -249,26 +262,7 @@ function SupplierWidgetSettingsDialog({
             </ul>
           </div>
         </div>
-        <DialogFooter className="flex-col gap-2 border-t-0 sm:flex-row sm:flex-wrap sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => resetSupplierKpisDefaults()}
-          >
-            Réinitialiser les KPI
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

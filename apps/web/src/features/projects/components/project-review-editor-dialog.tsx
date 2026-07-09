@@ -23,15 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -860,61 +852,132 @@ export function ProjectReviewEditorDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        size="xl"
-        className="flex h-[min(92vh,900px)] max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-3 sm:p-4"
-      >
-        <DialogHeader className="-mx-3 -mt-3 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card px-4 pb-3 pt-3 text-left shadow-sm sm:-mx-4 sm:-mt-4">
-          <DialogDescription className="sr-only">
-            {isPostMortemReview
-              ? "Éditeur de retour d'expérience — bilan, écarts et leçons apprises"
-              : 'Éditeur de point projet — compte rendu, décisions et actions'}
-          </DialogDescription>
-          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-            <div className="min-w-0 flex-1">
-              <p className="starium-overline mb-1">
-                {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
-              </p>
-              <DialogTitle className="text-left text-lg font-semibold leading-snug">
-                {d
-                  ? `${PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType}${projectQuery.data?.name ? ` — ${projectQuery.data.name}` : ''}`
-                  : 'Point projet'}
-              </DialogTitle>
-              {d ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-muted-foreground">
-                    <CalendarClock className="size-3.5 shrink-0" aria-hidden />
-                    {formatReviewDateTime(d.reviewDate)}
-                  </span>
-                  {d.title ? (
-                    <span className="text-muted-foreground">
-                      Objet :{' '}
-                      <span className="font-medium text-foreground">{d.title}</span>
-                    </span>
-                  ) : (
-                    <span className="text-xs italic text-muted-foreground">
-                      {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
-                    </span>
-                  )}
-                </div>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        <div className="min-w-0 flex-1">
+          <p className="starium-overline mb-1">
+            {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
+          </p>
+          <span className="text-left text-lg font-semibold leading-snug">
+            {d
+              ? `${PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType}${projectQuery.data?.name ? ` — ${projectQuery.data.name}` : ''}`
+              : 'Point projet'}
+          </span>
+          {d ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-muted-foreground">
+                <CalendarClock className="size-3.5 shrink-0" aria-hidden />
+                {formatReviewDateTime(d.reviewDate)}
+              </span>
+              {d.title ? (
+                <span className="text-muted-foreground">
+                  Objet :{' '}
+                  <span className="font-medium text-foreground">{d.title}</span>
+                </span>
+              ) : (
+                <span className="text-xs italic text-muted-foreground">
+                  {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+      }
+      description={
+        isPostMortemReview
+          ? "Éditeur de retour d'expérience — bilan, écarts et leçons apprises"
+          : 'Éditeur de point projet — compte rendu, décisions et actions'
+      }
+      icon={isPostMortemReview ? BookOpen : CalendarClock}
+      size="xl"
+      contentClassName="flex h-[min(92vh,900px)] max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-3 sm:p-4"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden py-2"
+      status={
+        d ? (
+          <span
+            className={cn(
+              'starium-ds-badge shrink-0',
+              reviewEditorStatusBadgeClass(d.status),
+            )}
+          >
+            {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
+          </span>
+        ) : undefined
+      }
+      footer={
+        d ? (
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
+                Fermer
+              </Button>
+              {editable && (
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  {update.isPending
+                    ? 'Enregistrement…'
+                    : isPostMortemReview
+                      ? 'REX synchronisé automatiquement'
+                      : 'Point synchronisé automatiquement'}
+                </span>
+              )}
+              {canStart && startReview.isSuccess ? (
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  Point démarré — vous pouvez saisir le compte rendu.
+                </span>
               ) : null}
             </div>
-            {d ? (
-              <span
-                className={cn(
-                  'starium-ds-badge shrink-0',
-                  reviewEditorStatusBadgeClass(d.status),
-                )}
-              >
-                {PROJECT_REVIEW_STATUS_LABEL[d.status] ?? d.status}
-              </span>
-            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {canStart && canEdit && (
+                <Button
+                  type="button"
+                  variant="default"
+                  className="min-h-11"
+                  onClick={() => void onStartReview()}
+                  disabled={startReview.isPending}
+                >
+                  {startReview.isPending ? 'Démarrage…' : 'Démarrer le point'}
+                </Button>
+              )}
+              {editable && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void onSave()}
+                    disabled={update.isPending}
+                  >
+                    {update.isPending ? 'Enregistrement…' : 'Enregistrer maintenant'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={() => void onFinalize()}
+                    disabled={finalize.isPending || update.isPending}
+                  >
+                    {finalize.isPending
+                      ? 'Finalisation…'
+                      : isPostMortemReview
+                        ? "Finaliser le retour d'expérience"
+                        : 'Finaliser le point'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-destructive"
+                    onClick={() => void onCancelReview()}
+                    disabled={cancel.isPending}
+                  >
+                    {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler le point'}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </DialogHeader>
-
-        <DialogBody className="flex min-h-0 flex-1 flex-col overflow-hidden py-2">
+        ) : undefined
+      }
+    >
           {detailQuery.isLoading || !reviewId ? (
             <div className="flex min-h-0 flex-1 items-start">
               <LoadingState rows={6} />
@@ -1674,91 +1737,31 @@ export function ProjectReviewEditorDialog({
               </TabsContent>
             </Tabs>
           )}
-        </DialogBody>
+    </StariumModal>
 
-        {d && (
-          <DialogFooter className="-mx-3 -mb-3 gap-2 border-t border-border/60 p-3 pt-3 sm:-mx-4 sm:-mb-4 sm:p-4">
-            <div className="flex w-full flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
-                  Fermer
-                </Button>
-                {editable && (
-                  <span className="text-xs text-muted-foreground" aria-live="polite">
-                    {update.isPending
-                      ? 'Enregistrement…'
-                      : isPostMortemReview
-                        ? 'REX synchronisé automatiquement'
-                        : 'Point synchronisé automatiquement'}
-                  </span>
-                )}
-                {canStart && startReview.isSuccess ? (
-                  <span className="text-xs text-muted-foreground" aria-live="polite">
-                    Point démarré — vous pouvez saisir le compte rendu.
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {canStart && canEdit && (
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="min-h-11"
-                    onClick={() => void onStartReview()}
-                    disabled={startReview.isPending}
-                  >
-                    {startReview.isPending ? 'Démarrage…' : 'Démarrer le point'}
-                  </Button>
-                )}
-                {editable && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void onSave()}
-                      disabled={update.isPending}
-                    >
-                      {update.isPending ? 'Enregistrement…' : 'Enregistrer maintenant'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="default"
-                      onClick={() => void onFinalize()}
-                      disabled={finalize.isPending || update.isPending}
-                    >
-                      {finalize.isPending
-                        ? 'Finalisation…'
-                        : isPostMortemReview
-                          ? "Finaliser le retour d'expérience"
-                          : 'Finaliser le point'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="text-destructive"
-                      onClick={() => void onCancelReview()}
-                      disabled={cancel.isPending}
-                    >
-                      {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler le point'}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </DialogFooter>
-        )}
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={confirmNextOpen} onOpenChange={setConfirmNextOpen}>
-      <DialogContent className="z-[90] max-h-[min(85vh,560px)] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Confirmer le prochain point</DialogTitle>
-          <DialogDescription>
-            Un brouillon de point sera créé ou mis à jour à la date ci-dessous. Les participants suivants y
-            seront associés (copie depuis ce point).
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={confirmNextOpen}
+      onOpenChange={setConfirmNextOpen}
+      title="Confirmer le prochain point"
+      description="Un brouillon de point sera créé ou mis à jour à la date ci-dessous. Les participants suivants y seront associés (copie depuis ce point)."
+      icon={CalendarClock}
+      size="lg"
+      contentClassName="z-[90] max-h-[min(85vh,560px)] overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setConfirmNextOpen(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleConfirmNextReview()}
+            disabled={!nextReviewDate.trim() || update.isPending}
+          >
+            {update.isPending ? 'Enregistrement…' : 'Confirmer et créer le brouillon'}
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-4 text-sm">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Créneau</p>
@@ -1789,20 +1792,7 @@ export function ProjectReviewEditorDialog({
             )}
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => setConfirmNextOpen(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void handleConfirmNextReview()}
-            disabled={!nextReviewDate.trim() || update.isPending}
-          >
-            {update.isPending ? 'Enregistrement…' : 'Confirmer et créer le brouillon'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
     </>
   );
 }

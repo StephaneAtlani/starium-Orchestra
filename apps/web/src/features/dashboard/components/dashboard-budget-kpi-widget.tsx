@@ -48,14 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { cn } from '@/lib/utils';
 import {
   dashboardBudgetAlertsHref,
@@ -341,15 +334,45 @@ function BudgetWidgetSettingsDialog({
   const scopeValue = scopeToSelectValue(config.budgetKpis.scope);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Widget Budget</DialogTitle>
-          <DialogDescription>
-            Périmètre budgétaire, indicateurs et affichage — enregistrés pour ce
-            client et votre compte.
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Widget Budget"
+      description="Périmètre budgétaire, indicateurs et affichage — enregistrés pour ce client et votre compte."
+      icon={Settings2}
+      size="lg"
+      contentClassName="sm:max-w-lg"
+      footer={
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => resetBudgetKpisDefaults()}
+            >
+              Réinitialiser les KPI
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => resetBudgetScope()}
+            >
+              Réinitialiser le périmètre
+            </Button>
+          </div>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
+            Fermer
+          </Button>
+        </div>
+      }
+    >
         <div className="space-y-4 py-2">
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -442,36 +465,7 @@ function BudgetWidgetSettingsDialog({
             </ul>
           </div>
         </div>
-        <DialogFooter className="flex-col gap-2 border-t-0 sm:flex-row sm:flex-wrap sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => resetBudgetKpisDefaults()}
-            >
-              Réinitialiser les KPI
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => resetBudgetScope()}
-            >
-              Réinitialiser le périmètre
-            </Button>
-          </div>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

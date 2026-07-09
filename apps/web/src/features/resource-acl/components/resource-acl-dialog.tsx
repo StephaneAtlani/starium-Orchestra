@@ -3,13 +3,7 @@
 import { useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import {
   ResourceAclEditor,
   type ResourceAclEditorHeaderStatus,
@@ -27,45 +21,34 @@ export function ResourceAclDialog({ open, onOpenChange, ...editorProps }: Props)
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className="max-h-[min(90vh,840px)] w-full gap-4 overflow-y-auto sm:max-w-3xl lg:max-w-4xl"
-      >
-        <div
-          className="flex flex-col gap-4"
-          data-testid="resource-acl-dialog-layout"
-        >
-          <DialogHeader>
-            <div className="pr-8">
-              <div className="flex flex-wrap items-center gap-2 gap-y-1">
-                <DialogTitle className="text-left">Accès à la ressource</DialogTitle>
-                <Badge
-                  variant="secondary"
-                  className="shrink-0 font-normal text-muted-foreground"
-                >
-                  ACL ressource
-                </Badge>
-              </div>
-              <DialogDescription className="mt-2 text-left leading-relaxed">
-                <span className="font-medium text-foreground">
-                  {editorProps.resourceLabel}
-                </span>
-                {' '}
-                — Utilisateurs et groupes autorisés ; sans entrée, le RBAC client
-                s&apos;applique (mode public).
-              </DialogDescription>
-            </div>
-            <ResourceAclDialogStatusLine status={headerStatus} />
-          </DialogHeader>
-
-          <ResourceAclEditor
-            {...editorProps}
-            onHeaderStatusChange={setHeaderStatus}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        <span className="flex flex-wrap items-center gap-2 gap-y-1">
+          Accès à la ressource
+          <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
+            ACL ressource
+          </Badge>
+        </span>
+      }
+      description={
+        <>
+          <span className="font-medium text-foreground">{editorProps.resourceLabel}</span> —
+          Utilisateurs et groupes autorisés ; sans entrée, le RBAC client s&apos;applique (mode
+          public).
+        </>
+      }
+      icon={ShieldCheck}
+      size="xl"
+      contentClassName="max-h-[min(90vh,840px)] w-full gap-4 overflow-y-auto sm:max-w-3xl lg:max-w-4xl"
+      status={<ResourceAclDialogStatusLine status={headerStatus} />}
+      bodyClassName="flex flex-col gap-4"
+    >
+      <div data-testid="resource-acl-dialog-layout">
+        <ResourceAclEditor {...editorProps} onHeaderStatusChange={setHeaderStatus} />
+      </div>
+    </StariumModal>
   );
 }
 
@@ -83,10 +66,7 @@ function ResourceAclDialogStatusLine({
     >
       {status.state === 'loading' || status.state === 'working' ? (
         <>
-          <Loader2
-            className="size-3.5 shrink-0 animate-spin text-primary"
-            aria-hidden
-          />
+          <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
           <span>
             {status.state === 'loading'
               ? 'Chargement des permissions…'
@@ -95,10 +75,7 @@ function ResourceAclDialogStatusLine({
         </>
       ) : (
         <>
-          <ShieldCheck
-            className="size-3.5 shrink-0 text-muted-foreground/90"
-            aria-hidden
-          />
+          <ShieldCheck className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
           <span>Les modifications sont enregistrées immédiatement.</span>
         </>
       )}

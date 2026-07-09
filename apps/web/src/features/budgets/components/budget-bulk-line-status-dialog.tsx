@@ -1,15 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
+import { ListChecks } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -124,15 +118,28 @@ export function BudgetBulkLineStatusDialog({
   const canSubmit = lineIds.length > 0 && !deferredInvalid;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Statut en masse ({lineIds.length} ligne(s))</DialogTitle>
-          <DialogDescription>
-            Toutes les lignes sélectionnées passent au statut choisi. En cas de transition interdite ou
-            budget verrouillé, l’id est listé en échec sans annuler les autres.
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Statut en masse (${lineIds.length} ligne(s))`}
+      description="Toutes les lignes sélectionnées passent au statut choisi. En cas de transition interdite ou budget verrouillé, l’id est listé en échec sans annuler les autres."
+      icon={ListChecks}
+      size="md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!canSubmit || mutation.isPending}
+          >
+            {mutation.isPending ? 'Application…' : 'Appliquer'}
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-3 py-2">
           <div className="space-y-1.5">
             <Label>Nouveau statut</Label>
@@ -182,19 +189,6 @@ export function BudgetBulkLineStatusDialog({
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit || mutation.isPending}
-          >
-            {mutation.isPending ? 'Application…' : 'Appliquer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

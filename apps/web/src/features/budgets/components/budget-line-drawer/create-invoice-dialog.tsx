@@ -3,15 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 import { FileText } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -305,45 +298,49 @@ export function CreateInvoiceDialog({
     }
   };
 
-  const fieldLabel = 'text-sm font-medium text-foreground';
-  const fieldHint = 'text-xs text-muted-foreground';
+  const fieldLabel = 'starium-form-label';
+  const fieldHint = 'starium-form-hint';
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton
-          className={cn(
-            'flex max-h-[min(90vh,820px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background/88 p-0 shadow-lg backdrop-blur-2xl dark:bg-background/88',
-            'sm:max-w-2xl',
-          )}
-        >
-          <form onSubmit={handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 border-b border-border/60 bg-card/35 px-5 pb-4 pt-5 pr-14 backdrop-blur-md sm:px-6">
-              <DialogHeader className="space-y-2 text-left">
-                <DialogTitle className="flex items-start gap-3 text-xl font-semibold tracking-tight">
-                  <span
-                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/40 shadow-sm backdrop-blur-sm"
-                    aria-hidden
-                  >
-                    <FileText className="size-5 text-foreground/85" />
-                  </span>
-                  <span className="flex min-w-0 flex-col gap-1">
-                    <span>Ajouter une facture</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      Ligne « {line.name} » · {line.currency}
-                    </span>
-                  </span>
-                </DialogTitle>
-                <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
-                  Lie éventuellement une <strong className="text-foreground">commande</strong> pour préremplir
-                  fournisseur et montants, puis saisis la facture. Tu peux joindre des PDF ou images en bas si tu as
-                  les droits.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Ajouter une facture"
+      description={
+        <>
+          Ligne « {line.name} » · {line.currency}. Lie éventuellement une <strong>commande</strong> pour préremplir
+          fournisseur et montants, puis saisis la facture. Tu peux joindre des PDF ou images en bas si tu as les droits.
+        </>
+      }
+      icon={FileText}
+      size="xl"
+      contentClassName="flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden p-0"
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-0 py-0"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="submit"
+            form="create-invoice-form"
+            disabled={
+              createInvoice.isPending ||
+              quickCreateSupplier.isPending ||
+              isUploadingAttachments
+            }
+            className="min-w-[7rem]"
+          >
+            {isUploadingAttachments
+              ? 'Envoi des pièces…'
+              : createInvoice.isPending || quickCreateSupplier.isPending
+                ? 'Création…'
+                : 'Créer la facture'}
+          </Button>
+        </>
+      }
+    >
+          <form id="create-invoice-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {submitError && (
                 <Alert variant="destructive" className="border-destructive/40">
                   <AlertDescription>{submitError.message}</AlertDescription>
@@ -351,23 +348,23 @@ export function CreateInvoiceDialog({
               )}
 
               <section
-                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 aria-labelledby="invoice-section-po"
               >
                 <h3
                   id="invoice-section-po"
-                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="starium-modal-seg-title mb-3"
                 >
                   Commande (optionnel)
                 </h3>
-                <div className="grid gap-2">
+                <div className="starium-form-field">
                   <Label htmlFor="invoice-purchaseOrderId" className={fieldLabel}>
                     Lier à une commande de la ligne
                   </Label>
                   <select
                     id="invoice-purchaseOrderId"
                     name="purchaseOrderId"
-                    className="h-9 w-full rounded-md border border-input bg-background/80 px-3 text-sm backdrop-blur-sm"
+                    className="starium-form-select"
                     value={watch('purchaseOrderId') ?? ''}
                     onChange={(e) => {
                       const id = e.target.value;
@@ -391,12 +388,12 @@ export function CreateInvoiceDialog({
               </section>
 
               <section
-                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 aria-labelledby="invoice-section-supplier"
               >
                 <h3
                   id="invoice-section-supplier"
-                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="starium-modal-seg-title mb-3"
                 >
                   Fournisseur
                 </h3>
@@ -445,12 +442,12 @@ export function CreateInvoiceDialog({
               </section>
 
               <section
-                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 aria-labelledby="invoice-section-detail"
               >
                 <h3
                   id="invoice-section-detail"
-                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="starium-modal-seg-title mb-3"
                 >
                   Détail facture
                 </h3>
@@ -461,7 +458,7 @@ export function CreateInvoiceDialog({
                     </Label>
                     <Input
                       id="invoice-invoiceNumber"
-                      className="bg-background/80 backdrop-blur-sm"
+                      className="starium-form-input"
                       {...register('invoiceNumber')}
                       aria-invalid={!!errors.invoiceNumber}
                     />
@@ -476,7 +473,7 @@ export function CreateInvoiceDialog({
                     <Input
                       id="invoice-eventDate"
                       type="date"
-                      className="bg-background/80 backdrop-blur-sm"
+                      className="starium-form-input"
                       {...register('eventDate')}
                       aria-invalid={!!errors.eventDate}
                     />
@@ -488,7 +485,7 @@ export function CreateInvoiceDialog({
                     </Label>
                     <Input
                       id="invoice-label"
-                      className="bg-background/80 backdrop-blur-sm"
+                      className="starium-form-input"
                       {...register('label')}
                       aria-invalid={!!errors.label}
                     />
@@ -498,12 +495,12 @@ export function CreateInvoiceDialog({
               </section>
 
               <section
-                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 aria-labelledby="invoice-section-amounts"
               >
                 <h3
                   id="invoice-section-amounts"
-                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="starium-modal-seg-title mb-3"
                 >
                   Montants
                 </h3>
@@ -517,7 +514,7 @@ export function CreateInvoiceDialog({
                       type="number"
                       step="0.01"
                       min={0}
-                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      className="starium-form-input tabular-nums"
                       {...register('amountHtInput', {
                         valueAsNumber: true,
                         onChange: () => setLastEditedField('ht'),
@@ -537,7 +534,7 @@ export function CreateInvoiceDialog({
                       type="number"
                       step="0.01"
                       min={0}
-                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      className="starium-form-input tabular-nums"
                       {...register('taxRateInput', {
                         valueAsNumber: true,
                         onChange: () => setLastEditedField('tax'),
@@ -557,7 +554,7 @@ export function CreateInvoiceDialog({
                       type="number"
                       step="0.01"
                       min={0}
-                      className="bg-background/80 tabular-nums backdrop-blur-sm"
+                      className="starium-form-input tabular-nums"
                       {...register('amountTtcInput', {
                         valueAsNumber: true,
                         onChange: () => setLastEditedField('ttc'),
@@ -575,12 +572,12 @@ export function CreateInvoiceDialog({
               </section>
 
               <section
-                className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-sm backdrop-blur-sm sm:p-5"
+                className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
                 aria-labelledby="invoice-section-desc"
               >
                 <h3
                   id="invoice-section-desc"
-                  className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="starium-modal-seg-title mb-3"
                 >
                   Description
                 </h3>
@@ -590,7 +587,7 @@ export function CreateInvoiceDialog({
                   </Label>
                   <Input
                     id="invoice-description"
-                    className="bg-background/80 backdrop-blur-sm"
+                    className="starium-form-input"
                     {...register('description')}
                     aria-invalid={!!errors.description}
                   />
@@ -620,34 +617,8 @@ export function CreateInvoiceDialog({
                   </p>
                 </div>
               )}
-            </div>
-
-            <div className="shrink-0 border-t border-border/60 bg-muted/20 px-5 py-4 backdrop-blur-md sm:px-6">
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    createInvoice.isPending ||
-                    quickCreateSupplier.isPending ||
-                    isUploadingAttachments
-                  }
-                  className="min-w-[7rem]"
-                >
-                  {isUploadingAttachments
-                    ? 'Envoi des pièces…'
-                    : createInvoice.isPending || quickCreateSupplier.isPending
-                      ? 'Création…'
-                      : 'Créer la facture'}
-                </Button>
-              </div>
-            </div>
           </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    </StariumModal>
   );
 }
 

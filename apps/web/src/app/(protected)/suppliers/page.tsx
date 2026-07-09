@@ -14,13 +14,7 @@ import type { DataTableColumn } from '@/components/data-table/data-table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -889,7 +883,7 @@ export default function SuppliersPage() {
           }
         />
 
-        <Dialog
+        <StariumModal
           open={newSupplierModalOpen}
           onOpenChange={(open) => {
             setNewSupplierModalOpen(open);
@@ -898,19 +892,28 @@ export default function SuppliersPage() {
               setNewLogoPreview(null);
             }
           }}
+          title="Nouveau fournisseur"
+          description="Crée un fournisseur complet dans le client actif."
+          contentClassName="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6"
+          footer={
+            <div className="flex w-full justify-end gap-2 border-t border-border/60 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setNewSupplierModalOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void createSupplierMutation.mutateAsync()}
+                disabled={createSupplierMutation.isPending || form.name.trim().length === 0}
+              >
+                Ajouter
+              </Button>
+            </div>
+          }
         >
-          <DialogContent
-            className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6"
-            showCloseButton
-          >
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold tracking-tight">
-                Nouveau fournisseur
-              </DialogTitle>
-              <DialogDescription>
-                Crée un fournisseur complet dans le client actif.
-              </DialogDescription>
-            </DialogHeader>
             <div className="space-y-4">
               <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
                 <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
@@ -1146,43 +1149,16 @@ export default function SuppliersPage() {
                 </div>
               </section>
             </div>
-            <Dialog
+            <StariumModal
               open={newCategoryModalOpen}
               onOpenChange={(open) => {
                 setNewCategoryModalOpen(open);
                 if (!open) setNewCategoryTarget('create');
               }}
-            >
-              <DialogContent className="w-[40rem] max-w-[90vw] p-6">
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold tracking-tight">
-                    Nouvelle catégorie
-                  </DialogTitle>
-                  <DialogDescription>
-                    Ajoute une catégorie fournisseur pour le client actif.
-                  </DialogDescription>
-                </DialogHeader>
-                <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-supplier-category-name">Nom de la catégorie</Label>
-                    <Input
-                      id="new-supplier-category-name"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Ex: Cloud"
-                    />
-                  </div>
-                </section>
-                {createCategoryMutation.isError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="size-4" />
-                    <AlertTitle>Création catégorie impossible</AlertTitle>
-                    <AlertDescription>
-                      {(createCategoryMutation.error as Error)?.message ??
-                        'Impossible de créer la catégorie.'}
-                    </AlertDescription>
-                  </Alert>
-                )}
+              title="Nouvelle catégorie"
+              description="Ajoute une catégorie fournisseur pour le client actif."
+              contentClassName="w-[40rem] max-w-[90vw] p-6"
+              footer={
                 <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
                   <Button
                     type="button"
@@ -1205,8 +1181,30 @@ export default function SuppliersPage() {
                     Ajouter
                   </Button>
                 </div>
-              </DialogContent>
-            </Dialog>
+              }
+            >
+                <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-supplier-category-name">Nom de la catégorie</Label>
+                    <Input
+                      id="new-supplier-category-name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Ex: Cloud"
+                    />
+                  </div>
+                </section>
+                {createCategoryMutation.isError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertTitle>Création catégorie impossible</AlertTitle>
+                    <AlertDescription>
+                      {(createCategoryMutation.error as Error)?.message ??
+                        'Impossible de créer la catégorie.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
+            </StariumModal>
             {createSupplierMutation.isError && (
               <Alert variant="destructive">
                 <AlertCircle className="size-4" />
@@ -1217,25 +1215,8 @@ export default function SuppliersPage() {
                 </AlertDescription>
               </Alert>
             )}
-            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setNewSupplierModalOpen(false)}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void createSupplierMutation.mutateAsync()}
-                disabled={createSupplierMutation.isPending || form.name.trim().length === 0}
-              >
-                Ajouter
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog
+        </StariumModal>
+        <StariumModal
           open={editSupplierModalOpen}
           onOpenChange={(open) => {
             setEditSupplierModalOpen(open);
@@ -1257,16 +1238,10 @@ export default function SuppliersPage() {
               });
             }
           }}
+          title="Fiche fournisseur"
+          description="Consulte et modifie les informations du fournisseur."
+          contentClassName="flex max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] flex-col gap-4 p-6"
         >
-          <DialogContent className="flex max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] flex-col gap-4 p-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold tracking-tight">
-                Fiche fournisseur
-              </DialogTitle>
-              <DialogDescription>
-                Consulte et modifie les informations du fournisseur.
-              </DialogDescription>
-            </DialogHeader>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <section className="rounded-xl border border-border/70 bg-card p-3 lg:col-span-4">
@@ -1498,8 +1473,7 @@ export default function SuppliersPage() {
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
         <SupplierContactModal
           open={contactModalOpen}
@@ -1714,43 +1688,16 @@ export default function SuppliersPage() {
           onEditContact={openEditContactFromReadModal}
         />
 
-        <Dialog
+        <StariumModal
           open={newCategoryModalOpen && newCategoryTarget === 'edit'}
           onOpenChange={(open) => {
             setNewCategoryModalOpen(open);
             if (!open) setNewCategoryTarget('create');
           }}
-        >
-          <DialogContent className="w-[40rem] max-w-[90vw] p-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold tracking-tight">
-                Nouvelle categorie
-              </DialogTitle>
-              <DialogDescription>
-                Ajoute une categorie fournisseur pour le client actif.
-              </DialogDescription>
-            </DialogHeader>
-            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-              <div className="space-y-2">
-                <Label htmlFor="new-supplier-category-name-edit">Nom de la categorie</Label>
-                <Input
-                  id="new-supplier-category-name-edit"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Ex: Cloud"
-                />
-              </div>
-            </section>
-            {createCategoryMutation.isError && (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertTitle>Creation categorie impossible</AlertTitle>
-                <AlertDescription>
-                  {(createCategoryMutation.error as Error)?.message ??
-                    'Impossible de creer la categorie.'}
-                </AlertDescription>
-              </Alert>
-            )}
+          title="Nouvelle categorie"
+          description="Ajoute une categorie fournisseur pour le client actif."
+          contentClassName="w-[40rem] max-w-[90vw] p-6"
+          footer={
             <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
               <Button
                 type="button"
@@ -1774,8 +1721,30 @@ export default function SuppliersPage() {
                 Ajouter
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
+          }
+        >
+            <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <div className="space-y-2">
+                <Label htmlFor="new-supplier-category-name-edit">Nom de la categorie</Label>
+                <Input
+                  id="new-supplier-category-name-edit"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Ex: Cloud"
+                />
+              </div>
+            </section>
+            {createCategoryMutation.isError && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertTitle>Creation categorie impossible</AlertTitle>
+                <AlertDescription>
+                  {(createCategoryMutation.error as Error)?.message ??
+                    'Impossible de creer la categorie.'}
+                </AlertDescription>
+              </Alert>
+            )}
+        </StariumModal>
       </PageContainer>
     </RequireActiveClient>
   );

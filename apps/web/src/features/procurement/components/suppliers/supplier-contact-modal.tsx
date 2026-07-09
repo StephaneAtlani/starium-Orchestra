@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -137,23 +138,40 @@ export function SupplierContactModal({
 
   const hasNameParts = !!form.firstName.trim() || !!form.lastName.trim();
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        overlayClassName="!z-[130] bg-black/40 dark:bg-black/55 backdrop-blur-[2px]"
-        className="!z-[140] flex max-h-[90vh] w-full sm:w-[80vw] sm:max-w-[80vw] flex-col gap-4 p-6"
-      >
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold tracking-tight">
-            {isEditing ? 'Modifier un contact' : 'Ajouter un contact'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEditing ? 'Modifier un contact' : 'Ajouter un contact'}
+      icon={UserPlus}
+      size="full"
+      overlayClassName="!z-[130] bg-black/40 dark:bg-black/55 backdrop-blur-[2px]"
+      contentClassName="!z-[140] flex max-h-[90vh] flex-col gap-4"
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
+      footer={
+        <div className="flex w-full items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Le brouillon n&apos;est pas sauvegarde. Clique sur Annuler pour abandonner les modifications.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={onSubmit}
+              disabled={isSubmitting || isSubmitDisabled}
+            >
+              {isEditing ? 'Mettre a jour' : 'Ajouter'}
+            </Button>
+          </div>
+        </div>
+      }
+    >
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
+            <h3 className="starium-modal-seg-title mb-3">Identité</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-              <div className="space-y-2 md:col-span-3 md:flex md:flex-col md:items-center md:justify-center">
-                <Label className="md:text-center">Photo</Label>
+              <div className="starium-form-field md:col-span-3 md:flex md:flex-col md:items-center md:justify-center">
+                <Label className="starium-form-label md:text-center">Photo</Label>
                 <div className="flex flex-col items-start gap-3 md:items-center">
                   <label className="flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-border/80 bg-muted/30 text-xs text-muted-foreground">
                     {photoPreview ? (
@@ -197,25 +215,28 @@ export function SupplierContactModal({
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 md:col-span-9 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Prénom</Label>
+                <div className="starium-form-field">
+                  <Label className="starium-form-label">Prénom</Label>
                   <Input
+                    className="starium-form-input"
                     value={form.firstName}
                     onChange={(e) => onChange('firstName', e.target.value)}
                   />
                   {errors.firstName ? <p className="text-xs text-destructive">{errors.firstName}</p> : null}
                 </div>
-                <div className="space-y-2">
-                  <Label>Nom</Label>
+                <div className="starium-form-field">
+                  <Label className="starium-form-label">Nom</Label>
                   <Input
+                    className="starium-form-input"
                     value={form.lastName}
                     onChange={(e) => onChange('lastName', e.target.value)}
                   />
                   {errors.lastName ? <p className="text-xs text-destructive">{errors.lastName}</p> : null}
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Nom complet</Label>
+                <div className="starium-form-field md:col-span-2">
+                  <Label className="starium-form-label">Nom complet</Label>
                   <Input
+                    className="starium-form-input"
                     value={form.fullName}
                     disabled={hasNameParts}
                     onChange={(e) => onChange('fullName', e.target.value)}
@@ -227,15 +248,15 @@ export function SupplierContactModal({
           </section>
 
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Coordonnées</h3>
+            <h3 className="starium-modal-seg-title mb-3">Coordonnées</h3>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-2 md:col-span-2">
-                <Label>Rôle</Label>
+              <div className="starium-form-field md:col-span-2">
+                <Label className="starium-form-label">Rôle</Label>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
                   <select
                     value={form.role}
                     onChange={(e) => onChange('role', e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                    className="starium-form-select"
                   >
                     <option value="">Selectionner un role</option>
                     {roleOptions.map((role) => (
@@ -246,6 +267,7 @@ export function SupplierContactModal({
                   </select>
                   <div className="flex items-center gap-2">
                     <Input
+                      className="starium-form-input"
                       value={customRole}
                       onChange={(e) => setCustomRole(e.target.value)}
                       placeholder="Nouveau role"
@@ -265,17 +287,18 @@ export function SupplierContactModal({
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
+              <div className="starium-form-field">
+                <Label className="starium-form-label">Email</Label>
                 <Input
+                  className="starium-form-input"
                   value={form.email}
                   onChange={(e) => onChange('email', e.target.value)}
                   placeholder="contact@exemple.com"
                 />
                 {errors.email ? <p className="text-xs text-destructive">{errors.email}</p> : null}
               </div>
-              <div className="space-y-2">
-                <Label>Téléphone</Label>
+              <div className="starium-form-field">
+                <Label className="starium-form-label">Téléphone</Label>
                 <PhoneInput
                   value={form.phone}
                   onChange={(value) => onChange('phone', value)}
@@ -285,8 +308,8 @@ export function SupplierContactModal({
                 <p className="text-xs text-muted-foreground">Format attendu : +33... (ex: +33612345678)</p>
                 {errors.phone ? <p className="text-xs text-destructive">{errors.phone}</p> : null}
               </div>
-              <div className="space-y-2">
-                <Label>Mobile</Label>
+              <div className="starium-form-field">
+                <Label className="starium-form-label">Mobile</Label>
                 <PhoneInput
                   value={form.mobile}
                   onChange={(value) => onChange('mobile', value)}
@@ -296,9 +319,10 @@ export function SupplierContactModal({
                 <p className="text-xs text-muted-foreground">Format attendu : +33... (ex: +33612345678)</p>
                 {errors.mobile ? <p className="text-xs text-destructive">{errors.mobile}</p> : null}
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Notes</Label>
+              <div className="starium-form-field md:col-span-2">
+                <Label className="starium-form-label">Notes</Label>
                 <Input
+                  className="starium-form-input"
                   value={form.notes}
                   onChange={(e) => onChange('notes', e.target.value)}
                   placeholder="Informations complémentaires"
@@ -308,7 +332,7 @@ export function SupplierContactModal({
           </section>
 
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">Fournisseur et statut</h3>
+            <h3 className="starium-modal-seg-title mb-3">Fournisseur et statut</h3>
             {supplierSection ?? (
               <div className="space-y-3">
                 <div className="pt-1">
@@ -327,26 +351,6 @@ export function SupplierContactModal({
               </div>
             )}
           </section>
-        </div>
-
-        <div className="-mx-6 -mb-6 mt-auto flex items-center justify-between gap-3 border-t border-border/60 bg-background px-6 py-4">
-          <p className="text-xs text-muted-foreground">
-            Le brouillon n&apos;est pas sauvegarde. Clique sur Annuler pour abandonner les modifications.
-          </p>
-          <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSubmitting || isSubmitDisabled}
-          >
-            {isEditing ? 'Mettre a jour' : 'Ajouter'}
-          </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

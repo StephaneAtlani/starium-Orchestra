@@ -2,15 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -59,45 +53,50 @@ export function NewRiskRedirectDialog({ open, onOpenChange, projectItems }: Prop
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Nouveau risque</DialogTitle>
-          <DialogDescription className="text-pretty">
-            <span className="font-medium text-foreground">Pourquoi un projet ?</span> Dans Starium, la
-            création d’une fiche risque passe par l’API projet : chaque enregistrement a un{' '}
-            <span className="whitespace-nowrap">projet parent</span> obligatoire (modèle technique), pas un
-            choix UX arbitraire. Sujet transverse ou « hors projet » métier : rattachez à un projet porteur
-            existant, ou créez un projet dédié / fourre-tout dans le portefeuille si votre organisation le
-            prévoit.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2 py-2">
-          <Label htmlFor="new-risk-project">Projet parent</Label>
-          <Select value={projectId} onValueChange={(v) => setProjectId(v ?? '')}>
-            <SelectTrigger id="new-risk-project">
-              <SelectValue
-                placeholder={projectItems.length ? 'Choisir un projet…' : 'Aucun projet chargé'}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {projectItems.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter className="gap-2 sm:gap-0">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouveau risque"
+      description={
+        <>
+          <span className="font-medium text-foreground">Pourquoi un projet ?</span> Dans Starium, la
+          création d'une fiche risque passe par l'API projet : chaque enregistrement a un{' '}
+          <span className="whitespace-nowrap">projet parent</span> obligatoire (modèle technique), pas un
+          choix UX arbitraire. Sujet transverse ou « hors projet » métier : rattachez à un projet porteur
+          existant, ou créez un projet dédié / fourre-tout dans le portefeuille si votre organisation le
+          prévoit.
+        </>
+      }
+      icon={AlertTriangle}
+      size="md"
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
           <Button type="button" onClick={handleContinue} disabled={!canSubmit}>
             Continuer
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-2">
+        <Label htmlFor="new-risk-project">Projet parent</Label>
+        <Select value={projectId} onValueChange={(v) => setProjectId(v ?? '')}>
+          <SelectTrigger id="new-risk-project">
+            <SelectValue
+              placeholder={projectItems.length ? 'Choisir un projet…' : 'Aucun projet chargé'}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {projectItems.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </StariumModal>
   );
 }

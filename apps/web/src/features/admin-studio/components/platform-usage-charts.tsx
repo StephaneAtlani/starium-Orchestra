@@ -4,15 +4,9 @@ import { useId, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { cn } from '@/lib/utils';
-import { Maximize2 } from 'lucide-react';
+import { BarChart3, Maximize2 } from 'lucide-react';
 import type { PlatformUsageDailyPoint } from '../types/admin-studio.types';
 
 const COLOR_AUDIT = 'hsl(221.2 83.2% 53.3%)';
@@ -439,25 +433,30 @@ function UsageChartBlock({
         </Button>
       </div>
       <DualAreaSparkSvg {...chartProps} chartSize="card" />
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className="flex max-h-[min(92vh,960px)] w-[min(100vw-1rem,1200px)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
-          showCloseButton
-        >
-          <DialogHeader className="border-border/60 shrink-0 border-b px-4 pt-4 pb-3 sm:px-6">
-            <DialogTitle className="text-base">{dialogTitle}</DialogTitle>
-            {dialogDescription ? (
-              <DialogDescription>{dialogDescription}</DialogDescription>
-            ) : null}
-          </DialogHeader>
-          <div className="text-muted-foreground flex flex-wrap items-center gap-4 border-border/40 border-b px-4 py-3 text-xs sm:px-6">
-            {legend}
-          </div>
-          <div className="bg-muted/10 min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-            <DualAreaSparkSvg {...chartProps} chartSize="fullscreen" />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title={dialogTitle}
+        description={dialogDescription}
+        icon={BarChart3}
+        headless
+        size="full"
+        contentClassName="flex max-h-[min(92vh,960px)] w-[min(100vw-1rem,1200px)] flex-col gap-0 overflow-hidden p-0"
+        bodyClassName="flex min-h-0 flex-1 flex-col gap-0 p-0"
+      >
+        <div className="border-border/60 shrink-0 border-b px-4 pt-4 pb-3 sm:px-6">
+          <h2 className="text-base font-semibold">{dialogTitle}</h2>
+          {dialogDescription ? (
+            <p className="text-muted-foreground mt-1 text-sm">{dialogDescription}</p>
+          ) : null}
+        </div>
+        <div className="text-muted-foreground flex flex-wrap items-center gap-4 border-border/40 border-b px-4 py-3 text-xs sm:px-6">
+          {legend}
+        </div>
+        <div className="bg-muted/10 min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+          <DualAreaSparkSvg {...chartProps} chartSize="fullscreen" />
+        </div>
+      </StariumModal>
     </>
   );
 }

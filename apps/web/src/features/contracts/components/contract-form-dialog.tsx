@@ -4,16 +4,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, FileText, Loader2 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -371,61 +363,60 @@ export function ContractFormDialog(props: {
   }, [billingFrequency]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-4xl lg:max-w-5xl"
-      >
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === 'create' ? 'Nouveau contrat' : 'Modifier le contrat'}
+      description="Contrepartie contractuelle = fournisseur du répertoire achats ; enregistrement explicite via « Enregistrer »."
+      icon={FileText}
+      size="xl"
+      bodyClassName="max-h-[min(70vh,800px)] overflow-y-auto"
+      status={
+        <>
+          {suppliersLoading ? (
+            <>
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+              <span>Chargement des fournisseurs…</span>
+            </>
+          ) : suppliersError ? (
+            <>
+              <AlertCircle className="size-3.5 shrink-0 text-destructive" aria-hidden />
+              <span className="text-destructive">
+                Liste fournisseurs indisponible — utilisez « Réessayer » dans l’encart ci-dessous.
+              </span>
+            </>
+          ) : mut.isPending ? (
+            <>
+              <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
+              <span>Enregistrement en cours…</span>
+            </>
+          ) : (
+            <>
+              <FileText className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
+              <span>
+                Document joint optionnel après validation — PDF, PNG ou JPEG si vous avez le droit de
+                modification.
+              </span>
+            </>
+          )}
+        </>
+      }
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || createBlockedBySupplier}
+          >
+            {mut.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </>
+      }
+    >
         <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <div className="pr-8">
-              <div className="flex flex-wrap items-center gap-2 gap-y-1">
-                <DialogTitle className="text-left">
-                  {mode === 'create' ? 'Nouveau contrat' : 'Modifier le contrat'}
-                </DialogTitle>
-                <Badge variant="secondary" className="shrink-0 font-normal text-muted-foreground">
-                  Contrats
-                </Badge>
-              </div>
-              <DialogDescription className="mt-2 text-left">
-                Contrepartie contractuelle = fournisseur du répertoire achats ; enregistrement explicite via
-                « Enregistrer ».
-              </DialogDescription>
-            </div>
-            <div
-              className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-              role="status"
-              aria-live="polite"
-            >
-              {suppliersLoading ? (
-                <>
-                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
-                  <span>Chargement des fournisseurs…</span>
-                </>
-              ) : suppliersError ? (
-                <>
-                  <AlertCircle className="size-3.5 shrink-0 text-destructive" aria-hidden />
-                  <span className="text-destructive">
-                    Liste fournisseurs indisponible — utilisez « Réessayer » dans l’encart ci-dessous.
-                  </span>
-                </>
-              ) : mut.isPending ? (
-                <>
-                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" aria-hidden />
-                  <span>Enregistrement en cours…</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="size-3.5 shrink-0 text-muted-foreground/90" aria-hidden />
-                  <span>
-                    Document joint optionnel après validation — PDF, PNG ou JPEG si vous avez le droit de
-                    modification.
-                  </span>
-                </>
-              )}
-            </div>
-          </DialogHeader>
-
           <div className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
             <Label htmlFor={suppliersLoading || suppliersError ? undefined : 'ctr-supplier-trigger'}>
               Fournisseur
@@ -939,20 +930,7 @@ export function ContractFormDialog(props: {
               </div>
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              onClick={() => mut.mutate()}
-              disabled={mut.isPending || createBlockedBySupplier}
-            >
-              {mut.isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

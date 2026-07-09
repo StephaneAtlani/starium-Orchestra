@@ -10,13 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { ShoppingCart } from 'lucide-react';
 import { formatNumberFr } from '@/lib/currency-format';
 import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -222,11 +217,23 @@ export function PurchaseOrderDetailPage({ purchaseOrderId }: { purchaseOrderId: 
         </div>
       </div>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Modifier la commande</DialogTitle>
-          </DialogHeader>
+      <StariumModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Modifier la commande"
+        icon={ShoppingCart}
+        size="md"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Fermer
+            </Button>
+            <Button type="button" onClick={() => patchMut.mutate()} disabled={patchMut.isPending}>
+              Enregistrer
+            </Button>
+          </>
+        }
+      >
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="po-edit-label">Libellé</Label>
@@ -237,16 +244,7 @@ export function PurchaseOrderDetailPage({ purchaseOrderId }: { purchaseOrderId: 
               <Input id="po-edit-ref" value={reference} onChange={(e) => setReference(e.target.value)} className="font-mono" />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
-              Fermer
-            </Button>
-            <Button type="button" onClick={() => patchMut.mutate()} disabled={patchMut.isPending}>
-              Enregistrer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </div>
   );
 }

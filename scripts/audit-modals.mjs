@@ -2,12 +2,18 @@
 /**
  * Audit conformité modales Starium.
  * Usage: node scripts/audit-modals.mjs
- * Exit 0 si aucun problème structurel ; exit 1 sinon.
+ * Exit 0 si conforme ; exit 1 si usages DialogContent directs hors socle.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '../apps/web/src');
+
+const ALLOWED_DIALOG_CONTENT = new Set([
+  'components/ui/dialog.tsx',
+  'components/layout/form-dialog-shell.tsx',
+  'components/ui/dialog.spec.tsx',
+]);
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -22,22 +28,33 @@ function walk(dir, out = []) {
   return out;
 }
 
-const structuralIssues = [];
+const directDialogContent = [];
 const formIssues = [];
+let stariumModalCount = 0;
 
 for (const file of walk(ROOT)) {
   const rel = file.replace(ROOT + '/', '');
   const text = readFileSync(file, 'utf8');
-  if (!text.includes('DialogContent')) continue;
-  if (rel.includes('components/ui/dialog.tsx')) continue;
-  if (rel.includes('form-dialog-shell')) continue;
-  if (text.includes('sidePanel') || text.includes('chatWidget')) continue;
 
-  if (text.includes('-mx-4 -mt-4')) {
-    structuralIssues.push(`${rel}: legacy header (-mx-4 -mt-4)`);
+  if (text.includes('StariumModal') || text.includes('FormDialogShell')) {
+    stariumModalCount += 1;
   }
-  if (/layout=["']legacy["']/.test(text)) {
-    structuralIssues.push(`${rel}: layout=legacy`);
+
+  if (!text.includes('DialogContent')) continue;
+  if (ALLOWED_DIALOG_CONTENT.has(rel)) continue;
+  if (rel.includes('.spec.')) continue;
+
+  // Nom de type ou commentaire uniquement
+  if (
+    !/<DialogContent[\s>]/.test(text) &&
+    !text.includes('from \'@/components/ui/dialog\'') &&
+    !text.includes('from "@/components/ui/dialog"')
+  ) {
+    continue;
+  }
+
+  if (/<DialogContent[\s>]/.test(text) || /import[\s\S]*DialogContent/.test(text)) {
+    directDialogContent.push(rel);
   }
 
   const hasStariumForm =
@@ -49,13 +66,11 @@ for (const file of walk(ROOT)) {
 }
 
 console.log('=== Audit modales Starium ===\n');
-console.log(`Structure: ${structuralIssues.length} problème(s)`);
-structuralIssues.forEach((line) => console.log('  -', line));
-console.log(`\nFormulaires: ${formIssues.length} fichier(s) avec inputs legacy`);
-formIssues.slice(0, 20).forEach((line) => console.log('  -', line));
-if (formIssues.length > 20) {
-  console.log(`  ... +${formIssues.length - 20} autres`);
-}
+console.log(`Fichiers StariumModal/FormDialogShell : ${stariumModalCount}`);
+console.log(`DialogContent direct (hors socle) : ${directDialogContent.length}`);
+directDialogContent.forEach((line) => console.log('  -', line));
+console.log(`\nFormulaires legacy : ${formIssues.length}`);
+formIssues.forEach((line) => console.log('  -', line));
 
-const failed = structuralIssues.length > 0;
+const failed = directDialogContent.length > 0 || formIssues.length > 0;
 process.exit(failed ? 1 : 0);

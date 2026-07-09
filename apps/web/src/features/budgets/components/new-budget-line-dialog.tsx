@@ -1,13 +1,8 @@
 'use client';
 
 import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { ListPlus } from 'lucide-react';
 import { BudgetLineFormPage } from './pages/budget-line-form-page';
 
 export interface NewBudgetLineDialogProps {
@@ -25,20 +20,16 @@ export function NewBudgetLineDialog({
   budgetId,
 }: NewBudgetLineDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-h-[min(90vh,920px)] w-full gap-0 overflow-y-auto p-0 sm:max-w-4xl lg:max-w-5xl"
-        showCloseButton
-      >
-        <div className="border-b border-border/60 px-4 py-3 pr-12 sm:px-6 sm:pr-14">
-          <DialogHeader className="gap-1 text-left">
-            <DialogTitle>Nouvelle ligne budgétaire</DialogTitle>
-            <DialogDescription>
-              La ligne apparaît dans le tableau du budget après enregistrement.
-            </DialogDescription>
-          </DialogHeader>
-        </div>
-        <div className="px-4 py-4 sm:px-6">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvelle ligne budgétaire"
+      description="La ligne apparaît dans le tableau du budget après enregistrement."
+      icon={ListPlus}
+      size="xl"
+      contentClassName="max-h-[min(90vh,920px)] gap-0 overflow-y-auto p-0"
+      bodyClassName="px-4 py-4 sm:px-6"
+    >
           {open ? (
             <BudgetLineFormPage
               key={budgetId}
@@ -50,8 +41,6 @@ export function NewBudgetLineDialog({
               onCloseEmbedded={() => onOpenChange(false)}
             />
           ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

@@ -4,13 +4,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Building2, FileText, Pencil, Phone, Receipt, Users2 } from 'lucide-react';
-
 import { EmptyState } from '@/components/feedback/empty-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getSupplierById, listSupplierContacts } from '@/features/procurement/api/procurement.api';
@@ -607,26 +607,29 @@ export function SupplierVisualizationModal({
   onEditContact?: (contact: SupplierContact) => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!h-screen !max-h-screen !w-screen !max-w-screen overflow-y-auto rounded-none p-6">
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <DialogTitle>Fiche fournisseur</DialogTitle>
-              <DialogDescription>Consultation en lecture seule.</DialogDescription>
-            </div>
-            {onEdit && supplierId ? (
-              <button
-                type="button"
-                className="mr-2 inline-flex h-8 items-center gap-2 rounded-md border border-input px-3 text-sm hover:bg-muted/60"
-                onClick={() => onEdit(supplierId)}
-              >
-                <Pencil className="size-4" />
-                Modifier
-              </button>
-            ) : null}
-          </div>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Fiche fournisseur"
+      description="Consultation en lecture seule."
+      icon={Building2}
+      size="full"
+      contentClassName="h-screen max-h-screen overflow-y-auto"
+      status={
+        onEdit && supplierId ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-2"
+            onClick={() => onEdit(supplierId)}
+          >
+            <Pencil className="size-4" />
+            Modifier
+          </Button>
+        ) : null
+      }
+    >
         {supplierId ? (
           <SupplierVisualizationContent
             supplierId={supplierId}
@@ -636,7 +639,6 @@ export function SupplierVisualizationModal({
         ) : (
           <p className="text-sm text-muted-foreground">Aucun fournisseur selectionne.</p>
         )}
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

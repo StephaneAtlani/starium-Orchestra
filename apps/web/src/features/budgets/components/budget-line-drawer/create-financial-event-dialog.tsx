@@ -3,13 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { CircleDollarSign } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -138,22 +133,33 @@ export function CreateFinancialEventDialog({
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto shadow-lg bg-white" showCloseButton>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <DialogHeader>
-              <DialogTitle>
-                {initialEventType === 'COMMITMENT_REGISTERED'
-                  ? 'Ajouter un engagement'
-                  : initialEventType === 'CONSUMPTION_REGISTERED'
-                    ? 'Ajouter une consommation'
-                    : 'Ajouter un événement'}
-              </DialogTitle>
-            </DialogHeader>
-          </div>
+  const dialogTitle =
+    initialEventType === 'COMMITMENT_REGISTERED'
+      ? 'Ajouter un engagement'
+      : initialEventType === 'CONSUMPTION_REGISTERED'
+        ? 'Ajouter une consommation'
+        : 'Ajouter un événement';
 
+  return (
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={dialogTitle}
+      icon={CircleDollarSign}
+      size="xl"
+      bodyClassName="max-h-[60vh] overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="create-financial-event-form" disabled={isPending}>
+            {isPending ? 'Création…' : 'Créer'}
+          </Button>
+        </>
+      }
+    >
+        <form id="create-financial-event-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
           {submitError && (
             <div className="col-span-2">
               <Alert variant="destructive">
@@ -266,20 +272,8 @@ export function CreateFinancialEventDialog({
             <Label htmlFor="event-description">Description (optionnel)</Label>
             <Input id="event-description" {...register('description')} aria-invalid={!!errors.description} />
           </div>
-
-          <div className="col-span-2">
-            <DialogFooter showCloseButton={false}>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Création…' : 'Créer'}
-              </Button>
-            </DialogFooter>
-          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

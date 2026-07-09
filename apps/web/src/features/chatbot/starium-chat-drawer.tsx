@@ -21,12 +21,7 @@ import {
   MessageCircle,
   Search,
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -847,7 +842,7 @@ export function StariumChatDrawer() {
         </button>
       )}
 
-      <Dialog
+      <StariumModal
         open={open}
         onOpenChange={(v) => {
           setOpen(v);
@@ -857,18 +852,17 @@ export function StariumChatDrawer() {
             setReaderLoading(false);
           }
         }}
+        title={ORION_PRODUCT_NAME}
+        headless
+        chatWidget
+        id="starium-orion-drawer"
+        overlayClassName="z-[500]"
+        contentClassName="z-[501]"
+        bodyClassName="p-0 flex min-h-0 flex-1 flex-col"
       >
-        <DialogContent
-          id="starium-orion-drawer"
-          chatWidget
-          showCloseButton
-          overlayClassName="z-[500]"
-          className="z-[501]"
-        >
-          <DialogTitle className="sr-only">{ORION_PRODUCT_NAME}</DialogTitle>
-          <DialogDescription className="sr-only">
+          <p className="sr-only">
             {ORION_SUBTITLE} — réponses configurées par votre administrateur.
-          </DialogDescription>
+          </p>
 
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             {readerStack.length > 0 ? (
@@ -1492,8 +1486,7 @@ export function StariumChatDrawer() {
               </button>
             ))}
           </nav>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </>
   );
 }

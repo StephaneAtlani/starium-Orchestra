@@ -3,15 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -60,7 +52,7 @@ import {
   riskCriticalityLabel,
 } from '../lib/project-risk-display';
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
-import { ChevronDown, CloudUpload, ListPlus, Loader2 } from 'lucide-react';
+import { ChevronDown, CloudUpload, ListPlus, Loader2, ShieldAlert } from 'lucide-react';
 
 const PI_OPTIONS = [1, 2, 3, 4, 5] as const;
 const NONE = '__none__';
@@ -1101,45 +1093,58 @@ export function ProjectRiskEbiosDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showCloseButton size="xl">
-        <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader>
-            <div className="pr-8">
-              <div className="flex flex-wrap items-center gap-2 gap-y-1">
-                <DialogTitle className="text-left">
-                  {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
-                </DialogTitle>
-                <span className="starium-ds-badge starium-ds-badge--neutral">EBIOS RM</span>
-              </div>
-              <DialogDescription className="mt-2 text-left">
-                Scénario, évaluation, impact métier, traitement, résiduel et suivi (ISO 27005).
-              </DialogDescription>
-            </div>
-            <div
-              className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-              role="status"
-              aria-live="polite"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]" aria-hidden />
-                  <span>Enregistrement en cours…</span>
-                </>
-              ) : (
-                <>
-                  <CloudUpload className="size-3.5 shrink-0" aria-hidden />
-                  <span>
-                    Sauvegarde automatique lorsque le formulaire est valide (délai court après
-                    modification).
-                  </span>
-                </>
-              )}
-            </div>
-          </DialogHeader>
-
-          <DialogBody className="min-h-0 flex-1 py-4">
-            <div className="starium-form">
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title={
+        <span className="flex flex-wrap items-center gap-2 gap-y-1">
+          {mode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
+          <span className="starium-ds-badge starium-ds-badge--neutral">EBIOS RM</span>
+        </span>
+      }
+      description="Scénario, évaluation, impact métier, traitement, résiduel et suivi (ISO 27005)."
+      icon={ShieldAlert}
+      size="xl"
+      bodyClassName="min-h-0 flex-1 py-4"
+      status={
+        isPending ? (
+          <>
+            <Loader2 className="size-3.5 shrink-0 animate-spin text-[color:var(--brand-gold)]" aria-hidden />
+            <span>Enregistrement en cours…</span>
+          </>
+        ) : (
+          <>
+            <CloudUpload className="size-3.5 shrink-0" aria-hidden />
+            <span>
+              Sauvegarde automatique lorsque le formulaire est valide (délai court après
+              modification).
+            </span>
+          </>
+        )
+      }
+      footer={
+        <>
+          <button
+            type="button"
+            className="starium-btn starium-btn-secondary"
+            onClick={() => void handleOpenChange(false)}
+            disabled={isPending}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="starium-btn starium-btn-primary"
+            onClick={() => void handleManualSave()}
+            disabled={isPending || !canSubmit}
+          >
+            {isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
+        <div className="starium-form">
               {riskApiScope === 'client' ? (
                 <section className="starium-form-section">
                   <EbiosField
@@ -1784,29 +1789,8 @@ export function ProjectRiskEbiosDialog({
               </section>
             ) : null}
             </div>
-          </DialogBody>
-
-          <DialogFooter>
-            <button
-              type="button"
-              className="starium-btn starium-btn-secondary"
-              onClick={() => void handleOpenChange(false)}
-              disabled={isPending}
-            >
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="starium-btn starium-btn-primary"
-              onClick={() => void handleManualSave()}
-              disabled={isPending || !canSubmit}
-            >
-              {isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </StariumModal>
 
     <ActionPlanTaskCreateDialog
       open={addToPlanOpen}

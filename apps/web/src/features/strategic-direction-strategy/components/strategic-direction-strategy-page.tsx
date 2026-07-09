@@ -15,15 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -1058,18 +1050,28 @@ export function StrategicDirectionStrategyPage() {
         )}
       </div>
 
-      <Dialog
+      <StariumModal
         open={showFormPanel}
         onOpenChange={(open) => {
           if (open) return;
           closePanel();
         }}
+        title={isCreating ? 'Nouvelle stratégie' : selectedStrategy?.title ?? 'Stratégie'}
+        description={
+          isCreating
+            ? 'Direction, vision alignée, puis contenu — enregistre pour créer le brouillon.'
+            : `Statut : ${getStrategicDirectionStrategyStatusLabel(status)}${selectedStrategy ? ` · ${directionLabel(selectedStrategy)}` : ''}`
+        }
+        status={
+          !isCreating && selectedStrategy ? (
+            <Badge variant="outline" className="shrink-0 px-2.5 py-1 text-xs font-medium">
+              {getStrategicDirectionStrategyStatusLabel(status)}
+            </Badge>
+          ) : undefined
+        }
+        size="full"
+        contentClassName="flex min-h-0 max-h-[min(92dvh,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden sm:max-w-6xl"
       >
-        <DialogContent
-          size="full"
-          showCloseButton
-          className="flex min-h-0 max-h-[min(92dvh,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden sm:max-w-6xl"
-        >
           {formLoading ? (
             <Alert>
               <AlertDescription>Chargement de la stratégie…</AlertDescription>
@@ -1083,27 +1085,7 @@ export function StrategicDirectionStrategyPage() {
             </Alert>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
-              <DialogHeader className="shrink-0 gap-1 border-b border-border/60 pb-3 pr-10">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
-                    <DialogTitle>
-                      {isCreating ? 'Nouvelle stratégie' : selectedStrategy?.title ?? 'Stratégie'}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {isCreating
-                        ? 'Direction, vision alignée, puis contenu — enregistre pour créer le brouillon.'
-                        : `Statut : ${getStrategicDirectionStrategyStatusLabel(status)}${selectedStrategy ? ` · ${directionLabel(selectedStrategy)}` : ''}`}
-                    </DialogDescription>
-                  </div>
-                  {!isCreating && selectedStrategy ? (
-                    <Badge variant="outline" className="shrink-0 px-2.5 py-1 text-xs font-medium">
-                      {getStrategicDirectionStrategyStatusLabel(status)}
-                    </Badge>
-                  ) : null}
-                </div>
-              </DialogHeader>
-
-              <DialogBody className="min-h-0 flex-1 space-y-4 py-4">
+              <div className="min-h-0 flex-1 space-y-4 py-4">
                 {status === 'ARCHIVED' ? (
                   <Alert>
                     <AlertDescription>
@@ -1841,13 +1823,12 @@ export function StrategicDirectionStrategyPage() {
                   </div>
                 </section>
 
-              </DialogBody>
+              </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
 
-      <Dialog
+      <StariumModal
         open={submitDialogOpen}
         onOpenChange={(open) => {
           setSubmitDialogOpen(open);
@@ -1855,15 +1836,33 @@ export function StrategicDirectionStrategyPage() {
             setSubmitValidatorUserId('');
           }
         }}
+        title="Soumettre pour validation"
+        description="Choisis la personne qui validera cette stratégie. Tu ne pourras pas valider ta propre soumission."
+        showCloseButton={!submitMutation.isPending}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitMutation.isPending}
+              onClick={() => setSubmitDialogOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                submitMutation.isPending ||
+                validatorOptionsQ.isLoading ||
+                (allowSubmitterToPickValidator && !submitValidatorUserId)
+              }
+              onClick={() => void handleConfirmSubmit()}
+            >
+              {submitMutation.isPending ? 'Soumission…' : STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
+            </Button>
+          </>
+        }
       >
-        <DialogContent showCloseButton={!submitMutation.isPending}>
-          <DialogHeader>
-            <DialogTitle>Soumettre pour validation</DialogTitle>
-            <DialogDescription>
-              Choisis la personne qui validera cette stratégie. Tu ne pourras pas valider ta propre
-              soumission.
-            </DialogDescription>
-          </DialogHeader>
 
           <div className="starium-form-field">
             <Label htmlFor="strategy-submit-validator" className="starium-form-label">
@@ -1900,53 +1899,16 @@ export function StrategicDirectionStrategyPage() {
               <AlertDescription>{formError}</AlertDescription>
             </Alert>
           ) : null}
+      </StariumModal>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={submitMutation.isPending}
-              onClick={() => setSubmitDialogOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={
-                submitMutation.isPending ||
-                validatorOptionsQ.isLoading ||
-                (allowSubmitterToPickValidator && !submitValidatorUserId)
-              }
-              onClick={() => void handleConfirmSubmit()}
-            >
-              {submitMutation.isPending ? 'Soumission…' : STRATEGIC_DIRECTION_STRATEGY_SUBMIT_LABEL}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
-        <DialogContent showCloseButton={!archiveMutation.isPending}>
-          <DialogHeader>
-            <DialogTitle>Archiver la stratégie validée</DialogTitle>
-            <DialogDescription>
-              La stratégie passera en lecture seule ({STRATEGIC_DIRECTION_STRATEGY_STATUS_LABELS.ARCHIVED}) et un nouveau cycle pourra être créé pour la même
-              direction et vision. Renseigne le motif d’archivage.
-            </DialogDescription>
-          </DialogHeader>
-
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-foreground">Motif d’archivage</span>
-            <textarea
-              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={archiveReason}
-              onChange={(event) => setArchiveReason(event.target.value)}
-              placeholder="Ex. Fin de cycle stratégique 2026, lancement d’une nouvelle version…"
-              disabled={archiveMutation.isPending}
-            />
-          </label>
-
-          <DialogFooter>
+      <StariumModal
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+        title="Archiver la stratégie validée"
+        description={`La stratégie passera en lecture seule (${STRATEGIC_DIRECTION_STRATEGY_STATUS_LABELS.ARCHIVED}) et un nouveau cycle pourra être créé pour la même direction et vision. Renseigne le motif d’archivage.`}
+        showCloseButton={!archiveMutation.isPending}
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -1984,31 +1946,29 @@ export function StrategicDirectionStrategyPage() {
             >
               {archiveMutation.isPending ? 'Archivage…' : 'Confirmer l’archivage'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={adaptationDialogOpen} onOpenChange={setAdaptationDialogOpen}>
-        <DialogContent showCloseButton>
-          <DialogHeader>
-            <DialogTitle>Adapter une stratégie validée</DialogTitle>
-            <DialogDescription>
-              Cette action ouvre l’édition et déclenchera l’archivage automatique de l’ancienne version validée au
-              moment de l’enregistrement.
-            </DialogDescription>
-          </DialogHeader>
+          </>
+        }
+      >
 
           <label className="space-y-1 text-sm">
-            <span className="font-medium text-foreground">Motif d’adaptation</span>
+            <span className="font-medium text-foreground">Motif d’archivage</span>
             <textarea
               className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={adaptationReason}
-              onChange={(event) => setAdaptationReason(event.target.value)}
-              placeholder="Ex. Nouveau contexte business, évolution du cadrage, arbitrage direction…"
+              value={archiveReason}
+              onChange={(event) => setArchiveReason(event.target.value)}
+              placeholder="Ex. Fin de cycle stratégique 2026, lancement d’une nouvelle version…"
+              disabled={archiveMutation.isPending}
             />
           </label>
+      </StariumModal>
 
-          <DialogFooter>
+      <StariumModal
+        open={adaptationDialogOpen}
+        onOpenChange={setAdaptationDialogOpen}
+        title="Adapter une stratégie validée"
+        description="Cette action ouvre l’édition et déclenchera l’archivage automatique de l’ancienne version validée au moment de l’enregistrement."
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setAdaptationDialogOpen(false)}>
               Annuler
             </Button>
@@ -2023,9 +1983,20 @@ export function StrategicDirectionStrategyPage() {
             >
               Démarrer l’adaptation
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium text-foreground">Motif d’adaptation</span>
+            <textarea
+              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={adaptationReason}
+              onChange={(event) => setAdaptationReason(event.target.value)}
+              placeholder="Ex. Nouveau contexte business, évolution du cadrage, arbitrage direction…"
+            />
+          </label>
+      </StariumModal>
     </PageContainer>
   );
 }

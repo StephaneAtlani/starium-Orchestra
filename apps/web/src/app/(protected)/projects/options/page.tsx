@@ -11,14 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { projectsList } from '@/features/projects/constants/project-routes';
@@ -648,12 +641,17 @@ export default function ProjectsOptionsPage() {
           ) : null}
         </Card>
 
-        <Dialog open={newTagColorModalOpen} onOpenChange={setNewTagColorModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Couleur de l&apos;etiquette</DialogTitle>
-              <DialogDescription>Choisir une couleur par defaut ou personnalisee.</DialogDescription>
-            </DialogHeader>
+        <StariumModal
+          open={newTagColorModalOpen}
+          onOpenChange={setNewTagColorModalOpen}
+          title="Couleur de l'étiquette"
+          description="Choisir une couleur par defaut ou personnalisee."
+          footer={
+            <Button type="button" onClick={() => setNewTagColorModalOpen(false)}>
+              Valider
+            </Button>
+          }
+        >
             <div className="flex flex-wrap gap-2">
               {DEFAULT_TAG_COLORS.map((color) => (
                 <button
@@ -676,20 +674,19 @@ export default function ProjectsOptionsPage() {
                 aria-label="Choisir une couleur personnalisee"
               />
             </div>
-            <DialogFooter>
-              <Button type="button" onClick={() => setNewTagColorModalOpen(false)}>
-                Valider
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
-        <Dialog open={editTagColorModalOpen} onOpenChange={setEditTagColorModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Couleur de l&apos;etiquette</DialogTitle>
-              <DialogDescription>Modifier la couleur de l&apos;etiquette.</DialogDescription>
-            </DialogHeader>
+        <StariumModal
+          open={editTagColorModalOpen}
+          onOpenChange={setEditTagColorModalOpen}
+          title="Couleur de l'étiquette"
+          description="Modifier la couleur de l'étiquette."
+          footer={
+            <Button type="button" onClick={() => setEditTagColorModalOpen(false)}>
+              Valider
+            </Button>
+          }
+        >
             <div className="flex flex-wrap gap-2">
               {DEFAULT_TAG_COLORS.map((color) => (
                 <button
@@ -712,24 +709,20 @@ export default function ProjectsOptionsPage() {
                 aria-label="Choisir une couleur personnalisee"
               />
             </div>
-            <DialogFooter>
-              <Button type="button" onClick={() => setEditTagColorModalOpen(false)}>
-                Valider
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
-        <Dialog open={Boolean(deleteDialog)} onOpenChange={(open) => !open && setDeleteDialog(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Supprimer la categorie</DialogTitle>
-              <DialogDescription>
-                Confirmer la suppression de <strong>{deleteDialog?.name}</strong>. Si la categorie
-                a des enfants ou des projets rattaches, la suppression sera refusee.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+        <StariumModal
+          open={Boolean(deleteDialog)}
+          onOpenChange={(open) => !open && setDeleteDialog(null)}
+          title="Supprimer la categorie"
+          description={
+            <>
+              Confirmer la suppression de <strong>{deleteDialog?.name}</strong>. Si la categorie a des
+              enfants ou des projets rattaches, la suppression sera refusee.
+            </>
+          }
+          footer={
+            <>
               <Button type="button" variant="outline" onClick={() => setDeleteDialog(null)}>
                 Annuler
               </Button>
@@ -743,9 +736,9 @@ export default function ProjectsOptionsPage() {
               >
                 Supprimer
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          }
+        />
       </PageContainer>
     </RequireActiveClient>
   );

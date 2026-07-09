@@ -1,16 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Wallet } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -119,7 +113,6 @@ export function ProjectBudgetLinkEditDialog({
     budgetId === SELECT_NONE ? null : budgetId,
   );
   const updateMut = useUpdateProjectBudgetLink(projectId);
-  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const canChangeAllocationMode = budgetLinks.length <= 1;
   const effectiveAllocationMode = canChangeAllocationMode
@@ -349,28 +342,45 @@ export function ProjectBudgetLinkEditDialog({
   const currency = selectedBudget?.currency ?? 'EUR';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex max-h-[min(92dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-        showCloseButton
-        initialFocus={titleRef}
-      >
-        <DialogHeader className="shrink-0 border-b border-border/60 px-5 py-4 pr-12">
-          <DialogTitle
-            ref={titleRef}
-            tabIndex={-1}
-            className="outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            Modifier le lien budgétaire
-          </DialogTitle>
-          <DialogDescription>
-            Ajustez la ligne active et la valeur allouée selon le mode du projet.
-          </DialogDescription>
-        </DialogHeader>
-
-        {link ? (
-          <form onSubmit={onSubmit} className="starium-proj-budget-edit-form flex min-h-0 flex-1 flex-col">
-            <DialogBody className="starium-proj-budget-edit-form__body space-y-5 px-5 py-5">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Modifier le lien budgétaire"
+      description="Ajustez la ligne active et la valeur allouée selon le mode du projet."
+      icon={Wallet}
+      size="lg"
+      contentClassName="flex max-h-[min(92dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      bodyClassName="starium-proj-budget-edit-form__body space-y-5 px-5 py-5"
+      footer={
+        link ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => onOpenChange(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form="pb-edit-budget-link-form"
+              className="min-h-11"
+              disabled={updateMut.isPending}
+            >
+              {updateMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      {link ? (
+        <form
+          id="pb-edit-budget-link-form"
+          onSubmit={onSubmit}
+          className="starium-proj-budget-edit-form flex min-h-0 flex-1 flex-col"
+        >
+          <div className="starium-proj-budget-edit-form__body space-y-5">
               <div className="space-y-3">
                 <p className="starium-overline">Sélection</p>
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -672,24 +682,9 @@ export function ProjectBudgetLinkEditDialog({
                   />
                 ) : null}
               </div>
-            </DialogBody>
-
-            <div className="starium-proj-budget-edit-form__footer flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11"
-                onClick={() => onOpenChange(false)}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" className="min-h-11" disabled={updateMut.isPending}>
-                {updateMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
-              </Button>
-            </div>
-          </form>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          </div>
+        </form>
+      ) : null}
+    </StariumModal>
   );
 }

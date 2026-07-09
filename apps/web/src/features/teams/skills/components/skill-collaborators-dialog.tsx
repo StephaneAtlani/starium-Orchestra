@@ -2,12 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -52,22 +47,18 @@ export function SkillCollaboratorsDialog({
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(o) => {
         if (!o) setOffset(0);
         onOpenChange(o);
       }}
+      title={`Collaborateurs — ${skill?.name ?? '…'}`}
+      description="Collaborateurs ayant cette compétence dans le référentiel (niveau sur l’association)."
+      size="xl"
+      contentClassName="max-w-3xl max-h-[85vh] flex flex-col gap-4"
+      bodyClassName="flex flex-col gap-4"
     >
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-4">
-        <DialogHeader>
-          <DialogTitle>
-            Collaborateurs — {skill?.name ?? '…'}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Collaborateurs ayant cette compétence dans le référentiel (niveau sur l’association).
-          </p>
-        </DialogHeader>
         {query.isLoading && <LoadingState rows={4} />}
         {query.error && (
           <p className="text-sm text-destructive">{(query.error as Error).message}</p>
@@ -138,7 +129,6 @@ export function SkillCollaboratorsDialog({
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

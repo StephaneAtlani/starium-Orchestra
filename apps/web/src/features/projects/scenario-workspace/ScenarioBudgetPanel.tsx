@@ -22,13 +22,8 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Wallet } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/feedback/loading-state';
@@ -565,18 +560,28 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
         </Table>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent
-          overlayClassName="backdrop-blur-md dark:backdrop-blur-lg"
-          className={cn(
-            'max-h-[90vh] overflow-y-auto',
-            'w-[min(92vw,720px)] max-w-[min(92vw,720px)] sm:max-w-[min(92vw,720px)]',
-            'border-border/50 bg-background/80 shadow-xl backdrop-blur-xl dark:bg-background/75',
-          )}
-        >
-          <DialogHeader>
-            <DialogTitle>Nouvelle ligne de projection</DialogTitle>
-          </DialogHeader>
+      <StariumModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Nouvelle ligne de projection"
+        icon={Wallet}
+        size="lg"
+        contentClassName={cn('max-h-[90vh] overflow-y-auto')}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={createMutation.isPending || !canSubmitCreate}
+              onClick={() => createMutation.mutate()}
+            >
+              Créer
+            </Button>
+          </>
+        }
+      >
           <Tabs
             value={attachmentTab}
             onValueChange={(v) => setAttachmentTab(v as AttachmentTab)}
@@ -794,20 +799,7 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
               </p>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={createMutation.isPending || !canSubmitCreate}
-              onClick={() => createMutation.mutate()}
-            >
-              Créer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </div>
   );
 }

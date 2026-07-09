@@ -2,15 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -173,29 +165,46 @@ export function EditClientDialog({ client }: { client: AdminClientSummary }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Modifier le client"
-          >
-            <PencilIcon className="size-4" />
-          </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Modifier le client"
+        onClick={() => setOpen(true)}
+      >
+        <PencilIcon className="size-4" />
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Modifier le client"
+        description="Met à jour le nom et le slug utilisés dans l'interface et les URLs."
+        icon={PencilIcon}
+        size="lg"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+              disabled={isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form={`edit-client-form-${client.id}`}
+              className="min-h-11 sm:min-h-9"
+              disabled={isPending}
+            >
+              {isPending ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
         }
-      />
-      <DialogContent showCloseButton className="sm:max-w-lg">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Modifier le client</DialogTitle>
-            <DialogDescription>
-              Met à jour le nom et le slug utilisés dans l’interface et les URLs.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
+      >
+        <form id={`edit-client-form-${client.id}`} onSubmit={handleSubmit} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor={`edit-client-name-${client.id}`}>Nom</Label>
               <Input
@@ -339,24 +348,9 @@ export function EditClientDialog({ client }: { client: AdminClientSummary }) {
                 </p>
               )}
             </div>
-          </div>
-
-          <DialogFooter showCloseButton={false}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isPending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }
 

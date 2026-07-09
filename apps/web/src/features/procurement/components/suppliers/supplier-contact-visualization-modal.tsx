@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { Button } from '@/components/ui/button';
 import type { SupplierContact } from '@/features/procurement/types/supplier.types';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { Pencil } from 'lucide-react';
+import { Pencil, User } from 'lucide-react';
 
 type SupplierContactVisualizationModalProps = {
   open: boolean;
@@ -97,33 +98,30 @@ export function SupplierContactVisualizationModal({
     : '—';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {open ? (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-[110] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px] data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
-        />
-      ) : null}
-      <DialogContent
-        className="!z-[120] !max-h-[90vh] !w-[90vw] !max-w-[90vw] sm:!max-w-[90vw] overflow-y-auto p-6"
-      >
-        <DialogHeader className="flex flex-row items-start justify-between gap-3 pr-14">
-          <div>
-          <DialogTitle>Fiche contact fournisseur</DialogTitle>
-          <DialogDescription>Consultation en lecture seule.</DialogDescription>
-          </div>
-          {onEdit && contact ? (
-            <button
-              type="button"
-              className="mr-6 inline-flex h-8 items-center gap-2 rounded-md border border-input px-3 text-sm hover:bg-muted/60"
-              onClick={() => onEdit(contact)}
-            >
-              <Pencil className="size-4" />
-              Modifier le contact
-            </button>
-          ) : null}
-        </DialogHeader>
-
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Fiche contact fournisseur"
+      description="Consultation en lecture seule."
+      icon={User}
+      size="full"
+      overlayClassName="z-[110] bg-black/40 dark:bg-black/55 backdrop-blur-[2px]"
+      contentClassName="z-[120] max-h-[90vh] overflow-y-auto"
+      status={
+        onEdit && contact ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-2"
+            onClick={() => onEdit(contact)}
+          >
+            <Pencil className="size-4" />
+            Modifier le contact
+          </Button>
+        ) : null
+      }
+    >
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -217,7 +215,6 @@ export function SupplierContactVisualizationModal({
             </Card>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

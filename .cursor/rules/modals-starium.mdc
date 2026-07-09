@@ -1,5 +1,5 @@
 ---
-description: Norme graphique obligatoire pour toutes les modales Starium Orchestra (Dialog layout starium, StariumModal, champs formulaire).
+description: Norme graphique obligatoire pour toutes les modales Starium Orchestra (StariumModal, champs formulaire).
 globs:
   - apps/web/src/**/*dialog*.tsx
   - apps/web/src/**/*modal*.tsx
@@ -14,26 +14,25 @@ Toute modale (nouvelle ou refonte UI) doit respecter **`docs/design-system/MODAL
 
 ## Obligatoire
 
-- Layout **`starium`** par défaut (`DialogContent` ou **`StariumModal`**).
+- **`StariumModal`** (`form-dialog-shell.tsx`) pour toute modale applicative — ne pas importer `Dialog*` dans les features.
+- Variantes via props : `headless`, `chatWidget`, `sidePanel`, `showCloseButton`, `size`.
 - Panneau centré opaque `bg-card` — pas bottom-sheet ni glass/blur sur du neuf.
-- Header : `DialogHeaderIcon` + `.starium-modal__titles` + croix **haut droite**.
-- Corps : `DialogBody` + `.starium-form` / `.starium-form-*` / `.starium-modal-seg-title`.
-- Pied : `DialogFooter` — **Annuler** (`outline`) + action **primaire** à droite.
+- Header standard : icône Lucide + titre + sous-titre + croix **haut droite**.
+- Corps : `.starium-form` / `.starium-form-*` / `.starium-modal-seg-title`.
+- Pied : prop `footer` — **Annuler** (`outline`) + action **primaire** à droite.
 - Libellés métier français ; jamais d’ID technique en UI.
-- RGAA : labels, `aria-label="Fermer"`, cibles ≥ 44px mobile.
+- RGAA : labels, `aria-label="Fermer"`, cibles ≥ 44px mobile (`min-h-11 sm:min-h-9`).
 
 ## Interdit
 
+- `import { Dialog… } from '@/components/ui/dialog'` dans une feature (sauf test mock).
 - `layout="legacy"` pour une nouvelle modale formulaire.
 - Header legacy `-mx-4 -mt-4` / `pr-8` pour la croix.
 - Inputs bruts hors `.starium-form-*`.
 - Croix en haut à gauche.
 
-## Composants
+## Audit
 
-| Cas | Utiliser |
-|-----|----------|
-| Icône + titre + sous-titre | `StariumModal` (`form-dialog-shell.tsx`) |
-| Contenu custom (tableau, étapes) | `Dialog*` primitives layout starium |
+`node scripts/audit-modals.mjs` — doit passer (0 `DialogContent` direct hors socle).
 
-Références code : `strategic-vision-edit-dialog.tsx`, `strategic-vision-workflow-dialog.tsx`.
+Références code : `strategic-vision-edit-dialog.tsx`, `global-search-dialog.tsx` (headless), `starium-chat-drawer.tsx` (chatWidget).

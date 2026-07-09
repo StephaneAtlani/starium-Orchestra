@@ -1,15 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -498,32 +490,43 @@ export function ManageUserLicensesDialog({
   }, [open, reload]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Gérer les licences de cet utilisateur"
-          >
-            <ShieldCheckIcon className="size-4" />
-          </Button>
-        }
-      />
-      <DialogContent showCloseButton className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Licences de l’utilisateur</DialogTitle>
-          <DialogDescription>
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Gérer les licences de cet utilisateur"
+        onClick={() => setOpen(true)}
+      >
+        <ShieldCheckIcon className="size-4" />
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Licences de l'utilisateur"
+        description={
+          <>
             Gestion des licences attachées à{' '}
             <span className="font-medium">
               {user.firstName || user.lastName || user.email}
             </span>{' '}
             sur chacun de ses clients. Une licence par client.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-2 py-2">
+          </>
+        }
+        icon={ShieldCheckIcon}
+        size="xl"
+        footer={
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => setOpen(false)}
+          >
+            Fermer
+          </Button>
+        }
+      >
+        <div className="grid gap-2">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">
               Chargement des rattachements…
@@ -550,17 +553,7 @@ export function ManageUserLicensesDialog({
             </div>
           )}
         </div>
-
-        <DialogFooter showCloseButton={false}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpen(false)}
-          >
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }

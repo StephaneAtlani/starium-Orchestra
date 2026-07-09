@@ -15,7 +15,8 @@ import { ImageUploadDropzone } from '../image-upload-dropzone';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { Building2, FolderPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -254,7 +255,7 @@ export function NewSupplierDialog({ open, onOpenChange, initialName, onCreated }
   }, [open, initialName]);
 
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
@@ -278,16 +279,26 @@ export function NewSupplierDialog({ open, onOpenChange, initialName, onCreated }
           setNewCategoryName('');
         }
       }}
+      title="Nouveau fournisseur"
+      description="Crée un fournisseur complet dans le client actif."
+      icon={Building2}
+      size="full"
+      contentClassName="flex max-h-[90vh] flex-col gap-4 overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => createSupplierMutation.mutate()}
+            disabled={createSupplierMutation.isPending || !canCreateSuppliers || form.name.trim().length === 0}
+          >
+            Ajouter
+          </Button>
+        </>
+      }
     >
-      <DialogContent
-        className="flex max-h-[90vh] !w-[80vw] !max-w-[80vw] sm:!max-w-[80vw] flex-col gap-4 overflow-y-auto p-6"
-        showCloseButton
-      >
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold tracking-tight">Nouveau fournisseur</DialogTitle>
-          <DialogDescription>Crée un fournisseur complet dans le client actif.</DialogDescription>
-        </DialogHeader>
-
         <div className="space-y-4">
           <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Identité</h3>
@@ -455,13 +466,32 @@ export function NewSupplierDialog({ open, onOpenChange, initialName, onCreated }
           </section>
         </div>
 
-        <Dialog open={newCategoryModalOpen} onOpenChange={setNewCategoryModalOpen}>
-          <DialogContent className="w-[40rem] max-w-[90vw] p-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle catégorie</DialogTitle>
-              <DialogDescription>Ajoute une catégorie fournisseur pour le client actif.</DialogDescription>
-            </DialogHeader>
-
+        <StariumModal
+          open={newCategoryModalOpen}
+          onOpenChange={setNewCategoryModalOpen}
+          title="Nouvelle catégorie"
+          description="Ajoute une catégorie fournisseur pour le client actif."
+          icon={FolderPlus}
+          size="lg"
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => setNewCategoryModalOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  const name = newCategoryName.trim();
+                  if (!name) return;
+                  createCategoryMutation.mutate(name);
+                }}
+                disabled={createCategoryMutation.isPending || newCategoryName.trim().length === 0}
+              >
+                Ajouter
+              </Button>
+            </>
+          }
+        >
             <section className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
               <div className="space-y-2">
                 <Label htmlFor="new-supplier-category-name">Nom de la catégorie</Label>
@@ -483,25 +513,7 @@ export function NewSupplierDialog({ open, onOpenChange, initialName, onCreated }
                 </AlertDescription>
               </Alert>
             )}
-
-            <div className="flex justify-end gap-2 border-t border-border/60 pt-4">
-              <Button type="button" variant="outline" onClick={() => setNewCategoryModalOpen(false)}>
-                Annuler
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  const name = newCategoryName.trim();
-                  if (!name) return;
-                  createCategoryMutation.mutate(name);
-                }}
-                disabled={createCategoryMutation.isPending || newCategoryName.trim().length === 0}
-              >
-                Ajouter
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
         {createSupplierMutation.isError && (
           <Alert variant="destructive">
@@ -512,21 +524,7 @@ export function NewSupplierDialog({ open, onOpenChange, initialName, onCreated }
             </AlertDescription>
           </Alert>
         )}
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            onClick={() => createSupplierMutation.mutate()}
-            disabled={createSupplierMutation.isPending || !canCreateSuppliers || form.name.trim().length === 0}
-          >
-            Ajouter
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

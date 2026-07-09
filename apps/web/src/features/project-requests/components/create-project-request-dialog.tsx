@@ -3,17 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText } from 'lucide-react';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -141,17 +134,26 @@ export function CreateProjectRequestDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Nouvelle demande projet</DialogTitle>
-          <DialogDescription>
-            Décrivez le besoin et son enjeu métier. La demande sera enregistrée en brouillon avant
-            soumission au validateur.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form className="space-y-6" onSubmit={handleSubmit}>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvelle demande projet"
+      description="Décrivez le besoin et son enjeu métier. La demande sera enregistrée en brouillon avant soumission au validateur."
+      icon={FileText}
+      size="lg"
+      contentClassName="max-h-[90vh] overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="create-project-request-form" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Enregistrement…' : 'Créer le brouillon'}
+          </Button>
+        </>
+      }
+    >
+      <form id="create-project-request-form" className="space-y-6" onSubmit={handleSubmit}>
           <section className="space-y-4">
             <h3 className="text-sm font-medium">Identification</h3>
             <div className="space-y-2">
@@ -279,16 +281,7 @@ export function CreateProjectRequestDialog({
             </Alert>
           ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Enregistrement…' : 'Créer le brouillon'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </StariumModal>
   );
 }

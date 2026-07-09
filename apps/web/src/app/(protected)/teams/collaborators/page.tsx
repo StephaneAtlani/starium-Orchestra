@@ -8,13 +8,7 @@ import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { PermissionGate } from '@/components/PermissionGate';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -120,18 +114,13 @@ export default function CollaboratorsPage() {
           }
         />
 
-        <Dialog open={newPersonModalOpen} onOpenChange={setNewPersonModalOpen}>
-          <DialogContent
-            className="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-lg"
-            showCloseButton
-          >
-            <DialogHeader>
-              <DialogTitle>Nouvelle humaine</DialogTitle>
-              <DialogDescription>
-                Création d’une ressource de type Humaine (catalogue projet). Vous pouvez en parallèle
-                rattacher un collaborateur Équipes (manager, équipe) si vos droits le permettent.
-              </DialogDescription>
-            </DialogHeader>
+        <StariumModal
+          open={newPersonModalOpen}
+          onOpenChange={setNewPersonModalOpen}
+          title="Nouvelle humaine"
+          description="Création d’une ressource de type Humaine (catalogue projet). Vous pouvez en parallèle rattacher un collaborateur Équipes (manager, équipe) si vos droits le permettent."
+          contentClassName="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-lg"
+        >
             {newPersonModalOpen ? (
               <NewResourceForm
                 formIdPrefix="collaborators-new-person"
@@ -143,8 +132,7 @@ export default function CollaboratorsPage() {
                 }}
               />
             ) : null}
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
         {permsLoading && <LoadingState rows={2} />}
         {permsError && (

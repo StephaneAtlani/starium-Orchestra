@@ -2,15 +2,8 @@
 
 import { useLayoutEffect, useMemo, useState } from 'react';
 import { toast } from '@/lib/toast';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateWorkTeam, useUpdateWorkTeam } from '../hooks/use-work-team-mutations';
@@ -109,19 +102,28 @@ export function WorkTeamFormDialog({
     }
   }
 
+  const formId = 'work-team-form';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" showCloseButton>
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
-            <DialogTitle>
-              {mode === 'create' ? 'Nouvelle équipe organisationnelle' : 'Modifier l’équipe'}
-            </DialogTitle>
-            <DialogDescription>
-              Équipe métier Starium (distincte de Microsoft Teams). Hiérarchie et rattachements
-              ressources Humaines.
-            </DialogDescription>
-          </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === 'create' ? 'Nouvelle équipe organisationnelle' : 'Modifier l’équipe'}
+      description="Équipe métier Starium (distincte de Microsoft Teams). Hiérarchie et rattachements ressources Humaines."
+      size="lg"
+      contentClassName="sm:max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+            Annuler
+          </Button>
+          <Button type="submit" form={formId} disabled={busy}>
+            {mode === 'create' ? 'Créer' : 'Enregistrer'}
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={onSubmit}>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="wt-name">Nom</Label>
@@ -170,16 +172,7 @@ export function WorkTeamFormDialog({
               dialogOpen={open}
             />
           </div>
-          <DialogFooter showCloseButton={false}>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {mode === 'create' ? 'Créer' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

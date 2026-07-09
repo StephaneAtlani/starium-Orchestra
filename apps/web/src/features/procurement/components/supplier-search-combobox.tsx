@@ -5,13 +5,7 @@ import { Plus, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useSuppliersDropdownQuery } from '../hooks/use-suppliers-dropdown-query';
 import type { Supplier } from '../types/supplier.types';
 import { normalizeSupplierName } from '../utils/normalize-supplier-name';
@@ -214,17 +208,36 @@ export const SupplierSearchCombobox = React.forwardRef<
           </div>
         )}
       </div>
-      <Dialog
+      <StariumModal
         open={pickerOpen}
         onOpenChange={(open) => {
           setPickerOpen(open);
           if (!open) setPickerSearch('');
         }}
+        title="Choisir un fournisseur"
+        icon={Search}
+        size="lg"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setPickerOpen(false)}>
+              Fermer
+            </Button>
+            {onRequestQuickCreate && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={disabled || !pickerSearch.trim()}
+                onClick={() => {
+                  setPickerOpen(false);
+                  onRequestQuickCreate(pickerSearch.trim());
+                }}
+              >
+                Créer &quot;{pickerSearch.trim()}&quot;
+              </Button>
+            )}
+          </>
+        }
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Choisir un fournisseur</DialogTitle>
-          </DialogHeader>
           <div className="grid gap-2">
             <Input
               placeholder="Rechercher un fournisseur..."
@@ -260,26 +273,7 @@ export const SupplierSearchCombobox = React.forwardRef<
               )}
             </div>
           </div>
-          <DialogFooter showCloseButton={false}>
-            <Button type="button" variant="outline" onClick={() => setPickerOpen(false)}>
-              Fermer
-            </Button>
-            {onRequestQuickCreate && (
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={disabled || !pickerSearch.trim()}
-                onClick={() => {
-                  setPickerOpen(false);
-                  onRequestQuickCreate(pickerSearch.trim());
-                }}
-              >
-                Créer &quot;{pickerSearch.trim()}&quot;
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </>
   );
 });

@@ -1,15 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Building2, PencilIcon } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { useClientsQuery } from '../hooks/use-clients-query';
 import type { AdminPlatformUserSummary } from '../types/admin-studio.types';
@@ -22,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PencilIcon } from 'lucide-react';
 
 type ClientRole = 'CLIENT_ADMIN' | 'CLIENT_USER';
 
@@ -171,34 +163,56 @@ export function ManageUserClientsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Gérer les clients de cet utilisateur"
-          >
-            <PencilIcon className="size-4" />
-          </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Gérer les clients de cet utilisateur"
+        onClick={() => setOpen(true)}
+      >
+        <PencilIcon className="size-4" />
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Associer des clients"
+        description={
+          <>
+            Sélectionnez les clients et le rôle (client admin ou utilisateur
+            simple) pour lesquels{' '}
+            <span className="font-medium">
+              {user.firstName || user.lastName || user.email}
+            </span>{' '}
+            doit être associé.
+          </>
         }
-      />
-      <DialogContent showCloseButton className="sm:max-w-md">
-        <form onSubmit={handleSave}>
-          <DialogHeader>
-            <DialogTitle>Associer des clients</DialogTitle>
-            <DialogDescription>
-              Sélectionnez les clients et le rôle (client admin ou utilisateur
-              simple) pour lesquels{' '}
-              <span className="font-medium">
-                {user.firstName || user.lastName || user.email}
-              </span>{' '}
-              doit être associé.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 py-4">
+        icon={Building2}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+              disabled={isSaving}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form={`manage-user-clients-${user.id}`}
+              className="min-h-11 sm:min-h-9"
+              disabled={isSaving || isLoadingAssignments}
+            >
+              {isSaving ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
+        }
+      >
+        <form id={`manage-user-clients-${user.id}`} onSubmit={handleSave}>
+          <div className="grid gap-3">
             <div className="space-y-3">
               <Input
                 placeholder="Filtrer les clients (nom, slug, id)…"
@@ -287,23 +301,8 @@ export function ManageUserClientsDialog({
               </p>
             )}
           </div>
-
-          <DialogFooter showCloseButton={false}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isSaving}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSaving || isLoadingAssignments}>
-              {isSaving ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }
-

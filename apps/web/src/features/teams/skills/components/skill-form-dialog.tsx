@@ -3,13 +3,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,15 +65,28 @@ export function SkillFormDialog({
     }
   }, [open, mode, skill, form]);
 
+  const formId = 'skill-form';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === 'create' ? 'Nouvelle compétence' : 'Modifier la compétence'}
-          </DialogTitle>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={mode === 'create' ? 'Nouvelle compétence' : 'Modifier la compétence'}
+      size="md"
+      contentClassName="sm:max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form={formId} disabled={isSubmitting}>
+            {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </>
+      }
+    >
         <form
+          id={formId}
           onSubmit={form.handleSubmit((values) => {
             onSubmit(values);
           })}
@@ -162,16 +169,7 @@ export function SkillFormDialog({
               </Select>
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

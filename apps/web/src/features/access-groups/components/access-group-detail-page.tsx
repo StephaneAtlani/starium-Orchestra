@@ -9,14 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import {
   Table,
   TableBody,
@@ -38,7 +31,7 @@ import { useDeleteAccessGroup } from '../hooks/use-delete-access-group';
 import { useRemoveGroupMember } from '../hooks/use-remove-group-member';
 import { AddGroupMemberDialog } from './add-group-member-dialog';
 import type { AccessGroupMemberRow } from '../api/access-groups';
-import { Pencil, Trash2, UserPlus } from 'lucide-react';
+import { Pencil, PencilLine, Trash2, UserPlus } from 'lucide-react';
 import { useActiveClient } from '@/hooks/use-active-client';
 
 function displayName(m: AccessGroupMemberRow): string {
@@ -158,29 +151,19 @@ export function AccessGroupDetailPage() {
         }
       />
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Renommer le groupe</DialogTitle>
-            <DialogDescription>
-              Le nom doit rester unique dans ce client.
-            </DialogDescription>
-          </DialogHeader>
-          <form id={`${formId}-edit`} onSubmit={submitEdit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor={`${formId}-name`}>Nom</Label>
-              <Input
-                id={`${formId}-name`}
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                disabled={updateGroup.isPending}
-              />
-            </div>
-          </form>
-          <DialogFooter>
+      <StariumModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Renommer le groupe"
+        description="Le nom doit rester unique dans ce client."
+        icon={PencilLine}
+        size="md"
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
+              className="min-h-11 sm:min-h-9"
               onClick={() => setEditOpen(false)}
               disabled={updateGroup.isPending}
             >
@@ -189,13 +172,26 @@ export function AccessGroupDetailPage() {
             <Button
               type="submit"
               form={`${formId}-edit`}
+              className="min-h-11 sm:min-h-9"
               disabled={updateGroup.isPending || !canWrite}
             >
               Enregistrer
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <form id={`${formId}-edit`} onSubmit={submitEdit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`${formId}-name`}>Nom</Label>
+            <Input
+              id={`${formId}-name`}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              disabled={updateGroup.isPending}
+            />
+          </div>
+        </form>
+      </StariumModal>
 
       <div className="space-y-6">
         <p className="text-xs text-muted-foreground">

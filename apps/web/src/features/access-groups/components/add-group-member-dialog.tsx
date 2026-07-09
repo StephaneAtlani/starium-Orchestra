@@ -1,14 +1,8 @@
 'use client';
 
 import React, { useId, useMemo, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { UserPlus } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -78,46 +72,19 @@ export function AddGroupMemberDialog({ groupId, open, onOpenChange }: Props) {
   const loading = loadingClients || loadingGroup;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Ajouter un membre</DialogTitle>
-          <DialogDescription>
-            Seuls les membres actifs du client peuvent être ajoutés. Les
-            utilisateurs déjà dans le groupe ne sont pas listés.
-          </DialogDescription>
-        </DialogHeader>
-        <form id={formId} onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor={`${formId}-user`}>Utilisateur</Label>
-            <Select
-              value={userId}
-              onValueChange={(v) => setUserId(v ?? '')}
-              disabled={loading || available.length === 0 || addMember.isPending}
-            >
-              <SelectTrigger id={`${formId}-user`} className="w-full">
-                <SelectValue placeholder={loading ? 'Chargement…' : 'Choisir…'} />
-              </SelectTrigger>
-              <SelectContent>
-                {available.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {memberOptionLabel(m)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {!loading && available.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Aucun utilisateur disponible à ajouter (tous sont déjà dans le
-                groupe ou inactifs).
-              </p>
-            )}
-          </div>
-        </form>
-        <DialogFooter>
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title="Ajouter un membre"
+      description="Seuls les membres actifs du client peuvent être ajoutés. Les utilisateurs déjà dans le groupe ne sont pas listés."
+      icon={UserPlus}
+      size="md"
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
+            className="min-h-11 sm:min-h-9"
             onClick={() => handleOpenChange(false)}
             disabled={addMember.isPending}
           >
@@ -126,14 +93,43 @@ export function AddGroupMemberDialog({ groupId, open, onOpenChange }: Props) {
           <Button
             type="submit"
             form={formId}
+            className="min-h-11 sm:min-h-9"
             disabled={
               !userId || addMember.isPending || available.length === 0
             }
           >
             Ajouter
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor={`${formId}-user`}>Utilisateur</Label>
+          <Select
+            value={userId}
+            onValueChange={(v) => setUserId(v ?? '')}
+            disabled={loading || available.length === 0 || addMember.isPending}
+          >
+            <SelectTrigger id={`${formId}-user`} className="w-full">
+              <SelectValue placeholder={loading ? 'Chargement…' : 'Choisir…'} />
+            </SelectTrigger>
+            <SelectContent>
+              {available.map((m) => (
+                <SelectItem key={m.id} value={m.id}>
+                  {memberOptionLabel(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!loading && available.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Aucun utilisateur disponible à ajouter (tous sont déjà dans le
+              groupe ou inactifs).
+            </p>
+          )}
+        </div>
+      </form>
+    </StariumModal>
   );
 }

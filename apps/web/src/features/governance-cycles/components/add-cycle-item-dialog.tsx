@@ -3,13 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -122,12 +116,23 @@ export function AddCycleItemDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Ajouter un élément au cycle</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Ajouter un élément au cycle"
+      contentClassName="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form="add-cycle-item-form" disabled={createMutation.isPending}>
+            {createMutation.isPending ? 'Ajout…' : 'Ajouter'}
+          </Button>
+        </>
+      }
+    >
+        <form id="add-cycle-item-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Type</Label>
             <Select
@@ -228,16 +233,7 @@ export function AddCycleItemDialog({
             </>
           ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Ajout…' : 'Ajouter'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

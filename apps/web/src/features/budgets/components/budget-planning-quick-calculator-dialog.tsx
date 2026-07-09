@@ -3,14 +3,7 @@
 import { useId, useState } from 'react';
 import { Calculator, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { BudgetPlanningQuickCalculatorState } from '../hooks/use-budget-planning-quick-calculator';
@@ -78,25 +71,50 @@ export function BudgetPlanningQuickCalculatorDialog({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={handleMainOpenChange}>
-      <DialogContent
-        showCloseButton
-        overlayClassName="z-[100] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
-        className="z-[110] max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl"
-      >
-        <DialogHeader>
-          <div className="pr-8">
-            <DialogTitle className="flex items-center gap-2 text-left text-foreground">
-              <Calculator className="size-5 shrink-0 text-foreground/80" aria-hidden />
-              Calculette rapide
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-left text-foreground/90">
-              Quantité × prix unitaire ou saisie directe par mois ; les raccourcis répartissent le total sur
-              les 12 mois d’exercice (alignés sur le budget).
-            </DialogDescription>
-          </div>
-        </DialogHeader>
-
+    <StariumModal
+      open={open}
+      onOpenChange={handleMainOpenChange}
+      title="Calculette rapide"
+      description="Quantité × prix unitaire ou saisie directe par mois ; les raccourcis répartissent le total sur les 12 mois d’exercice (alignés sur le budget)."
+      icon={Calculator}
+      size="xl"
+      overlayClassName="z-[100] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
+      contentClassName="z-[110] max-h-[min(90vh,880px)] overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Fermer
+          </Button>
+          {footer.mode === 'planning' ? (
+            <Button
+              type="button"
+              disabled={!hasMonthAttribution || footer.applyPending}
+              title={
+                !hasMonthAttribution
+                  ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                  : undefined
+              }
+              onClick={footer.onApplyToPlanning}
+            >
+              {footer.applyLabel ?? 'Appliquer au prévisionnel'}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              title={
+                !hasMonthAttribution
+                  ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
+                  : undefined
+              }
+              onClick={footer.onApplyToBudget}
+              disabled={!hasMonthAttribution}
+            >
+              Appliquer au montant budgétaire
+            </Button>
+          )}
+        </>
+      }
+    >
         <div className="flex flex-col gap-4">
           <div className="rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
             <p className="mb-3 text-sm font-semibold text-foreground">Saisie rapide</p>
@@ -245,58 +263,37 @@ export function BudgetPlanningQuickCalculatorDialog({
             </div>
           </div>
         </div>
+    </StariumModal>
 
-        <DialogFooter className="flex-row flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Fermer
+    <StariumModal
+      open={pctModalOpen}
+      onOpenChange={setPctModalOpen}
+      title="Augmentation ou réduction"
+      description="Applique le pourcentage à chaque mois de la grille (montants actuels), puis vous pouvez valider la calculette."
+      icon={Percent}
+      size="md"
+      overlayClassName="z-[115] bg-black/45 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
+      contentClassName="z-[120]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setPctModalOpen(false)}>
+            Annuler
           </Button>
-          {footer.mode === 'planning' ? (
-            <Button
-              type="button"
-              disabled={!hasMonthAttribution || footer.applyPending}
-              title={
-                !hasMonthAttribution
-                  ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
-                  : undefined
-              }
-              onClick={footer.onApplyToPlanning}
-            >
-              {footer.applyLabel ?? 'Appliquer au prévisionnel'}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              title={
-                !hasMonthAttribution
-                  ? 'Répartissez le montant sur au moins un mois (raccourcis ci-dessus ou saisie dans la grille).'
-                  : undefined
-              }
-              onClick={footer.onApplyToBudget}
-              disabled={!hasMonthAttribution}
-            >
-              Appliquer au montant budgétaire
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={pctModalOpen} onOpenChange={setPctModalOpen}>
-      <DialogContent
-        showCloseButton
-        overlayClassName="z-[115] bg-black/45 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
-        className="z-[120] w-full gap-4 sm:max-w-md"
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-left">
-            <Percent className="size-5 shrink-0 opacity-80" aria-hidden />
-            Augmentation ou réduction
-          </DialogTitle>
-          <DialogDescription className="text-left">
-            Applique le pourcentage à chaque mois de la grille (montants actuels), puis vous pouvez valider
-            la calculette.
-          </DialogDescription>
-        </DialogHeader>
+          <Button
+            type="button"
+            disabled={!canApplyPct}
+            onClick={() => {
+              if (!canApplyPct || pctValue === '') return;
+              applyPercentToMonths(Number(pctValue), pctDirection);
+              setPctModalOpen(false);
+              setPctValue('');
+            }}
+          >
+            Appliquer à la grille
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2" role="group" aria-label="Type de variation">
             <Button
@@ -336,25 +333,7 @@ export function BudgetPlanningQuickCalculatorDialog({
             ) : null}
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => setPctModalOpen(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            disabled={!canApplyPct}
-            onClick={() => {
-              if (!canApplyPct || pctValue === '') return;
-              applyPercentToMonths(Number(pctValue), pctDirection);
-              setPctModalOpen(false);
-              setPctValue('');
-            }}
-          >
-            Appliquer à la grille
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
     </>
   );
 }

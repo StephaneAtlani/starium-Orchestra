@@ -14,11 +14,15 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 
 | Besoin | Composant | Fichier |
 |--------|-----------|---------|
-| Modale formulaire ou liste avec **icône + titre + sous-titre** | **`StariumModal`** | `components/layout/form-dialog-shell.tsx` |
-| Modale custom (tableau large, étapes, contenu atypique) | Primitives **`Dialog*`** (`layout="starium"` implicite) | `components/ui/dialog.tsx` |
-| Tiroir latéral (chat, panneau) | `DialogContent` **`sidePanel`** | `dialog.tsx` |
-| Widget chat flottant | `DialogContent` **`chatWidget`** | `dialog.tsx` |
-| Ancien bottom-sheet mobile (exception) | `DialogContent` **`layout="legacy"`** | `dialog.tsx` — **ne pas utiliser** pour du neuf |
+| **Toute modale applicative** (formulaire, liste, confirmation, picker, chat, nav mobile) | **`StariumModal`** | `components/layout/form-dialog-shell.tsx` |
+| Header standard icône + titre + sous-titre | `StariumModal` (défaut) | — |
+| Contenu atypique sans header Starium (palette recherche, nav mobile) | `StariumModal` **`headless`** | — |
+| Widget chat flottant | `StariumModal` **`chatWidget`** + `headless` | — |
+| Tiroir latéral | `StariumModal` **`sidePanel`** | — |
+| Implémentation bas niveau (socle uniquement) | Primitives **`Dialog*`** | `components/ui/dialog.tsx` — **ne pas importer dans les features** |
+| Ancien bottom-sheet mobile (exception) | `layout="legacy"` sur `StariumModal` | — **ne pas utiliser** pour du neuf |
+
+> **Juillet 2026** : les ~100 modales de l’app passent par `StariumModal`. `DialogContent` n’est utilisé que dans `form-dialog-shell.tsx` et `dialog.tsx`.
 
 ---
 

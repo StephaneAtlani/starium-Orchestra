@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { SelectProjectScenarioPayload } from '../types/project.types';
@@ -76,16 +70,32 @@ export function SelectScenarioDialog({
   ]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sélectionner la baseline</DialogTitle>
-          <DialogDescription>
-            {scenarioName} devient le scénario de référence.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3 py-1">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Sélectionner la baseline"
+      description={`${scenarioName} devient le scénario de référence.`}
+      icon={Target}
+      size="lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" disabled={disabled} onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            disabled={disabled}
+            onClick={async () => {
+              await onSubmit(payload);
+              onOpenChange(false);
+            }}
+          >
+            Confirmer
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-3">
           <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
             <p className="text-xs font-medium text-foreground">Intégrer au projet (sélection baseline)</p>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -204,23 +214,6 @@ export function SelectScenarioDialog({
             </>
           ) : null}
         </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" disabled={disabled} onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={async () => {
-              await onSubmit(payload);
-              onOpenChange(false);
-            }}
-          >
-            Confirmer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

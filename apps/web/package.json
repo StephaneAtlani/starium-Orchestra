@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "audit:modals": "node ../../scripts/audit-modals.mjs",
     "test": "vitest run --reporter=default --reporter=json --outputFile=../../.test-recap/web.json",
     "clean": "chmod -N .next 2>/dev/null || true && rm -rf .next node_modules/.cache",
     "generate:badge-matrix": "node scripts/generate-badge-palette-matrix.mjs"

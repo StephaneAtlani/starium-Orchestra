@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 
 export type GovernanceCycleInstanceConfirmAction = 'cancel' | 'close';
 
@@ -52,16 +45,38 @@ export function GovernanceCycleInstanceConfirmDialog({
   const { title, confirmLabel, destructive } = COPY[action];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            {action === 'cancel'
-              ? `Confirmer l’annulation de la séance ${sessionLabel}.`
-              : `Confirmer la clôture de la séance ${sessionLabel}.`}
-          </DialogDescription>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={
+        action === 'cancel'
+          ? `Confirmer l’annulation de la séance ${sessionLabel}.`
+          : `Confirmer la clôture de la séance ${sessionLabel}.`
+      }
+      size="md"
+      contentClassName="sm:max-w-md"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => onOpenChange(false)}
+          >
+            Retour
+          </Button>
+          <Button
+            type="button"
+            variant={destructive ? 'destructive' : 'default'}
+            disabled={isPending}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-3 text-sm text-muted-foreground">
           <p>
             Séance : <span className="font-medium text-foreground">{sessionLabel}</span>
@@ -91,25 +106,6 @@ export function GovernanceCycleInstanceConfirmDialog({
             </>
           )}
         </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            Retour
-          </Button>
-          <Button
-            type="button"
-            variant={destructive ? 'destructive' : 'default'}
-            disabled={isPending}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

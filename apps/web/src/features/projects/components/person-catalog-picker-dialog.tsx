@@ -2,20 +2,13 @@
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Info, UserPlus } from 'lucide-react';
+import { AlertCircle, Info, UserPlus, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -162,20 +155,39 @@ export function PersonCatalogPickerDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          className={cn(
-            'max-h-[min(90vh,800px)] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto sm:max-w-5xl',
-            dialogContentClassName,
-          )}
-          showCloseButton
-        >
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight">{title}</DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed">{description}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
+      <StariumModal
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title}
+        description={description}
+        icon={Users}
+        size="xl"
+        contentClassName={cn(
+          'max-h-[min(90vh,800px)] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto sm:max-w-5xl',
+          dialogContentClassName,
+        )}
+        footer={
+          footerVariant === 'done-only' ? (
+            <Button type="button" variant="default" onClick={() => onOpenChange(false)}>
+              {doneLabel}
+            </Button>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                {secondaryLabel}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => onConfirm?.()}
+                disabled={confirmDisabled || resourceCatalogDenied}
+              >
+                {confirmLabel}
+              </Button>
+            </>
+          )
+        }
+      >
+        <div className="space-y-4">
             {contextSlot}
 
             {resourcesBlock ? (
@@ -366,56 +378,31 @@ export function PersonCatalogPickerDialog({
                 </p>
               ) : null}
             </div>
+        </div>
+      </StariumModal>
 
-            {footerVariant === 'done-only' ? (
-              <DialogFooter showCloseButton={false}>
-                <Button type="button" variant="default" onClick={() => onOpenChange(false)}>
-                  {doneLabel}
-                </Button>
-              </DialogFooter>
-            ) : (
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  {secondaryLabel}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => onConfirm?.()}
-                  disabled={confirmDisabled || resourceCatalogDenied}
-                >
-                  {confirmLabel}
-                </Button>
-              </DialogFooter>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={newPersonOpen} onOpenChange={setNewPersonOpen}>
-        <DialogContent
-          className="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
-          showCloseButton
-        >
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="text-lg font-semibold tracking-tight">Nouvelle humaine</DialogTitle>
-            <DialogDescription className="text-sm leading-relaxed">
-              {newPersonDialogDescription}
-            </DialogDescription>
-          </DialogHeader>
-          {newPersonOpen ? (
-            <NewResourceForm
-              formIdPrefix={newPersonFormPrefix}
-              forceType="HUMAN"
-              className="w-full max-w-full space-y-4"
-              onSuccess={(created) => {
-                onSelectionChange(created.id, created);
-                void refetchHumanResources();
-                setNewPersonOpen(false);
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <StariumModal
+        open={newPersonOpen}
+        onOpenChange={setNewPersonOpen}
+        title="Nouvelle humaine"
+        description={newPersonDialogDescription}
+        icon={UserPlus}
+        size="md"
+        contentClassName="max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto sm:max-w-lg"
+      >
+        {newPersonOpen ? (
+          <NewResourceForm
+            formIdPrefix={newPersonFormPrefix}
+            forceType="HUMAN"
+            className="w-full max-w-full space-y-4"
+            onSuccess={(created) => {
+              onSelectionChange(created.id, created);
+              void refetchHumanResources();
+              setNewPersonOpen(false);
+            }}
+          />
+        ) : null}
+      </StariumModal>
     </>
   );
 }

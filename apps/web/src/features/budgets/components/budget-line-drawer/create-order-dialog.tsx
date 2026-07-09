@@ -3,14 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -273,43 +266,43 @@ export function CreateOrderDialog({
   const fieldHint = 'text-xs text-muted-foreground';
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton
-          className={cn(
-            'flex max-h-[min(90vh,820px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background p-0 shadow-lg',
-            'sm:max-w-2xl',
-          )}
-        >
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex min-h-0 flex-1 flex-col"
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Nouvelle commande"
+      description={
+        <>
+          Ligne « {line.name} » · {line.currency}. Sous <strong>Fournisseur</strong> : possibilité de joindre devis et bon de
+          commande avant la création, puis libellé et montants.
+        </>
+      }
+      icon={ShoppingCart}
+      size="xl"
+      contentClassName="flex max-h-[min(90vh,820px)] flex-col gap-0 overflow-hidden p-0"
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="submit"
+            form="create-order-form"
+            disabled={
+              createOrder.isPending || quickCreateSupplier.isPending || isUploadingAttachments
+            }
+            className="min-w-[7rem] sm:min-w-[8rem]"
           >
-            <div className="shrink-0 border-b border-border/60 bg-card/50 px-5 pb-4 pt-5 pr-14 sm:px-6">
-              <DialogHeader className="space-y-2 text-left">
-                <DialogTitle className="flex items-start gap-3 text-xl font-semibold tracking-tight">
-                  <span
-                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/50 shadow-sm"
-                    aria-hidden
-                  >
-                    <ShoppingCart className="size-5 text-foreground/85" />
-                  </span>
-                  <span className="flex min-w-0 flex-col gap-1">
-                    <span>Nouvelle commande</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      Ligne « {line.name} » · {line.currency}
-                    </span>
-                  </span>
-                </DialogTitle>
-                <DialogDescription className="text-left text-sm leading-relaxed text-muted-foreground">
-                  Sous <strong className="text-foreground">Fournisseur</strong> : possibilité de joindre devis et bon de
-                  commande avant la création, puis libellé et montants.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+            {isUploadingAttachments
+              ? 'Envoi des documents…'
+              : createOrder.isPending || quickCreateSupplier.isPending
+                ? 'Création…'
+                : 'Créer la commande'}
+          </Button>
+        </>
+      }
+    >
+          <form id="create-order-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {submitError && (
                 <Alert variant="destructive" className="border-destructive/40">
                   <AlertDescription>{submitError.message}</AlertDescription>
@@ -533,32 +526,8 @@ export function CreateOrderDialog({
                   Modifie HT, TTC ou TVA : les deux autres se recalculent selon le dernier champ saisi.
                 </p>
               </section>
-            </div>
-
-            <div className="shrink-0 border-t border-border/60 bg-muted/25 px-5 py-4 sm:px-6">
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    createOrder.isPending || quickCreateSupplier.isPending || isUploadingAttachments
-                  }
-                  className="min-w-[7rem] sm:min-w-[8rem]"
-                >
-                  {isUploadingAttachments
-                    ? 'Envoi des documents…'
-                    : createOrder.isPending || quickCreateSupplier.isPending
-                      ? 'Création…'
-                      : 'Créer la commande'}
-                </Button>
-              </div>
-            </div>
           </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    </StariumModal>
   );
 }
 

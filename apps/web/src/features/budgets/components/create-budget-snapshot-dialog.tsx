@@ -8,15 +8,9 @@ import { budgetQueryKeys } from '@/features/budgets/lib/budget-query-keys';
 import { createBudgetSnapshot } from '@/features/budgets/api/budget-snapshots.api';
 import { listBudgetSnapshotOccasionTypesMerged } from '@/features/budgets/api/budget-snapshot-occasion-types.api';
 import { toast } from '@/lib/toast';
+import { Camera } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -136,18 +130,31 @@ export function CreateBudgetSnapshotDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showCloseButton={!isCreatePending} className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Enregistrer une version figée</DialogTitle>
-          <DialogDescription>
-            Photo à la date choisie : lignes non archivées ; consommations et engagements recalculés à partir des
-            écritures dont la date d’événement (ex. date facture) est au plus tard ce jour-là — même si une pièce est
-            saisie plus tard.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form className="space-y-4" onSubmit={onSubmit}>
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title="Enregistrer une version figée"
+      description="Photo à la date choisie : lignes non archivées ; consommations et engagements recalculés à partir des écritures dont la date d’événement (ex. date facture) est au plus tard ce jour-là — même si une pièce est saisie plus tard."
+      icon={Camera}
+      size="md"
+      showCloseButton={!isCreatePending}
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isCreatePending}
+          >
+            Annuler
+          </Button>
+          <Button type="submit" form="create-budget-snapshot-form" disabled={isCreatePending || !name.trim()}>
+            {isCreatePending ? 'Enregistrement…' : 'Enregistrer la version'}
+          </Button>
+        </>
+      }
+    >
+        <form id="create-budget-snapshot-form" className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
             <Label htmlFor={dateFieldId}>Date de la version</Label>
             <Input
@@ -212,21 +219,7 @@ export function CreateBudgetSnapshotDialog({
             />
           </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={isCreatePending}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isCreatePending || !name.trim()}>
-              {isCreatePending ? 'Enregistrement…' : 'Enregistrer la version'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

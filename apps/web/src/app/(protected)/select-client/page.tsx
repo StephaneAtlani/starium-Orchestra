@@ -15,10 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 
 export default function SelectClientPage() {
   const router = useRouter();
@@ -72,11 +69,15 @@ export default function SelectClientPage() {
   }
 
   return (
-    <Dialog open modal>
-      <DialogContent
-        showCloseButton={false}
-        className="w-full max-w-xl shadow-lg border-border/80 p-0"
-      >
+    <StariumModal
+      open
+      onOpenChange={() => {}}
+      title="Sélectionner un client"
+      headless
+      showCloseButton={false}
+      contentClassName="w-full max-w-xl shadow-lg border-border/80 p-0"
+      bodyClassName="p-0"
+    >
         <Card className="border-0 shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Sélectionner un client</CardTitle>
@@ -153,7 +154,6 @@ export default function SelectClientPage() {
             )}
           </CardContent>
         </Card>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

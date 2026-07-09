@@ -2,19 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { FileText, Loader2, ShoppingCart } from 'lucide-react';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -184,37 +177,24 @@ export function EditProcurementEventDialog({
     if (sourceType === 'PURCHASE_ORDER') void poQuery.refetch();
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        className={cn(
-          'flex max-h-[min(90vh,720px)] w-full flex-col gap-0 overflow-hidden border-border/60 bg-background/92 p-0 shadow-lg backdrop-blur-2xl dark:bg-background/92',
-          'sm:max-w-2xl',
-        )}
-      >
-        <div className="shrink-0 border-b border-border/60 bg-card/50 px-5 pb-4 pt-5 pr-14">
-          <DialogHeader className="space-y-2 text-left">
-            <DialogTitle className="flex items-start gap-3 text-xl font-semibold tracking-tight">
-              <span
-                className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-muted/50 shadow-sm"
-                aria-hidden
-              >
-                <HeaderIcon className="size-5 text-foreground/85" />
-              </span>
-              <span className="leading-snug">{title}</span>
-            </DialogTitle>
-            <DialogDescription className="text-left text-sm text-muted-foreground">
-              {sourceType === 'INVOICE'
-                ? 'En haut : déposer la facture ou un justificatif (PDF / image). En dessous : libellé et numéro si les droits le permettent.'
-                : sourceType === 'PURCHASE_ORDER'
-                  ? 'En haut : déposer le devis ou le bon de commande (PDF / image). En dessous : libellé et référence si les droits le permettent.'
-                  : 'Modification depuis l’événement financier lié.'}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+  const descriptionText =
+    sourceType === 'INVOICE'
+      ? 'En haut : déposer la facture ou un justificatif (PDF / image). En dessous : libellé et numéro si les droits le permettent.'
+      : sourceType === 'PURCHASE_ORDER'
+        ? 'En haut : déposer le devis ou le bon de commande (PDF / image). En dessous : libellé et référence si les droits le permettent.'
+        : 'Modification depuis l’événement financier lié.';
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+  return (
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={descriptionText}
+      icon={HeaderIcon}
+      size="xl"
+      contentClassName="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden p-0"
+      bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto"
+    >
           {!canProcurementLookup && (
             <Alert>
               <AlertDescription>
@@ -409,8 +389,6 @@ export function EditProcurementEventDialog({
                 canUpload={canUpdate}
               />
             )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

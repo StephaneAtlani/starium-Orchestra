@@ -30,13 +30,7 @@ import {
 } from '@/lib/resource-labels';
 import { listResources } from '@/services/resources';
 import type { ResourceType } from '@/services/resources';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { EditResourceForm } from './_components/edit-resource-form';
 import { NewResourceForm } from './_components/new-resource-form';
 import { AlertCircle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
@@ -144,15 +138,13 @@ export default function ResourcesListPage() {
           }
         />
 
-        <Dialog open={newResourceModalOpen} onOpenChange={setNewResourceModalOpen}>
-          <DialogContent
-            className="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-[90vw]"
-            showCloseButton
-          >
-            <DialogHeader>
-              <DialogTitle>Nouvelle ressource</DialogTitle>
-              <DialogDescription>Création dans le client actif.</DialogDescription>
-            </DialogHeader>
+        <StariumModal
+          open={newResourceModalOpen}
+          onOpenChange={setNewResourceModalOpen}
+          title="Nouvelle ressource"
+          description="Création dans le client actif."
+          contentClassName="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-[90vw]"
+        >
             {newResourceModalOpen ? (
               <NewResourceForm
                 formIdPrefix="modal-new-resource"
@@ -163,23 +155,17 @@ export default function ResourcesListPage() {
                 }}
               />
             ) : null}
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
-        <Dialog
+        <StariumModal
           open={editResourceId !== null}
           onOpenChange={(open) => {
             if (!open) setEditResourceId(null);
           }}
+          title="Modifier la ressource"
+          description="Édition dans le client actif."
+          contentClassName="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-[90vw]"
         >
-          <DialogContent
-            className="flex max-h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-4 overflow-y-auto p-6 sm:max-w-[90vw]"
-            showCloseButton
-          >
-            <DialogHeader>
-              <DialogTitle>Modifier la ressource</DialogTitle>
-              <DialogDescription>Édition dans le client actif.</DialogDescription>
-            </DialogHeader>
             {editResourceId ? (
               <EditResourceForm
                 key={editResourceId}
@@ -192,8 +178,7 @@ export default function ResourcesListPage() {
                 }}
               />
             ) : null}
-          </DialogContent>
-        </Dialog>
+        </StariumModal>
 
         {clientId && permsLoading && <LoadingState rows={3} />}
         {permsError && (

@@ -1,13 +1,8 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
+import { ArrowRightLeft } from 'lucide-react';
 import {
   BUDGET_WORKFLOW_STATUS_LABELS,
   type BudgetWorkflowStatus,
@@ -54,11 +49,24 @@ export function BudgetStatusChangeDialog({
         : null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" showCloseButton>
-        <DialogHeader>
-          <DialogTitle>Changement de statut du budget</DialogTitle>
-        </DialogHeader>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Changement de statut du budget"
+      icon={ArrowRightLeft}
+      size="lg"
+      bodyClassName="max-h-[60vh] overflow-y-auto"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            Annuler
+          </Button>
+          <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
+            {isSubmitting ? 'Enregistrement…' : 'Confirmer'}
+          </Button>
+        </>
+      }
+    >
         <div className="space-y-4 text-sm text-muted-foreground">
           <p>
             <span className="font-medium text-foreground">
@@ -107,15 +115,6 @@ export function BudgetStatusChangeDialog({
             </div>
           )}
         </div>
-        <DialogFooter showCloseButton={false}>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Annuler
-          </Button>
-          <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
-            {isSubmitting ? 'Enregistrement…' : 'Confirmer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

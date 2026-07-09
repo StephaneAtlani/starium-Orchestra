@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useId, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,63 +51,52 @@ export function ResourceAclConfirmationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showCloseButton className="sm:max-w-lg">
-        <form
-          onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-4"
-        >
-          <DialogHeader>
-            <div className="pr-8">
-              <DialogTitle className="flex items-center gap-2 text-left">
-                <AlertTriangleIcon
-                  aria-hidden="true"
-                  className="size-5 shrink-0 text-destructive"
-                />
-                {title}
-              </DialogTitle>
-              <DialogDescription className="mt-2 text-left leading-relaxed">
-                {description}
-              </DialogDescription>
-            </div>
-          </DialogHeader>
-
-          <section className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
-            <Label htmlFor={`${formId}-phrase`}>
-              Pour confirmer, saisissez exactement&nbsp;:&nbsp;
-              <span className="font-mono font-semibold">{confirmationPhrase}</span>
-            </Label>
-            <Input
-              id={`${formId}-phrase`}
-              value={phrase}
-              onChange={(e) => setPhrase(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              disabled={isPending}
-            />
-          </section>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={isPending}
-            >
-              {cancelLabel}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={onConfirm}
-              disabled={!isPhraseOk || isPending}
-            >
-              {confirmLabel}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <StariumModal
+      open={open}
+      onOpenChange={handleOpenChange}
+      title={title}
+      description={description}
+      icon={AlertTriangleIcon}
+      size="lg"
+      contentClassName="sm:max-w-lg"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isPending}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={!isPhraseOk || isPending}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-4">
+        <section className="space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+          <Label htmlFor={`${formId}-phrase`}>
+            Pour confirmer, saisissez exactement&nbsp;:&nbsp;
+            <span className="font-mono font-semibold">{confirmationPhrase}</span>
+          </Label>
+          <Input
+            id={`${formId}-phrase`}
+            value={phrase}
+            onChange={(e) => setPhrase(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={isPending}
+          />
+        </section>
+      </form>
+    </StariumModal>
   );
 }
 

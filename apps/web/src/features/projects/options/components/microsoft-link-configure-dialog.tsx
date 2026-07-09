@@ -2,13 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Cloud, Tags } from 'lucide-react';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -197,11 +192,27 @@ export function MicrosoftLinkConfigureDialog({
 
   return (
     <Fragment>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(100vw-2rem,40rem)] max-w-none sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Configurer Microsoft 365</DialogTitle>
-        </DialogHeader>
+      <StariumModal
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Configurer Microsoft 365"
+        icon={Cloud}
+        size="lg"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={!canSubmit || isSubmitting}
+              onClick={() => void submit()}
+            >
+              {isSubmitting ? 'Enregistrement…' : 'Enregistrer et activer'}
+            </Button>
+          </>
+        }
+      >
         {!connectionActive ? (
           <Alert variant="destructive">
             <AlertTitle>Connexion requise</AlertTitle>
@@ -424,44 +435,25 @@ export function MicrosoftLinkConfigureDialog({
             </div>
           </div>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            disabled={!canSubmit || isSubmitting}
-            onClick={() => void submit()}
-          >
-            {isSubmitting ? 'Enregistrement…' : 'Enregistrer et activer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-      </Dialog>
+      </StariumModal>
 
-      <Dialog open={labelsConfirmOpen} onOpenChange={setLabelsConfirmOpen}>
-      <DialogContent className="w-[min(100vw-2rem,26rem)] max-w-none sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Activer la synchronisation des étiquettes Planner ?</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Les étiquettes Starium actuellement associées aux <strong>tâches</strong> de ce projet
-          seront <strong>supprimées</strong> et remplacées par les catégories du plan Microsoft
-          Planner sélectionné.
-        </p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Cette action est appliquée lors de l’enregistrement de la configuration.
-        </p>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setLabelsConfirmOpen(false)}
-          >
-            Annuler
-          </Button>
-          <Button
-            type="button"
+      <StariumModal
+        open={labelsConfirmOpen}
+        onOpenChange={setLabelsConfirmOpen}
+        title="Activer la synchronisation des étiquettes Planner ?"
+        icon={Tags}
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLabelsConfirmOpen(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
             onClick={() => {
               setUseMsLabels(true);
               setLabelsConfirmOpen(false);
@@ -469,9 +461,18 @@ export function MicrosoftLinkConfigureDialog({
           >
             Confirmer et activer
           </Button>
-        </DialogFooter>
-      </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Les étiquettes Starium actuellement associées aux <strong>tâches</strong> de ce projet
+          seront <strong>supprimées</strong> et remplacées par les catégories du plan Microsoft
+          Planner sélectionné.
+        </p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Cette action est appliquée lors de l'enregistrement de la configuration.
+        </p>
+      </StariumModal>
     </Fragment>
   );
 }

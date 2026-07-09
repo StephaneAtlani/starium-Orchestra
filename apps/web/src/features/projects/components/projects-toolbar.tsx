@@ -11,14 +11,7 @@ import {
 } from '@/lib/workspace-fullscreen';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import {
   Tooltip,
   TooltipContent,
@@ -262,22 +255,16 @@ export function ProjectsToolbar({
   );
 
   const filtersDialog = (
-    <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-      <DialogContent size="lg" className="max-h-[min(85vh,720px)] gap-0 p-0">
-        <DialogHeader className="border-b border-border px-5 py-4">
-          <DialogTitle>Filtres et tri</DialogTitle>
-        </DialogHeader>
-        <DialogBody className="overflow-y-auto px-5 py-4">
-          <ProjectsPortfolioFiltersBar
-            embedded
-            hideSearch
-            filters={filters}
-            setFilters={setFilters}
-            myRoleOptions={myRoleOptions}
-            ownerOptions={ownerOptions}
-          />
-        </DialogBody>
-        <DialogFooter className="border-t border-border px-5 py-3">
+    <StariumModal
+      open={filtersOpen}
+      onOpenChange={setFiltersOpen}
+      title="Filtres et tri"
+      icon={SlidersHorizontal}
+      size="lg"
+      contentClassName="max-h-[min(85vh,720px)] gap-0 p-0"
+      bodyClassName="overflow-y-auto px-5 py-4"
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -291,9 +278,18 @@ export function ProjectsToolbar({
           <Button type="button" onClick={() => setFiltersOpen(false)}>
             Appliquer
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <ProjectsPortfolioFiltersBar
+        embedded
+        hideSearch
+        filters={filters}
+        setFilters={setFilters}
+        myRoleOptions={myRoleOptions}
+        ownerOptions={ownerOptions}
+      />
+    </StariumModal>
   );
 
   if (embedded) {

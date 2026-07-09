@@ -1,15 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import type { AdminPlatformUserSummary } from '../types/admin-studio.types';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -26,6 +18,14 @@ export function ResetUserMfaDialog({
   const [done, setDone] = useState(false);
 
   const authenticatedFetch = useAuthenticatedFetch();
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) {
+      setError(null);
+      setDone(false);
+    }
+  };
 
   const handleReset = async () => {
     setError(null);
@@ -56,70 +56,54 @@ export function ResetUserMfaDialog({
     }
   };
 
+  const userLabel = user.firstName || user.lastName || user.email;
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) {
-          setError(null);
-          setDone(false);
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:text-destructive"
+        aria-label="Réinitialiser la 2FA"
+        onClick={() => setOpen(true)}
+      >
+        <ShieldOffIcon className="size-4" />
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Réinitialiser la 2FA"
+        description={
+          done ? (
+            <>
+              La double authentification de{' '}
+              <span className="font-medium">{userLabel}</span> a été réinitialisée.
+              L&apos;utilisateur devra reconfigurer sa 2FA au prochain login.
+            </>
+          ) : (
+            <>
+              Cette action supprime toute la configuration 2FA (TOTP, codes
+              de secours, appareils de confiance) et invalide toutes les
+              sessions de <span className="font-medium">{userLabel}</span>.
+            </>
+          )
         }
-      }}
-    >
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-destructive"
-            aria-label="Réinitialiser la 2FA"
-          >
-            <ShieldOffIcon className="size-4" />
-          </Button>
-        }
-      />
-      <DialogContent showCloseButton className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Réinitialiser la 2FA</DialogTitle>
-          <DialogDescription>
-            {done ? (
-              <>
-                La double authentification de{' '}
-                <span className="font-medium">
-                  {user.firstName || user.lastName || user.email}
-                </span>{' '}
-                a été réinitialisée. L&apos;utilisateur devra reconfigurer sa 2FA
-                au prochain login.
-              </>
-            ) : (
-              <>
-                Cette action supprime toute la configuration 2FA (TOTP, codes
-                de secours, appareils de confiance) et invalide toutes les
-                sessions de{' '}
-                <span className="font-medium">
-                  {user.firstName || user.lastName || user.email}
-                </span>
-                .
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        {error && (
-          <p className="text-sm text-destructive px-6" role="alert">
-            {error}
-          </p>
-        )}
-
-        <DialogFooter showCloseButton={false}>
-          {done ? (
-            <Button onClick={() => setOpen(false)}>Fermer</Button>
+        icon={ShieldOffIcon}
+        size="sm"
+        footer={
+          done ? (
+            <Button
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+            >
+              Fermer
+            </Button>
           ) : (
             <>
               <Button
                 type="button"
                 variant="outline"
+                className="min-h-11 sm:min-h-9"
                 onClick={() => setOpen(false)}
                 disabled={isResetting}
               >
@@ -127,15 +111,22 @@ export function ResetUserMfaDialog({
               </Button>
               <Button
                 variant="destructive"
+                className="min-h-11 sm:min-h-9"
                 onClick={() => void handleReset()}
                 disabled={isResetting}
               >
                 {isResetting ? 'Réinitialisation…' : 'Réinitialiser la 2FA'}
               </Button>
             </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          )
+        }
+      >
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+      </StariumModal>
+    </>
   );
 }

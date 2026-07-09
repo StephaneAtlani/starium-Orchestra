@@ -8,13 +8,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuth } from '@/context/auth-context';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { stariumApiPath } from '@/lib/starium-api-base';
@@ -1012,20 +1006,16 @@ export default function AdminChatbotPage() {
         </Tabs>
       )}
 
-      <Dialog
+      <StariumModal
         open={convDialogOpen}
         onOpenChange={(open) => {
           setConvDialogOpen(open);
           if (!open) setConvDetail(null);
         }}
+        title="Conversation"
+        description="Fil des messages tels que vus côté utilisateur (ordre chronologique)."
+        contentClassName="max-h-[85dvh] max-w-lg overflow-hidden sm:max-w-lg"
       >
-        <DialogContent className="max-h-[85dvh] max-w-lg overflow-hidden sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Conversation</DialogTitle>
-            <DialogDescription>
-              Fil des messages tels que vus côté utilisateur (ordre chronologique).
-            </DialogDescription>
-          </DialogHeader>
           {convLoading && <LoadingState rows={3} />}
           {!convLoading && convDetail && (
             <div className="flex min-h-0 flex-col gap-2 text-sm">
@@ -1066,10 +1056,9 @@ export default function AdminChatbotPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
 
-      <Dialog
+      <StariumModal
         open={supportDialogOpen}
         onOpenChange={(open) => {
           setSupportDialogOpen(open);
@@ -1078,14 +1067,10 @@ export default function AdminChatbotPage() {
             setSupportReplyText('');
           }
         }}
+        title="Répondre au retour"
+        description="Message initial et fil des réponses équipe plateforme. Envoi = notification à l’auteur sur le client métier."
+        contentClassName="max-h-[88dvh] max-w-lg overflow-hidden sm:max-w-lg"
       >
-        <DialogContent className="max-h-[88dvh] max-w-lg overflow-hidden sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Répondre au retour</DialogTitle>
-            <DialogDescription>
-              Message initial et fil des réponses équipe plateforme. Envoi = notification à l’auteur sur le client métier.
-            </DialogDescription>
-          </DialogHeader>
           {supportDialogLoading && <LoadingState rows={3} />}
           {!supportDialogLoading && supportThread && (
             <div className="flex min-h-0 flex-col gap-3 text-sm">
@@ -1153,10 +1138,9 @@ export default function AdminChatbotPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
 
-      <Dialog
+      <StariumModal
         open={entryEditOpen}
         onOpenChange={(open) => {
           setEntryEditOpen(open);
@@ -1165,14 +1149,11 @@ export default function AdminChatbotPage() {
             setEntryEditLoading(false);
           }
         }}
+        title="Modifier l’entrée"
+        description="Slug, textes, portée, type et catégorie — alignés sur la base Cursor Starium (RFC-AI-001)."
+        size="xl"
+        contentClassName="max-h-[90dvh] max-w-2xl overflow-y-auto"
       >
-        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Modifier l’entrée</DialogTitle>
-            <DialogDescription>
-              Slug, textes, portée, type et catégorie — alignés sur la base Cursor Starium (RFC-AI-001).
-            </DialogDescription>
-          </DialogHeader>
           {entryEditLoading && <LoadingState rows={4} />}
           {!entryEditLoading && editForm && (
             <div className="space-y-3 text-sm">
@@ -1370,8 +1351,7 @@ export default function AdminChatbotPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </PageContainer>
   );
 }

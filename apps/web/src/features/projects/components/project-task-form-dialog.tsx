@@ -1,15 +1,8 @@
 'use client';
 
+import { ListTodo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import {
   TaskFormDialogFields,
   type TaskFormDialogFieldsProps,
@@ -35,26 +28,20 @@ export function ProjectTaskFormDialog({
   const canSubmit = form.name.trim().length > 0 && !isSubmitting;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton size="xl">
-        <DialogHeader>
-          <div className="pr-8">
-            <DialogTitle className="text-left">
-              {editing ? 'Modifier la tâche' : 'Nouvelle tâche'}
-            </DialogTitle>
-            <DialogDescription className="mt-2 text-left">
-              {editing
-                ? 'Mettre à jour les informations de la tâche, son planning et ses dépendances.'
-                : 'Créer une nouvelle tâche dans le projet.'}
-            </DialogDescription>
-          </div>
-        </DialogHeader>
-
-        <DialogBody className="min-h-0 flex-1 py-4">
-          <TaskFormDialogFields form={form} {...fieldsProps} />
-        </DialogBody>
-
-        <DialogFooter>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? 'Modifier la tâche' : 'Nouvelle tâche'}
+      description={
+        editing
+          ? 'Mettre à jour les informations de la tâche, son planning et ses dépendances.'
+          : 'Créer une nouvelle tâche dans le projet.'
+      }
+      icon={ListTodo}
+      size="xl"
+      bodyClassName="min-h-0 flex-1 py-4"
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
@@ -67,8 +54,10 @@ export function ProjectTaskFormDialog({
                 ? 'Enregistrer'
                 : 'Créer'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <TaskFormDialogFields form={form} {...fieldsProps} />
+    </StariumModal>
   );
 }

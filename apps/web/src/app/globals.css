@@ -2124,6 +2124,132 @@ table.starium-dt {
   flex: 1 1 12rem;
 }
 
+/* Bandeau fil d'Ariane — au-dessus des onglets workspace */
+.starium-project-hierarchy-strip {
+  padding: 8px 0 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+.starium-project-hierarchy-strip__breadcrumb {
+  min-width: 0;
+}
+
+/* Carte hiérarchie projet (aperçu) */
+.starium-hierarchy-simple {
+  display: flex;
+  flex-direction: column;
+}
+.starium-hierarchy-simple__section {
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.starium-hierarchy-simple__section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+.starium-hierarchy-simple__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.starium-hierarchy-simple__label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.starium-hierarchy-simple__head .starium-hierarchy-simple__label {
+  margin-bottom: 0;
+}
+.starium-hierarchy-simple__count {
+  display: inline-flex;
+  min-width: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+.starium-hierarchy-simple__path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.starium-hierarchy-simple__path-item {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.starium-hierarchy-simple__path-link {
+  color: var(--foreground);
+  text-decoration: none;
+}
+.starium-hierarchy-simple__path-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.starium-hierarchy-simple__path-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 18%, transparent);
+  border-radius: 6px;
+}
+.starium-hierarchy-simple__path-sep {
+  color: var(--muted-foreground);
+}
+.starium-hierarchy-simple__item {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--muted) 22%, var(--card));
+  color: var(--foreground);
+}
+.starium-hierarchy-simple__item:hover {
+  border-color: color-mix(in srgb, var(--brand-gold) 30%, var(--border));
+  background: color-mix(in srgb, var(--brand-gold) 5%, var(--card));
+}
+.starium-hierarchy-simple__item--static:hover {
+  border-color: color-mix(in srgb, var(--border) 75%, transparent);
+  background: color-mix(in srgb, var(--muted) 22%, var(--card));
+}
+.starium-hierarchy-simple__item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 18%, transparent);
+}
+.starium-hierarchy-simple__item-text {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.starium-hierarchy-simple__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.starium-hierarchy-simple__empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
 /* Modale Starium — ref. DS components/Modal/Modal.jsx (Modal - Starium.html) */
 .starium-modal__header {
   display: flex;

@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/lib/toast';
@@ -74,13 +68,27 @@ export function GovernanceCycleItemScoresDialog({
     }
   }
 
+  const formId = 'governance-cycle-item-scores-form';
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Modifier les scores</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Modifier les scores"
+      size="md"
+      contentClassName="sm:max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button type="submit" form={formId} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Le score global est recalculé par le serveur après enregistrement.
           </p>
@@ -105,16 +113,7 @@ export function GovernanceCycleItemScoresDialog({
               </div>
             ))}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }

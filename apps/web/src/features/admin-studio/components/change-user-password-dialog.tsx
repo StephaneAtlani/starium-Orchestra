@@ -1,15 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { AdminPlatformUserSummary } from '../types/admin-studio.types';
@@ -72,33 +64,55 @@ export function ChangeUserPasswordDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Changer le mot de passe"
-          >
-            <KeyIcon className="size-4" />
-          </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Changer le mot de passe"
+        onClick={() => setOpen(true)}
+      >
+        <KeyIcon className="size-4" />
+      </Button>
+      <StariumModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Changer le mot de passe"
+        description={
+          <>
+            Définissez un nouveau mot de passe pour{' '}
+            <span className="font-medium">
+              {user.firstName || user.lastName || user.email}
+            </span>
+            .
+          </>
         }
-      />
-      <DialogContent showCloseButton className="sm:max-w-sm">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Changer le mot de passe</DialogTitle>
-            <DialogDescription>
-              Définissez un nouveau mot de passe pour{' '}
-              <span className="font-medium">
-                {user.firstName || user.lastName || user.email}
-              </span>
-              .
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-3 py-4">
+        icon={KeyIcon}
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setOpen(false)}
+              disabled={isSaving}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              form={`pwd-form-${user.id}`}
+              className="min-h-11 sm:min-h-9"
+              disabled={isSaving}
+            >
+              {isSaving ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </>
+        }
+      >
+        <form id={`pwd-form-${user.id}`} onSubmit={handleSubmit}>
+          <div className="grid gap-3">
             <div className="grid gap-2">
               <label className="text-xs font-medium" htmlFor={`pwd-${user.id}`}>
                 Nouveau mot de passe
@@ -134,23 +148,8 @@ export function ChangeUserPasswordDialog({
               </p>
             )}
           </div>
-
-          <DialogFooter showCloseButton={false}>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isSaving}
-            >
-              Annuler
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? 'Enregistrement…' : 'Enregistrer'}
-            </Button>
-          </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </StariumModal>
+    </>
   );
 }
-

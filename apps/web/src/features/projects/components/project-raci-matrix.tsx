@@ -14,13 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -555,22 +549,14 @@ export function ProjectRaciMatrix({ projectId }: { projectId: string }) {
         </CardContent>
       </Card>
 
-      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nouvelle action RASCI</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="new-raci-action-label">Libellé de l&apos;action</Label>
-            <Input
-              id="new-raci-action-label"
-              value={newActionLabel}
-              onChange={(e) => setNewActionLabel(e.target.value)}
-              placeholder="Ex. : Validation du livrable final"
-              maxLength={500}
-            />
-          </div>
-          <DialogFooter>
+      <StariumModal
+        open={actionDialogOpen}
+        onOpenChange={setActionDialogOpen}
+        title="Nouvelle action RASCI"
+        icon={Grid3x3}
+        size="md"
+        footer={
+          <>
             <Button type="button" variant="outline" onClick={() => setActionDialogOpen(false)}>
               Annuler
             </Button>
@@ -581,9 +567,20 @@ export function ProjectRaciMatrix({ projectId }: { projectId: string }) {
             >
               {createActionMutation.isPending ? 'Ajout…' : 'Ajouter'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="new-raci-action-label">Libellé de l&apos;action</Label>
+          <Input
+            id="new-raci-action-label"
+            value={newActionLabel}
+            onChange={(e) => setNewActionLabel(e.target.value)}
+            placeholder="Ex. : Validation du livrable final"
+            maxLength={500}
+          />
+        </div>
+      </StariumModal>
     </TooltipProvider>
   );
 }

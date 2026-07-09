@@ -24,13 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
@@ -602,11 +596,25 @@ export function OrganizationAdminPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={createUnitOpen} onOpenChange={setCreateUnitOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nouvelle unité</DialogTitle>
-          </DialogHeader>
+      <StariumModal
+        open={createUnitOpen}
+        onOpenChange={setCreateUnitOpen}
+        title="Nouvelle unité"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateUnitOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={!newUnitName.trim() || createUnitMut.isPending}
+              onClick={() => createUnitMut.mutate()}
+            >
+              Créer
+            </Button>
+          </>
+        }
+      >
           <div className="space-y-3">
             <div>
               <Label htmlFor="ou-name">Nom</Label>
@@ -650,26 +658,27 @@ export function OrganizationAdminPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateUnitOpen(false)}>
+      </StariumModal>
+
+      <StariumModal
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        title="Nouveau groupe métier"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCreateGroupOpen(false)}>
               Annuler
             </Button>
             <Button
               type="button"
-              disabled={!newUnitName.trim() || createUnitMut.isPending}
-              onClick={() => createUnitMut.mutate()}
+              disabled={!newGroupName.trim() || createGroupMut.isPending}
+              onClick={() => createGroupMut.mutate()}
             >
               Créer
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nouveau groupe métier</DialogTitle>
-          </DialogHeader>
+          </>
+        }
+      >
           <div className="space-y-3">
             <div>
               <Label htmlFor="og-name">Nom</Label>
@@ -695,20 +704,7 @@ export function OrganizationAdminPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateGroupOpen(false)}>
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              disabled={!newGroupName.trim() || createGroupMut.isPending}
-              onClick={() => createGroupMut.mutate()}
-            >
-              Créer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </StariumModal>
     </PageContainer>
   );
 }

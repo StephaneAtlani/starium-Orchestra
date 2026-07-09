@@ -5,14 +5,7 @@ import { Search, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import type { ProjectListItem } from '../types/project.types';
 import type { MergedUiBadges } from '@/lib/ui/badge-registry';
@@ -115,60 +108,16 @@ export function ProjectsListMobileView({
         </Button>
       </div>
 
-      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent
-          size="full"
-          className="gap-0 bg-card p-0 pb-0 shadow-xl ring-0 backdrop-blur-none max-h-[min(92dvh,calc(100dvh-1rem))]"
-        >
-          <DialogHeader className="border-b border-border px-4 py-3.5">
-            <DialogTitle className="text-base">Filtres et tri</DialogTitle>
-          </DialogHeader>
-
-          <DialogBody className="px-4 py-4">
-            <div
-              className="mb-4 flex flex-wrap gap-2"
-              role="group"
-              aria-label="Filtres rapides"
-            >
-              <MobileFilterChip
-                label="Mes projets"
-                active={filters.myProjectsOnly}
-                onClick={() => setFilters({ myProjectsOnly: !filters.myProjectsOnly })}
-              />
-              <MobileFilterChip
-                label="En retard"
-                active={filters.lateOnly}
-                onClick={() =>
-                  setFilters({
-                    lateOnly: !filters.lateOnly,
-                    atRiskOnly: false,
-                  })
-                }
-              />
-              <MobileFilterChip
-                label="À risque"
-                active={filters.atRiskOnly}
-                onClick={() =>
-                  setFilters({
-                    atRiskOnly: !filters.atRiskOnly,
-                    lateOnly: false,
-                  })
-                }
-              />
-            </div>
-
-            <ProjectsPortfolioFiltersBar
-              embedded
-              mobileSheet
-              hideSearch
-              filters={filters}
-              setFilters={setFilters}
-              myRoleOptions={myRoleOptions}
-              ownerOptions={ownerOptions}
-            />
-          </DialogBody>
-
-          <DialogFooter className="mx-0 mb-0 flex-row gap-2.5 rounded-none border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <StariumModal
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        title="Filtres et tri"
+        icon={SlidersHorizontal}
+        size="full"
+        contentClassName="gap-0 bg-card p-0 pb-0 shadow-xl ring-0 backdrop-blur-none max-h-[min(92dvh,calc(100dvh-1rem))]"
+        bodyClassName="px-4 py-4"
+        footer={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -187,9 +136,51 @@ export function ProjectsListMobileView({
             >
               Appliquer
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div
+          className="mb-4 flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filtres rapides"
+        >
+          <MobileFilterChip
+            label="Mes projets"
+            active={filters.myProjectsOnly}
+            onClick={() => setFilters({ myProjectsOnly: !filters.myProjectsOnly })}
+          />
+          <MobileFilterChip
+            label="En retard"
+            active={filters.lateOnly}
+            onClick={() =>
+              setFilters({
+                lateOnly: !filters.lateOnly,
+                atRiskOnly: false,
+              })
+            }
+          />
+          <MobileFilterChip
+            label="À risque"
+            active={filters.atRiskOnly}
+            onClick={() =>
+              setFilters({
+                atRiskOnly: !filters.atRiskOnly,
+                lateOnly: false,
+              })
+            }
+          />
+        </div>
+
+        <ProjectsPortfolioFiltersBar
+          embedded
+          mobileSheet
+          hideSearch
+          filters={filters}
+          setFilters={setFilters}
+          myRoleOptions={myRoleOptions}
+          ownerOptions={ownerOptions}
+        />
+      </StariumModal>
 
       {items.length === 0 ? (
         <p className="px-4 py-10 text-center text-sm text-muted-foreground">
