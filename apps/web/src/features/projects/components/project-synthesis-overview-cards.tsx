@@ -141,6 +141,7 @@ export function ProjectSynthesisOverviewCards({
         icon={<Flag strokeWidth={1.75} />}
         footer={
           <Link href={projectPlanning(projectId)} className="starium-ov-btn">
+            <Calendar strokeWidth={1.75} className="size-3.5 shrink-0" aria-hidden />
             Voir le planning
           </Link>
         }
@@ -245,6 +246,7 @@ export function ProjectSynthesisOverviewCards({
         icon={<Clock strokeWidth={1.75} />}
         footer={
           <Link href={projectSheet(projectId)} className="starium-ov-btn">
+            <Clock strokeWidth={1.75} className="size-3.5 shrink-0" aria-hidden />
             Voir l’historique
           </Link>
         }

@@ -4196,6 +4196,9 @@ table.starium-dt {
   /* Carte KPI (même surface, padding KPI) */
   .starium-kpi-card {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     overflow: hidden;
     background-color: var(--card);
     border: 1px solid var(--border);
