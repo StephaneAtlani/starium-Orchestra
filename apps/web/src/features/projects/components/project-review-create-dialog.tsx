@@ -417,13 +417,9 @@ export function ProjectReviewCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        showCloseButton
-        size="xl"
-        className="flex max-h-[min(92vh,880px)] flex-col gap-0 overflow-hidden p-4 sm:max-w-2xl lg:max-w-3xl"
-      >
+      <DialogContent showCloseButton size="xl">
         <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+          <DialogHeader>
             <div className="pr-8">
               <DialogTitle className="text-left text-lg">
                 {postMortemEligible ? 'Retour d’expérience' : 'Nouveau point projet'}

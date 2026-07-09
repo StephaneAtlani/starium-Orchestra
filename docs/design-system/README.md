@@ -308,6 +308,10 @@ border-color: var(--state-danger);
 
 ### Modales
 
+**Norme produit (code)** : [MODALES.md](./MODALES.md) — layout `starium` dans `apps/web/src/components/ui/dialog.tsx`, composant `StariumModal`.
+
+Maquette de référence : **Modal — Starium** (kit DS `Modal.jsx`).
+
 ```css
 /* Overlay */  background: rgba(14,14,16,0.45); backdrop-filter: blur(8px);
 /* Box */      border-radius: var(--radius-xl); box-shadow: var(--shadow-4);

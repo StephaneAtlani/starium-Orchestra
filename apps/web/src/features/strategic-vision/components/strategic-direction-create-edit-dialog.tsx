@@ -1,16 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { toast } from '@/lib/toast';
 import {
   useCreateStrategicDirectionMutation,
@@ -95,28 +88,51 @@ export function StrategicDirectionCreateEditDialog({
   };
 
   const pending = createDirection.isPending || updateDirection.isPending;
-  const canSubmit =
-    !pending && code.trim().length > 0 && name.trim().length > 0;
+  const canSubmit = !pending && code.trim().length > 0 && name.trim().length > 0;
 
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
+      title={mode === 'create' ? 'Nouvelle direction' : 'Modifier la direction'}
+      description="Code court unique (ex. DSI), libellé affiché partout dans les sélecteurs et tableaux."
+      icon={Compass}
+      size="lg"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => void handleSubmit()}
+            disabled={!canSubmit}
+          >
+            {pending ? 'Enregistrement…' : mode === 'create' ? 'Créer' : 'Enregistrer'}
+          </Button>
+        </>
+      }
     >
-      <DialogContent className="sm:max-w-lg bg-background/75 backdrop-blur-md border-border/50">
-        <DialogHeader>
-          <DialogTitle>{mode === 'create' ? 'Nouvelle direction' : 'Modifier la direction'}</DialogTitle>
-          <DialogDescription>
-            Code court unique (ex. DSI), libellé affiché partout dans les sélecteurs et tableaux.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Code</span>
-            <Input
+      <div className="starium-form">
+        <h3 className="starium-modal-seg-title">Informations</h3>
+        <div className="starium-form-grid starium-form-grid--2">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-dir-code">
+              Code <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="sv-dir-code"
+              className="starium-form-input"
               value={code}
               onChange={(event) => setCode(event.target.value)}
               placeholder="Ex. DSI"
@@ -124,49 +140,49 @@ export function StrategicDirectionCreateEditDialog({
               maxLength={30}
               autoComplete="off"
             />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Nom</span>
-            <Input
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-dir-name">
+              Nom <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="sv-dir-name"
+              className="starium-form-input"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Nom métier"
               disabled={pending}
               maxLength={255}
             />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Description (optionnel)</span>
-            <textarea
-              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              disabled={pending}
-              maxLength={4000}
-            />
-          </label>
-          <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            Ordre d&apos;affichage : automatique (alphabétique).
-          </p>
-          <label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(event) => setIsActive(event.target.checked)}
-              disabled={pending}
-            />
-            Direction active
-          </label>
+          </div>
         </div>
-        <DialogFooter showCloseButton={false}>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Annuler
-          </Button>
-          <Button type="button" onClick={() => void handleSubmit()} disabled={!canSubmit}>
-            {pending ? 'Enregistrement…' : mode === 'create' ? 'Créer' : 'Enregistrer'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-dir-description">
+            Description (optionnel)
+          </label>
+          <textarea
+            id="sv-dir-description"
+            className="starium-form-textarea min-h-[80px]"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            disabled={pending}
+            maxLength={4000}
+          />
+        </div>
+        <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Ordre d&apos;affichage : automatique (alphabétique).
+        </p>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm sm:min-h-9">
+          <input
+            type="checkbox"
+            className="size-4 rounded border-input"
+            checked={isActive}
+            onChange={(event) => setIsActive(event.target.checked)}
+            disabled={pending}
+          />
+          Direction active
+        </label>
+      </div>
+    </StariumModal>
   );
 }

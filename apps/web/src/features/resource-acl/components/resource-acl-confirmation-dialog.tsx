@@ -64,7 +64,7 @@ export function ResourceAclConfirmationDialog({
           onSubmit={(e) => e.preventDefault()}
           className="flex flex-col gap-4"
         >
-          <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+          <DialogHeader>
             <div className="pr-8">
               <DialogTitle className="flex items-center gap-2 text-left">
                 <AlertTriangleIcon

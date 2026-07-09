@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { toast } from '@/lib/toast';
 import type {
   StrategicObjectiveDto,
@@ -93,105 +87,124 @@ export function StrategicObjectiveEditDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Modifier l&apos;objectif</DialogTitle>
-          <DialogDescription>
-            Mettez à jour les informations de pilotage de l&apos;objectif.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Titre</span>
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Description</span>
-            <textarea
-              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-muted-foreground">Responsable</span>
-              <input
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={ownerLabel}
-                onChange={(event) => setOwnerLabel(event.target.value)}
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span className="text-muted-foreground">Statut</span>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={status}
-                onChange={(event) => setStatus(event.target.value as StrategicObjectiveStatus)}
-              >
-                {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Echéance</span>
-            <input
-              type="date"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={deadline}
-              onChange={(event) => setDeadline(event.target.value)}
-            />
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Direction stratégique</span>
-            <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={directionId}
-              onChange={(event) => setDirectionId(event.target.value)}
-            >
-              <option value="UNASSIGNED">Non affecté</option>
-              {directionOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Direction propriétaire</span>
-            <OwnerOrgUnitSelect value={ownerOrgUnitId} onChange={setOwnerOrgUnitId} />
-            {!ownerOrgUnitId ? <OwnerOrgUnitNullWarning className="mt-2" /> : null}
-          </div>
-        </div>
-
-        <DialogFooter showCloseButton={false}>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Modifier l'objectif"
+      description={objective?.title ?? 'Mise à jour des informations de pilotage.'}
+      icon={Target}
+      size="lg"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
             Annuler
           </Button>
           <Button
-            onClick={() => void handleSave()}
+            type="button"
+            className="min-h-11 sm:min-h-9"
             disabled={updateObjective.isPending || title.trim().length === 0}
+            onClick={() => void handleSave()}
           >
-            {updateObjective.isPending ? 'Enregistrement...' : 'Enregistrer'}
+            {updateObjective.isPending ? 'Enregistrement…' : 'Enregistrer'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="starium-form">
+        <h3 className="starium-modal-seg-title">Informations</h3>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-obj-edit-title">
+            Titre <span className="text-destructive">*</span>
+          </label>
+          <input
+            id="sv-obj-edit-title"
+            className="starium-form-input"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </div>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-obj-edit-description">
+            Description
+          </label>
+          <textarea
+            id="sv-obj-edit-description"
+            className="starium-form-textarea min-h-[100px]"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </div>
+        <div className="starium-form-grid starium-form-grid--2">
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-obj-edit-owner">
+              Responsable
+            </label>
+            <input
+              id="sv-obj-edit-owner"
+              className="starium-form-input"
+              value={ownerLabel}
+              onChange={(event) => setOwnerLabel(event.target.value)}
+            />
+          </div>
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="sv-obj-edit-status">
+              Statut
+            </label>
+            <select
+              id="sv-obj-edit-status"
+              className="starium-form-select"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as StrategicObjectiveStatus)}
+            >
+              {STRATEGIC_OBJECTIVE_STATUS_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-obj-edit-deadline">
+            Échéance
+          </label>
+          <input
+            id="sv-obj-edit-deadline"
+            type="date"
+            className="starium-form-input"
+            value={deadline}
+            onChange={(event) => setDeadline(event.target.value)}
+          />
+        </div>
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="sv-obj-edit-direction">
+            Direction stratégique
+          </label>
+          <select
+            id="sv-obj-edit-direction"
+            className="starium-form-select"
+            value={directionId}
+            onChange={(event) => setDirectionId(event.target.value)}
+          >
+            <option value="UNASSIGNED">Non affecté</option>
+            {directionOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="starium-form-field">
+          <span className="starium-form-label">Direction propriétaire</span>
+          <OwnerOrgUnitSelect value={ownerOrgUnitId} onChange={setOwnerOrgUnitId} />
+          {!ownerOrgUnitId ? <OwnerOrgUnitNullWarning className="mt-2" /> : null}
+        </div>
+      </div>
+    </StariumModal>
   );
 }

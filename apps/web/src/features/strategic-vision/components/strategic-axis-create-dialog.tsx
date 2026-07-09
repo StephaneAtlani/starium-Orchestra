@@ -1,28 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import { Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { toast } from '@/lib/toast';
 import { useCreateStrategicAxisMutation } from '../hooks/use-strategic-vision-queries';
-import { suggestStrategicAxisIconKeyFromTitle } from '../lib/strategic-axis-icon-suggest-from-title';
 import { buildAxisNameWithLogo } from '../lib/strategic-vision-tabs-view';
 import { getFirstZodError, strategicAxisFormSchema } from '../schemas/strategic-vision.schemas';
 import {
-  STRATEGIC_AXIS_COLOR_OPTIONS,
-  STRATEGIC_AXIS_ICONS,
-  STRATEGIC_AXIS_ICON_OPTIONS,
-  type StrategicAxisIconColor,
-  type StrategicAxisIconKey,
-  strategicAxisIconColorClass,
-} from './strategic-axis-icons';
+  isStrategicAxisFormSubmittable,
+  StrategicAxisFormFields,
+  type StrategicAxisFormValues,
+} from './strategic-axis-form-fields';
+
+const EMPTY_FORM: StrategicAxisFormValues = {
+  logo: '',
+  color: 'auto',
+  name: '',
+  description: '',
+};
 
 export function StrategicAxisCreateDialog({
   visionId,
@@ -36,23 +33,16 @@ export function StrategicAxisCreateDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createAxis = useCreateStrategicAxisMutation();
-  const [logo, setLogo] = useState<StrategicAxisIconKey | ''>('');
-  const [color, setColor] = useState<StrategicAxisIconColor>('auto');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [form, setForm] = useState<StrategicAxisFormValues>(EMPTY_FORM);
 
-  const resetForm = () => {
-    setLogo('');
-    setColor('auto');
-    setName('');
-    setDescription('');
-  };
-
-  const previewIconKey = logo ? logo : suggestStrategicAxisIconKeyFromTitle(name);
+  const resetForm = () => setForm(EMPTY_FORM);
 
   const handleSave = async () => {
     if (!visionId) return;
-    const parsed = strategicAxisFormSchema.safeParse({ name, description });
+    const parsed = strategicAxisFormSchema.safeParse({
+      name: form.name,
+      description: form.description,
+    });
     if (!parsed.success) {
       toast.error(getFirstZodError(parsed.error));
       return;
@@ -60,7 +50,11 @@ export function StrategicAxisCreateDialog({
     try {
       await createAxis.mutateAsync({
         visionId,
-        name: buildAxisNameWithLogo({ logo, title: parsed.data.name, color }),
+        name: buildAxisNameWithLogo({
+          logo: form.logo,
+          title: parsed.data.name,
+          color: form.color,
+        }),
         description: parsed.data.description?.trim() || undefined,
       });
       toast.success('Axe stratégique créé.');
@@ -71,107 +65,47 @@ export function StrategicAxisCreateDialog({
     }
   };
 
+  const canSubmit =
+    Boolean(visionId) && isStrategicAxisFormSubmittable(form) && !createAxis.isPending;
+
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(next) => {
         if (!next) resetForm();
         onOpenChange(next);
       }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Nouvel axe stratégique</DialogTitle>
-          <DialogDescription>
-            Créez un nouvel axe rattaché à la vision active.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Vision active</span>
-            <input
-              className="h-9 w-full rounded-md border border-input bg-muted px-3 text-sm"
-              value={visionTitle ?? 'Vision non définie'}
-              readOnly
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Icône (Lucide)</span>
-            <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={logo}
-              onChange={(event) => setLogo(event.target.value as StrategicAxisIconKey | '')}
-            >
-              <option value="">Aucune icône</option>
-              {STRATEGIC_AXIS_ICON_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {previewIconKey ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {(() => {
-                const Icon = STRATEGIC_AXIS_ICONS[previewIconKey];
-                return (
-                  <Icon
-                    className={`size-4 shrink-0 ${strategicAxisIconColorClass(color)}${logo ? '' : ' opacity-80'}`}
-                  />
-                );
-              })()}
-              <span>
-                {logo
-                  ? 'Aperçu icône'
-                  : 'Exemple selon le titre — choisissez une icône pour l’enregistrer'}
-              </span>
-            </div>
-          ) : null}
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Couleur icône</span>
-            <select
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={color}
-              onChange={(event) => setColor(event.target.value as StrategicAxisIconColor)}
-            >
-              {STRATEGIC_AXIS_COLOR_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Nom</span>
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Description</span>
-            <textarea
-              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <DialogFooter showCloseButton={false}>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+      title="Nouvel axe stratégique"
+      description="Créez un axe rattaché à la vision active."
+      icon={Crosshair}
+      size="lg"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
             Annuler
           </Button>
           <Button
+            type="button"
+            className="min-h-11 sm:min-h-9"
+            disabled={!canSubmit}
             onClick={() => void handleSave()}
-            disabled={createAxis.isPending || !visionId || name.trim().length === 0}
           >
-            {createAxis.isPending ? 'Création...' : 'Créer'}
+            {createAxis.isPending ? 'Création…' : 'Créer'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <StrategicAxisFormFields
+        idPrefix="sv-create-axis"
+        visionTitle={visionTitle}
+        values={form}
+        onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+      />
+    </StariumModal>
   );
 }

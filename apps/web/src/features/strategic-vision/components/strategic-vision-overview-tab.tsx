@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { CheckSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,6 +9,7 @@ import { ErrorState } from '@/components/feedback/error-state';
 import type {
   StrategicAxisDto,
   StrategicObjectiveDto,
+  StrategicVisionAlertDto,
   StrategicVisionDto,
   StrategicVisionKpisResponseDto,
 } from '../types/strategic-vision.types';
@@ -31,6 +33,7 @@ import { StrategicAlignmentDonut } from './strategic-alignment-donut';
 import { StrategicKpiCards } from './strategic-kpi-cards';
 import { StrategicVisionHero } from './strategic-vision-hero';
 import { StrategicObjectivesOverviewTable } from './strategic-objectives-overview-table';
+import { StrategicUnalignedProjectsDialog } from './strategic-unaligned-projects-dialog';
 import { cn } from '@/lib/utils';
 
 function AxisProgressBar({ pct, barClass }: { pct: number; barClass: string }) {
@@ -123,6 +126,9 @@ export function StrategicVisionOverviewTab({
   kpis,
   kpisLoading,
   kpisError,
+  unalignedProjectAlerts,
+  unalignedProjectsAlertsLoading,
+  unalignedProjectsAlertsError,
   isLoading,
   isError,
 }: {
@@ -132,11 +138,16 @@ export function StrategicVisionOverviewTab({
   kpis?: StrategicVisionKpisResponseDto;
   kpisLoading?: boolean;
   kpisError?: boolean;
+  unalignedProjectAlerts?: StrategicVisionAlertDto[];
+  unalignedProjectsAlertsLoading?: boolean;
+  unalignedProjectsAlertsError?: boolean;
   isLoading: boolean;
   isError: boolean;
   isEditMode: boolean;
   canUpdate: boolean;
 }) {
+  const [unalignedProjectsDialogOpen, setUnalignedProjectsDialogOpen] = useState(false);
+
   if (isLoading) {
     return (
       <section className="space-y-6" aria-busy="true">
@@ -202,11 +213,17 @@ export function StrategicVisionOverviewTab({
               ) : null}
             </p>
             {kpis && kpis.unalignedProjectsCount > 0 ? (
-              <p className="text-sm font-medium text-[color:var(--state-warning)]">
+              <button
+                type="button"
+                className="text-left text-sm font-semibold text-amber-950 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-amber-400"
+                onClick={() => setUnalignedProjectsDialogOpen(true)}
+                aria-haspopup="dialog"
+              >
                 {kpis.unalignedProjectsCount} projet
                 {kpis.unalignedProjectsCount > 1 ? 's' : ''} non aligné
                 {kpis.unalignedProjectsCount > 1 ? 's' : ''} sur le portefeuille actif.
-              </p>
+                <span className="sr-only"> — afficher la liste des projets</span>
+              </button>
             ) : null}
           </div>
         </div>
@@ -240,6 +257,15 @@ export function StrategicVisionOverviewTab({
       <StrategicObjectivesOverviewTable
         objectives={objectives}
         axisNameById={axisNameMap}
+      />
+
+      <StrategicUnalignedProjectsDialog
+        open={unalignedProjectsDialogOpen}
+        onOpenChange={setUnalignedProjectsDialogOpen}
+        alerts={unalignedProjectAlerts}
+        isLoading={Boolean(unalignedProjectsAlertsLoading)}
+        isError={Boolean(unalignedProjectsAlertsError)}
+        expectedCount={kpis?.unalignedProjectsCount ?? 0}
       />
     </section>
   );

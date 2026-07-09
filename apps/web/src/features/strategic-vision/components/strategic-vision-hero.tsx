@@ -56,7 +56,7 @@ export function StrategicVisionHero({ vision }: { vision: StrategicVisionDto }) 
     >
       <div className="px-6 py-9 sm:px-10 sm:py-11">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--brand-gold)]/25 bg-[color:var(--brand-gold-050)]/80 px-3 py-1.5">
+          <div className="starium-vision-hero__badge inline-flex items-center gap-2 rounded-full border px-3 py-1.5">
             <Sparkles className="size-3.5 shrink-0 text-[color:var(--brand-gold-700)]" aria-hidden />
             <span className="starium-overline text-[color:var(--brand-gold-700)]">
               Notre vision

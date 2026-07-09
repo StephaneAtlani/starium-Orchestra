@@ -1,17 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { FilterBar } from '@/components/layout/filter-bar';
-import { FilterBarField } from '@/components/layout/filter-bar-field';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -25,9 +17,14 @@ import {
   useStrategicVisionQuery,
 } from '../hooks/use-strategic-vision-queries';
 import { getActiveVision, getAxesFromVision } from '../lib/strategic-vision-tabs-view';
+import { hasVisionWorkflowContent } from '../lib/strategic-vision-workflow';
+import { StrategicDirectionsDialog } from './strategic-directions-dialog';
+import { StrategicVisionCockpitFilterBar } from './strategic-vision-cockpit-filter-bar';
 import { StrategicVisionTabs } from './strategic-vision-tabs';
+import { StrategicVisionWorkflowDialog } from './strategic-vision-workflow-dialog';
 
 export function StrategicVisionPage() {
+  const searchParams = useSearchParams();
   const { has } = usePermissions();
   const canRead = has('strategic_vision.read');
   const canUpdate = has('strategic_vision.update');
@@ -35,6 +32,8 @@ export function StrategicVisionPage() {
   const canManageLinks = has('strategic_vision.manage_links');
   const canManageDirections = has('strategic_vision.update') || has('strategic_vision.manage_directions');
   const [directionFilter, setDirectionFilter] = useState<string>('ALL');
+  const [visionWorkflowDialogOpen, setVisionWorkflowDialogOpen] = useState(false);
+  const [directionsDialogOpen, setDirectionsDialogOpen] = useState(false);
 
   const visionsQ = useStrategicVisionQuery({ enabled: canRead });
   const axesFallbackQ = useStrategicAxesFallbackQuery({ enabled: canRead });
@@ -47,6 +46,21 @@ export function StrategicVisionPage() {
     directionId: directionFilter !== 'ALL' && directionFilter !== 'UNASSIGNED' ? directionFilter : undefined,
     unassigned: directionFilter === 'UNASSIGNED',
   });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'enterprise') {
+      setVisionWorkflowDialogOpen(true);
+    }
+    if (tab === 'directions') {
+      setDirectionsDialogOpen(true);
+    }
+  }, [searchParams]);
+
+  const unalignedProjectAlerts = useMemo(
+    () => alertsQ.data?.items.filter((item) => item.type === 'PROJECT_UNALIGNED') ?? [],
+    [alertsQ.data?.items],
+  );
 
   if (!canRead) {
     return (
@@ -63,6 +77,8 @@ export function StrategicVisionPage() {
   const axes = axesFromVision.length > 0 ? axesFromVision : (axesFallbackQ.data ?? []);
   const objectives = objectivesQ.data ?? [];
   const directions = directionsQ.data ?? [];
+  const visions = visionsQ.data ?? [];
+  const showVisionWorkflowActions = hasVisionWorkflowContent(visions, canUpdate, canCreate);
   const directionFilterLabel =
     directionFilter === 'ALL'
       ? 'Toutes les directions'
@@ -116,30 +132,19 @@ export function StrategicVisionPage() {
         }
       />
 
-      <FilterBar aria-label="Filtre direction cockpit">
-        <FilterBarField id="sv-direction" label="Direction (cockpit)">
-          {({ controlId, labelId }) => (
-            <Select value={directionFilter} onValueChange={(v) => setDirectionFilter(v ?? 'ALL')}>
-              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
-                <SelectValue>{directionFilterLabel}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Toutes les directions</SelectItem>
-                <SelectItem value="UNASSIGNED">Non affectés</SelectItem>
-                {directions.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-      </FilterBar>
+      <StrategicVisionCockpitFilterBar
+        directionFilter={directionFilter}
+        directionFilterLabel={directionFilterLabel}
+        directions={directions}
+        onDirectionFilterChange={setDirectionFilter}
+        onManageVisions={() => setVisionWorkflowDialogOpen(true)}
+        onManageDirections={() => setDirectionsDialogOpen(true)}
+        showVisionActions={showVisionWorkflowActions}
+      />
 
       <StrategicVisionTabs
         vision={activeVision}
-        visions={visionsQ.data ?? []}
+        visions={visions}
         axes={axes}
         objectives={objectives}
         directions={directions}
@@ -147,14 +152,10 @@ export function StrategicVisionPage() {
         kpis={kpisQ.data}
         kpisByDirection={kpisByDirectionQ.data}
         alerts={alertsQ.data}
+        unalignedProjectAlerts={unalignedProjectAlerts}
         canUpdate={canUpdate}
         canCreate={canCreate}
         canManageLinks={canManageLinks}
-        canManageDirections={canManageDirections}
-        directionsQueryState={{
-          isLoading: directionsQ.isLoading,
-          isError: directionsQ.isError,
-        }}
         isEditMode={false}
         queryStates={{
           visions: { isLoading: visionsQ.isLoading, isError: visionsQ.isError },
@@ -169,6 +170,25 @@ export function StrategicVisionPage() {
           },
           alerts: { isLoading: alertsQ.isLoading, isError: alertsQ.isError },
         }}
+      />
+
+      <StrategicVisionWorkflowDialog
+        open={visionWorkflowDialogOpen}
+        onOpenChange={setVisionWorkflowDialogOpen}
+        visions={visions}
+        canUpdate={canUpdate}
+        canCreate={canCreate}
+      />
+
+      <StrategicDirectionsDialog
+        open={directionsDialogOpen}
+        onOpenChange={setDirectionsDialogOpen}
+        directions={directions}
+        directionsQueryState={{
+          isLoading: directionsQ.isLoading,
+          isError: directionsQ.isError,
+        }}
+        canManageDirections={canManageDirections}
       />
     </PageContainer>
   );

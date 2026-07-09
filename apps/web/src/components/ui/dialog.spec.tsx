@@ -5,6 +5,9 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 
 vi.mock('@/hooks/use-fullscreen-portal-container', () => ({
@@ -15,12 +18,24 @@ afterEach(() => {
   cleanup();
 });
 
-function getDialogContentClass(extra?: { sidePanel?: boolean; chatWidget?: boolean; size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'; className?: string }) {
+function getDialogContentClass(extra?: {
+  sidePanel?: boolean;
+  chatWidget?: boolean;
+  layout?: 'starium' | 'legacy';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  className?: string;
+}) {
   cleanup();
-  const { sidePanel, chatWidget, size, className } = extra ?? {};
+  const { sidePanel, chatWidget, layout, size, className } = extra ?? {};
   render(
     <Dialog open>
-      <DialogContent sidePanel={sidePanel} chatWidget={chatWidget} size={size} className={className}>
+      <DialogContent
+        sidePanel={sidePanel}
+        chatWidget={chatWidget}
+        layout={layout}
+        size={size}
+        className={className}
+      >
         <span>Contenu</span>
       </DialogContent>
     </Dialog>,
@@ -29,36 +44,42 @@ function getDialogContentClass(extra?: { sidePanel?: boolean; chatWidget?: boole
 }
 
 describe('DialogContent', () => {
-  it('modal — bottom-sheet mobile et conteneur flex overflow-hidden', () => {
+  it('modal starium (défaut) — centré, fond card, overflow hidden', () => {
     const cls = getDialogContentClass();
-    expect(cls).toContain('bottom-0');
-    expect(cls).toContain('rounded-t-2xl');
-    expect(cls).toContain('max-h-[min(92dvh,calc(100dvh_-_1rem))]');
+    expect(cls).toContain('top-1/2');
+    expect(cls).toContain('-translate-x-1/2');
+    expect(cls).toContain('-translate-y-1/2');
+    expect(cls).toContain('max-h-[86vh]');
+    expect(cls).toContain('bg-card');
     expect(cls).toContain('flex');
     expect(cls).toContain('flex-col');
     expect(cls).toContain('overflow-x-hidden');
     expect(cls).toContain('overflow-y-hidden');
-    expect(cls).toContain('sm:top-1/2');
-    expect(cls).toContain('sm:w-[calc(100%_-_2rem)]');
-    expect(cls).toContain('sm:max-h-[calc(100dvh_-_2rem)]');
     expect(cls).not.toContain('overflow-y-auto');
-    expect(cls).not.toContain('overscroll-contain');
+    expect(cls).not.toContain('bottom-0');
   });
 
-  it('modal — size sm par défaut', () => {
-    expect(getDialogContentClass()).toContain('sm:max-w-sm');
+  it('modal starium — size md par défaut (520px)', () => {
+    expect(getDialogContentClass()).toContain('sm:max-w-[520px]');
   });
 
-  it('modal — tailles normalisées md, xl, full', () => {
-    expect(getDialogContentClass({ size: 'md' })).toContain('sm:max-w-md');
+  it('modal starium — tailles normalisées', () => {
+    expect(getDialogContentClass({ size: 'lg' })).toContain('sm:max-w-[560px]');
     expect(getDialogContentClass({ size: 'xl' })).toContain('sm:max-w-4xl');
     expect(getDialogContentClass({ size: 'full' })).toContain('sm:max-w-[calc(100%_-_2rem)]');
+  });
+
+  it('modal legacy — bottom-sheet mobile', () => {
+    const cls = getDialogContentClass({ layout: 'legacy' });
+    expect(cls).toContain('bottom-0');
+    expect(cls).toContain('rounded-t-2xl');
+    expect(cls).toContain('sm:top-1/2');
   });
 
   it('modal — twMerge max-w : className surcharge size', () => {
     const cls = getDialogContentClass({ className: 'sm:max-w-4xl' });
     expect(cls).toContain('sm:max-w-4xl');
-    expect(cls).not.toContain('sm:max-w-sm');
+    expect(cls).not.toContain('sm:max-w-[520px]');
   });
 
   it('modal — twMerge overflow legacy : className surcharge overflow-y-hidden', () => {
@@ -67,39 +88,82 @@ describe('DialogContent', () => {
     expect(cls).not.toContain('overflow-y-hidden');
   });
 
-  it('modal — animations ouverture/fermeture (motion-safe)', () => {
-    const cls = getDialogContentClass();
-    expect(cls).toContain('motion-safe:data-open:animate-in');
-    expect(cls).toContain('motion-safe:data-open:fade-in-0');
-    expect(cls).toContain('max-sm:motion-safe:data-open:slide-in-from-bottom-full');
-    expect(cls).toContain('sm:motion-safe:data-open:zoom-in-95');
-    expect(cls).toContain('motion-safe:data-closed:animate-out');
-  });
-
-  it('sidePanel — inchangé, sans classes bottom-sheet modal', () => {
+  it('sidePanel — inchangé', () => {
     const cls = getDialogContentClass({ sidePanel: true });
     expect(cls).toContain('inset-y-0');
     expect(cls).toContain('right-0');
     expect(cls).not.toContain('rounded-t-2xl');
-    expect(cls).not.toMatch(/\bbottom-0\b/);
   });
 
-  it('chatWidget — inchangé, sans classes bottom-sheet modal', () => {
+  it('chatWidget — inchangé', () => {
     const cls = getDialogContentClass({ chatWidget: true });
     expect(cls).toContain('bottom-3');
     expect(cls).toContain('right-3');
-    expect(cls).not.toContain('rounded-t-2xl');
     expect(cls).not.toContain('sm:top-1/2');
   });
 });
 
 describe('DialogBody', () => {
-  it('porte le scroll unique de la modale', () => {
-    render(<DialogBody data-testid="dialog-body">Corps</DialogBody>);
+  it('layout starium — padding DS et scroll', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogBody data-testid="dialog-body">Corps</DialogBody>
+        </DialogContent>
+      </Dialog>,
+    );
     const body = document.querySelector('[data-slot="dialog-body"]');
-    expect(body?.className).toContain('flex-1');
-    expect(body?.className).toContain('min-h-0');
-    expect(body?.className).toContain('overflow-y-auto');
-    expect(body?.className).toContain('overscroll-contain');
+    expect(body?.className).toContain('starium-modal__body');
+  });
+});
+
+describe('DialogHeader', () => {
+  it('injecte la croix de fermeture à droite du header (starium)', () => {
+    render(
+      <Dialog open>
+        <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Titre</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    );
+    const close = document.querySelector('[data-slot="dialog-close"]');
+    expect(close).toBeTruthy();
+    expect(close?.className).toContain('starium-modal__close');
+  });
+});
+
+describe('DialogFooter', () => {
+  it('utilise le pied starium par défaut', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogFooter>Pied</DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+    const footer = document.querySelector('[data-slot="dialog-footer"]');
+    expect(footer?.className).toContain('starium-modal__footer');
+  });
+});
+
+describe('DialogContent auto-body', () => {
+  it('enveloppe le contenu orphelin dans DialogBody (starium)', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Titre</DialogTitle>
+          </DialogHeader>
+          <p data-testid="orphan">Corps</p>
+          <DialogFooter>Pied</DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+    const body = document.querySelector('[data-slot="dialog-body"]');
+    expect(body).toBeTruthy();
+    expect(body?.className).toContain('starium-modal__body');
+    expect(body?.querySelector('[data-testid="orphan"]')).toBeTruthy();
   });
 });

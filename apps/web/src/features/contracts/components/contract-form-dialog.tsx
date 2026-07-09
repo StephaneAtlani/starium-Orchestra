@@ -377,7 +377,7 @@ export function ContractFormDialog(props: {
         className="max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-4xl lg:max-w-5xl"
       >
         <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
-          <DialogHeader className="-mx-4 -mt-4 space-y-3 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+          <DialogHeader>
             <div className="pr-8">
               <div className="flex flex-wrap items-center gap-2 gap-y-1">
                 <DialogTitle className="text-left">

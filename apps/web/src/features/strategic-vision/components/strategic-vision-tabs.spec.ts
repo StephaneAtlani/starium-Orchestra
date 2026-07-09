@@ -7,13 +7,16 @@ import {
 describe('strategic-vision-tabs config', () => {
   it('accepte tous les onglets RFC V1', () => {
     expect(parseMenuKey('overview')).toBe('overview');
-    expect(parseMenuKey('enterprise')).toBe('enterprise');
-    expect(parseMenuKey('directions')).toBe('directions');
     expect(parseMenuKey('axes')).toBe('axes');
     expect(parseMenuKey('objectives')).toBe('objectives');
     expect(parseMenuKey('alignment')).toBe('alignment');
     expect(parseMenuKey('alerts')).toBe('alerts');
     expect(parseMenuKey('history')).toBe('history');
+  });
+
+  it('redirige les onglets legacy vers overview', () => {
+    expect(parseMenuKey('enterprise')).toBe('overview');
+    expect(parseMenuKey('directions')).toBe('overview');
   });
 
   it('rejette les onglets inconnus', () => {

@@ -36,12 +36,8 @@ export function ProjectTaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton
-        size="lg"
-        className="flex max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
-      >
-        <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-0 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+      <DialogContent showCloseButton size="xl">
+        <DialogHeader>
           <div className="pr-8">
             <DialogTitle className="text-left">
               {editing ? 'Modifier la tâche' : 'Nouvelle tâche'}

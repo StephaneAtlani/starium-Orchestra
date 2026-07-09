@@ -2124,6 +2124,98 @@ table.starium-dt {
   flex: 1 1 12rem;
 }
 
+/* Modale Starium — ref. DS components/Modal/Modal.jsx (Modal - Starium.html) */
+.starium-modal__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.starium-modal__icon {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-modal__icon svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-modal__titles {
+  min-width: 0;
+  flex: 1;
+}
+.starium-modal__title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+.starium-modal__subtitle {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+.starium-modal__close {
+  margin-left: auto;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 10px);
+  color: var(--muted-foreground);
+  transition: background 120ms ease, color 120ms ease;
+}
+.starium-modal__close:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.starium-modal__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 22%, transparent);
+}
+.starium-modal__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.starium-modal__footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+}
+.starium-modal-seg-title {
+  margin: 22px 0 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.starium-modal-seg-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 /* Toolbar DS (mockup .toolbar) */
 .starium-toolbar {
   display: flex;
@@ -3969,6 +4061,10 @@ table.starium-dt {
   /* Hero vision stratégique — fond carte uni (sans dégradé) */
   .starium-vision-hero {
     background-color: var(--card);
+  }
+  .starium-vision-hero__badge {
+    background: rgba(246, 170, 2, 0.91);
+    border-color: color-mix(in srgb, var(--brand-gold) 35%, transparent);
   }
 
   /* Carte KPI (même surface, padding KPI) */

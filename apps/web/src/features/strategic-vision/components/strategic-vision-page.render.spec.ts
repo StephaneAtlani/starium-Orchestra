@@ -25,8 +25,20 @@ vi.mock('./strategic-vision-tabs', () => ({
     React.createElement(
       'div',
       { 'data-testid': 'strategic-tabs-container', 'aria-label': 'Onglets strategic vision' },
-      'Vue d’ensemble Vision entreprise Axes stratégiques Objectifs Alignement Alertes Historique',
+      'Vue d’ensemble Axes stratégiques Objectifs Alignement Alertes Historique',
     ),
+}));
+
+vi.mock('./strategic-vision-workflow-dialog', () => ({
+  StrategicVisionWorkflowDialog: () => null,
+}));
+
+vi.mock('./strategic-directions-dialog', () => ({
+  StrategicDirectionsDialog: () => null,
+}));
+
+vi.mock('./strategic-unaligned-projects-dialog', () => ({
+  StrategicUnalignedProjectsDialog: () => null,
 }));
 
 vi.mock('@/hooks/use-permissions', () => ({
@@ -95,7 +107,6 @@ describe('StrategicVisionPage render', () => {
     expect(html).toContain('Vision stratégique 2026');
     expect(html).toContain('Désignation stratégique 2026');
     expect(html).toContain('Vue d’ensemble');
-    expect(html).toContain('Vision entreprise');
     expect(html).toContain('Axes stratégiques');
     expect(html).toContain('Objectifs');
     expect(html).toContain('Alignement');

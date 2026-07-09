@@ -4,12 +4,10 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
-  Building2,
   Crosshair,
   History,
   LayoutGrid,
   Link2,
-  Signpost,
   Target,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,11 +29,9 @@ import type {
 import { StrategicAlertsPanel } from './strategic-alerts-panel';
 import { StrategicAxesTab } from './strategic-axes-tab';
 import { StrategicObjectivesTab } from './strategic-objectives-tab';
-import { StrategicVisionEnterpriseTab } from './strategic-vision-enterprise-tab';
 import { StrategicVisionOverviewTab } from './strategic-vision-overview-tab';
 import { splitAxisLogoAndTitle } from '../lib/strategic-vision-tabs-view';
 import { StrategicAlignmentTab } from './strategic-alignment-tab';
-import { StrategicDirectionsTab } from './strategic-directions-tab';
 
 type QueryState = {
   isLoading: boolean;
@@ -44,19 +40,21 @@ type QueryState = {
 
 export type StrategicVisionMenuKey =
   | 'overview'
-  | 'enterprise'
-  | 'directions'
   | 'axes'
   | 'objectives'
   | 'alignment'
   | 'alerts'
   | 'history';
 
+/** @deprecated Onglets fusionnés dans la barre cockpit — conservés pour les URLs legacy. */
+export type StrategicVisionLegacyMenuKey = 'enterprise' | 'directions';
+
 export function parseMenuKey(value: string | null): StrategicVisionMenuKey | null {
+  if (value === 'enterprise' || value === 'directions') {
+    return 'overview';
+  }
   if (
     value === 'overview' ||
-    value === 'enterprise' ||
-    value === 'directions' ||
     value === 'axes' ||
     value === 'objectives' ||
     value === 'alignment' ||
@@ -77,8 +75,6 @@ export const STRATEGIC_VISION_TABS: ReadonlyArray<{
   icon: ComponentType<{ className?: string }>;
 }> = [
   { key: 'overview', label: "Vue d'ensemble", icon: LayoutGrid },
-  { key: 'enterprise', label: 'Vision entreprise', icon: Building2 },
-  { key: 'directions', label: 'Directions', icon: Signpost },
   { key: 'axes', label: 'Axes stratégiques', icon: Crosshair },
   { key: 'objectives', label: 'Objectifs', icon: Target },
   { key: 'alignment', label: 'Alignement', icon: Link2 },
@@ -124,11 +120,10 @@ export function StrategicVisionTabs({
   kpis,
   kpisByDirection,
   alerts,
+  unalignedProjectAlerts,
   canUpdate,
   canCreate,
   canManageLinks,
-  canManageDirections,
-  directionsQueryState,
   isEditMode,
   queryStates,
 }: {
@@ -141,11 +136,10 @@ export function StrategicVisionTabs({
   kpis: StrategicVisionKpisResponseDto | undefined;
   kpisByDirection: StrategicVisionKpisByDirectionResponseDto | undefined;
   alerts: StrategicVisionAlertsResponseDto | undefined;
+  unalignedProjectAlerts: StrategicVisionAlertsResponseDto['items'];
   canUpdate: boolean;
   canCreate: boolean;
   canManageLinks: boolean;
-  canManageDirections: boolean;
-  directionsQueryState: { isLoading: boolean; isError: boolean };
   isEditMode: boolean;
   queryStates: {
     visions: QueryState;
@@ -229,38 +223,13 @@ export function StrategicVisionTabs({
               }
               kpisLoading={queryStates.kpis.isLoading}
               kpisError={queryStates.kpis.isError}
+              unalignedProjectAlerts={unalignedProjectAlerts}
+              unalignedProjectsAlertsLoading={queryStates.alerts.isLoading}
+              unalignedProjectsAlertsError={queryStates.alerts.isError}
               isLoading={baseState.isLoading}
               isError={baseState.isError}
               isEditMode={isEditMode}
               canUpdate={canUpdate}
-            />
-          ) : null}
-
-          {activeMenu === 'enterprise' ? (
-            <div>
-        <QueryStateBlock
-          loadingLabel="Chargement de la vision entreprise..."
-          errorLabel="Impossible de charger la vision entreprise."
-          queryState={baseState}
-        />
-        {!baseState.isLoading && !baseState.isError ? (
-          <StrategicVisionEnterpriseTab
-            vision={vision}
-            visions={visions}
-            axes={axes}
-            objectives={filteredObjectives}
-            canUpdate={canUpdate}
-            canCreate={canCreate}
-          />
-        ) : null}
-            </div>
-          ) : null}
-
-          {activeMenu === 'directions' ? (
-            <StrategicDirectionsTab
-              directions={directions}
-              directionsQueryState={directionsQueryState}
-              canManageDirections={canManageDirections}
             />
           ) : null}
 

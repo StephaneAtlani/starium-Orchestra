@@ -1,18 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { toast } from '@/lib/toast';
 import { useCreateStrategicVisionMutation } from '../hooks/use-strategic-vision-queries';
 import { getFirstZodError, strategicVisionFormSchema } from '../schemas/strategic-vision.schemas';
+import {
+  isStrategicVisionFormSubmittable,
+  StrategicVisionFormFields,
+  type StrategicVisionFormValues,
+} from './strategic-vision-form-fields';
+
+const EMPTY_FORM: StrategicVisionFormValues = {
+  title: '',
+  statement: '',
+  horizonLabel: '',
+  isActive: false,
+};
 
 export function StrategicVisionCreateDialog({
   open,
@@ -22,20 +28,16 @@ export function StrategicVisionCreateDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createVision = useCreateStrategicVisionMutation();
-  const [title, setTitle] = useState('');
-  const [statement, setStatement] = useState('');
-  const [horizonLabel, setHorizonLabel] = useState('');
-  const [isActive, setIsActive] = useState(false);
+  const [form, setForm] = useState<StrategicVisionFormValues>(EMPTY_FORM);
 
-  const reset = () => {
-    setTitle('');
-    setStatement('');
-    setHorizonLabel('');
-    setIsActive(false);
+  const reset = () => setForm(EMPTY_FORM);
+
+  const patchForm = (patch: Partial<StrategicVisionFormValues>) => {
+    setForm((current) => ({ ...current, ...patch }));
   };
 
   const handleCreate = async () => {
-    const parsed = strategicVisionFormSchema.safeParse({ title, statement, horizonLabel, isActive });
+    const parsed = strategicVisionFormSchema.safeParse(form);
     if (!parsed.success) {
       toast.error(getFirstZodError(parsed.error));
       return;
@@ -55,70 +57,46 @@ export function StrategicVisionCreateDialog({
     }
   };
 
+  const canSubmit = isStrategicVisionFormSubmittable(form) && !createVision.isPending;
+
   return (
-    <Dialog
+    <StariumModal
       open={open}
       onOpenChange={(next) => {
         if (!next) reset();
         onOpenChange(next);
       }}
-    >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Nouvelle vision</DialogTitle>
-          <DialogDescription>Créez une nouvelle vision stratégique.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Titre</span>
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Statement</span>
-            <textarea
-              className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={statement}
-              onChange={(event) => setStatement(event.target.value)}
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-muted-foreground">Horizon</span>
-            <input
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={horizonLabel}
-              onChange={(event) => setHorizonLabel(event.target.value)}
-            />
-          </label>
-          <label className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(event) => setIsActive(event.target.checked)}
-            />
-            Activer immédiatement
-          </label>
-        </div>
-        <DialogFooter showCloseButton={false}>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+      title="Nouvelle vision"
+      description="Créez un brouillon ou une vision à activer immédiatement."
+      icon={Sparkles}
+      size="lg"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
             Annuler
           </Button>
           <Button
+            type="button"
+            className="min-h-11 sm:min-h-9"
+            disabled={!canSubmit}
             onClick={() => void handleCreate()}
-            disabled={
-              createVision.isPending ||
-              title.trim().length === 0 ||
-              statement.trim().length === 0 ||
-              horizonLabel.trim().length === 0
-            }
           >
-            {createVision.isPending ? 'Création...' : 'Créer'}
+            {createVision.isPending ? 'Création…' : 'Créer la vision'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <StrategicVisionFormFields
+        idPrefix="sv-create-vision"
+        values={form}
+        onChange={patchForm}
+        activeCheckboxLabel="Activer immédiatement en production"
+      />
+    </StariumModal>
   );
 }

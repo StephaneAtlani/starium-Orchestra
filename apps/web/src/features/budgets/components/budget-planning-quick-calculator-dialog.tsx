@@ -84,7 +84,7 @@ export function BudgetPlanningQuickCalculatorDialog({
         overlayClassName="z-[100] bg-black/40 duration-200 dark:bg-black/55 backdrop-blur-[2px]"
         className="z-[110] max-h-[min(90vh,880px)] w-full gap-4 overflow-y-auto sm:max-w-2xl lg:max-w-3xl"
       >
-        <DialogHeader className="-mx-4 -mt-4 space-y-2 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+        <DialogHeader>
           <div className="pr-8">
             <DialogTitle className="flex items-center gap-2 text-left text-foreground">
               <Calculator className="size-5 shrink-0 text-foreground/80" aria-hidden />

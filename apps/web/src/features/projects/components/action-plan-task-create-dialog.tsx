@@ -438,7 +438,7 @@ export function ActionPlanTaskCreateDialog({
         showCloseButton
         className="flex max-h-[min(92vh,840px)] w-full flex-col gap-0 overflow-hidden p-4 sm:max-w-3xl"
       >
-        <DialogHeader className="-mx-4 -mt-4 shrink-0 space-y-3 rounded-t-xl border-b border-border/60 bg-card pb-4 pl-7 pr-4 pt-4 text-left shadow-sm sm:pl-8">
+        <DialogHeader>
           <div className="pr-8">
             <div className="flex flex-wrap items-center gap-2 gap-y-1">
               <DialogTitle className="text-left">{dialogTitle}</DialogTitle>

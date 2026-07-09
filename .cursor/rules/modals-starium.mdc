@@ -1,0 +1,39 @@
+---
+description: Norme graphique obligatoire pour toutes les modales Starium Orchestra (Dialog layout starium, StariumModal, champs formulaire).
+globs:
+  - apps/web/src/**/*dialog*.tsx
+  - apps/web/src/**/*modal*.tsx
+  - apps/web/src/components/ui/dialog.tsx
+  - apps/web/src/components/layout/form-dialog-shell.tsx
+alwaysApply: false
+---
+
+# Modales Starium — règle agent
+
+Toute modale (nouvelle ou refonte UI) doit respecter **`docs/design-system/MODALES.md`** et **FRONTEND_UI-UX.md §11.4**.
+
+## Obligatoire
+
+- Layout **`starium`** par défaut (`DialogContent` ou **`StariumModal`**).
+- Panneau centré opaque `bg-card` — pas bottom-sheet ni glass/blur sur du neuf.
+- Header : `DialogHeaderIcon` + `.starium-modal__titles` + croix **haut droite**.
+- Corps : `DialogBody` + `.starium-form` / `.starium-form-*` / `.starium-modal-seg-title`.
+- Pied : `DialogFooter` — **Annuler** (`outline`) + action **primaire** à droite.
+- Libellés métier français ; jamais d’ID technique en UI.
+- RGAA : labels, `aria-label="Fermer"`, cibles ≥ 44px mobile.
+
+## Interdit
+
+- `layout="legacy"` pour une nouvelle modale formulaire.
+- Header legacy `-mx-4 -mt-4` / `pr-8` pour la croix.
+- Inputs bruts hors `.starium-form-*`.
+- Croix en haut à gauche.
+
+## Composants
+
+| Cas | Utiliser |
+|-----|----------|
+| Icône + titre + sous-titre | `StariumModal` (`form-dialog-shell.tsx`) |
+| Contenu custom (tableau, étapes) | `Dialog*` primitives layout starium |
+
+Références code : `strategic-vision-edit-dialog.tsx`, `strategic-vision-workflow-dialog.tsx`.

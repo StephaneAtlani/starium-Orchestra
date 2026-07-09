@@ -23,10 +23,12 @@ export function StrategicDirectionsTab({
   directions,
   directionsQueryState,
   canManageDirections,
+  embedded = false,
 }: {
   directions: StrategicDirectionDto[];
   directionsQueryState: { isLoading: boolean; isError: boolean };
   canManageDirections: boolean;
+  embedded?: boolean;
 }) {
   const deleteDirection = useDeleteStrategicDirectionMutation();
   const [createOpen, setCreateOpen] = useState(false);
@@ -165,13 +167,16 @@ export function StrategicDirectionsTab({
     <TooltipProvider>
       <section className="space-y-4">
         <Card size="sm" className="shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-3">
-            <CardTitle className="text-sm font-semibold">Référentiel directions</CardTitle>
-            <CardDescription>
-              Utilisé dans Vision stratégique, objectifs et module Stratégie de direction. La suppression est refusée
-              tant qu&apos;une stratégie de direction existe encore pour cette ligne.
-            </CardDescription>
-          </CardHeader>
+          {!embedded ? (
+            <CardHeader className="border-b border-border/60 pb-3">
+              <CardTitle className="text-sm font-semibold">Référentiel directions</CardTitle>
+              <CardDescription>
+                Utilisé dans Vision stratégique, objectifs et module Stratégie de direction. La
+                suppression est refusée tant qu&apos;une stratégie de direction existe encore pour
+                cette ligne.
+              </CardDescription>
+            </CardHeader>
+          ) : null}
           <CardContent className="p-0">
             <DataTable
               columns={columns}

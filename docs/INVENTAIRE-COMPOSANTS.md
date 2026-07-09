@@ -20,7 +20,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `badge` - `components/ui/badge.tsx` - affiche un badge ou un etat pour badge.
 - `button` - `components/ui/button.tsx` - gere l'interface de button.
 - `card` - `components/ui/card.tsx` - affiche une carte de synthese pour carte.
-- `dialog` - `components/ui/dialog.tsx` - dialogue modal (bottom-sheet mobile, `size`, `DialogBody` scroll) ; exports `DialogHeader`, `DialogBody`, `DialogFooter`.
+- `dialog` - `components/ui/dialog.tsx` - modale Starium par défaut (`layout="starium"`, centré, `size`, `DialogBody` scroll) ; exports `DialogHeader`, `DialogHeaderIcon`, `DialogHeaderClose`, `DialogBody`, `DialogFooter`. Voir `docs/design-system/MODALES.md`.
 - `icon-button` - `components/ui/icon-button.tsx` - bouton icone (wrapper `Button`, `aria-label` requis).
 - `input` - `components/ui/input.tsx` - gere l'interface de input.
 - `kpi-card` - `components/ui/kpi-card.tsx` - affiche une carte de synthese pour kpi.
@@ -40,10 +40,11 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `error-state` - `components/feedback/error-state.tsx` - affiche l'etat d'erreur pour erreur.
 - `loading-state` - `components/feedback/loading-state.tsx` - affiche l'etat de chargement pour chargement.
 
-## Layout (3)
+## Layout (4)
 
 - `page-container` - `components/layout/page-container.tsx` - compose la page pour container.
 - `page-header` - `components/layout/page-header.tsx` - compose la page pour page en-tete.
+- `starium-modal` - `components/layout/form-dialog-shell.tsx` - **`StariumModal`** : modale DS (icône + titre + sous-titre + corps + pied). Alias déprécié `FormDialogShell`. Voir `docs/design-system/MODALES.md`.
 - `table-toolbar` - `components/layout/table-toolbar.tsx` - affiche un tableau pour tableau barre.
 - `filter-bar` - `components/layout/filter-bar.tsx` - grille responsive de filtres liste (`section` + `grid-cols-1` mobile). Props : `desktopColumns`, `aria-label`, `asSearch` (optionnel).
 - `filter-bar-field` - `components/layout/filter-bar-field.tsx` - champ filtre accessible : `id`, `label`, `description?`, `children` en render props `{ controlId, labelId, descriptionId }` pour câbler Input/Select/Radix.
