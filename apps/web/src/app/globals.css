@@ -415,68 +415,98 @@ html.dark {
   color: var(--state-danger);
 }
 
-/* Boutons refonte portail */
-.starium-btn {
+/* Boutons refonte portail — référence visuelle : starium-ov-btn */
+.starium-btn-gold,
+.starium-btn,
+.starium-btn-secondary,
+.starium-btn-modifier,
+.starium-btn-primary,
+.starium-ov-btn,
+.starium-sp-btn,
+.starium-fbtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 9px 15px;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1.5px solid var(--brand-gold-100);
   border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
   font-size: 13px;
   font-weight: 700;
+  color: var(--brand-gold-700);
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  border: none;
-  transition: background 120ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-.starium-btn svg {
-  width: 15px;
-  height: 15px;
+.starium-btn-gold:hover:not(:disabled),
+.starium-btn:hover:not(:disabled),
+.starium-btn-secondary:hover:not(:disabled),
+.starium-btn-modifier:hover:not(:disabled),
+.starium-btn-primary:hover:not(:disabled),
+.starium-ov-btn:hover,
+.starium-sp-btn:hover,
+.starium-fbtn:hover:not(:disabled) {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-btn:disabled,
+.starium-btn-secondary:disabled,
+.starium-btn-modifier:disabled,
+.starium-btn-primary:disabled,
+.starium-fbtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.starium-btn svg,
+.starium-btn-secondary svg,
+.starium-btn-modifier svg,
+.starium-btn-primary svg,
+.starium-ov-btn svg,
+.starium-sp-btn svg,
+.starium-fbtn svg {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
-.starium-btn-secondary {
-  border: 1.5px solid var(--neutral-200, var(--border));
-  background: var(--neutral-0, var(--card));
-  color: var(--brand-ink, var(--foreground));
-}
-.starium-btn-secondary:hover {
-  background: var(--neutral-50, var(--background));
-  color: var(--brand-ink, var(--foreground));
-}
-.starium-btn-modifier {
-  border: 1.5px solid var(--brand-gold-100) !important;
-  background: var(--neutral-0, var(--card)) !important;
-  color: var(--brand-gold-700) !important;
-  font-weight: 700;
-}
-.starium-btn-modifier:hover {
-  background: var(--brand-gold-050) !important;
-  color: var(--brand-gold-700) !important;
-}
-.starium-btn-icon {
+.starium-btn-icon,
+.starium-form-icon-btn {
   display: inline-flex;
-  width: 38px;
-  height: 38px;
+  width: 43px;
+  height: 43px;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1.5px solid var(--neutral-200, var(--border));
+  border: 1.5px solid var(--brand-gold-100);
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
-  color: var(--neutral-600, var(--muted-foreground));
+  color: var(--brand-gold-700);
   cursor: pointer;
   list-style: none;
+  transition: background 120ms ease, color 120ms ease;
 }
-.starium-btn-icon:hover {
-  background: var(--neutral-50, var(--background));
+.starium-btn-icon:hover,
+.starium-form-icon-btn:hover {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
 }
-.starium-btn-icon svg {
+.starium-btn-icon svg,
+.starium-form-icon-btn svg {
   width: 17px;
   height: 17px;
 }
 .starium-btn-icon::-webkit-details-marker {
   display: none;
+}
+.starium-btn-sm {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.starium-btn-sm svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Status pill (refonte) */
@@ -581,24 +611,35 @@ html.dark {
 }
 .starium-ov-btn {
   margin-top: auto;
-  display: inline-flex;
   width: 100%;
+}
+.starium-sp-btn {
+  display: flex;
+  width: 100%;
+  min-height: 43px;
+}
+.starium-sp-btn--spaced {
+  margin-top: 12px;
+}
+.starium-fbtn {
+  min-height: 43px;
+  padding-inline: 13px;
+}
+.starium-fbtn svg {
+  color: currentColor;
+}
+.starium-fbtn-wrap {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
+  min-height: 43px;
+  padding: 0 28px 0 13px;
   border: 1.5px solid var(--brand-gold-100);
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand-gold-700);
-  text-decoration: none;
-  transition: background 120ms ease;
 }
-.starium-ov-btn:hover {
+.starium-fbtn-wrap:hover {
   background: var(--brand-gold-050);
-  color: var(--brand-gold-700);
 }
 .starium-ov-kpi-rows {
   display: flex;
@@ -1895,26 +1936,6 @@ table.starium-dt {
   outline-offset: 2px;
 }
 
-/* Bouton primaire DS */
-.starium-btn-primary {
-  background: var(--brand-gold);
-  color: var(--brand-ink, var(--foreground));
-}
-.starium-btn-primary:hover {
-  background: var(--brand-gold-600, color-mix(in srgb, var(--brand-gold) 88%, black));
-}
-.starium-btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.starium-btn-sm {
-  padding: 7px 12px;
-  font-size: 12px;
-}
-.starium-btn-sm svg {
-  width: 14px;
-  height: 14px;
-}
 
 /* Formulaire modal DS */
 .starium-form {
@@ -2087,23 +2108,6 @@ table.starium-dt {
   margin: 0;
   accent-color: var(--brand-gold);
   cursor: pointer;
-}
-.starium-form-icon-btn {
-  display: inline-flex;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--neutral-200, var(--border));
-  border-radius: var(--radius-md, 10px);
-  background: var(--neutral-0, var(--card));
-  color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
-  cursor: pointer;
-}
-.starium-form-icon-btn:hover {
-  background: var(--neutral-50, var(--background));
-  color: var(--state-danger, var(--destructive));
 }
 .starium-form-icon-btn:focus-visible {
   outline: 2px solid var(--ring);
@@ -2384,55 +2388,15 @@ table.starium-dt {
 .starium-search-input input::placeholder {
   color: var(--neutral-400, var(--muted-foreground));
 }
-.starium-fbtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 13px;
-  border: 1.5px solid var(--neutral-200, var(--border));
-  border-radius: var(--radius-md, 10px);
-  background: var(--neutral-0, var(--card));
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--neutral-600, var(--muted-foreground));
-  white-space: nowrap;
-  cursor: pointer;
-}
-.starium-fbtn:hover:not(:disabled) {
-  background: var(--neutral-50, var(--background));
-}
-.starium-fbtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.starium-fbtn svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--neutral-400, var(--muted-foreground));
-}
 .starium-fbtn--muted {
-  color: var(--neutral-400, var(--muted-foreground));
-}
-.starium-fbtn-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  height: 38px;
-  padding: 0 28px 0 13px;
-  border: 1.5px solid var(--neutral-200, var(--border));
-  border-radius: var(--radius-md, 10px);
-  background: var(--neutral-0, var(--card));
-}
-.starium-fbtn-wrap:hover {
-  background: var(--neutral-50, var(--background));
+  color: var(--brand-gold-700);
+  opacity: 0.72;
 }
 .starium-fbtn-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  color: var(--neutral-400, var(--muted-foreground));
+  color: currentColor;
 }
 .starium-fbtn-select {
   appearance: none;
@@ -2440,9 +2404,9 @@ table.starium-dt {
   background: none;
   padding: 0;
   margin-left: 7px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--neutral-600, var(--muted-foreground));
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-gold-700);
   cursor: pointer;
   max-width: 9rem;
 }
@@ -2459,7 +2423,8 @@ table.starium-dt {
   width: 12px;
   height: 12px;
   pointer-events: none;
-  color: var(--neutral-400, var(--muted-foreground));
+  color: currentColor;
+  opacity: 0.72;
 }
 
 /* Segmented toggle DS */
@@ -3541,27 +3506,6 @@ table.starium-dt {
   color: var(--neutral-600, var(--muted-foreground));
   line-height: 1.5;
   margin-bottom: 12px;
-}
-.starium-sp-btn {
-  display: flex;
-  width: 100%;
-  justify-content: center;
-  align-items: center;
-  background: var(--neutral-0, var(--card));
-  color: var(--neutral-700, var(--foreground));
-  border: 1.5px solid var(--neutral-200, var(--border));
-  padding: 9px;
-  border-radius: var(--radius-md, 10px);
-  font-size: 12.5px;
-  font-weight: 700;
-  text-decoration: none;
-  min-height: 44px;
-}
-.starium-sp-btn:hover {
-  background: var(--neutral-50, var(--background));
-}
-.starium-sp-btn--spaced {
-  margin-top: 12px;
 }
 .starium-sp-metric {
   display: flex;
@@ -4706,59 +4650,62 @@ table.starium-dt {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 11px;
-    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+    min-height: 43px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--brand-gold-100);
     border-radius: var(--radius-md, 10px);
-    background: var(--card);
-    font-size: 12.5px;
-    font-weight: 600;
-    color: color-mix(in srgb, var(--foreground) 72%, var(--muted-foreground));
+    background: var(--neutral-0, var(--card));
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brand-gold-700);
     cursor: pointer;
-    transition: background 120ms, border-color 120ms, color 120ms;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
     white-space: nowrap;
     box-shadow: none;
     outline: none;
   }
   .starium-filter-chip:focus-visible {
-    border-color: color-mix(in srgb, var(--foreground) 22%, var(--border));
+    border-color: var(--brand-gold-100);
     outline: none;
-    box-shadow: none;
+    box-shadow: 0 0 0 2px var(--ring);
   }
   .starium-filter-chip:hover {
-    background: var(--card);
-    border-color: color-mix(in srgb, var(--foreground) 16%, var(--border));
-    color: var(--foreground);
+    background: var(--brand-gold-050);
+    border-color: var(--brand-gold-100);
+    color: var(--brand-gold-700);
   }
   .starium-filter-chip--active {
-    background: var(--card);
-    border-color: color-mix(in srgb, var(--foreground) 20%, var(--border));
-    color: var(--foreground);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+    background: var(--brand-gold-050);
+    border-color: var(--brand-gold-100);
+    color: var(--brand-gold-700);
+    box-shadow: none;
   }
   .starium-filter-chip--danger {
-    color: color-mix(in srgb, var(--foreground) 72%, var(--muted-foreground));
-    border-color: color-mix(in srgb, var(--border) 92%, transparent);
+    color: var(--brand-gold-700);
+    border-color: var(--brand-gold-100);
   }
   .starium-filter-chip--danger svg {
     color: var(--destructive);
   }
   .starium-filter-chip--danger.starium-filter-chip--active {
-    background: var(--card);
-    border-color: color-mix(in srgb, var(--destructive) 28%, var(--border));
-    color: var(--foreground);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+    background: color-mix(in srgb, var(--destructive) 8%, var(--neutral-0, var(--card)));
+    border-color: color-mix(in srgb, var(--destructive) 35%, var(--brand-gold-100));
+    color: var(--brand-gold-700);
+    box-shadow: none;
   }
   .starium-filter-chip--danger.starium-filter-chip--active svg {
     color: var(--destructive);
   }
   .starium-filter-chip--reset {
-    color: color-mix(in srgb, var(--muted-foreground) 88%, transparent);
-    border-color: color-mix(in srgb, var(--border) 70%, transparent);
-    background: transparent;
+    color: var(--brand-gold-700);
+    border-color: var(--brand-gold-100);
+    background: var(--neutral-0, var(--card));
+    opacity: 0.85;
   }
   .starium-filter-chip--reset:hover {
-    color: var(--muted-foreground);
-    background: transparent;
+    color: var(--brand-gold-700);
+    background: var(--brand-gold-050);
+    opacity: 1;
   }
   .starium-filter-chip-chevron {
     width: 13px;
@@ -4781,10 +4728,10 @@ table.starium-dt {
     color: var(--card);
   }
   .starium-filter-chip svg {
-    width: 13px;
-    height: 13px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    color: var(--muted-foreground);
+    color: currentColor;
   }
 
   /* Tableau projets (densité mockup) */

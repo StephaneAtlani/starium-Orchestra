@@ -828,6 +828,13 @@ export type ProjectSheetDecisionSnapshotDetail = ProjectSheetDecisionSnapshotLis
   sheetPayload: Record<string, unknown>;
 };
 
+export type ProjectHistoryChange = {
+  field: string;
+  label: string;
+  before: string | null;
+  after: string | null;
+};
+
 export type ProjectHistoryItem = {
   id: string;
   action: string;
@@ -835,6 +842,7 @@ export type ProjectHistoryItem = {
   actorUserId: string | null;
   actorDisplayName: string | null;
   summary: string;
+  changes: ProjectHistoryChange[];
   oldValue: unknown | null;
   newValue: unknown | null;
 };

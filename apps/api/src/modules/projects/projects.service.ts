@@ -33,6 +33,12 @@ import {
   omitKeysFromDiff,
   projectEntityAuditSnapshot,
 } from './project-audit-serialize';
+import {
+  buildProjectHistoryChanges,
+  collectHistoryPortfolioCategoryIds,
+  collectHistoryUserIds as collectHistoryUserIdsFromRows,
+  type ProjectHistoryChangeDto,
+} from './lib/project-history-changes';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectHistoryQueryDto } from './dto/list-project-history.query.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
@@ -235,6 +241,7 @@ export type ProjectHistoryItemDto = {
   actorUserId: string | null;
   actorDisplayName: string | null;
   summary: string;
+  changes: ProjectHistoryChangeDto[];
   oldValue: unknown | null;
   newValue: unknown | null;
 };
@@ -466,6 +473,27 @@ export class ProjectsService {
     return typeof field === 'string' && field.trim() ? field.trim() : null;
   }
 
+  private async loadHistoryReferencedPortfolioCategories(
+    clientId: string,
+    rows: Array<{ oldValue: unknown | null; newValue: unknown | null }>,
+  ): Promise<Array<{ id: string; name: string; slug: string | null }>> {
+    const ids = collectHistoryPortfolioCategoryIds(rows);
+    if (ids.length === 0) return [];
+    return this.prisma.projectPortfolioCategory.findMany({
+      where: { clientId, id: { in: ids } },
+      select: { id: true, name: true, slug: true },
+    });
+  }
+
+  private formatPortfolioCategoryAuditLabel(category: {
+    name: string;
+    slug: string | null;
+  }): string {
+    return category.slug?.trim()
+      ? `${category.slug.trim()} — ${category.name}`
+      : category.name;
+  }
+
   private async loadHistoryReferencedProjects(
     clientId: string,
     rows: Array<{ oldValue: unknown | null; newValue: unknown | null }>,
@@ -490,15 +518,7 @@ export class ProjectsService {
   private collectHistoryUserIds(
     rows: Array<{ userId: string | null; oldValue: unknown | null; newValue: unknown | null }>,
   ): string[] {
-    const ids = new Set<string>();
-    for (const row of rows) {
-      if (row.userId) ids.add(row.userId);
-      for (const value of [row.oldValue, row.newValue]) {
-        const ownerUserId = this.readStringField(value, 'ownerUserId');
-        if (ownerUserId) ids.add(ownerUserId);
-      }
-    }
-    return [...ids];
+    return collectHistoryUserIdsFromRows(rows);
   }
 
   private toProjectHistoryItem(
@@ -514,9 +534,15 @@ export class ProjectsService {
       actorDisplayNameById: Map<string, string | null>;
       projectLabelById: Map<string, string>;
       userDisplayNameById: Map<string, string | null>;
+      portfolioCategoryLabelById: Map<string, string>;
     },
   ): ProjectHistoryItemDto {
     const actorDisplayName = row.userId ? (refs.actorDisplayNameById.get(row.userId) ?? null) : null;
+    const changeRefs = {
+      userDisplayNameById: refs.userDisplayNameById,
+      projectLabelById: refs.projectLabelById,
+      portfolioCategoryLabelById: refs.portfolioCategoryLabelById,
+    };
 
     return {
       id: row.id,
@@ -525,6 +551,7 @@ export class ProjectsService {
       actorUserId: row.userId,
       actorDisplayName,
       summary: this.buildProjectHistorySummary(row, refs.projectLabelById, refs.userDisplayNameById),
+      changes: buildProjectHistoryChanges(row, changeRefs),
       oldValue: row.oldValue ?? null,
       newValue: row.newValue ?? null,
     };
@@ -1738,7 +1765,7 @@ export class ProjectsService {
     ]);
 
     const referencedUserIds = this.collectHistoryUserIds(rawLogs);
-    const [users, referencedProjects] = await Promise.all([
+    const [users, referencedProjects, referencedPortfolioCategories] = await Promise.all([
       referencedUserIds.length
         ? this.prisma.user.findMany({
             where: { id: { in: referencedUserIds } },
@@ -1746,11 +1773,18 @@ export class ProjectsService {
           })
         : Promise.resolve([]),
       this.loadHistoryReferencedProjects(clientId, rawLogs),
+      this.loadHistoryReferencedPortfolioCategories(clientId, rawLogs),
     ]);
 
     const userDisplayNameById = new Map(users.map((user) => [user.id, this.ownerDisplayName(user)]));
     const projectLabelById = new Map(
       referencedProjects.map((project) => [project.id, this.formatProjectAuditLabel(project)]),
+    );
+    const portfolioCategoryLabelById = new Map(
+      referencedPortfolioCategories.map((category) => [
+        category.id,
+        this.formatPortfolioCategoryAuditLabel(category),
+      ]),
     );
 
     return {
@@ -1759,6 +1793,7 @@ export class ProjectsService {
           actorDisplayNameById: userDisplayNameById,
           projectLabelById,
           userDisplayNameById,
+          portfolioCategoryLabelById,
         }),
       ),
       total,

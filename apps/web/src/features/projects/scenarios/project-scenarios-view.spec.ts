@@ -35,6 +35,13 @@ describe('Scenarios navigation and screen states', () => {
     expect(projectBudget('p1')).toBe('/projects/p1/budget');
   });
 
+  it('active le tab Historique sur la route dédiée', () => {
+    const state = deriveProjectWorkspaceTabState('/projects/p1/history', null);
+    expect(state.isHistory).toBe(true);
+    expect(state.isSynth).toBe(false);
+    expect(getActiveWorkspaceTabId(state)).toBe('history');
+  });
+
   it('calcule loading/error/empty/success pour ProjectScenariosView', () => {
     expect(deriveScenariosScreenState({ isLoading: true, isError: false, totalItems: 0 })).toBe(
       'loading',

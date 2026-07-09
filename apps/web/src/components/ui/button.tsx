@@ -6,33 +6,33 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+const goldOutlineButton =
+  "border-[1.5px] border-[color:var(--brand-gold-100)] bg-[color:var(--neutral-0,var(--card))] text-[color:var(--brand-gold-700)] font-bold text-[13px] hover:bg-[color:var(--brand-gold-050)] hover:text-[color:var(--brand-gold-700)] aria-expanded:bg-[color:var(--brand-gold-050)] aria-expanded:text-[color:var(--brand-gold-700)]"
+
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md px-3 bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-md,10px)] bg-clip-padding whitespace-nowrap transition-[background,color,border-color] duration-150 ease-out outline-none select-none focus-visible:border-[color:var(--brand-gold-100)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
   {
     variants: {
       variant: {
-        default: "bg-primary/90 text-primary-foreground hover:bg-primary",
-        outline:
-          "border border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
-        ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
+        default: goldOutlineButton,
+        outline: goldOutlineButton,
+        secondary: goldOutlineButton,
+        ghost: goldOutlineButton,
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border-[1.5px] border-destructive/35 bg-[color:var(--neutral-0,var(--card))] text-destructive font-bold text-[13px] hover:bg-destructive/10 hover:text-destructive focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
+        link: "border-0 bg-transparent p-0 font-medium text-primary underline-offset-4 hover:bg-transparent hover:underline",
       },
       size: {
-        default: "h-8 has-[>svg]:px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 text-[0.8rem] has-[>svg]:px-2.5 in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        icon: "h-11 w-11 md:size-8",
+        default: "min-h-[43px] px-2.5 py-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        xs: "min-h-8 gap-1 px-2 py-1.5 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "min-h-9 gap-1.5 px-2.5 py-2 text-[12px] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: "min-h-11 gap-1.5 px-3 py-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
+        icon: "size-11 p-0 md:size-[43px]",
         "icon-xs":
-          "h-11 w-11 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg md:size-6 [&_svg:not([class*='size-'])]:size-3",
+          "size-11 rounded-[min(var(--radius-md),10px)] p-0 in-data-[slot=button-group]:rounded-lg md:size-8 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
-          "h-11 w-11 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg md:size-7",
-        "icon-lg": "h-11 w-11 md:size-9",
+          "size-11 rounded-[min(var(--radius-md),12px)] p-0 in-data-[slot=button-group]:rounded-lg md:size-9 [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-lg": "size-11 p-0 md:size-[43px]",
       },
     },
     defaultVariants: {

@@ -22,7 +22,7 @@ import {
   formatProjectDateTimeFr,
   projectListProgressPercent,
 } from '../lib/projects-list-display';
-import { projectPlanning, projectSheet } from '../constants/project-routes';
+import { projectHistory, projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
 import { ProjectBudgetSynthesis } from './project-budget-synthesis';
 import { ProjectPilotageAttentionPanel } from './project-pilotage-attention-panel';
@@ -245,7 +245,7 @@ export function ProjectSynthesisOverviewCards({
         title="Dernière mise à jour"
         icon={<Clock strokeWidth={1.75} />}
         footer={
-          <Link href={projectSheet(projectId)} className="starium-ov-btn">
+          <Link href={projectHistory(projectId)} className="starium-ov-btn">
             <Clock strokeWidth={1.75} className="size-3.5 shrink-0" aria-hidden />
             Voir l’historique
           </Link>

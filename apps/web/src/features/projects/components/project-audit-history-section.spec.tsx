@@ -54,6 +54,7 @@ describe('ProjectAuditHistorySection', () => {
     useProjectAuditHistoryMock.mockReturnValue({
       isLoading: false,
       isError: false,
+      isFetching: false,
       data: {
         items: [
           {
@@ -65,6 +66,14 @@ describe('ProjectAuditHistorySection', () => {
             summary: 'Projet parent modifié : PRJ-A — Alpha -> PRJ-B — Beta',
             oldValue: null,
             newValue: null,
+            changes: [
+              {
+                field: 'parentProject',
+                label: 'Projet parent',
+                before: 'PRJ-A — Alpha',
+                after: 'PRJ-B — Beta',
+              },
+            ],
           },
         ],
         total: 1,
@@ -76,8 +85,10 @@ describe('ProjectAuditHistorySection', () => {
     const { container } = render(<ProjectAuditHistorySection projectId="proj-1" />);
 
     expect(screen.getByText('Projet parent modifié')).toBeTruthy();
-    expect(screen.getByText(/PRJ-A — Alpha/)).toBeTruthy();
     expect(screen.getByText(/Par Alice Martin/)).toBeTruthy();
+    expect(screen.getByText('Projet parent')).toBeTruthy();
+    expect(screen.getAllByText('PRJ-A — Alpha').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('PRJ-B — Beta')).toBeTruthy();
     expect(container.textContent).not.toContain('hist-1');
     expect(container.textContent).not.toContain('user-1');
   });
@@ -86,6 +97,7 @@ describe('ProjectAuditHistorySection', () => {
     useProjectAuditHistoryMock.mockReturnValue({
       isLoading: false,
       isError: false,
+      isFetching: false,
       data: {
         items: [
           {
@@ -97,6 +109,7 @@ describe('ProjectAuditHistorySection', () => {
             summary: 'Modification enregistrée sur le projet',
             oldValue: null,
             newValue: null,
+            changes: [],
           },
         ],
         total: 1,
@@ -111,5 +124,37 @@ describe('ProjectAuditHistorySection', () => {
     expect(screen.getByText('Modification enregistrée sur le projet')).toBeTruthy();
     expect(screen.getByText('Auteur inconnu')).toBeTruthy();
     expect(container.querySelector('ul')).toBeTruthy();
+  });
+
+  it('passe limit et offset au hook selon la page', () => {
+    useProjectAuditHistoryMock.mockReturnValue({
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      data: {
+        items: Array.from({ length: 10 }, (_, i) => ({
+          id: `hist-${i}`,
+          action: 'project.updated',
+          createdAt: '2026-01-10T10:00:00.000Z',
+          actorUserId: 'user-1',
+          actorDisplayName: 'Alice Martin',
+          summary: `Modification ${i}`,
+          oldValue: null,
+          newValue: null,
+          changes: [],
+        })),
+        total: 25,
+        limit: 10,
+        offset: 0,
+      },
+    });
+
+    render(<ProjectAuditHistorySection projectId="proj-1" />);
+
+    expect(useProjectAuditHistoryMock).toHaveBeenCalledWith('proj-1', {
+      limit: 10,
+      offset: 0,
+    });
+    expect(screen.getByText(/1 à 10 sur 25 modifications/)).toBeTruthy();
   });
 });

@@ -7,6 +7,7 @@ import {
   Banknote,
   CalendarRange,
   ClipboardList,
+  History,
   LayoutGrid,
   Layers3,
   ListChecks,
@@ -23,6 +24,7 @@ import { cn } from '@/lib/utils';
 import {
   projectBudget,
   projectDetail,
+  projectHistory,
   projectPlanning,
   projectTasks,
   projectScenarios,
@@ -40,6 +42,7 @@ export type WorkspaceTabId =
   | 'budget'
   | 'points'
   | 'scenarios'
+  | 'history'
   | 'options';
 
 function tabLinkClass(active: boolean) {
@@ -60,6 +63,7 @@ const barTabLabelClass = 'max-w-full truncate';
 
 export type ProjectWorkspaceTabState = {
   isSheet: boolean;
+  isHistory: boolean;
   isTasks: boolean;
   isRisks: boolean;
   isPlanning: boolean;
@@ -75,6 +79,7 @@ export function deriveProjectWorkspaceTabState(
   tab: string | null,
 ): ProjectWorkspaceTabState {
   const isSheet = Boolean(pathname?.includes('/sheet'));
+  const isHistory = Boolean(pathname?.includes('/history'));
   const isTasks = Boolean(pathname?.includes('/tasks'));
   const isRisks = Boolean(pathname?.includes('/risks'));
   const isPlanning = Boolean(pathname?.includes('/planning'));
@@ -84,6 +89,7 @@ export function deriveProjectWorkspaceTabState(
   const isPoints = tab === 'points';
   const isSynth =
     !isSheet &&
+    !isHistory &&
     !isTasks &&
     !isRisks &&
     !isPoints &&
@@ -93,6 +99,7 @@ export function deriveProjectWorkspaceTabState(
     !isOptions;
   return {
     isSheet,
+    isHistory,
     isTasks,
     isRisks,
     isPlanning,
@@ -112,6 +119,7 @@ export function getActiveWorkspaceTabId(tabState: ProjectWorkspaceTabState): Wor
   if (tabState.isBudget) return 'budget';
   if (tabState.isPoints) return 'points';
   if (tabState.isScenarios) return 'scenarios';
+  if (tabState.isHistory) return 'history';
   if (tabState.isOptions) return 'options';
   return 'synth';
 }
@@ -190,6 +198,13 @@ function buildWorkspaceTabs(
       href: projectScenarios(projectId),
       icon: ScenariosIcon,
       isActive: (s) => s.isScenarios,
+    },
+    {
+      id: 'history',
+      label: 'Historique',
+      href: projectHistory(projectId),
+      icon: History,
+      isActive: (s) => s.isHistory,
     },
     {
       id: 'options',

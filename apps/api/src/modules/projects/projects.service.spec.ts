@@ -410,6 +410,14 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
             actorUserId: 'actor-1',
             actorDisplayName: 'Alice Martin',
             summary: 'Statut du projet modifié : Brouillon -> En cours',
+            changes: [
+              {
+                field: 'status',
+                label: 'Statut',
+                before: 'Brouillon',
+                after: 'En cours',
+              },
+            ],
           }),
         ],
         total: 2,
@@ -469,8 +477,59 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       expect(result.items[0]?.summary).toBe(
         'Projet parent modifié : PRJ-OLD — Ancien parent -> PRJ-NEW — Nouveau parent',
       );
+      expect(result.items[0]?.changes).toEqual([
+        {
+          field: 'parentProject',
+          label: 'Projet parent',
+          before: 'PRJ-OLD — Ancien parent',
+          after: 'PRJ-NEW — Nouveau parent',
+        },
+      ]);
       expect(result.items[0]?.summary).not.toContain('parent-old');
       expect(result.items[0]?.summary).not.toContain('parent-new');
+    });
+
+    it('expose le détail champ par champ pour une fiche projet modifiée', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.auditLog.count.mockResolvedValue(1);
+      auditLogs.listForClient.mockResolvedValue([
+        {
+          id: 'log-sheet',
+          clientId,
+          userId: null,
+          action: PROJECT_AUDIT_ACTION.PROJECT_SHEET_UPDATED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          oldValue: {
+            businessProblem: 'Ancien problème',
+            arbitrationMetierStatus: 'BROUILLON',
+          },
+          newValue: {
+            businessProblem: 'Nouveau problème métier',
+            arbitrationMetierStatus: 'SOUMIS_VALIDATION',
+          },
+          createdAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getHistory(clientId, projectId, { limit: 20, offset: 0 });
+
+      expect(result.items[0]?.changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'businessProblem',
+            label: 'Problème métier',
+            before: 'Ancien problème',
+            after: 'Nouveau problème métier',
+          }),
+          expect.objectContaining({
+            field: 'arbitrationMetierStatus',
+            label: 'Arbitrage métier',
+            before: 'Proposition de projet',
+            after: 'Soumis à validation',
+          }),
+        ]),
+      );
     });
 
     it('utilise le fallback générique pour une action inconnue sans exposer d’ID brut', async () => {

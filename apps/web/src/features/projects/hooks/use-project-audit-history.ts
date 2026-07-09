@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { getProjectAuditHistory } from '../api/projects.api';
@@ -22,5 +22,6 @@ export function useProjectAuditHistory(
     queryFn: () => getProjectAuditHistory(authFetch, projectId, params),
     enabled: (options?.enabled !== false) && !!clientId && !!projectId,
     staleTime: STALE,
+    placeholderData: keepPreviousData,
   });
 }

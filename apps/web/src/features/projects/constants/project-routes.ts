@@ -44,6 +44,11 @@ export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }
 
+/** Modification history (RFC-PROJ-021). */
+export function projectHistory(projectId: string): string {
+  return `/projects/${projectId}/history`;
+}
+
 /** Tâches projet : liste/table + Kanban (RFC-PROJ-012). */
 export function projectTasks(
   projectId: string,

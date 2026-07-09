@@ -1,31 +1,89 @@
 'use client';
 
+import { useState } from 'react';
 import { History } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { cn } from '@/lib/utils';
 import { useProjectAuditHistory } from '../hooks/use-project-audit-history';
+import { ProjectHistoryChangeList } from './project-history-change-list';
+import {
+  DEFAULT_TASK_PAGE_SIZE,
+  ProjectTasksPagination,
+} from './project-tasks-pagination';
 
-const DEFAULT_PARAMS = { limit: 20, offset: 0 } as const;
+type HistoryLocale = 'fr' | 'en';
 
-const PROJECT_HISTORY_ACTION_LABELS: Record<string, string> = {
-  'project.updated': 'Projet mis à jour',
-  'project.parent.assigned': 'Projet parent rattaché',
-  'project.parent.changed': 'Projet parent modifié',
-  'project.parent.detached': 'Projet parent retiré',
-  'project.status.updated': 'Statut du projet modifié',
-  'project.owner.updated': 'Responsable modifié',
-  'project.sheet.updated': 'Fiche projet mise à jour',
+const COPY: Record<
+  HistoryLocale,
+  {
+    title: string;
+    description: string;
+    errorTitle: string;
+    errorDescription: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    unknownAuthor: string;
+    byAuthor: (name: string) => string;
+    fallbackAction: string;
+    actions: Record<string, string>;
+    dateLocale: string;
+  }
+> = {
+  fr: {
+    title: 'Historique des modifications',
+    description:
+      'Derniers changements audités sur le projet, affichés du plus récent au plus ancien.',
+    errorTitle: 'Historique indisponible',
+    errorDescription: 'Impossible de charger l’historique des modifications pour le moment.',
+    emptyTitle: 'Aucune modification',
+    emptyDescription: 'Aucun événement d’historique n’a encore été enregistré sur ce projet.',
+    unknownAuthor: 'Auteur inconnu',
+    byAuthor: (name) => `Par ${name}`,
+    fallbackAction: 'Modification du projet',
+    actions: {
+      'project.updated': 'Projet mis à jour',
+      'project.parent.assigned': 'Projet parent rattaché',
+      'project.parent.changed': 'Projet parent modifié',
+      'project.parent.detached': 'Projet parent retiré',
+      'project.status.updated': 'Statut du projet modifié',
+      'project.owner.updated': 'Responsable modifié',
+      'project.sheet.updated': 'Fiche projet mise à jour',
+    },
+    dateLocale: 'fr-FR',
+  },
+  en: {
+    title: 'Modification history',
+    description: 'Latest audited changes on this project, newest first.',
+    errorTitle: 'History unavailable',
+    errorDescription: 'Unable to load modification history right now.',
+    emptyTitle: 'No modifications',
+    emptyDescription: 'No history events have been recorded for this project yet.',
+    unknownAuthor: 'Unknown author',
+    byAuthor: (name) => `By ${name}`,
+    fallbackAction: 'Project change',
+    actions: {
+      'project.updated': 'Project updated',
+      'project.parent.assigned': 'Parent project assigned',
+      'project.parent.changed': 'Parent project changed',
+      'project.parent.detached': 'Parent project removed',
+      'project.status.updated': 'Project status updated',
+      'project.owner.updated': 'Owner updated',
+      'project.sheet.updated': 'Project sheet updated',
+    },
+    dateLocale: 'en-GB',
+  },
 };
 
-function actionLabel(action: string): string {
-  return PROJECT_HISTORY_ACTION_LABELS[action] ?? 'Modification du projet';
+function actionLabel(action: string, locale: HistoryLocale): string {
+  return COPY[locale].actions[action] ?? COPY[locale].fallbackAction;
 }
 
-function formatHistoryDate(iso: string): string {
+function formatHistoryDate(iso: string, locale: HistoryLocale): string {
   try {
-    return new Intl.DateTimeFormat('fr-FR', {
+    return new Intl.DateTimeFormat(COPY[locale].dateLocale, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso));
@@ -34,54 +92,92 @@ function formatHistoryDate(iso: string): string {
   }
 }
 
-export function ProjectAuditHistorySection({ projectId }: { projectId: string }) {
-  const historyQuery = useProjectAuditHistory(projectId, DEFAULT_PARAMS);
+export function ProjectAuditHistorySection({
+  projectId,
+  locale = 'fr',
+}: {
+  projectId: string;
+  locale?: HistoryLocale;
+}) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TASK_PAGE_SIZE);
+  const offset = (page - 1) * pageSize;
+  const historyQuery = useProjectAuditHistory(projectId, { limit: pageSize, offset });
+  const copy = COPY[locale];
+  const total = historyQuery.data?.total ?? 0;
+  const items = historyQuery.data?.items ?? [];
+  const showPagination = total > 0;
 
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <History className="size-4 shrink-0" aria-hidden />
-          Historique des modifications
+          {copy.title}
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Derniers changements audités sur le projet, affichés du plus récent au plus ancien.
-        </p>
+        <p className="text-xs text-muted-foreground">{copy.description}</p>
       </CardHeader>
-      <CardContent>
-        {historyQuery.isLoading ? (
+      <CardContent className="space-y-4">
+        {historyQuery.isLoading && !historyQuery.data ? (
           <LoadingState rows={4} />
         ) : historyQuery.isError ? (
           <Alert variant="destructive" className="border-destructive/40">
-            <AlertTitle>Historique indisponible</AlertTitle>
-            <AlertDescription>
-              Impossible de charger l’historique des modifications pour le moment.
-            </AlertDescription>
+            <AlertTitle>{copy.errorTitle}</AlertTitle>
+            <AlertDescription>{copy.errorDescription}</AlertDescription>
           </Alert>
-        ) : (historyQuery.data?.items.length ?? 0) === 0 ? (
+        ) : items.length === 0 ? (
           <EmptyState
-            title="Aucune modification"
-            description="Aucun événement d’historique n’a encore été enregistré sur ce projet."
+            title={copy.emptyTitle}
+            description={copy.emptyDescription}
             className="rounded-lg border border-border/60 bg-muted/10 px-4 py-8 text-center"
           />
         ) : (
-          <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-muted/10">
-            {historyQuery.data?.items.map((item) => (
+          <ul
+            className={cn(
+              'divide-y divide-border/60 rounded-lg border border-border/60 bg-muted/10',
+              historyQuery.isFetching && 'opacity-70',
+            )}
+            aria-busy={historyQuery.isFetching}
+          >
+            {items.map((item) => (
               <li key={item.id} className="px-4 py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">{actionLabel(item.action)}</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.summary}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {actionLabel(item.action, locale)}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {item.summary}
+                    </p>
+                    <ProjectHistoryChangeList changes={item.changes ?? []} />
                   </div>
                   <div className="shrink-0 text-xs text-muted-foreground sm:max-w-[16rem] sm:text-right">
-                    <p>{formatHistoryDate(item.createdAt)}</p>
-                    <p className="mt-1">{item.actorDisplayName ? `Par ${item.actorDisplayName}` : 'Auteur inconnu'}</p>
+                    <p>{formatHistoryDate(item.createdAt, locale)}</p>
+                    <p className="mt-1">
+                      {item.actorDisplayName
+                        ? copy.byAuthor(item.actorDisplayName)
+                        : copy.unknownAuthor}
+                    </p>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
+
+        {showPagination ? (
+          <ProjectTasksPagination
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            entityLabel="modifications"
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

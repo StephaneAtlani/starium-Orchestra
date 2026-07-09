@@ -14,7 +14,7 @@ type IconButtonProps = Omit<React.ComponentProps<typeof Button>, "size" | "child
 
 function IconButton({
   size = "icon",
-  variant = "ghost",
+  variant = "default",
   children,
   "aria-label": ariaLabel,
   ...props
