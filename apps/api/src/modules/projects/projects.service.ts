@@ -34,6 +34,7 @@ import {
   projectEntityAuditSnapshot,
 } from './project-audit-serialize';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { ListProjectHistoryQueryDto } from './dto/list-project-history.query.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
@@ -227,6 +228,36 @@ export type ProjectsPortfolioSummaryDto = {
   projectsCreatedPreviousMonth: number;
 };
 
+export type ProjectHistoryItemDto = {
+  id: string;
+  action: string;
+  createdAt: string;
+  actorUserId: string | null;
+  actorDisplayName: string | null;
+  summary: string;
+  oldValue: unknown | null;
+  newValue: unknown | null;
+};
+
+export type ProjectHistoryResponseDto = {
+  items: ProjectHistoryItemDto[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+const PROJECT_HISTORY_LIMIT_DEFAULT = 20;
+const PROJECT_HISTORY_LIMIT_MAX = 100;
+
+const PROJECT_STATUS_AUDIT_LABELS: Record<string, string> = {
+  DRAFT: 'Brouillon',
+  PLANNED: 'Planifié',
+  IN_PROGRESS: 'En cours',
+  ON_HOLD: 'En pause',
+  COMPLETED: 'Terminé',
+  CANCELLED: 'Annulé',
+};
+
 /** Une ligne projet pour la frise portefeuille (GET portfolio-gantt). */
 export type PortfolioGanttRowDto = {
   id: string;
@@ -412,6 +443,150 @@ export class ProjectsService {
       at: log.createdAt.toISOString(),
       userDisplayName: this.ownerDisplayName(log.user),
     };
+  }
+
+  private formatProjectAuditLabel(project: { code: string; name: string }): string {
+    return `${project.code} — ${project.name}`;
+  }
+
+  private projectStatusAuditLabel(value: unknown): string | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    return PROJECT_STATUS_AUDIT_LABELS[value] ?? value;
+  }
+
+  private maybeObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private readStringField(value: unknown, key: string): string | null {
+    const objectValue = this.maybeObject(value);
+    const field = objectValue?.[key];
+    return typeof field === 'string' && field.trim() ? field.trim() : null;
+  }
+
+  private async loadHistoryReferencedProjects(
+    clientId: string,
+    rows: Array<{ oldValue: unknown | null; newValue: unknown | null }>,
+  ): Promise<Array<{ id: string; code: string; name: string }>> {
+    const ids = new Set<string>();
+    for (const row of rows) {
+      for (const key of ['previousParentProjectId', 'nextParentProjectId']) {
+        const oldId = this.readStringField(row.oldValue, key);
+        const newId = this.readStringField(row.newValue, key);
+        if (oldId) ids.add(oldId);
+        if (newId) ids.add(newId);
+      }
+    }
+
+    if (ids.size === 0) return [];
+    return this.prisma.project.findMany({
+      where: { clientId, id: { in: [...ids] } },
+      select: { id: true, code: true, name: true },
+    });
+  }
+
+  private collectHistoryUserIds(
+    rows: Array<{ userId: string | null; oldValue: unknown | null; newValue: unknown | null }>,
+  ): string[] {
+    const ids = new Set<string>();
+    for (const row of rows) {
+      if (row.userId) ids.add(row.userId);
+      for (const value of [row.oldValue, row.newValue]) {
+        const ownerUserId = this.readStringField(value, 'ownerUserId');
+        if (ownerUserId) ids.add(ownerUserId);
+      }
+    }
+    return [...ids];
+  }
+
+  private toProjectHistoryItem(
+    row: {
+      id: string;
+      action: string;
+      createdAt: Date;
+      userId: string | null;
+      oldValue: unknown | null;
+      newValue: unknown | null;
+    },
+    refs: {
+      actorDisplayNameById: Map<string, string | null>;
+      projectLabelById: Map<string, string>;
+      userDisplayNameById: Map<string, string | null>;
+    },
+  ): ProjectHistoryItemDto {
+    const actorDisplayName = row.userId ? (refs.actorDisplayNameById.get(row.userId) ?? null) : null;
+
+    return {
+      id: row.id,
+      action: row.action,
+      createdAt: row.createdAt.toISOString(),
+      actorUserId: row.userId,
+      actorDisplayName,
+      summary: this.buildProjectHistorySummary(row, refs.projectLabelById, refs.userDisplayNameById),
+      oldValue: row.oldValue ?? null,
+      newValue: row.newValue ?? null,
+    };
+  }
+
+  private buildProjectHistorySummary(
+    row: { action: string; oldValue: unknown | null; newValue: unknown | null },
+    projectLabelById: Map<string, string>,
+    userDisplayNameById: Map<string, string | null>,
+  ): string {
+    const genericFallback = 'Modification enregistrée sur le projet';
+
+    switch (row.action) {
+      case PROJECT_AUDIT_ACTION.PROJECT_PARENT_ASSIGNED:
+      case PROJECT_AUDIT_ACTION.PROJECT_PARENT_CHANGED: {
+        const previousId = this.readStringField(row.oldValue, 'previousParentProjectId');
+        const nextId = this.readStringField(row.newValue, 'nextParentProjectId');
+        const previousLabel = previousId ? (projectLabelById.get(previousId) ?? null) : null;
+        const nextLabel = nextId ? (projectLabelById.get(nextId) ?? null) : null;
+        if (row.action === PROJECT_AUDIT_ACTION.PROJECT_PARENT_ASSIGNED && nextLabel) {
+          return `Projet parent rattaché : ${nextLabel}`;
+        }
+        if (previousLabel && nextLabel) {
+          return `Projet parent modifié : ${previousLabel} -> ${nextLabel}`;
+        }
+        return genericFallback;
+      }
+      case PROJECT_AUDIT_ACTION.PROJECT_PARENT_DETACHED: {
+        const previousId = this.readStringField(row.oldValue, 'previousParentProjectId');
+        const previousLabel = previousId ? (projectLabelById.get(previousId) ?? null) : null;
+        if (previousLabel) {
+          return `Projet parent retiré : ${previousLabel}`;
+        }
+        return genericFallback;
+      }
+      case PROJECT_AUDIT_ACTION.PROJECT_STATUS_UPDATED: {
+        const previousStatus = this.projectStatusAuditLabel(this.maybeObject(row.oldValue)?.status);
+        const nextStatus = this.projectStatusAuditLabel(this.maybeObject(row.newValue)?.status);
+        if (previousStatus && nextStatus) {
+          return `Statut du projet modifié : ${previousStatus} -> ${nextStatus}`;
+        }
+        return genericFallback;
+      }
+      case PROJECT_AUDIT_ACTION.PROJECT_OWNER_UPDATED: {
+        const previousOwnerId = this.readStringField(row.oldValue, 'ownerUserId');
+        const nextOwnerId = this.readStringField(row.newValue, 'ownerUserId');
+        const previousOwner = previousOwnerId
+          ? (userDisplayNameById.get(previousOwnerId) ?? null)
+          : null;
+        const nextOwner = nextOwnerId ? (userDisplayNameById.get(nextOwnerId) ?? null) : null;
+        if (previousOwner && nextOwner) {
+          return `Responsable modifié : ${previousOwner} -> ${nextOwner}`;
+        }
+        return genericFallback;
+      }
+      case PROJECT_AUDIT_ACTION.PROJECT_SHEET_UPDATED:
+        return 'Modification de la fiche décisionnelle';
+      case PROJECT_AUDIT_ACTION.PROJECT_UPDATED:
+        return 'Projet mis à jour';
+      default:
+        return genericFallback;
+    }
   }
 
   private normalizeIdentity(value: string | null | undefined): string {
@@ -1522,6 +1697,76 @@ export class ProjectsService {
     };
   }
 
+  async getHistory(
+    clientId: string,
+    projectId: string,
+    query: ListProjectHistoryQueryDto,
+    userId?: string,
+  ): Promise<ProjectHistoryResponseDto> {
+    const projectExists = await this.prisma.project.findFirst({
+      where: { id: projectId, clientId },
+      select: { id: true },
+    });
+
+    if (!projectExists) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (userId) {
+      await this.assertCanReadProject(clientId, userId, projectId);
+    }
+
+    const limit = Math.min(query.limit ?? PROJECT_HISTORY_LIMIT_DEFAULT, PROJECT_HISTORY_LIMIT_MAX);
+    const offset = query.offset ?? 0;
+    const [rawLogs, total] = await Promise.all([
+      this.auditLogs.listForClient({
+        clientId,
+        query: {
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          offset,
+          limit,
+        },
+      }),
+      this.prisma.auditLog.count({
+        where: {
+          clientId,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+        },
+      }),
+    ]);
+
+    const referencedUserIds = this.collectHistoryUserIds(rawLogs);
+    const [users, referencedProjects] = await Promise.all([
+      referencedUserIds.length
+        ? this.prisma.user.findMany({
+            where: { id: { in: referencedUserIds } },
+            select: { id: true, firstName: true, lastName: true, email: true },
+          })
+        : Promise.resolve([]),
+      this.loadHistoryReferencedProjects(clientId, rawLogs),
+    ]);
+
+    const userDisplayNameById = new Map(users.map((user) => [user.id, this.ownerDisplayName(user)]));
+    const projectLabelById = new Map(
+      referencedProjects.map((project) => [project.id, this.formatProjectAuditLabel(project)]),
+    );
+
+    return {
+      items: rawLogs.map((row) =>
+        this.toProjectHistoryItem(row, {
+          actorDisplayNameById: userDisplayNameById,
+          projectLabelById,
+          userDisplayNameById,
+        }),
+      ),
+      total,
+      limit,
+      offset,
+    };
+  }
+
   async create(
     clientId: string,
     dto: CreateProjectDto,
@@ -2041,7 +2286,7 @@ export class ProjectsService {
     const { parentById, childrenByParentId, summaryById } =
       await this.loadClientHierarchyMaps(clientId);
 
-    let excluded = new Set<string>();
+    const excluded = new Set<string>();
     if (params.excludeProjectId?.trim()) {
       const excludeId = params.excludeProjectId.trim();
       excluded.add(excludeId);

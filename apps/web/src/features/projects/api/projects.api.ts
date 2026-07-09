@@ -12,6 +12,7 @@ import type {
   ProjectAssignableUser,
   ProjectDetail,
   ProjectDocumentApi,
+  ProjectHistoryResponse,
   ProjectMilestoneApi,
   ProjectRiskApi,
   RiskLinkedActionPlanTaskApi,
@@ -182,6 +183,21 @@ export async function getProject(
   const res = await authFetch(`${BASE}/${id}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectDetail>;
+}
+
+export async function getProjectAuditHistory(
+  authFetch: AuthFetch,
+  projectId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<ProjectHistoryResponse> {
+  const res = await authFetch(
+    `${BASE}/${projectId}/history${qs({
+      limit: params?.limit,
+      offset: params?.offset,
+    })}`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectHistoryResponse>;
 }
 
 export async function getProjectScenarios(

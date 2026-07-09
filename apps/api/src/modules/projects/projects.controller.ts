@@ -27,6 +27,7 @@ import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects.query.dto';
+import { ListProjectHistoryQueryDto } from './dto/list-project-history.query.dto';
 import { ListAssignableParentsQueryDto } from './dto/list-assignable-parents.query.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
@@ -335,6 +336,18 @@ export class ProjectsController {
     @RequestUserId() userId: string | undefined,
   ) {
     return this.projectsService.listChildren(clientId!, id, query, userId);
+  }
+
+  @Get(':id/history')
+  @RequireAccessIntent({ module: 'projects', intent: 'read' })
+  @AccessDecision({ resourceType: 'PROJECT', resourceIdParam: 'id', intent: 'read' })
+  getHistory(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @Query() query: ListProjectHistoryQueryDto,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.projectsService.getHistory(clientId!, id, query, userId);
   }
 
   @Get(':id')

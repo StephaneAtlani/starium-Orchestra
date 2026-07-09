@@ -14,7 +14,7 @@ import { PROJECT_AUDIT_ACTION, PROJECT_AUDIT_RESOURCE_TYPE } from './project-aud
 describe('ProjectsService — audit RFC-PROJ-009', () => {
   let service: ProjectsService;
   let prisma: any;
-  let auditLogs: { create: jest.Mock };
+  let auditLogs: { create: jest.Mock; listForClient: jest.Mock };
   let pilotage: Partial<ProjectsPilotageService>;
 
   const clientId = 'client-1';
@@ -121,11 +121,16 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       },
       $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
       auditLog: {
         findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
       },
     };
-    auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
+    auditLogs = {
+      create: jest.fn().mockResolvedValue(undefined),
+      listForClient: jest.fn().mockResolvedValue([]),
+    };
     pilotage = {
       computedHealth: jest.fn().mockReturnValue('GREEN'),
       buildSignals: jest.fn().mockReturnValue(pilotageSignals),
@@ -357,6 +362,143 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
           action: PROJECT_AUDIT_ACTION.PROJECT_OWNER_UPDATED,
         }),
       );
+    });
+  });
+
+  describe('getHistory', () => {
+    it('retourne une lecture filtrée sur le bon projet avec contrat paginé', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.auditLog.count.mockResolvedValue(2);
+      auditLogs.listForClient.mockResolvedValue([
+        {
+          id: 'log-1',
+          clientId,
+          userId: 'actor-1',
+          action: PROJECT_AUDIT_ACTION.PROJECT_STATUS_UPDATED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          oldValue: { status: ProjectStatus.DRAFT },
+          newValue: { status: ProjectStatus.IN_PROGRESS },
+          createdAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'actor-1', firstName: 'Alice', lastName: 'Martin', email: 'alice@example.com' },
+      ]);
+
+      const result = await service.getHistory(
+        clientId,
+        projectId,
+        { limit: 20, offset: 0 },
+        'actor-1',
+      );
+
+      expect(auditLogs.listForClient).toHaveBeenCalledWith({
+        clientId,
+        query: {
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          limit: 20,
+          offset: 0,
+        },
+      });
+      expect(result).toEqual({
+        items: [
+          expect.objectContaining({
+            id: 'log-1',
+            action: PROJECT_AUDIT_ACTION.PROJECT_STATUS_UPDATED,
+            actorUserId: 'actor-1',
+            actorDisplayName: 'Alice Martin',
+            summary: 'Statut du projet modifié : Brouillon -> En cours',
+          }),
+        ],
+        total: 2,
+        limit: 20,
+        offset: 0,
+      });
+    });
+
+    it('refuse sans droit de lecture projet', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      const denied = new ConflictException('denied');
+      const accessDecision = {
+        assertAllowed: jest.fn().mockRejectedValue(denied),
+        filterResourceIdsByAccess: jest.fn().mockImplementation(async (p: { resourceIds: string[] }) => p.resourceIds),
+      };
+      service = new ProjectsService(
+        prisma,
+        auditLogs as unknown as AuditLogsService,
+        pilotage as ProjectsPilotageService,
+        {
+          ensureDefaultTeamRolesForClient: jest.fn(),
+          syncTeamMembersFromProjectSponsorOwner: jest.fn(),
+        } as any,
+        undefined,
+        accessDecision as any,
+      );
+
+      await expect(
+        service.getHistory(clientId, projectId, { limit: 20, offset: 0 }, 'actor-1'),
+      ).rejects.toThrow(ConflictException);
+      expect(auditLogs.listForClient).not.toHaveBeenCalled();
+    });
+
+    it('mappe les changements de parent sans afficher d’ID brut', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.auditLog.count.mockResolvedValue(1);
+      auditLogs.listForClient.mockResolvedValue([
+        {
+          id: 'log-parent',
+          clientId,
+          userId: null,
+          action: PROJECT_AUDIT_ACTION.PROJECT_PARENT_CHANGED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          oldValue: { previousParentProjectId: 'parent-old' },
+          newValue: { nextParentProjectId: 'parent-new' },
+          createdAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+      ]);
+      prisma.project.findMany.mockResolvedValue([
+        { id: 'parent-old', code: 'PRJ-OLD', name: 'Ancien parent' },
+        { id: 'parent-new', code: 'PRJ-NEW', name: 'Nouveau parent' },
+      ]);
+
+      const result = await service.getHistory(clientId, projectId, { limit: 20, offset: 0 });
+
+      expect(result.items[0]?.summary).toBe(
+        'Projet parent modifié : PRJ-OLD — Ancien parent -> PRJ-NEW — Nouveau parent',
+      );
+      expect(result.items[0]?.summary).not.toContain('parent-old');
+      expect(result.items[0]?.summary).not.toContain('parent-new');
+    });
+
+    it('utilise le fallback générique pour une action inconnue sans exposer d’ID brut', async () => {
+      prisma.project.findFirst.mockResolvedValue({ id: projectId });
+      prisma.auditLog.count.mockResolvedValue(1);
+      auditLogs.listForClient.mockResolvedValue([
+        {
+          id: 'log-x',
+          clientId,
+          userId: null,
+          action: 'project.unknown',
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT,
+          resourceId: projectId,
+          oldValue: { ownerUserId: 'user-old' },
+          newValue: { ownerUserId: 'user-new' },
+          createdAt: new Date('2026-01-10T10:00:00.000Z'),
+        },
+      ]);
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'user-old', firstName: 'Old', lastName: 'User', email: 'old@example.com' },
+        { id: 'user-new', firstName: 'New', lastName: 'User', email: 'new@example.com' },
+      ]);
+
+      const result = await service.getHistory(clientId, projectId, { limit: 20, offset: 0 });
+
+      expect(result.items[0]?.summary).toBe('Modification enregistrée sur le projet');
+      expect(result.items[0]?.summary).not.toContain('user-old');
+      expect(result.items[0]?.summary).not.toContain('user-new');
     });
   });
 

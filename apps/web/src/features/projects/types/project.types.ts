@@ -828,6 +828,24 @@ export type ProjectSheetDecisionSnapshotDetail = ProjectSheetDecisionSnapshotLis
   sheetPayload: Record<string, unknown>;
 };
 
+export type ProjectHistoryItem = {
+  id: string;
+  action: string;
+  createdAt: string;
+  actorUserId: string | null;
+  actorDisplayName: string | null;
+  summary: string;
+  oldValue: unknown | null;
+  newValue: unknown | null;
+};
+
+export type ProjectHistoryResponse = {
+  items: ProjectHistoryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 /** RFC-PROJ-013 — points projet */
 export type ProjectReviewType =
   | 'COPIL'

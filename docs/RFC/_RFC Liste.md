@@ -111,6 +111,7 @@
 | 6     | **RFC-PROJ-015** | Project / Activity Mapping | Rattachement Project + Activity à une sous-catégorie                      | ❌ À faire | obligatoire pour structuration portefeuille |
 | 7     | **RFC-PROJ-016** | Portfolio Aggregation      | KPI par catégorie (budget, santé, risques, ROI)                           | ❌ À faire | base arbitrage CODIR                        |
 | 7b    | **RFC-PROJ-019** | Hiérarchie parent / sous-projets | Relation self `parentProjectId` sur `Project` (programme, lot, sous-projet) | ✅ Implémenté (MVP) | [RFC](./RFC-PROJ-019%20%E2%80%94%20Hi%C3%A9rarchie%20parent%20sous-projets.md) — API + UI portefeuille/fiche ; agrégation → RFC-PROJ-020 |
+| 7c    | **RFC-PROJ-021** | Historique des modifications projet | Lecture UI des `AuditLog` projet dans la fiche projet | 📝 Draft | [RFC](./RFC-PROJ-021%20%E2%80%94%20Historique%20des%20modifications%20projet.md) — V1 via `resourceType=project`, `resourceId=projectId` |
 
 ---
 

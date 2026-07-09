@@ -97,7 +97,7 @@ export function ProjectChildrenSection({ project }: { project: ProjectDetail }) 
             <p className="starium-hierarchy-simple__empty">Aucun sous-projet rattaché.</p>
           ) : (
             <ul className="starium-hierarchy-simple__list">
-              {childrenQuery.data.items.map((child) => (
+              {(childrenQuery.data?.items ?? []).map((child) => (
                 <li key={child.id}>
                   <Link href={projectDetail(child.id)} className="starium-hierarchy-simple__item">
                     <span className="starium-hierarchy-simple__item-text">{formatEntityLabel(child)}</span>
