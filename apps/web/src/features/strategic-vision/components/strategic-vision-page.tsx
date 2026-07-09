@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -108,28 +107,6 @@ export function StrategicVisionPage() {
           </span>
         }
         description={pageSubtitle}
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-11 md:min-h-0"
-              onClick={() => setDirectionFilter('ALL')}
-            >
-              Réinitialiser filtres
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-11 md:min-h-0"
-              onClick={() => setDirectionFilter('UNASSIGNED')}
-            >
-              Voir non affectés
-            </Button>
-          </>
-        }
       />
 
       <StrategicVisionCockpitFilterBar

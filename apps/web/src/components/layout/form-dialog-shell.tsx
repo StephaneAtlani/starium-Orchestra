@@ -79,6 +79,7 @@ export function StariumModal({
       <DialogContent
         id={id}
         showCloseButton={showCloseButton}
+        hasStariumHeader={withStandardHeader}
         size={size}
         layout={layout}
         sidePanel={sidePanel}

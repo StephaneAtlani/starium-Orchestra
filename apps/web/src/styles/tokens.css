@@ -49,7 +49,7 @@
   --color-sidebar-active: #e8a317;
   --color-sidebar-text: #fffffd;
 
-  --color-background: #faf9f7;
+  --color-background: var(--neutral-100);
   --color-surface: #ffffff;
   --color-surface-muted: #f4f2ee;
 

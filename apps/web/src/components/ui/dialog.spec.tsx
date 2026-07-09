@@ -49,10 +49,11 @@ describe('DialogContent', () => {
     expect(cls).toContain('top-1/2');
     expect(cls).toContain('-translate-x-1/2');
     expect(cls).toContain('-translate-y-1/2');
-    expect(cls).toContain('max-h-[86vh]');
+    expect(cls).toContain('max-h-[min(92dvh,calc(100dvh-2rem))]');
     expect(cls).toContain('bg-card');
     expect(cls).toContain('flex');
     expect(cls).toContain('flex-col');
+    expect(cls).toContain('min-h-0');
     expect(cls).toContain('overflow-x-hidden');
     expect(cls).toContain('overflow-y-hidden');
     expect(cls).not.toContain('overflow-y-auto');
@@ -131,6 +132,24 @@ describe('DialogHeader', () => {
     const close = document.querySelector('[data-slot="dialog-close"]');
     expect(close).toBeTruthy();
     expect(close?.className).toContain('starium-modal__close');
+  });
+
+  it('une seule croix avec header + corps + pied (starium)', () => {
+    render(
+      <Dialog open>
+        <DialogContent showCloseButton hasStariumHeader>
+          <DialogHeader>
+            <DialogTitle>Titre</DialogTitle>
+          </DialogHeader>
+          <DialogBody>Corps</DialogBody>
+          <DialogFooter>Pied</DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+    expect(document.querySelectorAll('[data-slot="dialog-close"]')).toHaveLength(1);
+    expect(document.querySelector('[data-slot="dialog-close"]')?.className).not.toContain(
+      'absolute',
+    );
   });
 });
 

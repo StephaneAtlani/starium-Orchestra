@@ -6,6 +6,10 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
+import {
+  resolveDialogScrollTarget,
+  useScrollPan,
+} from "@/hooks/use-table-pan"
 import { XIcon } from "lucide-react"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
@@ -109,17 +113,17 @@ function DialogOverlay({
 
 /** Modale Starium centrée (défaut) — ref. DS Modal.jsx */
 const dialogContentStariumModalClass =
-  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex w-full max-w-[calc(100%-2rem)] max-h-[86vh] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-xl border border-border/60 bg-card p-0 text-sm shadow-xl outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95"
+  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex min-h-0 w-full max-w-[calc(100%-2rem)] max-h-[min(92dvh,calc(100dvh-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-xl border border-border/60 bg-card p-0 text-sm shadow-xl outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95"
 
 /** Legacy bottom-sheet mobile — opt-in via layout="legacy" */
 const dialogContentLegacyModalClass =
-  "fixed z-[81] flex w-full flex-col gap-4 overflow-x-hidden overflow-y-hidden border border-border/60 bg-background/95 p-4 text-sm shadow-lg ring-1 ring-black/[0.04] backdrop-blur-2xl duration-300 ease-out outline-none dark:ring-white/[0.06] inset-x-0 bottom-0 max-h-[min(92dvh,calc(100dvh_-_1rem))] translate-y-0 rounded-t-2xl border-b-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-[calc(100%_-_2rem)] sm:max-h-[calc(100dvh_-_2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 max-sm:motion-safe:data-open:slide-in-from-bottom-full sm:motion-safe:data-open:zoom-in-95 sm:motion-safe:data-open:slide-in-from-top-2 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 max-sm:motion-safe:data-closed:slide-out-to-bottom-full sm:motion-safe:data-closed:zoom-out-95 sm:motion-safe:data-closed:slide-out-to-top-2"
+  "fixed z-[81] flex min-h-0 w-full flex-col gap-4 overflow-x-hidden overflow-y-hidden border border-border/60 bg-background/95 p-4 text-sm shadow-lg ring-1 ring-black/[0.04] backdrop-blur-2xl duration-300 ease-out outline-none dark:ring-white/[0.06] inset-x-0 bottom-0 max-h-[min(92dvh,calc(100dvh_-_1rem))] translate-y-0 rounded-t-2xl border-b-0 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-[calc(100%_-_2rem)] sm:max-h-[calc(100dvh_-_2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 max-sm:motion-safe:data-open:slide-in-from-bottom-full sm:motion-safe:data-open:zoom-in-95 sm:motion-safe:data-open:slide-in-from-top-2 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 max-sm:motion-safe:data-closed:slide-out-to-bottom-full sm:motion-safe:data-closed:zoom-out-95 sm:motion-safe:data-closed:slide-out-to-top-2"
 
 const dialogContentSidePanelClass =
-  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:slide-in-from-right motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:slide-out-to-right sm:rounded-l-2xl"
+  "fixed inset-y-0 right-0 left-auto top-0 z-[81] flex min-h-0 h-[100dvh] max-h-[100dvh] w-full max-w-[min(100vw,28rem)] flex-col gap-0 overflow-hidden rounded-none border-l border-border/80 bg-background p-0 text-sm shadow-2xl outline-none ring-0 duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:slide-in-from-right motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:slide-out-to-right sm:rounded-l-2xl"
 
 const dialogContentChatWidgetClass =
-  "fixed bottom-3 right-3 top-auto left-auto z-[81] flex h-[min(85dvh,640px)] max-h-[min(85dvh,640px)] w-[min(calc(100vw-1.5rem),400px)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border/50 bg-background p-0 text-sm shadow-[0_24px_64px_-12px_rgba(0,0,0,0.28)] outline-none ring-0 duration-300 ease-out sm:bottom-5 sm:right-5 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-open:slide-in-from-bottom-4 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 motion-safe:data-closed:slide-out-to-bottom-4"
+  "fixed bottom-3 right-3 top-auto left-auto z-[81] flex min-h-0 h-[min(85dvh,640px)] max-h-[min(85dvh,640px)] w-[min(calc(100vw-1.5rem),400px)] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[1.75rem] border border-border/50 bg-background p-0 text-sm shadow-[0_24px_64px_-12px_rgba(0,0,0,0.28)] outline-none ring-0 duration-300 ease-out sm:bottom-5 sm:right-5 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-open:slide-in-from-bottom-4 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 motion-safe:data-closed:slide-out-to-bottom-4"
 
 function hasDialogHeaderChild(children: React.ReactNode): boolean {
   return containsDialogComponent(children, DialogHeader)
@@ -129,17 +133,27 @@ function containsDialogComponent(
   children: React.ReactNode,
   component: React.ElementType,
 ): boolean {
-  return React.Children.toArray(children).some((child) => {
-    if (!React.isValidElement(child)) return false
-    if (child.type === component) return true
-    if (child.type === "form") {
-      return containsDialogComponent(
-        (child.props as { children?: React.ReactNode }).children,
-        component,
-      )
+  let found = false
+  React.Children.forEach(children, (child) => {
+    if (found || !React.isValidElement(child)) return
+    if (isSameComponent(child.type, component)) {
+      found = true
+      return
     }
-    return false
+    const nested = (child.props as { children?: React.ReactNode }).children
+    if (nested != null) {
+      found = containsDialogComponent(nested, component)
+    }
   })
+  return found
+}
+
+function isSameComponent(a: React.ElementType, b: React.ElementType): boolean {
+  if (a === b) return true
+  const left = a as { displayName?: string; name?: string }
+  const right = b as { displayName?: string; name?: string }
+  const leftName = left.displayName ?? left.name
+  return leftName != null && leftName === (right.displayName ?? right.name)
 }
 
 function partitionStariumDialogChildren(children: React.ReactNode): {
@@ -251,6 +265,7 @@ function DialogHeader({
     </div>
   )
 }
+DialogHeader.displayName = "DialogHeader"
 
 function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   const chrome = React.useContext(DialogChromeContext)
@@ -261,7 +276,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         chrome.layout === "starium"
           ? "starium-modal__body"
-          : "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+          : "starium-modal__scroll min-h-0 flex-1 overflow-y-auto overscroll-contain",
         className,
       )}
       {...props}
@@ -347,6 +362,9 @@ function DialogContent({
   chatWidget = false,
   size = "md",
   layout = "starium",
+  hasStariumHeader,
+  ref,
+  onPointerDown,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
@@ -356,9 +374,13 @@ function DialogContent({
   size?: DialogSize
   /** `starium` (défaut) : modale centrée DS. `legacy` : bottom-sheet mobile historique. */
   layout?: "starium" | "legacy"
+  /** Header Starium standard présent — évite la croix orpheline en double. */
+  hasStariumHeader?: boolean
 }) {
   const panelLayout = chatWidget ? "chat" : sidePanel ? "side" : layout
-  const withHeader = hasDialogHeaderChild(children)
+  const withHeader =
+    hasStariumHeader === true ||
+    (hasStariumHeader !== false && hasDialogHeaderChild(children))
   const normalizedChildren =
     panelLayout === "starium" ? normalizeStariumDialogChildren(children) : children
 
@@ -388,16 +410,55 @@ function DialogContent({
     [panelLayout, showCloseButton],
   )
 
+  const popupRef = React.useRef<HTMLDivElement>(null)
+  const dialogScrollPan = useScrollPan<HTMLDivElement>({
+    resolveScrollEl: (event) => {
+      const popup = popupRef.current
+      if (!popup) return null
+      return resolveDialogScrollTarget(event.target as HTMLElement, popup)
+    },
+  })
+
+  const mergedPopupRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      popupRef.current = node
+      if (typeof ref === "function") {
+        ref(node)
+      } else if (ref) {
+        ref.current = node
+      }
+    },
+    [ref],
+  )
+
+  const handlePopupPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      ;(onPointerDown as ((e: React.PointerEvent<HTMLDivElement>) => void) | undefined)?.(
+        event,
+      )
+      if (!event.defaultPrevented) {
+        dialogScrollPan.onPointerDown(event)
+      }
+    },
+    [dialogScrollPan, onPointerDown],
+  )
+
   return (
     <DialogChromeContext.Provider value={chromeValue}>
       <DialogPortal>
         <DialogOverlay className={overlayClassName} />
         <DialogPrimitive.Popup
+          ref={mergedPopupRef}
           data-slot="dialog-content"
           data-side-panel={sidePanel ? "true" : undefined}
           data-chat-widget={chatWidget ? "true" : undefined}
           data-layout={panelLayout === "starium" ? "starium" : undefined}
-          className={popupClassName}
+          data-panning={dialogScrollPan.isPanning ? "" : undefined}
+          className={cn(
+            popupClassName,
+            dialogScrollPan.isPanning && "cursor-grabbing select-none",
+          )}
+          onPointerDown={handlePopupPointerDown}
           {...props}
         >
           {normalizedChildren}

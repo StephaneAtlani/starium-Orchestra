@@ -16,7 +16,7 @@
   --starium-sidebar-hover: rgba(255, 255, 255, 0.1);
   --starium-sidebar-text: #fffffd;
   /* Neutres chauds (papier) */
-  --starium-background: #faf9f7;
+  --starium-background: var(--neutral-100);
   --starium-surface: #ffffff;
   --starium-surface-muted: #f4f2ee;
   --starium-border: #e9e6e0;
@@ -26,7 +26,7 @@
   --starium-warning-emphasis: #5f3f00;
 
   /* Shadcn/semantic */
-  --background: #faf9f7;
+  --background: var(--neutral-100);
   --foreground: #0e0e10;
   --card: #ffffff;
   --card-foreground: #0e0e10;
@@ -2314,14 +2314,34 @@ table.starium-dt {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-gold) 22%, transparent);
 }
-.starium-modal__body {
+.starium-modal__body,
+.starium-modal__scroll {
   min-height: 0;
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+}
+[data-slot="dialog-content"] .overflow-y-auto {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+.starium-modal__body {
   padding: 22px;
   color: var(--muted-foreground);
   font-size: 0.875rem;
   line-height: 1.5;
+}
+[data-slot="dialog-content"][data-panning] {
+  cursor: grabbing;
+  user-select: none;
+}
+[data-slot="dialog-content"][data-panning] * {
+  cursor: grabbing;
 }
 .starium-modal__footer {
   display: flex;
@@ -3791,7 +3811,7 @@ table.starium-dt {
   border: 1px solid var(--starium-border);
 }
 
-/* Contenu page — fond papier #FAF9F7 (cartes blanches au-dessus) */
+/* Contenu page — fond papier neutral-100 (cartes blanches au-dessus) */
 .starium-workspace-sheet {
   position: relative;
   z-index: 0;
