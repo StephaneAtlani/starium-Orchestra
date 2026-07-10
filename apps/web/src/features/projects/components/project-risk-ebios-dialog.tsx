@@ -1104,6 +1104,7 @@ export function ProjectRiskEbiosDialog({
       }
       description="Scénario, évaluation, impact métier, traitement, résiduel et suivi (ISO 27005)."
       icon={ShieldAlert}
+      accent="rose"
       size="xl"
       bodyClassName="min-h-0 flex-1 py-4"
       status={

@@ -14,6 +14,7 @@ import {
   type DialogSize,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import type { StariumModalAccent } from '@/components/layout/starium-modal-accent';
 
 /** @deprecated Utiliser `StariumModal` ou les primitives `Dialog*` (layout starium par défaut). */
 export const STARIUM_MODAL_CONTENT_CLASS = '';
@@ -24,6 +25,8 @@ export const FORM_DIALOG_FOOTER_CLASS = 'starium-modal__footer';
 export const FORM_DIALOG_BODY_ENCART_CLASS =
   'rounded-xl border border-border/70 bg-card p-4 shadow-sm ring-1 ring-border/40';
 
+export type { StariumModalAccent } from '@/components/layout/starium-modal-accent';
+
 export type StariumModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +35,8 @@ export type StariumModalProps = {
   description?: ReactNode;
   /** Icône header ; défaut `LayoutPanelTop` si header standard. */
   icon?: ComponentType<{ className?: string }>;
+  /** Teinte header / icône / sections — défaut `gold`. */
+  accent?: StariumModalAccent;
   /** Sans header Starium (nav mobile, palette recherche) — `title` reste requis (souvent sr-only). */
   headless?: boolean;
   status?: ReactNode;
@@ -58,6 +63,7 @@ export function StariumModal({
   title,
   description,
   icon: Icon = LayoutPanelTop,
+  accent = 'gold',
   headless = false,
   status,
   size = 'lg',
@@ -80,6 +86,7 @@ export function StariumModal({
         id={id}
         showCloseButton={showCloseButton}
         hasStariumHeader={withStandardHeader}
+        modalAccent={withStandardHeader ? accent : undefined}
         size={size}
         layout={layout}
         sidePanel={sidePanel}
@@ -95,20 +102,22 @@ export function StariumModal({
               {description != null && description !== '' ? (
                 <DialogDescription>{description}</DialogDescription>
               ) : null}
-              {status ? (
-                <div
-                  className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {status}
-                </div>
-              ) : null}
             </div>
           </DialogHeader>
         ) : (
           <DialogTitle className={headless ? 'sr-only' : undefined}>{title}</DialogTitle>
         )}
+
+        {status ? (
+          <div
+            data-slot="dialog-status"
+            className="starium-modal__status"
+            role="status"
+            aria-live="polite"
+          >
+            {status}
+          </div>
+        ) : null}
 
         <DialogBody className={bodyClassName}>{children ?? null}</DialogBody>
 

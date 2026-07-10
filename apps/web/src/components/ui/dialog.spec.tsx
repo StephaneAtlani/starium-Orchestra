@@ -116,6 +116,19 @@ describe('DialogBody', () => {
     const body = document.querySelector('[data-slot="dialog-body"]');
     expect(body?.className).toContain('starium-modal__body');
   });
+
+  it('layout starium — accent data attribute', () => {
+    render(
+      <Dialog open>
+        <DialogContent modalAccent="violet">
+          <DialogBody data-testid="dialog-body">Corps</DialogBody>
+        </DialogContent>
+      </Dialog>,
+    );
+    expect(document.querySelector('[data-slot="dialog-content"]')?.getAttribute('data-modal-accent')).toBe(
+      'violet',
+    );
+  });
 });
 
 describe('DialogHeader', () => {
@@ -184,5 +197,30 @@ describe('DialogContent auto-body', () => {
     expect(body).toBeTruthy();
     expect(body?.className).toContain('starium-modal__body');
     expect(body?.querySelector('[data-testid="orphan"]')).toBeTruthy();
+  });
+
+  it('header, status et corps restent des frères directs (pas de header dans le body)', () => {
+    render(
+      <Dialog open>
+        <DialogContent showCloseButton hasStariumHeader>
+          <DialogHeader>
+            <DialogTitle>Titre</DialogTitle>
+          </DialogHeader>
+          <div data-slot="dialog-status" className="starium-modal__status">
+            Statut
+          </div>
+          <DialogBody>Corps</DialogBody>
+          <DialogFooter>Pied</DialogFooter>
+        </DialogContent>
+      </Dialog>,
+    );
+    const content = document.querySelector('[data-slot="dialog-content"]');
+    const header = content?.querySelector('[data-slot="dialog-header"]');
+    const body = content?.querySelector('[data-slot="dialog-body"]');
+    const status = content?.querySelector('[data-slot="dialog-status"]');
+    expect(header?.parentElement).toBe(content);
+    expect(body?.parentElement).toBe(content);
+    expect(status?.parentElement).toBe(content);
+    expect(body?.contains(header ?? null)).toBe(false);
   });
 });

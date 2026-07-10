@@ -13,6 +13,7 @@ import {
   StrategicAxisFormFields,
   type StrategicAxisFormValues,
 } from './strategic-axis-form-fields';
+import { strategicAxisColorToModalAccent } from '../lib/strategic-axis-modal-accent';
 
 const EMPTY_FORM: StrategicAxisFormValues = {
   logo: '',
@@ -78,6 +79,7 @@ export function StrategicAxisCreateDialog({
       title="Nouvel axe stratégique"
       description="Créez un axe rattaché à la vision active."
       icon={Crosshair}
+      accent={strategicAxisColorToModalAccent(form.color)}
       size="lg"
       footer={
         <>

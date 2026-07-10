@@ -38,6 +38,7 @@ export function ProjectTaskFormDialog({
           : 'Créer une nouvelle tâche dans le projet.'
       }
       icon={ListTodo}
+      accent="sky"
       size="xl"
       bodyClassName="min-h-0 flex-1 py-4"
       footer={

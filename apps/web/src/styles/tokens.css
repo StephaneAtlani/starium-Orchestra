@@ -133,18 +133,14 @@
 
   --ds-section-label-color: var(--ds-text-muted-color);
 
-  /* Modales Starium (header, icône, pied) */
-  --ds-modal-icon-size: 40px;
-  --ds-modal-icon-bg: color-mix(in srgb, var(--brand-gold) 14%, var(--card));
-  --ds-modal-icon-border: color-mix(in srgb, var(--brand-gold) 24%, var(--border));
-  --ds-modal-icon-color: var(--brand-gold-700);
-  --ds-modal-header-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--brand-gold) 6%, var(--card)) 0%,
-    var(--card) 100%
-  );
-  --ds-modal-body-bg: color-mix(in srgb, var(--neutral-50) 40%, var(--card));
-  --ds-modal-footer-bg: color-mix(in srgb, var(--neutral-100) 65%, var(--card));
-  --ds-modal-shadow: var(--shadow-4);
-  --ds-modal-ring: color-mix(in srgb, var(--brand-gold) 12%, var(--border));
+  /* Modales Starium — sobre, accent limité à l’icône */
+  --ds-modal-icon-size: 36px;
+  --ds-modal-shadow: var(--shadow-3);
+  --ds-modal-accent: var(--brand-gold);
+  --ds-modal-accent-ink: var(--brand-gold-700);
+  --ds-modal-accent-soft: color-mix(in srgb, var(--brand-gold) 12%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--brand-gold) 22%, var(--border));
+  --ds-modal-icon-bg: var(--ds-modal-accent-soft);
+  --ds-modal-icon-border: var(--ds-modal-accent-border);
+  --ds-modal-icon-color: var(--ds-modal-accent-ink);
 }

@@ -418,6 +418,7 @@ export function ProjectReviewCreateDialog({
           : "Planifiez ou lancez un point de pilotage — le détail se complète dans l'éditeur."
       }
       icon={ClipboardPen}
+      accent="amber"
       size="xl"
       bodyClassName="min-h-0 flex-1 py-4"
       footer={

@@ -348,6 +348,7 @@ export function ProjectBudgetLinkEditDialog({
       title="Modifier le lien budgétaire"
       description="Ajustez la ligne active et la valeur allouée selon le mode du projet."
       icon={Wallet}
+      accent="gold"
       size="lg"
       contentClassName="flex max-h-[min(92dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
       bodyClassName="starium-proj-budget-edit-form__body space-y-5 px-5 py-5"

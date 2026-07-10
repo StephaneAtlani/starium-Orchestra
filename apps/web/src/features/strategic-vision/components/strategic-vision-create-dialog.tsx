@@ -69,6 +69,7 @@ export function StrategicVisionCreateDialog({
       title="Nouvelle vision"
       description="Créez un brouillon ou une vision à activer immédiatement."
       icon={Sparkles}
+      accent="gold"
       size="lg"
       footer={
         <>

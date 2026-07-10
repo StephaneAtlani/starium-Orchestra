@@ -102,6 +102,7 @@ export function StrategicObjectiveCreateDialog({
       title="Nouvel objectif stratégique"
       description="Rattachez l'objectif à un axe et définissez son pilotage."
       icon={Target}
+      accent="violet"
       size="lg"
       footer={
         <>

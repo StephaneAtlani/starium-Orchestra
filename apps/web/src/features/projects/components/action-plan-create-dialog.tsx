@@ -93,6 +93,7 @@ export function ActionPlanCreateDialog({
       }}
       title="Nouveau plan d'action"
       icon={ClipboardList}
+      accent="emerald"
       size="md"
       footer={
         <>

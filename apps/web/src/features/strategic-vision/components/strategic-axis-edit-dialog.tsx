@@ -18,6 +18,7 @@ import {
   StrategicAxisFormFields,
   type StrategicAxisFormValues,
 } from './strategic-axis-form-fields';
+import { strategicAxisColorToModalAccent } from '../lib/strategic-axis-modal-accent';
 
 export function StrategicAxisEditDialog({
   axis,
@@ -85,6 +86,7 @@ export function StrategicAxisEditDialog({
       title="Modifier l'axe stratégique"
       description={axis?.name ? splitAxisLogoAndTitle(axis.name).title : 'Mise à jour du nom et de la description.'}
       icon={Crosshair}
+      accent={strategicAxisColorToModalAccent(form.color)}
       size="lg"
       footer={
         <>

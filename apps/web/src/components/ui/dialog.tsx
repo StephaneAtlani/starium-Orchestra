@@ -6,11 +6,8 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
-import {
-  resolveDialogScrollTarget,
-  useScrollPan,
-} from "@/hooks/use-table-pan"
 import { XIcon } from "lucide-react"
+import type { StariumModalAccent } from "@/components/layout/starium-modal-accent"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
 
@@ -102,7 +99,7 @@ function DialogOverlay({
       data-slot="dialog-overlay"
       forceRender
       className={cn(
-        "fixed inset-0 z-[80] bg-black/45 backdrop-blur-[3px] duration-300 ease-out dark:bg-black/60 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0",
+        "fixed inset-0 z-[80] bg-black/40 backdrop-blur-[2px] duration-300 ease-out dark:bg-black/55 motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0",
         className,
       )}
       onPointerDown={handlePointerDown}
@@ -113,7 +110,7 @@ function DialogOverlay({
 
 /** Modale Starium centrée (défaut) — ref. DS Modal.jsx */
 const dialogContentStariumModalClass =
-  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex min-h-0 w-full max-w-[calc(100%-2rem)] max-h-[min(92dvh,calc(100dvh-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-2xl border border-[var(--ds-modal-ring)] bg-card p-0 text-sm shadow-[var(--ds-modal-shadow)] ring-1 ring-black/[0.04] outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95 dark:ring-white/[0.06]"
+  "fixed z-[81] inset-x-4 bottom-auto top-1/2 left-1/2 flex min-h-0 w-full max-w-[calc(100%-2rem)] max-h-[min(92dvh,calc(100dvh-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-x-hidden overflow-y-hidden rounded-xl border border-border/80 bg-card p-0 text-sm shadow-[var(--ds-modal-shadow)] outline-none duration-300 ease-out motion-safe:data-open:animate-in motion-safe:data-open:fade-in-0 motion-safe:data-open:zoom-in-95 motion-safe:data-closed:animate-out motion-safe:data-closed:fade-out-0 motion-safe:data-closed:zoom-out-95"
 
 /** Legacy bottom-sheet mobile — opt-in via layout="legacy" */
 const dialogContentLegacyModalClass =
@@ -158,11 +155,13 @@ function isSameComponent(a: React.ElementType, b: React.ElementType): boolean {
 
 function partitionStariumDialogChildren(children: React.ReactNode): {
   headers: React.ReactNode[]
+  statuses: React.ReactNode[]
   bodies: React.ReactNode[]
   footers: React.ReactNode[]
   orphans: React.ReactNode[]
 } {
   const headers: React.ReactNode[] = []
+  const statuses: React.ReactNode[] = []
   const bodies: React.ReactNode[] = []
   const footers: React.ReactNode[] = []
   const orphans: React.ReactNode[] = []
@@ -172,13 +171,15 @@ function partitionStariumDialogChildren(children: React.ReactNode): {
       if (child != null && child !== false) orphans.push(child)
       return
     }
-    if (child.type === DialogHeader) headers.push(child)
-    else if (child.type === DialogFooter) footers.push(child)
-    else if (child.type === DialogBody) bodies.push(child)
+    if (isSameComponent(child.type, DialogHeader)) headers.push(child)
+    else if (isSameComponent(child.type, DialogFooter)) footers.push(child)
+    else if (isSameComponent(child.type, DialogBody)) bodies.push(child)
+    else if ((child.props as { "data-slot"?: string })["data-slot"] === "dialog-status")
+      statuses.push(child)
     else orphans.push(child)
   })
 
-  return { headers, bodies, footers, orphans }
+  return { headers, statuses, bodies, footers, orphans }
 }
 
 /** Enveloppe automatiquement le contenu orphelin dans DialogBody (layout starium). */
@@ -200,7 +201,7 @@ function normalizeStariumDialogChildren(children: React.ReactNode): React.ReactN
     )
   }
 
-  const { headers, bodies, footers, orphans } = partitionStariumDialogChildren(children)
+  const { headers, statuses, bodies, footers, orphans } = partitionStariumDialogChildren(children)
 
   const bodyNodes =
     bodies.length > 0
@@ -213,7 +214,7 @@ function normalizeStariumDialogChildren(children: React.ReactNode): React.ReactN
           ]
         : []
 
-  return [...headers, ...bodyNodes, ...footers]
+  return [...headers, ...statuses, ...bodyNodes, ...footers]
 }
 
 function DialogHeaderClose({ className, ...props }: DialogPrimitive.Close.Props) {
@@ -266,6 +267,8 @@ function DialogHeader({
   )
 }
 DialogHeader.displayName = "DialogHeader"
+DialogBody.displayName = "DialogBody"
+DialogFooter.displayName = "DialogFooter"
 
 function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   const chrome = React.useContext(DialogChromeContext)
@@ -363,6 +366,7 @@ function DialogContent({
   size = "md",
   layout = "starium",
   hasStariumHeader,
+  modalAccent = "gold",
   ref,
   onPointerDown,
   ...props
@@ -376,6 +380,8 @@ function DialogContent({
   layout?: "starium" | "legacy"
   /** Header Starium standard présent — évite la croix orpheline en double. */
   hasStariumHeader?: boolean
+  /** Teinte colorée (header, icône, barre haute, sections). */
+  modalAccent?: StariumModalAccent
 }) {
   const panelLayout = chatWidget ? "chat" : sidePanel ? "side" : layout
   const withHeader =
@@ -410,18 +416,8 @@ function DialogContent({
     [panelLayout, showCloseButton],
   )
 
-  const popupRef = React.useRef<HTMLDivElement>(null)
-  const dialogScrollPan = useScrollPan<HTMLDivElement>({
-    resolveScrollEl: (event) => {
-      const popup = popupRef.current
-      if (!popup) return null
-      return resolveDialogScrollTarget(event.target as HTMLElement, popup)
-    },
-  })
-
   const mergedPopupRef = React.useCallback(
     (node: HTMLDivElement | null) => {
-      popupRef.current = node
       if (typeof ref === "function") {
         ref(node)
       } else if (ref) {
@@ -429,18 +425,6 @@ function DialogContent({
       }
     },
     [ref],
-  )
-
-  const handlePopupPointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      ;(onPointerDown as ((e: React.PointerEvent<HTMLDivElement>) => void) | undefined)?.(
-        event,
-      )
-      if (!event.defaultPrevented) {
-        dialogScrollPan.onPointerDown(event)
-      }
-    },
-    [dialogScrollPan, onPointerDown],
   )
 
   return (
@@ -453,12 +437,11 @@ function DialogContent({
           data-side-panel={sidePanel ? "true" : undefined}
           data-chat-widget={chatWidget ? "true" : undefined}
           data-layout={panelLayout === "starium" ? "starium" : undefined}
-          data-panning={dialogScrollPan.isPanning ? "" : undefined}
-          className={cn(
-            popupClassName,
-            dialogScrollPan.isPanning && "cursor-grabbing select-none",
-          )}
-          onPointerDown={handlePopupPointerDown}
+          data-modal-accent={
+            panelLayout === "starium" ? modalAccent : undefined
+          }
+          className={cn(popupClassName, className)}
+          onPointerDown={onPointerDown}
           {...props}
         >
           {normalizedChildren}
@@ -513,3 +496,4 @@ export {
   DialogTrigger,
 }
 export type { DialogSize }
+export type { StariumModalAccent } from "@/components/layout/starium-modal-accent"

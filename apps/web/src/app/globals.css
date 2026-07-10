@@ -67,16 +67,7 @@
 /* Thème sombre explicite (classe sur <html>, ex. next-themes) */
 html.dark {
   --starium-warning-emphasis: #e8a317;
-  --ds-modal-icon-bg: color-mix(in srgb, var(--brand-gold) 18%, var(--card));
-  --ds-modal-icon-border: color-mix(in srgb, var(--brand-gold) 28%, var(--border));
-  --ds-modal-icon-color: var(--brand-gold);
-  --ds-modal-header-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--brand-gold) 10%, var(--card)) 0%,
-    var(--card) 100%
-  );
-  --ds-modal-body-bg: color-mix(in srgb, var(--neutral-900) 25%, var(--card));
-  --ds-modal-footer-bg: color-mix(in srgb, var(--neutral-900) 35%, var(--card));
+  --ds-modal-accent-soft: color-mix(in srgb, var(--brand-gold) 16%, var(--muted));
 }
 
 /* Texte d’avertissement ambre (plus foncé que les tons “alerte” clairs) */
@@ -2264,20 +2255,38 @@ table.starium-dt {
   color: var(--muted-foreground);
 }
 
-/* Modale Starium — ref. DS components/Modal/Modal.jsx (Modal - Starium.html) */
+/* Modale Starium — sobre (ref. DS Modal.jsx) */
+[data-slot="dialog-content"][data-layout="starium"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+[data-slot="dialog-content"][data-layout="starium"] > [data-slot="dialog-header"],
+[data-slot="dialog-content"][data-layout="starium"] > [data-slot="dialog-status"],
+[data-slot="dialog-content"][data-layout="starium"] > [data-slot="dialog-footer"] {
+  flex-shrink: 0;
+}
+[data-slot="dialog-content"][data-layout="starium"] > [data-slot="dialog-body"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 .starium-modal__header {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 20px 20px 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--ds-modal-header-bg);
+  background: var(--card);
 }
 .starium-modal__icon {
   display: flex;
-  width: var(--ds-modal-icon-size, 40px);
-  height: var(--ds-modal-icon-size, 40px);
+  width: var(--ds-modal-icon-size, 36px);
+  height: var(--ds-modal-icon-size, 36px);
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -2285,29 +2294,40 @@ table.starium-dt {
   border: 1px solid var(--ds-modal-icon-border);
   background: var(--ds-modal-icon-bg);
   color: var(--ds-modal-icon-color);
-  box-shadow: var(--shadow-1);
 }
 .starium-modal__icon svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   stroke-width: 2;
 }
 .starium-modal__titles {
   min-width: 0;
   flex: 1;
-  padding-top: 1px;
-  padding-right: 6px;
+  padding-right: 8px;
 }
 .starium-modal__title {
-  font-size: 1.0625rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.01em;
   color: var(--foreground);
 }
 .starium-modal__subtitle {
-  margin-top: 4px;
+  margin-top: 3px;
   font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.starium-modal__status {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+  font-size: 0.75rem;
   line-height: 1.45;
   color: var(--muted-foreground);
 }
@@ -2346,25 +2366,23 @@ table.starium-dt {
 .starium-modal__body,
 .starium-modal__scroll {
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
   scrollbar-gutter: stable;
 }
 [data-slot="dialog-content"] .overflow-y-auto {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
 }
 .starium-modal__body {
-  padding: 20px 22px 22px;
+  padding: 20px;
   color: var(--foreground);
   font-size: 0.875rem;
   line-height: 1.5;
-  background: var(--ds-modal-body-bg);
+  background: var(--card);
 }
 .starium-modal__body .starium-form {
   gap: 16px;
@@ -2376,47 +2394,78 @@ table.starium-dt {
   background: color-mix(in srgb, var(--muted) 55%, var(--card));
   color: var(--muted-foreground);
 }
-[data-slot="dialog-content"][data-panning] {
-  cursor: grabbing;
-  user-select: none;
-}
-[data-slot="dialog-content"][data-panning] * {
-  cursor: grabbing;
-}
 .starium-modal__footer {
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
-  padding: 14px 20px 16px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-  background: var(--ds-modal-footer-bg);
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
 }
 .starium-modal-seg-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 0 0 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ds-section-label-color, var(--muted-foreground));
 }
-.starium-modal-seg-title::before {
-  content: "";
-  display: block;
-  width: 3px;
-  height: 12px;
-  flex-shrink: 0;
-  border-radius: var(--radius-pill);
-  background: var(--brand-gold);
-}
 .starium-modal-seg-title:not(:first-child) {
-  margin-top: 22px;
+  margin-top: 20px;
+}
+
+/* Accents modale — icône uniquement */
+[data-slot="dialog-content"][data-modal-accent="gold"],
+[data-slot="dialog-content"][data-modal-accent="primary"] {
+  --ds-modal-accent: var(--brand-gold);
+  --ds-modal-accent-ink: var(--brand-gold-700);
+  --ds-modal-accent-soft: color-mix(in srgb, var(--brand-gold) 12%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--brand-gold) 22%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="amber"] {
+  --ds-modal-accent: #d97706;
+  --ds-modal-accent-ink: #92400e;
+  --ds-modal-accent-soft: color-mix(in srgb, #f59e0b 12%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, #f59e0b 22%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="blue"] {
+  --ds-modal-accent: var(--color-info);
+  --ds-modal-accent-ink: #1d4ed8;
+  --ds-modal-accent-soft: color-mix(in srgb, var(--color-info) 10%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--color-info) 20%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="sky"] {
+  --ds-modal-accent: #0ea5e9;
+  --ds-modal-accent-ink: #0369a1;
+  --ds-modal-accent-soft: color-mix(in srgb, #0ea5e9 10%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, #0ea5e9 20%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="emerald"] {
+  --ds-modal-accent: var(--state-success);
+  --ds-modal-accent-ink: #047857;
+  --ds-modal-accent-soft: color-mix(in srgb, var(--state-success) 10%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--state-success) 20%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="violet"] {
+  --ds-modal-accent: var(--purple);
+  --ds-modal-accent-ink: #5b21b6;
+  --ds-modal-accent-soft: color-mix(in srgb, var(--purple) 10%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--purple) 20%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent="rose"] {
+  --ds-modal-accent: var(--state-danger);
+  --ds-modal-accent-ink: #991b1b;
+  --ds-modal-accent-soft: color-mix(in srgb, var(--state-danger) 10%, var(--muted));
+  --ds-modal-accent-border: color-mix(in srgb, var(--state-danger) 20%, var(--border));
+}
+[data-slot="dialog-content"][data-modal-accent] {
+  --ds-modal-icon-bg: var(--ds-modal-accent-soft);
+  --ds-modal-icon-border: var(--ds-modal-accent-border);
+  --ds-modal-icon-color: var(--ds-modal-accent-ink);
 }
 
 /* Toolbar DS (mockup .toolbar) */

@@ -93,6 +93,7 @@ export function StrategicObjectiveEditDialog({
       title="Modifier l'objectif"
       description={objective?.title ?? 'Mise à jour des informations de pilotage.'}
       icon={Target}
+      accent="violet"
       size="lg"
       footer={
         <>

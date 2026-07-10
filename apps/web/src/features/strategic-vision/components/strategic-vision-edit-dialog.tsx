@@ -82,6 +82,7 @@ export function StrategicVisionEditDialog({
       title="Modifier la vision"
       description={vision?.title ?? 'Mise à jour du titre, de l’énoncé, de l’horizon et du statut.'}
       icon={Sparkles}
+      accent="gold"
       size="lg"
       footer={
         <>

@@ -100,6 +100,7 @@ export function StrategicDirectionCreateEditDialog({
       title={mode === 'create' ? 'Nouvelle direction' : 'Modifier la direction'}
       description="Code court unique (ex. DSI), libellé affiché partout dans les sélecteurs et tableaux."
       icon={Compass}
+      accent="blue"
       size="lg"
       footer={
         <>
