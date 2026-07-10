@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Draft — **UI fiche projet supersédée par [RFC-PROJ-022](./RFC-PROJ-022%20%E2%80%94%20Validation%20de%20la%20fiche%20projet.md)** : le bloc « Historique des modifications » doit être retiré de `ProjectSheetView` ; la page `/projects/[projectId]/history` conserve ce contenu.
 
 ## Priorité
 

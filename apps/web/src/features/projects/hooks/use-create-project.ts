@@ -6,14 +6,20 @@ import { toast } from '@/lib/toast';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import { projectQueryKeys } from '../lib/project-query-keys';
-import { createProject, replaceProjectTags } from '../api/projects.api';
+import {
+  createProject,
+  createRetroplanMacro,
+  replaceProjectTags,
+} from '../api/projects.api';
 import { projectDetail } from '../constants/project-routes';
-import type { ProjectDetail } from '../types/project.types';
+import type { CreateRetroplanMacroPayload, ProjectDetail } from '../types/project.types';
 
 export type CreateProjectPayload = {
   body: Record<string, unknown>;
   /** Étiquettes client — appliquées après création (PUT /projects/:id/tags). */
   tagIds?: string[];
+  /** Jalons macro — POST /projects/:id/milestones/retroplan-macro après création. */
+  retroplanMacro?: CreateRetroplanMacroPayload;
 };
 
 export function useCreateProject() {
@@ -22,16 +28,24 @@ export function useCreateProject() {
   const router = useRouter();
 
   return useMutation<ProjectDetail, ApiFormError, CreateProjectPayload>({
-    mutationFn: async ({ body, tagIds }) => {
+    mutationFn: async ({ body, tagIds, retroplanMacro }) => {
       const project = await createProject(authFetch, body);
       if (tagIds?.length) {
         await replaceProjectTags(authFetch, project.id, tagIds);
       }
+      if (retroplanMacro) {
+        await createRetroplanMacro(authFetch, project.id, retroplanMacro);
+      }
       return project;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-      toast.success('Projet créé.');
+      const milestoneCount = variables.retroplanMacro?.steps.length ?? 0;
+      toast.success(
+        milestoneCount > 0
+          ? `Projet créé avec ${milestoneCount} jalon${milestoneCount > 1 ? 's' : ''}.`
+          : 'Projet créé.',
+      );
       router.push(projectDetail(data.id));
     },
     onError: (err: ApiFormError) => {

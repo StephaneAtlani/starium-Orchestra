@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { buttonVariants } from '@/components/ui/button';
 import { PermissionGate } from '@/components/PermissionGate';
 import { ProjectCreateForm } from '@/features/projects/components/project-create-form';
 import { projectsList } from '@/features/projects/constants/project-routes';
 import { usePermissions } from '@/hooks/use-permissions';
-import { cn } from '@/lib/utils';
 
 export default function NewProjectPage() {
   const { has, isLoading } = usePermissions();
@@ -20,22 +18,19 @@ export default function NewProjectPage() {
     <RequireActiveClient>
       <PageContainer>
         <div className="space-y-6">
-          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[auto,minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:gap-x-12">
-            <Link
-              href={projectsList()}
-              className={cn(
-                buttonVariants({ variant: 'ghost', size: 'sm' }),
-                '-ml-2 inline-flex w-fit shrink-0 gap-1 text-muted-foreground lg:pt-0.5',
-              )}
-            >
-              <ChevronLeft className="size-4 shrink-0" />
-              Retour au portefeuille
-            </Link>
-            <PageHeader
-              title="Nouveau projet"
-              description="Créez un projet pour le client actif. Les champs obligatoires sont indiqués par une astérisque."
-            />
-          </div>
+          <PageHeader
+            backHref={projectsList()}
+            eyebrow={
+              <Link
+                href={projectsList()}
+                className="rounded-sm outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Retour au portefeuille
+              </Link>
+            }
+            title="Nouveau projet"
+            description="Configurez votre projet étape par étape — type, équipe, planification. Les champs obligatoires sont indiqués par une astérisque."
+          />
 
           {!isLoading && !has('projects.create') && (
             <Alert>
@@ -49,7 +44,19 @@ export default function NewProjectPage() {
           )}
 
           <PermissionGate permission="projects.create">
-            <ProjectCreateForm />
+            <div className="space-y-6">
+              <Alert className="border-border/70 bg-muted/25" role="status">
+                <Info className="size-4 shrink-0" aria-hidden />
+                <AlertTitle className="text-sm">Complétez ensuite la fiche projet</AlertTitle>
+                <AlertDescription className="text-xs leading-relaxed sm:text-sm">
+                  Ce parcours enregistre l&apos;identité et le cadrage initial du projet. Après la
+                  création, ouvrez la <strong>fiche projet</strong> pour renseigner l&apos;équipe, le
+                  budget, les risques, le planning détaillé, les documents et le pilotage (arbitrage,
+                  points projet, synthèse CODIR).
+                </AlertDescription>
+              </Alert>
+              <ProjectCreateForm />
+            </div>
           </PermissionGate>
         </div>
       </PageContainer>

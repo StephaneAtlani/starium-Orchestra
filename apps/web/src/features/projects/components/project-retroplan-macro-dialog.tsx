@@ -12,14 +12,12 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { createRetroplanMacro } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
-
-type StepRow = { name: string; daysBeforeEnd: string };
-
-const DEFAULT_STEPS: StepRow[] = [
-  { name: 'Livraison / mise en production', daysBeforeEnd: '0' },
-  { name: 'Recette utilisateur', daysBeforeEnd: '21' },
-  { name: 'Cadrage validé', daysBeforeEnd: '60' },
-];
+import {
+  cloneDefaultRetroplanMacroSteps,
+  formatRetroplanComputedTargetDate,
+  parseRetroplanMacroSteps,
+  type RetroplanMacroStepRow,
+} from '../lib/project-retroplan-macro-form';
 
 function isoDateFromProject(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -33,29 +31,6 @@ function todayIsoDate(): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-/** Même logique que l'API (date-only → UTC midi, − n jours calendaires). */
-function formatComputedTargetDate(
-  anchorEndDate: string,
-  daysBeforeEndStr: string,
-): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorEndDate.trim())) return null;
-  const raw = String(daysBeforeEndStr).trim();
-  if (raw === '') return null;
-  const n = Number(raw.replace(',', '.'));
-  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchorEndDate.trim());
-  if (!m) return null;
-  const y = Number(m[1]);
-  const mo = Number(m[2]) - 1;
-  const d = Number(m[3]);
-  const anchor = new Date(Date.UTC(y, mo, d, 12, 0, 0, 0));
-  const target = new Date(anchor.getTime() - n * 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeZone: 'UTC',
-  }).format(target);
 }
 
 export function ProjectRetroplanMacroDialog({
@@ -75,35 +50,18 @@ export function ProjectRetroplanMacroDialog({
   const clientId = activeClient?.id ?? '';
 
   const [anchorEndDate, setAnchorEndDate] = useState('');
-  const [steps, setSteps] = useState<StepRow[]>(DEFAULT_STEPS);
+  const [steps, setSteps] = useState<RetroplanMacroStepRow[]>(cloneDefaultRetroplanMacroSteps);
 
   useEffect(() => {
     if (!open) return;
     const fromProject = isoDateFromProject(defaultAnchorDate ?? null);
     setAnchorEndDate(fromProject || todayIsoDate());
-    setSteps(DEFAULT_STEPS.map((s) => ({ ...s })));
+    setSteps(cloneDefaultRetroplanMacroSteps());
   }, [open, defaultAnchorDate]);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const parsed: { name: string; daysBeforeEnd: number }[] = [];
-      for (const s of steps) {
-        const name = s.name.trim();
-        if (!name) {
-          throw new Error('Chaque étape doit avoir un libellé.');
-        }
-        const rawDays = String(s.daysBeforeEnd).trim();
-        if (rawDays === '') {
-          throw new Error(`« ${name} » : renseignez le nombre de jours avant la fin.`);
-        }
-        const n = Number(rawDays.replace(',', '.'));
-        if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-          throw new Error(
-            `« ${name} » : indiquez un nombre entier de jours avant la fin (≥ 0).`,
-          );
-        }
-        parsed.push({ name, daysBeforeEnd: n });
-      }
+      const parsed = parseRetroplanMacroSteps(steps);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorEndDate.trim())) {
         throw new Error('Date de fin invalide (YYYY-MM-DD).');
       }
@@ -190,7 +148,7 @@ export function ProjectRetroplanMacroDialog({
           </div>
           <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
             {steps.map((row, i) => {
-              const computedDate = formatComputedTargetDate(anchorEndDate, row.daysBeforeEnd);
+              const computedDate = formatRetroplanComputedTargetDate(anchorEndDate, row.daysBeforeEnd);
               return (
                 <div
                   key={i}

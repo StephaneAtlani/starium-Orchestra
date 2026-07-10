@@ -111,7 +111,8 @@
 | 6     | **RFC-PROJ-015** | Project / Activity Mapping | Rattachement Project + Activity à une sous-catégorie                      | ❌ À faire | obligatoire pour structuration portefeuille |
 | 7     | **RFC-PROJ-016** | Portfolio Aggregation      | KPI par catégorie (budget, santé, risques, ROI)                           | ❌ À faire | base arbitrage CODIR                        |
 | 7b    | **RFC-PROJ-019** | Hiérarchie parent / sous-projets | Relation self `parentProjectId` sur `Project` (programme, lot, sous-projet) | ✅ Implémenté (MVP) | [RFC](./RFC-PROJ-019%20%E2%80%94%20Hi%C3%A9rarchie%20parent%20sous-projets.md) — API + UI portefeuille/fiche ; agrégation → RFC-PROJ-020 |
-| 7c    | **RFC-PROJ-021** | Historique des modifications projet | Lecture UI des `AuditLog` projet dans la fiche projet | 📝 Draft | [RFC](./RFC-PROJ-021%20%E2%80%94%20Historique%20des%20modifications%20projet.md) — V1 via `resourceType=project`, `resourceId=projectId` |
+| 7c    | **RFC-PROJ-021** | Historique des modifications projet | Lecture UI des `AuditLog` projet — **page `/history` uniquement** (retrait fiche → RFC-PROJ-022) | 📝 Draft | [RFC](./RFC-PROJ-021%20%E2%80%94%20Historique%20des%20modifications%20projet.md) — V1 via `resourceType=project`, `resourceId=projectId` |
+| 7d    | **RFC-PROJ-022** | Validation de la fiche projet | Validation / refus par responsable ou sponsor + historique ; retrait « Historique des modifications » de la fiche | 📝 Draft | [RFC](./RFC-PROJ-022%20%E2%80%94%20Validation%20de%20la%20fiche%20projet.md) — table `ProjectSheetValidation` |
 
 ---
 
@@ -123,6 +124,7 @@
 | 9     | **RFC-PROJ-012** | Project Sheet API      | `GET` / `PATCH` fiche projet                                     | ✅ Couvert (MVP) | `GET|PATCH /api/projects/:id/project-sheet` ; isolation client                         |
 | 10    | **RFC-PROJ-012** | Project Sheet Metrics  | Calcul backend : coût, budget, ROI, forecast                     | ❌ À faire   | dépend budget + ressources |
 | 11    | **RFC-PROJ-012** | Project Decision Rules | Règles d’arbitrage (APPROVED / REJECTED / ON_HOLD / TO_VALIDATE) | ❌ À faire   | critique gouvernance       |
+| 11b   | **RFC-PROJ-022** | Validation fiche (owner / sponsor) | `POST|GET …/project-sheet/validations` ; garde rôle ; propagation arbitrage | 📝 Draft | Complète les snapshots RFC-PROJ-012 ; UI section dédiée |
 
 ---
 
