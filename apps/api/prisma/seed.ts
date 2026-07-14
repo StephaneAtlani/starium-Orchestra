@@ -1633,6 +1633,116 @@ async function ensureClientAdminContractsModuleRole(): Promise<void> {
   }
 }
 
+/**
+ * Socle notifications & alertes : chaque utilisateur d'un client doit voir sa
+ * cloche (notifications) et les alertes du client. Rôle GLOBAL assigné à TOUS
+ * les ClientUser ACTIVE. Les CLIENT_ADMIN reçoivent en plus `alerts.update`
+ * (résolution / rejet / recalcul).
+ */
+async function ensureAlertsNotificationsBaselineRole(): Promise<void> {
+  const baselineCodes = [
+    "notifications.read",
+    "notifications.update",
+    "alerts.read",
+  ] as const;
+  const adminExtraCodes = ["alerts.update"] as const;
+
+  const baselinePerms = await prisma.permission.findMany({
+    where: { code: { in: [...baselineCodes] } },
+  });
+  if (baselinePerms.length !== baselineCodes.length) {
+    console.warn(
+      "⚠️  ensureAlertsNotificationsBaselineRole : permissions notifications.*/alerts.read manquantes — skip.",
+    );
+    return;
+  }
+
+  // Rôle socle (tout le monde)
+  let baselineRole = await prisma.role.findFirst({
+    where: { scope: RoleScope.GLOBAL, name: "Notifications & alertes (socle)" },
+  });
+  if (!baselineRole) {
+    baselineRole = await prisma.role.create({
+      data: {
+        scope: RoleScope.GLOBAL,
+        name: "Notifications & alertes (socle)",
+        description:
+          "Accès personnel à la cloche de notifications et lecture des alertes du client (assigné à tous les utilisateurs).",
+        isSystem: true,
+      },
+    });
+  }
+  for (const perm of baselinePerms) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: { roleId: baselineRole.id, permissionId: perm.id },
+      },
+      create: { roleId: baselineRole.id, permissionId: perm.id },
+      update: {},
+    });
+  }
+
+  const allClientUsers = await prisma.clientUser.findMany({
+    where: { status: ClientUserStatus.ACTIVE },
+    select: { userId: true },
+  });
+  const uniqueUserIds = [...new Set(allClientUsers.map((u) => u.userId))];
+  for (const userId of uniqueUserIds) {
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId, roleId: baselineRole.id } },
+      create: { userId, roleId: baselineRole.id },
+      update: {},
+    });
+  }
+
+  // Rôle admin : action sur les alertes (résolution / rejet / recalcul)
+  const adminPerms = await prisma.permission.findMany({
+    where: { code: { in: [...adminExtraCodes] } },
+  });
+  if (adminPerms.length === adminExtraCodes.length) {
+    let adminRole = await prisma.role.findFirst({
+      where: { scope: RoleScope.GLOBAL, name: "Client admin — alertes" },
+    });
+    if (!adminRole) {
+      adminRole = await prisma.role.create({
+        data: {
+          scope: RoleScope.GLOBAL,
+          name: "Client admin — alertes",
+          description: "Résolution, rejet et recalcul des alertes métier.",
+          isSystem: true,
+        },
+      });
+    }
+    for (const perm of adminPerms) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id },
+        },
+        create: { roleId: adminRole.id, permissionId: perm.id },
+        update: {},
+      });
+    }
+    const admins = await prisma.clientUser.findMany({
+      where: {
+        role: ClientUserRole.CLIENT_ADMIN,
+        status: ClientUserStatus.ACTIVE,
+      },
+      select: { userId: true },
+    });
+    for (const a of admins) {
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: a.userId, roleId: adminRole.id } },
+        create: { userId: a.userId, roleId: adminRole.id },
+        update: {},
+      });
+    }
+  }
+
+  console.log(
+    `✅ Socle notifications & alertes assigné à ${uniqueUserIds.length} utilisateur(s).`,
+  );
+}
+
 async function ensureResourcesModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "resources" },
@@ -3878,6 +3988,8 @@ async function main() {
   await ensureClientAdminAccessModelRole();
 
   await ensureClientAdminContractsModuleRole();
+
+  await ensureAlertsNotificationsBaselineRole();
 
   console.log("✅ Seed termine");
   if (runDemoSeed) {

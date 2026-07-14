@@ -131,6 +131,11 @@ export type ProjectDetail = ProjectListItem & {
   /** Dernier audit sur l’entité projet (fiche / pilotage). */
   lastModifiedAt: string | null;
   lastModifiedByDisplayName: string | null;
+  /** Météo du comité — dernier point projet qui en définit une. */
+  committeeMood?: 'GREEN' | 'ORANGE' | 'RED' | null;
+  committeeMoodReviewId?: string | null;
+  committeeMoodReviewTitle?: string | null;
+  committeeMoodReviewDate?: string | null;
   /** RFC-PROJ-019 — ancêtres ordonnés racine → parent direct. */
   ancestorChain: ProjectParentSummary[];
 };

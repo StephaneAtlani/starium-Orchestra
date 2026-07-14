@@ -4,6 +4,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RequestWithClient } from '../types/request-with-client';
 
 /**
+ * Socle implicite : tout utilisateur authentifié dans un contexte client doit
+ * pouvoir consulter sa cloche de notifications et les alertes du client, quel
+ * que soit son rôle. Ces droits sont ajoutés systématiquement au set résolu
+ * (indépendant du seed / de l'attribution de rôles). `alerts.update` (action)
+ * reste porté par les rôles.
+ */
+export const BASELINE_PERMISSION_CODES = [
+  'notifications.read',
+  'notifications.update',
+  'alerts.read',
+] as const;
+
+/**
  * Résolution des codes permission **bruts** issus des rôles (UserRole → Permission.code).
  * Les guards utilisent `satisfiesPermission` (@starium-orchestra/rbac-permissions) sur ce set :
  * ne pas faire de `Set.has(required)` directement sur les décorateurs.
@@ -52,6 +65,10 @@ export class EffectivePermissionsService {
           codes.add(rp.permission.code);
         }
       }
+    }
+
+    for (const code of BASELINE_PERMISSION_CODES) {
+      codes.add(code);
     }
 
     if (request) {

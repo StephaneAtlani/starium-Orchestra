@@ -126,6 +126,41 @@ export class AlertsService {
     return updated;
   }
 
+  /**
+   * Auto-résolution : clôture les alertes ACTIVE d'une famille (type + ruleCodes)
+   * dont l'entité ne remplit plus la condition (absente de `activeEntityIds`).
+   * Empêche l'accumulation d'alertes obsolètes après correction côté métier.
+   */
+  async resolveStaleByRule(params: {
+    clientId: string;
+    type: AlertType;
+    ruleCodes: string[];
+    activeEntityIds: string[];
+  }): Promise<number> {
+    const { clientId, type, ruleCodes, activeEntityIds } = params;
+    if (ruleCodes.length === 0) return 0;
+
+    const stale = await this.prisma.alert.findMany({
+      where: {
+        clientId,
+        type,
+        ruleCode: { in: ruleCodes },
+        status: AlertStatus.ACTIVE,
+        ...(activeEntityIds.length > 0
+          ? { entityId: { notIn: activeEntityIds } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    if (stale.length === 0) return 0;
+
+    await this.prisma.alert.updateMany({
+      where: { id: { in: stale.map((a) => a.id) } },
+      data: { status: AlertStatus.RESOLVED, resolvedAt: new Date() },
+    });
+    return stale.length;
+  }
+
   async upsertAlert(input: UpsertAlertInput) {
     const existing = await this.prisma.alert.findFirst({
       where: {

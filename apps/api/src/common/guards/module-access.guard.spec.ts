@@ -264,6 +264,78 @@ describe('ModuleAccessGuard', () => {
     ).resolves.toBe(true);
   });
 
+  it('Socle : accepte notifications/alertes même sans ClientModule ni visibilité', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['notifications.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['notifications.read']),
+    );
+    // Module masqué + désactivé côté client : doit passer quand même (socle).
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['notifications', false]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      { code: 'notifications', isActive: true, clientModules: [] },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('Socle : accepte notifications même si le Module n’existe pas en base', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['alerts.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['alerts.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(new Map());
+    prisma.module.findMany.mockResolvedValue([] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('Socle : refuse si platform_admin a coupé le module (Module.isActive=false)', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['notifications.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['notifications.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['notifications', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      { code: 'notifications', isActive: false, clientModules: [] },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('RequirePermissions : accepte budgets.read si budgets.read_all uniquement (RFC-ACL-015)', async () => {
     const req: Partial<RequestWithClient> = {
       user: { userId: 'user-1' },

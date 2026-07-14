@@ -104,6 +104,8 @@ export type ProjectReviewSnapshotPayload = {
     reviewDate: string | null;
     durationMinutes: number | null;
     facilitatorDisplayName: string | null;
+    /** Météo du comité (contentPayload.committeeMood), figée à la finalisation. */
+    committeeMood: ComputedHealth | null;
   };
   project: {
     id: string;
@@ -175,6 +177,19 @@ export type ProjectReviewSnapshotPayload = {
 const TOP_RISKS_MAX = 5;
 const MILESTONES_MAX = 5;
 
+export function parseCommitteeMood(
+  contentPayload: unknown,
+): ComputedHealth | null {
+  if (!contentPayload || typeof contentPayload !== 'object' || Array.isArray(contentPayload)) {
+    return null;
+  }
+  const value = (contentPayload as Record<string, unknown>).committeeMood;
+  if (value === 'GREEN' || value === 'ORANGE' || value === 'RED') {
+    return value;
+  }
+  return null;
+}
+
 export function buildProjectReviewSnapshotPayload(input: {
   review: Pick<
     ProjectReview,
@@ -187,6 +202,7 @@ export function buildProjectReviewSnapshotPayload(input: {
     | 'reviewDate'
     | 'durationMinutes'
     | 'nextReviewDate'
+    | 'contentPayload'
   >;
   facilitatorDisplayName: string | null;
   attachments: ProjectReviewAttachment[];
@@ -344,6 +360,7 @@ export function buildProjectReviewSnapshotPayload(input: {
       reviewDate: review.reviewDate?.toISOString() ?? null,
       durationMinutes: review.durationMinutes ?? null,
       facilitatorDisplayName,
+      committeeMood: parseCommitteeMood(review.contentPayload),
     },
     project: {
       id: project.id,

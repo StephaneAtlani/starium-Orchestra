@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
+  CheckCircle2,
   ClipboardPen,
   CloudRain,
   CloudSun,
@@ -15,10 +16,14 @@ import {
   Flag,
   History,
   Info,
+  ExternalLink,
+  Eye,
   ListChecks,
   ListOrdered,
+  Mail,
   PanelLeftOpen,
   PanelRightClose,
+  RotateCcw,
   Scale,
   Sparkles,
   Sun,
@@ -30,7 +35,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { PageHeader } from '@/components/layout/page-header';
 import { Input } from '@/components/ui/input';
@@ -43,9 +48,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
@@ -64,6 +72,14 @@ import {
   type PostMortemPayload,
 } from '../lib/project-post-mortem-payload';
 import { getReviewTypeOptionsForEditor } from '../lib/project-review-post-mortem';
+import {
+  applyAgendaPresetToReview,
+  isAgendaCleanForReviewType,
+} from '../lib/apply-review-agenda-preset';
+import {
+  isPilotageReviewType,
+  REVIEW_TYPE_AGENDA_HINT,
+} from '../lib/project-review-agenda-presets';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
@@ -88,7 +104,9 @@ import {
 } from './review-actions-section';
 import { ReviewAttachmentsSection } from './review-attachments-section';
 import { ReviewHistorySection } from './review-history-section';
+import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
 import {
+  canPreviewOrSendReviewReport,
   canScheduleReview,
   canStartReview,
   hasReviewInvitationsSent,
@@ -98,7 +116,7 @@ import {
   normalizeReviewStatus,
 } from '../lib/project-review-status';
 import { reviewAgendaConductProgress } from '../lib/review-agenda-utils';
-import { projectSheet, projectPointsTab, projectReviewConduct } from '../constants/project-routes';
+import { projectSheet, projectPointsTab, projectReviewConduct, projectRisks } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
@@ -171,6 +189,104 @@ function ReviewEditorTabTrigger({
         </span>
       ) : null}
     </TabsTrigger>
+  );
+}
+
+type ReviewConductTabOption = {
+  value: string;
+  label: string;
+  step: number;
+  icon: ComponentType<{ className?: string }>;
+  count?: number;
+};
+
+function ReviewConductMobileTabSelect({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: ReviewConductTabOption[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const active = tabs.find((tab) => tab.value === value) ?? tabs[0];
+  const ActiveIcon = active?.icon ?? ListOrdered;
+
+  return (
+    <div className="starium-project-workspace-tabs-mobile w-full">
+      <Label htmlFor="review-conduct-tab-select" className="sr-only">
+        Section du point projet
+      </Label>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (next) onChange(next);
+        }}
+      >
+        <SelectTrigger
+          id="review-conduct-tab-select"
+          className="starium-project-workspace-tabs-mobile__trigger min-h-11 w-full"
+          aria-label="Choisir la section du point projet"
+        >
+          <SelectValue>
+            <span className="flex min-w-0 flex-1 items-center gap-3">
+              <span
+                className="starium-synthesis-icon-well starium-project-workspace-tabs-mobile__icon-well"
+                aria-hidden
+              >
+                <ActiveIcon className="size-[18px] shrink-0" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <span className="starium-project-workspace-tabs-mobile__eyebrow">
+                  Étape {active?.step ?? 1}
+                </span>
+                <span className="starium-project-workspace-tabs-mobile__value truncate">
+                  {active?.label ?? 'Section'}
+                </span>
+              </span>
+            </span>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent align="start" sideOffset={6}>
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = tab.value === value;
+            return (
+              <SelectItem
+                key={tab.value}
+                value={tab.value}
+                className={cn(
+                  'min-h-11 py-2.5 text-sm',
+                  isActive && 'starium-project-workspace-tabs-mobile__item--active',
+                )}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className={cn(
+                      'flex size-8 shrink-0 items-center justify-center rounded-md',
+                      isActive
+                        ? 'starium-synthesis-icon-well'
+                        : 'bg-muted/60 text-muted-foreground',
+                    )}
+                    aria-hidden
+                  >
+                    <Icon className="size-4 shrink-0" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate">{tab.label}</span>
+                    {tab.count != null && tab.count > 0 ? (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums">
+                        {tab.count}
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -379,22 +495,53 @@ const MOOD_CARDS: {
   },
 ];
 
-function CommitteeMoodPicker({
+function ProjectMeteoPickerButtons({
   value,
   onChange,
   disabled,
+  layout = 'cards',
 }: {
   value: CommitteeMood | null;
   onChange: (v: CommitteeMood | null) => void;
   disabled?: boolean;
+  layout?: 'cards' | 'compact';
 }) {
+  if (layout === 'compact') {
+    return (
+      <div className="grid grid-cols-3 gap-2">
+        {MOOD_CARDS.map(({ id, label, Icon, iconWrap }) => {
+          const selected = value === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(id)}
+              className={cn(
+                'flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg border border-border/60 p-2 text-center text-xs transition-all',
+                'hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+                disabled && 'pointer-events-none opacity-60',
+              )}
+              aria-pressed={selected}
+              aria-label={`Météo du comité : ${label}`}
+            >
+              <span
+                className={cn('flex size-9 items-center justify-center rounded-lg', iconWrap)}
+                aria-hidden
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="font-medium leading-tight">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
-    <ReviewEditorSection
-      sectionId="pr-section-committee-mood"
-      title="Météo du comité"
-      description="Ressenti à la fin du point : enregistré dans le point et figé à la finalisation avec le snapshot."
-      icon={CloudSun}
-    >
+    <>
       <div className="grid gap-3 sm:grid-cols-3">
         {MOOD_CARDS.map(({ id, label, hint, Icon, accent, iconWrap }) => {
           const selected = value === id;
@@ -426,7 +573,7 @@ function CommitteeMoodPicker({
           );
         })}
       </div>
-      {!disabled && value != null && (
+      {!disabled && value != null ? (
         <Button
           type="button"
           variant="ghost"
@@ -436,7 +583,33 @@ function CommitteeMoodPicker({
         >
           Effacer le choix
         </Button>
-      )}
+      ) : null}
+    </>
+  );
+}
+
+function CommitteeMoodPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: CommitteeMood | null;
+  onChange: (v: CommitteeMood | null) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <ReviewEditorSection
+      sectionId="pr-section-committee-mood"
+      title="Météo du comité"
+      description="Ressenti du comité en fin de point — soleil, nuages ou pluie. Figé à la finalisation et repris dans le compte rendu."
+      icon={CloudSun}
+    >
+      <ProjectMeteoPickerButtons
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        layout="cards"
+      />
     </ReviewEditorSection>
   );
 }
@@ -749,7 +922,7 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: active });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: active });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: active });
-  const { update, finalize, cancel, startReview, scheduleReview, inviteReview } =
+  const { update, finalize, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport } =
     useProjectReviewMutations(projectId);
 
   const authFetch = useAuthenticatedFetch();
@@ -769,6 +942,9 @@ export function ProjectReviewEditorDialog({
 
   const [reviewDate, setReviewDate] = useState('');
   const [reviewType, setReviewType] = useState<ProjectReviewType>('COPIL');
+  const [agendaPresetSourceType, setAgendaPresetSourceType] =
+    useState<ProjectReviewType>('COPIL');
+  const [applyingAgendaPreset, setApplyingAgendaPreset] = useState(false);
   const [title, setTitle] = useState('');
   const [objective, setObjective] = useState('');
   const [executiveSummary, setExecutiveSummary] = useState('');
@@ -777,13 +953,31 @@ export function ProjectReviewEditorDialog({
   /** Créneau du prochain point accepté : envoyé au PATCH et déclenche la création du brouillon côté API. */
   const [committedNextReviewDate, setCommittedNextReviewDate] = useState<string | null>(null);
   const [confirmNextOpen, setConfirmNextOpen] = useState(false);
+  const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [reportPreviewOpen, setReportPreviewOpen] = useState(false);
+  const [reportPreviewData, setReportPreviewData] = useState<{
+    subject: string;
+    title: string;
+    text: string;
+    html: string;
+  } | null>(null);
+  const [reportPreviewError, setReportPreviewError] = useState<string | null>(null);
+  const [reportPreviewLoading, setReportPreviewLoading] = useState(false);
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
   const [postMortemForm, setPostMortemForm] = useState<PostMortemPayload>(POST_MORTEM_EMPTY);
   const [editorTab, setEditorTab] = useState(isPage ? 'agenda' : 'general');
-  const [conductSidebarOpen, setConductSidebarOpen] = useState(isPage);
+  const isConductWideLayout = useMediaQuery('(min-width: 1024px)');
+  const conductTabsDragScroll = useHorizontalDragScroll();
+  const [conductSidebarOpen, setConductSidebarOpen] = useState(false);
   const planningDetailsRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (!isPage) return;
+    setConductSidebarOpen(isConductWideLayout);
+  }, [isPage, isConductWideLayout]);
 
   const lastInitRef = useRef<string | null>(null);
   /** Snapshot JSON de `buildPatchBody()` — évite les PATCH inutiles et sert de ligne de base après init. */
@@ -794,6 +988,9 @@ export function ProjectReviewEditorDialog({
     if (!d) return;
     setReviewDate(d.reviewDate ? toLocalDatetimeInput(d.reviewDate) : '');
     setReviewType(d.reviewType);
+    if (isPilotageReviewType(d.reviewType)) {
+      setAgendaPresetSourceType(d.reviewType);
+    }
     setTitle(d.title ?? '');
     setObjective(d.objective ?? d.executiveSummary ?? '');
     setExecutiveSummary(d.executiveSummary ?? '');
@@ -849,6 +1046,8 @@ export function ProjectReviewEditorDialog({
       lastInitRef.current = null;
       lastSavedSerializedRef.current = null;
       setConfirmNextOpen(false);
+      setConfirmFinalizeOpen(false);
+      setConfirmCancelOpen(false);
       setEditorTab(isPage ? 'agenda' : 'general');
     }
   }, [active, isPage]);
@@ -885,6 +1084,74 @@ export function ProjectReviewEditorDialog({
   const invitationsSent = d ? hasReviewInvitationsSent(d.participants) : false;
   const editable = canEdit && d ? isReviewContentEditable(d.status) : false;
   const planningEditable = canEdit && d ? isReviewPlanningEditable(d.status) : false;
+  const canPreviewReport = d ? canPreviewOrSendReviewReport(d.status) : false;
+  const canSendReport = canPreviewReport && canEdit;
+  const typeEditable =
+    canEdit && d ? normalizeReviewStatus(d.status) === 'PREPARING' : false;
+  const canApplyAgendaPresets = Boolean(
+    d &&
+      typeEditable &&
+      reviewType !== 'POST_MORTEM' &&
+      isPilotageReviewType(reviewType),
+  );
+  const showAgendaPresetMismatch =
+    canApplyAgendaPresets && reviewType !== agendaPresetSourceType;
+  const showAgendaPresetControls =
+    canApplyAgendaPresets &&
+    (showAgendaPresetMismatch ||
+      !isAgendaCleanForReviewType(d?.agendaItems ?? [], reviewType));
+
+  const applyAgendaPresetForType = useCallback(
+    async (targetType: ProjectReviewType) => {
+      if (!d || !isPilotageReviewType(targetType)) return;
+      setApplyingAgendaPreset(true);
+      try {
+        const { extraItemsKept } = await applyAgendaPresetToReview(
+          d.id,
+          targetType,
+          d.agendaItems ?? [],
+          {
+            createAgendaItem: (args) => createAgendaItem.mutateAsync(args),
+            updateAgendaItem: (args) => updateAgendaItem.mutateAsync(args),
+          },
+        );
+        setAgendaPresetSourceType(targetType);
+        if (extraItemsKept > 0) {
+          toast.message(
+            `Modèle appliqué — ${extraItemsKept} point${extraItemsKept > 1 ? 's' : ''} supplémentaire${extraItemsKept > 1 ? 's' : ''} conservé${extraItemsKept > 1 ? 's' : ''} en fin de liste.`,
+          );
+        } else {
+          toast.success('Ordre du jour mis à jour selon le type de point.');
+        }
+      } catch {
+        toast.error('Impossible d’appliquer le modèle d’ordre du jour.');
+      } finally {
+        setApplyingAgendaPreset(false);
+      }
+    },
+    [d, createAgendaItem, updateAgendaItem],
+  );
+
+  const handleReviewTypeChange = useCallback(
+    (nextType: ProjectReviewType) => {
+      const previousType = reviewType;
+      setReviewType(nextType);
+      if (
+        !d ||
+        !typeEditable ||
+        nextType === 'POST_MORTEM' ||
+        !isPilotageReviewType(nextType)
+      ) {
+        return;
+      }
+      const items = d.agendaItems ?? [];
+      const wasClean = isAgendaCleanForReviewType(items, previousType);
+      if (wasClean) {
+        void applyAgendaPresetForType(nextType);
+      }
+    },
+    [reviewType, d, typeEditable, applyAgendaPresetForType],
+  );
   const projectStatus = projectQuery.data?.status;
   const reviewTypeOptions = useMemo(
     () => getReviewTypeOptionsForEditor(projectStatus, reviewType),
@@ -978,10 +1245,11 @@ export function ProjectReviewEditorDialog({
   const buildPlannedPatchBody = useCallback(
     () => ({
       ...(reviewDate.trim() ? { reviewDate: fromLocalDatetimeInput(reviewDate) } : { reviewDate: null }),
+      reviewType,
       title: title.trim() || null,
       objective: objective.trim() || null,
     }),
-    [reviewDate, title, objective],
+    [reviewDate, title, objective, reviewType],
   );
 
   /** Sauvegarde automatique du brouillon (debounce) — pas de clic « Enregistrer » requis. */
@@ -1057,6 +1325,8 @@ export function ProjectReviewEditorDialog({
     reviewId,
     reviewDate,
     title,
+    objective,
+    reviewType,
     update,
     buildPlannedPatchBody,
   ]);
@@ -1136,30 +1406,68 @@ export function ProjectReviewEditorDialog({
     lastSavedSerializedRef.current = JSON.stringify(body);
   };
 
-  const onFinalize = async () => {
+  const onRequestFinalize = () => {
     if (!d || !editable) return;
     if (needsNextPointConfirmation) {
       setConfirmNextOpen(true);
       return;
     }
-    const body = buildPatchBody();
-    await update.mutateAsync({ reviewId: d.id, body });
-    lastSavedSerializedRef.current = JSON.stringify(body);
-    await finalize.mutateAsync(d.id);
-    if (isPage) {
-      onExit?.();
-    } else {
-      onOpenChange?.(false);
+    setConfirmFinalizeOpen(true);
+  };
+
+  const onFinalize = async () => {
+    if (!d || !editable) return;
+    try {
+      const body = buildPatchBody();
+      await update.mutateAsync({ reviewId: d.id, body });
+      lastSavedSerializedRef.current = JSON.stringify(body);
+      await finalize.mutateAsync(d.id);
+      setConfirmFinalizeOpen(false);
+      if (isPage) {
+        onExit?.();
+      } else {
+        onOpenChange?.(false);
+      }
+    } catch {
+      toast.error(
+        reviewType === 'POST_MORTEM'
+          ? 'Impossible de finaliser le retour d’expérience.'
+          : 'Impossible de finaliser le point.',
+      );
     }
+  };
+
+  const onRequestCancelReview = () => {
+    if (!d || (!editable && !planningEditable)) return;
+    setConfirmCancelOpen(true);
   };
 
   const onCancelReview = async () => {
     if (!d || (!editable && !planningEditable)) return;
-    await cancel.mutateAsync(d.id);
-    if (isPage) {
-      onExit?.();
-    } else {
-      onOpenChange?.(false);
+    try {
+      await cancel.mutateAsync(d.id);
+      setConfirmCancelOpen(false);
+      if (isPage) {
+        onExit?.();
+      } else {
+        onOpenChange?.(false);
+      }
+    } catch {
+      toast.error(
+        reviewType === 'POST_MORTEM'
+          ? 'Impossible d’annuler le brouillon.'
+          : 'Impossible d’annuler le point.',
+      );
+    }
+  };
+
+  const onReopenReview = async () => {
+    if (!d || !canEdit || d.status !== 'CANCELLED') return;
+    try {
+      await reopen.mutateAsync(d.id);
+      toast.success('Point rouvert — vous pouvez reprendre la préparation.');
+    } catch {
+      toast.error('Impossible de rouvrir le point.');
     }
   };
 
@@ -1226,16 +1534,262 @@ export function ProjectReviewEditorDialog({
     }
   };
 
+  const flushDraftSave = useCallback(async () => {
+    if (!d || !reviewId || !editable) return;
+    const body = buildPatchBody();
+    const serialized = JSON.stringify(body);
+    if (lastSavedSerializedRef.current === serialized) return;
+    await update.mutateAsync({ reviewId: d.id, body });
+    lastSavedSerializedRef.current = serialized;
+  }, [d, reviewId, editable, buildPatchBody, update]);
+
+  const onPreviewReport = async () => {
+    if (!d || !canPreviewReport) return;
+    setReportPreviewOpen(true);
+    setReportPreviewData(null);
+    setReportPreviewError(null);
+    setReportPreviewLoading(true);
+    try {
+      await flushDraftSave();
+      const preview = await reportPreview.mutateAsync(d.id);
+      setReportPreviewData(preview);
+    } catch {
+      setReportPreviewError('Impossible de générer la prévisualisation du compte rendu.');
+    } finally {
+      setReportPreviewLoading(false);
+    }
+  };
+
+  const onSendReport = async () => {
+    if (!d || !canSendReport) return;
+    try {
+      await flushDraftSave();
+      const result = await sendReport.mutateAsync(d.id);
+      const parts: string[] = [];
+      if (result.emailed > 0) parts.push(`${result.emailed} e-mail(s) envoyé(s)`);
+      if (result.skippedNoEmail > 0) {
+        parts.push(`${result.skippedNoEmail} sans adresse e-mail`);
+      }
+      if (result.emailFailed > 0) parts.push(`${result.emailFailed} échec(s)`);
+      toast.success(
+        parts.length > 0
+          ? `Compte rendu envoyé — ${parts.join(', ')}.`
+          : 'Compte rendu envoyé.',
+      );
+    } catch (err: unknown) {
+      const apiMessage =
+        err &&
+        typeof err === 'object' &&
+        'message' in err &&
+        typeof (err as { message: unknown }).message === 'string'
+          ? String((err as { message: string }).message)
+          : err instanceof Error
+            ? err.message
+            : null;
+      toast.error(apiMessage ?? 'Impossible d’envoyer le compte rendu par e-mail.');
+    }
+  };
+
   const isPostMortemReview = reviewType === 'POST_MORTEM';
   const normalizedStatus = d ? normalizeReviewStatus(d.status) : null;
   const agendaProgress =
     d && !isPostMortemReview ? reviewAgendaConductProgress(d.agendaItems ?? []) : null;
 
+  const pointClosurePanel = !isPostMortemReview ? (
+    <>
+      <ReviewEditorSection
+        sectionId="pr-section-summary"
+        title="Résumé exécutif"
+        description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
+        icon={Sparkles}
+      >
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="pr-ed-summary">Synthèse du point</Label>
+            <textarea
+              id="pr-ed-summary"
+              className={textareaClass}
+              value={executiveSummary}
+              disabled={!editable}
+              onChange={(e) => setExecutiveSummary(e.target.value)}
+              placeholder="Ce qui s’est passé, ce qui bloque, ce qu’on décide — faits marquants, alertes, décisions clés…"
+              maxLength={20000}
+            />
+          </div>
+          {projectQuery.data ? (
+            <div className="grid gap-1.5 sm:max-w-md">
+              <Label htmlFor="pr-project-status">Changer le statut du projet</Label>
+              <Select
+                value={projectQuery.data.status}
+                onValueChange={(v) => {
+                  if (v && canUpdateProject) {
+                    updateProjectStatusMutation.mutate(v);
+                  }
+                }}
+                disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
+              >
+                <SelectTrigger
+                  id="pr-project-status"
+                  size="sm"
+                  className="h-9 w-full border-border/70"
+                >
+                  <SelectValue placeholder="Statut">
+                    {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
+                      projectQuery.data.status}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                    <SelectItem key={k} value={k}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!canUpdateProject ? (
+                <p className="text-[0.7rem] text-muted-foreground">
+                  Permission « mise à jour projets » requise pour modifier le statut.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="grid gap-1.5 sm:max-w-xl">
+            <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
+            <ProjectDatetimeLocalInput
+              id="pr-ed-next"
+              value={nextReviewDate}
+              disabled={!editable}
+              onChange={(v) => {
+                setNextReviewDate(v);
+                if (!v.trim()) {
+                  setCommittedNextReviewDate(null);
+                }
+              }}
+            />
+            {editable && needsNextPointConfirmation ? (
+              <p className="text-[0.7rem] font-medium text-amber-700 dark:text-amber-400">
+                Créneau saisi mais non confirmé — validez pour créer ou mettre à jour le brouillon du
+                prochain point avec les participants ci-dessous.
+              </p>
+            ) : null}
+            {editable &&
+            !needsNextPointConfirmation &&
+            committedNextReviewDate &&
+            committedNextReviewDate.trim() ? (
+              <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400">
+                Créneau confirmé : le brouillon du prochain point sera créé ou synchronisé avec les
+                participants de ce point à l’enregistrement.
+              </p>
+            ) : null}
+            <p className="text-[0.7rem] text-muted-foreground">
+              Après confirmation, un brouillon est créé ou mis à jour à la date choisie (participants =
+              section Participants de ce point).
+            </p>
+            {editable && needsNextPointConfirmation ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="w-fit"
+                disabled={update.isPending}
+                onClick={() => setConfirmNextOpen(true)}
+              >
+                Confirmer le créneau et les participants
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </ReviewEditorSection>
+      <CommitteeMoodPicker
+        value={committeeMood}
+        onChange={setCommitteeMood}
+        disabled={!editable}
+      />
+    </>
+  ) : null;
+
+  const conductTabOptions = useMemo((): ReviewConductTabOption[] => {
+    if (!isPage || !d) return [];
+    const options: ReviewConductTabOption[] = [];
+    if (!isPostMortemReview) {
+      options.push(
+        {
+          value: 'agenda',
+          label: 'Ordre du jour',
+          step: 1,
+          icon: ListOrdered,
+          count: d.agendaItems?.length ?? 0,
+        },
+        {
+          value: 'participants',
+          label: 'Participants',
+          step: 2,
+          icon: Users,
+          count: d.participants?.length ?? 0,
+        },
+        {
+          value: 'decisions',
+          label: 'Décisions',
+          step: 3,
+          icon: Scale,
+          count: d.decisions?.length ?? 0,
+        },
+        {
+          value: 'actions',
+          label: 'Actions',
+          step: 4,
+          icon: ListChecks,
+          count: d.actionItems?.length ?? 0,
+        },
+        {
+          value: 'attachments',
+          label: 'Documents & liens',
+          step: 5,
+          icon: FileText,
+          count: d.attachments?.length ?? 0,
+        },
+        {
+          value: 'closure',
+          label: 'Clôture',
+          step: 6,
+          icon: CloudSun,
+        },
+      );
+    }
+    options.push({
+      value: 'history',
+      label: 'Historique',
+      step: isPostMortemReview ? 2 : 7,
+      icon: History,
+    });
+    return options;
+  }, [isPage, d, isPostMortemReview]);
+
+  const closeConductSidebar = useCallback(() => setConductSidebarOpen(false), []);
+
+  const navigateConductTab = useCallback(
+    (tab: string) => {
+      setEditorTab(tab);
+      closeConductSidebar();
+    },
+    [closeConductSidebar],
+  );
+
   const reviewTabPanelClass = cn(
     'starium-form mt-0 flex w-full min-w-0 flex-col overscroll-contain',
     isPage ? 'min-h-0 flex-1 gap-4 overflow-y-auto' : 'min-h-0 flex-1 gap-3 overflow-y-auto',
   );
-  const reviewTabsListClass = cn('w-full shrink-0', isPage && 'overflow-x-auto');
+  const reviewTabsListClass = cn(
+    isPage ? 'w-max max-w-none shrink-0' : 'w-full min-w-0 flex-1 shrink-0',
+  );
+
+  const onConductTabsWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const element = conductTabsDragScroll.ref.current;
+    if (!element || element.scrollWidth <= element.clientWidth + 1) return;
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    element.scrollLeft += event.deltaY;
+    event.preventDefault();
+  }, [conductTabsDragScroll.ref]);
 
   const handleClose = () => {
     if (isPage) onExit?.();
@@ -1255,16 +1809,18 @@ export function ProjectReviewEditorDialog({
     </span>
   ) : null;
 
-  const footerActionClass = isPage ? 'min-h-9 h-9 px-3 text-sm' : 'min-h-11';
+  const footerActionClass = isPage
+    ? 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9'
+    : 'min-h-11';
 
   const editorFooterContent = d ? (
     <div
       className={cn(
         'flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1',
-        isPage && 'gap-y-0',
+        isPage && 'max-lg:flex-col max-lg:items-stretch max-lg:gap-2 lg:gap-y-0',
       )}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 max-lg:w-full">
         <Button
           type="button"
           variant="outline"
@@ -1293,7 +1849,7 @@ export function ProjectReviewEditorDialog({
           </span>
         ) : null}
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 max-lg:w-full max-lg:[&>button]:flex-1">
         {!isPage && canSchedule && canEdit ? (
           <Button
             type="button"
@@ -1331,6 +1887,30 @@ export function ProjectReviewEditorDialog({
             {startReview.isPending ? 'Démarrage…' : 'Démarrer le point'}
           </Button>
         ) : null}
+        {canPreviewReport ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={footerActionClass}
+            onClick={() => void onPreviewReport()}
+            disabled={reportPreviewLoading || reportPreview.isPending}
+          >
+            <Eye className="size-4" aria-hidden />
+            {reportPreviewLoading || reportPreview.isPending ? 'Aperçu…' : 'Prévisualiser'}
+          </Button>
+        ) : null}
+        {canSendReport ? (
+          <Button
+            type="button"
+            variant="outline"
+            className={footerActionClass}
+            onClick={() => void onSendReport()}
+            disabled={sendReport.isPending}
+          >
+            <Mail className="size-4" aria-hidden />
+            {sendReport.isPending ? 'Envoi…' : 'Envoyer le compte rendu'}
+          </Button>
+        ) : null}
         {editable ? (
           <>
             <Button
@@ -1346,7 +1926,7 @@ export function ProjectReviewEditorDialog({
               type="button"
               variant="default"
               className={footerActionClass}
-              onClick={() => void onFinalize()}
+              onClick={onRequestFinalize}
               disabled={finalize.isPending || update.isPending}
             >
               {finalize.isPending
@@ -1359,12 +1939,24 @@ export function ProjectReviewEditorDialog({
               type="button"
               variant="outline"
               className={cn(footerActionClass, 'text-destructive')}
-              onClick={() => void onCancelReview()}
+              onClick={onRequestCancelReview}
               disabled={cancel.isPending}
             >
               {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler le point'}
             </Button>
           </>
+        ) : null}
+        {d.status === 'CANCELLED' && canEdit ? (
+          <Button
+            type="button"
+            variant="default"
+            className={footerActionClass}
+            onClick={() => void onReopenReview()}
+            disabled={reopen.isPending}
+          >
+            <RotateCcw className="size-4" aria-hidden />
+            {reopen.isPending ? 'Réouverture…' : 'Réouvrir le point'}
+          </Button>
         ) : null}
       </div>
     </div>
@@ -1383,109 +1975,175 @@ export function ProjectReviewEditorDialog({
       type="button"
       variant="outline"
       size="icon"
-      className="size-9 shrink-0"
+      className="size-11 shrink-0 max-lg:min-h-11 max-lg:w-auto max-lg:px-3 max-lg:gap-2"
       aria-expanded={conductSidebarOpen}
       aria-controls="review-conduct-sidebar"
       aria-label={
-        conductSidebarOpen ? 'Replier le panneau latéral' : 'Déplier le panneau latéral'
+        conductSidebarOpen ? 'Replier le panneau latéral' : 'Ouvrir le contexte de séance'
       }
       onClick={() => setConductSidebarOpen((open) => !open)}
     >
       {conductSidebarOpen ? (
         <PanelRightClose className="size-4" aria-hidden />
       ) : (
-        <PanelLeftOpen className="size-4" aria-hidden />
+        <>
+          <PanelLeftOpen className="size-4" aria-hidden />
+          <span className="lg:sr-only">Contexte</span>
+        </>
       )}
     </Button>
   );
 
-  const conductSidebar =
-    isPage && d && !isPostMortemReview && conductSidebarOpen ? (
+  const conductSidebarScrollContent =
+    d && !isPostMortemReview ? (
+      <>
+        {projectQuery.data ? (
+          <ReviewConductProjectContext
+            projectId={projectId}
+            project={projectQuery.data}
+            badgeMerged={badgeMerged}
+            previousReviewId={previousReviewId}
+          />
+        ) : null}
+        {d.objective?.trim() ? (
+          <ConductSidebarSection id="conduct-objective" title="Objectif du point" icon={Target}>
+            <p className="text-sm leading-relaxed text-muted-foreground">{d.objective}</p>
+          </ConductSidebarSection>
+        ) : null}
+        <ConductSidebarSection
+          id="conduct-meteo-projet"
+          title="Météo du comité"
+          icon={CloudSun}
+          defaultOpen
+        >
+          <p className="mb-2 text-xs leading-snug text-muted-foreground">
+            Ressenti du comité — repris dans le compte rendu (1<sup>re</sup> colonne KPI).
+          </p>
+          <ProjectMeteoPickerButtons
+            value={committeeMood}
+            onChange={setCommitteeMood}
+            disabled={!editable}
+            layout="compact"
+          />
+          {committeeMood == null ? (
+            <p className="mt-2 text-xs text-muted-foreground" role="status">
+              Aucune météo choisie — définissez-la avant de finaliser le point.
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="mt-2 h-auto min-h-11 px-0 text-xs"
+            onClick={() => navigateConductTab('closure')}
+          >
+            Voir aussi dans l’onglet Clôture
+          </Button>
+        </ConductSidebarSection>
+        {d.meetingMode || d.location || d.meetingUrl ? (
+          <ConductSidebarSection id="conduct-meeting" title="Infos réunion" icon={CalendarClock}>
+            <ReviewMeetingInfoBlock detail={d} embedded />
+          </ConductSidebarSection>
+        ) : null}
+        <ConductSidebarSection
+          id="conduct-participants"
+          title={`Participants (${d.participants?.length ?? 0})`}
+          icon={Users}
+        >
+          {(d.participants?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun participant renseigné.</p>
+          ) : (
+            <ul className="space-y-2">
+              {d.participants?.map((p) => (
+                <li
+                  key={p.id}
+                  className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-foreground">
+                    {p.displayName?.trim() || p.externalEmail?.trim() || 'Participant'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 min-h-11 w-full"
+            onClick={() => navigateConductTab('participants')}
+          >
+            Gérer les participants
+          </Button>
+        </ConductSidebarSection>
+        <ConductSidebarSection
+          id="conduct-summary"
+          title="Synthèse séance"
+          icon={ClipboardPen}
+          contentClassName="px-0 pb-0 pt-0"
+        >
+          <ReviewConductSessionSummary
+            agendaCount={d.agendaItems?.length ?? 0}
+            agendaTreated={agendaProgress?.treated ?? 0}
+            agendaTotal={agendaProgress?.total ?? 0}
+            decisionsCount={d.decisions?.length ?? 0}
+            actionsCount={d.actionItems?.length ?? 0}
+            attachmentsCount={d.attachments?.length ?? 0}
+            onNavigate={navigateConductTab}
+            embedded
+          />
+        </ConductSidebarSection>
+      </>
+    ) : null;
+
+  const conductSidebarAside =
+    isPage && d && isConductWideLayout && conductSidebarOpen && conductSidebarScrollContent ? (
       <aside
         className="flex h-full min-h-0 flex-col gap-2 overflow-hidden"
         aria-label="Panneau latéral de conduite"
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground sm:px-4 sm:py-2.5">
+        <div className="flex shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2 text-sm text-muted-foreground sm:px-4 sm:py-2.5">
           <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5">
             <CalendarClock className="size-3.5 shrink-0 opacity-80" aria-hidden />
-            <time dateTime={d.reviewDate} className="truncate">
+            <time dateTime={d.reviewDate ?? undefined} className="truncate">
               {formatReviewDateTime(d.reviewDate)}
             </time>
           </span>
-          {conductSidebarToggle}
         </div>
         <div
           id="review-conduct-sidebar-panel"
           className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain"
         >
-            {projectQuery.data ? (
-              <ReviewConductProjectContext
-                projectId={projectId}
-                project={projectQuery.data}
-                badgeMerged={badgeMerged}
-                previousReviewId={previousReviewId}
-              />
-            ) : null}
-            {d.objective?.trim() ? (
-              <ConductSidebarSection id="conduct-objective" title="Objectif du point" icon={Target}>
-                <p className="text-sm leading-relaxed text-muted-foreground">{d.objective}</p>
-              </ConductSidebarSection>
-            ) : null}
-            {(d.meetingMode || d.location || d.meetingUrl) ? (
-              <ConductSidebarSection id="conduct-meeting" title="Infos réunion" icon={CalendarClock}>
-                <ReviewMeetingInfoBlock detail={d} embedded />
-              </ConductSidebarSection>
-            ) : null}
-            <ConductSidebarSection
-              id="conduct-participants"
-              title={`Participants (${d.participants?.length ?? 0})`}
-              icon={Users}
-            >
-              {(d.participants?.length ?? 0) === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun participant renseigné.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {d.participants?.map((p) => (
-                    <li
-                      key={p.id}
-                      className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-foreground">
-                        {p.displayName?.trim() || p.externalEmail?.trim() || 'Participant'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-3 min-h-9 w-full"
-                onClick={() => setEditorTab('participants')}
-              >
-                Gérer les participants
-              </Button>
-            </ConductSidebarSection>
-            <ConductSidebarSection
-              id="conduct-summary"
-              title="Synthèse séance"
-              icon={ClipboardPen}
-              contentClassName="px-0 pb-0 pt-0"
-            >
-              <ReviewConductSessionSummary
-                agendaCount={d.agendaItems?.length ?? 0}
-                agendaTreated={agendaProgress?.treated ?? 0}
-                agendaTotal={agendaProgress?.total ?? 0}
-                decisionsCount={d.decisions?.length ?? 0}
-                actionsCount={d.actionItems?.length ?? 0}
-                attachmentsCount={d.attachments?.length ?? 0}
-                onNavigate={setEditorTab}
-                embedded
-              />
-            </ConductSidebarSection>
+          {conductSidebarScrollContent}
         </div>
       </aside>
+    ) : null;
+
+  const conductSidebarMobileSheet =
+    isPage && !isConductWideLayout && d && !isPostMortemReview ? (
+      <Dialog open={conductSidebarOpen} onOpenChange={setConductSidebarOpen}>
+        <DialogContent
+          sidePanel
+          layout="starium"
+          showCloseButton
+          className="gap-0 p-0"
+          aria-describedby={undefined}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Contexte séance
+              </p>
+              <time dateTime={d.reviewDate ?? undefined} className="mt-0.5 block truncate text-sm text-foreground">
+                {formatReviewDateTime(d.reviewDate)}
+              </time>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {conductSidebarScrollContent}
+          </div>
+        </DialogContent>
+      </Dialog>
     ) : null;
 
   const renderEditorPanels = () =>
@@ -1539,66 +2197,150 @@ export function ProjectReviewEditorDialog({
 
               <div
                 className={cn(
-                  'flex w-full shrink-0 items-end gap-1 sm:gap-2',
-                  isPage && !conductSidebarOpen && !isPostMortemReview && 'pr-0.5',
+                  'flex w-full shrink-0 items-center gap-2',
+                  isPage && !isPostMortemReview && 'border-b border-border',
+                  isPage && !isPostMortemReview && 'max-lg:gap-2',
                 )}
               >
-                <TabsList
-                  variant="line"
-                  className={cn(reviewTabsListClass, isPage && 'min-w-0 flex-1')}
-                >
-                  {!isPage ? (
+                {isPage && conductTabOptions.length > 0 ? (
+                  <div className="min-w-0 flex-1 lg:hidden">
+                    <ReviewConductMobileTabSelect
+                      tabs={conductTabOptions}
+                      value={editorTab}
+                      onChange={setEditorTab}
+                    />
+                  </div>
+                ) : null}
+                {isPage ? (
+                  <div
+                    ref={conductTabsDragScroll.ref}
+                    className={cn(
+                      'hidden min-w-0 flex-1 overflow-x-auto overscroll-x-contain lg:block',
+                      '[scrollbar-width:thin] pb-2',
+                      '[&::-webkit-scrollbar]:h-1.5',
+                      '[&::-webkit-scrollbar-thumb]:rounded-full',
+                      conductTabsDragScroll.className,
+                    )}
+                    onPointerDown={conductTabsDragScroll.onPointerDown}
+                    onPointerMove={conductTabsDragScroll.onPointerMove}
+                    onPointerUp={conductTabsDragScroll.onPointerUp}
+                    onPointerCancel={conductTabsDragScroll.onPointerCancel}
+                    onWheel={onConductTabsWheel}
+                    aria-label="Sections du point — glisser horizontalement pour parcourir les onglets"
+                  >
+                    <TabsList
+                      variant="line"
+                      className={cn(
+                        reviewTabsListClass,
+                        !isPostMortemReview && 'border-b-0',
+                        'overflow-visible pb-0.5',
+                      )}
+                    >
+                      {!isPostMortemReview ? (
+                        <>
+                          <ReviewEditorTabTrigger
+                            step={1}
+                            value="agenda"
+                            count={d.agendaItems?.length ?? 0}
+                          >
+                            Ordre du jour
+                          </ReviewEditorTabTrigger>
+                          <ReviewEditorTabTrigger
+                            step={2}
+                            value="participants"
+                            count={d.participants?.length ?? 0}
+                          >
+                            Participants
+                          </ReviewEditorTabTrigger>
+                          <ReviewEditorTabTrigger
+                            step={3}
+                            value="decisions"
+                            count={d.decisions?.length ?? 0}
+                          >
+                            Décisions
+                          </ReviewEditorTabTrigger>
+                          <ReviewEditorTabTrigger
+                            step={4}
+                            value="actions"
+                            count={d.actionItems?.length ?? 0}
+                          >
+                            Actions
+                          </ReviewEditorTabTrigger>
+                          <ReviewEditorTabTrigger
+                            step={5}
+                            value="attachments"
+                            count={d.attachments?.length ?? 0}
+                          >
+                            Documents & liens
+                          </ReviewEditorTabTrigger>
+                          <ReviewEditorTabTrigger step={6} value="closure">
+                            Clôture
+                          </ReviewEditorTabTrigger>
+                        </>
+                      ) : null}
+                      <ReviewEditorTabTrigger
+                        step={isPostMortemReview ? 2 : 7}
+                        value="history"
+                      >
+                        Historique
+                      </ReviewEditorTabTrigger>
+                    </TabsList>
+                  </div>
+                ) : (
+                  <TabsList variant="line" className={reviewTabsListClass}>
                     <ReviewEditorTabTrigger step={1} value="general">
                       Vue générale
                     </ReviewEditorTabTrigger>
-                  ) : null}
-                  {!isPostMortemReview ? (
-                    <>
-                      <ReviewEditorTabTrigger
-                        step={isPage ? 1 : 2}
-                        value="agenda"
-                        count={d.agendaItems?.length ?? 0}
-                      >
-                        Ordre du jour
-                      </ReviewEditorTabTrigger>
-                      <ReviewEditorTabTrigger
-                        step={isPage ? 2 : 3}
-                        value="participants"
-                        count={d.participants?.length ?? 0}
-                      >
-                        Participants
-                      </ReviewEditorTabTrigger>
-                      <ReviewEditorTabTrigger
-                        step={isPage ? 3 : 4}
-                        value="decisions"
-                        count={d.decisions?.length ?? 0}
-                      >
-                        Décisions
-                      </ReviewEditorTabTrigger>
-                      <ReviewEditorTabTrigger
-                        step={isPage ? 4 : 5}
-                        value="actions"
-                        count={d.actionItems?.length ?? 0}
-                      >
-                        Actions
-                      </ReviewEditorTabTrigger>
-                      <ReviewEditorTabTrigger
-                        step={isPage ? 5 : 6}
-                        value="attachments"
-                        count={d.attachments?.length ?? 0}
-                      >
-                        Documents & liens
-                      </ReviewEditorTabTrigger>
-                    </>
-                  ) : null}
-                  <ReviewEditorTabTrigger
-                    step={isPostMortemReview ? 2 : isPage ? 6 : 7}
-                    value="history"
-                  >
-                    Historique
-                  </ReviewEditorTabTrigger>
-                </TabsList>
-                {isPage && !isPostMortemReview && !conductSidebarOpen
+                    {!isPostMortemReview ? (
+                      <>
+                        <ReviewEditorTabTrigger
+                          step={2}
+                          value="agenda"
+                          count={d.agendaItems?.length ?? 0}
+                        >
+                          Ordre du jour
+                        </ReviewEditorTabTrigger>
+                        <ReviewEditorTabTrigger
+                          step={3}
+                          value="participants"
+                          count={d.participants?.length ?? 0}
+                        >
+                          Participants
+                        </ReviewEditorTabTrigger>
+                        <ReviewEditorTabTrigger
+                          step={4}
+                          value="decisions"
+                          count={d.decisions?.length ?? 0}
+                        >
+                          Décisions
+                        </ReviewEditorTabTrigger>
+                        <ReviewEditorTabTrigger
+                          step={5}
+                          value="actions"
+                          count={d.actionItems?.length ?? 0}
+                        >
+                          Actions
+                        </ReviewEditorTabTrigger>
+                        <ReviewEditorTabTrigger
+                          step={6}
+                          value="attachments"
+                          count={d.attachments?.length ?? 0}
+                        >
+                          Documents & liens
+                        </ReviewEditorTabTrigger>
+                      </>
+                    ) : null}
+                    <ReviewEditorTabTrigger
+                      step={isPostMortemReview ? 2 : 7}
+                      value="history"
+                    >
+                      Historique
+                    </ReviewEditorTabTrigger>
+                  </TabsList>
+                )}
+                {isPage &&
+                !isPostMortemReview &&
+                (isConductWideLayout || !conductSidebarOpen)
                   ? conductSidebarToggle
                   : null}
               </div>
@@ -1623,8 +2365,15 @@ export function ProjectReviewEditorDialog({
                       id="pr-ed-type-h"
                       className={selectFieldClass}
                       value={reviewType}
-                      disabled={!editable}
-                      onChange={(e) => setReviewType(e.target.value as ProjectReviewType)}
+                      disabled={!(editable || typeEditable)}
+                      aria-describedby={
+                        typeEditable && isPilotageReviewType(reviewType)
+                          ? 'pr-ed-type-hint'
+                          : undefined
+                      }
+                      onChange={(e) =>
+                        handleReviewTypeChange(e.target.value as ProjectReviewType)
+                      }
                     >
                       {reviewTypeOptions.map((t) => (
                         <option key={t} value={t}>
@@ -1632,6 +2381,17 @@ export function ProjectReviewEditorDialog({
                         </option>
                       ))}
                     </select>
+                    {typeEditable && isPilotageReviewType(reviewType) ? (
+                      <p id="pr-ed-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                        {REVIEW_TYPE_AGENDA_HINT[reviewType]}
+                      </p>
+                    ) : null}
+                    {showAgendaPresetMismatch ? (
+                      <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                        Le type a changé — réinitialisez l’ordre du jour dans l’onglet dédié si
+                        besoin.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="starium-form-field">
                     <label htmlFor="pr-ed-date-h" className="starium-form-label">
@@ -1975,6 +2735,23 @@ export function ProjectReviewEditorDialog({
                 title="Risques et blocages"
                 description="Risques ouverts : criticité (probabilité × impact), plan d’action."
                 icon={Flag}
+                headerAction={
+                  reviewType === 'RISK_REVIEW' ? (
+                    <a
+                      href={projectRisks(projectId)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        buttonVariants({ variant: 'outline', size: 'sm' }),
+                        'min-h-11 gap-1.5',
+                      )}
+                    >
+                      <ExternalLink className="size-4 shrink-0" aria-hidden />
+                      Registre des risques
+                      <span className="sr-only"> (nouvel onglet)</span>
+                    </a>
+                  ) : undefined
+                }
               >
                 {risksQuery.isLoading ? (
                   <LoadingState rows={2} />
@@ -2165,7 +2942,7 @@ export function ProjectReviewEditorDialog({
                     </div>
                   </ReviewEditorSection>
                 </>
-              ) : (
+              ) : isPage ? null : (
               <ReviewEditorSection
                 sectionId="pr-section-summary"
                 title="Résumé exécutif"
@@ -2271,7 +3048,7 @@ export function ProjectReviewEditorDialog({
               </ReviewEditorSection>
               )}
 
-              {!isPostMortemReview && (
+              {!isPostMortemReview && !isPage && (
               <CommitteeMoodPicker
                 value={committeeMood}
                 onChange={setCommitteeMood}
@@ -2294,6 +3071,11 @@ export function ProjectReviewEditorDialog({
                       reviewAttachments={d.attachments ?? []}
                       onAddDecision={editable ? appendDecision : undefined}
                       onAddAction={editable ? appendAction : undefined}
+                      reviewType={reviewType}
+                      showAgendaPresetControls={showAgendaPresetControls}
+                      agendaPresetMismatch={showAgendaPresetMismatch}
+                      applyingAgendaPreset={applyingAgendaPreset}
+                      onApplyAgendaPreset={() => void applyAgendaPresetForType(reviewType)}
                     />
                   </TabsContent>
                   <TabsContent value="participants" className={reviewTabPanelClass}>
@@ -2334,6 +3116,11 @@ export function ProjectReviewEditorDialog({
                       canEdit={canEdit}
                     />
                   </TabsContent>
+                  {isPage ? (
+                    <TabsContent value="closure" className={reviewTabPanelClass}>
+                      {pointClosurePanel}
+                    </TabsContent>
+                  ) : null}
                 </>
               ) : null}
 
@@ -2400,24 +3187,131 @@ export function ProjectReviewEditorDialog({
     </StariumModal>
   );
 
+  const confirmFinalizeModal = (
+    <StariumModal
+      open={confirmFinalizeOpen}
+      onOpenChange={setConfirmFinalizeOpen}
+      title={
+        reviewType === 'POST_MORTEM'
+          ? 'Finaliser le retour d’expérience ?'
+          : 'Finaliser le point ?'
+      }
+      description={
+        reviewType === 'POST_MORTEM'
+          ? 'Le bilan sera figé avec un snapshot des indicateurs et du contenu saisi. Cette action est définitive.'
+          : 'Le point sera clôturé et figé avec un snapshot du compte rendu, des décisions et des actions. Cette action est définitive.'
+      }
+      icon={CheckCircle2}
+      size="md"
+      contentClassName="z-[90]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setConfirmFinalizeOpen(false)}>
+            Retour
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void onFinalize()}
+            disabled={finalize.isPending || update.isPending}
+          >
+            {finalize.isPending || update.isPending
+              ? 'Finalisation…'
+              : reviewType === 'POST_MORTEM'
+                ? 'Finaliser le REX'
+                : 'Finaliser le point'}
+          </Button>
+        </>
+      }
+    >
+      {d?.title?.trim() ? (
+        <p className="text-sm text-muted-foreground">
+          Point concerné :{' '}
+          <span className="font-medium text-foreground">{d.title.trim()}</span>
+        </p>
+      ) : null}
+    </StariumModal>
+  );
+
+  const confirmCancelModal = (
+    <StariumModal
+      open={confirmCancelOpen}
+      onOpenChange={setConfirmCancelOpen}
+      title={
+        reviewType === 'POST_MORTEM'
+          ? 'Annuler le brouillon ?'
+          : 'Annuler le point ?'
+      }
+      description={
+        reviewType === 'POST_MORTEM'
+          ? 'Le brouillon de retour d’expérience sera marqué comme annulé. Vous pourrez le rouvrir plus tard si besoin.'
+          : 'Le point sera marqué comme annulé. Vous pourrez le rouvrir plus tard pour reprendre la préparation.'
+      }
+      icon={AlertTriangle}
+      size="md"
+      contentClassName="z-[90]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setConfirmCancelOpen(false)}>
+            Retour
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => void onCancelReview()}
+            disabled={cancel.isPending}
+          >
+            {cancel.isPending
+              ? 'Annulation…'
+              : reviewType === 'POST_MORTEM'
+                ? 'Annuler le brouillon'
+                : 'Annuler le point'}
+          </Button>
+        </>
+      }
+    >
+      {d?.title?.trim() ? (
+        <p className="text-sm text-muted-foreground">
+          Point concerné :{' '}
+          <span className="font-medium text-foreground">{d.title.trim()}</span>
+        </p>
+      ) : null}
+    </StariumModal>
+  );
+
+  const reportPreviewDialog = (
+    <ReviewReportPreviewDialog
+      open={reportPreviewOpen}
+      onOpenChange={setReportPreviewOpen}
+      loading={reportPreviewLoading || reportPreview.isPending}
+      error={reportPreviewError}
+      preview={reportPreviewData}
+    />
+  );
+
   if (isPage) {
     return (
       <>
         <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <PageHeader
-            className="shrink-0"
+            className="shrink-0 max-lg:gap-1 max-lg:px-3 max-lg:py-2"
             backHref={projectPointsTab(projectId)}
-            eyebrow="Point de pilotage · Conduite de réunion"
+            eyebrow={
+              <span className="max-sm:sr-only">Point de pilotage · Conduite de réunion</span>
+            }
             title={reviewTitle}
             description={
-              d?.title?.trim()
-                ? `Objet : ${d.title.trim()}`
-                : 'Conduisez l’ordre du jour, capturez décisions et actions.'
+              d?.title?.trim() ? (
+                <span className="hidden sm:inline">{`Objet : ${d.title.trim()}`}</span>
+              ) : (
+                <span className="hidden sm:inline">
+                  Conduisez l’ordre du jour, capturez décisions et actions.
+                </span>
+              )
             }
             status={reviewStatusBadge}
           />
           {d && agendaProgress && agendaProgress.total > 0 ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className="hidden shrink-0 flex-wrap items-center gap-2 text-sm text-muted-foreground sm:flex">
               <span className="font-medium text-foreground" aria-live="polite">
                 Ordre du jour : {agendaProgress.treated}/{agendaProgress.total} traité
                 {agendaProgress.treated > 1 ? 's' : ''}
@@ -2429,33 +3323,34 @@ export function ProjectReviewEditorDialog({
           ) : null}
           <div
             className={cn(
-              'grid h-0 min-h-0 flex-1 gap-2 overflow-hidden [&>*]:min-h-0',
-              conductSidebarOpen
-                ? 'max-lg:grid-rows-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]'
-                : 'lg:grid-cols-1',
+              'grid h-0 min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden [&>*]:min-h-0',
+              isConductWideLayout && conductSidebarOpen && !isPostMortemReview
+                ? 'lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]'
+                : '',
             )}
           >
-            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card p-3 sm:p-4">
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card p-2 sm:p-4">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {renderEditorPanels()}
               </div>
             </div>
-            {conductSidebar ? (
-              <div
-                id="review-conduct-sidebar"
-                className="h-full min-h-0 overflow-hidden max-lg:max-h-[min(38vh,320px)]"
-              >
-                {conductSidebar}
+            {conductSidebarAside ? (
+              <div id="review-conduct-sidebar" className="hidden h-full min-h-0 overflow-hidden lg:block">
+                {conductSidebarAside}
               </div>
             ) : null}
           </div>
           {editorFooterContent ? (
-            <footer className="shrink-0 border-t border-border/70 bg-card/95 px-3 py-2">
+            <footer className="shrink-0 border-t border-border/70 bg-card/95 px-2 py-2 sm:px-3">
               {editorFooterContent}
             </footer>
           ) : null}
         </div>
+        {conductSidebarMobileSheet}
         {confirmNextModal}
+        {confirmFinalizeModal}
+        {confirmCancelModal}
+        {reportPreviewDialog}
       </>
     );
   }
@@ -2506,6 +3401,9 @@ export function ProjectReviewEditorDialog({
       {renderEditorPanels()}
     </StariumModal>
     {confirmNextModal}
+    {confirmFinalizeModal}
+    {confirmCancelModal}
+    {reportPreviewDialog}
     </>
   );
 }

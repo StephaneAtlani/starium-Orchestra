@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
@@ -9,11 +9,22 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetAlertsQueryDto } from './dto/get-alerts-query.dto';
 import { AlertsService } from './alerts.service';
+import { AlertsTriggerService } from './alerts-trigger.service';
 
 @Controller('alerts')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class AlertsController {
-  constructor(private readonly alertsService: AlertsService) {}
+  constructor(
+    private readonly alertsService: AlertsService,
+    private readonly alertsTriggerService: AlertsTriggerService,
+  ) {}
+
+  /** Recalcul immédiat des alertes métier du client actif (budget, projet, contrats). */
+  @Post('evaluate')
+  @RequirePermissions('alerts.update')
+  evaluate(@ActiveClientId() clientId: string | undefined) {
+    return this.alertsTriggerService.evaluateAllForClient(clientId!);
+  }
 
   @Get()
   @RequirePermissions('alerts.read')

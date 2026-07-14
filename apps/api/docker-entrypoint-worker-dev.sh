@@ -34,9 +34,32 @@ echo "[api-worker-dev] pnpm install (sync workspace)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 SCHEMA="/app/apps/api/prisma/schema.prisma"
+
+assert_generated_client_has_email_body_html() {
+  found=0
+  for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+    if [ -d "$d" ] && grep -rq 'emailBodyHtml' "$d" 2>/dev/null; then
+      found=1
+      break
+    fi
+  done
+  if [ "$found" != 1 ]; then
+    echo "[api-worker-dev] ERREUR: client Prisma sans emailBodyHtml (regénérer prisma generate)." >&2
+    exit 1
+  fi
+  echo "[api-worker-dev] client Prisma OK (emailBodyHtml présent)"
+}
+
+echo "[api-worker-dev] prisma migrate deploy..."
+pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
 echo "[api-worker-dev] prisma generate..."
 pnpm --filter @starium-orchestra/api exec prisma generate --schema="$SCHEMA"
+assert_generated_client_has_email_body_html
 
 cd /app/apps/api
+echo "[api-worker-dev] rm -rf dist (rebuild propre depuis src monté)..."
+rm -rf dist
+echo "[api-worker-dev] nest build (compilation complète avant watch)..."
+pnpm exec nest build
 echo "[api-worker-dev] nest start --watch (worker/main)"
 exec pnpm run start:worker:dev

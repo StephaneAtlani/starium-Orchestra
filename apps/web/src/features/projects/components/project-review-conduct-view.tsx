@@ -6,7 +6,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
 import { projectPointsTab } from '../constants/project-routes';
 import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
-import { isReviewInConduct } from '../lib/project-review-status';
+import { isReviewFinalizedOrCancelled, isReviewInConduct } from '../lib/project-review-status';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 
 type Props = {
@@ -28,9 +28,17 @@ export function ProjectReviewConductView({ projectId, reviewId }: Props) {
     if (!projectId || !reviewId) return;
     if (detailQuery.isLoading) return;
     if (detailQuery.error || !detailQuery.data) return;
-    if (!isReviewInConduct(detailQuery.data.status)) {
-      router.replace(`${projectPointsTab(projectId)}&openReview=${reviewId}`);
+    const status = detailQuery.data.status;
+    if (isReviewInConduct(status)) return;
+    // Point finalisé/annulé (souvent juste après l'action de conduite) :
+    // retour à la liste sans rouvrir l'éditeur sur un point désormais figé.
+    if (isReviewFinalizedOrCancelled(status)) {
+      router.replace(projectPointsTab(projectId));
+      return;
     }
+    // Autres statuts non-conduite encore éditables (planifié / en préparation) :
+    // on rouvre l'éditeur pour reprendre la préparation.
+    router.replace(`${projectPointsTab(projectId)}&openReview=${reviewId}`);
   }, [
     projectId,
     reviewId,

@@ -112,6 +112,18 @@ export async function cancelProjectReview(
   return res.json() as Promise<ProjectReviewDetail>;
 }
 
+export async function reopenProjectReview(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewDetail> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/reopen`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDetail>;
+}
+
 export async function inviteProjectReview(
   authFetch: AuthFetch,
   projectId: string,
@@ -320,4 +332,41 @@ export async function deleteProjectReviewAttachment(
   );
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<{ ok: boolean }>;
+}
+
+export type ProjectReviewReportPreview = {
+  subject: string;
+  title: string;
+  text: string;
+  html: string;
+};
+
+export type SendProjectReviewReportResult = {
+  emailed: number;
+  skippedNoEmail: number;
+  emailFailed: number;
+  emailDisabled?: boolean;
+  emailedParticipantIds: string[];
+};
+
+export async function getProjectReviewReportPreview(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewReportPreview> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/report-preview`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewReportPreview>;
+}
+
+export async function sendProjectReviewReport(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<SendProjectReviewReportResult> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/send-report`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SendProjectReviewReportResult>;
 }

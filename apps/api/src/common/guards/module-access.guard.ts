@@ -19,11 +19,23 @@ import { EffectivePermissionsService } from '../services/effective-permissions.s
 import { RequestWithClient } from '../types/request-with-client';
 
 /**
+ * Modules socle : notifications & alertes sont **toujours actifs par défaut**
+ * pour tous les utilisateurs et **non désactivables** au niveau client
+ * (ClientModule / visibilité de profil). Seul le platform_admin peut les couper
+ * globalement via `Module.isActive = false`.
+ */
+const BASELINE_MODULE_CODES = new Set<string>(['notifications', 'alerts']);
+
+/**
  * Vérifie pour chaque permission décorée :
  * - module actif globalement et activé (ENABLED) pour le client actif ;
  * - module visible pour l’utilisateur (RFC-ACL-004) ;
  * - RBAC : aligné sur PermissionsGuard (RequirePermissions = tout requis,
  *   RequireAnyPermissions = au moins une alternative détenue ET valide sur le même triplet).
+ *
+ * Exception : les modules socle (notifications, alertes) contournent les
+ * vérifications ClientModule + visibilité ; seul `Module.isActive` (levier
+ * platform_admin) peut les bloquer.
  */
 @Injectable()
 export class ModuleAccessGuard implements CanActivate {
@@ -194,6 +206,15 @@ export class ModuleAccessGuard implements CanActivate {
       const moduleCode = perm.split('.')[0];
       if (!moduleCode) continue;
       const m = byCode.get(moduleCode);
+
+      // Socle : toujours accessible sauf coupure globale platform_admin (Module.isActive=false).
+      if (BASELINE_MODULE_CODES.has(moduleCode)) {
+        if (!m || m.isActive) {
+          return true;
+        }
+        continue;
+      }
+
       if (!m?.isActive || m.clientModules.length === 0) {
         continue;
       }
@@ -241,6 +262,17 @@ export class ModuleAccessGuard implements CanActivate {
 
     for (const code of moduleCodes) {
       const m = byCode.get(code);
+
+      // Socle : non désactivable côté client ; seul platform_admin coupe via Module.isActive=false.
+      if (BASELINE_MODULE_CODES.has(code)) {
+        if (m && !m.isActive) {
+          throw new ForbiddenException(
+            'Module désactivé au niveau plateforme',
+          );
+        }
+        continue;
+      }
+
       if (!m || !m.isActive || m.clientModules.length === 0) {
         throw new ForbiddenException('Module inactif ou inexistant');
       }

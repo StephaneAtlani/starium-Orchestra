@@ -8,6 +8,8 @@ import {
 
 export type SendEmailJobPayload = {
   emailDeliveryId: string;
+  /** Repli si la colonne emailBodyHtml n’est pas encore lue (jobs en file avant migration). */
+  mimeHtml?: string | null;
 };
 
 export type LicenseExpirationScanJobPayload = {
@@ -36,6 +38,8 @@ export class QueueService {
       },
       removeOnComplete: 1000,
       removeOnFail: 2000,
+      // BullMQ interdit les ":" dans les jobId custom (délimiteur Redis interne).
+      jobId: `send_email_${payload.emailDeliveryId}`,
     };
 
     const job = await this.emailQueue.add('send_email', payload, options);

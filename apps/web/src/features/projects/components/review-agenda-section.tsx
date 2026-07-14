@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL,
   PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
   PROJECT_REVIEW_MEETING_MODE_LABEL,
+  PROJECT_REVIEW_TYPE_LABEL,
 } from '../constants/project-enum-labels';
+import { isPilotageReviewType, REVIEW_TYPE_AGENDA_HINT } from '../lib/project-review-agenda-presets';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import {
   findNextOpenAgendaItemId,
@@ -29,6 +31,7 @@ import type {
   ProjectReviewDetail,
   ProjectReviewMeetingMode,
   ProjectReviewStatus,
+  ProjectReviewType,
 } from '../types/project.types';
 import type { ReviewActionFormRow } from './review-actions-section';
 import type { ReviewDecisionFormRow } from './review-decisions-section';
@@ -47,12 +50,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ExternalLink,
   ListOrdered,
   Play,
+  RotateCcw,
   SkipForward,
   Square,
   Video,
 } from 'lucide-react';
+import { projectRisks } from '../constants/project-routes';
 
 type Props = {
   projectId: string;
@@ -65,6 +71,11 @@ type Props = {
   reviewAttachments?: ProjectReviewAttachmentApi[];
   onAddDecision?: (row: ReviewDecisionFormRow) => void;
   onAddAction?: (row: ReviewActionFormRow) => void;
+  reviewType?: ProjectReviewType;
+  showAgendaPresetControls?: boolean;
+  agendaPresetMismatch?: boolean;
+  onApplyAgendaPreset?: () => void;
+  applyingAgendaPreset?: boolean;
 };
 
 function agendaItemStatusClass(status: ProjectReviewAgendaItemApi['status']): string {
@@ -119,6 +130,26 @@ function AgendaItemNumberBadge({
   );
 }
 
+function RiskReviewRegisterLink({ projectId }: { projectId: string }) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/15 p-3">
+      <p className="text-sm text-muted-foreground">
+        Consultez le registre des risques du projet pendant la revue.
+      </p>
+      <a
+        href={projectRisks(projectId)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="starium-link mt-2 inline-flex min-h-11 items-center gap-1.5 font-medium"
+      >
+        <ExternalLink className="size-4 shrink-0" aria-hidden />
+        Ouvrir le registre des risques
+        <span className="sr-only"> (nouvel onglet)</span>
+      </a>
+    </div>
+  );
+}
+
 export function ReviewAgendaSection({
   projectId,
   reviewId,
@@ -130,6 +161,11 @@ export function ReviewAgendaSection({
   reviewAttachments = [],
   onAddDecision,
   onAddAction,
+  reviewType,
+  showAgendaPresetControls = false,
+  agendaPresetMismatch = false,
+  onApplyAgendaPreset,
+  applyingAgendaPreset = false,
 }: Props) {
   const {
     createAgendaItem,
@@ -148,6 +184,7 @@ export function ReviewAgendaSection({
   const [objective, setObjective] = useState('');
   const [expectedDecision, setExpectedDecision] = useState('');
   const [quickAddKind, setQuickAddKind] = useState<ReviewAgendaQuickAddKind | null>(null);
+  const conductStepNavRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const sortedItems = useMemo(() => sortReviewAgendaItems(agendaItems), [agendaItems]);
   const progress = useMemo(() => reviewAgendaConductProgress(agendaItems), [agendaItems]);
@@ -155,6 +192,13 @@ export function ReviewAgendaSection({
   const agendaEditable = canEdit && isReviewAgendaEditable(status);
   const conductEditable = canEdit && isReviewAgendaConductEditable(status);
   const readOnly = isReviewFinalizedOrCancelled(status);
+  const conductLayout = isReviewAgendaConductEditable(status);
+
+  useEffect(() => {
+    if (!selectedId || !conductLayout) return;
+    const stepButton = conductStepNavRefs.current.get(selectedId);
+    stepButton?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [selectedId, conductLayout]);
 
   const selected = sortedItems.find((i) => i.id === selectedId) ?? null;
   const selectedIndex = selected ? sortedItems.findIndex((i) => i.id === selected.id) : -1;
@@ -265,7 +309,6 @@ export function ReviewAgendaSection({
     selectItem(sortedItems[target]);
   };
 
-  const conductLayout = isReviewAgendaConductEditable(status);
   const progressPct =
     progress.total > 0 ? Math.round((progress.treated / progress.total) * 100) : 0;
 
@@ -315,6 +358,20 @@ export function ReviewAgendaSection({
               </div>
               {selected.description ? (
                 <p className="mt-2 text-sm text-muted-foreground">{selected.description}</p>
+              ) : null}
+              {reviewType === 'RISK_REVIEW' && selected.itemType === 'RISK' ? (
+                <p className="mt-3">
+                  <a
+                    href={projectRisks(projectId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="starium-link inline-flex min-h-11 items-center gap-1.5 text-sm font-medium"
+                  >
+                    <ExternalLink className="size-4 shrink-0" aria-hidden />
+                    Registre des risques du projet
+                    <span className="sr-only"> (nouvel onglet)</span>
+                  </a>
+                </p>
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -643,42 +700,70 @@ export function ReviewAgendaSection({
               </div>
             ) : null}
 
+            {reviewType === 'RISK_REVIEW' ? (
+              <div className="mt-4">
+                <RiskReviewRegisterLink projectId={projectId} />
+              </div>
+            ) : null}
+
             <nav
-              className="mt-4 -mx-1 overflow-x-auto overscroll-contain px-1 pb-1"
+              className="mt-4 overflow-x-auto overscroll-contain px-1 py-1 pb-2.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full"
               aria-label="Navigation entre les points de l'ordre du jour"
             >
-              <ol className="flex min-w-max gap-2">
+              <ol className="flex min-w-max items-center gap-1 py-0.5">
                 {sortedItems.map((item, index) => {
                   const isSelected = selectedId === item.id;
+                  const isDone = item.status === 'DONE';
+                  const isCurrent = item.status === 'IN_PROGRESS';
                   return (
                     <li key={item.id}>
                       <button
                         type="button"
+                        ref={(node) => {
+                          if (node) conductStepNavRefs.current.set(item.id, node);
+                          else conductStepNavRefs.current.delete(item.id);
+                        }}
                         className={cn(
-                          'flex min-h-11 max-w-[14rem] items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-colors',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                          'group/step relative flex min-h-11 max-w-[11rem] items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                           isSelected
-                            ? 'border-[color:var(--brand-gold-700)] bg-[color:color-mix(in_srgb,var(--brand-gold-700)_10%,transparent)] shadow-sm'
-                            : 'border-border/70 bg-background hover:bg-muted/30',
-                          item.status === 'DONE' && !isSelected && 'opacity-75',
+                            ? 'bg-[color:color-mix(in_srgb,var(--brand-gold-700)_14%,transparent)] text-foreground ring-2 ring-[color:var(--brand-gold-700)]/35 ring-offset-2 ring-offset-card'
+                            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
                         )}
                         aria-current={isSelected ? 'step' : undefined}
                         onClick={() => selectItem(item)}
+                        title={item.title}
                       >
-                        <AgendaItemNumberBadge
-                          number={index + 1}
-                          status={item.status}
-                          selected={isSelected}
-                          compact
-                        />
                         <span
                           className={cn(
-                            'min-w-0 truncate font-medium',
-                            item.status === 'SKIPPED' && 'text-muted-foreground line-through',
+                            'flex size-5 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-semibold tabular-nums transition-colors',
+                            isDone
+                              ? 'bg-[color:var(--state-success)] text-white'
+                              : isCurrent
+                                ? 'bg-[color:var(--brand-gold-700)] text-white'
+                                : isSelected
+                                  ? 'bg-[color:var(--brand-gold-700)]/15 text-[color:var(--brand-gold-700)]'
+                                  : 'bg-muted text-muted-foreground group-hover/step:bg-muted-foreground/20',
+                          )}
+                          aria-hidden
+                        >
+                          {isDone ? <CheckCircle2 className="size-3" /> : index + 1}
+                        </span>
+                        <span
+                          className={cn(
+                            'min-w-0 truncate',
+                            isSelected && 'font-medium',
+                            item.status === 'SKIPPED' && 'line-through opacity-70',
                           )}
                         >
                           {item.title}
                         </span>
+                        {isSelected ? (
+                          <span
+                            className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-[color:var(--brand-gold-700)]"
+                            aria-hidden
+                          />
+                        ) : null}
                       </button>
                     </li>
                   );
@@ -701,14 +786,45 @@ export function ReviewAgendaSection({
                 <ListOrdered aria-hidden />
                 Ordre du jour
               </h3>
+              {reviewType && isPilotageReviewType(reviewType) ? (
+                <p className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                  {REVIEW_TYPE_AGENDA_HINT[reviewType]}
+                </p>
+              ) : null}
+              {agendaPresetMismatch ? (
+                <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                  Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
+                  {reviewType ? (PROJECT_REVIEW_TYPE_LABEL[reviewType] ?? reviewType) : ''}.
+                </p>
+              ) : null}
               {sortedItems.length > 0 ? (
                 <p className="starium-form-hint mb-0 mt-2">
                   {sortedItems.length} point{sortedItems.length > 1 ? 's' : ''} numéroté
                   {sortedItems.length > 1 ? 's' : ''}
+                  {reviewType && isPilotageReviewType(reviewType)
+                    ? ` — modèle ${PROJECT_REVIEW_TYPE_LABEL[reviewType] ?? reviewType}`
+                    : ''}
                 </p>
               ) : null}
             </div>
+            {showAgendaPresetControls && onApplyAgendaPreset ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-9 shrink-0 gap-1.5"
+                disabled={applyingAgendaPreset || !agendaEditable}
+                onClick={() => onApplyAgendaPreset()}
+              >
+                <RotateCcw className="size-4" aria-hidden />
+                {applyingAgendaPreset ? 'Application…' : 'Réinitialiser selon le type'}
+              </Button>
+            ) : null}
           </div>
+
+          {reviewType === 'RISK_REVIEW' ? (
+            <RiskReviewRegisterLink projectId={projectId} />
+          ) : null}
 
           {sortedItems.length === 0 ? (
             <p className="starium-form-hint">Aucun point d’ordre du jour.</p>

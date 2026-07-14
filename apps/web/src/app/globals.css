@@ -765,21 +765,107 @@ html.dark {
   color: var(--purple);
 }
 
-/* Grille aperçu projet (mockup .g4) */
+/* Grille aperçu projet (mockup .g4) — 2 lignes : météo puis 4 cartes */
 .starium-proj-overview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.starium-proj-overview-grid__core {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 @media (max-width: 1100px) {
-  .starium-proj-overview-grid {
+  .starium-proj-overview-grid__core {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {
-  .starium-proj-overview-grid {
+  .starium-proj-overview-grid__core {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Bandeau météo comité — 2 lignes sur l’aperçu projet */
+.starium-ov-card--mood-strip {
+  gap: 0;
+  padding: 16px 20px;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__row + .starium-ov-mood-strip__row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--neutral-200, var(--border));
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__title-ico {
+  color: var(--brand-gold, var(--primary));
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__title-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__value-ico {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg, 14px);
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__value-ico svg {
+  width: 22px;
+  height: 22px;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__value-label {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__meta strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__meta-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--brand-gold-700);
+}
+.starium-ov-card--mood-strip .starium-ov-btn {
+  margin-top: 0;
+  width: auto;
+  min-height: 44px;
+  flex-shrink: 0;
 }
 
 /* Synthèse projet — bloc données récentes (mockup stat-cards + dt) */

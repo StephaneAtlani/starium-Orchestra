@@ -57,6 +57,7 @@ import { EmailModule } from '../email/email.module';
 import { MicrosoftModule } from '../microsoft/microsoft.module';
 import { ProjectReviewInvitationsService } from './project-reviews/project-review-invitations.service';
 import { ProjectReviewEmailInvitationsService } from './project-reviews/project-review-email-invitations.service';
+import { ProjectReviewEmailReportService } from './project-reviews/project-review-email-report.service';
 import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-review-microsoft-meeting.service';
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-
     ProjectReviewAttachmentsService,
     ProjectReviewInvitationsService,
     ProjectReviewEmailInvitationsService,
+    ProjectReviewEmailReportService,
     ProjectReviewMicrosoftMeetingService,
     ProjectPortfolioCategoriesService,
     ProjectDocumentsService,

@@ -231,15 +231,6 @@ export function ReviewHistorySection({ status, snapshotPayload }: Props) {
             </ul>
           </div>
         ) : null}
-
-        <details className="rounded-lg border border-border/60 bg-muted/20 p-3">
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-            Voir le JSON complet du snapshot
-          </summary>
-          <pre className="mt-3 max-h-64 overflow-auto rounded-md bg-background p-2 text-[0.65rem] leading-relaxed">
-            {JSON.stringify(snapshotPayload, null, 2)}
-          </pre>
-        </details>
       </div>
     </ReviewEditorSection>
   );

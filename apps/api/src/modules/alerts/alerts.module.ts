@@ -6,11 +6,16 @@ import { EmailModule } from '../email/email.module';
 import { AlertsController } from './alerts.controller';
 import { AlertsService } from './alerts.service';
 import { AlertsTriggerService } from './alerts-trigger.service';
+import { AlertsTriggerSchedulerService } from './alerts-trigger-scheduler.service';
 
 @Module({
   imports: [AuthModule, PrismaModule, AuditLogsModule, EmailModule],
   controllers: [AlertsController],
-  providers: [AlertsService, AlertsTriggerService],
+  providers: [
+    AlertsService,
+    AlertsTriggerService,
+    AlertsTriggerSchedulerService,
+  ],
   exports: [AlertsService, AlertsTriggerService],
 })
 export class AlertsModule {}

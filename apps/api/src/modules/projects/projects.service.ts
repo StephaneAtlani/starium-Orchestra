@@ -97,6 +97,7 @@ import {
   wouldSetParentCreateCycle,
   type ProjectParentSummary,
 } from './project-hierarchy.util';
+import { loadLatestCommitteeMoodForProject } from './project-reviews/project-review-committee-mood.helpers';
 
 const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
@@ -206,6 +207,11 @@ export type ProjectDetailDto = ProjectListItemDto & {
   lastModifiedByDisplayName: string | null;
   /** RFC-PROJ-019 — ancêtres ordonnés racine → parent direct. */
   ancestorChain: ProjectParentSummary[];
+  /** Météo du comité (dernier point en cours ou finalisé qui en définit une). */
+  committeeMood: ComputedHealth | null;
+  committeeMoodReviewId: string | null;
+  committeeMoodReviewTitle: string | null;
+  committeeMoodReviewDate: string | null;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -1708,6 +1714,11 @@ export class ProjectsService {
       );
     });
     const lastModification = await this.findLastProjectModification(clientId, id);
+    const committeeMoodSummary = await loadLatestCommitteeMoodForProject(
+      this.prisma,
+      clientId,
+      id,
+    );
     return {
       ...base,
       description: project.description,
@@ -1721,6 +1732,7 @@ export class ProjectsService {
       lastModifiedAt: lastModification?.at ?? null,
       lastModifiedByDisplayName: lastModification?.userDisplayName ?? null,
       ancestorChain,
+      ...committeeMoodSummary,
     };
   }
 

@@ -1,6 +1,7 @@
 import type { Project } from '@prisma/client';
 import {
   buildProjectReviewSnapshotPayload,
+  parseCommitteeMood,
   snapshotContainsSensitiveUrls,
 } from './project-reviews-snapshot.builder';
 import { ProjectsPilotageService } from '../projects-pilotage.service';
@@ -18,6 +19,7 @@ describe('project-reviews-snapshot.builder', () => {
     reviewDate: new Date('2026-06-01T10:00:00.000Z'),
     durationMinutes: 90,
     nextReviewDate: null,
+    contentPayload: null,
   };
 
   const baseProject = {
@@ -82,5 +84,42 @@ describe('project-reviews-snapshot.builder', () => {
       agendaItemTitle: 'Budget',
     });
     expect(attachments[0].url).toBeUndefined();
+  });
+
+  it('parseCommitteeMood lit committeeMood depuis contentPayload', () => {
+    expect(parseCommitteeMood({ committeeMood: 'ORANGE' })).toBe('ORANGE');
+    expect(parseCommitteeMood({ committeeMood: 'GREEN' })).toBe('GREEN');
+    expect(parseCommitteeMood({ committeeMood: 'RED' })).toBe('RED');
+    expect(parseCommitteeMood({ committeeMood: 'BLUE' })).toBeNull();
+    expect(parseCommitteeMood(null)).toBeNull();
+    expect(parseCommitteeMood([])).toBeNull();
+  });
+
+  it('fige committeeMood dans le snapshot quand défini en réunion', () => {
+    const payload = buildProjectReviewSnapshotPayload({
+      review: {
+        ...baseReview,
+        contentPayload: { committeeMood: 'RED' },
+      },
+      facilitatorDisplayName: null,
+      attachments: [],
+      standaloneDecisions: [],
+      standaloneActions: [],
+      agendaTitleById: new Map(),
+      project: baseProject,
+      tasks: [],
+      risks: [],
+      milestones: [],
+      budgetLinks: [],
+      pilotage,
+      meeting: { meetingMode: 'REMOTE', location: null },
+      participants: [],
+      agenda: [],
+    });
+
+    const parsed = payload as {
+      review: { committeeMood: string | null };
+    };
+    expect(parsed.review.committeeMood).toBe('RED');
   });
 });

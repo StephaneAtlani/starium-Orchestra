@@ -107,6 +107,7 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_UPDATED: 'project.review.updated',
   PROJECT_REVIEW_FINALIZED: 'project.review.finalized',
   PROJECT_REVIEW_CANCELLED: 'project.review.cancelled',
+  PROJECT_REVIEW_REOPENED: 'project.review.reopened',
   PROJECT_REVIEW_STARTED: 'project.review.started',
   PROJECT_REVIEW_AGENDA_ITEM_CREATED: 'project.review.agenda_item.created',
   PROJECT_REVIEW_AGENDA_ITEM_UPDATED: 'project.review.agenda_item.updated',
@@ -126,6 +127,8 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_INVITE_FAILED: 'project.review.invite_failed',
   PROJECT_REVIEW_EMAILED: 'project.review.emailed',
   PROJECT_REVIEW_EMAIL_FAILED: 'project.review.email_failed',
+  PROJECT_REVIEW_REPORT_EMAILED: 'project.review.report_emailed',
+  PROJECT_REVIEW_REPORT_EMAIL_FAILED: 'project.review.report_email_failed',
   PROJECT_REVIEW_TEAMS_MEETING_CREATED: 'project.review.teams_meeting.created',
   PROJECT_REVIEW_TEAMS_MEETING_UPDATED: 'project.review.teams_meeting.updated',
   PROJECT_REVIEW_TEAMS_MEETING_OVERWRITE_CONFIRMED:

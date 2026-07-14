@@ -158,6 +158,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       pilotage as unknown as ProjectsPilotageService,
       auditLogs as unknown as AuditLogsService,
       invitations as unknown as ProjectReviewInvitationsService,
+      { sendReport: jest.fn() } as never,
     );
   });
 
@@ -456,6 +457,66 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         }),
       }),
     );
+  });
+
+  it('reopen depuis CANCELLED avec date → SCHEDULED et efface les marqueurs', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.CANCELLED,
+        reviewDate: new Date('2025-06-01'),
+        cancelledAt: new Date(),
+        cancelledByUserId: 'u1',
+      }),
+    );
+    prisma.projectReview.update.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.SCHEDULED }),
+    );
+
+    await service.reopen(clientId, projectId, reviewId, { actorUserId: 'u2' });
+
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProjectReviewStatus.SCHEDULED,
+          cancelledAt: null,
+          cancelledByUserId: null,
+        }),
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_REOPENED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      }),
+    );
+  });
+
+  it('reopen depuis CANCELLED sans date → PREPARING', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.CANCELLED, reviewDate: null }),
+    );
+    prisma.projectReview.update.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.PREPARING }),
+    );
+
+    await service.reopen(clientId, projectId, reviewId, { actorUserId: 'u2' });
+
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: ProjectReviewStatus.PREPARING,
+        }),
+      }),
+    );
+  });
+
+  it('reopen refusé si le point n’est pas annulé', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.FINALIZED }),
+    );
+    await expect(
+      service.reopen(clientId, projectId, reviewId, { actorUserId: 'u2' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('update spawn next review en SCHEDULED', async () => {

@@ -17,6 +17,7 @@ import {
   Monitor,
   PenLine,
   Plus,
+  RotateCcw,
   Trash2,
   UserPlus,
   Users,
@@ -30,6 +31,12 @@ import {
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
+import {
+  cloneAgendaPresetRows,
+  getAgendaPresetForReviewType,
+  isPilotageReviewType,
+  REVIEW_TYPE_AGENDA_HINT,
+} from '../lib/project-review-agenda-presets';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
@@ -102,6 +109,11 @@ const emptyAgendaRow = (): CreateAgendaRow => ({
   description: '',
   itemType: 'INFORMATION',
 });
+
+function initialAgendaForType(reviewType: ProjectReviewType): CreateAgendaRow[] {
+  const preset = getAgendaPresetForReviewType(reviewType);
+  return preset.length > 0 ? cloneAgendaPresetRows(preset) : [emptyAgendaRow()];
+}
 
 function isApiFormError(e: unknown): e is ApiFormError {
   return (
@@ -291,9 +303,12 @@ export function ProjectReviewCreateDialog({
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
     emptyParticipantRow(),
   ]);
-  const [createAgendaItems, setCreateAgendaItems] = useState<CreateAgendaRow[]>([
-    emptyAgendaRow(),
-  ]);
+  const [createAgendaItems, setCreateAgendaItems] = useState<CreateAgendaRow[]>(() =>
+    initialAgendaForType('COPIL'),
+  );
+  const [agendaDirty, setAgendaDirty] = useState(false);
+  const [agendaPresetSourceType, setAgendaPresetSourceType] =
+    useState<ProjectReviewType>('COPIL');
   const [createDecisions, setCreateDecisions] = useState<CreateDecisionRow[]>([
     emptyDecisionRow(),
   ]);
@@ -305,18 +320,45 @@ export function ProjectReviewCreateDialog({
 
   const createFormSeededRef = useRef(false);
 
+  const applyAgendaPresetFromType = useCallback((reviewType: ProjectReviewType) => {
+    setCreateAgendaItems(initialAgendaForType(reviewType));
+    setAgendaDirty(false);
+    setAgendaPresetSourceType(reviewType);
+  }, []);
+
+  const markAgendaDirty = useCallback(() => {
+    setAgendaDirty(true);
+  }, []);
+
+  const handleReviewTypeChange = useCallback(
+    (nextType: ProjectReviewType) => {
+      setFormType(nextType);
+      if (!agendaDirty) {
+        applyAgendaPresetFromType(nextType);
+      }
+    },
+    [agendaDirty, applyAgendaPresetFromType],
+  );
+
   const resetForm = useCallback(() => {
     setFormDate('');
-    setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
+    const defaultType = postMortemEligible ? 'POST_MORTEM' : 'COPIL';
+    setFormType(defaultType);
     setFormTitle('');
     setFormObjective('');
-    setCreateAgendaItems([emptyAgendaRow()]);
+    if (postMortemEligible) {
+      setCreateAgendaItems([emptyAgendaRow()]);
+      setAgendaDirty(false);
+      setAgendaPresetSourceType(defaultType);
+    } else {
+      applyAgendaPresetFromType('COPIL');
+    }
     setFormMeetingMode('');
     setFormMeetingUrl('');
     setFormLocation('');
     setFormCreationMode('PREPARING');
     setCreateDecisions([emptyDecisionRow()]);
-  }, [postMortemEligible]);
+  }, [postMortemEligible, applyAgendaPresetFromType]);
 
   useEffect(() => {
     if (!open) {
@@ -445,6 +487,13 @@ export function ProjectReviewCreateDialog({
 
   const showMeetingUrl = formMeetingMode === 'REMOTE' || formMeetingMode === 'HYBRID';
   const showLocation = formMeetingMode === 'ONSITE' || formMeetingMode === 'HYBRID';
+  const agendaPresetCount = createAgendaItems.filter((row) => row.title.trim()).length;
+  const showAgendaPresetMismatch =
+    !postMortemEligible && agendaDirty && formType !== agendaPresetSourceType;
+  const showAgendaPresetReset =
+    !postMortemEligible &&
+    isPilotageReviewType(formType) &&
+    (agendaDirty || formType !== agendaPresetSourceType);
 
   return (
     <StariumModal
@@ -516,7 +565,12 @@ export function ProjectReviewCreateDialog({
                       id="pr-type"
                       className="starium-form-select min-h-11"
                       value={formType}
-                      onChange={(e) => setFormType(e.target.value as ProjectReviewType)}
+                      aria-describedby={
+                        isPilotageReviewType(formType) ? 'pr-type-hint' : undefined
+                      }
+                      onChange={(e) =>
+                        handleReviewTypeChange(e.target.value as ProjectReviewType)
+                      }
                       disabled={postMortemEligible && createTypeOptions.length === 1}
                     >
                       {createTypeOptions.map((t) => (
@@ -525,6 +579,18 @@ export function ProjectReviewCreateDialog({
                         </option>
                       ))}
                     </select>
+                    {isPilotageReviewType(formType) ? (
+                      <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                        {REVIEW_TYPE_AGENDA_HINT[formType]}
+                      </p>
+                    ) : null}
+                    {showAgendaPresetMismatch ? (
+                      <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                        Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
+                        {PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}. Vous pouvez le
+                        réinitialiser ci-dessous.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="starium-form-field starium-form-grid--span-2">
                     <label htmlFor="pr-title" className="starium-form-label">
@@ -838,17 +904,34 @@ export function ProjectReviewCreateDialog({
                 <OptionalBlock
                   id="create-pr-agenda"
                   title="Ordre du jour"
-                  summary="Points structurés — complétables dans l’éditeur"
+                  summary={
+                    agendaPresetCount > 0
+                      ? `${agendaPresetCount} point(s) — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}`
+                      : 'Points structurés — complétables dans l’éditeur'
+                  }
                 >
-                  <div className="mb-3 flex justify-end">
+                  <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                    {showAgendaPresetReset ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-9 gap-1.5"
+                        onClick={() => applyAgendaPresetFromType(formType)}
+                      >
+                        <RotateCcw className="size-4" aria-hidden />
+                        Réinitialiser selon le type
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       className="min-h-9 gap-1.5"
-                      onClick={() =>
-                        setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()])
-                      }
+                      onClick={() => {
+                        markAgendaDirty();
+                        setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
+                      }}
                     >
                       <Plus className="size-4" aria-hidden />
                       Ajouter un point
@@ -876,6 +959,7 @@ export function ProjectReviewCreateDialog({
                                   value={row.itemType}
                                   onChange={(e) => {
                                     const v = e.target.value as ProjectReviewAgendaItemType;
+                                    markAgendaDirty();
                                     setCreateAgendaItems((prev) =>
                                       prev.map((x, j) => (j === i ? { ...x, itemType: v } : x)),
                                     );
@@ -904,6 +988,7 @@ export function ProjectReviewCreateDialog({
                                   maxLength={500}
                                   onChange={(e) => {
                                     const v = e.target.value;
+                                    markAgendaDirty();
                                     setCreateAgendaItems((prev) =>
                                       prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
                                     );
@@ -929,6 +1014,7 @@ export function ProjectReviewCreateDialog({
                                 maxLength={8000}
                                 onChange={(e) => {
                                   const v = e.target.value;
+                                  markAgendaDirty();
                                   setCreateAgendaItems((prev) =>
                                     prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
                                   );
@@ -944,9 +1030,10 @@ export function ProjectReviewCreateDialog({
                               size="icon"
                               className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
                               aria-label={`Retirer le point ${row.title.trim() || i + 1}`}
-                              onClick={() =>
-                                setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i))
-                              }
+                              onClick={() => {
+                                markAgendaDirty();
+                                setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
+                              }}
                             >
                               <Trash2 className="size-4" aria-hidden />
                             </Button>
@@ -955,12 +1042,18 @@ export function ProjectReviewCreateDialog({
                       </li>
                     ))}
                   </ul>
-                  {createAgendaItems.every((row) => !row.title.trim()) ? (
+                  {agendaPresetCount > 0 ? (
+                    <p className="starium-form-hint mt-2">
+                      <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
+                      Modèle prérempli selon le type — ajustez les points ou réinitialisez si
+                      besoin.
+                    </p>
+                  ) : (
                     <p className="starium-form-hint mt-2">
                       <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
                       Laissez vide si vous préférez constituer l’ordre du jour dans l’éditeur.
                     </p>
-                  ) : null}
+                  )}
                 </OptionalBlock>
 
                 <OptionalBlock

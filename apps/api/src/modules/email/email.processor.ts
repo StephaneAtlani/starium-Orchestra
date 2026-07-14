@@ -24,14 +24,17 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
 
     this.worker = new Worker(
       EMAIL_QUEUE_NAME,
-      async (job: Job<{ emailDeliveryId: string }>) => {
+      async (job: Job<{ emailDeliveryId: string; mimeHtml?: string | null }>) => {
         if (job.name !== 'send_email') return;
         const id = job.data.emailDeliveryId;
+        const mimeHtmlLen = job.data.mimeHtml?.length ?? 0;
         this.logger.log(
-          `[EMAIL worker] traitement job BullMQ id=${String(job.id)} emailDeliveryId=${id}`,
+          `[EMAIL worker] traitement job BullMQ id=${String(job.id)} emailDeliveryId=${id} mimeHtmlLen=${mimeHtmlLen}`,
         );
         try {
-          await this.emailService.processEmailDelivery(id);
+          await this.emailService.processEmailDelivery(id, {
+            mimeHtml: job.data.mimeHtml,
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e ?? '');
           this.logger.error(

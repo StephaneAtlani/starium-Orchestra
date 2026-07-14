@@ -4708,6 +4708,8 @@ model EmailDelivery {
   /// Titre / message affichés dans le template au moment de l’envoi (évite une recomposition incorrecte depuis subject seul).
   emailBodyTitle     String?
   emailBodyMessage   String?
+  /// Corps HTML complet pour templates riches (ex. compte rendu point projet).
+  emailBodyHtml      String?
   templateKey     String
   status          EmailDeliveryStatus @default(PENDING)
   attempts        Int                 @default(0)

@@ -45,7 +45,18 @@ import {
 import {
   buildProjectReviewSnapshotPayload,
   type ProjectReviewSnapshotAgendaItem,
+  type ProjectReviewSnapshotPayload,
 } from './project-reviews-snapshot.builder';
+import {
+  buildProjectReviewReportContent,
+  parseProjectReviewSnapshotPayload,
+  resolveProjectReviewReportAppBaseUrl,
+} from './project-review-report.builder';
+import {
+  resolveCommitteeMoodFromReviewRecord,
+  resolveCommitteeMoodWithPreviousReviews,
+} from './project-review-committee-mood.helpers';
+import { ProjectReviewEmailReportService } from './project-review-email-report.service';
 
 const reviewInclude = {
   participants: {
@@ -95,6 +106,7 @@ export class ProjectReviewsService {
     private readonly pilotage: ProjectsPilotageService,
     private readonly auditLogs: AuditLogsService,
     private readonly invitations: ProjectReviewInvitationsService,
+    private readonly emailReport: ProjectReviewEmailReportService,
   ) {}
 
   private async validateLinkedTasks(
@@ -1613,5 +1625,275 @@ export class ProjectReviewsService {
     });
 
     return this.mapReviewToDetail(updated);
+  }
+
+  /**
+   * Réouvre un point annulé : CANCELLED → SCHEDULED (si une date est fixée)
+   * ou PREPARING (sinon). Efface les marqueurs d'annulation.
+   */
+  async reopen(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const existing = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!existing) throw new NotFoundException('Review not found');
+    if (existing.status !== ProjectReviewStatus.CANCELLED) {
+      throw new BadRequestException('Only cancelled reviews can be reopened');
+    }
+
+    const nextStatus = existing.reviewDate
+      ? ProjectReviewStatus.SCHEDULED
+      : ProjectReviewStatus.PREPARING;
+
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: {
+        status: nextStatus,
+        cancelledAt: null,
+        cancelledByUserId: null,
+      },
+      include: reviewInclude,
+    });
+
+    const meta = {
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_REOPENED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: updated.id,
+      oldValue: { projectId, status: existing.status },
+      newValue: { projectId, status: updated.status },
+      ...meta,
+    });
+
+    return this.mapReviewToDetail(updated);
+  }
+
+  private assertReviewReportAllowed(status: ProjectReviewStatus): void {
+    if (status !== ProjectReviewStatus.FINALIZED) {
+      throw new BadRequestException(
+        'Le compte rendu est disponible une fois le point finalisé.',
+      );
+    }
+  }
+
+  private async enrichSnapshotCommitteeMood(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    snapshot: ProjectReviewSnapshotPayload,
+    currentReview?: {
+      contentPayload: unknown;
+      snapshotPayload?: unknown | null;
+    },
+  ): Promise<ProjectReviewSnapshotPayload> {
+    const fromCurrentRecord = currentReview
+      ? resolveCommitteeMoodFromReviewRecord({
+          contentPayload: currentReview.contentPayload,
+          snapshotPayload: currentReview.snapshotPayload ?? null,
+        })
+      : null;
+    const effectiveCurrent = fromCurrentRecord ?? snapshot.review.committeeMood;
+    if (effectiveCurrent) {
+      if (snapshot.review.committeeMood === effectiveCurrent) return snapshot;
+      return {
+        ...snapshot,
+        review: { ...snapshot.review, committeeMood: effectiveCurrent },
+      };
+    }
+
+    const previousReviews = await this.prisma.projectReview.findMany({
+      where: {
+        clientId,
+        projectId,
+        id: { not: reviewId },
+        status: ProjectReviewStatus.FINALIZED,
+      },
+      orderBy: [
+        { reviewDate: 'desc' },
+        { finalizedAt: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+      take: 24,
+      select: { contentPayload: true, snapshotPayload: true },
+    });
+
+    const effective = resolveCommitteeMoodWithPreviousReviews(null, previousReviews);
+    if (!effective) return snapshot;
+
+    return {
+      ...snapshot,
+      review: { ...snapshot.review, committeeMood: effective },
+    };
+  }
+
+  private async resolveReportSnapshot(
+    clientId: string,
+    projectId: string,
+    review: ReviewWithChildren,
+  ): Promise<ProjectReviewSnapshotPayload> {
+    const currentReviewSource = {
+      contentPayload: review.contentPayload,
+      snapshotPayload: review.snapshotPayload,
+    };
+
+    if (review.status === ProjectReviewStatus.FINALIZED && review.snapshotPayload) {
+      const parsed = parseProjectReviewSnapshotPayload(review.snapshotPayload);
+      if (parsed) {
+        return this.enrichSnapshotCommitteeMood(
+          clientId,
+          projectId,
+          review.id,
+          parsed,
+          currentReviewSource,
+        );
+      }
+    }
+
+    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
+    const conduct = this.buildSnapshotConductData(review);
+    const agendaTitleById = new Map(
+      review.agendaItems.map((item) => [item.id, item.title]),
+    );
+    const snapshotPayload = buildProjectReviewSnapshotPayload({
+      ...ctx,
+      review,
+      facilitatorDisplayName: formatProjectReviewUserDisplayName(
+        review.facilitator,
+      ),
+      attachments: review.attachments ?? [],
+      standaloneDecisions: review.decisions,
+      standaloneActions: review.actionItems.map((a) => ({
+        id: a.id,
+        title: a.title,
+        dueDate: a.dueDate,
+        priority: a.priority,
+        responsibleDisplayName: formatProjectReviewUserDisplayName(
+          a.responsibleUser,
+        ),
+        contributors: a.contributors.map((c) => ({
+          displayName:
+            c.displayName ?? formatProjectReviewUserDisplayName(c.user),
+          roleLabel: c.roleLabel,
+        })),
+      })),
+      agendaTitleById,
+      pilotage: this.pilotage,
+      ...conduct,
+    });
+
+    const parsed = parseProjectReviewSnapshotPayload(snapshotPayload)!;
+    return this.enrichSnapshotCommitteeMood(
+      clientId,
+      projectId,
+      review.id,
+      parsed,
+      currentReviewSource,
+    );
+  }
+
+  private async loadReportClientOrganization(clientId: string): Promise<{
+    name: string;
+    logoUrl: string | null;
+  }> {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId },
+      select: { name: true },
+    });
+    if (!client) throw new NotFoundException('Client not found');
+    return {
+      name: client.name,
+      logoUrl: null,
+    };
+  }
+
+  async getReportPreview(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      include: reviewInclude,
+    });
+    if (!review) throw new NotFoundException('Review not found');
+    this.assertReviewReportAllowed(review.status);
+
+    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
+    const clientOrganization = await this.loadReportClientOrganization(clientId);
+    const snapshot = await this.resolveReportSnapshot(
+      clientId,
+      projectId,
+      review,
+    );
+    const report = buildProjectReviewReportContent({
+      projectName: ctx.project.name,
+      projectId,
+      reviewId,
+      snapshot,
+      appBaseUrl: resolveProjectReviewReportAppBaseUrl(),
+      clientOrganization,
+    });
+
+    return {
+      subject: report.subject,
+      title: report.title,
+      text: report.text,
+      html: report.html,
+    };
+  }
+
+  async sendReport(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      include: reviewInclude,
+    });
+    if (!review) throw new NotFoundException('Review not found');
+    this.assertReviewReportAllowed(review.status);
+
+    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
+    const clientOrganization = await this.loadReportClientOrganization(clientId);
+    const snapshot = await this.resolveReportSnapshot(
+      clientId,
+      projectId,
+      review,
+    );
+    const report = buildProjectReviewReportContent({
+      projectName: ctx.project.name,
+      projectId,
+      reviewId,
+      snapshot,
+      appBaseUrl: resolveProjectReviewReportAppBaseUrl(),
+      clientOrganization,
+    });
+
+    return this.emailReport.sendReport({
+      clientId,
+      projectId,
+      reviewId,
+      report: {
+        ...report,
+        title: report.subject,
+      },
+      participants: review.participants,
+      context,
+    });
   }
 }

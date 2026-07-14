@@ -175,6 +175,24 @@ export class ProjectReviewsController {
     );
   }
 
+  @Post(':reviewId/reopen')
+  @RequirePermissions('projects.update')
+  reopen(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.reopen(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
   @Post(':reviewId/invite')
   @RequirePermissions('projects.update')
   invite(
@@ -201,6 +219,38 @@ export class ProjectReviewsController {
           forceOverwriteMeetingUrl: dto.forceOverwriteMeetingUrl,
         },
       },
+    );
+  }
+
+  @Get(':reviewId/report-preview')
+  @RequirePermissions('projects.read')
+  reportPreview(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+  ) {
+    return this.projectReviewsService.getReportPreview(
+      clientId!,
+      projectId,
+      reviewId,
+    );
+  }
+
+  @Post(':reviewId/send-report')
+  @RequirePermissions('projects.update')
+  sendReport(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.sendReport(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
     );
   }
 }

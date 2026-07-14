@@ -4,6 +4,9 @@
     "description": "Visualisation budget, reporting, portefeuille projets, collaborateurs et vue transverse Risques (lecture seule)",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "budgets.read",
       "projects.read",
       "compliance.read",
@@ -18,6 +21,9 @@
     "description": "Pilotage complet des budgets (lecture, création, modification)",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "budgets.read",
       "budgets.create",
       "budgets.update",
@@ -46,6 +52,9 @@
     "description": "Saisie et consultation budgets (lecture et création)",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "budgets.read",
       "budgets.create",
       "procurement.read",
@@ -63,6 +72,9 @@
     "description": "Pilotage complet du portefeuille projets (CRUD, tâches, risques, jalons) — inclut le menu Risques (/risks) et les registres par projet",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "projects.read",
       "projects.create",
       "projects.update",
@@ -81,25 +93,44 @@
     "name": "Lecteur pilotage risques",
     "description": "Consultation du menu Risques et du portefeuille projets (vue transverse /risks, sans modification)",
     "isSystem": true,
-    "permissionCodes": ["projects.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "projects.read"
+    ]
   },
   {
     "name": "Pilote risques projets",
     "description": "Pilotage des risques sur tous les projets accessibles : vue /risks, registres projet, création et mise à jour des risques (pas de suppression de projet)",
     "isSystem": true,
-    "permissionCodes": ["projects.read", "projects.update"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "projects.read",
+      "projects.update"
+    ]
   },
   {
     "name": "Lecteur Strategic Board",
     "description": "Lecture seule du Strategic Board (vision, axes, objectifs, KPI et alertes)",
     "isSystem": true,
-    "permissionCodes": ["strategic_vision.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "strategic_vision.read"
+    ]
   },
   {
     "name": "Contributeur Strategic Board",
     "description": "Contribution au Strategic Board (création/mise à jour de visions, axes et objectifs, sans gestion des liens)",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "strategic_vision.read",
       "strategic_vision.create",
       "strategic_vision.update",
@@ -114,6 +145,9 @@
     "description": "Gestion complète du Strategic Board, y compris la gestion des liens d’alignement projet",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "strategic_vision.read",
       "strategic_vision.create",
       "strategic_vision.update",
@@ -130,13 +164,22 @@
     "name": "Lecteur cycles de pilotage",
     "description": "Consultation des cycles de pilotage et matrice d'arbitrage (lecture seule)",
     "isSystem": true,
-    "permissionCodes": ["governance_cycles.read", "projects.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "governance_cycles.read",
+      "projects.read"
+    ]
   },
   {
     "name": "Gestionnaire cycles de pilotage",
     "description": "Gestion complète des cycles de pilotage CODIR (CRUD, items, arbitrage)",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "governance_cycles.read",
       "governance_cycles.create",
       "governance_cycles.propose",
@@ -153,6 +196,9 @@
     "description": "Gestion fournisseurs/commandes/factures avec lecture budget",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "budgets.read",
       "procurement.read",
       "procurement.create",
@@ -169,25 +215,48 @@
     "name": "Lecteur Ressources",
     "description": "Consultation du catalogue ressources projet (Humaine, matériel, licences)",
     "isSystem": true,
-    "permissionCodes": ["resources.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "resources.read"
+    ]
   },
   {
     "name": "Gestionnaire Ressources",
     "description": "Création et mise à jour du catalogue ressources projet",
     "isSystem": true,
-    "permissionCodes": ["resources.read", "resources.create", "resources.update"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "resources.read",
+      "resources.create",
+      "resources.update"
+    ]
   },
   {
     "name": "Lecteur Équipes",
     "description": "Consultation du référentiel collaborateurs (module Équipes, lecture seule)",
     "isSystem": true,
-    "permissionCodes": ["collaborators.read", "teams.read", "activity_types.read", "resources.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "collaborators.read",
+      "teams.read",
+      "activity_types.read",
+      "resources.read"
+    ]
   },
   {
     "name": "Gestionnaire Équipes",
     "description": "Gestion complète Équipes : collaborateurs, structure, affectations, catalogue Humaine (ressources) pour rattachements",
     "isSystem": true,
     "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
       "collaborators.read",
       "collaborators.create",
       "collaborators.update",
@@ -206,12 +275,26 @@
     "name": "Lecteur documents procurement",
     "description": "Consultation et téléchargement des pièces jointes GED sur commandes et factures (RFC-034) — sans création fournisseur / commande / facture ni dépôt de fichiers",
     "isSystem": true,
-    "permissionCodes": ["procurement.read", "contracts.read"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "procurement.read",
+      "contracts.read"
+    ]
   },
   {
     "name": "Gestionnaire documents procurement",
     "description": "Dépôt, consultation, téléchargement et archivage des pièces jointes GED sur commandes et factures — sans obligation d’avoir budgets.create ni la gestion complète procurement",
     "isSystem": true,
-    "permissionCodes": ["procurement.read", "procurement.update", "contracts.read", "contracts.update"]
+    "permissionCodes": [
+      "notifications.read",
+      "notifications.update",
+      "alerts.read",
+      "procurement.read",
+      "procurement.update",
+      "contracts.read",
+      "contracts.update"
+    ]
   }
 ]

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canPreviewOrSendReviewReport,
   canScheduleReview,
   canStartReview,
   hasReviewInvitationsSent,
@@ -22,6 +23,15 @@ describe('project-review-status', () => {
     expect(canStartReview('PLANNED')).toBe(true);
     expect(canStartReview('PREPARING')).toBe(false);
     expect(canStartReview('IN_PROGRESS')).toBe(false);
+  });
+
+  it('autorise aperçu / envoi du compte rendu uniquement après finalisation', () => {
+    expect(canPreviewOrSendReviewReport('FINALIZED')).toBe(true);
+    expect(canPreviewOrSendReviewReport('IN_PROGRESS')).toBe(false);
+    expect(canPreviewOrSendReviewReport('IN_REVIEW')).toBe(false);
+    expect(canPreviewOrSendReviewReport('DRAFT')).toBe(false);
+    expect(canPreviewOrSendReviewReport('SCHEDULED')).toBe(false);
+    expect(canPreviewOrSendReviewReport('PREPARING')).toBe(false);
   });
 
   it('détecte si des invitations ont déjà été envoyées', () => {

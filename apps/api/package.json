@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --json --outputFile=../../.test-recap/api.json",
     "prisma:generate": "prisma generate",
+    "diagnose:email-html": "ts-node scripts/diagnose-email-html.ts",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "prisma:seed": "pnpm --filter @starium-orchestra/rbac-permissions run build && prisma db seed",

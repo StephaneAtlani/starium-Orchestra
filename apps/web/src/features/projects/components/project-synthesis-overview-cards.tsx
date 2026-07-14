@@ -25,6 +25,7 @@ import {
 import { projectHistory, projectPlanning, projectSheet } from '../constants/project-routes';
 import type { ProjectDetail } from '../types/project.types';
 import { ProjectBudgetSynthesis } from './project-budget-synthesis';
+import { ProjectCommitteeMoodOverviewCard } from './project-committee-mood-overview-card';
 import { ProjectPilotageAttentionPanel } from './project-pilotage-attention-panel';
 import { ProjectPostMortemOverviewBanner } from './project-post-mortem-overview-banner';
 import { ProjectSynthesisRecentData } from './project-synthesis-recent-data';
@@ -136,6 +137,9 @@ export function ProjectSynthesisOverviewCards({
       </div>
 
       <div className="starium-proj-overview-grid">
+        <ProjectCommitteeMoodOverviewCard projectId={projectId} project={project} />
+
+        <div className="starium-proj-overview-grid__core">
       <OvCard
         title="Prochain jalon"
         icon={<Flag strokeWidth={1.75} />}
@@ -270,6 +274,7 @@ export function ProjectSynthesisOverviewCards({
           )}
         </p>
       </OvCard>
+        </div>
       </div>
 
       <ProjectPilotageAttentionPanel projectId={projectId} project={project} />

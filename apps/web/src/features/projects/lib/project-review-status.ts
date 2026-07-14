@@ -79,3 +79,8 @@ export function isReviewInConduct(status: ProjectReviewStatus): boolean {
 export function isReviewFinalizedOrCancelled(status: ProjectReviewStatus): boolean {
   return status === 'FINALIZED' || status === 'CANCELLED';
 }
+
+/** Compte rendu disponible (aperçu / envoi e-mail) uniquement une fois le point finalisé. */
+export function canPreviewOrSendReviewReport(status: ProjectReviewStatus): boolean {
+  return status === 'FINALIZED';
+}

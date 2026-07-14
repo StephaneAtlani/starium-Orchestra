@@ -13,9 +13,12 @@ import {
   deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
+  getProjectReviewReportPreview,
   inviteProjectReview,
+  reopenProjectReview,
   reorderProjectReviewAgendaItems,
   scheduleProjectReview,
+  sendProjectReviewReport,
   skipProjectReviewAgendaItem,
   startProjectReview,
   startProjectReviewAgendaItem,
@@ -102,6 +105,14 @@ export function useProjectReviewMutations(projectId: string) {
   const cancel = useMutation({
     mutationFn: (reviewId: string) =>
       cancelProjectReview(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const reopen = useMutation({
+    mutationFn: (reviewId: string) =>
+      reopenProjectReview(authFetch, projectId, reviewId),
     onSuccess: (_, reviewId) => {
       invalidateReview(reviewId);
     },
@@ -321,6 +332,19 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const reportPreview = useMutation({
+    mutationFn: (reviewId: string) =>
+      getProjectReviewReportPreview(authFetch, projectId, reviewId),
+  });
+
+  const sendReport = useMutation({
+    mutationFn: (reviewId: string) =>
+      sendProjectReviewReport(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
   return {
     create,
     update,
@@ -328,6 +352,7 @@ export function useProjectReviewMutations(projectId: string) {
     startReview,
     finalize,
     cancel,
+    reopen,
     inviteReview,
     createAgendaItem,
     updateAgendaItem,
@@ -341,5 +366,7 @@ export function useProjectReviewMutations(projectId: string) {
     createAttachment,
     updateAttachment,
     deleteAttachment,
+    reportPreview,
+    sendReport,
   };
 }

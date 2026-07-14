@@ -10,16 +10,19 @@
 set -eu
 cd /app
 
-# BullMQ (RFC-038) : en conteneur, 127.0.0.1 = le conteneur ; le hostname « redis » peut
-# rester introuvable (Docker Desktop / réseaux). docker-compose.dev.yml utilise
-# host.docker.internal + port 6379 publié par le service redis.
+# BullMQ (RFC-038) : sur le réseau Compose, le service s’appelle `redis` (voir docker-compose.dev.yml).
+# Ne pas écraser REDIS_HOST=redis — seul un fallback host.docker.internal si Redis est publié sur l’hôte.
 case "${DATABASE_URL:-}" in
   *"@postgres:"*)
     case "${REDIS_HOST:-}" in
-      '' | 127.0.0.1 | localhost | redis)
+      '' | 127.0.0.1 | localhost)
         export REDIS_HOST=host.docker.internal
         export REDIS_PORT="${REDIS_PORT:-6379}"
         echo "[api-dev] REDIS_HOST -> host.docker.internal:${REDIS_PORT:-6379} (Redis via port hôte)"
+        ;;
+      redis)
+        export REDIS_PORT="${REDIS_PORT:-6379}"
+        echo "[api-dev] REDIS_HOST=redis:${REDIS_PORT} (réseau Docker Compose)"
         ;;
     esac
     ;;
@@ -115,6 +118,21 @@ assert_generated_client_has_bucket_fields() {
   echo "[api-dev] client Prisma OK (documentsBucketName présent sous .prisma/client)"
 }
 
+assert_generated_client_has_email_body_html() {
+  found=0
+  for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+    if [ -d "$d" ] && grep -rq 'emailBodyHtml' "$d" 2>/dev/null; then
+      found=1
+      break
+    fi
+  done
+  if [ "$found" != 1 ]; then
+    echo "[api-dev] ERREUR: client Prisma généré sans emailBodyHtml (regénérer prisma generate)." >&2
+    exit 1
+  fi
+  echo "[api-dev] client Prisma OK (emailBodyHtml présent sous .prisma/client)"
+}
+
 assert_rbac_package_present
 echo "[api-dev] pnpm install (sync workspace deps)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
@@ -125,6 +143,7 @@ echo "[api-dev] prisma migrate deploy..."
 pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
 api_prisma_generate
 assert_generated_client_has_bucket_fields
+assert_generated_client_has_email_body_html
 build_rbac_permissions
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
@@ -142,5 +161,6 @@ pnpm exec nest build
 # si le schéma monté a changé depuis le premier generate, ou caches partiels).
 api_prisma_generate
 assert_generated_client_has_bucket_fields
+assert_generated_client_has_email_body_html
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev
