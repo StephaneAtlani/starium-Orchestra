@@ -74,11 +74,6 @@ export type ProjectReviewCreateDialogProps = {
   onCreated: (reviewId: string, openEditor: boolean) => void;
 };
 
-function formatAssignableUser(u: ProjectAssignableUser): string {
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name ? `${name} (${u.email})` : u.email;
-}
-
 function displayNameFromUser(u: ProjectAssignableUser): string {
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return name || u.email;
@@ -175,12 +170,6 @@ const CREATION_MODE_OPTIONS: {
     title: 'Saisir maintenant',
     description: 'Ouvre l’éditeur pour rédiger le compte rendu dès la création.',
     icon: PenLine,
-  },
-  {
-    value: 'PLANNED',
-    title: 'Planifier',
-    description: 'Crée un point planifié à une date précise ; invitations avant le jour J.',
-    icon: CalendarClock,
   },
 ];
 
@@ -402,22 +391,13 @@ export function ProjectReviewCreateDialog({
     onOpenChange(next);
   };
 
-  const requiresDate =
-    formCreationMode === 'PLANNED' || formCreationMode === 'SCHEDULED';
-
   const submitLabel = postMortemEligible
     ? 'Créer le retour d’expérience'
-    : formCreationMode === 'PLANNED' || formCreationMode === 'SCHEDULED'
-      ? 'Planifier le point'
-      : formCreationMode === 'PREPARING'
-        ? 'Créer le point'
-        : 'Créer et ouvrir l’éditeur';
+    : formCreationMode === 'PREPARING'
+      ? 'Créer le point'
+      : 'Créer et ouvrir l’éditeur';
 
   const onSubmit = async () => {
-    if (requiresDate && !formDate.trim()) {
-      toast.error('La date est obligatoire pour un point planifié.');
-      return;
-    }
     const reviewDate = formDate.trim() ? new Date(formDate).toISOString() : undefined;
     const objective = formObjective.trim();
     const participants = createParticipants
@@ -524,7 +504,7 @@ export function ProjectReviewCreateDialog({
             type="button"
             className="min-h-11"
             onClick={() => void onSubmit()}
-            disabled={create.isPending || (requiresDate && !formDate.trim())}
+            disabled={create.isPending}
           >
             {create.isPending ? 'Création…' : submitLabel}
           </Button>
@@ -546,15 +526,12 @@ export function ProjectReviewCreateDialog({
                   <div className="starium-form-field">
                     <label htmlFor="pr-date" className="starium-form-label">
                       Date et heure{' '}
-                      {!requiresDate ? (
-                        <span className="font-normal text-muted-foreground">(optionnel)</span>
-                      ) : null}
+                      <span className="font-normal text-muted-foreground">(optionnel)</span>
                     </label>
                     <ProjectDatetimeLocalInput
                       id="pr-date"
                       value={formDate}
                       onChange={setFormDate}
-                      required={requiresDate}
                     />
                   </div>
                   <div className="starium-form-field">
@@ -621,7 +598,7 @@ export function ProjectReviewCreateDialog({
                     </h3>
                     <fieldset>
                       <legend className="sr-only">Mode de création du point</legend>
-                      <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="grid gap-2 sm:grid-cols-2">
                         {CREATION_MODE_OPTIONS.map((opt) => (
                           <FormChoiceTile
                             key={opt.value}
@@ -772,15 +749,15 @@ export function ProjectReviewCreateDialog({
                         >
                           {participantInitials(row.displayName, i)}
                         </div>
-                        <div className="min-w-0 flex-1 space-y-3">
-                          <div className="starium-form-grid starium-form-grid--2">
-                            <div className="starium-form-field">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-end gap-3">
+                            <div className="starium-form-field min-w-0 flex-1 basis-48">
                               <label htmlFor={`pr-part-user-${i}`} className="starium-form-label">
                                 Membre client
                               </label>
                               <select
                                 id={`pr-part-user-${i}`}
-                                className="starium-form-select min-h-11"
+                                className="starium-form-select min-h-11 w-full"
                                 disabled={assignable.isLoading}
                                 value={row.userId}
                                 onChange={(e) => {
@@ -794,7 +771,7 @@ export function ProjectReviewCreateDialog({
                                             userId: id,
                                             displayName: u
                                               ? displayNameFromUser(u)
-                                              : p.displayName,
+                                              : '',
                                           }
                                         : p,
                                     ),
@@ -804,58 +781,41 @@ export function ProjectReviewCreateDialog({
                                 <option value="">— Choisir —</option>
                                 {assignable.data?.users?.map((u) => (
                                   <option key={u.id} value={u.id}>
-                                    {formatAssignableUser(u)}
+                                    {displayNameFromUser(u)}
                                   </option>
                                 ))}
                               </select>
                             </div>
-                            <div className="starium-form-field">
-                              <label htmlFor={`pr-part-name-${i}`} className="starium-form-label">
-                                Nom affiché
+                            <div className="flex flex-wrap items-center gap-2 pb-0.5">
+                              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 rounded border border-input"
+                                  checked={row.attended}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
+                                    );
+                                  }}
+                                />
+                                Présent
                               </label>
-                              <Input
-                                id={`pr-part-name-${i}`}
-                                className="starium-form-input min-h-11"
-                                value={row.displayName}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) => (j === i ? { ...p, displayName: v } : p)),
-                                  );
-                                }}
-                                placeholder="Nom, rôle…"
-                              />
+                              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                                <input
+                                  type="checkbox"
+                                  className="size-4 rounded border border-input"
+                                  checked={row.isRequired}
+                                  onChange={(e) => {
+                                    const v = e.target.checked;
+                                    setCreateParticipants((prev) =>
+                                      prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
+                                    );
+                                  }}
+                                />
+                                Requis
+                              </label>
                             </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                              <input
-                                type="checkbox"
-                                className="size-4 rounded border border-input"
-                                checked={row.attended}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
-                                  );
-                                }}
-                              />
-                              Présent
-                            </label>
-                            <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                              <input
-                                type="checkbox"
-                                className="size-4 rounded border border-input"
-                                checked={row.isRequired}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
-                                  );
-                                }}
-                              />
-                              Requis
-                            </label>
                           </div>
                         </div>
                         {createParticipants.length > 1 ? (

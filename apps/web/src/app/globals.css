@@ -2410,9 +2410,60 @@ table.starium-dt {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 94%, var(--muted));
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+.starium-modal__status-inner {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+.starium-modal__status-ico {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border);
+}
+.starium-modal__status-ico--success {
+  border-color: color-mix(in srgb, var(--state-success) 28%, var(--border));
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-modal__status-ico--warn {
+  border-color: color-mix(in srgb, var(--state-warning) 28%, var(--border));
+  background: var(--state-warning-bg);
+  color: var(--state-warning);
+}
+.starium-modal__status-ico--info {
+  border-color: color-mix(in srgb, var(--state-info) 28%, var(--border));
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-modal__status-ico--neutral {
+  border-color: var(--border);
   background: var(--muted);
+  color: var(--muted-foreground);
+}
+.starium-modal__status-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 1px;
+}
+.starium-modal__status-hint {
+  margin: 0;
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--muted-foreground);

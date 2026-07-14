@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
   title?: string;
@@ -17,15 +18,21 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={
-        className ??
-        'flex flex-col items-center justify-center py-12 px-4 text-center'
-      }
+      className={cn(
+        'flex flex-col items-center justify-center gap-5 px-6 py-12 text-center',
+        className,
+      )}
       data-testid="empty-state"
     >
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
-      {action && <div className="mt-4">{action}</div>}
+      <div className="flex max-w-md flex-col items-center gap-2.5">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        {description ? (
+          <p className="text-balance text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {action ? <div className="flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
     </div>
   );
 }

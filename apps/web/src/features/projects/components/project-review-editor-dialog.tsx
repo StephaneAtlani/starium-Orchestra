@@ -23,6 +23,7 @@ import {
   Mail,
   PanelLeftOpen,
   PanelRightClose,
+  PlayCircle,
   RotateCcw,
   Scale,
   Sparkles,
@@ -30,6 +31,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  XCircle,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -128,12 +130,34 @@ import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectSheetQuery } from '../hooks/use-project-sheet-query';
 import { useProjectTasksQuery } from '../hooks/use-project-tasks-query';
 import type {
+  InviteProjectReviewResult,
   ProjectDetail,
   ProjectReviewActionItemApi,
   ProjectReviewListItem,
+  ProjectReviewStatus,
   ProjectReviewType,
   ProjectSheet,
 } from '../types/project.types';
+
+function formatPlanInviteToast(result: InviteProjectReviewResult): string | null {
+  const parts: string[] = [];
+  if (result.notifiedInApp > 0) {
+    parts.push(`${result.notifiedInApp} notifié(s) in-app`);
+  }
+  if (result.emailed > 0) {
+    parts.push(`${result.emailed} e-mail(s) avec lien envoyé(s)`);
+  }
+  if (result.skippedNoEmail > 0) {
+    parts.push(`${result.skippedNoEmail} sans adresse e-mail`);
+  }
+  if (result.emailFailed > 0) {
+    parts.push(`${result.emailFailed} échec(s) e-mail`);
+  }
+  if (result.emailDisabled) {
+    parts.push('e-mail indisponible (SMTP)');
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
 const textareaClass = cn(
   'starium-form-textarea min-h-[100px] resize-y',
@@ -426,7 +450,7 @@ const POST_MORTEM_NARRATIVE_FIELDS = [
 ] as const;
 
 function reviewEditorStatusBadgeClass(status: string): string {
-  const normalized = normalizeReviewStatus(status as import('../types/project.types').ProjectReviewStatus);
+  const normalized = normalizeReviewStatus(status as ProjectReviewStatus);
   if (status === 'FINALIZED') return 'starium-ds-badge--success';
   if (
     normalized === 'IN_PROGRESS' ||
@@ -439,6 +463,89 @@ function reviewEditorStatusBadgeClass(status: string): string {
   if (normalized === 'PREPARING') return 'starium-ds-badge--neutral';
   if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
   return 'starium-ds-badge--info';
+}
+
+type ReviewStatusTone = 'success' | 'warn' | 'info' | 'neutral';
+
+function reviewEditorStatusTone(status: ProjectReviewStatus): ReviewStatusTone {
+  const badgeClass = reviewEditorStatusBadgeClass(status);
+  if (badgeClass.includes('success')) return 'success';
+  if (badgeClass.includes('warn')) return 'warn';
+  if (badgeClass.includes('info')) return 'info';
+  return 'neutral';
+}
+
+function reviewEditorStatusIcon(status: ProjectReviewStatus): ComponentType<{ className?: string; strokeWidth?: number }> {
+  const normalized = normalizeReviewStatus(status);
+  if (status === 'FINALIZED') return CheckCircle2;
+  if (normalized === 'IN_PROGRESS' || status === 'IN_REVIEW') return PlayCircle;
+  if (normalized === 'SCHEDULED' || status === 'PLANNED') return CalendarClock;
+  if (status === 'CANCELLED') return XCircle;
+  return ClipboardPen;
+}
+
+function reviewEditorStatusHint(
+  status: ProjectReviewStatus,
+  invitationsSent: boolean,
+): string {
+  const normalized = normalizeReviewStatus(status);
+  if (status === 'FINALIZED') return 'Compte rendu disponible — prévisualisation et envoi par e-mail.';
+  if (status === 'CANCELLED') return 'Point annulé — réouverture possible depuis l’historique.';
+  if (normalized === 'IN_PROGRESS' || status === 'IN_REVIEW') {
+    return 'Réunion en cours — saisissez l’ordre du jour, les décisions et actions.';
+  }
+  if (normalized === 'SCHEDULED' || status === 'PLANNED') {
+    return invitationsSent
+      ? 'Participants invités — démarrez la réunion quand vous êtes prêts.'
+      : 'Cliquez sur Planifier pour envoyer les invitations et l’ordre du jour.';
+  }
+  return 'Complétez la date, l’ordre du jour et les participants, puis planifiez.';
+}
+
+function ReviewEditorModalStatus({
+  status,
+  reviewDate,
+  invitationsSent,
+}: {
+  status: ProjectReviewStatus;
+  reviewDate: string | null;
+  invitationsSent: boolean;
+}) {
+  const label = PROJECT_REVIEW_STATUS_LABEL[status] ?? status;
+  const tone = reviewEditorStatusTone(status);
+  const Icon = reviewEditorStatusIcon(status);
+  const hint = reviewEditorStatusHint(status, invitationsSent);
+  const normalized = normalizeReviewStatus(status);
+  const showDate =
+    reviewDate &&
+    (normalized === 'SCHEDULED' || status === 'PLANNED' || normalized === 'IN_PROGRESS');
+
+  return (
+    <div className="starium-modal__status-inner">
+      <span
+        className={cn('starium-modal__status-ico', `starium-modal__status-ico--${tone}`)}
+        aria-hidden
+      >
+        <Icon className="size-4" strokeWidth={1.75} />
+      </span>
+      <div className="starium-modal__status-copy">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn('starium-ds-badge shrink-0', reviewEditorStatusBadgeClass(status))}>
+            {label}
+          </span>
+          {showDate ? (
+            <time
+              dateTime={reviewDate}
+              className="text-xs font-semibold text-foreground tabular-nums"
+            >
+              {formatReviewDateTime(reviewDate)}
+            </time>
+          ) : null}
+        </div>
+        <p className="starium-modal__status-hint">{hint}</p>
+      </div>
+    </div>
+  );
 }
 
 function formatReviewDateTime(iso: string | null): string {
@@ -955,6 +1062,8 @@ export function ProjectReviewEditorDialog({
   const [confirmNextOpen, setConfirmNextOpen] = useState(false);
   const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [confirmPlanOpen, setConfirmPlanOpen] = useState(false);
+  const [confirmStartOpen, setConfirmStartOpen] = useState(false);
   const [reportPreviewOpen, setReportPreviewOpen] = useState(false);
   const [reportPreviewData, setReportPreviewData] = useState<{
     subject: string;
@@ -1048,6 +1157,8 @@ export function ProjectReviewEditorDialog({
       setConfirmNextOpen(false);
       setConfirmFinalizeOpen(false);
       setConfirmCancelOpen(false);
+      setConfirmPlanOpen(false);
+      setConfirmStartOpen(false);
       setEditorTab(isPage ? 'agenda' : 'general');
     }
   }, [active, isPage]);
@@ -1366,9 +1477,14 @@ export function ProjectReviewEditorDialog({
       .map((p) => ({
         key: p.id,
         label: p.displayName?.trim() || 'Participant',
-        isRequired: false,
+        isRequired: p.isRequired ?? false,
       }));
   }, [d?.participants]);
+
+  const planAgendaItemCount = useMemo(
+    () => (d?.agendaItems ?? []).filter((item) => item.title?.trim()).length,
+    [d?.agendaItems],
+  );
 
   const handleConfirmNextReview = async () => {
     if (!d || !editable) return;
@@ -1475,6 +1591,7 @@ export function ProjectReviewEditorDialog({
     if (!d || !canStart || !canEdit) return;
     try {
       await startReview.mutateAsync(d.id);
+      setConfirmStartOpen(false);
       if (isPage) {
         setEditorTab('agenda');
       } else {
@@ -1486,6 +1603,11 @@ export function ProjectReviewEditorDialog({
     }
   };
 
+  const onRequestStartReview = () => {
+    if (!d || !canStart || !canEdit) return;
+    setConfirmStartOpen(true);
+  };
+
   const openPlanningSection = () => {
     setEditorTab('general');
     const details = planningDetailsRef.current;
@@ -1495,44 +1617,82 @@ export function ProjectReviewEditorDialog({
     }
   };
 
-  const onScheduleReview = async () => {
-    if (!d || !canSchedule || !canEdit) return;
+  const onRequestPlanReview = () => {
+    if (!d || !canEdit || (!canSchedule && !canStart)) return;
+    if (!reviewDate.trim()) {
+      toast.error('Renseignez la date et l’heure avant de planifier le point.');
+      openPlanningSection();
+      return;
+    }
+    setConfirmPlanOpen(true);
+  };
+
+  const onPlanReview = async () => {
+    if (!d || !canEdit || (!canSchedule && !canStart)) return;
     if (!reviewDate.trim()) {
       toast.error('Renseignez la date et l’heure avant de planifier le point.');
       openPlanningSection();
       return;
     }
     try {
-      await scheduleReview.mutateAsync({
-        reviewId: d.id,
-        reviewDate: fromLocalDatetimeInput(reviewDate),
-      });
-      toast.success('Point planifié — vous pouvez maintenant envoyer les notifications.');
-    } catch {
-      toast.error('Impossible de planifier le point.');
-    }
-  };
+      await flushPlanningSave();
 
-  const onSendNotifications = async () => {
-    if (!d || !canStart || !canEdit) return;
-    try {
+      const agendaHasItems = (d.agendaItems ?? []).some((item) => item.title?.trim());
+      if (
+        !agendaHasItems &&
+        canApplyAgendaPresets &&
+        reviewType !== 'POST_MORTEM' &&
+        isPilotageReviewType(reviewType)
+      ) {
+        await applyAgendaPresetForType(reviewType);
+      }
+
+      if (canSchedule) {
+        await scheduleReview.mutateAsync({
+          reviewId: d.id,
+          reviewDate: fromLocalDatetimeInput(reviewDate),
+        });
+      }
+
       const result = await inviteReview.mutateAsync({
         reviewId: d.id,
-        body: { channels: ['in_app'] },
+        body: { channels: ['in_app', 'email'] },
       });
-      if (result.notifiedInApp > 0) {
+
+      setConfirmPlanOpen(false);
+
+      const summary = formatPlanInviteToast(result);
+      if (summary) {
         toast.success(
-          `${result.notifiedInApp} participant(s) notifié(s) dans Starium.`,
+          canSchedule || !invitationsSent
+            ? `Point planifié — ${summary}`
+            : `Invitations renvoyées — ${summary}`,
         );
       } else {
-        toast.success('Aucune notification in-app envoyée — vérifiez les participants.');
+        toast.success(
+          canSchedule
+            ? 'Point planifié — ajoutez des participants avec une adresse e-mail pour les invitations.'
+            : 'Aucune invitation envoyée — vérifiez les participants.',
+        );
         openPlanningSection();
       }
     } catch {
-      toast.error('Impossible d’envoyer les notifications.');
-      openPlanningSection();
+      toast.error(
+        canSchedule
+          ? 'Impossible de planifier le point.'
+          : 'Impossible d’envoyer les invitations.',
+      );
     }
   };
+
+  const flushPlanningSave = useCallback(async () => {
+    if (!d || !reviewId || !planningEditable) return;
+    const body = buildPlannedPatchBody();
+    const serialized = JSON.stringify(body);
+    if (lastSavedSerializedRef.current === serialized) return;
+    await update.mutateAsync({ reviewId: d.id, body });
+    lastSavedSerializedRef.current = serialized;
+  }, [d, reviewId, planningEditable, buildPlannedPatchBody, update]);
 
   const flushDraftSave = useCallback(async () => {
     if (!d || !reviewId || !editable) return;
@@ -1809,9 +1969,23 @@ export function ProjectReviewEditorDialog({
     </span>
   ) : null;
 
+  const reviewModalStatus = d ? (
+    <ReviewEditorModalStatus
+      status={d.status}
+      reviewDate={d.reviewDate}
+      invitationsSent={invitationsSent}
+    />
+  ) : null;
+
   const footerActionClass = isPage
     ? 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9'
     : 'min-h-11';
+
+  const planReviewPending =
+    scheduleReview.isPending ||
+    inviteReview.isPending ||
+    update.isPending ||
+    applyingAgendaPreset;
 
   const editorFooterContent = d ? (
     <div
@@ -1850,30 +2024,21 @@ export function ProjectReviewEditorDialog({
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2 max-lg:w-full max-lg:[&>button]:flex-1">
-        {!isPage && canSchedule && canEdit ? (
+        {!isPage && (canSchedule || canStart) && canEdit ? (
           <Button
             type="button"
-            variant="default"
+            variant={canStart && invitationsSent ? 'outline' : 'default'}
             className="min-h-11"
-            onClick={() => void onScheduleReview()}
-            disabled={scheduleReview.isPending}
+            onClick={() => void onRequestPlanReview()}
+            disabled={planReviewPending}
           >
-            {scheduleReview.isPending ? 'Planification…' : 'Planifier le point'}
-          </Button>
-        ) : null}
-        {!isPage && canStart && canEdit ? (
-          <Button
-            type="button"
-            variant={invitationsSent ? 'outline' : 'default'}
-            className="min-h-11"
-            onClick={() => void onSendNotifications()}
-            disabled={inviteReview.isPending}
-          >
-            {inviteReview.isPending
-              ? 'Envoi…'
-              : invitationsSent
-                ? 'Renvoyer les notifications'
-                : 'Envoyer les notifications'}
+            {planReviewPending
+              ? 'Planification…'
+              : canSchedule
+                ? 'Planifier'
+                : invitationsSent
+                  ? 'Renvoyer les invitations'
+                  : 'Planifier'}
           </Button>
         ) : null}
         {!isPage && canStart && canEdit ? (
@@ -1881,7 +2046,7 @@ export function ProjectReviewEditorDialog({
             type="button"
             variant={invitationsSent ? 'default' : 'outline'}
             className="min-h-11"
-            onClick={() => void onStartReview()}
+            onClick={() => void onRequestStartReview()}
             disabled={startReview.isPending}
           >
             {startReview.isPending ? 'Démarrage…' : 'Démarrer le point'}
@@ -3278,6 +3443,137 @@ export function ProjectReviewEditorDialog({
     </StariumModal>
   );
 
+  const confirmPlanModal = (
+    <StariumModal
+      open={confirmPlanOpen}
+      onOpenChange={setConfirmPlanOpen}
+      title={canSchedule ? 'Planifier le point ?' : 'Renvoyer les invitations ?'}
+      description={
+        canSchedule
+          ? 'Le point passera en statut planifié. Les participants seront notifiés dans Starium et par e-mail avec le lien vers le point et l’ordre du jour.'
+          : 'Les participants seront de nouveau notifiés dans Starium et par e-mail avec le lien vers le point.'
+      }
+      icon={CalendarClock}
+      size="md"
+      contentClassName="z-[90]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setConfirmPlanOpen(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void onPlanReview()}
+            disabled={planReviewPending}
+          >
+            {planReviewPending
+              ? 'Envoi…'
+              : canSchedule
+                ? 'Confirmer et planifier'
+                : 'Confirmer et envoyer'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Date et heure
+          </p>
+          <p className="mt-1 font-medium text-foreground">
+            {reviewDate.trim() ? formatLocalDatetimeFr(reviewDate) : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Ordre du jour
+          </p>
+          <p className="mt-1 text-foreground">
+            {planAgendaItemCount > 0
+              ? `${planAgendaItemCount} point${planAgendaItemCount > 1 ? 's' : ''} à l’ordre du jour`
+              : 'Aucun point — un modèle sera appliqué selon le type de réunion.'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Participants ({nextReviewParticipantPreview.length})
+          </p>
+          {nextReviewParticipantPreview.length === 0 ? (
+            <p className="mt-2 rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-muted-foreground">
+              Aucun participant — les invitations ne partiront à personne.
+            </p>
+          ) : (
+            <ul className="mt-2 max-h-36 list-inside list-disc space-y-1 overflow-y-auto rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              {nextReviewParticipantPreview.map((p) => (
+                <li key={p.key}>
+                  <span className="font-medium text-foreground">{p.label}</span>
+                  {p.isRequired ? (
+                    <span className="ml-1 text-xs text-muted-foreground">(requis)</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <ul className="list-inside list-disc space-y-1 rounded-md border border-border/60 bg-muted/15 px-3 py-2 text-muted-foreground">
+          <li>Notification in-app dans Starium</li>
+          <li>E-mail avec lien vers le point{d?.meetingUrl?.trim() ? ' et la visio' : ''}</li>
+          {canSchedule ? <li>Statut du point : planifié</li> : null}
+        </ul>
+      </div>
+    </StariumModal>
+  );
+
+  const confirmStartModal = (
+    <StariumModal
+      open={confirmStartOpen}
+      onOpenChange={setConfirmStartOpen}
+      title="Démarrer le point ?"
+      description="La réunion passe en cours. Vous accéderez à la conduite de séance pour traiter l’ordre du jour, saisir décisions, actions et météo du comité."
+      icon={PlayCircle}
+      size="md"
+      contentClassName="z-[90]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => setConfirmStartOpen(false)}>
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void onStartReview()}
+            disabled={startReview.isPending}
+          >
+            {startReview.isPending ? 'Démarrage…' : 'Confirmer et démarrer'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        {d?.reviewDate ? (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Date prévue
+            </p>
+            <p className="mt-1 font-medium text-foreground">
+              {formatReviewDateTime(d.reviewDate)}
+            </p>
+          </div>
+        ) : null}
+        {!invitationsSent ? (
+          <p className="rounded-md border border-amber-300/60 bg-amber-50/90 px-3 py-2 text-foreground dark:border-amber-400/40 dark:bg-amber-950/40">
+            Aucune invitation n’a encore été envoyée. Vous pouvez démarrer quand même ou cliquer
+            sur Planifier d’abord.
+          </p>
+        ) : (
+          <p className="text-muted-foreground">
+            Les participants ont été invités — vous pourrez finaliser le compte rendu après la
+            réunion.
+          </p>
+        )}
+      </div>
+    </StariumModal>
+  );
+
   const reportPreviewDialog = (
     <ReviewReportPreviewDialog
       open={reportPreviewOpen}
@@ -3350,6 +3646,8 @@ export function ProjectReviewEditorDialog({
         {confirmNextModal}
         {confirmFinalizeModal}
         {confirmCancelModal}
+        {confirmPlanModal}
+        {confirmStartModal}
         {reportPreviewDialog}
       </>
     );
@@ -3395,7 +3693,7 @@ export function ProjectReviewEditorDialog({
       size="xl"
       contentClassName="flex h-[min(92vh,900px)] max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-3 sm:p-4"
       bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden py-2"
-      status={reviewStatusBadge}
+      status={reviewModalStatus}
       footer={editorFooterContent}
     >
       {renderEditorPanels()}
@@ -3403,6 +3701,8 @@ export function ProjectReviewEditorDialog({
     {confirmNextModal}
     {confirmFinalizeModal}
     {confirmCancelModal}
+    {confirmPlanModal}
+    {confirmStartModal}
     {reportPreviewDialog}
     </>
   );
