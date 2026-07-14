@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { ChevronDown, Minus, Plus, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,9 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { listProjectPortfolioCategories, listAssignableParents } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { ProjectTagsFilter } from './project-tags-filter';
+import { countActivePortfolioFilters } from '../lib/projects-portfolio-active-filters';
+
+const PORTFOLIO_FILTERS_BAR_COLLAPSED_KEY = 'starium.projects.portfolio-filters-bar.collapsed';
 
 const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   name: 'Nom',
@@ -71,6 +74,15 @@ export interface ProjectsPortfolioFiltersBarProps {
     enabled: boolean;
     onEnabledChange: (enabled: boolean) => void;
   };
+  /** Gantt portefeuille : afficher les codes projet (ex. IND-SEED-05) dans la colonne gauche. */
+  portfolioGanttProjectCodes?: {
+    enabled: boolean;
+    onEnabledChange: (enabled: boolean) => void;
+  };
+  /** Barre repliable (Gantt portefeuille). */
+  collapsible?: boolean;
+  /** État initial si aucune préférence enregistrée. */
+  defaultCollapsed?: boolean;
 }
 
 export function ProjectsPortfolioFiltersBar({
@@ -85,6 +97,9 @@ export function ProjectsPortfolioFiltersBar({
   portfolioGanttTooltips,
   portfolioGanttInlineInfos,
   portfolioGanttGroupByTags,
+  portfolioGanttProjectCodes,
+  collapsible = false,
+  defaultCollapsed = false,
 }: ProjectsPortfolioFiltersBarProps) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -145,20 +160,81 @@ export function ProjectsPortfolioFiltersBar({
   const fieldTriggerClass = mobileSheet ? 'h-11 w-full text-sm' : 'h-8 w-full text-xs';
   const fieldInputClass = mobileSheet ? 'h-11 text-sm' : 'h-8 text-xs';
 
+  const [expanded, setExpanded] = useState(() => {
+    if (!collapsible || typeof window === 'undefined') return !defaultCollapsed;
+    try {
+      const stored = window.localStorage.getItem(PORTFOLIO_FILTERS_BAR_COLLAPSED_KEY);
+      if (stored === 'true') return false;
+      if (stored === 'false') return true;
+    } catch {
+      // ignore localStorage failures
+    }
+    return !defaultCollapsed;
+  });
+
+  const toggleExpanded = () => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (collapsible) {
+        try {
+          window.localStorage.setItem(PORTFOLIO_FILTERS_BAR_COLLAPSED_KEY, String(!next));
+        } catch {
+          // ignore localStorage failures
+        }
+      }
+      return next;
+    });
+  };
+
+  const activeFilterCount = useMemo(() => countActivePortfolioFilters(filters), [filters]);
+  const showFilterFields = !collapsible || expanded;
+
   return (
     <div
       className={cn(
-        mobileSheet ? 'space-y-4' : 'space-y-3',
+        mobileSheet ? 'space-y-4' : collapsible && !expanded ? 'space-y-0' : 'space-y-3',
         embedded
           ? mobileSheet
             ? 'p-0'
             : 'px-3 pb-3 pt-0 sm:px-4'
-          : 'border-border/60 bg-card border-b px-3 py-3 sm:px-4',
+          : 'border-border/60 bg-card border-b px-3 sm:px-4',
+        !embedded || collapsible ? (expanded ? 'py-3' : 'py-2') : '',
       )}
       role="search"
       aria-label="Filtres portefeuille projets"
     >
+      {collapsible ? (
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <button
+            type="button"
+            className="hover:bg-muted/60 flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={toggleExpanded}
+            aria-expanded={expanded}
+            aria-controls="portfolio-filters-panel"
+          >
+            <ChevronDown
+              className={cn(
+                'text-muted-foreground size-4 shrink-0 transition-transform duration-200',
+                expanded && 'rotate-180',
+              )}
+              aria-hidden
+            />
+            <span className="text-sm font-medium">Filtres avancés</span>
+            {activeFilterCount > 0 ? (
+              <span className="bg-primary/10 text-primary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums">
+                {activeFilterCount}
+              </span>
+            ) : (
+              <span className="text-muted-foreground text-xs font-normal">Aucun filtre actif</span>
+            )}
+          </button>
+        </div>
+      ) : null}
+
+      {showFilterFields ? (
+        <>
       <div
+        id={collapsible ? 'portfolio-filters-panel' : undefined}
         className={cn(
           'grid gap-3',
           mobileSheet ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
@@ -369,6 +445,7 @@ export function ProjectsPortfolioFiltersBar({
         <div className={cn('space-y-1.5', mobileSheet ? 'col-span-2' : 'sm:col-span-2')}>
           <Label className={fieldLabelClass}>Étiquettes</Label>
           <ProjectTagsFilter
+            panelLayout="inline"
             value={filters.tagIds ?? []}
             matchMode={filters.tagIdsMatch ?? 'any'}
             onMatchModeChange={(tagIdsMatch) => setFilters({ tagIdsMatch })}
@@ -421,6 +498,8 @@ export function ProjectsPortfolioFiltersBar({
           </Select>
         </div>
       </div>
+        </>
+      ) : null}
 
       {!mobileSheet ? (
       <div className="flex flex-wrap items-center gap-4 pt-0.5">
@@ -468,42 +547,6 @@ export function ProjectsPortfolioFiltersBar({
             </div>
           </div>
         ) : null}
-        <label className="flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
-            checked={filters.rootOnly}
-            onChange={(e) =>
-              setFilters({
-                rootOnly: e.target.checked,
-                parentProjectId: e.target.checked ? undefined : filters.parentProjectId,
-              })
-            }
-          />
-          <span>Racines uniquement (sans parent)</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
-            checked={filters.lateOnly}
-            onChange={(e) =>
-              setFilters({ lateOnly: e.target.checked, atRiskOnly: false })
-            }
-          />
-          <span>En retard (date cible dépassée)</span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
-            checked={filters.atRiskOnly}
-            onChange={(e) =>
-              setFilters({ atRiskOnly: e.target.checked, lateOnly: false })
-            }
-          />
-          <span>À risque (santé ≠ bon ou bloqué / retard)</span>
-        </label>
         {portfolioGanttTooltips ? (
           <label
             className="flex cursor-pointer items-center gap-2 text-xs"
@@ -545,6 +588,60 @@ export function ProjectsPortfolioFiltersBar({
             />
             <span>Regrouper par étiquettes</span>
           </label>
+        ) : null}
+        {portfolioGanttProjectCodes ? (
+          <label
+            className="flex cursor-pointer items-center gap-2 text-xs"
+            title="Décocher pour masquer les codes projet (ex. IND-SEED-05) dans la colonne gauche"
+          >
+            <input
+              type="checkbox"
+              className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+              checked={portfolioGanttProjectCodes.enabled}
+              onChange={(e) => portfolioGanttProjectCodes.onEnabledChange(e.target.checked)}
+            />
+            <span>Codes projet</span>
+          </label>
+        ) : null}
+        {showFilterFields ? (
+          <>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+            checked={filters.rootOnly}
+            onChange={(e) =>
+              setFilters({
+                rootOnly: e.target.checked,
+                parentProjectId: e.target.checked ? undefined : filters.parentProjectId,
+              })
+            }
+          />
+          <span>Racines uniquement (sans parent)</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+            checked={filters.lateOnly}
+            onChange={(e) =>
+              setFilters({ lateOnly: e.target.checked, atRiskOnly: false })
+            }
+          />
+          <span>En retard (date cible dépassée)</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            className="border-input text-primary focus-visible:ring-ring size-4 shrink-0 rounded border shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2"
+            checked={filters.atRiskOnly}
+            onChange={(e) =>
+              setFilters({ atRiskOnly: e.target.checked, lateOnly: false })
+            }
+          />
+          <span>À risque (santé ≠ bon ou bloqué / retard)</span>
+        </label>
+          </>
         ) : null}
       </div>
       ) : null}

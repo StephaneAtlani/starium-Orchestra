@@ -81,6 +81,8 @@ function renderProjectTimelineRow(
   widthPx: number,
   tooltipsEnabled: boolean,
   inlineInfosEnabled: boolean,
+  hideTagLabels = false,
+  projectCodesEnabled = true,
 ) {
   const like = rowToGanttLike(row);
   const eligible =
@@ -97,7 +99,7 @@ function renderProjectTimelineRow(
       triggerClassName="absolute inset-0 block min-h-[1.25rem]"
     >
       <span className="sr-only">
-        {row.code} — {row.name}
+        {projectCodesEnabled && row.code ? `${row.name} — ${row.code}` : row.name}
       </span>
     </PortfolioGanttProjectTooltip>
   );
@@ -138,10 +140,12 @@ function renderProjectTimelineRow(
   const w = Math.max(4, dateMsToPx(e, bounds, pxPerDay) - left);
   const pct = Math.min(100, Math.max(0, row.progressPercent ?? 0));
   const progressLabel = `${Math.round(pct)}%`;
-  const projectTags = (row.tags ?? [])
-    .map((t) => t.name?.trim())
-    .filter((name): name is string => Boolean(name))
-    .slice(0, 3);
+  const projectTags = hideTagLabels
+    ? []
+    : (row.tags ?? [])
+        .map((t) => t.name?.trim())
+        .filter((name): name is string => Boolean(name))
+        .slice(0, 3);
   const ownerLabel = row.ownerDisplayName?.trim() || 'Sans responsable';
   const barWidth = Math.max(w, 24);
   const rightMetaLeft = Math.min(left + barWidth + 6, Math.max(8, widthPx - 220));
@@ -211,7 +215,9 @@ export function PortfolioGanttChart({
   onTimeZoomChange,
   tooltipsEnabled = true,
   inlineInfosEnabled = true,
+  projectCodesEnabled = true,
   groupByTags = false,
+  groupTagIds,
 }: {
   items: PortfolioGanttRow[];
   timeZoom: number;
@@ -220,8 +226,12 @@ export function PortfolioGanttChart({
   tooltipsEnabled?: boolean;
   /** Si false, masque les infos textuelles affichées à droite des barres. */
   inlineInfosEnabled?: boolean;
+  /** Si false, masque les codes projet dans la colonne gauche. */
+  projectCodesEnabled?: boolean;
   /** Regroupement par étiquette au lieu de catégorie portefeuille. */
   groupByTags?: boolean;
+  /** Étiquettes actives dans le filtre — limite les sections affichées au regroupement. */
+  groupTagIds?: string[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -237,9 +247,13 @@ export function PortfolioGanttChart({
   const layoutRows = useMemo(
     () =>
       flattenPortfolioGanttLayout(
-        groupByTags ? groupPortfolioGanttByTag(items) : groupPortfolioGanttByCategory(items),
+        groupByTags
+          ? groupPortfolioGanttByTag(items, {
+              visibleTagIds: groupTagIds?.length ? groupTagIds : undefined,
+            })
+          : groupPortfolioGanttByCategory(items),
       ),
-    [items, groupByTags],
+    [items, groupByTags, groupTagIds],
   );
 
   useLayoutEffect(() => {
@@ -518,7 +532,7 @@ export function PortfolioGanttChart({
                               triggerClassName="block min-w-0 flex-1 text-left"
                             >
                               <div className="min-w-0 space-y-0.5">
-                                {lr.sectionTag ? (
+                                {!groupByTags && lr.sectionTag ? (
                                   <RegistryBadge
                                     className="text-[10px]"
                                     style={projectTagBadgeStyle(lr.sectionTag.color)}
@@ -530,10 +544,13 @@ export function PortfolioGanttChart({
                                   href={projectDetail(lr.row.id)}
                                   className="cursor-pointer hover:text-primary line-clamp-2 min-w-0 text-left text-xs leading-snug font-medium underline-offset-2 hover:underline"
                                 >
-                                  <span className="text-muted-foreground">
-                                    {lr.row.code}
-                                  </span>{' '}
-                                  · {lr.row.name}
+                                  {lr.row.name}
+                                  {projectCodesEnabled && lr.row.code ? (
+                                    <>
+                                      {' · '}
+                                      <span className="text-muted-foreground">{lr.row.code}</span>
+                                    </>
+                                  ) : null}
                                 </Link>
                               </div>
                             </PortfolioGanttProjectTooltip>
@@ -545,6 +562,8 @@ export function PortfolioGanttChart({
                             widthPx,
                             tooltipsEnabled,
                             inlineInfosEnabled,
+                            groupByTags,
+                            projectCodesEnabled,
                           )}
                         </div>
                       ),

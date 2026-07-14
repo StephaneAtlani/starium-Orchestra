@@ -310,7 +310,20 @@ export function ProjectsListTableDesktop({
                     />
                   </HeaderTip>
                 </div>
-                <div className="starium-projects-table-project-head__filter-slot flex-1 pl-4" aria-hidden />
+                <div
+                  className="starium-projects-table-project-head__filter-slot flex-1 pl-4 pr-2"
+                  aria-label="Filtre par étiquettes"
+                >
+                  <ProjectTagsFilter
+                    compact
+                    value={filters.tagIds ?? []}
+                    matchMode={filters.tagIdsMatch ?? 'any'}
+                    onMatchModeChange={(tagIdsMatch) => setFilters({ tagIdsMatch })}
+                    onChange={(tagIds) =>
+                      setFilters({ tagIds: tagIds.length > 0 ? tagIds : undefined })
+                    }
+                  />
+                </div>
               </div>
             </TableHead>
             {isExtended ? (
@@ -598,17 +611,6 @@ export function ProjectsListTableDesktop({
               <>
                 <FilterDash />
                 <FilterDash />
-                <TableHead className="h-auto min-h-0 px-2 !pt-0 pb-2">
-                  <ProjectTagsFilter
-                    compact
-                    value={filters.tagIds ?? []}
-                    matchMode={filters.tagIdsMatch ?? 'any'}
-                    onMatchModeChange={(tagIdsMatch) => setFilters({ tagIdsMatch })}
-                    onChange={(tagIds) =>
-                      setFilters({ tagIds: tagIds.length > 0 ? tagIds : undefined })
-                    }
-                  />
-                </TableHead>
               </>
             )}
           </TableRow>

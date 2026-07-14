@@ -51,21 +51,33 @@ export function groupPortfolioGanttByCategory(
 /** Regroupe les projets par étiquette (N:N — un projet peut apparaître sous plusieurs sections). */
 export function groupPortfolioGanttByTag(
   items: PortfolioGanttRow[],
+  options?: { visibleTagIds?: string[] },
 ): PortfolioGanttSection[] {
+  const visibleTagIdSet =
+    options?.visibleTagIds && options.visibleTagIds.length > 0
+      ? new Set(options.visibleTagIds)
+      : null;
+
   const buckets = new Map<
     string,
     { label: string; tag: ProjectTag | null; rows: PortfolioGanttRow[] }
   >();
 
   for (const row of items) {
-    const tags = row.tags ?? [];
+    const rowTags = row.tags ?? [];
+    const tags = visibleTagIdSet
+      ? rowTags.filter((tag) => visibleTagIdSet.has(tag.id))
+      : rowTags;
+
     if (tags.length === 0) {
+      if (visibleTagIdSet) continue;
       if (!buckets.has('__none__')) {
         buckets.set('__none__', { label: NO_TAG_LABEL, tag: null, rows: [] });
       }
       buckets.get('__none__')!.rows.push(row);
       continue;
     }
+
     for (const tag of tags) {
       if (!buckets.has(tag.id)) {
         buckets.set(tag.id, { label: tag.name, tag, rows: [] });
