@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ClipboardPen,
   Link2,
+  ListOrdered,
   MapPin,
   Monitor,
   PenLine,
@@ -22,6 +23,7 @@ import {
   Video,
 } from 'lucide-react';
 import {
+  PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
   PROJECT_REVIEW_MEETING_MODE_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
 } from '../constants/project-enum-labels';
@@ -31,6 +33,7 @@ import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
+  ProjectReviewAgendaItemType,
   ProjectReviewCreationMode,
   ProjectReviewMeetingMode,
   ProjectReviewType,
@@ -47,6 +50,12 @@ type CreateParticipantRow = {
 type CreateDecisionRow = {
   title: string;
   description: string;
+};
+
+type CreateAgendaRow = {
+  title: string;
+  description: string;
+  itemType: ProjectReviewAgendaItemType;
 };
 
 export type ProjectReviewCreateDialogProps = {
@@ -87,6 +96,12 @@ const emptyParticipantRow = (): CreateParticipantRow => ({
 });
 
 const emptyDecisionRow = (): CreateDecisionRow => ({ title: '', description: '' });
+
+const emptyAgendaRow = (): CreateAgendaRow => ({
+  title: '',
+  description: '',
+  itemType: 'INFORMATION',
+});
 
 function isApiFormError(e: unknown): e is ApiFormError {
   return (
@@ -267,15 +282,17 @@ export function ProjectReviewCreateDialog({
 }: ProjectReviewCreateDialogProps) {
   const assignable = useProjectAssignableUsers();
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: open });
-  const { create } = useProjectReviewMutations(projectId);
+  const { create, createAgendaItem } = useProjectReviewMutations(projectId);
 
   const [formDate, setFormDate] = useState('');
   const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
   const [formTitle, setFormTitle] = useState('');
   const [formObjective, setFormObjective] = useState('');
-  const [formSummary, setFormSummary] = useState('');
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
     emptyParticipantRow(),
+  ]);
+  const [createAgendaItems, setCreateAgendaItems] = useState<CreateAgendaRow[]>([
+    emptyAgendaRow(),
   ]);
   const [createDecisions, setCreateDecisions] = useState<CreateDecisionRow[]>([
     emptyDecisionRow(),
@@ -293,7 +310,7 @@ export function ProjectReviewCreateDialog({
     setFormType(postMortemEligible ? 'POST_MORTEM' : 'COPIL');
     setFormTitle('');
     setFormObjective('');
-    setFormSummary('');
+    setCreateAgendaItems([emptyAgendaRow()]);
     setFormMeetingMode('');
     setFormMeetingUrl('');
     setFormLocation('');
@@ -360,7 +377,7 @@ export function ProjectReviewCreateDialog({
       return;
     }
     const reviewDate = formDate.trim() ? new Date(formDate).toISOString() : undefined;
-    const objective = formObjective.trim() || formSummary.trim();
+    const objective = formObjective.trim();
     const participants = createParticipants
       .filter((p) => p.displayName.trim() || p.userId.trim())
       .map((p) => ({
@@ -375,7 +392,13 @@ export function ProjectReviewCreateDialog({
         title: x.title.trim(),
         description: x.description.trim() || null,
       }));
-    const summary = objective;
+    const agendaItems = createAgendaItems
+      .filter((x) => x.title.trim())
+      .map((x) => ({
+        title: x.title.trim(),
+        description: x.description.trim() || null,
+        itemType: x.itemType,
+      }));
 
     try {
       const created = await create.mutateAsync({
@@ -394,6 +417,22 @@ export function ProjectReviewCreateDialog({
         ...(participants.length > 0 ? { participants } : {}),
         ...(decisions.length > 0 ? { decisions } : {}),
       });
+      if (agendaItems.length > 0) {
+        try {
+          await Promise.all(
+            agendaItems.map((item) =>
+              createAgendaItem.mutateAsync({
+                reviewId: created.id,
+                body: item,
+              }),
+            ),
+          );
+        } catch {
+          toast.error(
+            'Point créé, mais certains éléments d’ordre du jour n’ont pas pu être ajoutés.',
+          );
+        }
+      }
       onOpenChange(false);
       const openEditorAfterCreate =
         postMortemEligible || formCreationMode === 'IMMEDIATE';
@@ -778,7 +817,7 @@ export function ProjectReviewCreateDialog({
                 <OptionalBlock
                   id="create-pr-framing"
                   title="Objectif du point"
-                  summary="Cadrage et ordre du jour — optionnel"
+                  summary="Cadrage de la séance — optionnel"
                 >
                   <div className="starium-form-field">
                     <label htmlFor="pr-objective" className="starium-form-label">
@@ -794,22 +833,134 @@ export function ProjectReviewCreateDialog({
                       placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
                     />
                   </div>
-                  <div className="starium-form-field mt-3">
-                    <label htmlFor="pr-summary" className="starium-form-label">
-                      Ordre du jour (texte libre)
-                    </label>
-                    <textarea
-                      id="pr-summary"
-                      className="starium-form-textarea min-h-[88px]"
-                      value={formSummary}
-                      onChange={(e) => setFormSummary(e.target.value)}
-                      maxLength={20000}
-                      rows={4}
-                      placeholder={
-                        '1. Avancement & jalons\n2. Points bloquants\n3. Arbitrages\n4. Prochaines étapes'
+                </OptionalBlock>
+
+                <OptionalBlock
+                  id="create-pr-agenda"
+                  title="Ordre du jour"
+                  summary="Points structurés — complétables dans l’éditeur"
+                >
+                  <div className="mb-3 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-9 gap-1.5"
+                      onClick={() =>
+                        setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()])
                       }
-                    />
+                    >
+                      <Plus className="size-4" aria-hidden />
+                      Ajouter un point
+                    </Button>
                   </div>
+                  <ul className="space-y-2" aria-live="polite">
+                    {createAgendaItems.map((row, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg border border-border/60 bg-muted/15 p-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="min-w-0 flex-1 space-y-3">
+                            <div className="starium-form-grid starium-form-grid--2">
+                              <div className="starium-form-field">
+                                <label
+                                  htmlFor={`pr-agenda-type-${i}`}
+                                  className="starium-form-label"
+                                >
+                                  Type
+                                </label>
+                                <select
+                                  id={`pr-agenda-type-${i}`}
+                                  className="starium-form-select min-h-11"
+                                  value={row.itemType}
+                                  onChange={(e) => {
+                                    const v = e.target.value as ProjectReviewAgendaItemType;
+                                    setCreateAgendaItems((prev) =>
+                                      prev.map((x, j) => (j === i ? { ...x, itemType: v } : x)),
+                                    );
+                                  }}
+                                >
+                                  {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(
+                                    ([k, label]) => (
+                                      <option key={k} value={k}>
+                                        {label}
+                                      </option>
+                                    ),
+                                  )}
+                                </select>
+                              </div>
+                              <div className="starium-form-field">
+                                <label
+                                  htmlFor={`pr-agenda-title-${i}`}
+                                  className="starium-form-label"
+                                >
+                                  Titre
+                                </label>
+                                <Input
+                                  id={`pr-agenda-title-${i}`}
+                                  className="starium-form-input min-h-11"
+                                  value={row.title}
+                                  maxLength={500}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setCreateAgendaItems((prev) =>
+                                      prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
+                                    );
+                                  }}
+                                  placeholder="Ex. Arbitrage dépassement budget"
+                                />
+                              </div>
+                            </div>
+                            <div className="starium-form-field">
+                              <label
+                                htmlFor={`pr-agenda-desc-${i}`}
+                                className="starium-form-label"
+                              >
+                                Description{' '}
+                                <span className="font-normal text-muted-foreground">
+                                  (optionnel)
+                                </span>
+                              </label>
+                              <textarea
+                                id={`pr-agenda-desc-${i}`}
+                                className="starium-form-textarea min-h-[64px]"
+                                value={row.description}
+                                maxLength={8000}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setCreateAgendaItems((prev) =>
+                                    prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
+                                  );
+                                }}
+                                placeholder="Contexte, documents attendus, décision visée…"
+                              />
+                            </div>
+                          </div>
+                          {createAgendaItems.length > 1 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                              aria-label={`Retirer le point ${row.title.trim() || i + 1}`}
+                              onClick={() =>
+                                setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i))
+                              }
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {createAgendaItems.every((row) => !row.title.trim()) ? (
+                    <p className="starium-form-hint mt-2">
+                      <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
+                      Laissez vide si vous préférez constituer l’ordre du jour dans l’éditeur.
+                    </p>
+                  ) : null}
                 </OptionalBlock>
 
                 <OptionalBlock
