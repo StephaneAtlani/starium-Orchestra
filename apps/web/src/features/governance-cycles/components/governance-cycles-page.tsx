@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -23,12 +22,28 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { buttonVariants } from '@/components/ui/button';
+import {
+  CalendarRange,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Pencil,
+  PlusCircle,
+  Trash2,
+} from 'lucide-react';
 import {
   GOVERNANCE_CYCLE_CADENCE_OPTIONS,
   GOVERNANCE_CYCLE_STATUS_OPTIONS,
   getGovernanceCycleCadenceLabel,
 } from '../lib/governance-cycle-labels';
+import {
+  buildEnrichedInstances,
+  isActiveGovernanceCycle,
+  sumPendingDecisions,
+} from '../lib/governance-cycles-cockpit-data';
 import {
   formatGovernanceCapacityDays,
   formatGovernanceCycleDateRange,
@@ -44,21 +59,22 @@ import {
   getApiErrorMessage,
   useArchiveGovernanceCycleMutation,
   useGovernanceCycleSummariesForIdsQuery,
+  useGovernanceCyclePendingItemsForIdsQuery,
   useGovernanceCyclesListQuery,
 } from '../hooks/use-governance-cycles';
+import { useGovernanceCycleInstancesForIdsQuery } from '../api/governance-cycle-instances.queries';
 import { GovernanceCycleFormDialog } from './governance-cycle-form-dialog';
+import { GovernanceCyclePlanInstanceDialog } from './governance-cycle-plan-instance-dialog';
 import { GovernanceCycleStatusBadge } from './governance-cycle-status-badge';
+import { GovernanceCyclesCockpitKpi } from './governance-cycles-cockpit-kpi';
+import { GovernanceCyclesInstancesPanel } from './governance-cycles-instances-panel';
+import {
+  GovernanceCyclesCockpitSidebar,
+  type PendingDecisionRow,
+} from './governance-cycles-cockpit-sidebar';
 
 const PAGE_SIZE = 20;
-
-function computePageSummary(cycles: GovernanceCycleResponseDto[]) {
-  return {
-    active: cycles.filter((c) => c.status !== 'CLOSED' && c.status !== 'ARCHIVED').length,
-    toArbitrate: cycles.filter((c) => c.status === 'TO_ARBITRATE').length,
-    inExecution: cycles.filter((c) => c.status === 'IN_EXECUTION').length,
-    closed: cycles.filter((c) => c.status === 'CLOSED').length,
-  };
-}
+const COCKPIT_CYCLE_LIMIT = 50;
 
 function matchesPeriodFilter(
   cycle: GovernanceCycleResponseDto,
@@ -88,7 +104,18 @@ export function GovernanceCyclesPage() {
   const [periodEnd, setPeriodEnd] = useState('');
   const [offset, setOffset] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [registryOpen, setRegistryOpen] = useState(false);
   const [editCycle, setEditCycle] = useState<GovernanceCycleResponseDto | null>(null);
+
+  const cockpitListParams = useMemo(
+    () => ({
+      includeArchived: false,
+      limit: COCKPIT_CYCLE_LIMIT,
+      offset: 0,
+    }),
+    [],
+  );
 
   const listParams = useMemo(
     () => ({
@@ -105,32 +132,102 @@ export function GovernanceCyclesPage() {
     [search, statusFilter, cadenceFilter, includeArchived, offset],
   );
 
-  const listQuery = useGovernanceCyclesListQuery(listParams, { enabled: listEnabled });
+  const cockpitQuery = useGovernanceCyclesListQuery(cockpitListParams, { enabled: listEnabled });
+  const listQuery = useGovernanceCyclesListQuery(listParams, {
+    enabled: listEnabled && registryOpen,
+  });
   const archiveMutation = useArchiveGovernanceCycleMutation();
 
-  const serverItems = useMemo(
-    () => listQuery.data?.items ?? [],
-    [listQuery.data?.items],
+  const cockpitCycles = useMemo(
+    () => cockpitQuery.data?.items ?? [],
+    [cockpitQuery.data?.items],
   );
+  const activeCycleIds = useMemo(
+    () => cockpitCycles.filter(isActiveGovernanceCycle).map((c) => c.id),
+    [cockpitCycles],
+  );
+
+  const instanceQueries = useGovernanceCycleInstancesForIdsQuery(activeCycleIds, {
+    enabled: listEnabled,
+  });
+  const summaryQueries = useGovernanceCycleSummariesForIdsQuery(activeCycleIds, {
+    enabled: listEnabled,
+  });
+  const pendingItemQueries = useGovernanceCyclePendingItemsForIdsQuery(activeCycleIds, {
+    enabled: listEnabled,
+    limit: 3,
+  });
+
+  const instancesByCycleId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildEnrichedInstances>[number]['instance'][]>();
+    activeCycleIds.forEach((cycleId, index) => {
+      const items = instanceQueries[index]?.data?.items ?? [];
+      map.set(cycleId, items);
+    });
+    return map;
+  }, [activeCycleIds, instanceQueries]);
+
+  const enrichedInstances = useMemo(
+    () => buildEnrichedInstances(cockpitCycles, instancesByCycleId),
+    [cockpitCycles, instancesByCycleId],
+  );
+
+  const summaries = useMemo(
+    () => summaryQueries.map((q) => q.data),
+    [summaryQueries],
+  );
+
+  const summaryByCycleId = useMemo(() => {
+    const map = new Map<string, GovernanceCycleGlobalSummaryDto>();
+    activeCycleIds.forEach((id, index) => {
+      const data = summaryQueries[index]?.data;
+      if (data) map.set(id, data);
+    });
+    return map;
+  }, [activeCycleIds, summaryQueries]);
+
+  const pendingDecisions = useMemo(() => {
+    const rows: PendingDecisionRow[] = [];
+    activeCycleIds.forEach((cycleId, index) => {
+      const cycle = cockpitCycles.find((c) => c.id === cycleId);
+      const items = pendingItemQueries[index]?.data?.items ?? [];
+      for (const item of items) {
+        rows.push({
+          item,
+          cycleId,
+          cycleName: cycle?.name ?? 'Cycle',
+          cycleCode: cycle?.code ?? null,
+        });
+      }
+    });
+    return rows;
+  }, [activeCycleIds, cockpitCycles, pendingItemQueries]);
+
+  const pendingTotal = sumPendingDecisions(summaries).total;
+
+  const cockpitLoading =
+    cockpitQuery.isLoading ||
+    instanceQueries.some((q) => q.isLoading) ||
+    summaryQueries.some((q) => q.isLoading);
+
+  const serverItems = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const visibleItems = useMemo(
     () => serverItems.filter((c) => matchesPeriodFilter(c, periodStart, periodEnd)),
     [serverItems, periodStart, periodEnd],
   );
   const visibleIds = visibleItems.map((c) => c.id);
-  const summaryQueries = useGovernanceCycleSummariesForIdsQuery(visibleIds, {
-    enabled: listEnabled && visibleIds.length > 0,
+  const registrySummaryQueries = useGovernanceCycleSummariesForIdsQuery(visibleIds, {
+    enabled: listEnabled && registryOpen && visibleIds.length > 0,
   });
 
-  const summaryByCycleId = useMemo(() => {
+  const registrySummaryByCycleId = useMemo(() => {
     const map = new Map<string, GovernanceCycleGlobalSummaryDto>();
     visibleIds.forEach((id, index) => {
-      const data = summaryQueries[index]?.data;
+      const data = registrySummaryQueries[index]?.data;
       if (data) map.set(id, data);
     });
     return map;
-  }, [visibleIds, summaryQueries]);
-
-  const pageSummary = computePageSummary(visibleItems);
+  }, [visibleIds, registrySummaryQueries]);
 
   const handleArchive = useCallback(
     async (cycle: GovernanceCycleResponseDto) => {
@@ -144,6 +241,10 @@ export function GovernanceCyclesPage() {
     },
     [archiveMutation],
   );
+
+  const scrollToInstances = useCallback(() => {
+    document.getElementById('cycles-instances')?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   const cycleColumns = useMemo<DataTableColumn<GovernanceCycleResponseDto>[]>(() => {
     return [
@@ -199,8 +300,8 @@ export function GovernanceCyclesPage() {
         className: 'text-right tabular-nums',
         mobilePriority: 'secondary',
         cell: (cycle) => {
-          const summary = summaryByCycleId.get(cycle.id);
-          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          const summary = registrySummaryByCycleId.get(cycle.id);
+          const summaryFailed = registrySummaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
           return summaryFailed || !summary ? '—' : summary.toArbitrateCount;
         },
       },
@@ -210,8 +311,8 @@ export function GovernanceCyclesPage() {
         className: 'text-right tabular-nums',
         mobilePriority: 'secondary',
         cell: (cycle) => {
-          const summary = summaryByCycleId.get(cycle.id);
-          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          const summary = registrySummaryByCycleId.get(cycle.id);
+          const summaryFailed = registrySummaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
           return summaryFailed || !summary
             ? '—'
             : formatGovernanceDecimalAmount(summary.estimatedBudgetTotal);
@@ -223,8 +324,8 @@ export function GovernanceCyclesPage() {
         className: 'text-right tabular-nums',
         mobilePriority: 'secondary',
         cell: (cycle) => {
-          const summary = summaryByCycleId.get(cycle.id);
-          const summaryFailed = summaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
+          const summary = registrySummaryByCycleId.get(cycle.id);
+          const summaryFailed = registrySummaryQueries[visibleIds.indexOf(cycle.id)]?.isError;
           return summaryFailed || !summary
             ? '—'
             : formatGovernanceCapacityDays(summary.estimatedCapacityDaysTotal);
@@ -274,7 +375,13 @@ export function GovernanceCyclesPage() {
         ),
       },
     ];
-  }, [archiveMutation.isPending, handleArchive, summaryByCycleId, summaryQueries, visibleIds]);
+  }, [
+    archiveMutation.isPending,
+    handleArchive,
+    registrySummaryByCycleId,
+    registrySummaryQueries,
+    visibleIds,
+  ]);
 
   if (!canRead && permsSuccess) {
     return (
@@ -296,203 +403,271 @@ export function GovernanceCyclesPage() {
     <PageContainer className="space-y-6">
       <PageHeader
         title="Cycles de pilotage"
-        description="Arbitrage CODIR et priorisation transverse."
+        description="Cadence de gouvernance : comités, instances de décision et revues de portefeuille."
         actions={
-          <PermissionGate permission="governance_cycles.create">
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau cycle
+          <div className="flex w-full items-stretch gap-2 sm:w-auto sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11 flex-1 gap-1.5 sm:min-h-0 sm:flex-initial"
+              onClick={scrollToInstances}
+            >
+              <CalendarRange className="size-4" aria-hidden />
+              Calendrier
             </Button>
-          </PermissionGate>
+            <PermissionGate permission="governance_cycles.create">
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-11 flex-1 gap-1.5 sm:min-h-0 sm:flex-initial"
+                onClick={() => setPlanOpen(true)}
+              >
+                <PlusCircle className="size-4" aria-hidden />
+                Planifier une instance
+              </Button>
+            </PermissionGate>
+          </div>
         }
       />
 
-      <section className="space-y-2">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Synthèse de la page affichée</h2>
-          <p className="text-xs text-muted-foreground">Calculée sur les cycles visibles.</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'Cycles actifs', value: pageSummary.active },
-            { label: 'À arbitrer', value: pageSummary.toArbitrate },
-            { label: 'En exécution', value: pageSummary.inExecution },
-            { label: 'Clôturés', value: pageSummary.closed },
-          ].map((kpi) => (
-            <Card key={kpi.label}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{kpi.label}</p>
-                <p className="text-2xl font-semibold tabular-nums">{kpi.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <FilterBar
-        aria-label="Filtres cycles de pilotage"
-        asSearch
-        desktopColumns={4}
-        className="space-y-0"
-      >
-        <FilterBarField id="cycles-search" label="Recherche">
-          {({ controlId }) => (
-            <Input
-              id={controlId}
-              placeholder="Nom ou code…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setOffset(0);
-              }}
-              className="w-full"
-            />
-          )}
-        </FilterBarField>
-        <FilterBarField id="cycles-status" label="Statut">
-          {({ controlId, labelId }) => (
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => {
-                setStatusFilter(v ?? 'all');
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
-                <SelectValue placeholder="Tous" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous</SelectItem>
-                {GOVERNANCE_CYCLE_STATUS_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField id="cycles-cadence" label="Cadence">
-          {({ controlId, labelId }) => (
-            <Select
-              value={cadenceFilter}
-              onValueChange={(v) => {
-                setCadenceFilter(v ?? 'all');
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
-                <SelectValue placeholder="Toutes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes</SelectItem>
-                {GOVERNANCE_CYCLE_CADENCE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField id="cycles-archived" label="Inclure archivés">
-          {({ controlId, labelId }) => (
-            <Select
-              value={includeArchived ? 'yes' : 'no'}
-              onValueChange={(v) => {
-                setIncludeArchived(v === 'yes');
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no">Non</SelectItem>
-                <SelectItem value="yes">Oui</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField
-          id="period-start"
-          label="Période — page affichée (début)"
-          description="Filtre local sur les cycles déjà chargés sur cette page."
-        >
-          {({ controlId, descriptionId }) => (
-            <Input
-              id={controlId}
-              type="date"
-              aria-describedby={descriptionId}
-              value={periodStart}
-              onChange={(e) => setPeriodStart(e.target.value)}
-              className="w-full"
-            />
-          )}
-        </FilterBarField>
-        <FilterBarField id="period-end" label="Période — page affichée (fin)">
-          {({ controlId }) => (
-            <Input
-              id={controlId}
-              type="date"
-              value={periodEnd}
-              onChange={(e) => setPeriodEnd(e.target.value)}
-              className="w-full"
-            />
-          )}
-        </FilterBarField>
-      </FilterBar>
-
-      {listQuery.isLoading ? (
-        <LoadingState rows={6} />
-      ) : listQuery.isError ? (
+      {cockpitQuery.isError ? (
         <Alert variant="destructive">
           <AlertDescription>
-            {getApiErrorMessage(listQuery.error, 'Impossible de charger les cycles.')}
+            {getApiErrorMessage(cockpitQuery.error, 'Impossible de charger le cockpit.')}
           </AlertDescription>
         </Alert>
-      ) : visibleItems.length === 0 ? (
-        <EmptyState
-          title="Aucun cycle"
-          description="Créez un cycle de pilotage ou ajustez les filtres."
-        />
       ) : (
         <>
-          <DataTable
-            columns={cycleColumns}
-            data={visibleItems}
-            getRowId={(cycle) => cycle.id}
-            mobileCardsAriaLabel="Liste des cycles de pilotage"
+          <GovernanceCyclesCockpitKpi
+            cycles={cockpitCycles}
+            enrichedInstances={enrichedInstances}
+            summaries={summaries}
+            isLoading={cockpitLoading}
           />
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              {total} cycle{total > 1 ? 's' : ''} au total
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canPrev}
-                onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Précédent
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canNext}
-                onClick={() => setOffset((o) => o + PAGE_SIZE)}
-              >
-                Suivant
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
+            <GovernanceCyclesInstancesPanel
+              instances={enrichedInstances}
+              summariesByCycleId={summaryByCycleId}
+              isLoading={cockpitLoading}
+            />
+            <GovernanceCyclesCockpitSidebar
+              cycles={cockpitCycles}
+              pendingDecisions={pendingDecisions}
+              pendingTotal={pendingTotal}
+              isLoading={cockpitLoading}
+            />
           </div>
         </>
       )}
 
+      <section className="space-y-4" aria-labelledby="governance-registry-heading">
+        <button
+          type="button"
+          id="governance-registry-heading"
+          className={cn(
+            buttonVariants({ variant: 'outline' }),
+            'flex min-h-11 w-full items-center justify-between gap-2 px-4 text-left',
+          )}
+          aria-expanded={registryOpen}
+          onClick={() => setRegistryOpen((open) => !open)}
+        >
+          <span className="font-medium">Gérer tous les cycles</span>
+          {registryOpen ? (
+            <ChevronUp className="size-4 shrink-0" aria-hidden />
+          ) : (
+            <ChevronDown className="size-4 shrink-0" aria-hidden />
+          )}
+        </button>
+
+        {registryOpen ? (
+          <div className="space-y-4">
+            <PermissionGate permission="governance_cycles.create">
+              <div className="flex justify-end">
+                <Button onClick={() => setCreateOpen(true)}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nouveau cycle
+                </Button>
+              </div>
+            </PermissionGate>
+
+            <FilterBar
+              aria-label="Filtres cycles de pilotage"
+              asSearch
+              desktopColumns={4}
+              className="space-y-0"
+            >
+              <FilterBarField id="cycles-search" label="Recherche">
+                {({ controlId }) => (
+                  <Input
+                    id={controlId}
+                    placeholder="Nom ou code…"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setOffset(0);
+                    }}
+                    className="w-full"
+                  />
+                )}
+              </FilterBarField>
+              <FilterBarField id="cycles-status" label="Statut">
+                {({ controlId, labelId }) => (
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => {
+                      setStatusFilter(v ?? 'all');
+                      setOffset(0);
+                    }}
+                  >
+                    <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                      <SelectValue placeholder="Tous" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous</SelectItem>
+                      {GOVERNANCE_CYCLE_STATUS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FilterBarField>
+              <FilterBarField id="cycles-cadence" label="Cadence">
+                {({ controlId, labelId }) => (
+                  <Select
+                    value={cadenceFilter}
+                    onValueChange={(v) => {
+                      setCadenceFilter(v ?? 'all');
+                      setOffset(0);
+                    }}
+                  >
+                    <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                      <SelectValue placeholder="Toutes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes</SelectItem>
+                      {GOVERNANCE_CYCLE_CADENCE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FilterBarField>
+              <FilterBarField id="cycles-archived" label="Inclure archivés">
+                {({ controlId, labelId }) => (
+                  <Select
+                    value={includeArchived ? 'yes' : 'no'}
+                    onValueChange={(v) => {
+                      setIncludeArchived(v === 'yes');
+                      setOffset(0);
+                    }}
+                  >
+                    <SelectTrigger id={controlId} aria-labelledby={labelId} className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">Non</SelectItem>
+                      <SelectItem value="yes">Oui</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </FilterBarField>
+              <FilterBarField
+                id="period-start"
+                label="Période — page affichée (début)"
+                description="Filtre local sur les cycles déjà chargés sur cette page."
+              >
+                {({ controlId, descriptionId }) => (
+                  <Input
+                    id={controlId}
+                    type="date"
+                    aria-describedby={descriptionId}
+                    value={periodStart}
+                    onChange={(e) => setPeriodStart(e.target.value)}
+                    className="w-full"
+                  />
+                )}
+              </FilterBarField>
+              <FilterBarField id="period-end" label="Période — page affichée (fin)">
+                {({ controlId }) => (
+                  <Input
+                    id={controlId}
+                    type="date"
+                    value={periodEnd}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    className="w-full"
+                  />
+                )}
+              </FilterBarField>
+            </FilterBar>
+
+            {listQuery.isLoading ? (
+              <LoadingState rows={6} />
+            ) : listQuery.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {getApiErrorMessage(listQuery.error, 'Impossible de charger les cycles.')}
+                </AlertDescription>
+              </Alert>
+            ) : visibleItems.length === 0 ? (
+              <EmptyState
+                title="Aucun cycle"
+                description="Créez un cycle de pilotage ou ajustez les filtres."
+              />
+            ) : (
+              <>
+                <DataTable
+                  columns={cycleColumns}
+                  data={visibleItems}
+                  getRowId={(cycle) => cycle.id}
+                  mobileCardsAriaLabel="Liste des cycles de pilotage"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    {total} cycle{total > 1 ? 's' : ''} au total
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canPrev}
+                      onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Précédent
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canNext}
+                      onClick={() => setOffset((o) => o + PAGE_SIZE)}
+                    >
+                      Suivant
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+      </section>
+
       <GovernanceCycleFormDialog open={createOpen} onOpenChange={setCreateOpen} mode="create" />
+      <GovernanceCyclePlanInstanceDialog
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        cycles={cockpitCycles}
+        onCreateCycle={() => {
+          setPlanOpen(false);
+          setCreateOpen(true);
+        }}
+      />
       {editCycle ? (
         <GovernanceCycleFormDialog
           open={Boolean(editCycle)}

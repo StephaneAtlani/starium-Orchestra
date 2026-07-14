@@ -128,3 +128,29 @@ export function useGovernanceCycleSummariesForIdsQuery(
     })),
   });
 }
+
+/** Items à arbitrer par cycle actif — alimente le panneau latéral. */
+export function useGovernanceCyclePendingItemsForIdsQuery(
+  cycleIds: string[],
+  options?: { enabled?: boolean; limit?: number },
+) {
+  const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
+  const limit = options?.limit ?? 5;
+  const enabled = readEnabled && cycleIds.length > 0 && (options?.enabled !== false);
+
+  return useQueries({
+    queries: cycleIds.map((cycleId) => ({
+      queryKey: governanceCyclesKeys.items(clientId, cycleId, {
+        decisionStatus: 'TO_ARBITRATE',
+        limit,
+      }),
+      queryFn: () =>
+        listGovernanceCycleItems(authFetch, cycleId, {
+          decisionStatus: 'TO_ARBITRATE',
+          limit,
+        }),
+      enabled,
+      retry: false,
+    })),
+  });
+}

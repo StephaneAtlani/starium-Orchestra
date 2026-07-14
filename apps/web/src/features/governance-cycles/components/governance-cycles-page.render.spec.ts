@@ -9,8 +9,8 @@ vi.mock('@/components/layout/page-container', () => ({
 }));
 
 vi.mock('@/components/layout/page-header', () => ({
-  PageHeader: ({ title }: { title: React.ReactNode }) =>
-    React.createElement('h1', null, title),
+  PageHeader: ({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) =>
+    React.createElement('div', null, React.createElement('h1', null, title), description),
 }));
 
 vi.mock('@/components/feedback/loading-state', () => ({
@@ -31,6 +31,7 @@ vi.mock('@/components/ui/alert', () => ({
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children }: { children: React.ReactNode }) =>
     React.createElement('button', null, children),
+  buttonVariants: () => 'btn',
 }));
 
 vi.mock('@/components/ui/card', () => ({
@@ -105,23 +106,34 @@ vi.mock('../hooks/use-governance-cycles', () => ({
           status: 'DRAFT',
           startDate: null,
           endDate: null,
+          sponsorLabel: 'Marie Dupont',
+          objectiveSummary: 'Pilotage projet',
           summary: { itemsCount: 3, acceptedItemsCount: 1, deferredItemsCount: 0 },
           updatedAt: '2026-01-02T00:00:00.000Z',
         },
       ],
       total: 1,
-      limit: 20,
+      limit: 50,
       offset: 0,
     },
     isLoading: false,
     isError: false,
   }),
   useGovernanceCycleSummariesForIdsQuery: () => [],
+  useGovernanceCyclePendingItemsForIdsQuery: () => [],
   useArchiveGovernanceCycleMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
+vi.mock('../api/governance-cycle-instances.queries', () => ({
+  useGovernanceCycleInstancesForIdsQuery: () => [],
 }));
 
 vi.mock('./governance-cycle-form-dialog', () => ({
   GovernanceCycleFormDialog: () => null,
+}));
+
+vi.mock('./governance-cycle-plan-instance-dialog', () => ({
+  GovernanceCyclePlanInstanceDialog: () => null,
 }));
 
 vi.mock('./governance-cycle-status-badge', () => ({
@@ -129,11 +141,14 @@ vi.mock('./governance-cycle-status-badge', () => ({
 }));
 
 describe('GovernanceCyclesPage render', () => {
-  it('affiche le nom metier et pas un UUID seul en colonne principale', () => {
+  it('affiche le cockpit sans UUID brut et le libellé métier', () => {
     const html = renderToStaticMarkup(React.createElement(GovernanceCyclesPage));
-    expect(html).toContain('CODIR T2 2026');
+    expect(html).toContain('Cycles de pilotage');
+    expect(html).toContain('Cadence de gouvernance');
+    expect(html).toContain('Instances à venir');
+    expect(html).toContain('Décisions en attente');
+    expect(html).toContain('Cadence des cycles');
     expect(html).toContain('CODIR-T2');
     expect(html).not.toMatch(/>\s*cycle-hidden-id\s*</);
-    expect(html).toContain('Synthèse de la page affichée');
   });
 });

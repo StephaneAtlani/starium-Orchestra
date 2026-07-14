@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useGovernanceCyclesReadContext } from './governance-cycles.queries';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
@@ -34,6 +34,24 @@ export function useGovernanceCycleInstancesQuery(
     queryFn: () =>
       listGovernanceCycleInstances(authFetch, cycleId, options?.includeArchived),
     enabled: readEnabled && Boolean(cycleId),
+  });
+}
+
+/** Instances par cycle — échec isolé pour le cockpit. */
+export function useGovernanceCycleInstancesForIdsQuery(
+  cycleIds: string[],
+  options?: { enabled?: boolean },
+) {
+  const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
+  const enabled = readEnabled && cycleIds.length > 0 && (options?.enabled !== false);
+
+  return useQueries({
+    queries: cycleIds.map((cycleId) => ({
+      queryKey: governanceCyclesKeys.instances(clientId, cycleId, {}),
+      queryFn: () => listGovernanceCycleInstances(authFetch, cycleId),
+      enabled,
+      retry: false,
+    })),
   });
 }
 
