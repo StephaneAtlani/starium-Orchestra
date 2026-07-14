@@ -61,6 +61,18 @@ export function ReviewDecisionsSection({
 }: Props) {
   const content = (
     <>
+      {agendaItems.length > 0 ? (
+        <div
+          className="mb-4 flex gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm text-muted-foreground"
+          role="note"
+        >
+          <p>
+            Une <strong className="font-medium text-foreground">décision formalisée</strong> est l&apos;acte tracé du
+            point (type GO/NO GO, statut, impact). Elle peut être liée à un point d&apos;ordre du jour — distinct de la
+            conclusion brouillon saisie lors de la conduite ODJ.
+          </p>
+        </div>
+      ) : null}
       {editable ? (
         <div className="flex justify-end">
           <Button
@@ -134,7 +146,7 @@ export function ReviewDecisionsSection({
               </div>
               {agendaItems.length > 0 ? (
                 <div className="grid gap-1.5 sm:col-span-2">
-                  <Label htmlFor={`pr-dec-agenda-${i}`}>Point d&apos;ordre du jour lié</Label>
+                  <Label htmlFor={`pr-dec-agenda-${i}`}>Point ODJ d&apos;origine</Label>
                   <select
                     id={`pr-dec-agenda-${i}`}
                     className="starium-form-select min-h-11"
@@ -208,7 +220,7 @@ export function ReviewDecisionsSection({
     <ReviewEditorSection
       sectionId="pr-section-decisions"
       title="Décisions"
-      description="Décisions formelles prises pendant le point : type, statut et impact."
+      description="Actes formalisés du point (type, validation, impact), rattachés optionnellement à un point d'ordre du jour."
       icon={ListChecks}
     >
       {content}

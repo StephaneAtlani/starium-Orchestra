@@ -72,6 +72,10 @@ export function isReviewParticipantsEditable(status: ProjectReviewStatus): boole
   return isReviewAgendaEditable(status);
 }
 
+export function isReviewInConduct(status: ProjectReviewStatus): boolean {
+  return normalizeReviewStatus(status) === 'IN_PROGRESS';
+}
+
 export function isReviewFinalizedOrCancelled(status: ProjectReviewStatus): boolean {
   return status === 'FINALIZED' || status === 'CANCELLED';
 }

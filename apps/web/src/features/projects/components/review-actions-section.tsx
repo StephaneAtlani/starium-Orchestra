@@ -30,6 +30,7 @@ export type ReviewActionFormRow = {
   linkedTaskId: string;
   responsibleUserId: string;
   decisionId: string;
+  agendaItemId: string;
   contributors: ReviewActionContributorRow[];
 };
 
@@ -48,6 +49,7 @@ export const emptyActionRow = (): ReviewActionFormRow => ({
   linkedTaskId: '',
   responsibleUserId: '',
   decisionId: '',
+  agendaItemId: '',
   contributors: [],
 });
 

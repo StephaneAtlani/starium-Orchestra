@@ -40,6 +40,16 @@ export function projectDetail(id: string): string {
   return `/projects/${id}`;
 }
 
+/** Onglet Points projet sur la fiche projet. */
+export function projectPointsTab(projectId: string): string {
+  return `${projectDetail(projectId)}?tab=points`;
+}
+
+/** Conduite de réunion — point projet en cours (`IN_PROGRESS`). */
+export function projectReviewConduct(projectId: string, reviewId: string): string {
+  return `/projects/${projectId}/reviews/${reviewId}`;
+}
+
 export function projectSheet(projectId: string): string {
   return `/projects/${projectId}/sheet`;
 }

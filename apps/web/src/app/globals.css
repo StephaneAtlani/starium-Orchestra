@@ -3927,6 +3927,36 @@ table.starium-dt {
   }
 }
 
+/* Page conduite de réunion — hauteur verrouillée, scroll dans le panneau d’onglet actif */
+main.starium-workspace-sheet:has(.starium-conduct-page) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0 !important;
+  height: 100%;
+  overflow: hidden;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.starium-conduct-page {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.starium-conduct-page > * {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 /* En-tête de page cockpit — carte blanche sur fond app */
 .starium-page-header {
   display: flex;

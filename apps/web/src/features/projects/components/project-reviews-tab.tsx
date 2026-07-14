@@ -20,7 +20,8 @@ import {
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
-import { normalizeReviewStatus } from '../lib/project-review-status';
+import { normalizeReviewStatus, isReviewInConduct } from '../lib/project-review-status';
+import { projectReviewConduct } from '../constants/project-routes';
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
@@ -177,10 +178,18 @@ export function ProjectReviewsTab({
   const pathname = usePathname();
   const router = useRouter();
 
-  const openEditor = useCallback((id: string) => {
-    setEditorReviewId(id);
-    setEditorOpen(true);
-  }, []);
+  const openEditor = useCallback(
+    (id: string) => {
+      const row = list.data?.find((r) => r.id === id);
+      if (row && isReviewInConduct(row.status)) {
+        router.push(projectReviewConduct(projectId, id));
+        return;
+      }
+      setEditorReviewId(id);
+      setEditorOpen(true);
+    },
+    [list.data, projectId, router],
+  );
 
   /** Synthèse projet : `?createRetourExperience=1` ouvre la création ; si un brouillon REX existe, l’éditeur. */
   useEffect(() => {
