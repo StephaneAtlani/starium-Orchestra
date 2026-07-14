@@ -2987,7 +2987,7 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`). `snapshotPayload` v2 si finalisé. **`projects.read`**
 - **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/schedule** — `PREPARING`→`SCHEDULED` ou replanification `SCHEDULED` (`reviewDate` requis). **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**. *UI* : le CTA « Démarrer le point » n’est proposé qu’en `SCHEDULED` (voir RFC-PROJ-013-2 §15.5).
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**

@@ -79,7 +79,9 @@ import {
 import { ReviewAttachmentsSection } from './review-attachments-section';
 import { ReviewHistorySection } from './review-history-section';
 import {
+  canScheduleReview,
   canStartReview,
+  hasReviewInvitationsSent,
   isReviewContentEditable,
   isReviewPlanningEditable,
   normalizeReviewStatus,
@@ -452,7 +454,8 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: open });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: open });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: open });
-  const { update, finalize, cancel, startReview } = useProjectReviewMutations(projectId);
+  const { update, finalize, cancel, startReview, scheduleReview, inviteReview } =
+    useProjectReviewMutations(projectId);
 
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -484,6 +487,7 @@ export function ProjectReviewEditorDialog({
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
   const [postMortemForm, setPostMortemForm] = useState<PostMortemPayload>(POST_MORTEM_EMPTY);
   const [editorTab, setEditorTab] = useState('general');
+  const planningDetailsRef = useRef<HTMLDetailsElement>(null);
 
   const lastInitRef = useRef<string | null>(null);
   /** Snapshot JSON de `buildPatchBody()` — évite les PATCH inutiles et sert de ligne de base après init. */
@@ -564,7 +568,9 @@ export function ProjectReviewEditorDialog({
   }, [open, reviewId, detailQuery.data, initFromDetail]);
 
   const d = detailQuery.data;
+  const canSchedule = d ? canScheduleReview(d.status) : false;
   const canStart = d ? canStartReview(d.status) : false;
+  const invitationsSent = d ? hasReviewInvitationsSent(d.participants) : false;
   const editable = canEdit && d ? isReviewContentEditable(d.status) : false;
   const planningEditable = canEdit && d ? isReviewPlanningEditable(d.status) : false;
   const projectStatus = projectQuery.data?.status;
@@ -845,6 +851,54 @@ export function ProjectReviewEditorDialog({
     }
   };
 
+  const openPlanningSection = () => {
+    setEditorTab('general');
+    const details = planningDetailsRef.current;
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
+
+  const onScheduleReview = async () => {
+    if (!d || !canSchedule || !canEdit) return;
+    if (!reviewDate.trim()) {
+      toast.error('Renseignez la date et l’heure avant de planifier le point.');
+      openPlanningSection();
+      return;
+    }
+    try {
+      await scheduleReview.mutateAsync({
+        reviewId: d.id,
+        reviewDate: fromLocalDatetimeInput(reviewDate),
+      });
+      toast.success('Point planifié — vous pouvez maintenant envoyer les notifications.');
+    } catch {
+      toast.error('Impossible de planifier le point.');
+    }
+  };
+
+  const onSendNotifications = async () => {
+    if (!d || !canStart || !canEdit) return;
+    try {
+      const result = await inviteReview.mutateAsync({
+        reviewId: d.id,
+        body: { channels: ['in_app'] },
+      });
+      if (result.notifiedInApp > 0) {
+        toast.success(
+          `${result.notifiedInApp} participant(s) notifié(s) dans Starium.`,
+        );
+      } else {
+        toast.success('Aucune notification in-app envoyée — vérifiez les participants.');
+        openPlanningSection();
+      }
+    } catch {
+      toast.error('Impossible d’envoyer les notifications.');
+      openPlanningSection();
+    }
+  };
+
   const isPostMortemReview = reviewType === 'POST_MORTEM';
 
   const reviewTabPanelClass =
@@ -929,10 +983,36 @@ export function ProjectReviewEditorDialog({
               ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
-              {canStart && canEdit && (
+              {canSchedule && canEdit && (
                 <Button
                   type="button"
                   variant="default"
+                  className="min-h-11"
+                  onClick={() => void onScheduleReview()}
+                  disabled={scheduleReview.isPending}
+                >
+                  {scheduleReview.isPending ? 'Planification…' : 'Planifier le point'}
+                </Button>
+              )}
+              {canStart && canEdit && (
+                <Button
+                  type="button"
+                  variant={invitationsSent ? 'outline' : 'default'}
+                  className="min-h-11"
+                  onClick={() => void onSendNotifications()}
+                  disabled={inviteReview.isPending}
+                >
+                  {inviteReview.isPending
+                    ? 'Envoi…'
+                    : invitationsSent
+                      ? 'Renvoyer les notifications'
+                      : 'Envoyer les notifications'}
+                </Button>
+              )}
+              {canStart && canEdit && (
+                <Button
+                  type="button"
+                  variant={invitationsSent ? 'default' : 'outline'}
                   className="min-h-11"
                   onClick={() => void onStartReview()}
                   disabled={startReview.isPending}
@@ -1085,7 +1165,10 @@ export function ProjectReviewEditorDialog({
               </ReviewEditorSection>
 
               {!isPostMortemReview ? (
-                <details className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm">
+                <details
+                  ref={planningDetailsRef}
+                  className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
+                >
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span>
                       <span className="block text-sm font-semibold text-foreground">Planification</span>

@@ -1,4 +1,7 @@
-import type { ProjectReviewStatus } from '../types/project.types';
+import type {
+  ProjectReviewParticipantApi,
+  ProjectReviewStatus,
+} from '../types/project.types';
 
 /** Aligné backend `normalizeReviewStatus` (RFC-PROJ-013-2). */
 export function normalizeReviewStatus(
@@ -29,9 +32,20 @@ export function isReviewContentEditable(status: ProjectReviewStatus): boolean {
   );
 }
 
+/** Planifier : PREPARING → SCHEDULED (date requise côté API). */
+export function canScheduleReview(status: ProjectReviewStatus): boolean {
+  return normalizeReviewStatus(status) === 'PREPARING';
+}
+
+/** Tenir la réunion : uniquement une fois planifiée (et idéalement invitée). */
 export function canStartReview(status: ProjectReviewStatus): boolean {
-  const normalized = normalizeReviewStatus(status);
-  return normalized === 'PREPARING' || normalized === 'SCHEDULED';
+  return normalizeReviewStatus(status) === 'SCHEDULED';
+}
+
+export function hasReviewInvitationsSent(
+  participants: ProjectReviewParticipantApi[] | undefined,
+): boolean {
+  return (participants ?? []).some((p) => Boolean(p.lastInvitedAt));
 }
 
 export function isReviewInvitationsVisible(status: ProjectReviewStatus): boolean {

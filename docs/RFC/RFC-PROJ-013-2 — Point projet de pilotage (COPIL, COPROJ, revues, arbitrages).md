@@ -16,8 +16,8 @@
 - **API** (préfixe `/api`) : routes existantes + **`POST …/schedule`**, **`POST …/start`** (alias **`POST …/start-review`**), **`POST|PATCH|DELETE …/attachments`**. Invitations (`POST …/invite`) : revue **`SCHEDULED`** (legacy `PLANNED` toléré). Permissions inchangées : `projects.read` / `projects.update`.
 - **Snapshot v2** : généré au `finalize` ; métadonnées review (`objective`, période), ODJ typé, décisions/actions enrichies, attachments **sans URL** ; exclusion `meetingUrl` / emails externes (`snapshotContainsSensitiveUrls()` testé).
 - **Audit** : `project.review.created|updated|started|finalized|cancelled`, `project.review.attachment.added|updated|removed`, `project.review.agenda_item.*`, `project.review.participant.*` ; **jamais** `meetingUrl` ni `url` attachment en clair.
-- **Frontend** : [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) — **7 onglets** (Vue générale, ODJ, Participants, Décisions, Actions, Pièces jointes, Historique) ; logistique réunion en bloc repliable secondaire ; CTA **« Démarrer le point »**. Sections : `review-agenda-section`, `review-decisions-section`, `review-actions-section`, `review-attachments-section`, `review-history-section`. Création : [`project-review-create-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-create-dialog.tsx) — date optionnelle, `PREPARING` par défaut. API/types : [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), [`project.types.ts`](../../apps/web/src/features/projects/types/project.types.ts), [`project-enum-labels.ts`](../../apps/web/src/features/projects/constants/project-enum-labels.ts), [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts).
-- **Tests** : **51** tests unitaires sous `apps/api/src/modules/projects/project-reviews/` (service, attachments, snapshot, agenda, invitations).
+- **Frontend** : [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) — **7 onglets** (Vue générale, ODJ, Participants, Décisions, Actions, Pièces jointes, Historique) ; logistique réunion en bloc repliable **Planification** (lieu, visio, [`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)) ; **CTA footer contextuels** selon statut : **« Planifier le point »** (`PREPARING`), **« Envoyer / Renvoyer les notifications »** + **« Démarrer le point »** (`SCHEDULED`), **« Finaliser le point »** (`IN_PROGRESS`) — helpers [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts) (`canScheduleReview`, `canStartReview`, `hasReviewInvitationsSent`). Sections : `review-agenda-section`, `review-decisions-section`, `review-actions-section`, `review-attachments-section`, `review-history-section`. Création : [`project-review-create-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-create-dialog.tsx) — date optionnelle, `PREPARING` par défaut. API/types : [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), [`project.types.ts`](../../apps/web/src/features/projects/types/project.types.ts), [`project-enum-labels.ts`](../../apps/web/src/features/projects/constants/project-enum-labels.ts).
+- **Tests** : **51** tests unitaires backend sous `apps/api/src/modules/projects/project-reviews/` (service, attachments, snapshot, agenda, invitations) ; **frontend** : [`project-review-status.spec.ts`](../../apps/web/src/features/projects/lib/project-review-status.spec.ts) (règles CTA planifier / démarrer / invitations).
 - **Seed démo** : [`seed-project-demo-reviews.ts`](../../apps/api/prisma/seed-project-demo-reviews.ts) — statuts `PREPARING` / `SCHEDULED` / `IN_PROGRESS` / `FINALIZED` / `CANCELLED` ; exemple **PREPARING sans date** sur SEED-01.
 
 ## Dépendances
@@ -200,7 +200,8 @@ Actions possibles :
 * ajouter participants ;
 * préparer les sujets à arbitrer ;
 * rattacher des risques ;
-* rattacher des actions à revoir.
+* rattacher des actions à revoir ;
+* **planifier le point** (`POST …/schedule`, date requise) lorsque la préparation est suffisante.
 
 ## 5.2 SCHEDULED — Planifié
 
@@ -211,9 +212,10 @@ Actions possibles :
 * définir date / heure ;
 * définir mode : présentiel, visio, hybride ;
 * définir lieu ou lien ;
-* envoyer invitation si activée ;
+* **envoyer / renvoyer les notifications** (in-app, e-mail, Teams, calendrier — voir §15.5 et RFC-PROJ-013-1 §13–§14) ;
 * modifier les informations logistiques ;
-* continuer à préparer l’ordre du jour.
+* continuer à préparer l’ordre du jour ;
+* **démarrer la tenue** le jour J (`POST …/start`).
 
 ## 5.3 IN_PROGRESS — En cours de tenue
 
@@ -734,6 +736,21 @@ Lien avec décision
 Lien avec point d’ordre du jour
 ```
 
+## 15.5 Pied de modale éditeur (`DialogFooter`)
+
+CTA contextuels selon le statut — implémentés dans [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx), règles dans [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts) :
+
+| Statut | CTA footer | Route / comportement |
+| ------ | ---------- | -------------------- |
+| `PREPARING` | **Planifier le point** | `POST …/schedule` — `reviewDate` requis ; passage en `SCHEDULED` |
+| `SCHEDULED` | **Envoyer les notifications** / **Renvoyer…** | `POST …/invite` — in-app par défaut depuis le footer ; e-mail / Teams / calendrier via bloc **Planification** ([`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)) |
+| `SCHEDULED` | **Démarrer le point** | `POST …/start` → `IN_PROGRESS` ; affiché en secondaire tant qu’aucune invitation in-app n’a été envoyée |
+| `IN_PROGRESS` | **Finaliser le point** | `POST …/finalize` |
+
+> **Écart API / UI** : l’API `start` accepte encore `PREPARING` (rétrocompatibilité, intégrations) ; l’UI **n’expose** « Démarrer le point » qu’en `SCHEDULED` pour imposer le flux planification → diffusion → tenue.
+
+> **Rappels** : pas de job planifié de rappel ; re-cliquer « Renvoyer les notifications » fait office de rappel manuel (RFC-PROJ-013-1 §13).
+
 ---
 
 # 16. API cible
@@ -747,8 +764,8 @@ POST   /api/projects/:projectId/reviews
 GET    /api/projects/:projectId/reviews
 GET    /api/projects/:projectId/reviews/:reviewId
 PATCH  /api/projects/:projectId/reviews/:reviewId
-POST   /api/projects/:projectId/reviews/:reviewId/schedule    ← PLANNED → SCHEDULED (ex-start-review étendu)
-POST   /api/projects/:projectId/reviews/:reviewId/start         ← SCHEDULED|PREPARING → IN_PROGRESS
+POST   /api/projects/:projectId/reviews/:reviewId/schedule    ← PREPARING → SCHEDULED (ou replanification SCHEDULED ; reviewDate requis)
+POST   /api/projects/:projectId/reviews/:reviewId/start         ← PREPARING|SCHEDULED → IN_PROGRESS (UI : CTA visible uniquement en SCHEDULED)
 POST   /api/projects/:projectId/reviews/:reviewId/finalize
 POST   /api/projects/:projectId/reviews/:reviewId/cancel
 ```
@@ -948,6 +965,8 @@ La RFC est validée si :
 - [ ] un utilisateur peut ajouter des documents et liens au point projet ;
 - [ ] un utilisateur peut rattacher un document à un point d’ordre du jour ;
 - [ ] un utilisateur peut planifier le point seulement quand nécessaire ;
+- [ ] en `PREPARING`, le footer propose **Planifier le point** (pas « Démarrer ») ;
+- [ ] en `SCHEDULED`, le footer propose **Envoyer les notifications** avant **Démarrer le point** ;
 - [ ] un utilisateur peut démarrer la tenue du point ;
 - [ ] un utilisateur peut saisir décisions, actions, responsables et intervenants ;
 - [ ] un utilisateur peut finaliser le point ;
@@ -1007,7 +1026,8 @@ Le module doit répondre à l’objectif principal de Starium Orchestra :
 | Fichier | Action |
 | ------- | ------ |
 | `project-reviews-tab.tsx` | Liste — statuts pilotage, CTA préparer / planifier |
-| `project-review-editor-dialog.tsx` ou page dédiée | Onglets pilotage §15 |
+| `project-review-editor-dialog.tsx` ou page dédiée | Onglets pilotage §15 ; CTA footer §15.5 |
+| `lib/project-review-status.ts` | `canScheduleReview`, `canStartReview`, `hasReviewInvitationsSent` |
 | `project-reviews.api.ts` | Nouvelles routes / types |
 | Composants `review-*-section.tsx` | Sections ODJ, attachments, décisions typées |
 | `project.types.ts` | Enums / statuts alignés API |
@@ -1133,7 +1153,7 @@ Le module doit répondre à l’objectif principal de Starium Orchestra :
 | -------- | ----------- |
 | **Layout** | Onglets empilés ; cartes ODJ sur mobile au lieu de tableau dense |
 | **Tableaux** | Colonnes prioritaires ; scroll horizontal contrôlé si nécessaire |
-| **Actions** | Boutons « Démarrer le point », « Finaliser » accessibles pouce |
+| **Actions** | Boutons « Planifier le point », « Envoyer les notifications », « Démarrer le point », « Finaliser » accessibles pouce |
 | **Modales** | Plein écran mobile pour formulaires action / décision |
 
 ---
