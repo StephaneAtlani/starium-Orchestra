@@ -165,7 +165,7 @@ export function ClientAzureAppCredentials() {
       <CardHeader>
         <CardTitle>Application Azure AD (Entra)</CardTitle>
         <CardDescription>
-          ID d’application et secret de l’app enregistrée dans votre tenant Microsoft.
+          ID d’application et valeur du secret client de l’app enregistrée dans votre tenant Microsoft.
           L’URL de callback de synchronisation à déclarer dans Entra est affichée dans
           l’encadré ci-dessous (« URI de redirection à déclarer dans Azure »).
         </CardDescription>
@@ -207,16 +207,23 @@ export function ClientAzureAppCredentials() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="azureSecret">Secret client</Label>
+          <Label htmlFor="azureSecret">Valeur du secret client</Label>
+          <p id="azureSecretHelp" className="text-xs text-muted-foreground">
+            Collez la <strong>valeur</strong> du secret (colonne « Valeur » dans Entra), pas l’
+            <strong>ID du secret</strong>. Généré sous <strong>Certificats et secrets</strong> →{' '}
+            <strong>Nouveau secret client</strong> : Entra ne l’affiche qu’une fois à la création.
+            Ce n’est pas votre mot de passe Microsoft ni celui d’un utilisateur.
+          </p>
           <Input
             id="azureSecret"
             type="password"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
+            aria-describedby="azureSecretHelp"
             placeholder={
               meta?.hasClientSecret
                 ? 'Laisser vide pour conserver le secret actuel'
-                : 'Saisir le secret'
+                : 'Coller la valeur du secret (pas l’ID)'
             }
             autoComplete="new-password"
           />

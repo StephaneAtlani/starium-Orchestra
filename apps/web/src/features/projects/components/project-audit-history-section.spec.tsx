@@ -85,7 +85,8 @@ describe('ProjectAuditHistorySection', () => {
     const { container } = render(<ProjectAuditHistorySection projectId="proj-1" />);
 
     expect(screen.getByText('Projet parent modifié')).toBeTruthy();
-    expect(screen.getByText(/Par Alice Martin/)).toBeTruthy();
+    expect(screen.getByText(/Alice Martin/)).toBeTruthy();
+    expect(screen.getByText(/a modifié le projet parent/)).toBeTruthy();
     expect(screen.getByText('Projet parent')).toBeTruthy();
     expect(screen.getAllByText('PRJ-A — Alpha').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('PRJ-B — Beta')).toBeTruthy();

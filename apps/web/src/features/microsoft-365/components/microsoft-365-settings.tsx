@@ -23,6 +23,7 @@ import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 import { ClientAzureAppCredentials } from './client-azure-app-credentials';
 
 const QUERY_KEY = 'microsoft-connection';
+const OAUTH_META_QUERY_KEY = 'client-microsoft-oauth';
 
 type MicrosoftConnectionDto = {
   id: string;
@@ -33,6 +34,12 @@ type MicrosoftConnectionDto = {
   connectedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type ClientOAuthMeta = {
+  syncRedirectUri: string | null;
+  syncRedirectUriError: string | null;
+  graphScopes: string;
 };
 
 export function Microsoft365Settings() {
@@ -66,6 +73,21 @@ export function Microsoft365Settings() {
       return res.json() as Promise<{
         connection: MicrosoftConnectionDto | null;
       }>;
+    },
+    enabled: Boolean(activeClient?.id && canUseMicrosoftIntegration),
+  });
+
+  const { data: oauthMeta } = useQuery({
+    queryKey: [OAUTH_META_QUERY_KEY, activeClient?.id],
+    queryFn: async () => {
+      const res = await authFetch('/api/clients/active/microsoft-oauth');
+      if (!res.ok) {
+        throw new Error(
+          (await readApiErrorMessageFromResponse(res)) ||
+            'Impossible de charger l’URL de callback',
+        );
+      }
+      return res.json() as Promise<ClientOAuthMeta>;
     },
     enabled: Boolean(activeClient?.id && canUseMicrosoftIntegration),
   });
@@ -180,67 +202,104 @@ export function Microsoft365Settings() {
     <PageContainer>
       <PageHeader
         title="Microsoft 365"
-        description="Synchronisation Teams / Planner / fichiers : vous configurez l’application Microsoft Entra de votre tenant. Starium fournit l’URL de callback de synchronisation et chiffre les jetons pour le client actif."
+        description="Synchronisation Teams, Planner et fichiers : configurez une application Microsoft Entra dans votre tenant, puis reliez-la à Orchestra."
       />
 
       <div className="space-y-6">
         <Card className="max-w-2xl border-border/70">
           <CardHeader>
-            <CardTitle>Mode opératoire</CardTitle>
+            <CardTitle>Configurer votre Microsoft 365</CardTitle>
             <CardDescription>
-              Starium fournit l’URL de callback de synchronisation. Côté client : enregistrez-la
-              dans Entra, autorisez les scopes Graph, puis saisissez vos identifiants dans
-              Starium pour déclencher le consentement.
+              Étapes à réaliser dans le centre d’administration Microsoft Entra de votre
+              organisation pour autoriser Orchestra à accéder à Teams, Planner et aux fichiers.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
             <ol className="list-decimal space-y-3 pl-5 marker:text-foreground">
               <li>
-                <span className="font-medium text-foreground">Hébergement Starium (API)</span>{' '}
-                : Starium fournit l’URL de callback de synchronisation (identique pour tous
-                les clients). Déclarez-la dans Entra avec l’URL affichée dans ce bloc
-                (« Application Azure AD »).
-                Ce n’est <strong>pas</strong> l’URL de connexion SSO Starium (
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-                  …/api/auth/microsoft/callback
-                </code>
-                ).
-              </li>
-              <li>
-                <span className="font-medium text-foreground">
-                  Application Entra (côté client Microsoft)
-                </span>{' '}
-                : dans le portail Azure de <strong>votre tenant</strong>, créez ou ouvrez une
-                inscription d’application dédiée à Orchestra / Starium. Notez l’
-                <strong>ID d’application (client)</strong> et créez un <strong>secret client</strong>.
-                Ensuite, choisissez le mode d’accès de l’application :
+                <span className="font-medium text-foreground">Inscription d’application</span>{' '}
+                — Dans{' '}
+                <a
+                  href="https://entra.microsoft.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Microsoft Entra
+                </a>{' '}
+                → <strong>Applications</strong> → <strong>Inscriptions d’applications</strong>,
+                créez une application dédiée à Orchestra (ou ouvrez celle existante). À
+                l’inscription, dans <strong>URI de redirection</strong>, sélectionnez le mode{' '}
+                <strong>Web</strong> et collez l’URL de callback ci-dessous — caractère pour
+                caractère, sans espace ni slash final superflu. Si l’application existe déjà,
+                ajoutez la même URI sous <strong>Authentification</strong> → plateforme{' '}
+                <strong>Web</strong> :
+                <div className="mt-2 rounded-md border border-border bg-muted/40 p-3">
+                  {oauthMeta?.syncRedirectUriError != null ? (
+                    <p className="text-sm text-destructive">{oauthMeta.syncRedirectUriError}</p>
+                  ) : oauthMeta?.syncRedirectUri ? (
+                    <p className="break-all font-mono text-xs text-foreground">
+                      {oauthMeta.syncRedirectUri}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Chargement de l’URL…</p>
+                  )}
+                </div>
+                Choisissez le type de comptes pris en charge :
                 <ul className="mt-2 list-disc pl-5">
                   <li>
-                    single-tenant : dans Starium, utilisez le <strong>Tenant ID (GUID)</strong>
-                    de votre tenant (champ « tenant autorité »).
+                    <strong>Mon organisation uniquement</strong> (single-tenant) — recommandé pour
+                    limiter l’accès à votre annuaire.
                   </li>
                   <li>
-                    multi-tenant : dans Starium, utilisez <code>common</code> (ou laissez la valeur par défaut).
+                    <strong>Comptes dans n’importe quel annuaire organisationnel</strong>{' '}
+                    (multi-tenant) — si plusieurs organisations doivent s’authentifier via la même
+                    application.
                   </li>
                 </ul>
               </li>
               <li>
-                <span className="font-medium text-foreground">Redirect URI dans Entra</span> : sous
-                « Authentification », ajoutez une <strong>URI de redirection Web</strong> exactement
-                égale à l’URL affichée dans ce bloc (« URI de redirection à déclarer dans Azure »).
-                Les scopes Graph attendus y sont listés : accordez les permissions correspondantes
-                (souvent consentement admin).
+                <span className="font-medium text-foreground">Identifiants</span> — Sur la page de
+                l’application, copiez l’<strong>ID d’application (client)</strong>. Sous{' '}
+                <strong>Certificats et secrets</strong>, créez un <strong>secret client</strong> et
+                copiez immédiatement sa <strong>valeur</strong> (colonne « Valeur », pas l’ID du
+                secret — affichée une seule fois).
               </li>
               <li>
-                <span className="font-medium text-foreground">Starium (client actif)</span> : saisissez
-                l’ID d’application, le tenant, le secret, puis enregistrez. Cliquez ensuite sur{' '}
-                <strong>Connecter Microsoft 365</strong> pour le consentement OAuth.
+                <span className="font-medium text-foreground">URI de redirection</span> — Si ce
+                n’est pas déjà fait à l’inscription, sous <strong>Authentification</strong>,
+                ajoutez la plateforme <strong>Web</strong> et vérifiez que l’URI correspond
+                exactement à l’URL de callback de l’étape 1.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Permissions Microsoft Graph</span>{' '}
+                — Sous <strong>Autorisations API</strong>, ajoutez les permissions{' '}
+                <strong>Microsoft Graph</strong> correspondant aux scopes suivants
+                {oauthMeta?.graphScopes ? (
+                  <>
+                    {' '}
+                    :{' '}
+                    <span className="font-mono text-xs text-foreground">
+                      {oauthMeta.graphScopes}
+                    </span>
+                  </>
+                ) : (
+                  ' (voir le bloc ci-dessous)'
+                )}
+                . Accordez ensuite le <strong>consentement administrateur</strong> pour votre
+                organisation.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">ID de tenant</span> — Si
+                l’application est single-tenant, notez l’<strong>ID de tenant (GUID)</strong>{' '}
+                depuis la vue d’ensemble d’Entra ; vous le renseignerez dans Orchestra avec l’ID
+                d’application et la valeur du secret.
               </li>
             </ol>
             <p className="border-t border-border pt-3 text-xs">
-              En cas d’erreur Microsoft sur le <em>redirect_uri</em> ou le tenant autorité :
-              vérifiez que l’URL dans Entra correspond bit à bit à celle affichée ci-dessous, et
-              que le mode single-tenant / multi-tenant correspond à votre app Entra.
+              En cas d’erreur sur l’<em>redirect_uri</em> ou le tenant : vérifiez que l’URI
+              déclarée dans Entra correspond exactement à celle affichée ci-dessous, et que le
+              type de comptes (single-tenant / multi-tenant) est cohérent avec votre configuration.
             </p>
           </CardContent>
         </Card>

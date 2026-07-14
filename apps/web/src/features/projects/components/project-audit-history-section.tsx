@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { cn } from '@/lib/utils';
 import { useProjectAuditHistory } from '../hooks/use-project-audit-history';
-import { ProjectHistoryChangeList } from './project-history-change-list';
+import { ProjectAuditHistoryTimelineItem } from './project-audit-history-timeline-item';
 import {
   DEFAULT_TASK_PAGE_SIZE,
   ProjectTasksPagination,
@@ -26,10 +26,8 @@ const COPY: Record<
     emptyTitle: string;
     emptyDescription: string;
     unknownAuthor: string;
-    byAuthor: (name: string) => string;
     fallbackAction: string;
     actions: Record<string, string>;
-    dateLocale: string;
   }
 > = {
   fr: {
@@ -41,7 +39,6 @@ const COPY: Record<
     emptyTitle: 'Aucune modification',
     emptyDescription: 'Aucun événement d’historique n’a encore été enregistré sur ce projet.',
     unknownAuthor: 'Auteur inconnu',
-    byAuthor: (name) => `Par ${name}`,
     fallbackAction: 'Modification du projet',
     actions: {
       'project.updated': 'Projet mis à jour',
@@ -52,7 +49,6 @@ const COPY: Record<
       'project.owner.updated': 'Responsable modifié',
       'project.sheet.updated': 'Fiche projet mise à jour',
     },
-    dateLocale: 'fr-FR',
   },
   en: {
     title: 'Modification history',
@@ -62,7 +58,6 @@ const COPY: Record<
     emptyTitle: 'No modifications',
     emptyDescription: 'No history events have been recorded for this project yet.',
     unknownAuthor: 'Unknown author',
-    byAuthor: (name) => `By ${name}`,
     fallbackAction: 'Project change',
     actions: {
       'project.updated': 'Project updated',
@@ -73,23 +68,11 @@ const COPY: Record<
       'project.owner.updated': 'Owner updated',
       'project.sheet.updated': 'Project sheet updated',
     },
-    dateLocale: 'en-GB',
   },
 };
 
 function actionLabel(action: string, locale: HistoryLocale): string {
   return COPY[locale].actions[action] ?? COPY[locale].fallbackAction;
-}
-
-function formatHistoryDate(iso: string, locale: HistoryLocale): string {
-  try {
-    return new Intl.DateTimeFormat(COPY[locale].dateLocale, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
 }
 
 export function ProjectAuditHistorySection({
@@ -133,34 +116,19 @@ export function ProjectAuditHistorySection({
           />
         ) : (
           <ul
-            className={cn(
-              'divide-y divide-border/60 rounded-lg border border-border/60 bg-muted/10',
-              historyQuery.isFetching && 'opacity-70',
-            )}
+            className={cn('space-y-0', historyQuery.isFetching && 'opacity-70')}
             aria-busy={historyQuery.isFetching}
+            aria-label={copy.title}
           >
-            {items.map((item) => (
-              <li key={item.id} className="px-4 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {actionLabel(item.action, locale)}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      {item.summary}
-                    </p>
-                    <ProjectHistoryChangeList changes={item.changes ?? []} />
-                  </div>
-                  <div className="shrink-0 text-xs text-muted-foreground sm:max-w-[16rem] sm:text-right">
-                    <p>{formatHistoryDate(item.createdAt, locale)}</p>
-                    <p className="mt-1">
-                      {item.actorDisplayName
-                        ? copy.byAuthor(item.actorDisplayName)
-                        : copy.unknownAuthor}
-                    </p>
-                  </div>
-                </div>
-              </li>
+            {items.map((item, index) => (
+              <ProjectAuditHistoryTimelineItem
+                key={item.id}
+                item={item}
+                locale={locale}
+                actionLabel={actionLabel(item.action, locale)}
+                unknownAuthor={copy.unknownAuthor}
+                isLast={index === items.length - 1}
+              />
             ))}
           </ul>
         )}

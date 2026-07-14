@@ -15,7 +15,7 @@ type Props = {
 export function ProjectOptionsTabs({ projectId, projectName, projectCode }: Props) {
   return (
     <Tabs defaultValue="planning" className="w-full min-w-0">
-      <TabsList variant="line" className="h-auto min-h-9 w-full flex-wrap justify-start gap-0 p-0">
+      <TabsList variant="line" className="w-full shrink-0">
         <TabsTrigger value="planning">Planning</TabsTrigger>
         <TabsTrigger value="microsoft">Microsoft 365</TabsTrigger>
         <TabsTrigger value="sync">Synchronisation</TabsTrigger>
