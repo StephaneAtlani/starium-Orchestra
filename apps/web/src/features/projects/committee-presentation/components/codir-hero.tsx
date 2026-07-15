@@ -1,8 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronLeft, FileDown, Monitor, Settings2 } from 'lucide-react';
+import { ChevronLeft, FileText, Monitor, Settings2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { projectsList } from '../../constants/project-routes';
 
@@ -22,45 +28,72 @@ export function CodirHero({ onOpenPresentationLaunch, onConfigure, className }: 
         </p>
         <h1 className="starium-codir-title">Présentation — Revue de portefeuille</h1>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-        <Link
-          href={projectsList()}
-          className={cn(buttonVariants({ variant: 'outline', size: 'xs' }), 'gap-1')}
-        >
-          <ChevronLeft className="size-3" aria-hidden />
-          Portefeuille
-        </Link>
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          className="gap-1"
-          onClick={onConfigure}
-        >
-          <Settings2 className="size-3" aria-hidden />
-          Configurer
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          className="gap-1"
-          onClick={onOpenPresentationLaunch}
-        >
-          <Monitor className="size-3" aria-hidden />
-          Mode présentation
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled
-          className="gap-1"
-          title="Export PDF — bientôt disponible"
-        >
-          <FileDown className="size-3" aria-hidden />
-          Exporter le PDF
-        </Button>
-      </div>
+      <TooltipProvider delay={200}>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Link
+                  href={projectsList()}
+                  aria-label="Retour au portefeuille"
+                  className={cn(buttonVariants({ variant: 'outline', size: 'icon-sm' }))}
+                />
+              }
+            >
+              <ChevronLeft className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Portefeuille</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Configurer la présentation"
+                  onClick={onConfigure}
+                />
+              }
+            >
+              <Settings2 className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Configurer</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  aria-label="Lancer le mode présentation"
+                  onClick={onOpenPresentationLaunch}
+                />
+              }
+            >
+              <Monitor className="size-3.5" aria-hidden />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Mode présentation</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger render={<span className="inline-flex" />}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                disabled
+                aria-label="Exporter le PDF — bientôt disponible"
+              >
+                <FileText className="size-3.5" aria-hidden />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Exporter le PDF — bientôt disponible</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </header>
   );
 }
