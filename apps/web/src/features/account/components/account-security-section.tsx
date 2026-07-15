@@ -359,7 +359,7 @@ function EnrollTwoFactorFlow({
               className="min-h-11 sm:min-h-9 w-full sm:w-auto"
               onClick={() => finishAndClose()}
             >
-              J'ai noté les codes
+              J&apos;ai noté les codes
             </Button>
           ) : undefined
         }
@@ -402,7 +402,7 @@ function EnrollTwoFactorFlow({
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Conservez ces codes en lieu sûr ; chaque code ne fonctionne
-              qu'une fois.
+              qu&apos;une fois.
             </p>
             <ul className="rounded-md border bg-muted/40 p-3 font-mono text-sm">
               {recoveryCodes.map((c) => (

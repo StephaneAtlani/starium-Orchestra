@@ -470,7 +470,7 @@ export function MicrosoftLinkConfigureDialog({
           Planner sélectionné.
         </p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Cette action est appliquée lors de l'enregistrement de la configuration.
+          Cette action est appliquée lors de l&apos;enregistrement de la configuration.
         </p>
       </StariumModal>
     </Fragment>

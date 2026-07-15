@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { toast } from '@/lib/toast';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { ErrorState } from '@/components/feedback/error-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePortfolioSummaryQuery } from '../../hooks/use-portfolio-summary-query';
+import { usePortfolioGanttQuery } from '../../hooks/use-portfolio-gantt-query';
 import { useCommitteeCodirDeckQuery } from '../hooks/use-committee-codir-deck-query';
 import {
   computeAttentionPoints,
@@ -11,7 +14,11 @@ import {
   computeStatusBreakdown,
   sortDeckProjects,
 } from '../lib/codir-deck-metrics';
-import { filterProjectsForPresentation, countPresentationGanttSlides } from '../lib/codir-presentation-filters';
+import {
+  codirPortfolioGanttQueryParams,
+  countPresentationGanttSlides,
+  filterProjectsForPresentation,
+} from '../lib/codir-presentation-filters';
 import {
   type CodirPageSettings,
   projectPresentationSlideIndex,
@@ -21,6 +28,7 @@ import { CodirHero } from './codir-hero';
 import { CodirPortfolioSynthesis } from './codir-portfolio-synthesis';
 import { CodirProjectReportCard } from './codir-project-report-card';
 import { CodirSectionHeader } from './codir-section-header';
+import { countCodirPdfSlides, exportCodirPdf } from '../lib/codir-pdf-export';
 
 type CodirPrepViewProps = {
   settings: CodirPageSettings;
@@ -43,8 +51,12 @@ export function CodirPrepView({
   onOpenPresentationLaunch,
   onStartPresentation,
 }: CodirPrepViewProps) {
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const { activeClient } = useActiveClient();
   const summaryQ = usePortfolioSummaryQuery({ enabled: true });
   const deckQ = useCommitteeCodirDeckQuery({ enabled: true });
+  const ganttParams = useMemo(() => codirPortfolioGanttQueryParams(settings), [settings]);
+  const ganttQ = usePortfolioGanttQuery(ganttParams, { enabled: true });
 
   const sortedProjects = useMemo(
     () => sortDeckProjects(deckQ.data ?? []),
@@ -74,6 +86,32 @@ export function CodirPrepView({
     [sortedProjects],
   );
 
+  const handleExportPdf = useCallback(() => {
+    const exportPayload = {
+      settings,
+      clientName: activeClient?.name ?? 'Client actif',
+      presentationProjects,
+      ganttItems: ganttQ.data?.items ?? [],
+    };
+
+    if (countCodirPdfSlides(exportPayload) === 0) {
+      toast.error(
+        'Aucune diapositive à exporter — activez couverture, synthèse, Gantt ou des projets filtrés.',
+      );
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      exportCodirPdf(exportPayload);
+      toast.success('PDF téléchargé — diapositives de présentation exportées.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Export PDF impossible.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  }, [activeClient?.name, ganttQ.data?.items, presentationProjects, settings]);
+
   if (deckQ.isLoading || summaryQ.isLoading) {
     return <LoadingState rows={4} />;
   }
@@ -89,6 +127,8 @@ export function CodirPrepView({
       <CodirHero
         onOpenPresentationLaunch={onOpenPresentationLaunch}
         onConfigure={() => onOpenConfigure(null)}
+        onExportPdf={handleExportPdf}
+        isExportingPdf={isExportingPdf}
       />
 
       <CodirPageConfigDialog

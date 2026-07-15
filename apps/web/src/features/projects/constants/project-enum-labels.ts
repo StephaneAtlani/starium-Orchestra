@@ -213,6 +213,8 @@ export const PROJECT_REVIEW_DECISION_TYPE_LABEL: Record<string, string> = {
   ARBITRATION: 'Arbitrage',
   BUDGET_VALIDATION: 'Validation budget',
   SCOPE_CHANGE: 'Changement de périmètre',
+  RISK_ACCEPTANCE: 'Acceptation du risque',
+  PRIORITY_CHANGE: 'Changement de priorité',
   OTHER: 'Autre',
 };
 

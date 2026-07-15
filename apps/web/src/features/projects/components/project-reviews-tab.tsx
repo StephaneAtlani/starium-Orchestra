@@ -156,7 +156,7 @@ export function ProjectReviewsTab({
   const postMortemEligible = isPostMortemEligibleProjectStatus(projectStatus);
   const createTypeOptions: ProjectReviewType[] = postMortemEligible
     ? ['POST_MORTEM']
-    : REVIEW_TYPES_PILOTAGE;
+    : [...REVIEW_TYPES_PILOTAGE];
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editorReviewId, setEditorReviewId] = useState<string | null>(null);

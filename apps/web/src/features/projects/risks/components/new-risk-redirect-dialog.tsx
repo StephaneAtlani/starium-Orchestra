@@ -60,7 +60,7 @@ export function NewRiskRedirectDialog({ open, onOpenChange, projectItems }: Prop
       description={
         <>
           <span className="font-medium text-foreground">Pourquoi un projet ?</span> Dans Starium, la
-          création d'une fiche risque passe par l'API projet : chaque enregistrement a un{' '}
+          création d&apos;une fiche risque passe par l&apos;API projet : chaque enregistrement a un{' '}
           <span className="whitespace-nowrap">projet parent</span> obligatoire (modèle technique), pas un
           choix UX arbitraire. Sujet transverse ou « hors projet » métier : rattachez à un projet porteur
           existant, ou créez un projet dédié / fourre-tout dans le portefeuille si votre organisation le

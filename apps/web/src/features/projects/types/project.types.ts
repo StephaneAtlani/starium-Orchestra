@@ -939,6 +939,8 @@ export type ProjectReviewDecisionType =
   | 'ARBITRATION'
   | 'BUDGET_VALIDATION'
   | 'SCOPE_CHANGE'
+  | 'RISK_ACCEPTANCE'
+  | 'PRIORITY_CHANGE'
   | 'OTHER';
 
 export type ProjectReviewDecisionStatus =
@@ -1006,6 +1008,7 @@ export type ProjectReviewParticipantApi = {
   displayName: string | null;
   roleLabel: string | null;
   attendanceStatus: ProjectReviewParticipantAttendanceStatus;
+  isRequired?: boolean;
   invitedAt?: string | null;
   lastInvitedAt?: string | null;
   externalEmail?: string | null;

@@ -168,7 +168,7 @@ export function CodirPortfolioSynthesis({
 
         <CodirPanelCard title="Points d'attention pour le CODIR">
           {attentionPoints.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun point d'attention prioritaire.</p>
+            <p className="text-sm text-muted-foreground">{"Aucun point d'attention prioritaire."}</p>
           ) : (
             <ul className="list-none p-0">
               {attentionPoints.map((point) => {

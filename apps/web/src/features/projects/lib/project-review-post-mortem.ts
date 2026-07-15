@@ -41,14 +41,16 @@ export function isPostMortemEligibleProjectStatus(status: string): boolean {
 }
 
 /** Types de revue de pilotage (hors retour d'expérience). */
-export const REVIEW_TYPES_PILOTAGE: ProjectReviewType[] = [
+export const REVIEW_TYPES_PILOTAGE = [
   'COPIL',
   'COPRO',
   'CODIR_REVIEW',
   'RISK_REVIEW',
   'MILESTONE_REVIEW',
   'AD_HOC',
-];
+] as const satisfies readonly ProjectReviewType[];
+
+export type PilotageReviewType = (typeof REVIEW_TYPES_PILOTAGE)[number];
 
 /**
  * Options du sélecteur « type de revue » selon le statut projet et le type courant

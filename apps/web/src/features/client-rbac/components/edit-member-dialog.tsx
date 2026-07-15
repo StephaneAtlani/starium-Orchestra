@@ -250,7 +250,7 @@ export function EditMemberDialog({
               <AlertTitle className="text-sm">Catalogue masqué</AlertTitle>
               <AlertDescription className="text-xs leading-relaxed">
                 Ce compte est exclu du catalogue ressources : une fiche Humaine liée peut coexister
-                mais l'incohérence métier est possible. Vérifiez le rattachement si besoin.
+                mais l&apos;incohérence métier est possible. Vérifiez le rattachement si besoin.
               </AlertDescription>
             </Alert>
           ) : null}

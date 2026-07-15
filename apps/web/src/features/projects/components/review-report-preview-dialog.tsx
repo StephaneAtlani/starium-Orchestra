@@ -42,7 +42,12 @@ export function ReviewReportPreviewDialog({
       }
     >
       {loading ? (
-        <LoadingState label="Génération de l’aperçu…" />
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Génération de l&apos;aperçu…
+          </p>
+          <LoadingState rows={3} />
+        </div>
       ) : error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}

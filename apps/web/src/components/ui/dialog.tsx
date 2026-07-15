@@ -145,8 +145,9 @@ function containsDialogComponent(
   return found
 }
 
-function isSameComponent(a: React.ElementType, b: React.ElementType): boolean {
+function isSameComponent(a: unknown, b: React.ElementType): boolean {
   if (a === b) return true
+  if (typeof a === 'string' || typeof b === 'string') return false
   const left = a as { displayName?: string; name?: string }
   const right = b as { displayName?: string; name?: string }
   const leftName = left.displayName ?? left.name

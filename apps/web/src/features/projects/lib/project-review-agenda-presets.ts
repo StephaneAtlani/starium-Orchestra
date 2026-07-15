@@ -2,7 +2,7 @@ import type {
   ProjectReviewAgendaItemType,
   ProjectReviewType,
 } from '../types/project.types';
-import { REVIEW_TYPES_PILOTAGE } from './project-review-post-mortem';
+import { REVIEW_TYPES_PILOTAGE, type PilotageReviewType } from './project-review-post-mortem';
 
 export type ReviewAgendaPresetRow = {
   title: string;
@@ -11,10 +11,7 @@ export type ReviewAgendaPresetRow = {
 };
 
 /** Courte description du déroulé attendu — affichée sous le sélecteur de type. */
-export const REVIEW_TYPE_AGENDA_HINT: Record<
-  (typeof REVIEW_TYPES_PILOTAGE)[number],
-  string
-> = {
+export const REVIEW_TYPE_AGENDA_HINT: Record<PilotageReviewType, string> = {
   COPIL:
     'Comité de pilotage : avancement, budget, risques, arbitrages et suivi des actions.',
   COPRO:
@@ -28,10 +25,7 @@ export const REVIEW_TYPE_AGENDA_HINT: Record<
   AD_HOC: 'Point ciblé : structure minimale à adapter selon le sujet traité.',
 };
 
-const AGENDA_PRESETS: Record<
-  (typeof REVIEW_TYPES_PILOTAGE)[number],
-  ReviewAgendaPresetRow[]
-> = {
+const AGENDA_PRESETS: Record<PilotageReviewType, ReviewAgendaPresetRow[]> = {
   COPIL: [
     {
       title: 'Ouverture et rappel du contexte',
@@ -219,7 +213,7 @@ const AGENDA_PRESETS: Record<
 
 export function isPilotageReviewType(
   reviewType: ProjectReviewType,
-): reviewType is (typeof REVIEW_TYPES_PILOTAGE)[number] {
+): reviewType is PilotageReviewType {
   return (REVIEW_TYPES_PILOTAGE as readonly string[]).includes(reviewType);
 }
 

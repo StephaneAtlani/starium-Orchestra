@@ -3,7 +3,27 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import type { ProjectGovernanceCircleApi } from '../types/project.types';
+import type {
+  ProjectGovernanceCircleApi,
+  ProjectGovernanceCircleSystemKindApi,
+} from '../types/project.types';
+
+type GovernanceCircleLabelSource = {
+  name: string;
+  systemKind: ProjectGovernanceCircleSystemKindApi | null;
+};
+
+function circleShortLabel(circle: GovernanceCircleLabelSource): string {
+  if (circle.systemKind === 'COPIL') return 'COPIL';
+  if (circle.systemKind === 'COPROJ') return 'COPROJ';
+  return circle.name;
+}
+
+export function governanceCircleDisplayLabel(circle: GovernanceCircleLabelSource): string {
+  if (circle.systemKind === 'COPIL') return 'Comité de pilotage (COPIL)';
+  if (circle.systemKind === 'COPROJ') return 'Comité de projet (COPROJ)';
+  return circle.name;
+}
 
 type ProjectTeamGovernanceCirclesFieldProps = {
   idPrefix: string;
@@ -14,18 +34,6 @@ type ProjectTeamGovernanceCirclesFieldProps = {
   compact?: boolean;
   className?: string;
 };
-
-function circleShortLabel(circle: ProjectGovernanceCircleApi): string {
-  if (circle.systemKind === 'COPIL') return 'COPIL';
-  if (circle.systemKind === 'COPROJ') return 'COPROJ';
-  return circle.name;
-}
-
-export function governanceCircleDisplayLabel(circle: ProjectGovernanceCircleApi): string {
-  if (circle.systemKind === 'COPIL') return 'Comité de pilotage (COPIL)';
-  if (circle.systemKind === 'COPROJ') return 'Comité de projet (COPROJ)';
-  return circle.name;
-}
 
 export { circleShortLabel };
 

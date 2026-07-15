@@ -180,7 +180,7 @@ export function AddMemberDialog() {
               placeholder="Obligatoire si le compte n'existe pas encore"
             />
             <p className="text-xs text-muted-foreground">
-              Si l'email existe déjà sur la plateforme, laissez vide : le membre
+              Si l&apos;email existe déjà sur la plateforme, laissez vide : le membre
               est rattaché sans changer son mot de passe.
             </p>
           </div>
@@ -195,7 +195,7 @@ export function AddMemberDialog() {
               <span className="font-medium">Masquer ce compte au catalogue de ressources</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Par défaut, une fiche Humaine est créée pour le planning. Cochez pour ne pas
-                l'exposer dans le catalogue sur ce client.
+                l&apos;exposer dans le catalogue sur ce client.
               </span>
             </span>
           </label>

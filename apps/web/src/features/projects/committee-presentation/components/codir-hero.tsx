@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronLeft, FileText, Monitor, Settings2 } from 'lucide-react';
+import { ChevronLeft, FileText, Loader2, Monitor, Settings2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Tooltip,
@@ -15,10 +15,18 @@ import { projectsList } from '../../constants/project-routes';
 type CodirHeroProps = {
   onOpenPresentationLaunch: () => void;
   onConfigure: () => void;
+  onExportPdf: () => void;
+  isExportingPdf?: boolean;
   className?: string;
 };
 
-export function CodirHero({ onOpenPresentationLaunch, onConfigure, className }: CodirHeroProps) {
+export function CodirHero({
+  onOpenPresentationLaunch,
+  onConfigure,
+  onExportPdf,
+  isExportingPdf = false,
+  className,
+}: CodirHeroProps) {
   return (
     <header className={cn('starium-codir-hero', className)}>
       <div className="min-w-0 flex-1">
@@ -84,13 +92,21 @@ export function CodirHero({ onOpenPresentationLaunch, onConfigure, className }: 
                 type="button"
                 variant="outline"
                 size="icon-sm"
-                disabled
-                aria-label="Exporter le PDF — bientôt disponible"
+                disabled={isExportingPdf}
+                aria-label="Exporter le PDF"
+                aria-busy={isExportingPdf}
+                onClick={onExportPdf}
               >
-                <FileText className="size-3.5" aria-hidden />
+                {isExportingPdf ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <FileText className="size-3.5" aria-hidden />
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Exporter le PDF — bientôt disponible</TooltipContent>
+            <TooltipContent side="bottom">
+              {isExportingPdf ? 'Export en cours…' : 'Exporter le PDF'}
+            </TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>
