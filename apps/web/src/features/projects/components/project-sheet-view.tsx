@@ -92,7 +92,6 @@ import { ScenarioWorkspacePage } from '../scenario-workspace/ScenarioWorkspacePa
 import { ProjectParentField } from './project-parent-edit-field';
 import { ProjectHierarchyBreadcrumb } from './project-hierarchy-breadcrumb';
 import { ProjectDocumentsSection } from './project-documents-section';
-import { ProjectAuditHistorySection } from './project-audit-history-section';
 import { ProjectRaciMatrix } from './project-raci-matrix';
 import { ProjectTeamMatrix } from './project-team-matrix';
 import { ProjectWorkspaceShell } from './project-workspace-shell';
@@ -2621,8 +2620,6 @@ export function ProjectSheetView({
       <ProjectDocumentsSection projectId={projectId} />
       </>
       ) : null}
-
-      <ProjectAuditHistorySection projectId={projectId} />
 
       {embedMode === 'page' ? (
         <>
