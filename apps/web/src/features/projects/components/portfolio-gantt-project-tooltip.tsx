@@ -61,7 +61,7 @@ export function PortfolioGanttProjectTooltip({
         align={align}
         sideOffset={sideOffset}
         alignOffset={alignOffset}
-        className={cn(PORTFOLIO_GANTT_TOOLTIP_CONTENT_CLASS, 'z-[100]')}
+        className={cn(PORTFOLIO_GANTT_TOOLTIP_CONTENT_CLASS, 'z-[120]')}
       >
         <PortfolioGanttSidebarTooltipContent row={row} />
       </TooltipContent>

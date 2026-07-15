@@ -12,6 +12,14 @@ import type {
   ProjectReviewListItem,
 } from '../../types/project.types';
 import { clampPercent, countByKey, daysUntil, formatDateFr, normalizePercentFromCount } from './committee-widget-helpers';
+import { CodirSlideRoadmap } from '../components/slides/codir-slide-roadmap';
+import {
+  WidgetSlideBars,
+  WidgetSlideKpiGrid,
+  WidgetSlideList,
+  WidgetSlideShell,
+  WidgetSlideTimeline,
+} from './committee-widget-slide';
 import type { WidgetTheme } from './committee-widget-themes';
 
 export type WidgetSize = 'single' | 'full';
@@ -57,6 +65,8 @@ export type CommitteeWidgetDefinition = {
   presentationColumn?: CommitteeWidgetPresentationColumn;
   description?: string;
   render: (ctx: WidgetRenderContext) => React.ReactNode;
+  /** Variante compacte pour diapositive PowerPoint (1 écran). */
+  renderSlide?: (ctx: WidgetRenderContext) => React.ReactNode;
 };
 
 const SIGNAL_ROWS: {
@@ -141,6 +151,21 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         </div>
       );
     },
+    renderSlide: ({ project }) => {
+      const progressPct = clampPercent(project.progressPercent ?? project.derivedProgressPercent ?? 0);
+      return (
+        <WidgetSlideShell title="Indicateurs">
+          <WidgetSlideKpiGrid
+            cells={[
+              { label: 'Avancement', value: `${progressPct} %` },
+              { label: 'Tâches', value: String(project.openTasksCount) },
+              { label: 'Risques', value: String(project.openRisksCount) },
+              { label: 'Jalons retard', value: String(project.delayedMilestonesCount) },
+            ]}
+          />
+        </WidgetSlideShell>
+      );
+    },
   },
   {
     id: 'planningTimeline',
@@ -215,6 +240,13 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         </div>
       );
     },
+    renderSlide: ({ project, milestones, isLoading }) => (
+      <CodirSlideRoadmap
+        milestones={milestones}
+        project={project}
+        isLoading={isLoading.milestones}
+      />
+    ),
   },
   {
     id: 'signals',
@@ -250,6 +282,14 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         </Table>
       </div>
     ),
+    renderSlide: ({ project }) => (
+      <WidgetSlideShell title="Signaux">
+        <WidgetSlideList
+          items={SIGNAL_ROWS.filter((row) => row.activeWhen(project.signals)).map((row) => row.label)}
+          emptyLabel="Aucun signal actif."
+        />
+      </WidgetSlideShell>
+    ),
   },
   {
     id: 'nextPoints',
@@ -273,6 +313,21 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         emptyLabel={isLoading.reviews ? 'Chargement des points projet…' : 'Aucun prochain point planifié.'}
       />
     ),
+    renderSlide: ({ reviews, isLoading }) => (
+      <WidgetSlideShell title="Prochains points">
+        <WidgetSlideTimeline
+          items={reviews
+            .filter((r) => r.nextReviewDate != null || r.status === 'DRAFT')
+            .slice(0, 3)
+            .map((r) => ({
+              title: r.title ?? 'Point projet',
+              subtitle: `${r.reviewType} (${r.status})`,
+              date: formatDateFr(r.nextReviewDate ?? r.reviewDate),
+            }))}
+          emptyLabel={isLoading.reviews ? 'Chargement…' : 'Aucun point planifié.'}
+        />
+      </WidgetSlideShell>
+    ),
   },
   {
     id: 'decisionsTaken',
@@ -287,6 +342,14 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         items={(reviewDetail?.status === 'FINALIZED' ? reviewDetail.decisions : []).map((d) => ({ label: d.title, value: 100 }))}
         emptyLabel={isLoading.reviewDetail ? 'Chargement des décisions…' : 'Aucune décision finalisée sur le dernier point.'}
       />
+    ),
+    renderSlide: ({ reviewDetail, isLoading }) => (
+      <WidgetSlideShell title="Décisions prises">
+        <WidgetSlideList
+          items={(reviewDetail?.status === 'FINALIZED' ? reviewDetail.decisions : []).map((d) => d.title)}
+          emptyLabel={isLoading.reviewDetail ? 'Chargement…' : 'Aucune décision finalisée.'}
+        />
+      </WidgetSlideShell>
     ),
   },
   {
@@ -305,6 +368,16 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         }))}
         emptyLabel={isLoading.reviewDetail ? 'Chargement des décisions…' : 'Aucune décision en attente sur le brouillon courant.'}
       />
+    ),
+    renderSlide: ({ reviewDetail, isLoading }) => (
+      <WidgetSlideShell title="Décisions à prendre">
+        <WidgetSlideList
+          items={(reviewDetail?.status === 'FINALIZED' ? [] : reviewDetail?.decisions ?? [])
+            .slice(0, 3)
+            .map((d) => d.title)}
+          emptyLabel={isLoading.reviewDetail ? 'Chargement…' : 'Aucune décision en attente.'}
+        />
+      </WidgetSlideShell>
     ),
   },
   {
@@ -329,6 +402,24 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         />
       );
     },
+    renderSlide: ({ reviewDetail, isLoading }) => {
+      const open = (reviewDetail?.actionItems ?? []).filter(
+        (a) => a.status !== 'DONE' && a.status !== 'CANCELLED',
+      );
+      const byStatus = countByKey(open.map((a) => a.status || 'UNKNOWN'));
+      const max = Math.max(1, ...Object.values(byStatus));
+      return (
+        <WidgetSlideShell title="Actions ouvertes">
+          <WidgetSlideBars
+            items={Object.entries(byStatus).map(([status, count]) => ({
+              label: `${status} (${count})`,
+              value: normalizePercentFromCount(count, max),
+            }))}
+            emptyLabel={isLoading.reviewDetail ? 'Chargement…' : 'Aucune action ouverte.'}
+          />
+        </WidgetSlideShell>
+      );
+    },
   },
   {
     id: 'warnings',
@@ -344,6 +435,14 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
         emptyLabel="Aucun point d'attention."
       />
     ),
+    renderSlide: ({ project }) => (
+      <WidgetSlideShell title="Alertes">
+        <WidgetSlideList
+          items={project.warnings.map(projectWarningLabel)}
+          emptyLabel="Aucun point d'attention."
+        />
+      </WidgetSlideShell>
+    ),
   },
   {
     id: 'tags',
@@ -353,6 +452,14 @@ export const COMMITTEE_WIDGETS_V1: CommitteeWidgetDefinition[] = [
     enabledByDefault: true,
     size: 'single',
     render: ({ project }) => <WidgetList title="Étiquettes" items={project.tags.map((t) => t.name)} emptyLabel="Aucune étiquette." />,
+    renderSlide: ({ project }) => (
+      <WidgetSlideShell title="Étiquettes">
+        <WidgetSlideList
+          items={project.tags.map((t) => t.name)}
+          emptyLabel="Aucune étiquette."
+        />
+      </WidgetSlideShell>
+    ),
   },
   {
     id: 'milestoneStatusSplit',
@@ -500,6 +607,18 @@ export const WIDGET_BY_ID = COMMITTEE_WIDGETS_V1.reduce<Record<WidgetId, Committ
   },
   {} as Record<WidgetId, CommitteeWidgetDefinition>,
 );
+
+export function renderCommitteeWidgetSlide(
+  def: CommitteeWidgetDefinition,
+  ctx: WidgetRenderContext,
+): React.ReactNode {
+  if (def.renderSlide) return def.renderSlide(ctx);
+  return (
+    <WidgetSlideShell title={def.title}>
+      <p className="text-xs starium-present-text-muted">Non disponible en mode diapositive.</p>
+    </WidgetSlideShell>
+  );
+}
 
 function BoolCell({ ok }: { ok: boolean }) {
   return (

@@ -97,7 +97,10 @@ import {
   wouldSetParentCreateCycle,
   type ProjectParentSummary,
 } from './project-hierarchy.util';
-import { loadLatestCommitteeMoodForProject } from './project-reviews/project-review-committee-mood.helpers';
+import {
+  loadCommitteeMoodHistoryForProject,
+  loadLatestCommitteeMoodForProject,
+} from './project-reviews/project-review-committee-mood.helpers';
 
 const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
@@ -1734,6 +1737,16 @@ export class ProjectsService {
       ancestorChain,
       ...committeeMoodSummary,
     };
+  }
+
+  async getCommitteeMoodHistory(clientId: string, projectId: string) {
+    await this.getProjectForScope(clientId, projectId);
+    const items = await loadCommitteeMoodHistoryForProject(
+      this.prisma,
+      clientId,
+      projectId,
+    );
+    return { items };
   }
 
   async getHistory(

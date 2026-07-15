@@ -861,6 +861,20 @@ html.dark {
   font-weight: 600;
   color: var(--brand-gold-700);
 }
+.starium-ov-mood-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.starium-ov-card--mood-strip .starium-ov-mood-strip__actions .starium-ov-btn {
+  margin-top: 0;
+  width: auto;
+  min-height: 44px;
+  flex-shrink: 0;
+}
 .starium-ov-card--mood-strip .starium-ov-btn {
   margin-top: 0;
   width: auto;
@@ -4593,6 +4607,1140 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
   }
   .starium-kpi-strip-item-value--muted {
     color: var(--muted-foreground);
+  }
+
+  /* ─── Présentation CODIR (page préparation + mode PowerPoint) ─── */
+  .starium-codir-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius, var(--radius-lg));
+    box-shadow: var(--ds-card-shadow);
+  }
+  .starium-codir-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-gold);
+  }
+  .starium-codir-title {
+    font-size: clamp(1.35rem, 2.5vw, 1.625rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--foreground);
+  }
+  .starium-codir-meta {
+    margin-top: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--ds-text-muted-color, var(--muted-foreground));
+  }
+  .starium-codir-section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 1.5rem 0 0.875rem;
+  }
+  .starium-codir-section-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background: var(--brand-gold-050);
+    color: var(--brand-gold-700);
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+  .starium-codir-section-title {
+    font-size: 1.0625rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+  }
+  .starium-codir-section-sub {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ds-text-muted-color, var(--muted-foreground));
+  }
+  .starium-codir-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    overflow: hidden;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius, var(--radius-lg));
+    box-shadow: var(--ds-card-shadow);
+  }
+  @media (max-width: 1023px) {
+    .starium-codir-kpi-strip {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 639px) {
+    .starium-codir-kpi-strip {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-codir-kpi-cell {
+    padding: 1.25rem 1.5rem;
+    border-right: 1px solid var(--neutral-100, var(--border));
+  }
+  .starium-codir-kpi-cell:last-child {
+    border-right: none;
+  }
+  @media (max-width: 639px) {
+    .starium-codir-kpi-cell {
+      border-right: none;
+      border-bottom: 1px solid var(--neutral-100, var(--border));
+    }
+    .starium-codir-kpi-cell:last-child {
+      border-bottom: none;
+    }
+  }
+  .starium-codir-kpi-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ds-kpi-label-color, var(--muted-foreground));
+  }
+  .starium-codir-kpi-value {
+    margin-top: 0.375rem;
+    font-size: clamp(1.5rem, 3vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+  .starium-codir-kpi-foot {
+    margin-top: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ds-text-muted-color, var(--muted-foreground));
+  }
+  .starium-codir-synth-2col {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  @media (max-width: 767px) {
+    .starium-codir-synth-2col {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-codir-status-bar {
+    display: flex;
+    height: 2rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+  .starium-codir-status-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--neutral-0, #fff);
+    font-variant-numeric: tabular-nums;
+  }
+  .starium-codir-status-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--ds-text-muted-color, var(--muted-foreground));
+  }
+  .starium-codir-status-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .starium-codir-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .starium-codir-attention-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .starium-codir-attention-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .starium-codir-report-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  @media (max-width: 767px) {
+    .starium-codir-report-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-codir-report-card {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--ds-card-radius, var(--radius-lg));
+    box-shadow: var(--ds-card-shadow);
+  }
+  .starium-codir-report-card__accent {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+  }
+  .starium-codir-report-card__accent--ok {
+    background: var(--state-success);
+  }
+  .starium-codir-report-card__accent--warn {
+    background: var(--state-warning);
+  }
+  .starium-codir-report-card__accent--danger {
+    background: var(--state-danger);
+  }
+  .starium-codir-report-card__accent--info {
+    background: var(--state-info);
+  }
+  .starium-codir-report-card__accent--muted {
+    background: var(--neutral-400);
+  }
+
+  /* Mode présentation PowerPoint (overlay sombre ou clair) */
+  .starium-present-overlay {
+    --present-bg: var(--brand-ink);
+    --present-fg: #ffffff;
+    --present-fg-muted: rgba(255, 255, 255, 0.5);
+    --present-fg-subtle: rgba(255, 255, 255, 0.45);
+    --present-fg-soft: rgba(255, 255, 255, 0.4);
+    --present-fg-strong: rgba(255, 255, 255, 0.62);
+    --present-fg-faint: rgba(255, 255, 255, 0.42);
+    --present-border: rgba(255, 255, 255, 0.12);
+    --present-border-strong: rgba(255, 255, 255, 0.18);
+    --present-surface: rgba(255, 255, 255, 0.05);
+    --present-surface-strong: rgba(255, 255, 255, 0.07);
+    --present-surface-hover: rgba(255, 255, 255, 0.14);
+    --present-line: rgba(255, 255, 255, 0.14);
+    --present-line-dot: rgba(255, 255, 255, 0.28);
+    --present-nav-border: rgba(255, 255, 255, 0.1);
+    --present-dot-bg: rgba(255, 255, 255, 0.15);
+    --present-dot-done: rgba(232, 163, 23, 0.45);
+    --present-active-dot-bg: var(--brand-ink);
+    --present-avatar-ring: rgba(255, 255, 255, 0.9);
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    background: var(--present-bg);
+    color: var(--present-fg);
+  }
+  .starium-present-overlay--light {
+    --present-bg: #f6f4ef;
+    --present-fg: #0e0e10;
+    --present-fg-muted: rgba(14, 14, 16, 0.62);
+    --present-fg-subtle: rgba(14, 14, 16, 0.52);
+    --present-fg-soft: rgba(14, 14, 16, 0.46);
+    --present-fg-strong: rgba(14, 14, 16, 0.78);
+    --present-fg-faint: rgba(14, 14, 16, 0.5);
+    --present-border: rgba(14, 14, 16, 0.1);
+    --present-border-strong: rgba(14, 14, 16, 0.16);
+    --present-surface: rgba(255, 255, 255, 0.78);
+    --present-surface-strong: rgba(255, 255, 255, 0.92);
+    --present-surface-hover: rgba(14, 14, 16, 0.06);
+    --present-line: rgba(14, 14, 16, 0.12);
+    --present-line-dot: rgba(14, 14, 16, 0.22);
+    --present-nav-border: rgba(14, 14, 16, 0.08);
+    --present-dot-bg: rgba(14, 14, 16, 0.12);
+    --present-dot-done: rgba(212, 168, 83, 0.55);
+    --present-active-dot-bg: #ffffff;
+    --present-avatar-ring: #ffffff;
+  }
+  .starium-present-overlay .starium-present-text-muted {
+    color: var(--present-fg-muted);
+  }
+  .starium-present-overlay .starium-present-text-subtle {
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-overlay .starium-present-text-soft {
+    color: var(--present-fg-soft);
+  }
+  .starium-present-overlay .starium-present-text {
+    color: var(--present-fg);
+  }
+  .starium-present-overlay .starium-present-surface-pill {
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    color: var(--present-fg);
+  }
+  .starium-present-overlay .starium-present-avatar-pill {
+    background: var(--present-surface-strong);
+    color: var(--present-fg);
+  }
+  .starium-present-overlay--light .starium-present-slide {
+    color: var(--present-fg);
+  }
+  .starium-present-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .starium-present-slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.25rem 2.5rem 1.25rem;
+    overflow: hidden;
+  }
+  .starium-present-slide--active {
+    display: flex;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .starium-present-slide--active {
+      animation: starium-present-slide-in 380ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  }
+  @keyframes starium-present-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .starium-present-brand {
+    position: absolute;
+    top: 1.5rem;
+    left: 2rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+  .starium-present-brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 7px;
+    background: var(--brand-gold);
+    color: var(--brand-ink);
+  }
+  .starium-present-brand-name {
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--present-fg);
+  }
+  .starium-present-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.75rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 11px;
+    border: 1.5px solid var(--present-border-strong);
+    background: var(--present-surface-strong);
+    color: var(--present-fg);
+    cursor: pointer;
+  }
+  .starium-present-close:hover {
+    background: var(--present-surface-hover);
+  }
+  .starium-present-close:focus-visible {
+    outline: 2px solid var(--brand-gold);
+    outline-offset: 2px;
+  }
+  .starium-present-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brand-gold);
+  }
+  .starium-present-title {
+    font-size: clamp(1.75rem, 4.5vw, 2.875rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    color: var(--present-fg);
+  }
+  .starium-present-sub {
+    margin-top: 0.5rem;
+    font-size: clamp(0.9375rem, 2vw, 1.0625rem);
+    color: var(--present-fg-muted);
+  }
+  .starium-present-kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem 2.25rem;
+    margin-top: 1.5rem;
+  }
+  .starium-present-kpi-hero-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--present-fg-soft);
+  }
+  .starium-present-kpi-hero-value {
+    margin-top: 0.375rem;
+    font-size: clamp(1.75rem, 4vw, 2.375rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    color: var(--present-fg);
+  }
+  .starium-present-synth-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 1023px) {
+    .starium-present-synth-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 639px) {
+    .starium-present-synth-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .starium-present-synth-cell {
+    padding: 1.25rem 1.5rem;
+    border-radius: 1rem;
+    background: var(--present-surface);
+    border: 1px solid var(--present-border);
+  }
+  .starium-present-synth-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--present-fg-muted);
+  }
+  .starium-present-synth-val {
+    margin-top: 0.875rem;
+    font-size: clamp(1.75rem, 4vw, 2.875rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--present-fg);
+  }
+  .starium-present-synth-foot {
+    margin-top: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .starium-present-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 3.25rem;
+    flex-shrink: 0;
+    padding: 0 1.75rem;
+    border-top: 1px solid var(--present-nav-border);
+  }
+  .starium-present-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 11px;
+    border: 1.5px solid var(--present-border-strong);
+    background: var(--present-surface-strong);
+    color: var(--present-fg);
+    cursor: pointer;
+  }
+  .starium-present-nav-btn:hover:not(:disabled) {
+    background: var(--present-surface-hover);
+  }
+  .starium-present-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .starium-present-nav-btn:focus-visible {
+    outline: 2px solid var(--brand-gold);
+    outline-offset: 2px;
+  }
+  .starium-present-progress {
+    display: flex;
+    flex: 1;
+    gap: 0.375rem;
+  }
+  .starium-present-dot {
+    flex: 1;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--present-dot-bg);
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    min-height: 0.75rem;
+  }
+  .starium-present-dot--active {
+    background: var(--brand-gold);
+  }
+  .starium-present-dot--done {
+    background: var(--present-dot-done);
+  }
+  .starium-present-count {
+    min-width: 3.375rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: var(--present-fg-muted);
+  }
+  .starium-present-project-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 32%) minmax(0, 1fr);
+    gap: 2rem 2.5rem;
+    align-items: start;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  @media (max-width: 767px) {
+    .starium-present-project-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-present-widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    min-height: 0;
+    overflow: hidden;
+    align-content: start;
+  }
+  @media (max-width: 639px) {
+    .starium-present-widgets-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-present-widget-shell {
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    max-height: 11rem;
+  }
+  .starium-present-widget-shell--full {
+    grid-column: 1 / -1;
+    max-height: 9rem;
+  }
+
+  .starium-present-project-main {
+    min-width: 0;
+  }
+  .starium-present-project-sidebar {
+    padding-right: 0.25rem;
+  }
+  .starium-present-sidebar-kpi {
+    border-radius: 0.625rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    padding: 0.625rem 0.75rem;
+  }
+  .starium-present-sidebar-kpi__label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-sidebar-kpi__value {
+    margin-top: 0.125rem;
+    font-size: 1.125rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--present-fg);
+  }
+  .starium-present-sidebar-kpi__sub {
+    margin-top: 0.125rem;
+    font-size: 0.6rem;
+    color: var(--present-fg-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .starium-present-roadmap {
+    border-radius: 0.875rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    padding: 0.875rem 1rem 1rem;
+  }
+  .starium-present-roadmap__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .starium-present-roadmap__eyebrow,
+  .starium-present-decisions__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand-gold);
+  }
+  .starium-present-decisions__eyebrow {
+    margin-bottom: 0.875rem;
+  }
+  .starium-present-roadmap__summary {
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface-strong);
+    padding: 0.15rem 0.55rem;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--present-fg-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+  .starium-present-roadmap__steps {
+    --roadmap-steps: 4;
+    display: grid;
+    grid-template-columns: repeat(var(--roadmap-steps), minmax(0, 1fr));
+    grid-template-rows: auto 1.25rem auto;
+    column-gap: 0.25rem;
+    position: relative;
+  }
+  .starium-present-roadmap__axis {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    position: relative;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    height: 1.25rem;
+    padding-inline: calc(50% / var(--roadmap-steps));
+    pointer-events: none;
+  }
+  .starium-present-roadmap__line {
+    position: relative;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--present-line);
+    overflow: hidden;
+  }
+  .starium-present-roadmap__line-progress {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--brand-gold), rgba(212, 168, 83, 0.65));
+    transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .starium-present-roadmap__col {
+    position: relative;
+    z-index: 1;
+    grid-row: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+    text-align: center;
+  }
+  .starium-present-roadmap__month {
+    justify-self: center;
+    margin-bottom: 0.375rem;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--present-fg-subtle);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .starium-present-roadmap__month--highlight {
+    color: var(--brand-gold);
+  }
+  .starium-present-roadmap__dot-wrap {
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    align-self: center;
+    height: 1.25rem;
+  }
+  .starium-present-roadmap__dot {
+    display: grid;
+    place-items: center;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    border: 2px solid var(--present-line-dot);
+    background: var(--present-surface-strong);
+    flex-shrink: 0;
+  }
+  .starium-present-roadmap__dot-icon {
+    width: 0.5rem;
+    height: 0.5rem;
+    color: var(--present-active-dot-bg);
+  }
+  .starium-present-roadmap__dot--done {
+    border-color: var(--brand-gold);
+    background: var(--brand-gold);
+  }
+  .starium-present-roadmap__dot--active {
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 2px solid var(--brand-gold);
+    background: var(--present-active-dot-bg);
+    box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.22);
+  }
+  .starium-present-roadmap__dot--delayed {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-color: var(--state-danger);
+    background: var(--state-danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+  }
+  .starium-present-roadmap__caption {
+    justify-self: stretch;
+    margin-top: 0.5rem;
+    min-width: 0;
+    text-align: center;
+  }
+  .starium-present-roadmap__name {
+    width: 100%;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--present-fg-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .starium-present-roadmap__name--active {
+    color: var(--brand-gold);
+    font-weight: 700;
+  }
+  .starium-present-roadmap__name--done {
+    color: var(--present-fg-strong);
+  }
+  .starium-present-roadmap__name--delayed {
+    color: var(--state-danger);
+  }
+  .starium-present-roadmap__flag {
+    display: inline-block;
+    margin-top: 0.25rem;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.14);
+    padding: 0.1rem 0.4rem;
+    font-size: 0.5rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--state-danger);
+    line-height: 1.2;
+  }
+  .starium-present-roadmap__skeleton {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .starium-present-roadmap__skeleton-cell {
+    height: 4.5rem;
+    border-radius: 0.5rem;
+    background: var(--present-surface-strong);
+    animation: starium-present-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes starium-present-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .starium-present-decisions {
+    border-radius: 0.875rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    padding: 1rem 1.25rem;
+  }
+  .starium-present-decisions__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .starium-present-decision-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface-strong);
+    padding: 0.625rem 0.75rem;
+  }
+  .starium-present-decision-card__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    border-radius: 0.5rem;
+  }
+  .starium-present-decision-card__icon--ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--state-success);
+  }
+  .starium-present-decision-card__icon--info {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--state-info);
+  }
+  .starium-present-decision-card__title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--present-fg);
+  }
+  .starium-present-decision-card__meta {
+    margin-top: 0.125rem;
+    font-size: 0.6875rem;
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-decision-card__badge {
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .starium-present-decision-card__badge--ok {
+    background: rgba(34, 197, 94, 0.18);
+    color: var(--state-success);
+  }
+  .starium-present-decision-card__badge--info {
+    background: rgba(59, 130, 246, 0.18);
+    color: var(--state-info);
+  }
+  .starium-present-decision-card__badge--warn {
+    background: rgba(245, 158, 11, 0.18);
+    color: var(--state-warning);
+  }
+  .starium-present-decision-card__badge--muted {
+    background: var(--present-surface-hover);
+    color: var(--present-fg-muted);
+  }
+
+  .starium-present-insight-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  @media (max-width: 767px) {
+    .starium-present-insight-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .starium-present-insight-card {
+    border-radius: 0.75rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    padding: 0.75rem 0.875rem;
+    min-height: 5.5rem;
+  }
+  .starium-present-insight-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.5rem;
+  }
+  .starium-present-insight-card__title {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--present-fg-muted);
+  }
+  .starium-present-insight-card__value {
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--present-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .starium-present-insight-card__sub {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-insight-card__sub--warn {
+    color: var(--brand-gold);
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .starium-present-roadmap__line-progress {
+      transition: none;
+    }
+    .starium-present-roadmap__skeleton-cell {
+      animation: none;
+    }
+  }
+
+  .starium-present-gantt-slide,
+  .starium-present-project-slide {
+    padding-top: 1.75rem;
+  }
+
+  .starium-present-gantt {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    position: relative;
+    border-radius: 0.875rem;
+    border: 1px solid var(--present-border);
+    background: var(--present-surface);
+    overflow: hidden;
+  }
+  .starium-present-gantt__head {
+    display: grid;
+    grid-template-columns: minmax(9rem, 32%) minmax(0, 1fr);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--present-border);
+    background: var(--present-surface-strong);
+  }
+  .starium-present-gantt__head-label {
+    display: flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--present-fg-subtle);
+    border-right: 1px solid var(--present-border);
+  }
+  .starium-present-gantt__timeline-head {
+    position: relative;
+    height: 2rem;
+  }
+  .starium-present-gantt__month {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--present-fg-subtle);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .starium-present-gantt__today-overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 32%;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .starium-present-gantt__today-line {
+    position: absolute;
+    top: 2rem;
+    bottom: 0;
+    left: var(--today-pct, 50%);
+    width: 2px;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.55);
+    pointer-events: none;
+  }
+  .starium-present-gantt__today {
+    position: absolute;
+    top: 0.45rem;
+    left: var(--today-pct, 50%);
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: rgba(14, 165, 233, 0.18);
+    padding: 0.05rem 0.35rem;
+    font-size: 0.5rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--state-info);
+    pointer-events: none;
+  }
+  .starium-present-gantt__body {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .starium-present-gantt__section + .starium-present-gantt__section {
+    border-top: 1px solid var(--present-border);
+  }
+  .starium-present-gantt__section-label {
+    padding: 0.5rem 0.75rem 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-gold);
+  }
+  .starium-present-gantt__row {
+    display: grid;
+    grid-template-columns: minmax(9rem, 32%) minmax(0, 1fr);
+    align-items: stretch;
+    border-top: 1px solid var(--present-border);
+    transition: background 150ms ease;
+  }
+  .starium-present-gantt__row:hover,
+  .starium-present-gantt__row:focus-within {
+    background: var(--present-surface-hover);
+  }
+  .starium-present-gantt__row-label {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    height: 100%;
+    padding: 0.375rem 0.75rem;
+    border-right: 1px solid var(--present-border);
+  }
+  .starium-present-gantt__row-label-trigger {
+    display: block;
+    min-height: 2.75rem;
+    height: 100%;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+  .starium-present-gantt__row-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--present-fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .starium-present-gantt__row-meta {
+    margin-top: 0.125rem;
+    font-size: 0.625rem;
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-gantt__row-code {
+    font-weight: 500;
+    color: var(--present-fg-subtle);
+  }
+  .starium-present-gantt__track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    min-height: 2.75rem;
+    padding: 0.375rem 0.625rem;
+    background: transparent;
+  }
+  .starium-present-gantt__no-date {
+    font-size: 0.625rem;
+    font-style: italic;
+    color: var(--present-fg-faint);
+  }
+
+  /* Tooltips Gantt portefeuille — même contenu qu’en page /projects/portfolio-gantt */
+  body.starium-present-overlay-open .isolate.z-50 {
+    z-index: 120 !important;
+  }
+  body.starium-present-overlay-open [data-slot='tooltip-content'] {
+    z-index: 120 !important;
+    max-width: min(34rem, calc(100vw - 2rem)) !important;
+    width: max-content;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+  }
+
+  @media (max-width: 767px) {
+    .starium-present-gantt__head,
+    .starium-present-gantt__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .starium-present-gantt__head-label,
+    .starium-present-gantt__row-label {
+      border-right: none;
+      border-bottom: 1px solid var(--present-border);
+    }
+    .starium-present-gantt__today-overlay {
+      left: 0;
+    }
   }
 
   /* Filter bar (panneau tableau projets) — mobile-first */

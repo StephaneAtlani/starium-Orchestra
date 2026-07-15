@@ -7,6 +7,7 @@ import {
 import {
   ClientUserStatus,
   Prisma,
+  ProjectGovernanceCircleSystemKind,
   ProjectRaciKind,
   ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
@@ -15,6 +16,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
 import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
 import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
+import { UpdateProjectTeamMemberCirclesDto } from './dto/update-project-team-member-circles.dto';
+import {
+  assertGovernanceCircleIdsBelongToProject,
+  ensureDefaultGovernanceCirclesForProject,
+} from './lib/project-governance-circles.db';
+
+export type ProjectTeamMemberGovernanceCircleRef = {
+  id: string;
+  name: string;
+  systemKind: ProjectGovernanceCircleSystemKind | null;
+};
 
 export type ProjectTeamRoleResponse = {
   id: string;
@@ -35,6 +47,8 @@ export type ProjectTeamMemberResponse = {
   displayName: string;
   email: string;
   affiliation: ProjectTeamMemberAffiliation | null;
+  identityKey: string;
+  governanceCircles: ProjectTeamMemberGovernanceCircleRef[];
 };
 
 export type ProjectRaciActionResponse = {
@@ -69,6 +83,16 @@ function normalizeFreeIdentityKey(freeLabel: string): string {
   return `n:${n.slice(0, 120)}`;
 }
 
+function governanceCirclesForIdentity(
+  identityKey: string,
+  byIdentity: Map<string, ProjectTeamMemberGovernanceCircleRef[]>,
+): ProjectTeamMemberGovernanceCircleRef[] {
+  const items = byIdentity.get(identityKey) ?? [];
+  return [...items].sort(
+    (a, b) => a.name.localeCompare(b.name, 'fr') || a.id.localeCompare(b.id),
+  );
+}
+
 @Injectable()
 export class ProjectTeamService {
   constructor(private readonly prisma: PrismaService) {}
@@ -83,20 +107,24 @@ export class ProjectTeamService {
     return n === 'responsable de projet' || n === 'responsable projet';
   }
 
-  private mapMemberRow(m: {
-    id: string;
-    projectId: string;
-    roleId: string;
-    userId: string | null;
-    freeLabel: string | null;
-    affiliation: ProjectTeamMemberAffiliation | null;
-    role: { name: string; systemKind: ProjectTeamRoleSystemKind | null };
-    user: {
-      email: string;
-      firstName: string | null;
-      lastName: string | null;
-    } | null;
-  }): ProjectTeamMemberResponse {
+  private mapMemberRow(
+    m: {
+      id: string;
+      projectId: string;
+      roleId: string;
+      userId: string | null;
+      freeLabel: string | null;
+      affiliation: ProjectTeamMemberAffiliation | null;
+      identityKey: string;
+      role: { name: string; systemKind: ProjectTeamRoleSystemKind | null };
+      user: {
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+      } | null;
+    },
+    byIdentity: Map<string, ProjectTeamMemberGovernanceCircleRef[]>,
+  ): ProjectTeamMemberResponse {
     const isUser = m.userId != null && m.user != null;
     const displayName = isUser
       ? [m.user!.firstName, m.user!.lastName].filter(Boolean).join(' ').trim() ||
@@ -113,7 +141,99 @@ export class ProjectTeamService {
       displayName,
       email: isUser ? m.user!.email : '',
       affiliation: m.affiliation ?? null,
+      identityKey: m.identityKey,
+      governanceCircles: governanceCirclesForIdentity(m.identityKey, byIdentity),
     };
+  }
+
+  private async loadGovernanceCirclesByIdentity(
+    clientId: string,
+    projectId: string,
+  ): Promise<Map<string, ProjectTeamMemberGovernanceCircleRef[]>> {
+    await ensureDefaultGovernanceCirclesForProject(this.prisma, clientId, projectId);
+    const rows = await this.prisma.projectTeamGovernanceMembership.findMany({
+      where: { clientId, projectId },
+      include: {
+        circle: {
+          select: { id: true, name: true, systemKind: true },
+        },
+      },
+    });
+    const map = new Map<string, ProjectTeamMemberGovernanceCircleRef[]>();
+    for (const row of rows) {
+      const cur = map.get(row.identityKey) ?? [];
+      cur.push({
+        id: row.circle.id,
+        name: row.circle.name,
+        systemKind: row.circle.systemKind,
+      });
+      map.set(row.identityKey, cur);
+    }
+    return map;
+  }
+
+  private async replaceGovernanceCirclesForIdentity(
+    db: Pick<PrismaService, 'projectTeamGovernanceMembership'>,
+    clientId: string,
+    projectId: string,
+    identityKey: string,
+    circleIds: string[] | undefined,
+  ): Promise<void> {
+    if (circleIds === undefined) return;
+    await assertGovernanceCircleIdsBelongToProject(
+      this.prisma,
+      clientId,
+      projectId,
+      circleIds,
+    );
+    const unique = [...new Set(circleIds)];
+    await db.projectTeamGovernanceMembership.deleteMany({
+      where: { projectId, identityKey },
+    });
+    if (unique.length === 0) return;
+    await db.projectTeamGovernanceMembership.createMany({
+      data: unique.map((circleId) => ({
+        clientId,
+        projectId,
+        identityKey,
+        circleId,
+      })),
+    });
+  }
+
+  private async resolveMemberIdentityKey(
+    clientId: string,
+    projectId: string,
+    memberId: string,
+  ): Promise<string> {
+    if (memberId === this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER)) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: projectId, clientId },
+        select: { ownerUserId: true, ownerFreeLabel: true },
+      });
+      if (!project) throw new NotFoundException('Project not found');
+      if (project.ownerUserId) return `u:${project.ownerUserId}`;
+      if (project.ownerFreeLabel?.trim()) {
+        return normalizeFreeIdentityKey(project.ownerFreeLabel);
+      }
+      throw new BadRequestException('Aucun responsable de projet à mettre à jour');
+    }
+    if (memberId === this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR)) {
+      const project = await this.prisma.project.findFirst({
+        where: { id: projectId, clientId },
+        select: { sponsorUserId: true },
+      });
+      if (!project?.sponsorUserId) {
+        throw new BadRequestException('Aucun sponsor à mettre à jour');
+      }
+      return `u:${project.sponsorUserId}`;
+    }
+    const member = await this.prisma.projectTeamMember.findFirst({
+      where: { id: memberId, clientId, projectId },
+      select: { identityKey: true },
+    });
+    if (!member) throw new NotFoundException('Team member not found');
+    return member.identityKey;
   }
 
   /**
@@ -378,16 +498,18 @@ export class ProjectTeamService {
       },
       orderBy: [{ role: { sortOrder: 'asc' } }, { createdAt: 'asc' }],
     });
+    const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
     const filtered = members.filter(
       (m) => this.canonicalRoleKind(m.role) == null,
     );
-    const out = filtered.map((m) => this.mapMemberRow(m));
+    const out = filtered.map((m) => this.mapMemberRow(m, circlesByIdentity));
 
     if (ownerRole) {
       if (project.ownerUserId && project.owner) {
         const display =
           [project.owner.firstName, project.owner.lastName].filter(Boolean).join(' ').trim() ||
           project.owner.email;
+        const identityKey = `u:${project.ownerUserId}`;
         out.unshift({
           id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
           projectId,
@@ -399,9 +521,12 @@ export class ProjectTeamService {
           displayName: display,
           email: project.owner.email,
           affiliation: null,
+          identityKey,
+          governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
         });
       } else if (project.ownerFreeLabel?.trim()) {
         const label = project.ownerFreeLabel.trim();
+        const identityKey = normalizeFreeIdentityKey(label);
         out.unshift({
           id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
           projectId,
@@ -413,6 +538,8 @@ export class ProjectTeamService {
           displayName: label,
           email: '',
           affiliation: project.ownerAffiliation ?? null,
+          identityKey,
+          governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
         });
       }
     }
@@ -421,6 +548,7 @@ export class ProjectTeamService {
       const display =
         [project.sponsor.firstName, project.sponsor.lastName].filter(Boolean).join(' ').trim() ||
         project.sponsor.email;
+      const identityKey = `u:${project.sponsorUserId}`;
       out.unshift({
         id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR),
         projectId,
@@ -432,6 +560,8 @@ export class ProjectTeamService {
         displayName: display,
         email: project.sponsor.email,
         affiliation: null,
+        identityKey,
+        governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
       });
     }
 
@@ -632,7 +762,15 @@ export class ProjectTeamService {
           where: { id: projectId },
           data: { sponsorUserId: userIdTrim! },
         });
+        await this.replaceGovernanceCirclesForIdentity(
+          this.prisma,
+          clientId,
+          projectId,
+          identityKey,
+          dto.circleIds,
+        );
         const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
+        const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
         return {
           id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR),
           projectId,
@@ -647,6 +785,8 @@ export class ProjectTeamService {
               : userIdTrim!,
           email: user?.email ?? '',
           affiliation: null,
+          identityKey,
+          governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
         };
       }
       if (canonical === ProjectTeamRoleSystemKind.OWNER) {
@@ -659,7 +799,15 @@ export class ProjectTeamService {
               ownerAffiliation: null,
             },
           });
+          await this.replaceGovernanceCirclesForIdentity(
+            this.prisma,
+            clientId,
+            projectId,
+            identityKey,
+            dto.circleIds,
+          );
           const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
+          const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
           return {
             id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
             projectId,
@@ -674,6 +822,8 @@ export class ProjectTeamService {
                 : userIdTrim!,
             email: user?.email ?? '',
             affiliation: null,
+            identityKey,
+            governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
           };
         }
         await this.prisma.project.update({
@@ -684,6 +834,14 @@ export class ProjectTeamService {
             ownerAffiliation: dto.affiliation ?? null,
           },
         });
+        await this.replaceGovernanceCirclesForIdentity(
+          this.prisma,
+          clientId,
+          projectId,
+          identityKey,
+          dto.circleIds,
+        );
+        const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
         return {
           id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
           projectId,
@@ -695,6 +853,8 @@ export class ProjectTeamService {
           displayName: freeTrim!.slice(0, 200),
           email: '',
           affiliation: dto.affiliation ?? null,
+          identityKey,
+          governanceCircles: governanceCirclesForIdentity(identityKey, circlesByIdentity),
         };
       }
       const member = await this.prisma.$transaction(async (tx) => {
@@ -702,10 +862,18 @@ export class ProjectTeamService {
           data,
           include: { role: true, user: true },
         });
+        await this.replaceGovernanceCirclesForIdentity(
+          tx,
+          clientId,
+          projectId,
+          identityKey,
+          dto.circleIds,
+        );
         await this.syncProjectSponsorOwner(tx, projectId, clientId);
         return created;
       });
-      return this.mapMemberRow(member);
+      const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
+      return this.mapMemberRow(member, circlesByIdentity);
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -717,6 +885,29 @@ export class ProjectTeamService {
       }
       throw e;
     }
+  }
+
+  async updateMemberCircles(
+    clientId: string,
+    projectId: string,
+    memberId: string,
+    dto: UpdateProjectTeamMemberCirclesDto,
+  ): Promise<ProjectTeamMemberResponse> {
+    await this.getProjectOrThrow(clientId, projectId);
+    const identityKey = await this.resolveMemberIdentityKey(clientId, projectId, memberId);
+    await this.replaceGovernanceCirclesForIdentity(
+      this.prisma,
+      clientId,
+      projectId,
+      identityKey,
+      dto.circleIds,
+    );
+    const team = await this.getTeam(clientId, projectId);
+    const updated = team.find((m) => m.id === memberId);
+    if (!updated) {
+      throw new NotFoundException('Team member not found');
+    }
+    return updated;
   }
 
   async removeMember(

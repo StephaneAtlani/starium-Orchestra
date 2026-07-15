@@ -660,6 +660,24 @@ export type ProjectTeamMemberKind = 'USER' | 'NAMED';
 
 export type ProjectTeamMemberAffiliationApi = 'INTERNAL' | 'EXTERNAL';
 
+export type ProjectGovernanceCircleSystemKindApi = 'COPIL' | 'COPROJ';
+
+export type ProjectGovernanceCircleApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  name: string;
+  systemKind: ProjectGovernanceCircleSystemKindApi | null;
+  sortOrder: number;
+  isSystem: boolean;
+};
+
+export type ProjectTeamMemberGovernanceCircleRefApi = {
+  id: string;
+  name: string;
+  systemKind: ProjectGovernanceCircleSystemKindApi | null;
+};
+
 export type ProjectTeamMemberApi = {
   id: string;
   projectId: string;
@@ -671,6 +689,8 @@ export type ProjectTeamMemberApi = {
   displayName: string;
   email: string;
   affiliation: ProjectTeamMemberAffiliationApi | null;
+  identityKey: string;
+  governanceCircles: ProjectTeamMemberGovernanceCircleRefApi[];
 };
 
 export type ProjectRaciKind =
@@ -965,6 +985,19 @@ export type ProjectReviewListItem = {
 
 export type ProjectReviewListResponse = {
   items: ProjectReviewListItem[];
+};
+
+export type ProjectCommitteeMoodHistoryItem = {
+  reviewId: string;
+  title: string | null;
+  reviewDate: string | null;
+  reviewType: ProjectReviewType;
+  status: ProjectReviewStatus;
+  committeeMood: 'GREEN' | 'ORANGE' | 'RED';
+};
+
+export type ProjectCommitteeMoodHistoryResponse = {
+  items: ProjectCommitteeMoodHistoryItem[];
 };
 
 export type ProjectReviewParticipantApi = {

@@ -11,6 +11,7 @@ import type {
   AssignableUsersResponse,
   ProjectAssignableUser,
   ProjectDetail,
+  ProjectCommitteeMoodHistoryResponse,
   ProjectDocumentApi,
   ProjectHistoryResponse,
   ProjectMilestoneApi,
@@ -198,6 +199,15 @@ export async function getProjectAuditHistory(
   );
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectHistoryResponse>;
+}
+
+export async function getProjectCommitteeMoodHistory(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectCommitteeMoodHistoryResponse> {
+  const res = await authFetch(`${BASE}/${projectId}/committee-mood/history`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectCommitteeMoodHistoryResponse>;
 }
 
 export async function getProjectScenarios(
@@ -1102,12 +1112,28 @@ export async function deleteProjectRaciAction(
 }
 
 export type AddProjectTeamMemberPayload =
-  | { roleId: string; userId: string }
+  | { roleId: string; userId: string; circleIds?: string[] }
   | {
       roleId: string;
       freeLabel: string;
       affiliation: 'INTERNAL' | 'EXTERNAL';
+      circleIds?: string[];
     };
+
+export async function updateProjectTeamMemberCircles(
+  authFetch: AuthFetch,
+  projectId: string,
+  memberId: string,
+  circleIds: string[],
+): Promise<ProjectTeamMemberApi> {
+  const res = await authFetch(`${BASE}/${projectId}/team/${memberId}/circles`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ circleIds }),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamMemberApi>;
+}
 
 export async function addProjectTeamMember(
   authFetch: AuthFetch,

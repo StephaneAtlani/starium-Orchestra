@@ -1979,7 +1979,7 @@ export function ProjectReviewEditorDialog({
 
   const footerActionClass = isPage
     ? 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9'
-    : 'min-h-11';
+    : 'min-h-11 shrink-0 px-3 text-sm sm:min-h-9 sm:h-9';
 
   const planReviewPending =
     scheduleReview.isPending ||
@@ -2023,12 +2023,12 @@ export function ProjectReviewEditorDialog({
           </span>
         ) : null}
       </div>
-      <div className="flex flex-wrap gap-2 max-lg:w-full max-lg:[&>button]:flex-1">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         {!isPage && (canSchedule || canStart) && canEdit ? (
           <Button
             type="button"
             variant={canStart && invitationsSent ? 'outline' : 'default'}
-            className="min-h-11"
+            className={footerActionClass}
             onClick={() => void onRequestPlanReview()}
             disabled={planReviewPending}
           >
@@ -2045,7 +2045,7 @@ export function ProjectReviewEditorDialog({
           <Button
             type="button"
             variant={invitationsSent ? 'default' : 'outline'}
-            className="min-h-11"
+            className={footerActionClass}
             onClick={() => void onRequestStartReview()}
             disabled={startReview.isPending}
           >

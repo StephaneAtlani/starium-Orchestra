@@ -11,6 +11,15 @@ export type ProjectCommitteeMoodSummary = {
   committeeMoodReviewDate: string | null;
 };
 
+export type ProjectCommitteeMoodHistoryItem = {
+  reviewId: string;
+  title: string | null;
+  reviewDate: string | null;
+  reviewType: string;
+  status: string;
+  committeeMood: ComputedHealth;
+};
+
 const emptyCommitteeMoodSummary = (): ProjectCommitteeMoodSummary => ({
   committeeMood: null,
   committeeMoodReviewId: null,
@@ -114,4 +123,54 @@ export async function loadLatestCommitteeMoodForProject(
   }
 
   return emptyCommitteeMoodSummary();
+}
+
+/** Historique des météos comité renseignées sur les points projet (du plus récent au plus ancien). */
+export async function loadCommitteeMoodHistoryForProject(
+  prisma: PrismaService,
+  clientId: string,
+  projectId: string,
+): Promise<ProjectCommitteeMoodHistoryItem[]> {
+  const reviews = await prisma.projectReview.findMany({
+    where: {
+      clientId,
+      projectId,
+      status: {
+        in: [
+          ProjectReviewStatus.IN_PROGRESS,
+          ProjectReviewStatus.IN_REVIEW,
+          ProjectReviewStatus.FINALIZED,
+        ],
+      },
+    },
+    orderBy: [
+      { reviewDate: 'desc' },
+      { finalizedAt: 'desc' },
+      { updatedAt: 'desc' },
+    ],
+    select: {
+      id: true,
+      title: true,
+      reviewDate: true,
+      reviewType: true,
+      status: true,
+      contentPayload: true,
+      snapshotPayload: true,
+    },
+  });
+
+  const items: ProjectCommitteeMoodHistoryItem[] = [];
+  for (const review of reviews) {
+    const mood = resolveCommitteeMoodFromReviewRecord(review);
+    if (!mood) continue;
+    items.push({
+      reviewId: review.id,
+      title: review.title?.trim() || null,
+      reviewDate: review.reviewDate?.toISOString() ?? null,
+      reviewType: review.reviewType,
+      status: review.status,
+      committeeMood: mood,
+    });
+  }
+  return items;
 }

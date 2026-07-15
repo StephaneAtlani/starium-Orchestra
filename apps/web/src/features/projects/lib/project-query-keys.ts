@@ -52,6 +52,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'tasks', clientId, projectId] as const,
   taskBuckets: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'task-buckets', clientId, projectId] as const,
+  governanceCircles: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'governance-circles', clientId, projectId] as const,
   taskLabels: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'task-labels', clientId, projectId] as const,
   risks: (clientId: string, projectId: string) =>
@@ -102,6 +104,8 @@ export const projectQueryKeys = {
   /** RFC-PROJ-013 */
   reviews: (clientId: string, projectId: string) =>
     ['project', projectId, 'reviews', clientId] as const,
+  committeeMoodHistory: (clientId: string, projectId: string) =>
+    [...projectQueryKeys.all, 'committee-mood-history', clientId, projectId] as const,
   review: (clientId: string, projectId: string, reviewId: string) =>
     ['project', projectId, 'review', reviewId, clientId] as const,
 

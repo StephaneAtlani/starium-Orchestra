@@ -146,7 +146,7 @@ export default function ProjectsPortfolioPage() {
                 <>
                   <Link
                     href={projectsCommitteeCodir()}
-                    aria-label="Présentation CODIR"
+                    aria-label="Présentation"
                     className={cn(
                       buttonVariants({ variant: 'outline', size: 'icon-sm' }),
                       'shrink-0 sm:hidden',
@@ -162,7 +162,7 @@ export default function ProjectsPortfolioPage() {
                     )}
                   >
                     <Presentation className="size-4" aria-hidden />
-                    Présentation CODIR
+                    Présentation
                   </Link>
                   <Link
                     href={projectsPortfolioGantt()}

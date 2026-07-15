@@ -35,6 +35,7 @@ import { ProjectTeamService } from './project-team.service';
 import { CreateProjectTeamRoleDto } from './dto/create-project-team-role.dto';
 import { UpdateProjectTeamRoleDto } from './dto/update-project-team-role.dto';
 import { AddProjectTeamMemberDto } from './dto/add-project-team-member.dto';
+import { UpdateProjectTeamMemberCirclesDto } from './dto/update-project-team-member-circles.dto';
 import { UpdateProjectTeamRaciDto } from './dto/update-project-team-raci.dto';
 import { CreateProjectRaciActionDto } from './dto/create-project-raci-action.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
@@ -304,6 +305,17 @@ export class ProjectsController {
     return this.projectTeamService.addMember(clientId!, projectId, dto);
   }
 
+  @Patch(':projectId/team/:memberId/circles')
+  @RequirePermissions('projects.update')
+  updateProjectTeamMemberCircles(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('memberId') memberId: string,
+    @Body() dto: UpdateProjectTeamMemberCirclesDto,
+  ) {
+    return this.projectTeamService.updateMemberCircles(clientId!, projectId, memberId, dto);
+  }
+
   @Delete(':projectId/team/:memberId')
   @RequirePermissions('projects.update')
   removeProjectTeamMember(
@@ -312,6 +324,15 @@ export class ProjectsController {
     @Param('memberId') memberId: string,
   ) {
     return this.projectTeamService.removeMember(clientId!, projectId, memberId);
+  }
+
+  @Get(':projectId/committee-mood/history')
+  @RequirePermissions('projects.read')
+  getCommitteeMoodHistory(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+  ) {
+    return this.projectsService.getCommitteeMoodHistory(clientId!, projectId);
   }
 
   @Get(':id/pilotage-snapshot')

@@ -295,6 +295,8 @@ model Client {
   projectBudgetLinks               ProjectBudgetLink[]
   projectTeamRoles                 ProjectTeamRole[]
   projectTeamMembers               ProjectTeamMember[]
+  projectGovernanceCircles         ProjectGovernanceCircle[]
+  projectTeamGovernanceMemberships ProjectTeamGovernanceMembership[]
   projectRaciActions               ProjectRaciAction[]
   projectRaciCells                 ProjectRaciCell[]
   projectSheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
@@ -1389,6 +1391,12 @@ enum ProjectTeamMemberAffiliation {
   EXTERNAL
 }
 
+/// Cercles système par défaut (Comité de pilotage / Comité de projet).
+enum ProjectGovernanceCircleSystemKind {
+  COPIL
+  COPROJ
+}
+
 /// Dimension RASCI (matrice acteur × action) — gouvernance fiche projet.
 enum ProjectRaciKind {
   RESPONSIBLE
@@ -1689,6 +1697,8 @@ model Project {
   scenarios                 ProjectScenario[]
   scenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
   teamMembers               ProjectTeamMember[]
+  governanceCircles         ProjectGovernanceCircle[]
+  teamGovernanceMemberships ProjectTeamGovernanceMembership[]
   raciActions               ProjectRaciAction[]
   raciCells                 ProjectRaciCell[]
   tagAssignments            ProjectTagAssignment[]
@@ -2643,6 +2653,50 @@ model ProjectTeamMember {
   @@index([clientId])
   @@index([clientId, projectId])
   @@index([roleId])
+}
+
+/// Cercle de gouvernance d’un projet (COPIL / COPROJ par défaut + cercles personnalisés).
+model ProjectGovernanceCircle {
+  id         String                            @id @default(cuid())
+  clientId   String
+  projectId  String
+  name       String                            @db.VarChar(200)
+  /// Renseigné pour les cercles système (non supprimables).
+  systemKind ProjectGovernanceCircleSystemKind?
+  sortOrder  Int                               @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project     Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  memberships ProjectTeamGovernanceMembership[]
+
+  @@unique([projectId, systemKind])
+  @@unique([projectId, name])
+  @@index([clientId])
+  @@index([clientId, projectId])
+}
+
+/// Appartenance d’une personne (identityKey) à un ou plusieurs cercles de gouvernance sur un projet.
+model ProjectTeamGovernanceMembership {
+  id          String @id @default(cuid())
+  clientId    String
+  projectId   String
+  /// `u:<userId>` ou `n:<nom normalisé>` — aligné sur ProjectTeamMember.identityKey.
+  identityKey String @db.VarChar(150)
+  circleId    String
+
+  createdAt DateTime @default(now())
+
+  client  Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  circle  ProjectGovernanceCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, identityKey, circleId])
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([circleId])
 }
 
 model ProjectBudgetLink {
