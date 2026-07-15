@@ -2,7 +2,8 @@
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { fetchPasswordLoginEligibilityApi } from '@/services/auth';
@@ -13,13 +14,13 @@ import type { MeClient } from '@/services/me';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { LoginBrandPanel } from '@/features/auth/components/login-brand-panel';
+import { MicrosoftIcon } from '@/features/auth/components/microsoft-icon';
 
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
+const REMEMBER_LOGIN_KEY = 'starium.rememberLogin';
+const REMEMBERED_LOGIN_EMAIL_KEY = 'starium.rememberedLoginEmail';
 
 /**
  * Mode verbeux des erreurs Microsoft (SSO + sync M365) côté UI.
@@ -160,6 +161,8 @@ function LoginPageContent() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   type SubmitAction = 'password' | 'microsoft' | 'mfa' | null;
   const [submitAction, setSubmitAction] = useState<SubmitAction>(null);
@@ -178,6 +181,16 @@ function LoginPageContent() {
   const [passwordLoginAllowed, setPasswordLoginAllowed] = useState<
     boolean | null
   >(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const shouldRemember = window.localStorage.getItem(REMEMBER_LOGIN_KEY) === 'true';
+    const savedEmail = window.localStorage.getItem(REMEMBERED_LOGIN_EMAIL_KEY)?.trim();
+    if (shouldRemember && savedEmail) {
+      setRememberMe(true);
+      setEmail(savedEmail);
+    }
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -303,6 +316,15 @@ function LoginPageContent() {
     }
     didLoginThisSession.current = true;
     try {
+      if (typeof window !== 'undefined') {
+        if (rememberMe) {
+          window.localStorage.setItem(REMEMBER_LOGIN_KEY, 'true');
+          window.localStorage.setItem(REMEMBERED_LOGIN_EMAIL_KEY, email.trim());
+        } else {
+          window.localStorage.removeItem(REMEMBER_LOGIN_KEY);
+          window.localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+        }
+      }
       const outcome = await login(email, password);
       if (outcome.status === 'mfa_required') {
         setMfaChallengeId(outcome.challengeId);
@@ -553,395 +575,432 @@ function LoginPageContent() {
     setError(null);
   }
 
+  const loginSubtitle =
+    mfaStep === 'none'
+      ? 'Accédez à votre espace Starium'
+      : mfaStep === 'totp'
+        ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
+        : mfaStep === 'email'
+          ? 'Saisissez le code à 6 chiffres reçu par email.'
+          : 'Saisissez un de vos codes de secours à usage unique.';
+
+  const loginTitle =
+    mfaStep === 'none' ? 'Connexion' : 'Vérification en deux étapes';
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-100 px-4 py-8">
-      <Card className="w-full max-w-4xl">
-        <div className="grid gap-0 md:grid-cols-2">
-          <div className="relative hidden flex-col items-center justify-center bg-muted/40 p-8 md:flex">
-            <Image
-              src="/login-hero.svg"
-              alt=""
-              fill
-              priority={false}
-              unoptimized
-              aria-hidden
-              className="pointer-events-none object-cover opacity-45"
-            />
-            <Image
-              src="/brand/logo-horizontal.png"
-              alt="Starium Orchestra"
-              width={320}
-              height={60}
-              priority
-              className="relative h-16 w-auto object-contain"
-            />
-            <div className="absolute inset-x-8 bottom-8 text-xs text-muted-foreground">
-              <p className="font-medium">
-                « Votre cockpit de gouvernance IT, finance et opérations. »
-              </p>
+    <main className="starium-login">
+      <div className="starium-login__grid">
+        <LoginBrandPanel />
+
+        <section
+          className="starium-login-form"
+          aria-labelledby="login-form-title"
+        >
+          <div className="starium-login-form__inner">
+            <div className="mb-8 flex justify-center md:hidden">
+              <Image
+                src="/brand/logo-horizontal.png"
+                alt="Starium"
+                width={200}
+                height={40}
+                priority
+                className="h-10 w-auto object-contain"
+              />
             </div>
-          </div>
-          <div className="flex items-center justify-center p-6 md:p-8">
-            <div className="w-full max-w-sm">
-              <div className="mb-6 flex justify-center md:hidden">
-                <Image
-                  src="/brand/logo-horizontal.png"
-                  alt="Starium Orchestra"
-                  width={240}
-                  height={45}
-                  priority
-                  className="h-11 w-auto object-contain"
-                />
-              </div>
-              <p className="mb-6 text-xs font-medium text-muted-foreground">
-                Connexion
+
+            <header className="mb-8 space-y-2">
+              <h1
+                id="login-form-title"
+                className="text-3xl font-bold tracking-tight text-foreground"
+              >
+                {loginTitle}
+              </h1>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {loginSubtitle}
               </p>
-              <CardTitle className="mb-1 text-2xl font-semibold tracking-tight">
-                Se connecter
-              </CardTitle>
-              <CardDescription className="mb-6">
-                {mfaStep === 'none'
-                  ? 'Entrez vos identifiants pour accéder à vos clients et à vos espaces.'
-                  : mfaStep === 'totp'
-                    ? 'Double authentification : saisissez le code à 6 chiffres de votre application.'
-                    : mfaStep === 'email'
-                      ? 'Saisissez le code à 6 chiffres reçu par email.'
-                      : 'Saisissez un de vos codes de secours à usage unique.'}
-              </CardDescription>
-              {mfaStep === 'none' && (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setPasswordLoginAllowed(null);
-                      }}
-                      onBlur={() => void refreshPasswordEligibility()}
-                      disabled={formBusy}
-                      required
-                    />
-                  </div>
-                  {passwordLoginAllowed === false && (
-                    <p className="text-sm text-muted-foreground">
-                      Ce compte utilise la connexion Microsoft : le mot de passe
-                      Starium n’est plus disponible pour cet email.
-                    </p>
-                  )}
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Mot de passe</Label>
+            </header>
+
+            {error ? (
+              <p
+                className="mb-4 text-sm text-destructive"
+                role="alert"
+                aria-live="polite"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            {mfaStep === 'none' && (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="starium-login-field-label">
+                    Adresse e-mail
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="prenom.nom@entreprise.com"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setPasswordLoginAllowed(null);
+                    }}
+                    onBlur={() => void refreshPasswordEligibility()}
+                    disabled={formBusy}
+                    required
+                    className="starium-login-input"
+                  />
+                </div>
+
+                {passwordLoginAllowed === false && (
+                  <p className="text-sm text-muted-foreground">
+                    Ce compte utilise la connexion Microsoft : le mot de passe
+                    Starium n’est plus disponible pour cet email.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="password"
+                    className="starium-login-field-label"
+                  >
+                    Mot de passe
+                  </Label>
+                  <div className="starium-login-password-wrap">
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       disabled={formBusy || passwordLoginAllowed === false}
                       required={passwordLoginAllowed !== false}
+                      className="starium-login-input pr-11"
                     />
+                    <button
+                      type="button"
+                      className="starium-login-password-toggle"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={
+                        showPassword
+                          ? 'Masquer le mot de passe'
+                          : 'Afficher le mot de passe'
+                      }
+                      disabled={formBusy || passwordLoginAllowed === false}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" aria-hidden />
+                      ) : (
+                        <Eye className="size-4" aria-hidden />
+                      )}
+                    </button>
                   </div>
-                  {error && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {error}
-                    </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="starium-login-remember-label">
+                    <Checkbox
+                      id="remember-me"
+                      checked={rememberMe}
+                      onCheckedChange={setRememberMe}
+                      disabled={formBusy}
+                      aria-label="Se souvenir de moi"
+                    />
+                    <span>Se souvenir de moi</span>
+                  </div>
+                  <Link href="/contact" className="starium-login-forgot">
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  className="starium-login-submit inline-flex items-center justify-center gap-2"
+                  disabled={formBusy}
+                  aria-busy={submitAction === 'password'}
+                >
+                  {submitAction === 'password' ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      Connexion…
+                    </>
+                  ) : (
+                    'Se connecter'
                   )}
-                  <Button
+                </button>
+
+                <div className="starium-login-divider" aria-hidden>
+                  ou
+                </div>
+
+                <button
+                  type="button"
+                  className="starium-login-sso inline-flex items-center justify-center gap-2.5"
+                  disabled={formBusy}
+                  aria-busy={submitAction === 'microsoft'}
+                  onClick={() => void handleMicrosoftSsoStart()}
+                >
+                  {submitAction === 'microsoft' ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      Redirection…
+                    </>
+                  ) : (
+                    <>
+                      <MicrosoftIcon className="size-5" />
+                      Se connecter avec Microsoft
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {mfaStep === 'totp' && (
+              <form onSubmit={handleMfaTotpSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="mfa-otp" className="starium-login-field-label">
+                    Code TOTP / secours
+                  </Label>
+                  <Input
+                    id="mfa-otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={mfaOtp}
+                    onChange={(e) => setMfaOtp(e.target.value)}
+                    placeholder="123456"
+                    required
+                    className="starium-login-input"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={trustThisDevice}
+                    onCheckedChange={setTrustThisDevice}
+                    className="mt-0.5"
+                    aria-label="Faire confiance à cet appareil"
+                  />
+                  <span>
+                    Faire confiance à cet appareil : ne plus demander la 2FA
+                    pendant 30 jours sur ce navigateur (mot de passe toujours
+                    requis).
+                  </span>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <button
                     type="submit"
-                    className="mt-2 w-full"
-                    disabled={formBusy}
-                    aria-busy={submitAction === 'password'}
+                    className="starium-login-submit inline-flex items-center justify-center gap-2"
+                    disabled={mfaBusy || emailSending}
+                    aria-busy={mfaBusy}
                   >
-                    {submitAction === 'password' ? (
+                    {mfaBusy ? (
                       <>
-                        <Loader2
-                          className="size-4 animate-spin"
-                          aria-hidden
-                        />
-                        Connexion…
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Vérification…
                       </>
                     ) : (
-                      'Se connecter'
+                      'Valider'
                     )}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={emailSending || mfaBusy}
+                    onClick={() => void handleSendEmailOtp()}
+                  >
+                    {emailSending
+                      ? 'Envoi…'
+                      : 'Recevoir un code par email à la place'}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full"
-                    disabled={formBusy}
-                    aria-busy={submitAction === 'microsoft'}
-                    onClick={() => void handleMicrosoftSsoStart()}
+                    onClick={() => {
+                      setMfaStep('recovery');
+                      setMfaRecoveryCode('');
+                      setError(null);
+                    }}
                   >
-                    {submitAction === 'microsoft' ? (
+                    Utiliser un code de secours
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={cancelMfa}
+                  >
+                    Retour
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {mfaStep === 'email' && (
+              <form onSubmit={handleMfaEmailSubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="mfa-email-code"
+                    className="starium-login-field-label"
+                  >
+                    Code email
+                  </Label>
+                  <Input
+                    id="mfa-email-code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={mfaEmailCode}
+                    onChange={(e) => setMfaEmailCode(e.target.value)}
+                    placeholder="000000"
+                    required
+                    className="starium-login-input"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={trustThisDevice}
+                    onCheckedChange={setTrustThisDevice}
+                    className="mt-0.5"
+                    aria-label="Faire confiance à cet appareil"
+                  />
+                  <span>
+                    Faire confiance à cet appareil : ne plus demander la 2FA
+                    pendant 30 jours sur ce navigateur (mot de passe toujours
+                    requis).
+                  </span>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="submit"
+                    className="starium-login-submit inline-flex items-center justify-center gap-2"
+                    disabled={mfaBusy || emailSending}
+                    aria-busy={mfaBusy}
+                  >
+                    {mfaBusy ? (
                       <>
-                        <Loader2
-                          className="size-4 animate-spin"
-                          aria-hidden
-                        />
-                        Redirection…
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Vérification…
                       </>
                     ) : (
-                      'Se connecter avec Microsoft'
+                      'Valider le code'
                     )}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={emailSending}
+                    onClick={() => void handleSendEmailOtp()}
+                  >
+                    {emailSending ? 'Envoi…' : 'Renvoyer le code'}
                   </Button>
-                </form>
-              )}
-              {mfaStep === 'totp' && (
-                <form onSubmit={handleMfaTotpSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mfa-otp">Code TOTP / secours</Label>
-                    <Input
-                      id="mfa-otp"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={mfaOtp}
-                      onChange={(e) => setMfaOtp(e.target.value)}
-                      placeholder="123456"
-                      required
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      className="mt-1 rounded border-input"
-                      checked={trustThisDevice}
-                      onChange={(e) => setTrustThisDevice(e.target.checked)}
-                    />
-                    <span>
-                      Faire confiance à cet appareil : ne plus demander la 2FA
-                      pendant 30 jours sur ce navigateur (mot de passe toujours
-                      requis).
-                    </span>
-                  </label>
-                  {error && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={mfaBusy || emailSending}
-                      aria-busy={mfaBusy}
-                    >
-                      {mfaBusy ? (
-                        <>
-                          <Loader2
-                            className="size-4 animate-spin"
-                            aria-hidden
-                          />
-                          Vérification…
-                        </>
-                      ) : (
-                        'Valider'
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={emailSending || mfaBusy}
-                      onClick={() => void handleSendEmailOtp()}
-                    >
-                      {emailSending
-                        ? 'Envoi…'
-                        : 'Recevoir un code par email à la place'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setMfaStep('recovery');
-                        setMfaRecoveryCode('');
-                        setError(null);
-                      }}
-                    >
-                      Utiliser un code de secours
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full"
-                      onClick={cancelMfa}
-                    >
-                      Retour
-                    </Button>
-                  </div>
-                </form>
-              )}
-              {mfaStep === 'email' && (
-                <form onSubmit={handleMfaEmailSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mfa-email-code">Code email</Label>
-                    <Input
-                      id="mfa-email-code"
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={mfaEmailCode}
-                      onChange={(e) => setMfaEmailCode(e.target.value)}
-                      placeholder="000000"
-                      required
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      className="mt-1 rounded border-input"
-                      checked={trustThisDevice}
-                      onChange={(e) => setTrustThisDevice(e.target.checked)}
-                    />
-                    <span>
-                      Faire confiance à cet appareil : ne plus demander la 2FA
-                      pendant 30 jours sur ce navigateur (mot de passe toujours
-                      requis).
-                    </span>
-                  </label>
-                  {error && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={mfaBusy || emailSending}
-                      aria-busy={mfaBusy}
-                    >
-                      {mfaBusy ? (
-                        <>
-                          <Loader2
-                            className="size-4 animate-spin"
-                            aria-hidden
-                          />
-                          Vérification…
-                        </>
-                      ) : (
-                        'Valider le code'
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={emailSending}
-                      onClick={() => void handleSendEmailOtp()}
-                    >
-                      {emailSending ? 'Envoi…' : 'Renvoyer le code'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setMfaStep('recovery');
-                        setMfaRecoveryCode('');
-                        setError(null);
-                      }}
-                    >
-                      Utiliser un code de secours
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full"
-                      onClick={() => {
-                        setMfaStep('totp');
-                        setMfaEmailCode('');
-                        setError(null);
-                      }}
-                    >
-                      Retour au code application
-                    </Button>
-                  </div>
-                </form>
-              )}
-              {mfaStep === 'recovery' && (
-                <form onSubmit={handleMfaRecoverySubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mfa-recovery">Code de secours</Label>
-                    <Input
-                      id="mfa-recovery"
-                      type="text"
-                      autoComplete="off"
-                      value={mfaRecoveryCode}
-                      onChange={(e) => setMfaRecoveryCode(e.target.value)}
-                      placeholder="3F0ADD751C"
-                      required
-                    />
-                  </div>
-                  <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      className="mt-1 rounded border-input"
-                      checked={trustThisDevice}
-                      onChange={(e) => setTrustThisDevice(e.target.checked)}
-                    />
-                    <span>
-                      Faire confiance à cet appareil : ne plus demander la 2FA
-                      pendant 30 jours sur ce navigateur (mot de passe toujours
-                      requis).
-                    </span>
-                  </label>
-                  {error && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {error}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={mfaBusy || emailSending}
-                      aria-busy={mfaBusy}
-                    >
-                      {mfaBusy ? (
-                        <>
-                          <Loader2
-                            className="size-4 animate-spin"
-                            aria-hidden
-                          />
-                          Vérification…
-                        </>
-                      ) : (
-                        'Valider le code de secours'
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setMfaStep('totp');
-                        setMfaRecoveryCode('');
-                        setError(null);
-                      }}
-                    >
-                      Retour au code application
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={emailSending}
-                      onClick={() => void handleSendEmailOtp()}
-                    >
-                      {emailSending ? 'Envoi…' : 'Recevoir un code par email'}
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setMfaStep('recovery');
+                      setMfaRecoveryCode('');
+                      setError(null);
+                    }}
+                  >
+                    Utiliser un code de secours
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => {
+                      setMfaStep('totp');
+                      setMfaEmailCode('');
+                      setError(null);
+                    }}
+                  >
+                    Retour au code application
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {mfaStep === 'recovery' && (
+              <form onSubmit={handleMfaRecoverySubmit} className="space-y-5">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="mfa-recovery"
+                    className="starium-login-field-label"
+                  >
+                    Code de secours
+                  </Label>
+                  <Input
+                    id="mfa-recovery"
+                    type="text"
+                    autoComplete="off"
+                    value={mfaRecoveryCode}
+                    onChange={(e) => setMfaRecoveryCode(e.target.value)}
+                    placeholder="3F0ADD751C"
+                    required
+                    className="starium-login-input"
+                  />
+                </div>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={trustThisDevice}
+                    onCheckedChange={setTrustThisDevice}
+                    className="mt-0.5"
+                    aria-label="Faire confiance à cet appareil"
+                  />
+                  <span>
+                    Faire confiance à cet appareil : ne plus demander la 2FA
+                    pendant 30 jours sur ce navigateur (mot de passe toujours
+                    requis).
+                  </span>
+                </label>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="submit"
+                    className="starium-login-submit inline-flex items-center justify-center gap-2"
+                    disabled={mfaBusy || emailSending}
+                    aria-busy={mfaBusy}
+                  >
+                    {mfaBusy ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Vérification…
+                      </>
+                    ) : (
+                      'Valider le code de secours'
+                    )}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setMfaStep('totp');
+                      setMfaRecoveryCode('');
+                      setError(null);
+                    }}
+                  >
+                    Retour au code application
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={emailSending}
+                    onClick={() => void handleSendEmailOtp()}
+                  >
+                    {emailSending ? 'Envoi…' : 'Recevoir un code par email'}
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
-        </div>
-      </Card>
+        </section>
+      </div>
     </main>
   );
 }
@@ -950,8 +1009,10 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-stone-100 p-6">
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+        <main className="starium-login flex min-h-screen items-center justify-center">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Chargement…
+          </p>
         </main>
       }
     >

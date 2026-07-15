@@ -25,7 +25,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 pt-4 group-data-[size=sm]/card:px-3 group-data-[size=sm]/card:pt-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
+        "group/card-header @container/card-header grid auto-rows-min items-start gap-1.5 rounded-t-xl px-4 pt-4 group-data-[size=sm]/card:px-3 group-data-[size=sm]/card:pt-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3",
         className
       )}
       {...props}
@@ -34,12 +34,18 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+  const classNameText = typeof className === "string" ? className : ""
+  const hasNonBaseTextSize = /\btext-(xs|sm|lg|xl|2xl|3xl|\[)/.test(classNameText)
+  const shouldApplyTokenSize = !hasNonBaseTextSize
+
   return (
     <div
       data-slot="card-title"
       className={cn(
         "starium-section-title group-data-[size=sm]/card:text-sm",
-        className
+        className,
+        shouldApplyTokenSize &&
+          "![font-size:var(--ds-section-title-size)] group-data-[size=sm]/card:![font-size:var(--ds-section-title-size-sm)]",
       )}
       {...props}
     />
@@ -50,7 +56,10 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn(
+        "starium-section-subtitle group-data-[size=sm]/card:![font-size:var(--ds-section-subtitle-size-sm)]",
+        className,
+      )}
       {...props}
     />
   )

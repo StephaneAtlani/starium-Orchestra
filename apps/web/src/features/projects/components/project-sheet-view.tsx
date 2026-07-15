@@ -17,6 +17,7 @@ import {
   Info,
   LayoutDashboard,
   Layers3,
+  Lock,
   MessagesSquare,
   Pencil,
   Percent,
@@ -31,7 +32,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,6 +84,7 @@ import {
 } from '../constants/project-enum-labels';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { isProjectScenarioEditingAllowed } from '../lib/project-scenario-editing-allowed';
+import { isProjectSheetEditingLocked } from '../lib/project-sheet-editing-locked';
 import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
@@ -428,17 +430,23 @@ function formatMilestoneDate(iso: string): string {
 }
 
 const textareaClass = cn(
-  'min-h-[72px] w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm',
+  'min-h-[72px] w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs',
   'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
   'disabled:cursor-not-allowed disabled:opacity-50',
 );
 
+/** Grille de champs fiche projet (espacement entre blocs label + contrôle). */
+const projectSheetFieldGridClass = 'grid gap-5 text-xs sm:grid-cols-2';
+
 /** Scope fiche projet : filets gris (tokens) plutôt que bordures trop contrastées. Carte navigation (onglets) exclue : même trait que la synthèse. */
 const projectSheetChromeClass = cn(
+  'starium-stack',
   '[&_[data-slot=card]:not([data-workspace-tabs])]:border-border/65',
-  '[&_[data-slot=input]]:border-border/70',
-  '[&_[data-slot=select-trigger]]:border-border/70',
-  '[&_textarea]:border-border/70',
+  '[&_[data-slot=input]]:h-8 [&_[data-slot=input]]:border-border/70 [&_[data-slot=input]]:text-xs md:[&_[data-slot=input]]:text-xs',
+  '[&_[data-slot=select-trigger]]:h-8 [&_[data-slot=select-trigger]]:border-border/70 [&_[data-slot=select-trigger]]:text-xs',
+  '[&_[data-slot=label]]:text-xs',
+  '[&_textarea]:border-border/70 [&_textarea]:text-xs',
+  '[&_[data-slot=card-content]]:flex [&_[data-slot=card-content]]:flex-col [&_[data-slot=card-content]]:gap-[var(--ds-stack-gap)]',
 );
 
 /** Délai après la dernière frappe avant envoi API (sauvegarde automatique fiche projet). */
@@ -487,7 +495,7 @@ export function ProjectSheetView({
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
   const { has, isModuleVisible } = usePermissions();
-  const canEdit = has('projects.update') && !sheetReadOnlyOverride;
+  const canEditPermission = has('projects.update') && !sheetReadOnlyOverride;
   const governanceCyclesEnabled = isModuleVisible('governance_cycles');
 
   const { data: querySheet, isLoading, error } = useProjectSheetQuery(projectId, {
@@ -558,6 +566,12 @@ export function ProjectSheetView({
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
   /** Modale pleine fiche (lecture seule) pour un snapshot sélectionné dans l’historique. */
   const [snapshotSheetViewerOpen, setSnapshotSheetViewerOpen] = useState(false);
+
+  const projectStatusEffective = projectDetailQuery.data?.status ?? projectStatus ?? sheet?.status;
+  const sheetLocked =
+    !sheetReadOnlyOverride && isProjectSheetEditingLocked(projectStatusEffective);
+  const canEditStatus = canEditPermission;
+  const canEdit = canEditPermission && !sheetLocked;
 
   const pendingArbValidationRef = useRef(pendingArbValidation);
   pendingArbValidationRef.current = pendingArbValidation;
@@ -1131,16 +1145,29 @@ export function ProjectSheetView({
           : null;
 
   const sheetBody = (
-    <div className={cn('space-y-6', projectSheetChromeClass)}>
-      {embedMode === 'page' ? <ProjectTeamMatrix projectId={projectId} /> : null}
+    <div className={projectSheetChromeClass}>
+      {sheetLocked ? (
+        <Alert className="border-border/70 bg-card shadow-sm">
+          <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <AlertTitle className="text-xs font-semibold">Fiche verrouillée</AlertTitle>
+          <AlertDescription className="text-xs leading-relaxed">
+            Ce projet est au statut{' '}
+            <span className="font-medium text-foreground">
+              {PROJECT_STATUS_LABEL[projectStatusEffective] ?? projectStatusEffective}
+            </span>
+            . La fiche est en lecture seule. Modifiez le statut du projet pour rouvrir la saisie.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {embedMode === 'page' ? <ProjectTeamMatrix projectId={projectId} readOnly={!canEdit} /> : null}
 
       {/* A — Équipes impliquées */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">A. Équipes impliquées</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <CardTitle>A. Équipes impliquées</CardTitle>
+          <CardDescription>
             Directions, services ou équipes concernés par le projet (hors rôles nominatifs ci-dessus).
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Input
@@ -1159,14 +1186,14 @@ export function ProjectSheetView({
       {/* B — Résumé + synthèse décisionnelle + arbitrage CODIR */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">B. Résumé projet & synthèse décisionnelle</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <CardTitle>B. Résumé projet & synthèse décisionnelle</CardTitle>
+          <CardDescription>
             Lecture cockpit — décision en 2 minutes
-          </p>
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
+        <CardContent>
+          <div className={projectSheetFieldGridClass}>
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="sheet-project-name">Nom du projet</Label>
               <Input
                 id="sheet-project-name"
@@ -1176,7 +1203,7 @@ export function ProjectSheetView({
                 placeholder="Nom du projet"
               />
             </div>
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label>Quand (début — fin cible)</Label>
               <div className="flex flex-wrap gap-2">
                 <Input
@@ -1248,7 +1275,7 @@ export function ProjectSheetView({
             ) : null}
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
               <span className="text-sm text-muted-foreground shrink-0">Statut :</span>
-              {canEdit ? (
+              {canEditStatus ? (
                 <Select
                   value={projectStatus}
                   onValueChange={(v) => {
@@ -1347,7 +1374,7 @@ export function ProjectSheetView({
                 sélection.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               <div
                 className={cn(
                   'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
@@ -1655,7 +1682,7 @@ export function ProjectSheetView({
                 l&apos;historique des décisions. Sauvegarde avec la fiche (automatique).
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-3">
               {ARBITRATION_LEVEL_STEPS.map((step, i) => {
                 const StepIcon = ARBITRATION_STEP_ICONS[i];
                 const unlocked =
@@ -1796,7 +1823,7 @@ export function ProjectSheetView({
       {/* C — Valeur métier */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             <LayoutDashboard className="size-4" />
             C. Valeur métier
           </CardTitle>
@@ -1919,7 +1946,7 @@ export function ProjectSheetView({
       {/* D — Financier */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">D. Arbitrage financier</CardTitle>
+          <CardTitle>D. Arbitrage financier</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1974,7 +2001,7 @@ export function ProjectSheetView({
       {/* E — Risque */}
       <Card size="sm" id="risques-projet" className="scroll-mt-20">
         <CardHeader>
-          <CardTitle className="text-base">E. Risque, priorité et risques projet</CardTitle>
+          <CardTitle>E. Risque, priorité et risques projet</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Synthèse CODIR */}
@@ -2077,9 +2104,9 @@ export function ProjectSheetView({
       {/* F — SWOT (matrice classique 2×2) */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">F. Analyse stratégique (SWOT)</CardTitle>
+          <CardTitle>F. Analyse stratégique (SWOT)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           <div className="border-t border-border/70 pt-8">
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -2093,12 +2120,12 @@ export function ProjectSheetView({
               </p>
             </div>
 
-            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-5">
               <span className="rounded-md bg-muted/50 py-1.5">Favorable</span>
               <span className="rounded-md bg-muted/50 py-1.5">Défavorable</span>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={projectSheetFieldGridClass}>
               <div
                 className={cn(
                   'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
@@ -2218,9 +2245,9 @@ export function ProjectSheetView({
       {/* G — TOWS (matrice S×O / S×T / W×O / W×T) */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">G. Décisions recommandées (TOWS)</CardTitle>
+          <CardTitle>G. Décisions recommandées (TOWS)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent>
           <div className="border-t border-border/70 pt-8">
             <div className="mb-5 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -2235,12 +2262,12 @@ export function ProjectSheetView({
               </p>
             </div>
 
-            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-3">
+            <div className="mb-3 hidden text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-2 sm:gap-5">
               <span className="rounded-md bg-muted/50 py-1.5">Opportunités (O)</span>
               <span className="rounded-md bg-muted/50 py-1.5">Menaces (T)</span>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={projectSheetFieldGridClass}>
               <div
                 className={cn(
                   'relative overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
@@ -2365,11 +2392,11 @@ export function ProjectSheetView({
       {/* H — Rétroplanning macro (jalons) */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-base">H. Rétroplanning macro</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <CardTitle>H. Rétroplanning macro</CardTitle>
+          <CardDescription>
             Jalons du projet (chronologie) — générables par rétroplan à partir d&apos;une date de fin et
             d&apos;écarts en jours.
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {milestonesQuery.isLoading ? (
@@ -2445,14 +2472,14 @@ export function ProjectSheetView({
       {/* I — Scénarios (variantes / baseline) */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2">
             <Split className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             I. Scénarios
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <CardDescription>
             Variantes de plan possibles et baseline — arbitrage budgétaire et capacité ; accès détaillé depuis
             la liste ou le cockpit.
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {scenariosQuery.isLoading ? (
@@ -2804,7 +2831,7 @@ export function ProjectSheetView({
         </>
       ) : null}
 
-      {embedMode === 'page' ? <ProjectRaciMatrix projectId={projectId} /> : null}
+      {embedMode === 'page' ? <ProjectRaciMatrix projectId={projectId} readOnly={!canEdit} /> : null}
 
       {canEdit && (
         <div className="flex flex-col items-end gap-0.5 text-right">

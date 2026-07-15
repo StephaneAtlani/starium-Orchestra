@@ -9,6 +9,7 @@ import {
   Prisma,
   ProjectGovernanceCircleSystemKind,
   ProjectRaciKind,
+  ProjectStatus,
   ProjectTeamMemberAffiliation,
   ProjectTeamRoleSystemKind,
 } from '@prisma/client';
@@ -21,6 +22,7 @@ import {
   assertGovernanceCircleIdsBelongToProject,
   ensureDefaultGovernanceCirclesForProject,
 } from './lib/project-governance-circles.db';
+import { assertProjectSheetEditable } from './lib/project-sheet-editing-locked';
 
 export type ProjectTeamMemberGovernanceCircleRef = {
   id: string;
@@ -460,11 +462,12 @@ export class ProjectTeamService {
   private async getProjectOrThrow(
     clientId: string,
     projectId: string,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; status: ProjectStatus }> {
     const p = await this.prisma.project.findFirst({
       where: { id: projectId, clientId },
     });
     if (!p) throw new NotFoundException('Project not found');
+    assertProjectSheetEditable(p);
     return p;
   }
 

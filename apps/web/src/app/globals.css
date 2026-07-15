@@ -2042,7 +2042,7 @@ table.starium-dt {
 .starium-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--ds-form-stack-gap);
 }
 .starium-form-section {
   padding: 14px 15px;
@@ -2075,7 +2075,7 @@ table.starium-dt {
 }
 .starium-form-grid {
   display: grid;
-  gap: 12px;
+  gap: var(--ds-form-grid-gap);
 }
 .starium-form-grid--2 {
   grid-template-columns: 1fr;
@@ -2099,7 +2099,7 @@ table.starium-dt {
 .starium-form-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--ds-form-field-gap);
   min-width: 0;
 }
 .starium-form-label {
@@ -4465,12 +4465,26 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     box-shadow: var(--ds-card-shadow-hover), 0 0 0 2px var(--ring);
   }
 
+  /* Empilement de blocs (pages, sections de carte) */
+  .starium-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-stack-gap);
+  }
+
   /* Titre de section / de carte */
   .starium-section-title {
     font-size: var(--ds-section-title-size);
-    line-height: 1.375;
+    line-height: 1.35;
     font-weight: var(--ds-section-title-weight);
     color: var(--foreground);
+    letter-spacing: -0.01em;
+  }
+
+  .starium-section-subtitle {
+    font-size: var(--ds-section-subtitle-size);
+    line-height: 1.45;
+    color: var(--muted-foreground);
   }
 
   /* Typo KPI */
@@ -7112,4 +7126,189 @@ body {
     min-width: 10rem !important;
     max-width: 10rem !important;
   }
+}
+
+/* ---------- Page de connexion (split-screen) ---------- */
+.starium-login {
+  min-height: 100dvh;
+  background: var(--neutral-0);
+}
+
+.starium-login__grid {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .starium-login__grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+}
+
+.starium-login-brand {
+  min-height: 100dvh;
+}
+
+.starium-login-form {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .starium-login-form {
+    padding: 3rem 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .starium-login-form {
+    padding: 3rem 4rem;
+  }
+}
+
+.starium-login-form__inner {
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+}
+
+.starium-login-overline {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.starium-login-field-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.starium-login-input {
+  min-height: 2.75rem;
+  border-radius: var(--radius-md, 10px);
+  font-size: 0.9375rem;
+}
+
+.starium-login-password-wrap {
+  position: relative;
+}
+
+.starium-login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.625rem;
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  -webkit-transform: translateY(-50%);
+  transform: translateY(-50%);
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-text-muted);
+  transition: color 150ms ease;
+}
+
+.starium-login-password-toggle:hover {
+  color: var(--color-text);
+}
+
+.starium-login-password-toggle:focus-visible {
+  outline: 2px solid var(--brand-gold-100);
+  outline-offset: 2px;
+}
+
+.starium-login-submit {
+  min-height: 2.75rem;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-primary);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--primary-foreground);
+  transition: background 150ms ease;
+}
+
+.starium-login-submit:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.starium-login-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.starium-login-sso {
+  min-height: 2.75rem;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.starium-login-sso:hover:not(:disabled) {
+  background: var(--neutral-50);
+  border-color: var(--neutral-300);
+}
+
+.starium-login-sso:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.starium-login-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.starium-login-divider::before,
+.starium-login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.starium-login-forgot {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.starium-login-forgot:hover {
+  color: var(--color-primary-hover);
+}
+
+.starium-login-forgot:focus-visible {
+  outline: 2px solid var(--brand-gold-100);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs, 4px);
+}
+
+.starium-login-remember-label {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
 }

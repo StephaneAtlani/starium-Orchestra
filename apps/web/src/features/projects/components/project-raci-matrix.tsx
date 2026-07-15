@@ -122,13 +122,19 @@ type PendingAccountable = {
   timerId: ReturnType<typeof setTimeout>;
 };
 
-export function ProjectRaciMatrix({ projectId }: { projectId: string }) {
+export function ProjectRaciMatrix({
+  projectId,
+  readOnly = false,
+}: {
+  projectId: string;
+  readOnly?: boolean;
+}) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
   const { has } = usePermissions();
-  const canEdit = has('projects.update');
+  const canEdit = has('projects.update') && !readOnly;
 
   const raciQuery = useProjectTeamRaciQuery(projectId);
   const matrix = useMemo(

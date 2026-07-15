@@ -119,8 +119,17 @@
   --ds-table-cell-py: 10px;
   --ds-table-cell-px: 14px;
 
-  --ds-section-title-size: 1rem;
+  --ds-section-title-size: 1.3125rem;
+  --ds-section-title-size-sm: 1.1875rem;
   --ds-section-title-weight: 600;
+  --ds-section-subtitle-size: 0.875rem;
+  --ds-section-subtitle-size-sm: 0.8125rem;
+
+  /* Empilement vertical de blocs (pages, cartes, sections formulaire) */
+  --ds-stack-gap: 2rem;
+  --ds-form-stack-gap: 1.125rem;
+  --ds-form-grid-gap: 1.25rem;
+  --ds-form-field-gap: 0.5rem;
 
   --ds-kpi-pad: 1.25rem;
   --ds-kpi-icon-size: 38px;

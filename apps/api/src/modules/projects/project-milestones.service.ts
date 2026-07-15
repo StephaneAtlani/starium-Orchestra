@@ -21,6 +21,7 @@ import {
   subtractCalendarDaysFromUtcNoon,
 } from './lib/project-retroplan-macro.util';
 import { ProjectsService } from './projects.service';
+import { assertProjectSheetEditable } from './lib/project-sheet-editing-locked';
 
 @Injectable()
 export class ProjectMilestonesService {
@@ -29,6 +30,12 @@ export class ProjectMilestonesService {
     private readonly auditLogs: AuditLogsService,
     private readonly projects: ProjectsService,
   ) {}
+
+  private async assertProjectSheetEditable(clientId: string, projectId: string) {
+    const project = await this.projects.getProjectForScope(clientId, projectId);
+    assertProjectSheetEditable(project);
+    return project;
+  }
 
   async list(
     clientId: string,
@@ -94,7 +101,7 @@ export class ProjectMilestonesService {
     context?: AuditContext,
     actorUserId?: string,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    await this.assertProjectSheetEditable(clientId, projectId);
     await this.projects.assertClientUser(clientId, dto.ownerUserId);
     await this.validateLinkedTask(clientId, projectId, dto.linkedTaskId ?? null);
     await this.validatePhase(clientId, projectId, dto.phaseId ?? null);
@@ -170,7 +177,7 @@ export class ProjectMilestonesService {
     context?: AuditContext,
     actorUserId?: string,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    await this.assertProjectSheetEditable(clientId, projectId);
 
     let anchor: Date;
     try {
@@ -227,7 +234,7 @@ export class ProjectMilestonesService {
     context?: AuditContext,
     actorUserId?: string,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    await this.assertProjectSheetEditable(clientId, projectId);
     const existing = await this.prisma.projectMilestone.findFirst({
       where: { id: milestoneId, clientId, projectId },
     });
@@ -311,7 +318,7 @@ export class ProjectMilestonesService {
     milestoneId: string,
     context?: AuditContext,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    await this.assertProjectSheetEditable(clientId, projectId);
     const existing = await this.prisma.projectMilestone.findFirst({
       where: { id: milestoneId, clientId, projectId },
     });

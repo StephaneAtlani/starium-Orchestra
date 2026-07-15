@@ -1,0 +1,17 @@
+<svg width="720" height="900" viewBox="0 0 720 900" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="loginPetal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF" stop-opacity="0.07" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.02" />
+    </linearGradient>
+  </defs>
+  <g opacity="0.9">
+    <path d="M120 120c80-40 160-20 200 40s20 160-40 200-160 20-200-40 20-160 40-200z" fill="url(#loginPetal)" />
+    <path d="M360 40c100-30 200 10 230 110s-10 200-110 230-200-10-230-110 10-200 110-230z" fill="url(#loginPetal)" />
+    <path d="M520 260c90-50 180-10 210 80s-10 180-80 210-180 10-210-80 10-180 80-210z" fill="url(#loginPetal)" />
+    <path d="M40 420c70-60 170-40 220 30s40 170-30 220-170 40-220-30-40-170 30-220z" fill="url(#loginPetal)" />
+    <path d="M280 520c110-20 210 40 230 150s-40 210-150 230-210-40-230-150 40-210 150-230z" fill="url(#loginPetal)" />
+    <path d="M480 560c80-70 190-50 240 30s50 190-30 240-190 50-240-30-50-190 30-240z" fill="url(#loginPetal)" />
+    <path d="M160 680c60-80 170-90 230-20s90 170 20 230-170 90-230 20-90-170-20-230z" fill="url(#loginPetal)" />
+  </g>
+</svg>

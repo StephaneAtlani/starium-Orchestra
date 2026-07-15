@@ -11,7 +11,7 @@ interface PageContainerProps {
  */
 export function PageContainer({ children, className }: PageContainerProps) {
   return (
-    <div className={className ?? 'space-y-6'}>
+    <div className={className ?? 'starium-stack'}>
       {children}
     </div>
   );

@@ -190,6 +190,43 @@ describe('ProjectSheetService — RFC-PROJ-012', () => {
 
       expect(res.swotStrengths).toEqual(['A', 'B']);
     });
+
+    it('refuse la mise à jour quand le projet est terminé', async () => {
+      prisma.project.findFirst.mockResolvedValue(
+        baseProject({ status: 'COMPLETED' }),
+      );
+
+      await expect(
+        service.updateSheet(
+          clientId,
+          projectId,
+          { description: 'Tentative' },
+          { actorUserId: 'u1', meta: {} },
+        ),
+      ).rejects.toThrow('verrouillée');
+    });
+
+    it('autorise la réouverture via changement de statut', async () => {
+      prisma.project.findFirst.mockResolvedValue(
+        baseProject({ status: 'COMPLETED' }),
+      );
+      prisma.project.update.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({
+          ...baseProject({ status: 'IN_PROGRESS' }),
+          ...data,
+        }),
+      );
+
+      const res = await service.updateSheet(
+        clientId,
+        projectId,
+        { status: 'IN_PROGRESS' },
+        { actorUserId: 'u1', meta: {} },
+      );
+
+      expect(res.status).toBe('IN_PROGRESS');
+      expect(prisma.project.update).toHaveBeenCalled();
+    });
   });
 
   describe('setArbitrationStatus — journalisation par statut', () => {

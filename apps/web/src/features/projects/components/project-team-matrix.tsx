@@ -1,18 +1,16 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
-import { AlertCircle, ChevronDown, Plus, Trash2, Users } from 'lucide-react';
+import { AlertCircle, MoreHorizontal, Plus, Trash2, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -57,6 +55,7 @@ import type {
   ProjectTeamRoleApi,
 } from '../types/project.types';
 import {
+  circleShortLabel,
   governanceCircleDisplayLabel,
   ProjectTeamGovernanceCirclesField,
 } from './project-team-governance-circles-field';
@@ -79,248 +78,317 @@ function GovernanceCircleBadges({
   circles: ProjectTeamMemberGovernanceCircleRefApi[];
 }) {
   if (circles.length === 0) {
-    return (
-      <span className="text-xs italic text-muted-foreground">Non renseignée</span>
-    );
+    return <span className="text-[10px] text-muted-foreground">—</span>;
   }
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap justify-end gap-0.5">
       {circles.map((circle) => (
         <RegistryBadge
           key={circle.id}
-          className="border border-violet-500/30 bg-violet-500/10 px-2 py-0 text-[11px] text-foreground dark:border-violet-400/35 dark:bg-violet-500/15"
+          title={governanceCircleDisplayLabel(circle)}
+          className="h-4 border border-violet-500/25 bg-violet-500/10 px-1 text-[9px] font-normal text-foreground dark:border-violet-400/30 dark:bg-violet-500/15"
         >
-          {governanceCircleDisplayLabel(circle)}
+          {circleShortLabel(circle)}
         </RegistryBadge>
       ))}
     </div>
   );
 }
 
-type TeamMemberRowProps = {
-  member: ProjectTeamMemberApi;
-  governanceCircleOptions: ProjectGovernanceCircleApi[];
-  canEdit: boolean;
+type TeamRoleActionsMenuProps = {
+  roleName: string;
+  canDeleteRole: boolean;
   busy: boolean;
-  isEditing: boolean;
-  onToggleEdit: () => void;
-  onRemove: () => void;
-  onCirclesChange: (circleIds: string[]) => void;
-  circlesPending: boolean;
+  deleteRolePending: boolean;
+  deleteRoleConfirmMessage: string;
+  onAddMember: () => void;
+  onDeleteRole: () => void;
 };
 
-function TeamMemberRow({
-  member,
-  governanceCircleOptions,
-  canEdit,
+function TeamRoleActionsMenu({
+  roleName,
+  canDeleteRole,
   busy,
-  isEditing,
-  onToggleEdit,
-  onRemove,
-  onCirclesChange,
-  circlesPending,
-}: TeamMemberRowProps) {
-  const circles = member.governanceCircles ?? [];
+  deleteRolePending,
+  deleteRoleConfirmMessage,
+  onAddMember,
+  onDeleteRole,
+}: TeamRoleActionsMenuProps) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!el.open) return;
+      const target = event.target as Node | null;
+      if (target && el.contains(target)) return;
+      el.open = false;
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !el.open) return;
+      el.open = false;
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
 
   return (
-    <article className="rounded-lg border border-border/70 bg-muted/20 p-3 shadow-sm">
-      <div className="flex items-start gap-3">
-        <UserInitialsAvatar
-          displayName={member.displayName}
-          seed={member.email || member.id}
-          size="sm"
-          className="mt-0.5"
-        />
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span
-              className="text-sm font-medium leading-snug text-foreground"
-              title={member.displayName}
-            >
-              {member.displayName}
-            </span>
-            {member.memberKind === 'NAMED' && member.affiliation ? (
-              <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                {member.affiliation === 'INTERNAL' ? 'Interne' : 'Externe'}
-              </Badge>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <p className="starium-overline">Appartenance</p>
-            <GovernanceCircleBadges circles={circles} />
-          </div>
-          {canEdit && isEditing ? (
-            <div className="rounded-md border border-border/60 bg-card p-3">
-              <ProjectTeamGovernanceCirclesField
-                idPrefix={`team-member-${member.id}`}
-                options={governanceCircleOptions}
-                value={circles.map((c) => c.id)}
-                compact
-                disabled={circlesPending || busy}
-                onChange={onCirclesChange}
-              />
-              <div className="mt-2 flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9"
-                  onClick={onToggleEdit}
-                >
-                  Terminé
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-        {canEdit ? (
-          <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
-            <Button
+    <details
+      ref={menuRef}
+      className="group/details relative inline-block group-open/details:z-[120]"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <summary
+        className="starium-dt-dots-btn size-8 [&::-webkit-details-marker]:hidden"
+        aria-label={`Actions pour le rôle ${roleName}`}
+      >
+        <MoreHorizontal className="size-4" aria-hidden />
+      </summary>
+      <div
+        className={cn(
+          'starium-dropdown-panel starium-dropdown-panel--floating starium-dropdown-panel--compact',
+          'absolute right-0 z-[120] mt-1 min-w-[10rem] shadow-lg',
+          'pointer-events-none translate-y-1 scale-[0.98] opacity-0 transition-all duration-150 ease-out',
+          'group-open/details:pointer-events-auto group-open/details:translate-y-0 group-open/details:scale-100 group-open/details:opacity-100',
+        )}
+        role="menu"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          className="starium-dropdown-item"
+          disabled={busy}
+          onClick={() => {
+            onAddMember();
+            if (menuRef.current) menuRef.current.open = false;
+          }}
+        >
+          <Plus className="shrink-0" strokeWidth={1.75} aria-hidden />
+          Affecter une ressource
+        </button>
+        {canDeleteRole ? (
+          <>
+            <div className="starium-dropdown-divider" role="separator" />
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 gap-1 px-2 text-xs text-muted-foreground"
-              disabled={busy || circlesPending}
-              aria-expanded={isEditing}
-              onClick={onToggleEdit}
+              role="menuitem"
+              className="starium-dropdown-item starium-dropdown-item--danger"
+              disabled={deleteRolePending}
+              onClick={() => {
+                if (!confirm(deleteRoleConfirmMessage)) return;
+                onDeleteRole();
+                if (menuRef.current) menuRef.current.open = false;
+              }}
             >
-              Appartenances
-              <ChevronDown
-                className={cn('size-3.5 transition-transform', isEditing && 'rotate-180')}
-                aria-hidden
-              />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-              disabled={busy}
-              aria-label={`Retirer ${member.displayName}`}
-              onClick={onRemove}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
+              <Trash2 className="shrink-0" strokeWidth={1.75} aria-hidden />
+              Supprimer le rôle
+            </button>
+          </>
         ) : null}
       </div>
-    </article>
+    </details>
   );
 }
 
-type TeamRoleBlockProps = {
+function removeMemberConfirmMessage(
+  member: ProjectTeamMemberApi,
+  role: ProjectTeamRoleApi,
+): string {
+  const base = `Retirer ${member.displayName} du rôle « ${role.name} » ?`;
+  if (role.systemKind != null) {
+    return `${base} Les champs sponsor / responsable projet (portefeuille) seront recalculés.`;
+  }
+  return base;
+}
+
+type TeamRoleRowProps = {
   role: ProjectTeamRoleApi;
   rowMembers: ProjectTeamMemberApi[];
   governanceCircleOptions: ProjectGovernanceCircleApi[];
   canEdit: boolean;
   busy: boolean;
   editingMemberId: string | null;
+  circlesPending: boolean;
+  deleteRolePending: boolean;
+  deleteRoleConfirmMessage: string;
   onSetEditingMemberId: (id: string | null) => void;
   onAddMember: () => void;
   onDeleteRole: () => void;
   onRemoveMember: (memberId: string) => void;
   onCirclesChange: (memberId: string, circleIds: string[]) => void;
-  circlesPending: boolean;
-  deleteRolePending: boolean;
-  deleteRoleConfirmMessage: string;
 };
 
-function TeamRoleBlock({
+function TeamRoleRow({
   role,
   rowMembers,
   governanceCircleOptions,
   canEdit,
   busy,
   editingMemberId,
+  circlesPending,
+  deleteRolePending,
+  deleteRoleConfirmMessage,
   onSetEditingMemberId,
   onAddMember,
   onDeleteRole,
   onRemoveMember,
   onCirclesChange,
-  circlesPending,
-  deleteRolePending,
-  deleteRoleConfirmMessage,
-}: TeamRoleBlockProps) {
+}: TeamRoleRowProps) {
+  const editingMember = rowMembers.find((member) => member.id === editingMemberId) ?? null;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-semibold leading-snug text-foreground">{role.name}</p>
-          {role.systemKind != null ? (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
-              Rôle système
-            </Badge>
-          ) : null}
-        </div>
-        {canEdit ? (
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-            disabled={deleteRolePending}
-            title="Supprimer ce rôle (aucun membre affecté)"
-            aria-label={`Supprimer le rôle ${role.name}`}
-            onClick={() => {
-              if (!confirm(deleteRoleConfirmMessage)) return;
-              onDeleteRole();
-            }}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        {rowMembers.length > 0 ? (
-          rowMembers.map((member) => (
-            <TeamMemberRow
-              key={member.id}
-              member={member}
-              governanceCircleOptions={governanceCircleOptions}
-              canEdit={canEdit}
-              busy={busy}
-              isEditing={editingMemberId === member.id}
-              circlesPending={circlesPending}
-              onToggleEdit={() =>
-                onSetEditingMemberId(editingMemberId === member.id ? null : member.id)
-              }
-              onRemove={() => onRemoveMember(member.id)}
-              onCirclesChange={(circleIds) => onCirclesChange(member.id, circleIds)}
-            />
-          ))
-        ) : (
-          <p className="rounded-lg border border-dashed border-border/80 bg-muted/15 px-3 py-4 text-center text-xs italic text-muted-foreground">
-            Aucun membre affecté à ce rôle
-          </p>
-        )}
-      </div>
-
-      {canEdit ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 w-full gap-2 sm:w-auto"
-          disabled={busy}
-          aria-label={`Affecter une ressource humaine au rôle ${role.name}`}
-          onClick={onAddMember}
+    <>
+      <TableRow className="align-middle hover:bg-muted/20">
+        <TableCell
+          scope="row"
+          className="w-[34%] max-w-[9rem] border-r border-border/50 py-1.5 align-middle whitespace-normal"
         >
-          <Plus className="size-4 shrink-0" aria-hidden />
-          Affecter une ressource
-        </Button>
+          <div className="flex min-w-0 items-center gap-1">
+            <span className="truncate text-xs font-medium text-foreground" title={role.name}>
+              {role.name}
+            </span>
+            {role.systemKind != null ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-violet-500/70"
+                title="Rôle système"
+                aria-label="Rôle système"
+              />
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell className="min-w-0 py-1.5 align-middle whitespace-normal">
+          {rowMembers.length === 0 ? (
+            <span className="text-[11px] italic text-muted-foreground">Vacant</span>
+          ) : (
+            <ul className="space-y-0.5">
+              {rowMembers.map((member) => {
+                const circles = member.governanceCircles ?? [];
+                return (
+                  <li
+                    key={member.id}
+                    className="flex min-w-0 items-center gap-1.5 rounded-sm py-0.5"
+                  >
+                    <UserInitialsAvatar
+                      displayName={member.displayName}
+                      seed={member.email || member.id}
+                      size="sm"
+                      className="size-6 shrink-0 text-[9px]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="truncate text-xs leading-tight text-foreground"
+                        title={member.displayName}
+                      >
+                        {member.displayName}
+                      </p>
+                      {member.memberKind === 'NAMED' && member.affiliation ? (
+                        <p className="text-[9px] leading-none text-muted-foreground">
+                          {member.affiliation === 'INTERNAL' ? 'Interne' : 'Externe'}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0">
+                      <GovernanceCircleBadges circles={circles} />
+                    </div>
+                    {canEdit ? (
+                      <div className="flex shrink-0 items-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                          disabled={busy || circlesPending}
+                          aria-expanded={editingMemberId === member.id}
+                          aria-label={`Appartenances de ${member.displayName}`}
+                          onClick={() =>
+                            onSetEditingMemberId(
+                              editingMemberId === member.id ? null : member.id,
+                            )
+                          }
+                        >
+                          <Users className="size-3" aria-hidden />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="size-7 text-muted-foreground hover:text-destructive"
+                          disabled={busy}
+                          aria-label={`Retirer ${member.displayName}`}
+                          onClick={() => {
+                            if (!confirm(removeMemberConfirmMessage(member, role))) return;
+                            onRemoveMember(member.id);
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TableCell>
+        <TableCell className="w-10 py-1.5 text-right align-middle">
+          {canEdit ? (
+            <TeamRoleActionsMenu
+              roleName={role.name}
+              canDeleteRole={rowMembers.length === 0}
+              busy={busy}
+              deleteRolePending={deleteRolePending}
+              deleteRoleConfirmMessage={deleteRoleConfirmMessage}
+              onAddMember={onAddMember}
+              onDeleteRole={onDeleteRole}
+            />
+          ) : (
+            <span className="sr-only">Lecture seule</span>
+          )}
+        </TableCell>
+      </TableRow>
+      {canEdit && editingMember ? (
+        <TableRow className="bg-muted/15 hover:bg-muted/15">
+          <TableCell colSpan={3} className="py-2 whitespace-normal">
+            <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+              Appartenances — {editingMember.displayName}
+            </p>
+            <ProjectTeamGovernanceCirclesField
+              idPrefix={`team-member-${editingMember.id}`}
+              options={governanceCircleOptions}
+              value={(editingMember.governanceCircles ?? []).map((circle) => circle.id)}
+              compact
+              disabled={circlesPending || busy}
+              onChange={(circleIds) => onCirclesChange(editingMember.id, circleIds)}
+            />
+          </TableCell>
+        </TableRow>
       ) : null}
-    </div>
+    </>
   );
 }
 
-export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
+export function ProjectTeamMatrix({
+  projectId,
+  readOnly = false,
+}: {
+  projectId: string;
+  readOnly?: boolean;
+}) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
   const { has } = usePermissions();
-  const canEdit = has('projects.update');
+  const canEdit = has('projects.update') && !readOnly;
 
   const rolesQuery = useProjectTeamRolesQuery();
   const teamQuery = useProjectTeamQuery(projectId);
@@ -503,228 +571,115 @@ export function ProjectTeamMatrix({ projectId }: { projectId: string }) {
     setAddMemberDialogRoleId(roleId);
   };
 
-  const renderRoleBlock = (role: ProjectTeamRoleApi) => {
-    const rowMembers = byRole.get(role.id) ?? [];
-    const busy = addMemberMutation.isPending || removeMemberMutation.isPending;
-    const deleteRoleConfirmMessage =
-      role.systemKind != null
-        ? 'Supprimer ce rôle système ? Aucun membre ne doit y être affecté. Les champs sponsor / responsable projet (portefeuille) seront recalculés.'
-        : 'Supprimer ce rôle ? (aucun membre ne doit y être affecté)';
+  const deleteRoleConfirmMessageFor = (role: ProjectTeamRoleApi) =>
+    role.systemKind != null
+      ? 'Supprimer ce rôle système ? Aucun membre ne doit y être affecté. Les champs sponsor / responsable projet (portefeuille) seront recalculés.'
+      : 'Supprimer ce rôle ? (aucun membre ne doit y être affecté)';
 
-    return (
-      <TeamRoleBlock
-        key={role.id}
-        role={role}
-        rowMembers={rowMembers}
-        governanceCircleOptions={governanceCircleOptions}
-        canEdit={canEdit}
-        busy={busy}
-        editingMemberId={editingMemberId}
-        deleteRoleConfirmMessage={deleteRoleConfirmMessage}
-        deleteRolePending={deleteRoleMutation.isPending}
-        circlesPending={updateCirclesMutation.isPending}
-        onSetEditingMemberId={setEditingMemberId}
-        onAddMember={() => openAddMemberDialog(role.id)}
-        onDeleteRole={() => deleteRoleMutation.mutate(role.id)}
-        onRemoveMember={(memberId) => removeMemberMutation.mutate(memberId)}
-        onCirclesChange={(memberId, circleIds) =>
-          updateCirclesMutation.mutate({ memberId, circleIds })
-        }
-      />
-    );
+  const renderTeamTableRows = () => {
+    const busy = addMemberMutation.isPending || removeMemberMutation.isPending;
+
+    return sortedRoles.map((role) => {
+      const rowMembers = byRole.get(role.id) ?? [];
+      const deleteRoleConfirmMessage = deleteRoleConfirmMessageFor(role);
+
+      return (
+        <TeamRoleRow
+          key={role.id}
+          role={role}
+          rowMembers={rowMembers}
+          governanceCircleOptions={governanceCircleOptions}
+          canEdit={canEdit}
+          busy={busy}
+          editingMemberId={editingMemberId}
+          circlesPending={updateCirclesMutation.isPending}
+          deleteRolePending={deleteRoleMutation.isPending}
+          deleteRoleConfirmMessage={deleteRoleConfirmMessage}
+          onSetEditingMemberId={setEditingMemberId}
+          onAddMember={() => openAddMemberDialog(role.id)}
+          onDeleteRole={() => deleteRoleMutation.mutate(role.id)}
+          onRemoveMember={(memberId) => removeMemberMutation.mutate(memberId)}
+          onCirclesChange={(memberId, circleIds) =>
+            updateCirclesMutation.mutate({ memberId, circleIds })
+          }
+        />
+      );
+    });
   };
 
   return (
     <>
       <Card
         size="sm"
-        className="overflow-hidden border border-border/80 border-l-[3px] border-l-violet-500/70 shadow-sm"
+        className="gap-0 overflow-hidden border border-border/80 border-l-[3px] border-l-violet-500/70 shadow-sm"
       >
-        <CardHeader className="border-b border-border/60 pb-4">
-          <CardTitle
-            id="project-team-matrix-title"
-            className="text-base font-semibold tracking-tight text-foreground"
-          >
-            Composition de l&apos;équipe
-          </CardTitle>
-          <CardDescription className="text-xs leading-relaxed text-muted-foreground">
-            Rôles du client, ressources affectées et appartenance aux cercles de gouvernance
-            (COPIL, COPROJ, cercles personnalisés). La matrice RASCI se trouve en bas de fiche.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="min-w-0 space-y-4 pt-4">
-          {rolesQuery.isLoading || teamQuery.isLoading ? (
-            <LoadingState rows={5} />
-          ) : rolesQuery.error || teamQuery.error ? (
-            <Alert variant="destructive" className="border-destructive/40">
-              <AlertCircle aria-hidden />
-              <AlertTitle>Équipe indisponible</AlertTitle>
-              <AlertDescription>
-                Impossible de charger les rôles ou les membres. Réessayez plus tard.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              <div className="starium-panel overflow-hidden rounded-[var(--ds-card-radius)] border border-border bg-card shadow-sm lg:hidden">
-                <ul
-                  className="divide-y divide-border/60"
-                  aria-labelledby="project-team-matrix-title"
-                >
-                  {sortedRoles.map((role) => (
-                    <li key={role.id} className="p-4">
-                      {renderRoleBlock(role)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="starium-panel hidden overflow-hidden rounded-[var(--ds-card-radius)] border border-border bg-card shadow-sm lg:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead
-                        scope="col"
-                        className="starium-overline w-[11rem] min-w-[11rem] border-r border-border/60 align-middle"
-                      >
-                        Rôle
-                      </TableHead>
-                      <TableHead
-                        scope="col"
-                        className="starium-overline min-w-0 align-middle"
-                      >
-                        Membres & appartenance
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody aria-labelledby="project-team-matrix-title">
-                    {sortedRoles.map((role, rowIdx) => {
-                      const rowMembers = byRole.get(role.id) ?? [];
-                      const busy =
-                        addMemberMutation.isPending || removeMemberMutation.isPending;
-                      const deleteRoleConfirmMessage =
-                        role.systemKind != null
-                          ? 'Supprimer ce rôle système ? Aucun membre ne doit y être affecté. Les champs sponsor / responsable projet (portefeuille) seront recalculés.'
-                          : 'Supprimer ce rôle ? (aucun membre ne doit y être affecté)';
-
-                      return (
-                        <TableRow
-                          key={role.id}
-                          className={cn(
-                            'align-top',
-                            rowIdx % 2 === 1 && 'bg-muted/15 hover:bg-muted/15',
-                          )}
-                        >
-                          <TableCell
-                            scope="row"
-                            className="border-r border-border/60 py-4 align-top"
-                          >
-                            <div className="space-y-1.5">
-                              <p className="text-sm font-semibold leading-snug text-foreground">
-                                {role.name}
-                              </p>
-                              {role.systemKind != null ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="h-5 px-1.5 text-[10px] font-normal"
-                                >
-                                  Rôle système
-                                </Badge>
-                              ) : null}
-                              {canEdit ? (
-                                <div className="flex flex-col gap-1.5 pt-1">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9 w-full justify-start gap-2"
-                                    disabled={busy}
-                                    aria-label={`Affecter une ressource humaine au rôle ${role.name}`}
-                                    onClick={() => openAddMemberDialog(role.id)}
-                                  >
-                                    <Plus className="size-4 shrink-0" aria-hidden />
-                                    Affecter
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-9 w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
-                                    disabled={deleteRoleMutation.isPending}
-                                    aria-label={`Supprimer le rôle ${role.name}`}
-                                    onClick={() => {
-                                      if (!confirm(deleteRoleConfirmMessage)) return;
-                                      deleteRoleMutation.mutate(role.id);
-                                    }}
-                                  >
-                                    <Trash2 className="size-4 shrink-0" aria-hidden />
-                                    Supprimer le rôle
-                                  </Button>
-                                </div>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-4 align-top">
-                            <div className="space-y-2">
-                              {rowMembers.length > 0 ? (
-                                rowMembers.map((member) => (
-                                  <TeamMemberRow
-                                    key={member.id}
-                                    member={member}
-                                    governanceCircleOptions={governanceCircleOptions}
-                                    canEdit={canEdit}
-                                    busy={busy}
-                                    isEditing={editingMemberId === member.id}
-                                    circlesPending={updateCirclesMutation.isPending}
-                                    onToggleEdit={() =>
-                                      setEditingMemberId(
-                                        editingMemberId === member.id ? null : member.id,
-                                      )
-                                    }
-                                    onRemove={() => removeMemberMutation.mutate(member.id)}
-                                    onCirclesChange={(circleIds) =>
-                                      updateCirclesMutation.mutate({
-                                        memberId: member.id,
-                                        circleIds,
-                                      })
-                                    }
-                                  />
-                                ))
-                              ) : (
-                                <p className="rounded-lg border border-dashed border-border/80 bg-muted/15 px-3 py-4 text-center text-xs italic text-muted-foreground">
-                                  Aucun membre affecté à ce rôle
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
-        </CardContent>
-
-        {canEdit ? (
-          <CardFooter className="border-t border-border/60 bg-muted/15 px-4 py-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 border-b border-border/60 px-3 py-2">
+          <div className="min-w-0">
+            <CardTitle
+              id="project-team-matrix-title"
+              className="text-sm font-semibold tracking-tight text-foreground"
+            >
+              Équipe projet
+            </CardTitle>
+            {!canEdit ? (
+              <CardDescription className="text-[10px] text-muted-foreground">
+                Lecture seule
+              </CardDescription>
+            ) : null}
+          </div>
+          {canEdit ? (
             <Button
               type="button"
-              variant="default"
+              variant="outline"
               size="sm"
-              className="h-9 gap-1.5 shadow-sm"
+              className="h-8 shrink-0 gap-1 px-2 text-xs"
               onClick={() => setRoleDialogOpen(true)}
             >
-              <Plus className="size-4" aria-hidden />
-              Ajouter un rôle
+              <Plus className="size-3.5" aria-hidden />
+              Rôle
             </Button>
-          </CardFooter>
-        ) : (
-          <CardFooter className="border-t border-border/60 bg-muted/15 px-4 py-3">
-            <p className="text-xs text-muted-foreground">Lecture seule — pas de modification.</p>
-          </CardFooter>
-        )}
+          ) : null}
+        </CardHeader>
+
+        <CardContent className="min-w-0 px-0 pt-0 pb-0">
+          {rolesQuery.isLoading || teamQuery.isLoading ? (
+            <div className="px-3 py-3">
+              <LoadingState rows={3} />
+            </div>
+          ) : rolesQuery.error || teamQuery.error ? (
+            <div className="px-3 py-3">
+              <Alert variant="destructive" className="border-destructive/40">
+                <AlertCircle aria-hidden />
+                <AlertTitle>Équipe indisponible</AlertTitle>
+                <AlertDescription>
+                  Impossible de charger les rôles ou les membres. Réessayez plus tard.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/25 hover:bg-muted/25">
+                  <TableHead
+                    scope="col"
+                    className="h-7 border-r border-border/50 py-1 text-[10px]"
+                  >
+                    Rôle
+                  </TableHead>
+                  <TableHead scope="col" className="h-7 py-1 text-[10px]">
+                    Ressource
+                  </TableHead>
+                  <TableHead scope="col" className="h-7 w-10 py-1 text-right text-[10px]">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody aria-labelledby="project-team-matrix-title">
+                {renderTeamTableRows()}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
       </Card>
 
       <StariumModal

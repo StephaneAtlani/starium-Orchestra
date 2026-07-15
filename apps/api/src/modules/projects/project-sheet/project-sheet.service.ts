@@ -29,6 +29,10 @@ import {
   computeRoi,
 } from './calculators/project-sheet-calculators';
 import { deriveLegacyArbitrationStatus } from '../lib/project-arbitration-legacy.util';
+import {
+  assertProjectSheetEditable,
+  assertProjectSheetPatchAllowed,
+} from '../lib/project-sheet-editing-locked';
 import { SetArbitrationDto } from './dto/set-arbitration.dto';
 import { UpdateProjectSheetDto } from './dto/update-project-sheet.dto';
 import { ProjectSheetDecisionSnapshotsService } from './project-sheet-decision-snapshots.service';
@@ -233,6 +237,7 @@ export class ProjectSheetService {
     }
 
     const merged = this.mergeSheetState(existing, dto);
+    assertProjectSheetPatchAllowed(existing, merged.status);
     const hasArbPatch =
       dto.arbitrationMetierStatus !== undefined ||
       dto.arbitrationComiteStatus !== undefined ||
@@ -413,6 +418,8 @@ export class ProjectSheetService {
     if (!existing) {
       throw new NotFoundException('Project not found');
     }
+
+    assertProjectSheetEditable(existing);
 
     const { metier, comite, codir } = this.mapLegacyArbitrationToLevels(dto.status);
     const legacy = deriveLegacyArbitrationStatus(metier, comite, codir);
