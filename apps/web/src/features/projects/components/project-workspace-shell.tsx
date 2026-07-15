@@ -11,7 +11,6 @@ import { projectDetail } from '../constants/project-routes';
 import { ProjectSynthesisBanner } from './project-synthesis-banner';
 import { ProjectsListRowActionsMenu } from './projects-list-row-actions-menu';
 import { ProjectWorkspaceTabs } from './project-workspace-tabs';
-import { ProjectHierarchyStrip } from './project-hierarchy-strip';
 
 export interface ProjectWorkspaceShellProps {
   projectId: string;
@@ -83,8 +82,6 @@ export function ProjectWorkspaceShell({
           </>
         }
       />
-
-      <ProjectHierarchyStrip project={project} />
 
       <ProjectWorkspaceTabs
         projectId={projectId}

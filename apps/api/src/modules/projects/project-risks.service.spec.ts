@@ -67,6 +67,13 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
 
   beforeEach(() => {
     prisma = {
+      project: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: projectId,
+          clientId,
+          status: 'IN_PROGRESS',
+        }),
+      },
       projectRisk: {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
@@ -89,7 +96,7 @@ describe('ProjectRisksService — audit RFC-PROJ-009', () => {
       projects as unknown as ProjectsService,
       riskTaxonomy as unknown as RiskTaxonomyService,
     );
-    service = new ProjectRisksService(clientScoped);
+    service = new ProjectRisksService(clientScoped, prisma);
   });
 
   it('update standard : uniquement project_risk.updated', async () => {

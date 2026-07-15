@@ -52,8 +52,13 @@ Importer `styles.css` (ou `colors_and_type.css` directement) dans votre app :
 | `--neutral-50` | `#FAF9F7` | Fond d'app (jamais blanc pur) |
 | `--neutral-100` | `#F4F2EE` | Surface hover, skeleton |
 | `--neutral-200` | `#E9E6E0` | Bordures, séparateurs |
-| `--neutral-500` | `#8C8579` | Bordures légères, placeholders discrets — **pas** le texte secondaire principal |
-| `--neutral-600` | `#5F5A52` | Texte muted / métadonnées (`--color-text-muted`, `--fg-3`, `.starium-text-muted`) |
+| `--neutral-500` | `#8C8579` | Bordures légères — **pas** placeholder ni texte de champ |
+| `--color-input-text` | `#0E0E10` | Valeur saisie (`Input`, `Textarea`, `Select` sélectionné) — `--brand-ink` |
+| `--color-input-placeholder` | `#14130F` | Placeholder / select vide — alias `--color-text-muted` |
+| `--neutral-600` | `#5F5A52` | Texte tertiaire, badges neutres — **pas** le token principal du texte secondaire |
+| `--neutral-700` | `#403D38` | Texte tertiaire, labels discrets — **pas** le token principal du texte secondaire |
+| `--neutral-800` | `#26241F` | Texte tertiaire, labels discrets — **pas** le token principal du texte secondaire |
+| `--neutral-900` | `#14130F` | Texte muted / métadonnées (`--color-text-muted`, `--fg-3`, `.starium-text-muted`) |
 | `--state-success` | `#1F8A5B` | Succès / Terminé |
 | `--state-warning` | `#C77A00` | Attention / En cours à risque |
 | `--state-danger` | `#B42318` | Danger / En retard |
@@ -244,7 +249,7 @@ color: #fff;
 font: var(--text-overline);
 text-transform: uppercase;
 letter-spacing: 0.08em;
-color: var(--neutral-600); /* ou var(--fg-3) — texte secondaire lisible */
+color: var(--neutral-900); /* ou var(--fg-3) — texte secondaire lisible */
 padding: 10px 14px;
 border-bottom: 1.5px solid var(--neutral-200);
 

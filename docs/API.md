@@ -2782,7 +2782,7 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
 - **GET /api/projects/assignable-parents** — Projets **éligibles comme parent** (même client ; exclut `excludeProjectId`, ses descendants, candidats qui feraient dépasser la profondeur max). Query : `excludeProjectId?`, `search?`, `limit?` (défaut 20, max 50). Réponse : `{ items: [{ id, name, code, status, kind }] }`. Permission **`projects.read`**. *(RFC-PROJ-019)*
 - **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
-- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.) ; inclut **`ancestorChain`** (ancêtres racine → parent direct). Permission **`projects.read`**.
+- **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.) ; inclut **`ancestorChain`** (ancêtres racine → parent direct) et **météo du comité** : `committeeMood` (`GREEN` \| `ORANGE` \| `RED` \| `null`), `committeeMoodReviewId`, `committeeMoodReviewTitle`, `committeeMoodReviewDate` (dernière valeur connue, scope client). Permission **`projects.read`**.
 - **GET /api/projects/:id/children** — Liste paginée des **enfants directs** (format item liste enrichie ; mêmes filtres query optionnels que la liste, restreints aux enfants). Permission **`projects.read`**. *(RFC-PROJ-019)*
 - **PATCH /api/projects/:id** — Mise à jour partielle (`parentProjectId` nullable pour détacher). Audits dédiés `project.parent.assigned` / `detached` / `changed` si le parent change. Permission **`projects.update`** (+ décision d’accès intent `write` sur le projet).
 - **DELETE /api/projects/:id** — Suppression. Refus **`409`** si le projet a des enfants directs. Permission **`projects.delete`**.
@@ -2799,12 +2799,15 @@ Matrice **actions × rôles équipe** (une lettre max par cellule). Modèles : `
 - **POST /api/projects/:projectId/raci-actions** — Body `{ label, sortOrder? }`. **`projects.update`**
 - **DELETE /api/projects/:projectId/raci-actions/:actionId** — Supprime une action (cascade cellules). **`projects.update`**
 
+**Verrouillage fiche** : si le projet est `COMPLETED`, `CANCELLED` ou `ARCHIVED`, les écritures ci-dessus (et mutations `…/team*`) sont refusées (`400`) — voir § « Fiche projet » ci-dessous.
+
 **UI** : `ProjectTeamMatrix` + `ProjectRaciMatrix` sur `ProjectSheetView` ; libellés rôles et actions uniquement (pas d’ID en affichage).
 
 ### Fiche projet décisionnelle (RFC-PROJ-012) — `/api/projects/:id/project-sheet`
 
 - **GET /api/projects/:id/project-sheet** — Fiche enrichie (scores, ROI, priorité, cadrage, SWOT/TOWS, arbitrage multi-niveaux, etc.). Isolation **client actif**. Permission **`projects.read`**.
 - **PATCH /api/projects/:id/project-sheet** — Mise à jour partielle (`UpdateProjectSheetDto`) : champs fiche, dont `type` / `status` projet, arbitrage à trois niveaux (`ProjectArbitrationLevelStatus` : notamment `BROUILLON`, `EN_COURS`, `SOUMIS_VALIDATION`, `VALIDE`, `REFUSE`) et motifs de refus si refus ; recalcul serveur de ROI / `priorityScore` selon règles du service. Audit **`project.sheet.updated`** si diff. Permission **`projects.update`**.
+- **Verrouillage** : si `Project.status` ∈ `{ COMPLETED, CANCELLED, ARCHIVED }`, le `PATCH` est refusé (`400`) sauf **réouverture** — `status` dans le body passant à un statut non terminal (ex. `IN_PROGRESS`). Même règle pour `POST …/arbitration`. Helper : `lib/project-sheet-editing-locked.ts`. Les mutations équipe / RASCI / jalons / risques projet du périmètre fiche sont également bloquées (lecture `GET` inchangée).
 - **POST /api/projects/:id/arbitration** — Mise à jour du statut d’arbitrage **legacy** (`ProjectArbitrationStatus`). Audits **`project.arbitration.validated`** / **`project.arbitration.rejected`** selon cas. Permission **`projects.update`**.
 
 ### Scénarios projet (RFC-PROJ-SC-001 / RFC-PROJ-SC-002) — `/api/projects/:projectId/scenarios`
@@ -2985,13 +2988,15 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **GET /api/projects/:projectId/reviews** — Liste (tri `reviewDate` desc, `createdAt` desc). **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode`. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`). `snapshotPayload` v2 si finalisé. **`projects.read`**
-- **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`projects.update`**
+- **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`contentPayload`** accepte notamment **`committeeMood`** (`GREEN` \| `ORANGE` \| `RED`) en tenue. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/schedule** — `PREPARING`→`SCHEDULED` ou replanification `SCHEDULED` (`reviewDate` requis). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**. *UI* : le CTA « Démarrer le point » n’est proposé qu’en `SCHEDULED` (voir RFC-PROJ-013-2 §15.5).
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**
+- **POST /api/projects/:projectId/reviews/:reviewId/send-report** — Envoi async e-mail aux participants (**`FINALIZED` uniquement**). **`projects.update`**
 
 **Pièces jointes** — `/api/projects/:projectId/reviews/:reviewId/attachments` :
 
@@ -3076,16 +3081,16 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 ### Risques — `/api/projects/:projectId/risks`
 
 - **GET** — Liste. **`projects.read`**
-- **POST** — **`projects.update`**
-- **PATCH /api/projects/:projectId/risks/:id** — **`projects.update`**
-- **DELETE /api/projects/:projectId/risks/:id** — **`projects.update`**
+- **POST** — **`projects.update`** (refusé si projet terminal — fiche verrouillée)
+- **PATCH /api/projects/:projectId/risks/:id** — **`projects.update`** (idem)
+- **DELETE /api/projects/:projectId/risks/:id** — **`projects.update`** (idem)
 
 ### Jalons — `/api/projects/:projectId/milestones`
 
 - **GET** — Liste paginée `{ items, total, limit, offset }` (RFC-PROJ-011). **`projects.read`**
-- **POST** — **`projects.update`**
-- **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`**
-- **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`**
+- **POST** — **`projects.update`** (refusé si projet terminal — fiche verrouillée)
+- **PATCH /api/projects/:projectId/milestones/:id** — **`projects.update`** (idem)
+- **DELETE /api/projects/:projectId/milestones/:id** — **`projects.update`** (idem)
 
 ### Liens projet ↔ ligne budgétaire (RFC-PROJ-010) — module Nest `project-budget`
 

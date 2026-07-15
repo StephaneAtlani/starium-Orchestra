@@ -75,9 +75,20 @@ html.dark {
   color: var(--starium-warning-emphasis);
 }
 
-/* Texte secondaire lisible — descriptions, métadonnées, sous-titres de module (neutral-600) */
+/* Texte secondaire lisible — descriptions, métadonnées, sous-titres de module (neutral-900) */
 .starium-text-muted {
-  color: var(--ds-text-muted-color, var(--color-text-muted, var(--neutral-600)));
+  color: var(--ds-text-muted-color, var(--color-text-muted, var(--neutral-900)));
+}
+
+/* Champs de saisie — couleur explicite (ne pas hériter text-muted du parent Card / formulaire) */
+[data-slot='input'],
+[data-slot='textarea'],
+[data-slot='select-trigger'] {
+  color: var(--color-input-text, var(--foreground));
+}
+[data-slot='input']::placeholder,
+[data-slot='textarea']::placeholder {
+  color: var(--color-input-placeholder, var(--muted-foreground));
 }
 
 /* Icônes accent synthèse projet (#5f3f00 = --brand-gold-700) */
@@ -2111,7 +2122,7 @@ table.starium-dt {
   margin: 0;
   font-size: 11px;
   line-height: 1.45;
-  color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
+  color: var(--ds-text-muted-color, var(--color-text-muted, var(--neutral-900, var(--muted-foreground))));
 }
 .starium-form-input,
 .starium-form-select,
@@ -2122,7 +2133,7 @@ table.starium-dt {
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
   font-size: 13px;
-  color: var(--brand-ink, var(--foreground));
+  color: var(--color-input-text, var(--brand-ink, var(--foreground)));
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .starium-form-input,
@@ -2138,7 +2149,7 @@ table.starium-dt {
 }
 .starium-form-input::placeholder,
 .starium-form-textarea::placeholder {
-  color: var(--neutral-400, color-mix(in srgb, var(--muted-foreground) 75%, transparent));
+  color: var(--color-input-placeholder, var(--muted-foreground));
 }
 .starium-form-input:focus-visible,
 .starium-form-select:focus-visible,
@@ -2659,7 +2670,7 @@ table.starium-dt {
   color: var(--brand-ink, var(--foreground));
 }
 .starium-search-input input::placeholder {
-  color: var(--neutral-400, var(--muted-foreground));
+  color: var(--color-input-placeholder, var(--muted-foreground));
 }
 .starium-fbtn--muted {
   color: var(--brand-gold-700);

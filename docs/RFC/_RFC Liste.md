@@ -139,7 +139,7 @@
 | 14c   | **RFC-PROJ-DOC-001** | ProjectDocument | Registre métier documents projet (Prisma + API + audit) | ✅ Couvert | MVP : pas d’upload binaire ; UI liste read-only fiche ; voir [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) |
 | 14d   | **RFC-PROJ-013** | Points projet COPIL/COPRO | Historique, snapshot, types dont **POST_MORTEM** (REX) | ✅ Couvert (MVP) | [RFC](./RFC-PROJ-013%20—%20Points%20Projet%20COPIL-COPRO%20et%20Historisation.md) — seed démo `seed-project-demo-reviews.ts` |
 | 14d′  | **RFC-PROJ-013-1** | Cycle de vie réunion Point projet | **Phases 1–3 ✅** : invitations in-app, email, Teams/calendrier ; cycle historique `PLANNED`/`IN_REVIEW` | ✅ Livré (cycle supersédé par 013-2) | [RFC](./RFC-PROJ-013-1%20—%20Cycle%20de%20vie%20réunion%20Point%20projet%20(planification,%20invitations,%20tenue).md) — migrations `20260704120*`, `20260705120000`, `20260705140000` |
-| 14d″  | **RFC-PROJ-013-2** | Point projet de pilotage | Cycle PREPARING→…, ODJ typé, attachments, snapshot v2, UI onglets | ✅ Implémenté | [RFC](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md) — migrations `20260705180000`…`80900` |
+| 14d″  | **RFC-PROJ-013-2** | Point projet de pilotage | Cycle PREPARING→…, ODJ typé, attachments, snapshot v2, météo comité, CR e-mail, UI onglets + footer Planifier | ✅ Implémenté | [RFC](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md) — migrations `20260705180000`…`80900` |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |
 
 ---

@@ -8,7 +8,7 @@
 
 > **Phases 1–3 livrées.** Phase 1 : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`. Phase 2 : invitations **in-app** (§13). Phase 3 : **email**, **Teams** et **calendrier** Microsoft via la même route `POST .../invite` (§14) — canaux de notification (`in_app` \| `email`) **séparés** des actions Microsoft (`createTeamsMeeting`, `createCalendarEvent`), toutes **opt-in** par défaut.
 >
-> **RFC-PROJ-013-2 (implémentée)** : le cycle métier cible est désormais **`PREPARING` → `SCHEDULED` → `IN_PROGRESS`** ; `PLANNED`/`IN_REVIEW` restent en lecture legacy (migrés en base). Les routes invitations, Teams et email de cette RFC restent valides sur une revue **`SCHEDULED`**. L’éditeur expose **« Envoyer / Renvoyer les notifications »** en footer une fois planifié (RFC-PROJ-013-2 §15.5). Détail : [RFC-PROJ-013-2](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md).
+> **RFC-PROJ-013-2 (implémentée)** : le cycle métier cible est désormais **`PREPARING` → `SCHEDULED` → `IN_PROGRESS`** ; `PLANNED`/`IN_REVIEW` restent en lecture legacy (migrés en base). Les routes invitations, Teams et email de cette RFC restent valides sur une revue **`SCHEDULED`**. L’éditeur expose **« Planifier »** (in-app + e-mail, avec confirmation) et **« Démarrer le point »** (confirmation) en footer modale — voir RFC-PROJ-013-2 §15.5–15.6. Détail : [RFC-PROJ-013-2](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md).
 
 ## Dépendances
 

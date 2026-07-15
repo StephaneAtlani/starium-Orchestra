@@ -9,10 +9,13 @@ import {
   AlertTriangle,
   Briefcase,
   Building2,
+  CalendarRange,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
   Eye,
+  FolderTree,
+  Hash,
   History,
   Info,
   LayoutDashboard,
@@ -23,11 +26,17 @@ import {
   Percent,
   Plus,
   Scale,
+  ShieldAlert,
   Split,
+  Target,
   Trash2,
   TrendingUp,
   UsersRound,
+  Wallet,
+  Zap,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -263,46 +272,174 @@ function scoreStringFromSheet(n: number | null | undefined): string {
   return String(x);
 }
 
-function Score15Field({
+function BusinessValueScoreTile({
   id,
   label,
+  hint,
+  tone,
+  icon: Icon,
   value,
   onValueChange,
   disabled,
 }: {
   id: string;
   label: string;
+  hint: string;
+  tone: ProjectSheetScoreTone;
+  icon: LucideIcon;
   value: string;
   onValueChange: (next: string) => void;
   disabled: boolean;
 }) {
   const normalized = /^[1-5]$/.test(value.trim()) ? value.trim() : '';
   const selectValue = normalized === '' ? SCORE_1_5_UNSET : normalized;
+  const numeric = normalized === '' ? undefined : Number(normalized);
+  const tile = PROJECT_SHEET_SCORE_TILE[tone];
+  const pct =
+    numeric != null && Number.isFinite(numeric)
+      ? Math.min(100, Math.max(0, (numeric / 5) * 100))
+      : 0;
+
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Select
-        value={selectValue}
-        onValueChange={(v) => {
-          const s = v ?? SCORE_1_5_UNSET;
-          onValueChange(s === SCORE_1_5_UNSET ? '' : s);
-        }}
-        disabled={disabled}
-      >
-        <SelectTrigger id={id} className="w-full" aria-label={label}>
-          <SelectValue>
-            {normalized === '' ? 'Non renseigné' : `${normalized} / 5`}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={SCORE_1_5_UNSET}>Non renseigné</SelectItem>
-          {(['1', '2', '3', '4', '5'] as const).map((n) => (
-            <SelectItem key={n} value={n}>
-              {n} / 5
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div
+      className={cn(
+        'relative flex h-full flex-col overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+        'border-l-[3px]',
+        tile.border,
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+            tile.iconWell,
+            tile.iconText,
+          )}
+        >
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">{label}</p>
+          <p className="text-[10px] leading-snug text-foreground">{hint}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-1 flex-col gap-3">
+        <Select
+          value={selectValue}
+          onValueChange={(v) => {
+            const s = v ?? SCORE_1_5_UNSET;
+            onValueChange(s === SCORE_1_5_UNSET ? '' : s);
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger
+            id={id}
+            className="w-full border-border/70 bg-background text-left"
+            aria-label={label}
+          >
+            <SelectValue>
+              {normalized === '' ? 'Non renseigné' : `${normalized} / 5`}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SCORE_1_5_UNSET}>Non renseigné</SelectItem>
+            {(['1', '2', '3', '4', '5'] as const).map((n) => (
+              <SelectItem key={n} value={n}>
+                {n} / 5
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="mt-auto space-y-1">
+          <div className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-foreground">Niveau</span>
+            <span className="font-semibold tabular-nums text-foreground">
+              {normalized === '' ? '—' : `${normalized} / 5`}
+            </span>
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-muted/80">
+            <div
+              className={cn('h-full rounded-full transition-[width] duration-300', tile.bar)}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinancialAmountTile({
+  id,
+  label,
+  hint,
+  variant,
+  icon: Icon,
+  value,
+  onChange,
+  disabled,
+  labelAddon,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  variant: 'cost' | 'gain';
+  icon: LucideIcon;
+  value: string;
+  onChange: (next: string) => void;
+  disabled: boolean;
+  labelAddon?: ReactNode;
+}) {
+  const tile = PROJECT_SHEET_FIN_TILE[variant];
+  const parsed = value.trim() === '' ? undefined : Number(value);
+  const displayAmount =
+    parsed != null && Number.isFinite(parsed) ? parsed : undefined;
+
+  return (
+    <div
+      className={cn(
+        'relative flex h-full flex-col overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+        'border-l-[3px]',
+        tile.border,
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+            tile.iconWell,
+            tile.iconText,
+          )}
+        >
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">{label}</p>
+            {labelAddon}
+          </div>
+          <p className="text-[10px] leading-snug text-foreground">{hint}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-1 flex-col gap-3">
+        <Input
+          id={id}
+          type="number"
+          min={0}
+          step="0.01"
+          inputMode="decimal"
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="border-border/70 bg-background tabular-nums"
+          placeholder="0"
+          aria-label={label}
+        />
+        <p className="mt-auto border-t border-border/60 pt-3 text-[11px] leading-snug text-foreground">
+          <span className="font-medium">Montant saisi : </span>
+          <span className="font-semibold tabular-nums">{formatSheetEuro(displayAmount)}</span>
+        </p>
+      </div>
     </div>
   );
 }
@@ -430,13 +567,159 @@ function formatMilestoneDate(iso: string): string {
 }
 
 const textareaClass = cn(
-  'min-h-[72px] w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs',
+  'min-h-[72px] w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-xs text-foreground',
   'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
   'disabled:cursor-not-allowed disabled:opacity-50',
 );
 
+/** Encart formulaire fiche projet (sous-bloc dans une carte). */
+const projectSheetEncartClass =
+  'rounded-xl border border-border/70 bg-muted/20 p-4 shadow-sm';
+
+/** Tuile score 1–5 — accent latéral (aligné synthèse décisionnelle §11.2). */
+type ProjectSheetScoreTone = 'emerald' | 'sky' | 'amber';
+
+const PROJECT_SHEET_SCORE_TILE: Record<
+  ProjectSheetScoreTone,
+  { border: string; iconWell: string; iconText: string; bar: string }
+> = {
+  emerald: {
+    border: 'border-l-emerald-500/70',
+    iconWell: 'bg-emerald-500/10',
+    iconText: 'text-emerald-700 dark:text-emerald-400',
+    bar: 'bg-emerald-500/75',
+  },
+  sky: {
+    border: 'border-l-sky-500/70',
+    iconWell: 'bg-sky-500/10',
+    iconText: 'text-sky-700 dark:text-sky-400',
+    bar: 'bg-sky-500/75',
+  },
+  amber: {
+    border: 'border-l-amber-500/70',
+    iconWell: 'bg-amber-500/10',
+    iconText: 'text-amber-800 dark:text-amber-400',
+    bar: 'bg-amber-500/75',
+  },
+};
+
+const PROJECT_SHEET_FIN_TILE: Record<
+  'cost' | 'gain',
+  { border: string; iconWell: string; iconText: string }
+> = {
+  cost: {
+    border: 'border-l-rose-500/70',
+    iconWell: 'bg-rose-500/10',
+    iconText: 'text-rose-700 dark:text-rose-400',
+  },
+  gain: {
+    border: 'border-l-emerald-500/70',
+    iconWell: 'bg-emerald-500/10',
+    iconText: 'text-emerald-700 dark:text-emerald-400',
+  },
+};
+
+function formatSheetEuro(n: number | undefined): string {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+type ProjectSheetMetaTone = 'sky' | 'amber' | 'slate' | 'violet' | 'teal' | 'rose';
+
+const PROJECT_SHEET_META_TILE: Record<
+  ProjectSheetMetaTone,
+  { border: string; iconWell: string; iconText: string }
+> = {
+  sky: {
+    border: 'border-l-sky-500/70',
+    iconWell: 'bg-sky-500/10',
+    iconText: 'text-sky-700 dark:text-sky-400',
+  },
+  amber: {
+    border: 'border-l-amber-500/70',
+    iconWell: 'bg-amber-500/10',
+    iconText: 'text-amber-800 dark:text-amber-400',
+  },
+  slate: {
+    border: 'border-l-border',
+    iconWell: 'bg-muted/60',
+    iconText: 'text-foreground',
+  },
+  violet: {
+    border: 'border-l-violet-500/70',
+    iconWell: 'bg-violet-500/10',
+    iconText: 'text-violet-700 dark:text-violet-400',
+  },
+  teal: {
+    border: 'border-l-teal-500/70',
+    iconWell: 'bg-teal-500/10',
+    iconText: 'text-teal-800 dark:text-teal-400',
+  },
+  rose: {
+    border: 'border-l-rose-500/70',
+    iconWell: 'bg-rose-500/10',
+    iconText: 'text-rose-700 dark:text-rose-400',
+  },
+};
+
+function ProjectSheetMetaTile({
+  label,
+  hint,
+  tone,
+  icon: Icon,
+  children,
+  className,
+  footer,
+}: {
+  label: string;
+  hint?: string;
+  tone: ProjectSheetMetaTone;
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
+  footer?: ReactNode;
+}) {
+  const tile = PROJECT_SHEET_META_TILE[tone];
+  return (
+    <div
+      className={cn(
+        'relative flex h-full flex-col overflow-hidden rounded-xl border border-border/65 bg-card p-4 shadow-sm',
+        'border-l-[3px]',
+        tile.border,
+        className,
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-lg',
+            tile.iconWell,
+            tile.iconText,
+          )}
+        >
+          <Icon className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">{label}</p>
+          {hint ? <p className="text-[10px] leading-snug text-foreground">{hint}</p> : null}
+        </div>
+      </div>
+      <div className="mt-3 min-w-0 flex-1">{children}</div>
+      {footer ? (
+        <div className="mt-3 border-t border-border/60 pt-3 text-[11px] leading-snug text-foreground">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** Grille de champs fiche projet (espacement entre blocs label + contrôle). */
-const projectSheetFieldGridClass = 'grid gap-5 text-xs sm:grid-cols-2';
+const projectSheetFieldGridClass = 'grid gap-5 text-xs text-foreground sm:grid-cols-2';
 
 /** Scope fiche projet : filets gris (tokens) plutôt que bordures trop contrastées. Carte navigation (onglets) exclue : même trait que la synthèse. */
 const projectSheetChromeClass = cn(
@@ -444,7 +727,7 @@ const projectSheetChromeClass = cn(
   '[&_[data-slot=card]:not([data-workspace-tabs])]:border-border/65',
   '[&_[data-slot=input]]:h-8 [&_[data-slot=input]]:border-border/70 [&_[data-slot=input]]:text-xs md:[&_[data-slot=input]]:text-xs',
   '[&_[data-slot=select-trigger]]:h-8 [&_[data-slot=select-trigger]]:border-border/70 [&_[data-slot=select-trigger]]:text-xs',
-  '[&_[data-slot=label]]:text-xs',
+  '[&_[data-slot=label]]:text-xs [&_[data-slot=label]]:text-foreground',
   '[&_textarea]:border-border/70 [&_textarea]:text-xs',
   '[&_[data-slot=card-content]]:flex [&_[data-slot=card-content]]:flex-col [&_[data-slot=card-content]]:gap-[var(--ds-stack-gap)]',
 );
@@ -1164,22 +1447,60 @@ export function ProjectSheetView({
       {/* A — Équipes impliquées */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle>A. Équipes impliquées</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <UsersRound className="size-4 shrink-0" aria-hidden />
+            A. Équipes impliquées
+          </CardTitle>
           <CardDescription>
             Directions, services ou équipes concernés par le projet (hors rôles nominatifs ci-dessus).
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Input
-            id="involved-teams"
-            disabled={!canEdit}
-            value={involvedTeams}
-            onChange={(e) => setInvolvedTeams(e.target.value)}
-            placeholder="Ex. : DSI, RH, Achats, Finance, équipe métier…"
-            maxLength={2000}
-            className="w-full"
-            aria-label="Équipes impliquées"
-          />
+          <div
+            className={cn(
+              projectSheetEncartClass,
+              'border-border/65 border-l-[3px] border-l-indigo-500/70 bg-card',
+            )}
+          >
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-700 dark:text-indigo-400">
+                  <Building2 className="size-4" aria-hidden />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                      Parties prenantes transverses
+                    </h4>
+                    <Badge variant="secondary" className="text-[10px] font-medium">
+                      Organisation
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 max-w-2xl text-[11px] leading-snug text-foreground">
+                    Entités métier ou support impliquées — complémentaire de la matrice équipe
+                    nominative.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <Label htmlFor="involved-teams" className="text-foreground">
+              Équipes concernées
+            </Label>
+            <textarea
+              id="involved-teams"
+              className={cn(textareaClass, 'mt-2 min-h-[88px] bg-background')}
+              disabled={!canEdit}
+              value={involvedTeams}
+              onChange={(e) => setInvolvedTeams(e.target.value)}
+              placeholder="Ex. : DSI, RH, Achats, Finance, équipe métier…"
+              maxLength={2000}
+              rows={3}
+              aria-label="Équipes impliquées"
+            />
+            <p className="mt-2 text-[11px] leading-snug text-foreground">
+              Une entité par ligne ou séparées par des virgules — {involvedTeams.length}/2000 caractères.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -1191,131 +1512,164 @@ export function ProjectSheetView({
             Lecture cockpit — décision en 2 minutes
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className={projectSheetFieldGridClass}>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="sheet-project-name">Nom du projet</Label>
-              <Input
-                id="sheet-project-name"
-                disabled={!canEdit}
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="Nom du projet"
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Quand (début — fin cible)</Label>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  type="date"
-                  disabled={!canEdit}
-                  className="min-w-0 flex-1"
-                  value={cadreStart}
-                  onChange={(e) => setCadreStart(e.target.value)}
-                  aria-label="Date de début"
-                />
-                <Input
-                  type="date"
-                  disabled={!canEdit}
-                  className="min-w-0 flex-1"
-                  value={cadreEnd}
-                  onChange={(e) => setCadreEnd(e.target.value)}
-                  aria-label="Date de fin cible"
-                />
+        <CardContent className="space-y-8">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Identité & cadrage
+                </h4>
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  Fiche projet
+                </Badge>
               </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-foreground">
+                Nom, période et classification — base de lecture avant arbitrage CODIR.
+              </p>
             </div>
-            <div>
-              <span className="text-muted-foreground">Code : </span>
-              {sheet.code}
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ProjectSheetMetaTile
+                label="Nom du projet"
+                hint="Libellé affiché dans le portefeuille"
+                tone="sky"
+                icon={Briefcase}
+              >
+                <Input
+                  id="sheet-project-name"
+                  disabled={!canEdit}
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Nom du projet"
+                  className="border-border/70 bg-background"
+                />
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile
+                label="Période cible"
+                hint="Début et fin prévisionnels"
+                tone="amber"
+                icon={CalendarRange}
+              >
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    type="date"
+                    disabled={!canEdit}
+                    className="min-w-0 flex-1 border-border/70 bg-background"
+                    value={cadreStart}
+                    onChange={(e) => setCadreStart(e.target.value)}
+                    aria-label="Date de début"
+                  />
+                  <Input
+                    type="date"
+                    disabled={!canEdit}
+                    className="min-w-0 flex-1 border-border/70 bg-background"
+                    value={cadreEnd}
+                    onChange={(e) => setCadreEnd(e.target.value)}
+                    aria-label="Date de fin cible"
+                  />
+                </div>
+              </ProjectSheetMetaTile>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-              <span className="text-sm text-muted-foreground shrink-0">Type :</span>
-              {canEdit ? (
-                <Select
-                  value={projectType}
-                  onValueChange={(v) => {
-                    if (v != null) setProjectType(v);
-                  }}
-                  disabled={saveMutation.isPending}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    id="sheet-project-type"
-                    className="w-full min-w-[12rem] max-w-xs sm:w-auto"
-                    aria-label="Type de projet"
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ProjectSheetMetaTile label="Code projet" hint="Référence immuable" tone="slate" icon={Hash}>
+                <p className="text-sm font-semibold tabular-nums text-foreground">{sheet.code}</p>
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile
+                label="Type"
+                hint="Famille de projet"
+                tone="violet"
+                icon={Layers3}
+              >
+                {canEdit ? (
+                  <Select
+                    value={projectType}
+                    onValueChange={(v) => {
+                      if (v != null) setProjectType(v);
+                    }}
+                    disabled={saveMutation.isPending}
                   >
-                    <SelectValue>
-                      {PROJECT_TYPE_LABEL[projectType] ?? projectType}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.keys(PROJECT_TYPE_LABEL) as Array<keyof typeof PROJECT_TYPE_LABEL>
-                    ).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {PROJECT_TYPE_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="text-sm font-medium text-foreground">
-                  {PROJECT_TYPE_LABEL[projectType] ?? projectType}
-                </span>
-              )}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Nature : </span>
-              {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
-            </div>
-            {embedMode === 'page' && projectDetailQuery.data ? (
-              <div className="sm:col-span-2">
-                <ProjectParentField project={projectDetailQuery.data} />
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-              <span className="text-sm text-muted-foreground shrink-0">Statut :</span>
-              {canEditStatus ? (
-                <Select
-                  value={projectStatus}
-                  onValueChange={(v) => {
-                    if (v != null) setProjectStatus(v);
-                  }}
-                  disabled={saveMutation.isPending}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    id="sheet-project-status"
-                    className="w-full min-w-[12rem] max-w-xs sm:w-auto"
-                    aria-label="Statut du projet"
+                    <SelectTrigger
+                      size="sm"
+                      id="sheet-project-type"
+                      className="w-full border-border/70 bg-background text-left"
+                      aria-label="Type de projet"
+                    >
+                      <SelectValue>
+                        {PROJECT_TYPE_LABEL[projectType] ?? projectType}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        Object.keys(PROJECT_TYPE_LABEL) as Array<keyof typeof PROJECT_TYPE_LABEL>
+                      ).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {PROJECT_TYPE_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm font-semibold text-foreground">
+                    {PROJECT_TYPE_LABEL[projectType] ?? projectType}
+                  </p>
+                )}
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile label="Nature" hint="Projet ou activité" tone="teal" icon={Split}>
+                <p className="text-sm font-semibold text-foreground">
+                  {PROJECT_KIND_LABEL[sheet.kind] ?? sheet.kind}
+                </p>
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile label="Statut" hint="Cycle de vie" tone="sky" icon={Eye}>
+                {canEditStatus ? (
+                  <Select
+                    value={projectStatus}
+                    onValueChange={(v) => {
+                      if (v != null) setProjectStatus(v);
+                    }}
+                    disabled={saveMutation.isPending}
                   >
-                    <SelectValue>
-                      {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.keys(PROJECT_STATUS_LABEL) as Array<
-                        keyof typeof PROJECT_STATUS_LABEL
-                      >
-                    ).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {PROJECT_STATUS_LABEL[k]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <span className="text-sm font-medium text-foreground">
-                  {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
-                </span>
-              )}
-            </div>
-            <div className="sm:col-span-2">
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                <span className="text-sm text-muted-foreground shrink-0">
-                  Criticité (impact / enjeu) :
-                </span>
+                    <SelectTrigger
+                      size="sm"
+                      id="sheet-project-status"
+                      className="w-full border-border/70 bg-background text-left"
+                      aria-label="Statut du projet"
+                    >
+                      <SelectValue>
+                        {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        Object.keys(PROJECT_STATUS_LABEL) as Array<
+                          keyof typeof PROJECT_STATUS_LABEL
+                        >
+                      ).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {PROJECT_STATUS_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm font-semibold text-foreground">
+                    {PROJECT_STATUS_LABEL[projectStatus] ?? projectStatus}
+                  </p>
+                )}
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile
+                label="Criticité"
+                hint="Impact / enjeu métier"
+                tone="rose"
+                icon={AlertTriangle}
+                className="sm:col-span-2 lg:col-span-2"
+                footer="Distincte de la priorité portefeuille — enregistrée avec la fiche."
+              >
                 {canEdit ? (
                   <Select
                     value={criticality}
@@ -1327,7 +1681,7 @@ export function ProjectSheetView({
                     <SelectTrigger
                       id="sheet-criticality"
                       size="sm"
-                      className="w-full min-w-[12rem] max-w-xs sm:w-auto"
+                      className="w-full max-w-xs border-border/70 bg-background text-left"
                       aria-label="Criticité du projet"
                     >
                       <SelectValue>
@@ -1347,15 +1701,36 @@ export function ProjectSheetView({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-semibold text-foreground">
                     {PROJECT_CRITICALITY_LABEL[criticality] ?? criticality}
-                  </span>
+                  </p>
                 )}
-              </div>
-              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                Distincte de la priorité portefeuille — enregistrée avec la fiche.
-              </p>
+              </ProjectSheetMetaTile>
             </div>
+
+            {embedMode === 'page' && projectDetailQuery.data ? (
+              <div
+                className={cn(
+                  projectSheetEncartClass,
+                  'border-border/65 border-l-[3px] border-l-teal-500/70 bg-card',
+                )}
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-800 dark:text-teal-400">
+                    <FolderTree className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+                      Hiérarchie portefeuille
+                    </p>
+                    <p className="text-[10px] leading-snug text-foreground">
+                      Projet parent — racine ou rattachement
+                    </p>
+                  </div>
+                </div>
+                <ProjectParentField project={projectDetailQuery.data} />
+              </div>
+            ) : null}
           </div>
 
           <div className="border-t border-border/70 pt-8">
@@ -1824,16 +2199,24 @@ export function ProjectSheetView({
       <Card size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <LayoutDashboard className="size-4" />
+            <LayoutDashboard className="size-4 shrink-0" aria-hidden />
             C. Valeur métier
           </CardTitle>
+          <CardDescription>
+            Synthèse décisionnelle — scores ROE, objectifs et indicateurs de réussite
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="project-desc">Description métier</Label>
+        <CardContent className="space-y-8">
+          <div className={projectSheetEncartClass}>
+            <Label htmlFor="project-desc" className="text-foreground">
+              Description métier
+            </Label>
+            <p className="mt-0.5 text-[11px] leading-snug text-foreground">
+              Contexte et périmètre en une lecture — support pour l&apos;arbitrage CODIR.
+            </p>
             <textarea
               id="project-desc"
-              className={textareaClass}
+              className={cn(textareaClass, 'mt-3 min-h-[96px]')}
               disabled={!canEdit}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -1841,103 +2224,177 @@ export function ProjectSheetView({
               placeholder="Synthèse du projet pour la décision…"
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Score15Field
-              id="bv"
-              label="Valeur métier (1–5)"
-              value={bv}
-              onValueChange={setBv}
-              disabled={!canEdit}
-            />
-            <Score15Field
-              id="sa"
-              label="Alignement stratégique (1–5)"
-              value={sa}
-              onValueChange={setSa}
-              disabled={!canEdit}
-            />
-            <Score15Field
-              id="us"
-              label="Urgence (1–5)"
-              value={us}
-              onValueChange={setUs}
-              disabled={!canEdit}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="prob">Objectif métier</Label>
-            <textarea
-              id="prob"
-              className={textareaClass}
-              disabled={!canEdit}
-              value={problem}
-              onChange={(e) => setProblem(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ben">Gains attendus</Label>
-            <textarea
-              id="ben"
-              className={textareaClass}
-              disabled={!canEdit}
-              value={benefits}
-              onChange={(e) => setBenefits(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label>Indicateurs de réussite</Label>
-              {canEdit ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => setKpiLines((prev) => [...prev, ''])}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Ajouter une ligne
-                </Button>
-              ) : null}
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Scores ROE (1–5)
+                </h4>
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  3 critères
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-foreground">
+                Valeur, alignement stratégique et urgence — alimentent la tuile ROE de la synthèse
+                décisionnelle.
+              </p>
             </div>
-            <div className="space-y-2">
-              {kpiLines.map((line, i) => (
-                <div key={i} className="flex gap-2">
-                  <Input
-                    id={i === 0 ? 'kpi-0' : undefined}
-                    className="min-w-0 flex-1"
-                    disabled={!canEdit}
-                    placeholder={`Indicateur ${i + 1}`}
-                    value={line}
-                    onChange={(e) =>
-                      setKpiLines((prev) => {
-                        const next = [...prev];
-                        next[i] = e.target.value;
-                        return next;
-                      })
-                    }
-                  />
-                  {canEdit && kpiLines.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Supprimer la ligne ${i + 1}`}
-                      onClick={() =>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <BusinessValueScoreTile
+                id="bv"
+                label="Valeur métier"
+                hint="Impact business attendu"
+                tone="emerald"
+                icon={Briefcase}
+                value={bv}
+                onValueChange={setBv}
+                disabled={!canEdit}
+              />
+              <BusinessValueScoreTile
+                id="sa"
+                label="Alignement"
+                hint="Cohérence avec la stratégie"
+                tone="sky"
+                icon={Layers3}
+                value={sa}
+                onValueChange={setSa}
+                disabled={!canEdit}
+              />
+              <BusinessValueScoreTile
+                id="us"
+                label="Urgence"
+                hint="Fenêtre de décision"
+                tone="amber"
+                icon={Zap}
+                value={us}
+                onValueChange={setUs}
+                disabled={!canEdit}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t border-border/70 pt-8">
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                Objectifs & gains attendus
+              </h4>
+              <p className="text-xs leading-relaxed text-foreground">
+                Le « pourquoi » et les bénéfices visés — distincts de la description de contexte.
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className={cn(projectSheetEncartClass, 'h-full bg-card')}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 dark:text-violet-400">
+                    <Target className="size-3.5" aria-hidden />
+                  </span>
+                  <Label htmlFor="prob" className="text-foreground">
+                    Objectif métier
+                  </Label>
+                </div>
+                <textarea
+                  id="prob"
+                  className={cn(textareaClass, 'min-h-[108px] bg-background')}
+                  disabled={!canEdit}
+                  value={problem}
+                  onChange={(e) => setProblem(e.target.value)}
+                  rows={4}
+                  placeholder="Problème adressé, résultat attendu, périmètre de la décision…"
+                />
+              </div>
+              <div className={cn(projectSheetEncartClass, 'h-full bg-card')}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-800 dark:text-teal-400">
+                    <TrendingUp className="size-3.5" aria-hidden />
+                  </span>
+                  <Label htmlFor="ben" className="text-foreground">
+                    Gains attendus
+                  </Label>
+                </div>
+                <textarea
+                  id="ben"
+                  className={cn(textareaClass, 'min-h-[108px] bg-background')}
+                  disabled={!canEdit}
+                  value={benefits}
+                  onChange={(e) => setBenefits(e.target.value)}
+                  rows={4}
+                  placeholder="Gains quantitatifs ou qualitatifs, bénéficiaires, horizon…"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 border-t border-border/70 pt-8">
+            <div
+              className={cn(
+                projectSheetEncartClass,
+                'space-y-4 border-border/65 bg-card',
+              )}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-foreground">Indicateurs de réussite</h4>
+                  <p className="text-[11px] leading-snug text-foreground">
+                    Mesures vérifiables en fin de projet ou à chaque jalon clé.
+                  </p>
+                </div>
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => setKpiLines((prev) => [...prev, ''])}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+                    Ajouter une ligne
+                  </Button>
+                ) : null}
+              </div>
+              <ol className="space-y-2" aria-label="Liste des indicateurs de réussite">
+                {kpiLines.map((line, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/50 text-[11px] font-semibold tabular-nums text-foreground"
+                      aria-hidden
+                    >
+                      {i + 1}
+                    </span>
+                    <Input
+                      id={i === 0 ? 'kpi-0' : undefined}
+                      className="min-w-0 flex-1 border-border/70"
+                      disabled={!canEdit}
+                      placeholder={`Indicateur ${i + 1} — ex. taux d'adoption, délai de mise en production…`}
+                      value={line}
+                      onChange={(e) =>
                         setKpiLines((prev) => {
-                          const next = prev.filter((_, j) => j !== i);
-                          return next.length ? next : [''];
+                          const next = [...prev];
+                          next[i] = e.target.value;
+                          return next;
                         })
                       }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
+                    />
+                    {canEdit && kpiLines.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Supprimer l'indicateur ${i + 1}`}
+                        onClick={() =>
+                          setKpiLines((prev) => {
+                            const next = prev.filter((_, j) => j !== i);
+                            return next.length ? next : [''];
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
         </CardContent>
@@ -1946,54 +2403,105 @@ export function ProjectSheetView({
       {/* D — Financier */}
       <Card size="sm">
         <CardHeader>
-          <CardTitle>D. Arbitrage financier</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Scale className="size-4 shrink-0" aria-hidden />
+            D. Arbitrage financier
+          </CardTitle>
+          <CardDescription>
+            Enveloppe et gain estimés — alimentent le ROI de la synthèse décisionnelle
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cost">Coût estimé (fiche)</Label>
-              <Input
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Enveloppe projet
+                </h4>
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  Coût & gain
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-foreground">
+                Saisie fiche projet — le gain reste optionnel si le parcours est piloté par les
+                critères valeur (ROE) uniquement.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FinancialAmountTile
                 id="cost"
-                type="number"
-                min={0}
-                step="0.01"
-                disabled={!canEdit}
+                label="Coût estimé"
+                hint="Enveloppe financière de référence"
+                variant="cost"
+                icon={Wallet}
                 value={cost}
-                onChange={(e) => setCost(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <TooltipProvider delay={200}>
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="gain">Gain estimé</Label>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <button
-                          type="button"
-                          className="inline-flex shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                          aria-label="Aide : gain estimé"
-                        />
-                      }
-                    >
-                      <Info className="size-3.5" aria-hidden />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      Ne s&apos;applique pas à tous les cas — laisser vide si sans objet.
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </TooltipProvider>
-              <Input
-                id="gain"
-                type="number"
-                min={0}
-                step="0.01"
+                onChange={setCost}
                 disabled={!canEdit}
+              />
+              <FinancialAmountTile
+                id="gain"
+                label="Gain estimé"
+                hint="Bénéfice financier attendu (si applicable)"
+                variant="gain"
+                icon={TrendingUp}
                 value={gain}
-                onChange={(e) => setGain(e.target.value)}
+                onChange={setGain}
+                disabled={!canEdit}
+                labelAddon={
+                  <TooltipProvider delay={200}>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <button
+                            type="button"
+                            className="inline-flex shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            aria-label="Aide : gain estimé"
+                          />
+                        }
+                      >
+                        <Info className="size-3.5" aria-hidden />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        Ne s&apos;applique pas à tous les cas — laisser vide si sans objet.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                }
               />
             </div>
+          </div>
+
+          <div
+            className={cn(
+              projectSheetEncartClass,
+              'border-border/65 bg-card border-l-[3px] border-l-emerald-500/70',
+            )}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                  <Percent className="size-4" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+                    ROI financier (lecture)
+                  </p>
+                  <p className="text-[10px] leading-snug text-foreground">
+                    Gain − coût / coût — recalculé à la saisie
+                  </p>
+                </div>
+              </div>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
+                {fmtRoi(roiDisplayed)}
+              </p>
+            </div>
+            <p className="mt-3 border-t border-border/60 pt-3 text-[11px] leading-snug text-foreground">
+              {roiDisplayed != null
+                ? roiEff != null
+                  ? 'Calculé à partir des montants saisis ci-dessus.'
+                  : 'Valeur calculée côté serveur à partir de la fiche enregistrée.'
+                : roiHint ?? 'Complétez le coût (et le gain si pertinent) pour afficher le ROI.'}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -2001,101 +2509,186 @@ export function ProjectSheetView({
       {/* E — Risque */}
       <Card size="sm" id="risques-projet" className="scroll-mt-20">
         <CardHeader>
-          <CardTitle>E. Risque, priorité et risques projet</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+            E. Risque, priorité et risques projet
+          </CardTitle>
+          <CardDescription>
+            Lecture CODIR, saisie fiche et lien vers le registre des risques métier
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Synthèse CODIR */}
-          <div className="space-y-1.5 text-sm">
-            <div>
-              <span className="text-muted-foreground">Niveau de risque (affiché) : </span>
-              <span className="font-semibold tabular-nums text-foreground">
-                {sheet.riskLevel != null ? RISK_LABEL[sheet.riskLevel] : '—'}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Priorité projet (portefeuille) : </span>
-              <span className="font-semibold text-foreground">
-                {PROJECT_PRIORITY_LABEL[priority] ?? priority}
-              </span>
-            </div>
-            {criticalRiskCount != null && criticalRiskCount > 0 ? (
-              <p className="pt-0.5 text-sm font-medium text-amber-950 dark:text-amber-600">
-                ⚠️{' '}
-                {criticalRiskCount === 1
-                  ? '1 risque critique'
-                  : `${criticalRiskCount} risques critiques`}
+        <CardContent className="space-y-8">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Synthèse de lecture
+                </h4>
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  CODIR
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-foreground">
+                Indicateurs agrégés — distincts de la saisie opérationnelle ci-dessous.
               </p>
-            ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ProjectSheetMetaTile
+                label="Niveau de risque"
+                hint="Affiché sur la fiche"
+                tone="rose"
+                icon={AlertTriangle}
+              >
+                <p className="text-sm font-semibold text-foreground">
+                  {sheet.riskLevel != null ? RISK_LABEL[sheet.riskLevel] : '—'}
+                </p>
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile
+                label="Priorité portefeuille"
+                hint="Référence CODIR"
+                tone="sky"
+                icon={Layers3}
+              >
+                <p className="text-sm font-semibold text-foreground">
+                  {PROJECT_PRIORITY_LABEL[priority] ?? priority}
+                </p>
+              </ProjectSheetMetaTile>
+
+              <ProjectSheetMetaTile
+                label="Risques critiques"
+                hint="Registre P×I — criticité haute"
+                tone={criticalRiskCount != null && criticalRiskCount > 0 ? 'amber' : 'slate'}
+                icon={ShieldAlert}
+                className="sm:col-span-2 lg:col-span-1"
+              >
+                {criticalRiskCount == null ? (
+                  <p className="text-sm text-foreground">Chargement…</p>
+                ) : criticalRiskCount > 0 ? (
+                  <p className="text-sm font-semibold text-amber-950 dark:text-amber-400">
+                    {criticalRiskCount === 1
+                      ? '1 risque critique'
+                      : `${criticalRiskCount} risques critiques`}
+                  </p>
+                ) : (
+                  <p className="text-sm font-semibold text-foreground">Aucun risque critique</p>
+                )}
+              </ProjectSheetMetaTile>
+            </div>
           </div>
 
-          {/* Paramétrage fiche (opérationnel) */}
-          <div className="space-y-2 border-t border-border/70 pt-4">
+          <div className="space-y-4 border-t border-border/70 pt-8">
             <div className="space-y-1">
-              <Label htmlFor="sheet-risk-level" className="text-muted-foreground">
-                Niveau de risque — saisie fiche (CODIR)
-              </Label>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                Appréciation du risque du projet (faible / moyen / élevé). Distinct de la priorité
-                portefeuille (section A et ligne ci-dessus).
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                  Paramétrage fiche
+                </h4>
+                <Badge variant="secondary" className="text-[10px] font-medium">
+                  Saisie
+                </Badge>
+              </div>
+              <p className="text-xs leading-relaxed text-foreground">
+                Appréciation du risque projet et mesures de réponse — enregistrées avec la fiche.
               </p>
             </div>
-            <Select
-              value={risk}
-              onValueChange={(v) => setRisk(v ?? RISK_UNSET)}
-              disabled={!canEdit}
-            >
-              <SelectTrigger id="sheet-risk-level" className="max-w-xs">
-                <SelectValue placeholder="Non renseigné">
-                  {risk === RISK_UNSET
-                    ? 'Non renseigné'
-                    : RISK_LABEL[risk as ProjectSheetRiskLevel]}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={RISK_UNSET}>Non renseigné</SelectItem>
-                {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {RISK_LABEL[k]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="space-y-1.5 pt-2">
-              <Label htmlFor="sheet-risk-response" className="text-muted-foreground">
-                Réponse au risque
-              </Label>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                Mesures envisagées : réduction, transfert, acceptation, plan de contingence, etc.
-              </p>
-              <textarea
-                id="sheet-risk-response"
-                className={cn(textareaClass, 'min-h-[88px]')}
-                disabled={!canEdit}
-                value={riskResponse}
-                onChange={(e) => setRiskResponse(e.target.value)}
-                placeholder="Ex. : plan de reprise, renfort MOA, revue architecture, assurance…"
-                maxLength={20000}
-                aria-label="Réponse au risque"
-              />
+            <div className="grid gap-3 lg:grid-cols-2">
+              <ProjectSheetMetaTile
+                label="Niveau de risque"
+                hint="Faible / moyen / élevé"
+                tone="rose"
+                icon={AlertTriangle}
+                footer="Distinct de la priorité portefeuille (tuile ci-dessus)."
+              >
+                <Select
+                  value={risk}
+                  onValueChange={(v) => setRisk(v ?? RISK_UNSET)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger
+                    id="sheet-risk-level"
+                    className="w-full max-w-xs border-border/70 bg-background text-left"
+                  >
+                    <SelectValue placeholder="Non renseigné">
+                      {risk === RISK_UNSET
+                        ? 'Non renseigné'
+                        : RISK_LABEL[risk as ProjectSheetRiskLevel]}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={RISK_UNSET}>Non renseigné</SelectItem>
+                    {(Object.keys(RISK_LABEL) as ProjectSheetRiskLevel[]).map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {RISK_LABEL[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ProjectSheetMetaTile>
+
+              <div
+                className={cn(
+                  projectSheetEncartClass,
+                  'h-full border-border/65 border-l-[3px] border-l-amber-500/70 bg-card lg:col-span-1',
+                )}
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-400">
+                    <Scale className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <Label htmlFor="sheet-risk-response" className="text-foreground">
+                      Réponse au risque
+                    </Label>
+                    <p className="text-[10px] leading-snug text-foreground">
+                      Réduction, transfert, acceptation, contingence…
+                    </p>
+                  </div>
+                </div>
+                <textarea
+                  id="sheet-risk-response"
+                  className={cn(textareaClass, 'min-h-[108px] bg-background')}
+                  disabled={!canEdit}
+                  value={riskResponse}
+                  onChange={(e) => setRiskResponse(e.target.value)}
+                  placeholder="Ex. : plan de reprise, renfort MOA, revue architecture, assurance…"
+                  maxLength={20000}
+                  rows={4}
+                  aria-label="Réponse au risque"
+                />
+              </div>
             </div>
           </div>
 
           {!sheetReadOnlyOverride ? (
-            <div className="space-y-2 border-t border-border/70 pt-4">
-              <p className="text-sm text-muted-foreground">
-                {risksQuery.isLoading
-                  ? 'Chargement du registre des risques…'
-                  : `${risksQuery.data?.length ?? 0} risque(s) sur ce projet.`}{' '}
+            <div
+              className={cn(
+                projectSheetEncartClass,
+                'border-border/65 border-l-[3px] border-l-sky-500/70 bg-card',
+              )}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                    <ShieldAlert className="size-4" aria-hidden />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-foreground">
+                      Registre des risques
+                    </p>
+                    <p className="text-[11px] leading-snug text-foreground">
+                      {risksQuery.isLoading
+                        ? 'Chargement du registre…'
+                        : `${risksQuery.data?.length ?? 0} risque(s) enregistré(s) sur ce projet.`}
+                    </p>
+                  </div>
+                </div>
                 <Link
                   href={projectRisks(projectId)}
-                  className={cn(
-                    buttonVariants({ variant: 'link' }),
-                    'h-auto inline p-0 font-medium text-primary',
-                  )}
+                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'shrink-0')}
                 >
-                  Ouvrir le registre des risques
+                  Ouvrir le registre
                 </Link>
-              </p>
+              </div>
             </div>
           ) : null}
         </CardContent>

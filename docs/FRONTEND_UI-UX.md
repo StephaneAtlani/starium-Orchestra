@@ -56,7 +56,7 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 
 ## 2. Règles express
 
-- Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages. **Texte secondaire** : `text-muted-foreground` ou `.starium-text-muted` → `--color-text-muted` / `--ds-text-muted-color` (**neutral-600** `#5F5A52`, contraste AA sur fond papier — ne pas utiliser neutral-500 pour du corps de texte).
+- Couleurs : **tokens** (`bg-background`, `text-muted-foreground`, `border-border`, `bg-card`, etc.) — pas d’hex arbitraires dans les pages. **Texte secondaire** : `text-muted-foreground` ou `.starium-text-muted` → `--color-text-muted` / `--ds-text-muted-color` (**neutral-900** `#14130F`, quasi primaire — ne pas utiliser neutral-500/600/700/800 pour du corps de texte). **Champs de saisie** : valeur `--color-input-text` (`text-foreground` sur `Input` / `Textarea` / `SelectTrigger`) ; placeholder / select vide → `--color-input-placeholder` (= `--color-text-muted`) — **ne pas** laisser les inputs hériter `text-muted-foreground` d’un parent `Card`.
 - **Bordures / cadres** : ne jamais se contenter de la classe `**border`** seule — sans couleur explicite, Tailwind applique souvent une couleur de bordure **trop contrastée** (effet « noir » sur fond clair). Toujours combiner avec un token : `**border-border`**, `**border-border/60**`, `**border-border/70**`, `**border-input**` (champs), ou `**border-dashed border-border/80**` (zones vides). Les `**Card**` utilisent déjà `.starium-card` (`var(--starium-border)`). Pour un **sous-bloc** dans une carte (formulaire, encart), préférer par ex. `rounded-lg border border-border/70 bg-muted/30 p-4` — filet **gris** cohérent avec le reste de l’UI, pas un trait noir.
 - **Cadres imbriqués** : **ne pas** envelopper une grille de KPI dans une `Card` / `.starium-section` — pattern DS dashboard : **`.starium-module`** (titre + actions, fond app visible) + **`.starium-kpi-card`** par indicateur ; **portefeuille `/projects`** : **`.starium-module`** + grille **4 × `KpiCard` `variant="dense"`** (pastilles icônes sémantiques — **§6.1**). La classe **`.starium-kpi-strip`** reste disponible en CSS pour d’autres écrans (ex. présentation CODIR) mais n’est plus le pattern du bandeau KPI liste projets. Réserver **`.starium-section`** / **`.starium-panel`** à un **seul** bloc (tableau, citation, formulaire). Détail : **§2.1**.
 - **Cartes « synthèse »** (fiche projet, arbitrage) : sous-blocs avec accent latéral possible — voir fiche projet **§11.2**. Les **score cards KPI** (dashboard, budgets) utilisent **§2.1** / **§6** ; le **bandeau KPI portefeuille Projets** utilise **§6.1** (4 × `KpiCard` dense dans `.starium-module`), pas le bandeau coloré latéral fiche projet.
@@ -80,16 +80,18 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-kpi-strip-*` | Sous-éléments du strip (`-grid`, `-group`, `-group-label`, `-items`, `-item-label`, `-item-value`, modificateurs `--ok` / `--warn` / `--danger` / `--muted`) | — |
 | `.starium-section` | Bloc cartonné **unique** (vision, encart) | **Oui** |
 | `.starium-panel` | Panneau données (liste + toolbar) — élévation `shadow-2` sur une `Card` | **Oui** (un niveau) |
-| `.starium-section-title` | Titre de section / `CardTitle` | — |
+| `.starium-section-title` | Titre de section / `CardTitle` — token `--ds-section-title-size` (1,3125rem ; 1,1875rem sur carte `size="sm"`) | — |
+| `.starium-section-subtitle` | Sous-titre carte / `CardDescription` — token `--ds-section-subtitle-size` | — |
+| `.starium-stack` | Empilement vertical de blocs page ou fiche — token `--ds-stack-gap` (2rem) ; utilisé par `PageContainer` et `ProjectSheetView` | — |
 | `.starium-filter-bar` | Barre « Filtrer et trier » (titre + actions) dans un panneau liste | — |
 | `.starium-filter-chip` | Bouton filtre outline ; `--active` = fond or ; `--muted` = Réinitialiser | — |
 | `.starium-tab-group` / `.starium-tab-btn` | Segmented control Tableau / Kanban (actif = or) | — |
 | `.starium-projects-table` | Densité et en-têtes overline du tableau portefeuille Projets ; sous-classes `starium-projects-table-label-row` (ligne libellés) et `starium-projects-table-filter-row` (filtres inline) — voir §7.2 | — |
 | `.starium-table-footer` | Pied pagination panneau liste (mockup Projets) | — |
 | `.starium-overline` | Libellé uppercase 11px (groupes compacts) | — |
-| `.starium-text-muted` | Texte secondaire lisible (descriptions, métadonnées, sous-titres module) — `neutral-600` | — |
+| `.starium-text-muted` | Texte secondaire lisible (descriptions, métadonnées, sous-titres module) — `neutral-900` | — |
 
-**Tokens typo secondaire** (`apps/web/src/styles/tokens.css`) : `--color-text-muted` → `var(--neutral-600)` ; `--ds-text-muted-color` ; `--ds-kpi-label-color` (libellés `.starium-kpi-label` et strip KPI). Préférer `text-muted-foreground` ou `.starium-text-muted` — **ne pas** utiliser `neutral-500` pour du texte de contenu.
+**Tokens typo secondaire** (`apps/web/src/styles/tokens.css`) : `--color-text-muted` → `var(--neutral-900)` ; `--ds-text-muted-color` ; `--ds-kpi-label-color` (libellés `.starium-kpi-label` et strip KPI) ; espacement blocs `--ds-stack-gap`, `--ds-form-grid-gap`, `--ds-form-field-gap` ; titres section `--ds-section-title-size`, `--ds-section-subtitle-size`. Préférer `text-muted-foreground` ou `.starium-text-muted` — **ne pas** utiliser `neutral-500`–`neutral-800` pour du texte de contenu.
 
 **Règle anti « cadre dans cadre »** : grille de N KPI dashboard → `starium-module` + N × `starium-kpi-card`. **Interdit** : `starium-section` > grille de `starium-kpi-card`. Portefeuille Projets : **`starium-module`** + **4 × `KpiCard` dense** (`projects-portfolio-kpi.tsx`) — pas de `Card` parent autour des KPI.
 
@@ -122,7 +124,7 @@ const CONTENT_WRAPPER_GUTTER = `w-full min-w-0 px-4 sm:px-5 starium-workspace-in
 ```tsx
 // apps/web/src/components/layout/page-container.tsx
 export function PageContainer({ children, className }: PageContainerProps) {
-  return <div className={className ?? 'space-y-6'}>{children}</div>;
+  return <div className={className ?? 'starium-stack'}>{children}</div>;
 }
 ```
 
@@ -551,7 +553,7 @@ Seuls **six** motifs sont exposés en chips ; le reste des signaux n’apparaît
 Utiliser `**Alert`**, `**AlertTitle**`, `**AlertDescription**` (`components/ui/alert.tsx`) plutôt qu’un `div` + bordures ad hoc.
 
 - **Erreur bloquante** (API, permissions) : `variant="destructive"` + icône `AlertCircle` (Lucide) en premier enfant.
-- **Avertissement** (ex. permission métier manquante) : `Alert` en `default` avec `className` type `border-amber-500/35 bg-amber-500/5` + `AlertTriangle`, titres en `text-amber-950` / mode sombre explicite.
+- **Avertissement** (ex. permission métier manquante, fiche verrouillée) : `Alert` en `default` (`bg-card`, bordure `border-border/70`) + icône contextuelle (`Lock`, `AlertTriangle`, etc.) ; titres en `text-xs` / `font-semibold` si bandeau compact.
 
 ---
 
@@ -598,14 +600,27 @@ Feature : `features/projects/` (hooks, `project-query-keys`, API).
 
 Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant `**ProjectSheetView**` (`features/projects/components/project-sheet-view.tsx`). Données via `**GET/PATCH /api/projects/:id/project-sheet**` (TanStack Query, autosave debounced) — pas de calcul ROI / priorité côté client (affichage des valeurs API).
 
-**Structure UX (blocs successifs dans des `Card size="sm"`)** : sections étiquetées **A–H** (équipes, résumé & indicateurs, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée en bas de fiche (distincte de la carte équipe) ; titres `**CardTitle`** + séparateurs `**border-t border-border**` entre zones denses dans une même carte.
+**Structure UX (blocs successifs dans des `Card size="sm"`)** : sections étiquetées **A–H** (équipes, résumé & indicateurs, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée en bas de fiche (distincte de la carte équipe) ; conteneur racine **`.starium-stack`** ; titres **`CardTitle`** / **`.starium-section-title`** ; sous-titres **`CardDescription`** / **`.starium-section-subtitle`** ; séparateurs `**border-t border-border**` entre zones denses dans une même carte.
+
+**Verrouillage** (projet `COMPLETED` \| `CANCELLED` \| `ARCHIVED`) : bandeau `Alert` « Fiche verrouillée » en tête de fiche (`bg-card`) ; champs et matrices en lecture seule ; **seul le statut projet** reste modifiable pour réouverture (`PATCH` avec `status` non terminal). Voir RFC-PROJ-012 §6.5.
+
+**Densité formulaire** : scope `projectSheetChromeClass` — inputs / selects / textareas / labels en **`text-xs`**, hauteur contrôle `h-8` ; grilles champs **`gap-5`** (`projectSheetFieldGridClass`, **`text-foreground`** sur la grille et les libellés inline) ; hints combobox parent en **`text-foreground`**.
 
 **Équipe vs RASCI** :
 
-- **`ProjectTeamMatrix`** — rôles équipe projet + affectation membres (`GET/PATCH /api/projects/:id/team`, rôles client `team-roles`).
-- **`ProjectRaciMatrix`** — grille **actions × acteurs (rôles)** ; cellule = une lettre `R` / `A` / `S` / `C` / `I` (`ProjectRaciKind`) ; règle métier **un seul A par action** (côté API) ; 8 actions BPM par défaut au premier accès ; cycle UI avec confirmation ~1,8 s avant de remplacer un A existant ; libellés métier uniquement (jamais d’UUID en colonnes). API : `GET|PATCH /api/projects/:projectId/team-raci`, `POST|DELETE …/raci-actions`. Permission édition : `projects.update`.
+**Équipes impliquées (section A)** :
+
+- `**CardTitle**` + icône `**UsersRound**` ; encart indigo (`**projectSheetEncartClass**` + `**border-l-indigo-500/70**`) ; `**textarea**` multi-lignes (max 2000 car.) + compteur ; badge **« Organisation »**.
+
+- **`ProjectTeamMatrix`** — tableau compact **Rôle · Ressource · Actions** (une ligne par rôle, membres inline, menu `⋯` par rôle) ; confirmation avant retrait membre ; `readOnly` si fiche verrouillée.
+- **`ProjectRaciMatrix`** — grille **actions × acteurs (rôles)** ; cellule = une lettre `R` / `A` / `S` / `C` / `I` (`ProjectRaciKind`) ; règle métier **un seul A par action** (côté API) ; 8 actions BPM par défaut au premier accès ; cycle UI avec confirmation ~1,8 s avant de remplacer un A existant ; libellés métier uniquement (jamais d’UUID en colonnes) ; `readOnly` si fiche verrouillée. API : `GET|PATCH /api/projects/:projectId/team-raci`, `POST|DELETE …/raci-actions`. Permission édition : `projects.update`.
 
 **Indicateurs de lecture** (sous-bloc dans la carte « Résumé ») :
+
+**Identité & cadrage** (section B, bloc supérieur) :
+
+- Zone `**h4**` + badge **« Fiche projet »** ; grille `**lg:grid-cols-2**` (nom + période) puis `**sm:grid-cols-2 lg:grid-cols-3**` (code, type, nature, statut, criticité) via tuiles `**ProjectSheetMetaTile**` (accent latéral, icône, hint).
+- **Hiérarchie** : encart teal + `**ProjectParentField**`.
 
 - En-tête de zone : `**h4`** + `**Badge variant="secondary"**` (ex. libellé « Décision ») + paragraphe `**text-xs text-muted-foreground**` (max ~2 lignes).
 - Grille `**grid gap-3 sm:grid-cols-2 xl:grid-cols-4**` : quatre cartes avec **bandeau gauche** coloré par axe (ROI, priorité portefeuille, ROE / scores, COPIL), icônes Lucide, **séparateur** `border-t border-border/60` avant le pied d’encart si besoin.
@@ -616,6 +631,25 @@ Route typique : `app/(protected)/projects/[projectId]/page.tsx` — composant `*
 - Même langage visuel : `**pt-8`**, titre `**h4**` + badge **« 3 niveaux »**, grille `**sm:grid-cols-3`**.
 - Carte par niveau : `**rounded-xl p-4 shadow-sm**`, accent `**border-l-[3px]**` + fond léger selon **statut** (validé / refus / soumis à validation / en cours / brouillon) ; **badge « Verrouillé »** si le niveau précédent n’est pas validé ; **icônes** distinctes par niveau ; **séparateurs** `border-t border-border/50` avant statut, motif de refus ou message de lecture seule.
 
+**Valeur métier (section C)** :
+
+- `**CardDescription**` sous-titre ; blocs séparés par `**border-t border-border/70 pt-8**`.
+- **Description** : encart `**projectSheetEncartClass**` (`rounded-xl border border-border/70 bg-muted/20 p-4`).
+- **Scores ROE** : grille `**sm:grid-cols-3**` de tuiles `**BusinessValueScoreTile**` (accent latéral emerald / sky / amber, icône, `Select` 1–5, barre de niveau) — même langage que la tuile ROE en synthèse (§11.2).
+- **Objectifs & gains** : grille `**lg:grid-cols-2**`, encarts avec icônes `Target` / `TrendingUp`.
+- **Indicateurs** : liste ordonnée numérotée (`**ol**` + pastille index) dans encart carte.
+
+**Arbitrage financier (section D)** :
+
+- `**CardDescription**` + zone **Enveloppe projet** (`**h4**` + badge) ; grille `**sm:grid-cols-2**` de tuiles `**FinancialAmountTile**` (coût rose / gain emerald, icône `Wallet` / `TrendingUp`, montant formaté EUR).
+- Encart **ROI financier (lecture)** : accent emerald, `**Percent**`, valeur `fmtRoi` + hint contextuel (aligné tuile ROI section B).
+
+**Risque & registre (section E)** :
+
+- `**CardTitle**` + `**AlertTriangle**` ; **Synthèse de lecture** : grille 3 tuiles `**ProjectSheetMetaTile**` (niveau affiché, priorité portefeuille, risques critiques P×I).
+- **Paramétrage fiche** : tuile select niveau + encart ambre **Réponse au risque** (`**textarea**`).
+- Encart sky **Registre des risques** + CTA `**Ouvrir le registre**` (lien `projectRisks`).
+
 **Référence** : RFC-PROJ-012, [docs/modules/projects-mvp.md](./modules/projects-mvp.md).
 
 ### 11.3 Détail projet — aperçu / synthèse (`ProjectSynthesisOverviewCards`)
@@ -625,7 +659,9 @@ Route : `/projects/[projectId]` (onglet **Synthèse** par défaut dans `ProjectW
 **Ordre des blocs** (classe `.starium-proj-synthesis`) :
 
 1. **`ProjectPostMortemOverviewBanner`** — uniquement si projet **`COMPLETED` \| `CANCELLED` \| `ARCHIVED`** ; bandeau accent ambre (`ProjectReviewsContextBanner`, variante `overview`) ; CTA prioritaire REX ; éditeur **`ProjectReviewEditorDialog`** ouvert depuis l’aperçu ; deep link `?openReview=<id>`.
-2. Grille **4 cartes** `.starium-ov-card` (jalon, équipe, indicateurs, dernière MAJ).
+2. Grille aperçu **2 lignes** (`.starium-proj-overview-grid`) :
+   - **Ligne 1** — bandeau **`ProjectCommitteeMoodOverviewCard`** (météo du comité : dernière valeur connue, point source, lien points projet) ;
+   - **Ligne 2** — **4 cartes** `.starium-ov-card` (jalon, équipe, indicateurs, dernière MAJ) dans `.starium-proj-overview-grid__core`.
 3. **`ProjectPilotageAttentionPanel`** — si `project.warnings` non vide ; liste d’écarts avec libellés métier (`projectWarningLabel`), hints actionnables, lien fiche projet ; accent ambre ou rouge selon criticité.
 4. **`ProjectSynthesisRecentData`**, **`ProjectBudgetSynthesis`** (`variant="overview"`).
 
@@ -649,6 +685,7 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (layout **`starium
 | **Header** | `.starium-modal__header` : icône or (`DialogHeaderIcon`) + titres + croix **haut droite** (`.starium-modal__close`). |
 | **Fermeture** | `showCloseButton` (défaut `true`) ; `aria-label="Fermer"`. |
 | **Corps** | `.starium-modal__body` ; formulaires `.starium-form` + `.starium-form-*`. |
+| **Statut** | `.starium-modal__status` — bandeau sous le header (icône + badge + hint ; variante riche dans l’éditeur point projet) |
 | **Pied** | `.starium-modal__footer` : Annuler `outline` + primaire or, alignés à droite. |
 
 #### 11.4.1 Modale Starium — gabarit obligatoire
@@ -658,7 +695,7 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (layout **`starium
 | **Composant rapide** | **`StariumModal`** si icône + titre + sous-titre + footer. |
 | **Custom** | `Dialog` + `DialogContent` + `DialogHeader` / `DialogBody` / `DialogFooter`. |
 | **Sections corps** | `.starium-modal-seg-title` entre blocs. |
-| **États** | `LoadingState`, `EmptyState`, `Alert` destructive. |
+| **États** | `LoadingState`, `EmptyState` (espacement via `cn()` — classes de base fusionnées avec `className`), `Alert` destructive. |
 
 **Références** : `strategic-vision-edit-dialog.tsx`, `strategic-vision-workflow-dialog.tsx`, `dialog.spec.tsx`.
 

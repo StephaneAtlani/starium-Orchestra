@@ -4,7 +4,7 @@
 
 **Partiellement implémenté** — priorité produit maintenue.
 
-**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + statuts par niveau dont `SOUMIS_VALIDATION` + motifs de refus si `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`, intégration **cycles de pilotage** (select Soumis à validation → dialog programme, §6.3). **Navigation** : entrée **Projets** en menu déroulant (Portefeuille `/projects`, page placeholder **Option** `/projects/options`) — `apps/web/src/config/navigation.ts` + `sidebar.tsx`. Données strictement scopées `clientId` via guards existants.
+**Réalisé dans le repo** : module `apps/api/src/modules/projects/project-sheet/` (`ProjectSheetController`, `ProjectSheetService`, DTO `UpdateProjectSheetDto`) ; schéma Prisma `Project` étendu (cadrage, SWOT/TOWS, arbitrage à trois niveaux + statuts par niveau dont `SOUMIS_VALIDATION` + motifs de refus si `REFUSE`, etc.) ; UI fiche sur le détail projet (`ProjectSheetView`) avec autosave, édition **type** et **statut** cycle de vie (`ProjectType` / `ProjectStatus`) sous `projects.update`, intégration **cycles de pilotage** (select Soumis à validation → dialog programme, §6.3) ; **verrouillage fiche** lorsque le projet est au statut terminal `COMPLETED`, `CANCELLED` ou `ARCHIVED` (§6.5). **Navigation** : entrée **Projets** en menu déroulant (Portefeuille `/projects`, page placeholder **Option** `/projects/options`) — `apps/web/src/config/navigation.ts` + `sidebar.tsx`. Données strictement scopées `clientId` via guards existants.
 
 **Encore couvert par la vision RFC mais non exhaustivement dans ce fichier** : métriques portefeuille agrégées, règles de décision « APPROVED / ON_HOLD » au-delà du modèle arbitrage actuel, page dédiée `/projects/[id]/sheet` isolée (la fiche est intégrée au détail projet).
 
@@ -229,6 +229,31 @@ Chaque niveau (métier → comité → sponsor / CODIR) a un statut `ProjectArbi
 
 ---
 
+## 6.5 Verrouillage fiche (statuts terminaux)
+
+Lorsque `Project.status` est **`COMPLETED`**, **`CANCELLED`** ou **`ARCHIVED`**, la fiche projet est **figée** (lecture seule côté UI et refus des écritures API liées à la fiche).
+
+**Helper partagé** : `apps/api/src/modules/projects/lib/project-sheet-editing-locked.ts` (`isProjectSheetEditingLocked`, `assertProjectSheetEditable`, `assertProjectSheetPatchAllowed`).
+
+**Écritures refusées** (`400 Bad Request`, message explicite) si le statut projet est terminal :
+
+* `PATCH /api/projects/:id/project-sheet` (y compris arbitrage via `POST …/arbitration`)
+* mutations équipe : `POST|PATCH|DELETE …/team*`, `PATCH …/team-raci`, `POST|DELETE …/raci-actions`
+* mutations jalons : `POST|PATCH|DELETE …/milestones*` (hors `GET` liste / détail)
+* mutations risques projet : `POST|PATCH|DELETE …/risks*`
+
+**Exception — réouverture** : un `PATCH …/project-sheet` qui change `status` vers un statut **non terminal** est accepté (ex. repasser de `COMPLETED` à `IN_PROGRESS`). Le corps peut contenir les autres champs ; le serveur valide uniquement la transition de statut pour déverrouiller.
+
+**UI (`ProjectSheetView`)** :
+
+* bandeau `Alert` « Fiche verrouillée » (`bg-card`, bordure `border-border/70`) ;
+* tous les champs en lecture seule **sauf** le select **Statut** (`projects.update`) pour permettre la réouverture ;
+* `ProjectTeamMatrix` et `ProjectRaciMatrix` reçoivent `readOnly={true}` ; autosave désactivé.
+
+**Miroir frontend** : `apps/web/src/features/projects/lib/project-sheet-editing-locked.ts`.
+
+---
+
 # 7. API
 
 **Préfixe global** : `/api`. **Isolation** : toutes les routes ci-dessous passent par `ActiveClientGuard` ; le projet doit appartenir au client actif.
@@ -409,10 +434,10 @@ Deux options :
 
 **Équipe et RASCI** (hors corps RFC initial, livré 2026-07) :
 
-* **`ProjectTeamMatrix`** — rôles et membres (`/api/projects/:id/team`).
-* **`ProjectRaciMatrix`** — matrice **actions × acteurs** (rôles équipe) ; lettres R/A/S/C/I ; règle **un A par action** (API) ; section distincte en bas de fiche ; voir `docs/API.md` §21 « Équipe projet et matrice RASCI ».
+* **`ProjectTeamMatrix`** — tableau compact **3 colonnes** (Rôle · Ressource · Actions) ; une ligne par rôle ; menu `⋯` pour affecter / supprimer le rôle ; confirmation avant retrait d’un membre ; prop `readOnly` si fiche verrouillée (§6.5).
+* **`ProjectRaciMatrix`** — matrice **actions × acteurs** (rôles équipe) ; lettres R/A/S/C/I ; règle **un A par action** (API) ; section distincte en bas de fiche ; prop `readOnly` si fiche verrouillée ; voir `docs/API.md` §21 « Équipe projet et matrice RASCI ».
 
-**UX** : blocs **A–H** (équipes, résumé & indicateurs de lecture, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée ; **indicateurs de lecture** regroupent en cartes synthétiques le ROI, la priorité portefeuille, les critères valeur (ROE / scores) et la recommandation COPIL.
+**UX** : empilement des cartes via **`.starium-stack`** (`--ds-stack-gap`) ; titres `CardTitle` / **`.starium-section-title`** (tokens `--ds-section-title-size`, `--ds-section-title-size-sm` sur cartes `size="sm"`) ; sous-titres **`CardDescription`** / **`.starium-section-subtitle`** ; champs fiche en **`text-xs`** via `projectSheetChromeClass` ; grilles champs **`gap-5`** ; blocs **A–H** (équipes, résumé & indicateurs de lecture, valeur métier, financier, risques, SWOT, TOWS, rétroplanning) ; **matrice RASCI** en section dédiée ; **indicateurs de lecture** regroupent en cartes synthétiques le ROI, la priorité portefeuille, les critères valeur (ROE / scores) et la recommandation COPIL.
 
 **Piste optionnelle** : route dédiée `/projects/[id]/sheet` si l’on veut une page plein écran plus tard.
 

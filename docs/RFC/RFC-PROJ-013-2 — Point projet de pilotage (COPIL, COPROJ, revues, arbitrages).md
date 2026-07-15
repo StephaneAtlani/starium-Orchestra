@@ -13,11 +13,12 @@
 - **Prisma** : [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma) — `ProjectReviewStatus` (`PREPARING`, `SCHEDULED`, `IN_PROGRESS` + legacy `DRAFT`/`PLANNED`/`IN_REVIEW`), `ProjectReviewType` (+ `PROJECT_REVIEW`, `BUDGET_REVIEW`, `ARBITRATION`, `CRISIS_POINT`, `OTHER`), `ProjectReviewAgendaItemType`, `ProjectReviewAttachmentType`, `ProjectReviewDecisionType`, `ProjectReviewDecisionStatus`. Modèle **`ProjectReviewAttachment`** ; champs review : `objective`, `periodStart`/`periodEnd`, `durationMinutes`, `reviewDate` nullable, `cancelledAt`/`cancelledByUserId`, `createdByUserId` ; agenda : `itemType`, `objective`, `expectedDecision` ; décisions : `decisionType`, `status`, `decidedByUserId`, `decidedAt`, `impact` ; actions : `decisionId`, `description`, `priority`. Default statut : **`PREPARING`**.
 - **Migrations** (découpage A→J) : `apps/api/prisma/migrations/20260705180000` … `20260705180900` — enum statuts, champs additifs, data migration `PLANNED`→`SCHEDULED` / `IN_REVIEW`→`IN_PROGRESS` / `DRAFT`→`PREPARING`, types rituel, default `PREPARING`, agenda typé, attachments, décisions, actions enrichies.
 - **Backend** : [`apps/api/src/modules/projects/project-reviews/`](../../apps/api/src/modules/projects/project-reviews/) — `project-review-status.helpers.ts`, `project-review-meeting.validation.ts` (`creationMode` : `PREPARING` \| `SCHEDULED` \| `IMMEDIATE` ; alias legacy `PLANNED`→`SCHEDULED`), `ProjectReviewsService` (`schedule`, `start`, alias `startReview`), `ProjectReviewAttachmentsService` + `project-review-attachments.controller.ts`, `project-reviews-snapshot.builder.ts` (**`schemaVersion: 2`**). Enregistrement dans [`projects.module.ts`](../../apps/api/src/modules/projects/projects.module.ts). Isolation `clientId` + `projectId` sur toutes les opérations.
-- **API** (préfixe `/api`) : routes existantes + **`POST …/schedule`**, **`POST …/start`** (alias **`POST …/start-review`**), **`POST|PATCH|DELETE …/attachments`**. Invitations (`POST …/invite`) : revue **`SCHEDULED`** (legacy `PLANNED` toléré). Permissions inchangées : `projects.read` / `projects.update`.
+- **API** (préfixe `/api`) : routes existantes + **`POST …/schedule`**, **`POST …/start`** (alias **`POST …/start-review`**), **`POST|PATCH|DELETE …/attachments`**, **`GET …/report-preview`**, **`POST …/send-report`** (**`FINALIZED` only**). Invitations (`POST …/invite`) : revue **`SCHEDULED`** (legacy `PLANNED` toléré). Permissions inchangées : `projects.read` / `projects.update`.
 - **Snapshot v2** : généré au `finalize` ; métadonnées review (`objective`, période), ODJ typé, décisions/actions enrichies, attachments **sans URL** ; exclusion `meetingUrl` / emails externes (`snapshotContainsSensitiveUrls()` testé).
 - **Audit** : `project.review.created|updated|started|finalized|cancelled`, `project.review.attachment.added|updated|removed`, `project.review.agenda_item.*`, `project.review.participant.*` ; **jamais** `meetingUrl` ni `url` attachment en clair.
-- **Frontend** : [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) — **7 onglets** (Vue générale, ODJ, Participants, Décisions, Actions, Pièces jointes, Historique) ; logistique réunion en bloc repliable **Planification** (lieu, visio, [`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)) ; **CTA footer contextuels** selon statut : **« Planifier le point »** (`PREPARING`), **« Envoyer / Renvoyer les notifications »** + **« Démarrer le point »** (`SCHEDULED`), **« Finaliser le point »** (`IN_PROGRESS`) — helpers [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts) (`canScheduleReview`, `canStartReview`, `hasReviewInvitationsSent`). Sections : `review-agenda-section`, `review-decisions-section`, `review-actions-section`, `review-attachments-section`, `review-history-section`. Création : [`project-review-create-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-create-dialog.tsx) — date optionnelle, `PREPARING` par défaut. API/types : [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), [`project.types.ts`](../../apps/web/src/features/projects/types/project.types.ts), [`project-enum-labels.ts`](../../apps/web/src/features/projects/constants/project-enum-labels.ts).
-- **Tests** : **51** tests unitaires backend sous `apps/api/src/modules/projects/project-reviews/` (service, attachments, snapshot, agenda, invitations) ; **frontend** : [`project-review-status.spec.ts`](../../apps/web/src/features/projects/lib/project-review-status.spec.ts) (règles CTA planifier / démarrer / invitations).
+- **Frontend** : [`project-review-editor-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) — **7 onglets** (Vue générale, ODJ, Participants, Décisions, Actions, Pièces jointes, Historique) ; bandeau statut modale [`ReviewEditorModalStatus`](../../apps/web/src/features/projects/components/project-review-editor-dialog.tsx) (icône + badge + date + hint) ; logistique réunion en bloc repliable **Planification** (lieu, visio, [`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)) ; **météo du comité** (`contentPayload.committeeMood`, onglet Clôture en conduite / Vue générale en modale) ; **CTA footer** (modale) : **« Planifier »** / **« Renvoyer les invitations »** (action unifiée : sauvegarde planning, ODJ modèle si vide, `schedule` si `PREPARING`, `POST …/invite` avec `channels: ['in_app','email']`, **modale de confirmation**) + **« Démarrer le point »** (`SCHEDULED`, confirmation) + **« Finaliser »** (`IN_PROGRESS`) ; **aperçu / envoi compte rendu** uniquement en **`FINALIZED`** — helpers [`lib/project-review-status.ts`](../../apps/web/src/features/projects/lib/project-review-status.ts) (`canScheduleReview`, `canStartReview`, `hasReviewInvitationsSent`, `canPreviewOrSendReviewReport`). Sections : `review-agenda-section`, `review-decisions-section`, `review-actions-section`, `review-attachments-section`, `review-history-section`, [`review-report-preview-dialog.tsx`](../../apps/web/src/features/projects/components/review-report-preview-dialog.tsx). Création : [`project-review-create-dialog.tsx`](../../apps/web/src/features/projects/components/project-review-create-dialog.tsx) — modes **`PREPARING`** (défaut) et **`IMMEDIATE`** uniquement (plus de tuile « Planifier » à la création ; planification depuis l’éditeur) ; participants : select membre **sans e-mail affiché**, cases Présent/Requis sur la même ligne. **Aperçu projet** : [`ProjectCommitteeMoodOverviewCard`](../../apps/web/src/features/projects/components/project-committee-mood-overview-card.tsx) (bandeau 2 lignes, grille `.starium-proj-overview-grid`) alimenté par `GET /projects/:id` (`committeeMood*`). API/types : [`project-reviews.api.ts`](../../apps/web/src/features/projects/api/project-reviews.api.ts), [`project.types.ts`](../../apps/web/src/features/projects/types/project.types.ts), [`project-enum-labels.ts`](../../apps/web/src/features/projects/constants/project-enum-labels.ts).
+- **Compte rendu e-mail** : [`project-review-report.builder.ts`](../../apps/api/src/modules/projects/project-reviews/project-review-report.builder.ts) — KPI **« Météo du comité »** (icônes soleil/nuage/pluie, libellés Ensoleillé/Mitigé/Difficile) ; résolution via [`project-review-committee-mood.helpers.ts`](../../apps/api/src/modules/projects/project-reviews/project-review-committee-mood.helpers.ts) (point courant `contentPayload` → snapshot → dernier point finalisé).
+- **Tests** : **51+** tests unitaires backend sous `apps/api/src/modules/projects/project-reviews/` (service, attachments, snapshot, agenda, invitations, compte rendu, météo comité) ; **frontend** : [`project-review-status.spec.ts`](../../apps/web/src/features/projects/lib/project-review-status.spec.ts) (règles CTA planifier / démarrer / CR).
 - **Seed démo** : [`seed-project-demo-reviews.ts`](../../apps/api/prisma/seed-project-demo-reviews.ts) — statuts `PREPARING` / `SCHEDULED` / `IN_PROGRESS` / `FINALIZED` / `CANCELLED` ; exemple **PREPARING sans date** sur SEED-01.
 
 ## Dépendances
@@ -655,7 +656,10 @@ Risques abordés
 Arbitrages
 Points non traités
 Prochaines étapes
+Météo du comité (figée à la finalisation — `review.committeeMood` depuis `contentPayload.committeeMood`)
 ```
+
+Source : `contentPayload.committeeMood` (`GREEN` \| `ORANGE` \| `RED`) saisi en réunion ; exposée sur la synthèse projet via `loadLatestCommitteeMoodForProject` (point en cours puis points finalisés, scope **`clientId`**).
 
 Le snapshot ne doit **jamais** contenir :
 
@@ -706,6 +710,17 @@ Documents / liens
 Notes préparatoires
 ```
 
+**Création (modale `project-review-create-dialog`)** — intention :
+
+```text
+Préparer     → creationMode PREPARING (défaut) — brouillon, date optionnelle
+Saisir maintenant → creationMode IMMEDIATE — ouvre l’éditeur / conduite
+```
+
+> La planification (`SCHEDULED`) et l’envoi d’invitations se font **depuis l’éditeur** (footer **Planifier**), pas à la création. Le mode `PLANNED`/`SCHEDULED` en payload create reste supporté côté API (intégrations) mais **n’est plus proposé** dans la modale de création.
+
+Participants à la création : une ligne par membre — **select** (libellé nom uniquement) + cases **Présent** / **Requis** ; pas de champ « nom affiché » séparé.
+
 ## 15.3 Formulaire « Ajouter un point à l’ordre du jour »
 
 Champs :
@@ -742,14 +757,30 @@ CTA contextuels selon le statut — implémentés dans [`project-review-editor-d
 
 | Statut | CTA footer | Route / comportement |
 | ------ | ---------- | -------------------- |
-| `PREPARING` | **Planifier le point** | `POST …/schedule` — `reviewDate` requis ; passage en `SCHEDULED` |
-| `SCHEDULED` | **Envoyer les notifications** / **Renvoyer…** | `POST …/invite` — in-app par défaut depuis le footer ; e-mail / Teams / calendrier via bloc **Planification** ([`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)) |
-| `SCHEDULED` | **Démarrer le point** | `POST …/start` → `IN_PROGRESS` ; affiché en secondaire tant qu’aucune invitation in-app n’a été envoyée |
+| `PREPARING` | **Planifier** | Modale de confirmation puis : sauvegarde planning, application modèle ODJ si vide, `POST …/schedule` (`reviewDate` requis), `POST …/invite` avec **`channels: ['in_app','email']`** |
+| `SCHEDULED` | **Planifier** (1ère fois) ou **Renvoyer les invitations** | Même action unifiée : `POST …/invite` in-app + e-mail (lien point + visio si renseignée) ; confirmation obligatoire |
+| `SCHEDULED` | **Démarrer le point** | `POST …/start` → `IN_PROGRESS` ; confirmation obligatoire ; redirection conduite de séance |
 | `IN_PROGRESS` | **Finaliser le point** | `POST …/finalize` |
+| `FINALIZED` | **Prévisualiser** / **Envoyer le compte rendu** | Génération HTML ([`project-review-report.builder.ts`](../../apps/api/src/modules/projects/project-reviews/project-review-report.builder.ts)) ; envoi async e-mail |
+
+> **Invitations avancées** : e-mail seul, Teams, calendrier Outlook restent configurables en opt-in dans le bloc **Planification** ([`review-invitations-section.tsx`](../../apps/web/src/features/projects/components/review-invitations-section.tsx)). Le footer **Planifier** envoie systématiquement in-app + e-mail standard.
+
+> **Auto-invite à la création** (API) : si `creationMode` planifié + participants internes, `tryAutoInvite` n’envoie que **`in_app`** — pas d’e-mail automatique à la création.
 
 > **Écart API / UI** : l’API `start` accepte encore `PREPARING` (rétrocompatibilité, intégrations) ; l’UI **n’expose** « Démarrer le point » qu’en `SCHEDULED` pour imposer le flux planification → diffusion → tenue.
 
-> **Rappels** : pas de job planifié de rappel ; re-cliquer « Renvoyer les notifications » fait office de rappel manuel (RFC-PROJ-013-1 §13).
+> **Rappels** : pas de job planifié de rappel ; re-cliquer **Renvoyer les invitations** fait office de rappel manuel (RFC-PROJ-013-1 §13).
+
+## 15.6 Météo du comité
+
+Saisie en réunion (`contentPayload.committeeMood`) — libellés UI **Serein / Mitigé / Difficile** ; compte rendu e-mail **Ensoleillé / Mitigé / Difficile**.
+
+| Contexte | Composant / API |
+| -------- | ---------------- |
+| Conduite (`IN_PROGRESS`, page) | Onglet **Clôture** — `CommitteeMoodPicker` |
+| Éditeur modale (`PREPARING`/`SCHEDULED`) | Vue générale — section « Météo du comité » |
+| Synthèse projet | [`ProjectCommitteeMoodOverviewCard`](../../apps/web/src/features/projects/components/project-committee-mood-overview-card.tsx) — bandeau ligne 1 (titre + valeur), ligne 2 (point source + date + lien) |
+| Compte rendu | KPI HTML « Météo du comité » ; non renseignée si absent |
 
 ---
 
@@ -965,17 +996,19 @@ La RFC est validée si :
 - [ ] un utilisateur peut ajouter des documents et liens au point projet ;
 - [ ] un utilisateur peut rattacher un document à un point d’ordre du jour ;
 - [ ] un utilisateur peut planifier le point seulement quand nécessaire ;
-- [ ] en `PREPARING`, le footer propose **Planifier le point** (pas « Démarrer ») ;
-- [ ] en `SCHEDULED`, le footer propose **Envoyer les notifications** avant **Démarrer le point** ;
+- [ ] en `PREPARING`, le footer propose **Planifier** (pas « Démarrer ») ;
+- [ ] **Planifier** ouvre une confirmation récap (date, ODJ, participants, canaux) puis planifie et envoie in-app + e-mail ;
+- [ ] en `SCHEDULED`, le footer propose **Planifier / Renvoyer les invitations** et **Démarrer le point** (avec confirmation) ;
+- [ ] **Démarrer le point** ouvre une confirmation avant passage en `IN_PROGRESS` ;
 - [ ] un utilisateur peut démarrer la tenue du point ;
 - [ ] un utilisateur peut saisir décisions, actions, responsables et intervenants ;
 - [ ] un utilisateur peut finaliser le point ;
 - [ ] le snapshot final est figé et ne contient pas de données sensibles logistiques ;
 - [ ] la logistique Teams/email/calendrier reste secondaire en UX ;
 - [ ] l’interface parle de **pilotage**, pas seulement de réunion ;
+- [ ] la météo du comité est saisissable en réunion, visible sur la synthèse projet et dans le compte rendu finalisé ;
+- [ ] prévisualisation / envoi du compte rendu réservés au statut **`FINALIZED`** ;
 - [ ] tous les champs relationnels affichent des **libellés métier**, jamais un ID brut.
-
----
 
 # 22. Phrase produit de référence
 
@@ -1153,7 +1186,7 @@ Le module doit répondre à l’objectif principal de Starium Orchestra :
 | -------- | ----------- |
 | **Layout** | Onglets empilés ; cartes ODJ sur mobile au lieu de tableau dense |
 | **Tableaux** | Colonnes prioritaires ; scroll horizontal contrôlé si nécessaire |
-| **Actions** | Boutons « Planifier le point », « Envoyer les notifications », « Démarrer le point », « Finaliser » accessibles pouce |
+| **Actions** | Boutons **Planifier**, **Démarrer le point**, **Finaliser** accessibles pouce (≥ 44px) ; confirmations modales avant planification et démarrage |
 | **Modales** | Plein écran mobile pour formulaires action / décision |
 
 ---

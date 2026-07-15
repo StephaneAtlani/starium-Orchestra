@@ -1082,7 +1082,7 @@ Cette section décrit rapidement **l’état réel** du frontend dans `apps/web`
 Règles concrètes :
 
 - Toujours utiliser les **couleurs de thème** (`bg-card`, `text-muted-foreground`, `border-border`, `bg-sidebar`, `text-sidebar-foreground`), **jamais** d’hex direct dans les composants.
-- Pour le texte de contenu (tables, body de card), utiliser `text-card-foreground` / `text-muted-foreground` (alias `--color-text-muted` → **neutral-600**) ou `.starium-text-muted` plutôt que `text-foreground` ou `neutral-500`.
+- Pour le texte de contenu (tables, body de card), utiliser `text-card-foreground` / `text-muted-foreground` (alias `--color-text-muted` → **neutral-900**) ou `.starium-text-muted` plutôt que `text-foreground` ou `neutral-500`–`neutral-800`.
 - Pour les bordures, utiliser `border`, `border-border`, ou les `ring-*` déjà branchés sur les variables.
 
 ### 30.3 Tables & listes (pattern DataTable)

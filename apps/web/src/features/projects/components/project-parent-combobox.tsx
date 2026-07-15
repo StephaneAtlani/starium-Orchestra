@@ -198,8 +198,7 @@ export function ProjectParentCombobox({
             else openList();
           }}
           className={cn(
-            'starium-form-select flex w-full items-center justify-between gap-2 text-left',
-            !value && 'text-muted-foreground',
+            'starium-form-select flex w-full items-center justify-between gap-2 text-left text-foreground',
             disabled && 'cursor-not-allowed opacity-60',
           )}
         >
@@ -216,7 +215,7 @@ export function ProjectParentCombobox({
           </p>
         ) : null}
         {hint && !errorText ? (
-          <p id={`${triggerId}-hint`} className="starium-form-hint">
+          <p id={`${triggerId}-hint`} className="starium-form-hint text-foreground">
             {hint}
           </p>
         ) : null}
