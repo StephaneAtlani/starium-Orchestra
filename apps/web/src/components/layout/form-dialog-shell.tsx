@@ -50,6 +50,8 @@ export type StariumModalProps = {
   bodyClassName?: string;
   id?: string;
   footer?: ReactNode;
+  /** Classes additionnelles sur le pied de modale (ex. compact). */
+  footerClassName?: string;
   children?: ReactNode;
 };
 
@@ -76,6 +78,7 @@ export function StariumModal({
   bodyClassName,
   id,
   footer,
+  footerClassName,
   children,
 }: StariumModalProps) {
   const withStandardHeader = !headless && !sidePanel && !chatWidget && layout === 'starium';
@@ -121,7 +124,7 @@ export function StariumModal({
 
         <DialogBody className={bodyClassName}>{children ?? null}</DialogBody>
 
-        {footer ? <DialogFooter>{footer}</DialogFooter> : null}
+        {footer ? <DialogFooter className={footerClassName}>{footer}</DialogFooter> : null}
       </DialogContent>
     </Dialog>
   );

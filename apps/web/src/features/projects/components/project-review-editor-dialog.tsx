@@ -1979,7 +1979,8 @@ export function ProjectReviewEditorDialog({
 
   const footerActionClass = isPage
     ? 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9'
-    : 'min-h-11 shrink-0 px-3 text-sm sm:min-h-9 sm:h-9';
+    : 'shrink-0';
+  const footerButtonSize = isPage ? undefined : ('sm' as const);
 
   const planReviewPending =
     scheduleReview.isPending ||
@@ -1990,21 +1991,29 @@ export function ProjectReviewEditorDialog({
   const editorFooterContent = d ? (
     <div
       className={cn(
-        'flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1',
-        isPage && 'max-lg:flex-col max-lg:items-stretch max-lg:gap-2 lg:gap-y-0',
+        'flex w-full items-center justify-between gap-2',
+        isPage
+          ? 'max-lg:flex-col max-lg:items-stretch max-lg:gap-2 lg:flex-wrap lg:gap-y-0'
+          : 'flex-nowrap',
       )}
     >
-      <div className="flex flex-wrap items-center gap-2 max-lg:w-full">
+      <div
+        className={cn(
+          'flex items-center gap-2',
+          isPage ? 'max-lg:w-full max-lg:flex-wrap' : 'shrink-0 flex-nowrap',
+        )}
+      >
         <Button
           type="button"
           variant="outline"
+          size={footerButtonSize}
           className={footerActionClass}
           onClick={handleClose}
         >
           {isPage ? 'Retour aux points' : 'Fermer'}
         </Button>
         {editable && !isPage ? (
-          <span className="text-xs text-muted-foreground" aria-live="polite">
+          <span className="sr-only" aria-live="polite">
             {update.isPending
               ? 'Enregistrement…'
               : isPostMortemReview
@@ -2018,16 +2027,22 @@ export function ProjectReviewEditorDialog({
           </span>
         ) : null}
         {!isPage && canStart && startReview.isSuccess ? (
-          <span className="text-xs text-muted-foreground" aria-live="polite">
+          <span className="sr-only" aria-live="polite">
             Point démarré — vous pouvez saisir le compte rendu.
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-nowrap items-center gap-2">
+      <div
+        className={cn(
+          'flex shrink-0 flex-nowrap items-center',
+          isPage ? 'gap-2' : 'min-w-0 gap-1.5 overflow-x-auto',
+        )}
+      >
         {!isPage && (canSchedule || canStart) && canEdit ? (
           <Button
             type="button"
             variant={canStart && invitationsSent ? 'outline' : 'default'}
+            size={footerButtonSize}
             className={footerActionClass}
             onClick={() => void onRequestPlanReview()}
             disabled={planReviewPending}
@@ -2045,6 +2060,7 @@ export function ProjectReviewEditorDialog({
           <Button
             type="button"
             variant={invitationsSent ? 'default' : 'outline'}
+            size={footerButtonSize}
             className={footerActionClass}
             onClick={() => void onRequestStartReview()}
             disabled={startReview.isPending}
@@ -2056,11 +2072,12 @@ export function ProjectReviewEditorDialog({
           <Button
             type="button"
             variant="outline"
+            size={footerButtonSize}
             className={footerActionClass}
             onClick={() => void onPreviewReport()}
             disabled={reportPreviewLoading || reportPreview.isPending}
           >
-            <Eye className="size-4" aria-hidden />
+            <Eye aria-hidden />
             {reportPreviewLoading || reportPreview.isPending ? 'Aperçu…' : 'Prévisualiser'}
           </Button>
         ) : null}
@@ -2068,11 +2085,12 @@ export function ProjectReviewEditorDialog({
           <Button
             type="button"
             variant="outline"
+            size={footerButtonSize}
             className={footerActionClass}
             onClick={() => void onSendReport()}
             disabled={sendReport.isPending}
           >
-            <Mail className="size-4" aria-hidden />
+            <Mail aria-hidden />
             {sendReport.isPending ? 'Envoi…' : 'Envoyer le compte rendu'}
           </Button>
         ) : null}
@@ -2081,6 +2099,7 @@ export function ProjectReviewEditorDialog({
             <Button
               type="button"
               variant="outline"
+              size={footerButtonSize}
               className={footerActionClass}
               onClick={() => void onSave()}
               disabled={update.isPending}
@@ -2090,6 +2109,7 @@ export function ProjectReviewEditorDialog({
             <Button
               type="button"
               variant="default"
+              size={footerButtonSize}
               className={footerActionClass}
               onClick={onRequestFinalize}
               disabled={finalize.isPending || update.isPending}
@@ -2103,6 +2123,7 @@ export function ProjectReviewEditorDialog({
             <Button
               type="button"
               variant="outline"
+              size={footerButtonSize}
               className={cn(footerActionClass, 'text-destructive')}
               onClick={onRequestCancelReview}
               disabled={cancel.isPending}
@@ -2115,11 +2136,12 @@ export function ProjectReviewEditorDialog({
           <Button
             type="button"
             variant="default"
+            size={footerButtonSize}
             className={footerActionClass}
             onClick={() => void onReopenReview()}
             disabled={reopen.isPending}
           >
-            <RotateCcw className="size-4" aria-hidden />
+            <RotateCcw aria-hidden />
             {reopen.isPending ? 'Réouverture…' : 'Réouvrir le point'}
           </Button>
         ) : null}
@@ -3694,6 +3716,7 @@ export function ProjectReviewEditorDialog({
       contentClassName="flex h-[min(92vh,900px)] max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-3 sm:p-4"
       bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden py-2"
       status={reviewModalStatus}
+      footerClassName="!flex-nowrap !gap-1.5 !py-2 !px-3"
       footer={editorFooterContent}
     >
       {renderEditorPanels()}
