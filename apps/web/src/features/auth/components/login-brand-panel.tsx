@@ -1,7 +1,17 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { Megaphone } from 'lucide-react';
+import { fetchLoginNewsApi } from '@/services/login-news';
 
 export function LoginBrandPanel() {
   const year = new Date().getFullYear();
+  const [newsMessage, setNewsMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchLoginNewsApi().then(({ message }) => setNewsMessage(message));
+  }, []);
 
   return (
     <aside
@@ -49,6 +59,29 @@ export function LoginBrandPanel() {
           Pilotez vos directions, projets, budgets et ressources depuis un seul
           endroit.
         </p>
+
+        {newsMessage ? (
+          <div
+            className="starium-login-news max-w-md"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3">
+              <Megaphone
+                className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-gold)]"
+                aria-hidden
+              />
+              <div className="space-y-1">
+                <p className="starium-login-overline text-[color:var(--brand-gold)]">
+                  Actualité
+                </p>
+                <p className="text-sm leading-relaxed text-white/85 whitespace-pre-wrap lg:text-base">
+                  {newsMessage}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <p className="relative z-10 text-xs text-white/45">

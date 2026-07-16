@@ -39,3 +39,6 @@ apps/api/prisma/*.db-journal
 
 # Fichiers uploadés (avatars API)
 apps/api/uploads/
+
+# Rapports backfill / artefacts CLI (RFC-ACL-023)
+apps/api/tmp/

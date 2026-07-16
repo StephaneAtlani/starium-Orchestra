@@ -7323,3 +7323,11 @@ body {
   font-size: 0.875rem;
   color: var(--color-text-muted);
 }
+
+.starium-login-news {
+  margin-top: 0.5rem;
+  border-left: 3px solid var(--brand-gold);
+  padding: 0.875rem 0 0.875rem 1rem;
+  border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+  background: color-mix(in srgb, var(--brand-gold) 8%, transparent);
+}

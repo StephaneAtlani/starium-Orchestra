@@ -94,6 +94,12 @@ export default function AdminPlatformDashboardPage() {
             >
               Chatbot
             </Link>
+            <Link
+              href="/admin/login-news"
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+            >
+              Actualité connexion
+            </Link>
           </div>
         }
       />

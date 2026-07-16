@@ -489,6 +489,13 @@ model PlatformUploadSettings {
   updatedAt      DateTime @updatedAt
 }
 
+/// Message d’actualité affiché sur l’écran de connexion (singleton id = `default`).
+model PlatformLoginNews {
+  id        String   @id @default("default")
+  message   String?
+  updatedAt DateTime @updatedAt
+}
+
 model PlatformProcurementS3Settings {
   id                 String                   @id @default("default")
   /// Si false : fallback env uniquement ou stockage indisponible selon implémentation.

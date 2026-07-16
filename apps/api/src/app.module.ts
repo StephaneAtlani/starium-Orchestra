@@ -54,6 +54,7 @@ import { AccessDiagnosticsModule } from './modules/access-diagnostics/access-dia
 import { AccessModelModule } from './modules/access-model/access-model.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
+import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-login-news.module';
 
 @Module({
   imports: [
@@ -116,6 +117,7 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
     AccessDiagnosticsModule,
     AccessModelModule,
     OrganizationModule,
+    PlatformLoginNewsModule,
   ],
 })
 export class AppModule {}
