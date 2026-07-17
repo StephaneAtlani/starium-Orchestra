@@ -13,6 +13,7 @@ L’activation module par client existe côté plateforme, mais il manquait une 
 - Le module doit d’abord être **activé** côté plateforme pour être potentiellement visible.
 - Ordre d’évaluation des overrides : **`USER` > `GROUP` > `CLIENT`** ; côté **plusieurs lignes GROUP** pour le même module, si au moins un groupe impose **`VISIBLE`**, ce **`VISIBLE` l’emporte** sur un `HIDDEN` d’un autre groupe ; sinon premier `HIDDEN` / `VISIBLE` cohérent avec la liste (voir tests `ModuleVisibilityService`).
 - **Pas de `APP_GUARD` dédié** : la visibilité est appliquée dans **`ModuleAccessGuard`** (activation client + module visible + RBAC effectif via **`EffectivePermissionsService`**, partagé avec **`PermissionsGuard`**) pour éviter tout contournement (dont `RequireAnyPermissions`).
+- **Exception modules socle (RFC-038)** : `notifications` et `alerts` contournent `ClientModule` désactivé et overrides `HIDDEN` ; seul `Module.isActive = false` (plateforme) bloque l’accès API.
 - Le frontend **filtre la navigation** selon `visibleModuleCodes` renvoyés par l’API ; la **source de vérité** reste le backend.
 
 ## 3. Liste des fichiers (réalisés / points d’extension)
@@ -59,7 +60,7 @@ Préfixe global : `/api`. Contexte **client actif** (`ActiveClientGuard`) + **CL
 
 ## 7. Récapitulatif final
 
-Couche de visibilité interne par client / groupe / utilisateur, **complémentaire** à l’activation plateforme, alignée sur le principe **accès réel = intersection** (licence / module / RBAC / visibilité — autres couches ACL à suivre dans RFC-ACL-005+).
+Couche de visibilité interne par client / groupe / utilisateur, **complémentaire** à l’activation plateforme, alignée sur le principe **accès réel = intersection** (licence / module / RBAC / visibilité — autres couches ACL à suivre dans RFC-ACL-005+). **Hors périmètre** : modules socle `notifications` et `alerts` (RFC-038) — non masquables côté client.
 
 ## 8. Points de vigilance
 

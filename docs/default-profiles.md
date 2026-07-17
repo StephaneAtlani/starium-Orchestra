@@ -72,6 +72,16 @@ Exemple d’entrée :
 }
 ```
 
+### 3.4 Socle notifications & alertes (hors profils)
+
+Les permissions **`notifications.read`**, **`notifications.update`** et **`alerts.read`** ne figurent **pas** dans `default-profiles.json` : elles sont garanties à **tout** utilisateur authentifié dans un contexte client par `EffectivePermissionsService` (`BASELINE_PERMISSION_CODES`).
+
+La permission **`alerts.update`** (résoudre, rejeter, recalculer) reste portée par un rôle dédié créé par le seed : « Client admin — alertes », assigné aux `CLIENT_ADMIN` actifs (`ensureAlertsNotificationsBaselineRole`).
+
+Les modules `notifications` et `alerts` sont **immunisés** contre la désactivation client (`ClientModule`) et le masquage par profil (`ModuleAccessGuard` / RFC-ACL-004). Seul le platform_admin peut les couper via `Module.isActive = false`.
+
+Référence : [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) §7.1.
+
 ---
 
 ## 4. Modifier le catalogue

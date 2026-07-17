@@ -37,6 +37,7 @@ Règle clé : **une `Alert` peut générer 0..N `Notification`** (typiquement un
 - `src/modules/email/email.templates.ts`
 - `src/modules/queue/queue.module.ts` (BullMQ setup partagé)
 - `src/modules/alerts/alerts-trigger.service.ts` (orchestration centralisée des triggers)
+- `src/modules/alerts/alerts-trigger-scheduler.service.ts` (cron périodique multi-clients)
 - `src/modules/audit/*` (ajout des événements `alert.*` et `email.*`)
 - `src/modules/rbac/*` (ajout modules/permissions `alerts` et `notifications` dans seed RBAC si absent)
 - `src/modules/notifications/notifications.module.ts`
@@ -145,6 +146,7 @@ Endpoints V1:
 - `GET /api/alerts`
 - `PATCH /api/alerts/:id/resolve`
 - `PATCH /api/alerts/:id/dismiss`
+- `POST /api/alerts/evaluate` (recalcul immédiat budget / projet / contrats — `alerts.update`)
 
 Exigences:
 
@@ -176,7 +178,7 @@ Exigences :
 - Guards + RBAC :
   - `GET /api/notifications` => `notifications.read`
   - `PATCH /api/notifications/:id/read` et `PATCH /api/notifications/read-all` => `notifications.update`
-- Règle cloche V1 : tout utilisateur connecté au client actif doit pouvoir lire ses notifications personnelles ; `notifications.read` doit être attribuée aux profils standards.
+- Règle cloche V1 : tout utilisateur connecté au client actif doit pouvoir lire ses notifications personnelles ; `notifications.read` et `notifications.update` sont injectés **implicitement** par `EffectivePermissionsService` (socle — indépendant des profils `default-profiles.json`).
 - La visibilité de la cloche n’est pas conditionnée à `alerts.read`.
 - Filtrage `clientId` obligatoire ; le scope utilisateur courant ne retourne que **ses** notifications.
 - `GET /api/notifications` retourne strictement les notifications du `userId` courant dans le `clientId` actif.
@@ -260,17 +262,21 @@ Triggers V1:
 - Dépassement budget.
 - Projet en risque critique.
 
-Méthodes explicites attendues dans `AlertsTriggerService`:
+Méthodes explicites dans `AlertsTriggerService`:
 
-- `evaluateStrategicVisionAlerts(clientId)`
-- `evaluateBudgetAlerts(clientId)`
-- `evaluateProjectAlerts(clientId)`
+- `evaluateBudgetAlerts(clientId)` — dépassement / proche plafond sur lignes budgétaires actives (`ruleCode` : `budget.line.overrun`, `budget.line.near_limit`).
+- `evaluateProjectAlerts(clientId)` — projet en retard, jalons dépassés, risques critiques ouverts (`project.overdue`, `project.milestone.overdue`, `project.risk.critical`).
+- `evaluateContractAlerts(clientId)` — contrats expirés ou proches échéance (`contract.expired`, `contract.expiring_soon`).
+- `evaluateAllForClient(clientId)` — agrège les trois familles ci-dessus.
+- `evaluateStrategicVisionAlerts(clientId)` — **stub** (`evaluated: 0`) ; les alertes vision restent sur `GET /api/strategic-vision/alerts` (RFC Strategic Vision).
+
+Résolution automatique des alertes obsolètes : `AlertsService.resolveStaleByRule` (entités qui ne satisfont plus la condition).
 
 Déclenchement:
 
-- Appel depuis les services métier existants après mutation pertinente.
-- Option future: job planifié.
-- Scheduler hors scope V1, sauf mécanisme déjà présent dans l’architecture actuelle.
+- **Cron** : `AlertsTriggerSchedulerService` dans le process API (`ScheduleModule`) — expression `ALERTS_TRIGGER_CRON_EXPRESSION` (défaut `0 * * * *`, TZ `ALERTS_TRIGGER_CRON_TZ` défaut `UTC`) ; désactivable via `ALERTS_TRIGGER_ENABLED=false`.
+- **Manuel** : `POST /api/alerts/evaluate` (client actif, `alerts.update`).
+- Appel depuis services métier après mutation pertinente : **hors scope livré** (le cron couvre le besoin V1).
 
 ### 4.8 Règle Alertes -> Notifications + Email (V1)
 
@@ -405,13 +411,33 @@ Alignement **code / schéma Prisma** (à distinguer des libellés métier minusc
 - En base PostgreSQL, les enums Prisma sont en **MAJUSCULES** (`AlertStatus` : `ACTIVE`, `RESOLVED`, `DISMISSED` ; `AlertSeverity` : `INFO`, `WARNING`, `CRITICAL` ; `AlertType`, `NotificationStatus`, etc.).
 - Migration : `apps/api/prisma/migrations/20260425195500_rfc_038_alerts_notifications_async_email/` — index unique partiel anti-doublon alertes actives `Alert_active_dedup_unique_idx` sur `(clientId, type, severity, entityType, entityId, ruleCode)` avec `WHERE status = 'ACTIVE'`.
 - Modules Nest enregistrés dans `apps/api/src/app.module.ts` : `AlertsModule`, `NotificationsModule`, `QueueModule`, `EmailModule`. Code sous `apps/api/src/modules/alerts/`, `notifications/`, `queue/`, `email/`.
-- Worker sans HTTP : `apps/api/src/worker/main.ts` + `WorkerModule` ; script `pnpm start:worker` depuis `apps/api`.
-- Orchestration : `AlertsService.upsertAlert` crée les `Notification` et enfile l’email si sévérité `CRITICAL` ; `AlertsTriggerService` expose `evaluateStrategicVisionAlerts` / `evaluateBudgetAlerts` / `evaluateProjectAlerts` en **stubs** (retour `{ evaluated: 0 }`) jusqu’au branchement dans les services métier.
-- RBAC : modules `alerts` et `notifications` + permissions `alerts.read`, `alerts.update`, `notifications.read`, `notifications.update` créés par `ensureAlertsAndNotificationsModulesAndPermissions` dans `apps/api/prisma/seed.ts`. Les profils globaux [`apps/api/prisma/default-profiles.json`](../../apps/api/prisma/default-profiles.json) **n’ajoutent pas** encore `notifications.read` / `notifications.update` : prévoir assignation de rôles ou enrichissement des profils pour que la cloche fonctionne hors admin technique.
+- Worker sans HTTP : `apps/api/src/worker/main.ts` + `WorkerModule` ; script `pnpm start:worker` depuis `apps/api` ; service Docker Compose **`api-worker`** (`docker-compose.yml`).
+- Orchestration : `AlertsService.upsertAlert` crée les `Notification` et enfile l’email si sévérité `CRITICAL` ; `AlertsService.resolveStaleByRule` résout les alertes actives devenues obsolètes.
+- Triggers **implémentés** : `AlertsTriggerService` — budget, projet, contrats (voir §4.7) ; `evaluateStrategicVisionAlerts` reste stub. Scheduler : `AlertsTriggerSchedulerService` (cron horaire par défaut).
+- API : `POST /api/alerts/evaluate` sur `AlertsController` (`alerts.update`).
+- **Socle RBAC implicite** (tout utilisateur authentifié, contexte client) :
+  - `EffectivePermissionsService` (`BASELINE_PERMISSION_CODES`) injecte `notifications.read`, `notifications.update`, `alerts.read` au runtime — **sans dépendre** des profils `default-profiles.json`.
+  - `alerts.update` (resolve / dismiss / evaluate) : rôle seed global « Client admin — alertes » assigné aux `CLIENT_ADMIN` actifs (`ensureAlertsNotificationsBaselineRole` dans `seed.ts`).
+- **Modules socle** : `ModuleAccessGuard` (`BASELINE_MODULE_CODES` = `notifications`, `alerts`) — accès autorisé même si `ClientModule` désactivé ou module masqué (RFC-ACL-004) ; seul `Module.isActive = false` (plateforme) bloque.
+- Seed : `ensureAlertsAndNotificationsModulesAndPermissions`, `ensureEnabledClientModulesForAllClients`, `ensureAlertsNotificationsBaselineRole`. Les codes `notifications.*` / `alerts.read` ont été **retirés** de `default-profiles.json` (redondants avec le socle implicite).
 - UI : `apps/web/src/features/notifications/` (cloche dans `workspace-header.tsx`), `apps/web/src/features/alerts/` (panel minimal sur `/dashboard`), services `apps/web/src/services/notifications.ts` et `alerts.ts`.
-- Contrat HTTP détaillé : [docs/API.md](../API.md) §5.4.
+- Contrat HTTP détaillé : [docs/API.md](../API.md) §5.7.
 
 **Route distincte** : `GET /api/strategic-vision/alerts` (RFC Strategic Vision) reste indépendante du socle `GET /api/alerts`.
+
+### 7.2 Déploiement production
+
+1. **Déployer le code** + migrations Prisma (entrypoint API : `prisma:migrate` dans `apps/api/Dockerfile`).
+2. **Seed prod (recommandé une fois)** — ne touche **pas** aux comptes `User` :
+   ```bash
+   NODE_ENV=production ALLOW_PROD_SEED=true pnpm prisma:seed
+   ```
+   depuis `apps/api` (ou exec conteneur `api`). Synchronise modules/permissions, rôles socle, `alerts.update` pour `CLIENT_ADMIN`. La lecture notifs/alertes fonctionne **dès le deploy** via le socle runtime ; le seed reste utile pour `alerts.update` et l’audit des rôles en base.
+3. **Worker email** : service `api-worker` actif ; `EMAIL_DELIVERIES_INLINE` vide/false ; Redis + SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` obligatoires en prod).
+4. **Cron alertes** : tourne dans le process API ; variables optionnelles `ALERTS_TRIGGER_CRON_EXPRESSION`, `ALERTS_TRIGGER_CRON_TZ`, `ALERTS_TRIGGER_ENABLED`.
+5. **Premier remplissage** : `POST /api/alerts/evaluate` (CLIENT_ADMIN) ou attendre le cron.
+
+**Désactivation** : seul le **platform_admin** peut couper globalement (`Module.isActive = false` sur `alerts` / `notifications`, ou `ALERTS_TRIGGER_ENABLED=false`). Un CLIENT_ADMIN **ne peut pas** masquer ni désactiver ces modules côté client.
 
 ## 8. Points de vigilance
 
@@ -432,8 +458,8 @@ Alignement **code / schéma Prisma** (à distinguer des libellés métier minusc
 - Worker opérationnel indépendamment du process API.
 - Audit complet des événements alertes, notifications et emails.
 - Une alerte critique identique ne génère pas plusieurs emails en boucle.
-- Un utilisateur sans `alerts.read` ne voit aucune alerte via `GET /api/alerts`.
-- Un utilisateur sans `notifications.read` ne voit aucune notification via `GET /api/notifications` (cloche vide côté données).
+- Un utilisateur sans `alerts.read` ne voit aucune alerte via `GET /api/alerts` — **sauf** socle implicite : tout utilisateur authentifié reçoit `alerts.read` via `EffectivePermissionsService`.
+- Un utilisateur sans `notifications.read` ne voit aucune notification via `GET /api/notifications` (cloche vide côté données) — **sauf** socle implicite : tout utilisateur authentifié reçoit `notifications.read` / `notifications.update`.
 - Une alerte génère des **notifications par utilisateur** destinataire (règle V1).
 - Chaque utilisateur a **sa propre** liste de notifications (cloche personnelle).
 - Le badge de la cloche reflète **uniquement** le nombre de notifications `unread`.

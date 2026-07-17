@@ -1316,6 +1316,13 @@ Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Tou
 
 - **Permission** : `alerts.update`
 
+### POST /api/alerts/evaluate
+
+- **Permission** : `alerts.update`
+- **Effet** : recalcul immédiat des alertes métier du **client actif** (budget, projet, contrats) via `AlertsTriggerService.evaluateAllForClient`.
+- **Réponse 200** : `{ clientId, budget, project, contract }` — nombre d’alertes créées/mises à jour par famille.
+- **Usage** : test manuel ou remplissage initial ; le cron `AlertsTriggerSchedulerService` exécute la même logique périodiquement sur tous les clients.
+
 ### GET /api/notifications
 
 - **Permission** : `notifications.read`
@@ -1332,7 +1339,7 @@ Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Tou
 - **Permission** : `notifications.update`  
 - Effet : toutes les notifications **UNREAD** du **user courant** + **client actif** uniquement.
 
-**Modules RBAC** : codes plateforme `alerts` et `notifications` (activation client via `ClientModule`, comme les autres modules). **Worker email** : traitement asynchrone des jobs `send_email` — process séparé, voir [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) et [ARCHITECTURE.md](../ARCHITECTURE.md) §7.
+**Modules RBAC** : codes plateforme `alerts` et `notifications`. **Socle implicite** : `notifications.read`, `notifications.update` et `alerts.read` sont injectés à **tout** utilisateur authentifié par `EffectivePermissionsService` (indépendant des profils `default-profiles.json`). `alerts.update` reste porté par rôle (seed : « Client admin — alertes » pour les `CLIENT_ADMIN`). **Accès module** : `notifications` et `alerts` contournent la désactivation `ClientModule` et la visibilité par profil dans `ModuleAccessGuard` ; seul `Module.isActive = false` (plateforme) bloque. **Worker email** : traitement asynchrone des jobs `send_email` — process séparé (`api-worker` en Compose prod), voir [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) et [ARCHITECTURE.md](../ARCHITECTURE.md) §7.
 
 ## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 

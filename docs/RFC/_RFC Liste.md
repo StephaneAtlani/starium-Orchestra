@@ -29,7 +29,7 @@
 
 | RFC | Nom | État | Commentaire |
 | --- | --- | --- | --- |
-| **RFC-038** | Socle alertes et emails async | 🟢 Implémentée (socle MVP) | Prisma `Alert` / `Notification` / `EmailDelivery`, API `/api/alerts` et `/api/notifications`, queue BullMQ + Redis, worker `pnpm start:worker` (`apps/api`), UI cloche + panel critiques sur `/dashboard` ; triggers `AlertsTriggerService` encore no-op ; permissions seedées — enrichir `default-profiles.json` ou rôles pour `notifications.*` en démo |
+| **RFC-038** | Socle alertes et emails async | 🟢 Implémentée (socle MVP) | Prisma `Alert` / `Notification` / `EmailDelivery`, API `/api/alerts` (+ `POST …/evaluate`) et `/api/notifications`, triggers budget/projet/contrats + cron `AlertsTriggerSchedulerService`, queue BullMQ + Redis, worker `api-worker` / `pnpm start:worker`, socle RBAC implicite (`notifications.*` + `alerts.read` pour tous ; `alerts.update` via rôle admin seed) ; modules socle non désactivables côté client (`ModuleAccessGuard`) ; UI cloche + panel critiques sur `/dashboard` — voir [RFC](./RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) §7.1 |
 
 ---
 
