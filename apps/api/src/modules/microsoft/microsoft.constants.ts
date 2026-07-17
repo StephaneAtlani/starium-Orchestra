@@ -21,6 +21,12 @@ export const MICROSOFT_GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
 export const DEFAULT_MICROSOFT_GRAPH_HTTP_TIMEOUT_MS = 5000;
 
 /**
+ * Timeout dédié à `POST /teams` (création d’équipe).
+ * Graph peut mettre >5s avant le 202 ; un abort trop court échoue le provisioning.
+ */
+export const DEFAULT_MICROSOFT_GRAPH_CREATE_TEAM_TIMEOUT_MS = 60_000;
+
+/**
  * 5xx / réseau / abort : au plus 1 retry (2 tentatives au total).
  * Utilisé comme borne pour GET uniquement.
  */

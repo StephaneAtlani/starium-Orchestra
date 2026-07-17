@@ -4,12 +4,19 @@ import { MicrosoftOAuthService } from './microsoft-oauth.service';
 import {
   MICROSOFT_GRAPH_BASE_URL,
   DEFAULT_MICROSOFT_GRAPH_HTTP_TIMEOUT_MS,
+  DEFAULT_MICROSOFT_GRAPH_CREATE_TEAM_TIMEOUT_MS,
   DEFAULT_MICROSOFT_GRAPH_MAX_RETRIES,
   DEFAULT_MICROSOFT_GRAPH_MAX_429_ATTEMPTS,
   DEFAULT_MICROSOFT_GRAPH_MAX_RETRY_AFTER_SECONDS,
   MICROSOFT_GRAPH_SIMPLE_UPLOAD_MAX_BYTES,
   MICROSOFT_GRAPH_UPLOAD_SESSION_CHUNK_BYTES,
 } from './microsoft.constants';
+
+/** Options internes fetch Graph (retirées avant l’appel `fetch` natif). */
+type GraphFetchInit = RequestInit & {
+  expectJson?: boolean;
+  timeoutMs?: number;
+};
 import {
   MicrosoftGraphHttpError,
   type MicrosoftGraphErrorBody,
@@ -221,10 +228,26 @@ export class MicrosoftGraphService {
       connection.id,
       connection.clientId,
     );
+    // Graph exige le bind template — sans cela : "The navigation bind for template was missing".
+    const body: Record<string, unknown> = {
+      'template@odata.bind':
+        "https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
+      displayName: payload.displayName,
+      visibility: payload.visibility === 'public' ? 'Public' : 'Private',
+    };
+    if (payload.description?.trim()) {
+      body.description = payload.description.trim();
+    }
+
     const response = await this.singleFetchNoRetryResponse(accessToken, 'teams', {
       method: 'POST',
-      headers: this.mergeJsonHeaders(undefined, payload),
-      body: JSON.stringify(payload),
+      headers: this.mergeJsonHeaders(undefined, body),
+      body: JSON.stringify(body),
+      // POST /teams est souvent lent avant le 202 — timeout global 5s trop court.
+      timeoutMs: Math.max(
+        this.timeoutMs,
+        DEFAULT_MICROSOFT_GRAPH_CREATE_TEAM_TIMEOUT_MS,
+      ),
     });
 
     return {
@@ -267,7 +290,7 @@ export class MicrosoftGraphService {
           method: 'GET',
           expectJson: true,
         },
-        true,
+        /^https?:\/\//i.test(operationUrl.trim()),
       );
 
       const body = await this.parseSuccessBody<unknown>(response, true);
@@ -856,7 +879,7 @@ export class MicrosoftGraphService {
   private async singleFetchNoRetryResponse(
     accessToken: string,
     pathOrUrl: string,
-    init?: RequestInit & { expectJson?: boolean },
+    init?: GraphFetchInit,
     isFullUrl = false,
   ): Promise<Response> {
     const fullUrl = isFullUrl ? pathOrUrl : this.buildGraphUrl(pathOrUrl);
@@ -864,7 +887,7 @@ export class MicrosoftGraphService {
     try {
       res = await this.fetchOnce(accessToken, fullUrl, init);
     } catch (e: unknown) {
-      throw this.toNetworkGraphError(e);
+      throw this.toNetworkGraphError(e, init?.timeoutMs ?? this.timeoutMs);
     }
 
     if (!res.ok) {
@@ -877,13 +900,13 @@ export class MicrosoftGraphService {
   private async singleFetchNoRetryWithFullUrl<T>(
     accessToken: string,
     fullGraphUrl: string,
-    init?: RequestInit & { expectJson?: boolean },
+    init?: GraphFetchInit,
   ): Promise<T | void> {
     let res: Response;
     try {
       res = await this.fetchOnce(accessToken, fullGraphUrl, init);
     } catch (e: unknown) {
-      throw this.toNetworkGraphError(e);
+      throw this.toNetworkGraphError(e, init?.timeoutMs ?? this.timeoutMs);
     }
 
     if (res.ok) {
@@ -896,16 +919,18 @@ export class MicrosoftGraphService {
   private async fetchOnce(
     accessToken: string,
     url: string,
-    init?: RequestInit & { expectJson?: boolean },
+    init?: GraphFetchInit,
   ): Promise<Response> {
-    const rest = { ...(init ?? {}) } as RequestInit & { expectJson?: boolean };
+    const rest = { ...(init ?? {}) } as GraphFetchInit;
+    const timeoutMs = rest.timeoutMs ?? this.timeoutMs;
     delete rest.expectJson;
+    delete rest.timeoutMs;
     const headers = new Headers(rest.headers ?? undefined);
     headers.set('Authorization', `Bearer ${accessToken}`);
     headers.set('Accept', 'application/json');
 
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), this.timeoutMs);
+    const t = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(url, {
         ...rest,
@@ -998,9 +1023,20 @@ export class MicrosoftGraphService {
     return e instanceof TypeError;
   }
 
-  private toNetworkGraphError(e: unknown): MicrosoftGraphHttpError {
-    const msg =
-      e instanceof Error ? e.message : 'Erreur réseau vers Microsoft Graph';
+  private toNetworkGraphError(
+    e: unknown,
+    timeoutMs?: number,
+  ): MicrosoftGraphHttpError {
+    const isAbort =
+      (typeof DOMException !== 'undefined' &&
+        e instanceof DOMException &&
+        e.name === 'AbortError') ||
+      (e instanceof Error && e.message.toLowerCase().includes('abort'));
+    const msg = isAbort
+      ? `Timeout Graph après ${timeoutMs ?? this.timeoutMs}ms (opération aborted)`
+      : e instanceof Error
+        ? e.message
+        : 'Erreur réseau vers Microsoft Graph';
     this.logger.warn(`Graph: ${msg}`);
     return new MicrosoftGraphHttpError(msg, 0, undefined, msg, undefined, undefined);
   }

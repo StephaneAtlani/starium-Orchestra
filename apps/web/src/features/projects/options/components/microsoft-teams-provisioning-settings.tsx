@@ -246,11 +246,20 @@ export function MicrosoftTeamsProvisioningSettings() {
   }
 
   if (settingsQuery.isError || templatesQuery.isError || connectionQuery.isError) {
+    const detail =
+      (settingsQuery.error as Error | undefined)?.message ||
+      (templatesQuery.error as Error | undefined)?.message ||
+      (connectionQuery.error as Error | undefined)?.message;
     return (
       <Alert variant="destructive">
         <AlertTitle>Erreur Microsoft Teams</AlertTitle>
-        <AlertDescription>
-          Impossible de charger les paramètres ou les templates Teams.
+        <AlertDescription className="space-y-2">
+          <p>Impossible de charger les paramètres ou les templates Teams.</p>
+          {detail ? <p className="text-xs">{detail}</p> : null}
+          <p className="text-xs text-muted-foreground">
+            Vérifiez que l’API est à jour et que la migration{' '}
+            <code>20260717100000_project_microsoft_teams_provisioning</code> est appliquée.
+          </p>
         </AlertDescription>
       </Alert>
     );

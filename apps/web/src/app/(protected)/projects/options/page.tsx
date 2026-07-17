@@ -262,7 +262,7 @@ export default function ProjectsOptionsPage() {
         </div>
         <PageHeader
           title="Options portefeuille projets"
-          description="Gerer les etiquettes et l'arborescence des categories portefeuille."
+          description="Étiquettes, catégories portefeuille et provisioning Microsoft Teams (création d’équipes)."
         />
         <MicrosoftTeamsProvisioningSettings />
         <Card size="sm">

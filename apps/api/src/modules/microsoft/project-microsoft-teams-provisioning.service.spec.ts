@@ -248,4 +248,95 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
       }),
     );
   });
+
+  it('extrait le teamId depuis Content-Location OData teams(\'guid\') et finalise', async () => {
+    const teamGuid = '6a7231f7-9acb-4dca-bc06-d1694ff277de';
+    prisma.projectMicrosoftTeamsProvisioning.findUnique
+      .mockResolvedValueOnce({
+        id: 'prov-ok',
+        clientId,
+        projectId,
+        microsoftConnectionId: 'conn-1',
+        triggeredByUserId: 'u1',
+        status: ProjectMicrosoftTeamsProvisioningStatus.PENDING,
+        teamDisplayName: 'PROJ-1 - Projet Alpha',
+        teamDescription: null,
+        microsoftTeamId: null,
+        graphCreateRequestedAt: null,
+        graphOperationUrl: null,
+        graphContentLocation: null,
+        project: {
+          id: projectId,
+          name: 'Projet Alpha',
+          code: 'PROJ-1',
+          ownerFreeLabel: null,
+          owner: null,
+        },
+        microsoftConnection: {
+          id: 'conn-1',
+          clientId,
+          status: MicrosoftConnectionStatus.ACTIVE,
+        },
+      });
+    prisma.projectMicrosoftTeamsProvisioning.update.mockResolvedValue({
+      id: 'prov-ok',
+      clientId,
+      projectId,
+      status: ProjectMicrosoftTeamsProvisioningStatus.COMPLETED,
+      teamDisplayName: 'PROJ-1 - Projet Alpha',
+      teamDescription: null,
+      microsoftTeamId: teamGuid,
+      teamWebUrl: 'https://teams.microsoft.com/...',
+      graphOperationUrl: `/teams('${teamGuid}')/operations('op-1')`,
+      graphContentLocation: `/teams('${teamGuid}')`,
+      graphCreateRequestedAt: new Date(),
+      retryCount: 0,
+      retryRequestedAt: null,
+      currentJobId: null,
+      lastHeartbeatAt: new Date(),
+      errorCode: null,
+      errorMessage: null,
+      resolvedAt: null,
+      resolutionType: null,
+      createdAt: new Date('2026-07-17T08:00:00.000Z'),
+      updatedAt: new Date('2026-07-17T08:00:00.000Z'),
+    });
+    prisma.projectMicrosoftTeamsChannelTemplate.findMany.mockResolvedValue([]);
+    prisma.projectMicrosoftLink.findFirst.mockResolvedValue(null);
+    prisma.projectMicrosoftLink.create.mockResolvedValue({});
+    graph.createTeam.mockResolvedValue({
+      location: `/teams('${teamGuid}')/operations('op-1')`,
+      contentLocation: `/teams('${teamGuid}')`,
+    });
+    graph.pollAsyncOperation.mockResolvedValue({
+      status: 'succeeded',
+      targetResourceId: teamGuid,
+    });
+    graph.getTeam.mockResolvedValue({
+      id: teamGuid,
+      displayName: 'PROJ-1 - Projet Alpha',
+      webUrl: 'https://teams.microsoft.com/...',
+    });
+    graph.listTeamChannels.mockResolvedValue([]);
+    graph.getPrimaryTeamChannel.mockResolvedValue({
+      id: 'ch-general',
+      displayName: 'Général',
+    });
+
+    await service.processProvisioningJob('prov-ok');
+
+    expect(graph.pollAsyncOperation).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'conn-1' }),
+      `/teams('${teamGuid}')/operations('op-1')`,
+    );
+    expect(graph.getTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'conn-1' }),
+      teamGuid,
+    );
+    expect(prisma.projectMicrosoftLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ teamId: teamGuid }),
+      }),
+    );
+  });
 });

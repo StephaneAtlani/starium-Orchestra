@@ -22,7 +22,7 @@ export function useProjectMicrosoftTeamsProvisioningQuery(projectId: string) {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;
-      return data.status === 'PENDING' || data.status === 'IN_PROGRESS' ? 15_000 : false;
+      return data.status === 'PENDING' || data.status === 'IN_PROGRESS' ? 5_000 : false;
     },
   });
 }

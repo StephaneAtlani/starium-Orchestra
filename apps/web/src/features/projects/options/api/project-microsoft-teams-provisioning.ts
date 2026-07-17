@@ -14,7 +14,9 @@ export async function getProjectMicrosoftTeamsProvisioning(
   const res = await authFetch(`${BASE}/${projectId}/microsoft-teams/provision`);
   if (res.status === 404) return null;
   if (!res.ok) throw await parseApiFormError(res);
-  return res.json() as Promise<ProjectMicrosoftTeamsProvisioningDto | null>;
+  const text = await res.text();
+  if (!text.trim()) return null;
+  return JSON.parse(text) as ProjectMicrosoftTeamsProvisioningDto;
 }
 
 export async function startProjectMicrosoftTeamsProvisioning(

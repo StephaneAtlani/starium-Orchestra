@@ -90,14 +90,17 @@ export class ProjectMicrosoftTeamsProvisioningService {
   async getLatestProvisioning(
     clientId: string,
     projectId: string,
-  ): Promise<ProvisioningStatusDto | null> {
+  ): Promise<ProvisioningStatusDto> {
     await this.assertProjectExists(clientId, projectId);
 
     const run = await this.prisma.projectMicrosoftTeamsProvisioning.findFirst({
       where: { clientId, projectId },
       orderBy: [{ createdAt: 'desc' }],
     });
-    return run ? this.toStatusDto(run) : null;
+    if (!run) {
+      throw new NotFoundException('Aucun provisioning Microsoft Teams pour ce projet');
+    }
+    return this.toStatusDto(run);
   }
 
   async startProvisioning(
@@ -416,11 +419,13 @@ export class ProjectMicrosoftTeamsProvisioningService {
 
     try {
       let teamId = run.microsoftTeamId;
+      let operationUrl = run.graphOperationUrl;
+      let contentLocation = run.graphContentLocation;
 
       if (
         run.graphCreateRequestedAt &&
-        !run.graphOperationUrl &&
-        !run.microsoftTeamId
+        !operationUrl &&
+        !teamId
       ) {
         await this.failRun(
           run.id,
@@ -432,7 +437,7 @@ export class ProjectMicrosoftTeamsProvisioningService {
         return;
       }
 
-      if (!run.graphOperationUrl && !run.microsoftTeamId) {
+      if (!operationUrl && !teamId) {
         await this.prisma.projectMicrosoftTeamsProvisioning.update({
           where: { id: run.id },
           data: { graphCreateRequestedAt: new Date(), lastHeartbeatAt: new Date() },
@@ -444,28 +449,42 @@ export class ProjectMicrosoftTeamsProvisioningService {
           visibility: 'private',
         });
 
-        teamId = this.extractTeamIdFromContentLocation(createResult.contentLocation);
+        operationUrl = createResult.location;
+        contentLocation = createResult.contentLocation;
+        teamId = this.extractTeamIdFromContentLocation(contentLocation);
 
         await this.prisma.projectMicrosoftTeamsProvisioning.update({
           where: { id: run.id },
           data: {
-            graphOperationUrl: createResult.location,
-            graphContentLocation: createResult.contentLocation,
+            graphOperationUrl: operationUrl,
+            graphContentLocation: contentLocation,
             microsoftTeamId: teamId,
             lastHeartbeatAt: new Date(),
           },
         });
       }
 
-      if (!teamId && run.graphOperationUrl) {
-        const pollResult = await this.graph.pollAsyncOperation(connection, run.graphOperationUrl);
-        teamId = this.extractTeamIdFromOperationPayload(pollResult);
+      // Toujours attendre la fin de l’opération async Graph avant canaux —
+      // Content-Location peut arriver avant que la Team soit administrable.
+      if (operationUrl) {
+        const pollResult = await this.graph.pollAsyncOperation(
+          connection,
+          operationUrl,
+        );
+        teamId =
+          teamId ??
+          this.extractTeamIdFromOperationPayload(pollResult) ??
+          this.extractTeamIdFromContentLocation(contentLocation);
+        if (teamId && !run.microsoftTeamId) {
+          await this.prisma.projectMicrosoftTeamsProvisioning.update({
+            where: { id: run.id },
+            data: { microsoftTeamId: teamId, lastHeartbeatAt: new Date() },
+          });
+        }
       }
 
       if (!teamId) {
-        teamId = this.extractTeamIdFromContentLocation(
-          run.graphContentLocation,
-        );
+        teamId = this.extractTeamIdFromContentLocation(contentLocation);
       }
 
       if (!teamId) {
@@ -481,6 +500,16 @@ export class ProjectMicrosoftTeamsProvisioningService {
 
       const team = await this.graph.getTeam(connection, teamId);
       await this.touchHeartbeat(run.id);
+
+      // Rattachement immédiat dès que la Team est confirmée (avant canaux).
+      await this.upsertProjectMicrosoftLink(run, connection.id, {
+        teamId,
+        teamName: team.displayName || run.teamDisplayName,
+        channelId: null,
+        channelName: null,
+        provisioningId: run.id,
+        provisionedAt: new Date(),
+      });
 
       const templates = await this.prisma.projectMicrosoftTeamsChannelTemplate.findMany({
         where: { clientId: run.clientId },
@@ -517,10 +546,6 @@ export class ProjectMicrosoftTeamsProvisioningService {
         }
         linkChannelId = channel?.id ?? null;
         linkChannelName = channel?.displayName ?? primaryTemplate.displayName;
-      } else {
-        const primaryChannel = await this.graph.getPrimaryTeamChannel(connection, teamId);
-        linkChannelId = primaryChannel.id;
-        linkChannelName = primaryChannel.displayName || 'Général';
       }
 
       for (const template of templates.filter((item) => !item.isPrimary)) {
@@ -537,6 +562,20 @@ export class ProjectMicrosoftTeamsProvisioningService {
           channelCreationFailed = true;
         }
         await this.touchHeartbeat(run.id);
+      }
+
+      // Canal de lien : template primary, sinon canal Général Graph.
+      if (!linkChannelId) {
+        try {
+          const primaryChannel = await this.graph.getPrimaryTeamChannel(
+            connection,
+            teamId,
+          );
+          linkChannelId = primaryChannel.id;
+          linkChannelName = primaryChannel.displayName || 'Général';
+        } catch {
+          channelCreationFailed = true;
+        }
       }
 
       if (!linkChannelId) {
@@ -565,7 +604,7 @@ export class ProjectMicrosoftTeamsProvisioningService {
             ? ERROR_CODE_PROVISIONED_TEAM_PENDING_RECOVERY
             : null,
           errorMessage: channelCreationFailed
-            ? 'La Team a été créée mais certains canaux n’ont pas pu être provisionnés.'
+            ? 'La Team est rattachée ; certains canaux n’ont pas pu être provisionnés.'
             : null,
           lastHeartbeatAt: new Date(),
         },
@@ -583,6 +622,32 @@ export class ProjectMicrosoftTeamsProvisioningService {
         newValue: this.toStatusDto(updated),
       });
     } catch (error) {
+      const fresh = await this.prisma.projectMicrosoftTeamsProvisioning.findUnique({
+        where: { id: run.id },
+        select: {
+          graphCreateRequestedAt: true,
+          graphOperationUrl: true,
+          microsoftTeamId: true,
+        },
+      });
+      // Timeout/réseau après POST /teams : la Team peut exister côté M365 sans id local.
+      if (
+        fresh?.graphCreateRequestedAt &&
+        !fresh.graphOperationUrl &&
+        !fresh.microsoftTeamId &&
+        this.isAmbiguousTeamCreateFailure(error)
+      ) {
+        await this.failRun(
+          run.id,
+          run.clientId,
+          run.projectId,
+          ERROR_CODE_TEAM_CREATION_OUTCOME_UNKNOWN,
+          'Résultat de création Microsoft inconnu ; résolution manuelle requise.',
+          run.triggeredByUserId ?? undefined,
+        );
+        throw error;
+      }
+
       const classified = this.classifyGraphError(error);
       await this.failRun(
         run.id,
@@ -798,8 +863,14 @@ export class ProjectMicrosoftTeamsProvisioningService {
 
   private extractTeamIdFromContentLocation(contentLocation?: string | null): string | null {
     if (!contentLocation) return null;
-    const match = contentLocation.match(/\/groups\/([^/?]+)|\/teams\/([^/?]+)/i);
-    return match?.[1] ?? match?.[2] ?? null;
+    // Graph renvoie souvent `/teams('guid')` / `/groups('guid')` (OData key).
+    const odataKey = contentLocation.match(
+      /\/(?:teams|groups)\('([^']+)'\)/i,
+    );
+    if (odataKey?.[1]) return odataKey[1];
+    // Variante path `/teams/guid` ou `/groups/guid`.
+    const pathKey = contentLocation.match(/\/(?:groups|teams)\/([^/?')]+)/i);
+    return pathKey?.[1] ?? null;
   }
 
   private extractTeamIdFromOperationPayload(payload: unknown): string | null {
@@ -888,8 +959,22 @@ export class ProjectMicrosoftTeamsProvisioningService {
     }
     return {
       code: 'MICROSOFT_GRAPH_ERROR',
-      message: 'Erreur inattendue lors du provisioning Microsoft Teams.',
+      message: 'Erreur Microsoft Graph inattendue',
     };
+  }
+
+  /** Échec après POST /teams sans réponse exploitable → risque de Team orpheline. */
+  private isAmbiguousTeamCreateFailure(error: unknown): boolean {
+    if (!(error instanceof MicrosoftGraphHttpError)) {
+      return true;
+    }
+    if (error.statusCode === 0) {
+      return true;
+    }
+    if (error.statusCode >= 500) {
+      return true;
+    }
+    return /timeout|abort/i.test(error.message);
   }
 
   private async failRun(

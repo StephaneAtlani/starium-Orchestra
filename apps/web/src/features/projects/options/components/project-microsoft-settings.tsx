@@ -27,6 +27,7 @@ import { MicrosoftLinkConfigureDialog } from './microsoft-link-configure-dialog'
 import type { UpdateProjectMicrosoftLinkPayload } from '../types/project-options.types';
 import { getMicrosoftTeamsProvisioningSettings } from '../api/microsoft-teams-provisioning-settings.api';
 import { projectOptionsKeys } from '../lib/project-options-query-keys';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 
 type MicrosoftConnectionDto = {
   id: string;
@@ -50,6 +51,7 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
   const pathname = usePathname();
 
   const [configureOpen, setConfigureOpen] = useState(false);
+  const [provisionConfirmOpen, setProvisionConfirmOpen] = useState(false);
 
   const linkQuery = useProjectMicrosoftLinkQuery(projectId);
   const provisioningQuery = useProjectMicrosoftTeamsProvisioningQuery(projectId);
@@ -160,30 +162,30 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
   }
 
   const link = linkQuery.data ?? null;
+  const provisioningInProgress =
+    provisioning?.status === 'PENDING' ||
+    provisioning?.status === 'IN_PROGRESS' ||
+    startProvisioningMutation.isPending ||
+    retryProvisioningMutation.isPending;
   const canCreateTeams =
     Boolean(
       provisioningSettingsQuery.data?.isEnabled &&
         connectionActive &&
         !link?.teamId &&
-        provisioning?.status !== 'PENDING' &&
-        provisioning?.status !== 'IN_PROGRESS' &&
+        !provisioningInProgress &&
         !(provisioning?.status === 'PARTIAL' && provisioning?.microsoftTeamId),
     ) && canEdit;
   const blockActions = !canEdit || !connectionActive;
   const configureDisabled =
     blockActions ||
-    provisioning?.status === 'PENDING' ||
-    provisioning?.status === 'IN_PROGRESS' ||
+    provisioningInProgress ||
     (provisioning?.status === 'PARTIAL' && Boolean(provisioning.microsoftTeamId));
-  const dissociateDisabled = blockActions || !link;
-  const provisionDisabled =
-    !canCreateTeams ||
-    startProvisioningMutation.isPending ||
-    retryProvisioningMutation.isPending;
+  const dissociateDisabled = blockActions || !link || provisioningInProgress;
+  const provisionDisabled = !canCreateTeams;
 
   const provisioningStatusLabel =
-    provisioning?.status === 'PENDING' || provisioning?.status === 'IN_PROGRESS'
-      ? 'Provisioning Teams en cours.'
+    provisioningInProgress
+      ? 'Provisioning Teams en cours… Création et rattachement temporairement indisponibles.'
       : provisioning?.status === 'PARTIAL'
         ? 'Provisioning partiel : la Team existe, certains éléments restent à finaliser.'
         : provisioning?.status === 'FAILED'
@@ -269,8 +271,12 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
           <AlertTitle>Provisioning Teams partiel</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              La Team Microsoft a été créée. Vous pouvez relancer le provisioning pour terminer les
-              canaux manquants ou rattacher manuellement cette même Team.
+              La Team Microsoft est déjà rattachée à ce projet
+              {provisioning.microsoftTeamId && link?.teamName
+                ? ` (« ${link.teamName} »)`
+                : ''}
+              . Certains canaux n’ont pas pu être créés : finalisez-les sans créer une nouvelle
+              équipe.
             </p>
             <Button
               type="button"
@@ -278,18 +284,19 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
               onClick={() => retryProvisioningMutation.mutate(provisioning.id)}
               disabled={retryProvisioningMutation.isPending}
             >
-              Reprendre le provisioning
+              Finaliser les canaux
             </Button>
           </AlertDescription>
         </Alert>
       ) : null}
 
-      {!link ? (
+      {!link?.teamId ? (
         <Alert>
-          <AlertTitle>Aucune configuration Microsoft</AlertTitle>
+          <AlertTitle>Aucune équipe Teams liée</AlertTitle>
           <AlertDescription>
-            Enregistrez une liaison Teams / Planner pour ce projet ou lancez le provisioning Teams
-            si le client l’a activé.
+            {provisioningSettingsQuery.data?.isEnabled
+              ? 'Choisissez « Créer l’équipe Teams » (nouvelle équipe) ou « Rattacher une équipe existante ».'
+              : 'Vous pouvez rattacher une équipe existante. Pour créer une nouvelle équipe depuis Starium, activez d’abord le provisioning dans Options projets → Équipes Microsoft.'}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -299,13 +306,16 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
           teamName={link?.teamName ?? null}
           channelName={link?.channelName ?? null}
           canEdit={canEdit}
+          provisioningFeatureEnabled={Boolean(provisioningSettingsQuery.data?.isEnabled)}
+          connectionActive={connectionActive}
           configureDisabled={configureDisabled}
           dissociateDisabled={dissociateDisabled}
           provisionDisabled={provisionDisabled}
+          provisioningInProgress={provisioningInProgress}
           provisioningStatusLabel={provisioningStatusLabel}
           onConfigure={() => setConfigureOpen(true)}
           onDissociate={handleDissociate}
-          onProvision={() => startProvisioningMutation.mutate()}
+          onProvision={() => setProvisionConfirmOpen(true)}
         />
         <MicrosoftPlannerCard
           plannerPlanTitle={link?.plannerPlanTitle ?? null}
@@ -325,6 +335,58 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
           onDissociate={handleDissociate}
         />
       </div>
+
+      <StariumModal
+        open={provisionConfirmOpen}
+        onOpenChange={setProvisionConfirmOpen}
+        title="Créer une équipe Microsoft Teams ?"
+        description="Une nouvelle équipe sera créée dans votre tenant Microsoft selon le modèle et les canaux configurés."
+        size="md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setProvisionConfirmOpen(false)}
+              disabled={startProvisioningMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              className="min-h-11"
+              disabled={startProvisioningMutation.isPending}
+              onClick={() => {
+                startProvisioningMutation.mutate(undefined, {
+                  onSuccess: () => setProvisionConfirmOpen(false),
+                });
+              }}
+            >
+              {startProvisioningMutation.isPending
+                ? 'Lancement…'
+                : 'Confirmer la création'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm">
+          <p>
+            Cette action crée une équipe Teams réelle dans Microsoft 365. Elle ne peut pas être
+            annulée automatiquement depuis Starium.
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>
+              Modèle de nom :{' '}
+              <code className="text-foreground">
+                {provisioningSettingsQuery.data?.teamNameTemplate ?? '{{code}} - {{name}}'}
+              </code>
+            </li>
+            <li>Canaux créés selon les templates définis dans Options projets.</li>
+            <li>Propriétaire Microsoft = compte OAuth reconnecté (pas le chef de projet Starium).</li>
+          </ul>
+        </div>
+      </StariumModal>
 
       <MicrosoftLinkConfigureDialog
         open={configureOpen}

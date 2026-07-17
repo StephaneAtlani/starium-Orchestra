@@ -288,4 +288,51 @@ describe('MicrosoftGraphService', () => {
     ).rejects.toBeInstanceOf(MicrosoftGraphHttpError);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('createTeam envoie template@odata.bind + visibility Private', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 202,
+      headers: new Headers({
+        Location: 'https://graph.microsoft.com/v1.0/teams(...)/operations/op-1',
+        'Content-Location': 'https://graph.microsoft.com/v1.0/teams/team-1',
+      }),
+      text: async () => '',
+    } as Response);
+    const svc = await createService();
+    const result = await svc.createTeam(
+      { clientId: 'c1', id: 'conn-1' },
+      {
+        displayName: 'IND-SEED-04 - Projet',
+        description: 'Desc',
+        visibility: 'private',
+      },
+    );
+    expect(result.location).toContain('operations/op-1');
+    expect(result.contentLocation).toContain('teams/team-1');
+    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+    expect(body['template@odata.bind']).toBe(
+      "https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
+    );
+    expect(body.displayName).toBe('IND-SEED-04 - Projet');
+    expect(body.description).toBe('Desc');
+    expect(body.visibility).toBe('Private');
+  });
+
+  it('createTeam mappe abort timeout en message explicite', async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(
+        new DOMException('This operation was aborted', 'AbortError'),
+      );
+    const svc = await createService();
+    await expect(
+      svc.createTeam(
+        { clientId: 'c1', id: 'conn-1' },
+        { displayName: 'T', visibility: 'private' },
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/Timeout Graph après 60000ms/),
+    });
+  });
 });
