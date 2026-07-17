@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -25,7 +26,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import {
+  formatLoginNewsDatetimeLocal,
   LOGIN_NEWS_MESSAGE_TYPE_LABEL,
+  loginNewsDatetimeLocalToIso,
   type LoginNewsMessageType,
 } from '@/services/login-news';
 
@@ -41,6 +44,8 @@ type PlatformLoginNewsGetResponse = {
   id: string;
   message: string | null;
   messageType: LoginNewsMessageType;
+  startsAt: string | null;
+  endsAt: string | null;
   updatedAt: string | null;
 };
 
@@ -74,6 +79,8 @@ export function PlatformLoginNewsForm() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<LoginNewsMessageType>('INFORMATION');
+  const [startsAtLocal, setStartsAtLocal] = useState('');
+  const [endsAtLocal, setEndsAtLocal] = useState('');
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -87,6 +94,8 @@ export function PlatformLoginNewsForm() {
       const data = (await res.json()) as PlatformLoginNewsGetResponse;
       setMessage(data.message ?? '');
       setMessageType(data.messageType ?? 'INFORMATION');
+      setStartsAtLocal(formatLoginNewsDatetimeLocal(data.startsAt));
+      setEndsAtLocal(formatLoginNewsDatetimeLocal(data.endsAt));
       setUpdatedAt(data.updatedAt);
     } catch {
       toast.error('Impossible de joindre l’API.');
@@ -99,25 +108,43 @@ export function PlatformLoginNewsForm() {
     void load();
   }, [load]);
 
+  function buildPayload() {
+    const trimmed = message.trim();
+    return {
+      message: trimmed.length > 0 ? trimmed : null,
+      messageType,
+      startsAt: loginNewsDatetimeLocalToIso(startsAtLocal),
+      endsAt: loginNewsDatetimeLocalToIso(endsAtLocal),
+    };
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
-      const trimmed = message.trim();
       const res = await authFetch('/api/platform/login-news', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: trimmed.length > 0 ? trimmed : null,
-          messageType,
-        }),
+        body: JSON.stringify(buildPayload()),
       });
       if (!res.ok) {
-        toast.error('Enregistrement impossible.');
+        const err = (await res.json().catch(() => null)) as
+          | { message?: string | string[] }
+          | null;
+        const msg = Array.isArray(err?.message)
+          ? err.message[0]
+          : err?.message;
+        toast.error(
+          typeof msg === 'string' && msg.length > 0
+            ? msg
+            : 'Enregistrement impossible.',
+        );
         return;
       }
       const data = (await res.json()) as PlatformLoginNewsGetResponse;
       setMessage(data.message ?? '');
       setMessageType(data.messageType ?? 'INFORMATION');
+      setStartsAtLocal(formatLoginNewsDatetimeLocal(data.startsAt));
+      setEndsAtLocal(formatLoginNewsDatetimeLocal(data.endsAt));
       setUpdatedAt(data.updatedAt);
       toast.success(
         data.message
@@ -133,12 +160,19 @@ export function PlatformLoginNewsForm() {
 
   async function handleClear() {
     setMessage('');
+    setStartsAtLocal('');
+    setEndsAtLocal('');
     setSaving(true);
     try {
       const res = await authFetch('/api/platform/login-news', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: null, messageType }),
+        body: JSON.stringify({
+          message: null,
+          messageType,
+          startsAt: null,
+          endsAt: null,
+        }),
       });
       if (!res.ok) {
         toast.error('Suppression impossible.');
@@ -160,7 +194,7 @@ export function PlatformLoginNewsForm() {
     <PageContainer>
       <PageHeader
         title="Actualité — écran de connexion"
-        description="Publiez un message visible sur le panneau de marque de la page de connexion. Choisissez le type (information, avertissement, urgent). Laissez vide pour ne rien afficher."
+        description="Publiez un message visible sur le panneau de marque de la page de connexion. Choisissez le type et, si besoin, une fenêtre d’affichage (début / fin)."
       />
 
       {loading ? (
@@ -173,8 +207,8 @@ export function PlatformLoginNewsForm() {
           <CardHeader>
             <CardTitle>Message</CardTitle>
             <CardDescription>
-              Texte court (maintenance, nouveauté, alerte). Aucun message enregistré = rien n’est
-              affiché côté login.
+              Texte court (maintenance, nouveauté, alerte). Les dates de début et de fin sont
+              optionnelles : sans dates, le message reste affiché tant qu’il est publié.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -197,6 +231,36 @@ export function PlatformLoginNewsForm() {
               </Select>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="login-news-starts-at">Date et heure de début</Label>
+                <Input
+                  id="login-news-starts-at"
+                  type="datetime-local"
+                  value={startsAtLocal}
+                  onChange={(e) => setStartsAtLocal(e.target.value)}
+                  className="min-h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optionnel — laisser vide pour afficher immédiatement.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-news-ends-at">Date et heure de fin</Label>
+                <Input
+                  id="login-news-ends-at"
+                  type="datetime-local"
+                  value={endsAtLocal}
+                  onChange={(e) => setEndsAtLocal(e.target.value)}
+                  className="min-h-11"
+                  min={startsAtLocal || undefined}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optionnel — laisser vide pour ne pas limiter la durée.
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="login-news-message">Contenu</Label>
               <Textarea
@@ -205,7 +269,7 @@ export function PlatformLoginNewsForm() {
                 onChange={(e) => setMessage(e.target.value.slice(0, MAX_LENGTH))}
                 rows={5}
                 maxLength={MAX_LENGTH}
-                placeholder="Ex. : Maintenance planifiée samedi 22h–00h."
+                placeholder="Ex. : Maintenance planifiée — merci pour votre compréhension."
                 className="min-h-[8rem] resize-y"
               />
               <p className="text-xs text-muted-foreground" aria-live="polite">
@@ -226,7 +290,7 @@ export function PlatformLoginNewsForm() {
             <Alert className={previewAlertClass(messageType)}>
               <PreviewIcon messageType={messageType} />
               <AlertTitle>{LOGIN_NEWS_MESSAGE_TYPE_LABEL[messageType]}</AlertTitle>
-              <AlertDescription>
+              <AlertDescription className="space-y-2">
                 {message.trim() ? (
                   <span className="whitespace-pre-wrap">{message.trim()}</span>
                 ) : (
@@ -255,7 +319,7 @@ export function PlatformLoginNewsForm() {
                 type="button"
                 variant="outline"
                 onClick={() => void handleClear()}
-                disabled={saving || message.trim().length === 0}
+                disabled={saving || (message.trim().length === 0 && !startsAtLocal && !endsAtLocal)}
               >
                 Retirer le message
               </Button>

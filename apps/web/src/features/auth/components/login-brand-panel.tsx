@@ -2,38 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { AlertOctagon, AlertTriangle, Info } from 'lucide-react';
 import {
   fetchLoginNewsApi,
-  LOGIN_NEWS_MESSAGE_TYPE_LABEL,
   type LoginNewsMessageType,
 } from '@/services/login-news';
-
-const LOGIN_NEWS_TYPE_CLASS: Record<LoginNewsMessageType, string> = {
-  INFORMATION: 'starium-login-news--information',
-  WARNING: 'starium-login-news--warning',
-  URGENT: 'starium-login-news--urgent',
-};
-
-function LoginNewsIcon({ messageType }: { messageType: LoginNewsMessageType }) {
-  const className = 'starium-login-news-accent mt-0.5 size-5 shrink-0';
-  switch (messageType) {
-    case 'WARNING':
-      return <AlertTriangle className={className} aria-hidden />;
-    case 'URGENT':
-      return <AlertOctagon className={className} aria-hidden />;
-    case 'INFORMATION':
-    default:
-      return <Info className={className} aria-hidden />;
-  }
-}
+import { LoginNewsMessageView } from './login-news-message-view';
 
 export function LoginBrandPanel() {
   const year = new Date().getFullYear();
   const [newsMessage, setNewsMessage] = useState<string | null>(null);
   const [newsMessageType, setNewsMessageType] =
     useState<LoginNewsMessageType>('INFORMATION');
-
   useEffect(() => {
     void fetchLoginNewsApi().then(({ message, messageType }) => {
       setNewsMessage(message);
@@ -89,23 +68,11 @@ export function LoginBrandPanel() {
         </p>
 
         {newsMessage ? (
-          <div
-            className={`starium-login-news starium-login-news--enter max-w-md ${LOGIN_NEWS_TYPE_CLASS[newsMessageType]}`}
-            role="status"
-            aria-live="polite"
-          >
-            <div className="flex items-start gap-3">
-              <LoginNewsIcon messageType={newsMessageType} />
-              <div className="space-y-1">
-                <p className="starium-login-news-title starium-login-news-accent">
-                  {LOGIN_NEWS_MESSAGE_TYPE_LABEL[newsMessageType]}
-                </p>
-                <p className="text-sm leading-relaxed text-white/85 whitespace-pre-wrap lg:text-base">
-                  {newsMessage}
-                </p>
-              </div>
-            </div>
-          </div>
+          <LoginNewsMessageView
+            message={newsMessage}
+            messageType={newsMessageType}
+            animated
+          />
         ) : null}
       </div>
 

@@ -19,6 +19,7 @@ import {
   Home,
   Megaphone,
   MessageCircle,
+  Newspaper,
   Search,
 } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
@@ -53,6 +54,11 @@ import { stariumApiPath } from '@/lib/starium-api-base';
 import { cn } from '@/lib/utils';
 import { useChatUnreadBadge } from './use-chat-unread-badge';
 import { useChatDrawer } from './chat-drawer-context';
+import { LoginNewsMessageView } from '@/features/auth/components/login-news-message-view';
+import {
+  fetchLoginNewsApi,
+  type LoginNewsApiResponse,
+} from '@/services/login-news';
 
 type ChatLine = {
   role: 'USER' | 'ASSISTANT';
@@ -268,7 +274,7 @@ function ExploreKnowledgeSections({
   );
 }
 
-type TabId = 'home' | 'conversations' | 'help' | 'feedback';
+type TabId = 'home' | 'news' | 'conversations' | 'help' | 'feedback';
 
 export function StariumChatDrawer() {
   const { open, setOpen, registerOpenFresh, setUnreadCount } = useChatDrawer();
@@ -303,7 +309,23 @@ export function StariumChatDrawer() {
   const [readerStack, setReaderStack] = useState<ReaderFrame[]>([]);
   const [readerBody, setReaderBody] = useState<ReaderBody | null>(null);
   const [readerLoading, setReaderLoading] = useState(false);
+  const [loginNews, setLoginNews] = useState<LoginNewsApiResponse | null>(null);
   const unreadCount = useChatUnreadBadge(open, lines);
+
+  const hasActiveLoginNews = loginNews?.message != null;
+
+  useEffect(() => {
+    if (!open) return;
+    void fetchLoginNewsApi().then((data) => {
+      setLoginNews(data.message ? data : null);
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (tab === 'news' && !hasActiveLoginNews) {
+      setTab('home');
+    }
+  }, [tab, hasActiveLoginNews]);
 
   useEffect(() => {
     setUnreadCount(unreadCount);
@@ -315,6 +337,23 @@ export function StariumChatDrawer() {
 
   const firstName = user?.firstName?.trim() || null;
   const greetingName = firstName || 'vous';
+
+  const bottomNavItems = useMemo(() => {
+    const items: Array<{
+      id: TabId;
+      label: string;
+      Icon: typeof Home;
+    }> = [
+      { id: 'home', label: 'Accueil', Icon: Home },
+      { id: 'conversations', label: 'Conversations', Icon: MessageCircle },
+      { id: 'help', label: 'Aide', Icon: CircleHelp },
+      { id: 'feedback', label: 'Feedback', Icon: Megaphone },
+    ];
+    if (hasActiveLoginNews) {
+      items.splice(1, 0, { id: 'news', label: 'Actualité', Icon: Newspaper });
+    }
+    return items;
+  }, [hasActiveLoginNews]);
 
   const loadHomeData = useCallback(async () => {
     if (!activeClient?.id) return;
@@ -1337,6 +1376,24 @@ export function StariumChatDrawer() {
               </div>
             )}
 
+            {/* ——— Actualité plateforme ——— */}
+            {tab === 'news' && hasActiveLoginNews && loginNews?.message ? (
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+                <h3 className="text-sm font-semibold text-foreground">Actualité</h3>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  Message publié par l&apos;administration plateforme pour informer les
+                  utilisateurs.
+                </p>
+                <div className="mt-4">
+                  <LoginNewsMessageView
+                    message={loginNews.message}
+                    messageType={loginNews.messageType}
+                    variant="light"
+                  />
+                </div>
+              </div>
+            ) : null}
+
             {/* ——— Aide ——— */}
             {tab === 'help' && (
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
@@ -1462,20 +1519,13 @@ export function StariumChatDrawer() {
             className="flex shrink-0 border-t border-border/70 bg-card px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.08)]"
             aria-label={`Navigation ${ORION_PRODUCT_NAME}`}
           >
-            {(
-              [
-                { id: 'home' as const, label: 'Accueil', Icon: Home },
-                { id: 'conversations' as const, label: 'Conversations', Icon: MessageCircle },
-                { id: 'help' as const, label: 'Aide', Icon: CircleHelp },
-                { id: 'feedback' as const, label: 'Feedback', Icon: Megaphone },
-              ] as const
-            ).map(({ id, label, Icon }) => (
+            {bottomNavItems.map(({ id, label, Icon }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
                 className={cn(
-                  'flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 text-[0.65rem] font-medium transition-colors',
+                  'flex flex-1 flex-col items-center gap-0.5 rounded-lg py-2 text-[0.625rem] font-medium transition-colors sm:text-[0.65rem]',
                   tab === id
                     ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground',

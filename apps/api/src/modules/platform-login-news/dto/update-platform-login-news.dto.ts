@@ -1,4 +1,11 @@
-import { IsEnum, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { PlatformLoginNewsType } from '@prisma/client';
 import { PLATFORM_LOGIN_NEWS_MAX_LENGTH } from '../platform-login-news.constants';
 
@@ -14,4 +21,16 @@ export class UpdatePlatformLoginNewsDto {
   @IsOptional()
   @IsEnum(PlatformLoginNewsType)
   messageType?: PlatformLoginNewsType;
+
+  /** Début d’affichage (ISO 8601) ; `null` pour retirer la contrainte. */
+  @IsOptional()
+  @ValidateIf((_o, value) => value !== null)
+  @IsDateString()
+  startsAt?: string | null;
+
+  /** Fin d’affichage (ISO 8601) ; `null` pour retirer la contrainte. */
+  @IsOptional()
+  @ValidateIf((_o, value) => value !== null)
+  @IsDateString()
+  endsAt?: string | null;
 }

@@ -516,6 +516,10 @@ model PlatformLoginNews {
   id          String                 @id @default("default")
   message     String?
   messageType PlatformLoginNewsType  @default(INFORMATION)
+  /// Affichage à partir de cette date (optionnel).
+  startsAt    DateTime?
+  /// Masquage après cette date (optionnel).
+  endsAt      DateTime?
   updatedAt   DateTime               @updatedAt
 }
 
