@@ -2,7 +2,9 @@
 
 ## Statut
 
-**Implémenté (MVP)** — lots 1 à 4 livrés (2026-07-17) ; voir §18 pour écarts documentés et suites possibles.
+**Implémenté (MVP Teams)** — lots 1 à 4 livrés (2026-07-17) : Team + canaux template uniquement.
+
+**Planifié (lot 5)** — provisioning **modulaire** : l’utilisateur coche explicitement chaque brique M365 à créer (Planner, dossier documents, sync tâches) en plus de la Team ; voir §3.4, §6.3–6.4, §8.2–8.3, §12.
 
 ## Priorité
 
@@ -20,9 +22,11 @@ Haute
 
 ## Objectif
 
-Permettre, **lorsque la connexion Microsoft 365 du client est active**, de **créer automatiquement une équipe Teams** pour un projet — **à la création du projet** ou **à la demande pendant sa vie** — avec des **canaux par défaut configurables** dans les **options du module Projets** (`/projects/options`).
+Permettre, **lorsque la connexion Microsoft 365 du client est active**, de **provisionner un espace collaboratif Microsoft** pour un projet — **à la création du projet** ou **à la demande pendant sa vie** — avec des **canaux par défaut configurables** dans les **options du module Projets** (`/projects/options`).
 
-Starium reste la source de vérité métier ; Microsoft Teams est un espace collaboratif provisionné depuis Starium, pas l’inverse.
+**Règle produit** : rien n’est créé côté Microsoft sans **case cochée** par l’utilisateur. Au minimum : équipe Teams (+ canaux template). En option, cochées indépendamment : **plan Planner**, **préparation dossier documents** (drive du canal), **activation sync tâches** (nécessite Planner).
+
+Starium reste la source de vérité métier ; Microsoft Teams / Planner sont des espaces provisionnés depuis Starium, pas l’inverse.
 
 ---
 
@@ -82,7 +86,7 @@ Le socle de liaison projet ↔ Teams existe ; il manque :
 | H1 | Une **connexion Microsoft active** par client suffit au MVP | Prévoir sélection de connexion si multi-connexion future |
 | H2 | Le token **OAuth délégué** de l’utilisateur peut créer des Teams | Basculer vers permissions **application** + admin consent (hors MVP) |
 | H3 | Le canal **« Général »** est toujours créé par Microsoft | Ne pas recréer « Général » ; le canal principal de sync est ce canal ou un canal template marqué `isPrimary` |
-| H4 | La création Planner automatique reste **hors scope** de cette RFC | L’utilisateur lie un plan existant via RFC-INT-007 après provisioning |
+| H4 | La création Planner est **opt-in** (case utilisateur), jamais implicite | Si non cochée : `plannerPlanId` reste `null` ; rattachement manuel INT-007 possible |
 | H5 | L’ajout automatique des membres projet dans la Team est **phase 2** | MVP : **aucun** membre/propriétaire Starium ajouté ; propriétaire Teams effectif = identité OAuth déléguée active ; `triggeredByUserId` = trace Starium uniquement |
 | H6 | Le nom d’équipe Teams est dérivé du projet (`code`, `name`) via un **modèle configurable** | Ajuster le modèle côté options client |
 
@@ -90,33 +94,52 @@ Le socle de liaison projet ↔ Teams existe ; il manque :
 
 # 3. Périmètre
 
-## 3.1 Inclus (MVP)
+## 3.1 Livré (MVP — lots 1 à 4)
 
 * Référentiel client **canaux Teams par défaut** (CRUD, ordre, libellés métier).
-* Paramètres client : activation du provisioning, modèle de nom d’équipe, canal principal pour la sync documentaire.
-* **Provisioning à la création** du projet (opt-in par case à cocher, visible si M365 connecté + feature activée côté client).
+* Paramètres client : activation du provisioning, modèle de nom d’équipe, proposition à la création projet.
+* **Provisioning à la création** du projet : case unique **« Créer l’équipe Microsoft Teams »** (décochée par défaut).
 * **Provisioning à la demande** depuis l’onglet Microsoft 365 des options projet.
-* Création Graph : équipe Teams + canaux template (type `standard` uniquement au MVP).
+* Création Graph : équipe Teams + canaux template (`standard` uniquement).
 * Mise à jour / création de `ProjectMicrosoftLink` avec `teamId`, `teamName`, `channelId`, `channelName` (canal principal).
-* Opération **asynchrone** avec statut (`PENDING` → `IN_PROGRESS` → `COMPLETED` \| `FAILED` \| `PARTIAL`).
-* Audit logs des actions sensibles.
-* UI `/projects/options` + extension formulaire création + carte Teams options projet.
+* `plannerPlanId`, `filesDriveId`, `syncTasksEnabled`, `syncDocumentsEnabled` laissés à **`null` / `false`** après provisioning (pas de Planner ni fichiers auto).
+* Opération **asynchrone** (`PENDING` → `IN_PROGRESS` → `COMPLETED` \| `FAILED` \| `PARTIAL`).
+* Audit logs ; UI `/projects/options`, création projet, carte Teams options projet.
+* Cohabitation **INT-007** (rattachement manuel conservé).
 
-## 3.2 Exclus (MVP)
+## 3.2 Exclus (tous lots)
 
-* Création automatique d’un **plan Planner** (reste manuel, RFC-INT-007).
 * Ajout automatique de **tous les membres** de l’équipe projet Starium dans la Team M365.
 * Canaux **privés** ou **partagés** (`membershipType` ≠ `standard`).
 * Suppression / archivage automatique de la Team à la clôture projet.
-* Webhooks Graph de suivi fin de provisioning (polling / job interne suffisant au MVP).
+* Webhooks Graph de suivi fin de provisioning (polling / job interne suffisant).
 * Permissions Microsoft par ressource Starium.
+* Création Planner **sans** case utilisateur explicite (interdit).
 
-## 3.3 Évolutions futures (hors MVP)
+## 3.3 Évolutions futures (hors lot 5)
 
-* Provisioning Planner + dossier documentaire en une action.
-* Mapping membres projet → membres Team (avec résolution annuaire RFC-TEAM-001).
+* Mapping membres projet → membres Team (RFC-TEAM-001).
 * Templates différenciés par catégorie portefeuille ou type projet.
 * Mode **application** (service principal) pour clients sans droits utilisateur individuel.
+* Suffixe auto sur nom d’équipe dupliqué côté tenant M365.
+
+## 3.4 Planifié (lot 5) — provisioning modulaire
+
+Lors du déclenchement (création projet ou options projet), l’utilisateur choisit **explicitement** les briques à provisionner :
+
+| Case UI | Effet backend (si cochée) | Dépendances |
+|---------|---------------------------|-------------|
+| **Créer l’équipe Teams** (+ canaux template) | `POST /teams` + canaux ; lien `teamId` / `channelId` | Case maîtresse ; aucune autre case sans elle |
+| **Créer un plan Planner** | `POST /planner/plans` (ou API Graph équivalente) ; `plannerPlanId` + `plannerPlanTitle` sur le lien | Team créée (étape 1 du job) |
+| **Préparer le dossier documents** | Résolution `filesDriveId` du canal principal ; création dossier `starium-project-{projectId}` ; `syncDocumentsEnabled=true` | Canal principal connu |
+| **Activer la sync des tâches** | `syncTasksEnabled=true` sur le lien | **Planner coché** (validation DTO + UI désactivée sinon) |
+
+Règles :
+
+* Toutes les cases **décochées par défaut** (y compris Teams).
+* Aucune ressource Microsoft créée pour une option non cochée.
+* Échec d’une option cochée → `PARTIAL` si Team + canal OK ; détail par étape dans le run (sans DCP en clair).
+* Options cochées **persistées sur le run** (`ProjectMicrosoftTeamsProvisioning`) pour retry idempotent.
 
 ---
 
@@ -142,7 +165,11 @@ Le socle de liaison projet ↔ Teams existe ; il manque :
 7. **Échec partiel** : Team créée mais canaux en erreur → statut `PARTIAL` + détail par canal ; lien projet enregistré si Team + canal principal OK.
 8. **Échec total** : projet Starium **inchangé** (pas de rollback projet) ; statut provisioning `FAILED` + message exploitable.
 9. **Permissions** : `projects.update` pour déclencher ; `projects.read` pour consulter état ; référentiel options : `projects.update`.
-10. **Opt-in création** : case décochée par défaut même si feature client activée (éviter créations involontaires).
+10. **Opt-in création** : toutes les cases décochées par défaut même si feature client activée (éviter créations involontaires).
+11. **Modularité (lot 5)** : le backend exécute **uniquement** les étapes correspondant aux booléens demandés ; pas de Planner / fichiers / sync si non cochés.
+12. **Dépendance sync tâches** : `enableTasksSync=true` refuse si `createPlannerPlan=false` (400 métier).
+13. **Ordre d’exécution job** : Team → canaux → (si coché) Planner → (si coché) drive + dossier → upsert `ProjectMicrosoftLink` avec flags sync selon cases.
+14. **Retry** : un retry reprend les étapes manquantes selon les mêmes flags persistés sur le run (pas de nouvelles ressources pour options décochées).
 
 ---
 
@@ -212,39 +239,63 @@ model ProjectMicrosoftTeamsChannelTemplate {
 
 > **Règle** : au plus **un** `isPrimary=true` par client ; validation service. Si aucun, le canal **Général** Microsoft est le canal principal.
 
-## 5.4 Exécution provisioning (par projet)
+## 5.4 Exécution provisioning (par projet) — implémenté
+
+Modèle livré (simplifié ; voir `schema.prisma`) :
 
 ```prisma
 model ProjectMicrosoftTeamsProvisioning {
-  id        String @id @default(cuid())
-  clientId  String
-  projectId String
+  id                    String @id @default(cuid())
+  clientId              String
+  projectId             String
+  microsoftConnectionId String?
+  triggeredByUserId     String?
+  status                ProjectMicrosoftTeamsProvisioningStatus @default(PENDING)
+  teamDisplayName       String
+  teamDescription       String?
+  graphCreateRequestedAt DateTime?
+  graphOperationUrl     String?
+  graphContentLocation  String?
+  microsoftTeamId       String?
+  teamWebUrl            String?
+  retryCount            Int @default(0)
+  errorCode             String?
+  errorMessage          String?
+  // … résolution UNKNOWN, version, heartbeat, jobId — voir migration 20260717100000
+  @@index([clientId, projectId, createdAt])
+}
+```
 
-  status            ProjectMicrosoftTeamsProvisioningStatus @default(PENDING)
-  triggeredByUserId String?
+Index partiel SQL (migration explicite) : un seul run `PENDING|IN_PROGRESS` par `(clientId, projectId)`.
 
-  resolvedTeamName  String?
-  microsoftTeamId   String?
-  primaryChannelId  String?
-  primaryChannelName String?
-  teamWebUrl        String?
+## 5.5 Extension lot 5 — options demandées par l’utilisateur
 
-  channelsRequested Int @default(0)
-  channelsCreated   Int @default(0)
-  lastError         String?
-  detailsJson       Json? /// détail par canal / étapes Graph
+Ajouter sur `ProjectMicrosoftTeamsProvisioning` (migration dédiée) :
 
-  startedAt   DateTime?
-  completedAt DateTime?
+```prisma
+  /// Options cochées au déclenchement — seules ces étapes sont exécutées
+  requestCreateTeam           Boolean @default(true)   /// case maîtresse Teams
+  requestCreatePlannerPlan    Boolean @default(false)
+  requestSetupDocumentsFolder Boolean @default(false)
+  requestEnableTasksSync    Boolean @default(false)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  /// Résultats optionnels (remplis si étape réussie)
+  microsoftPlannerPlanId    String?
+  plannerPlanTitle          String?
+  filesDriveId              String?
+  filesFolderId             String?
+```
 
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+Validation service : `requestEnableTasksSync` ⇒ `requestCreatePlannerPlan` ; `requestCreatePlannerPlan` / `requestSetupDocumentsFolder` / `requestEnableTasksSync` ⇒ `requestCreateTeam`.
 
-  @@index([clientId, projectId])
-  @@index([clientId, status])
+DTO partagé `ProvisionMicrosoftTeamsOptionsDto` :
+
+```typescript
+{
+  createTeam?: boolean;           // défaut false si absent sur création projet
+  createPlannerPlan?: boolean;    // défaut false
+  setupDocumentsFolder?: boolean; // défaut false
+  enableTasksSync?: boolean;        // défaut false
 }
 ```
 
@@ -315,7 +366,28 @@ Validation : `displayName` 1–50 caractères ; unicité par client ; un seul `i
 
 Guards provisioning projet : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`, `MicrosoftIntegrationAccessGuard`, `ResourceAccessDecisionGuard` + `@RequireAccessIntent({ module: 'projects', intent: 'read|write' })`.
 
-Corps POST provision : **aucun** (MVP). À la fin du job : upsert `ProjectMicrosoftLink` avec `teamId`, `channelId`, noms dénormalisés ; `plannerPlanId` reste `null` (configuration manuelle INT-007 ultérieure).
+Corps POST provision (**lot 5** — aujourd’hui corps vide = Teams seul, équivalent `createTeam: true` seul) :
+
+```json
+{
+  "options": {
+    "createTeam": true,
+    "createPlannerPlan": false,
+    "setupDocumentsFolder": false,
+    "enableTasksSync": false
+  }
+}
+```
+
+Comportement job :
+
+1. Toujours (si `createTeam`) : Team + canaux template → `teamId`, `channelId`, noms.
+2. Si `createPlannerPlan` : création plan lié à la Team → `plannerPlanId`, `plannerPlanTitle`.
+3. Si `setupDocumentsFolder` : drive du canal + dossier `starium-project-{projectId}` → `filesDriveId` ; `syncDocumentsEnabled=true`.
+4. Si `enableTasksSync` : `syncTasksEnabled=true` (Planner requis).
+5. Upsert `ProjectMicrosoftLink` avec uniquement les champs des étapes réussies ; sync flags selon cases.
+
+**MVP actuel** : étapes 2–4 **non exécutées** ; lien avec `plannerPlanId=null`, `syncTasksEnabled=false`, `syncDocumentsEnabled=false`.
 
 Réponse POST provision (MVP : **200** avec le run créé) :
 
@@ -331,7 +403,9 @@ Réponse POST provision (MVP : **200** avec le run créé) :
 
 ## 6.4 Création projet (extension)
 
-`POST /api/projects` — champ optionnel :
+`POST /api/projects` — champs optionnels :
+
+**MVP livré** (booléen simple) :
 
 ```json
 {
@@ -339,11 +413,27 @@ Réponse POST provision (MVP : **200** avec le run créé) :
 }
 ```
 
+Équivalent lot 5 : `provisionMicrosoftTeams: true` ⇒ `options.createTeam: true` uniquement (pas de Planner / fichiers / sync).
+
+**Lot 5** — objet recommandé (remplace le booléen ou le complète) :
+
+```json
+{
+  "microsoftProvisioning": {
+    "createTeam": true,
+    "createPlannerPlan": true,
+    "setupDocumentsFolder": true,
+    "enableTasksSync": false
+  }
+}
+```
+
 Comportement :
 
-* ignoré si settings client `isEnabled=false` ou pas de connexion M365 ;
-* si `true` : créer projet puis enfiler provisioning (même service que §6.3) ;
-* réponse création projet enrichie optionnelle : `microsoftTeamsProvisioning: { provisioningId, status }`.
+* ignoré si settings client `isEnabled=false` ou connexion M365 inactive ;
+* si aucune option à `true` : pas de run provisioning ;
+* si au moins une option : créer projet puis enfiler provisioning avec flags persistés sur le run ;
+* validation : `enableTasksSync` sans `createPlannerPlan` → **400**.
 
 ## 6.5 Connexion Microsoft (lecture pour UI)
 
@@ -408,15 +498,25 @@ apps/web/src/app/(protected)/projects/options/page.tsx  # section référentiel
 
 ```
 1. Valider client, projet, connexion M365, settings.isEnabled, pas de teamId existant
-2. Créer ProjectMicrosoftTeamsProvisioning (PENDING → IN_PROGRESS)
-3. Résoudre teamName depuis template + projet (troncature 50 car.)
-4. Graph POST /teams (ou group + team) avec displayName, description, visibility private
-5. Attendre disponibilité teamId (poll Location / GET team, backoff max 5 min)
-6. Lister canaux existants ; déterminer canal principal (isPrimary template ou General)
-7. Pour chaque channelTemplate (sortOrder) : POST channel si displayName absent
-8. Upsert ProjectMicrosoftLink si demandé
-9. Marquer COMPLETED ou PARTIAL ; audit ; notifier UI via polling GET status
+2. Créer ProjectMicrosoftTeamsProvisioning (PENDING) avec flags request* selon options utilisateur
+3. Si requestCreateTeam :
+   a. Résoudre teamName depuis template + projet (troncature 50 car.)
+   b. Graph POST /teams (displayName, description?, visibility private)
+   c. Poll jusqu’à teamId disponible (backoff max 5 min)
+   d. Canaux template + canal principal
+4. Si requestCreatePlannerPlan (lot 5) :
+   a. Graph POST plan Planner pour la Team
+   b. Persister plannerPlanId / plannerPlanTitle
+5. Si requestSetupDocumentsFolder (lot 5) :
+   a. Résoudre filesDriveId du canal principal (Graph channel files folder)
+   b. Créer dossier starium-project-{projectId} si absent
+6. Upsert ProjectMicrosoftLink :
+   - champs Team/Planner/drive selon étapes réussies
+   - syncTasksEnabled / syncDocumentsEnabled selon flags cochés ET étapes OK
+7. Marquer COMPLETED ou PARTIAL ; audit ; UI polling GET status
 ```
+
+**MVP actuel** : étapes 4–5 absentes ; étape 6 force sync à `false`.
 
 Erreurs Graph : mapper en messages métier français (permissions insuffisantes, nom dupliqué, throttling).
 
@@ -424,9 +524,15 @@ Erreurs Graph : mapper en messages métier français (permissions insuffisantes,
 
 Étendre le consentement OAuth client (RFC-INT-003 / INT-005) :
 
-* `Team.Create` (ou `Group.ReadWrite.All` selon stratégie retenue au spike)
-* `Channel.Create`
-* Conserver les scopes existants (`Group.Read.All`, `Tasks.ReadWrite`, `Files.ReadWrite.All`, …)
+* `Team.Create`, `Channel.Create` — **livré**
+* `Tasks.ReadWrite` — requis si création Planner (lot 5 ; déjà dans scopes par défaut)
+* Conserver : `Group.Read.All`, `Files.ReadWrite.All`, …
+
+Graph lot 5 (à ajouter dans `MicrosoftGraphService`) :
+
+* `createPlannerPlanForTeam` — `POST /planner/plans` (payload : titre dérivé du projet, lien Team)
+* `getChannelFilesFolder` — drive / folder du canal principal pour `filesDriveId`
+* Réutiliser `ensureFolderUnderDriveRoot` (RFC-INT-009) pour `starium-project-{projectId}`
 
 Spike Graph (`POST /teams` vs `POST /groups` + bind, permissions déléguées) : **reporté** — ne pas bloquer le démarrage ; hypothèses H1–H2 et endpoints documentés Microsoft Learn servent de base ; ajuster en implémentation si le tenant de test contredit.
 
@@ -442,7 +548,7 @@ Nouvelle section **« Équipes Microsoft »** (après catégories / étiquettes)
 * champ **Modèle de nom d’équipe** (aide : variables `{{code}}`, `{{name}}`) ;
 * description équipe (optionnel) ;
 * case **Proposer à la création de projet** ;
-* tableau des **canaux par défaut** : nom, description, favori, principal, ordre (drag ou flèches) ;
+* tableau des **canaux par défaut** : nom, description, principal, ordre (flèches) ;
 * état vide : canaux suggérés en exemple (non persistés) — ex. « Pilotage », « Exécution », « Documentation ».
 
 Afficher un bandeau si M365 non connecté → lien vers paramètres client Microsoft.
@@ -451,15 +557,27 @@ Afficher un bandeau si M365 non connecté → lien vers paramètres client Micro
 
 Si `settings.isEnabled && offerOnProjectCreate && connection ACTIVE` :
 
-* case **« Créer l’équipe Microsoft Teams »** (décochée par défaut) ;
-* texte d’aide : canaux créés selon la configuration module ;
-* après submit : toast + lien vers options projet si provisioning en cours.
+**MVP livré** : une case **« Créer l’équipe Microsoft Teams »** (décochée par défaut).
+
+**Lot 5** — panneau **« Espace Microsoft 365 »** (cases imbriquées, toutes décochées par défaut) :
+
+```
+☐ Créer l’équipe Microsoft Teams (+ canaux configurés)
+    ☐ Créer un plan Planner
+    ☐ Préparer le dossier documents (sync fichiers Starium → Teams)
+    ☐ Activer la synchronisation des tâches   [désactivé si Planner non coché]
+```
+
+* Labels + `<label htmlFor>` sur chaque case ; aide contextuelle sous le groupe.
+* Soumission : envoyer uniquement les booléens cochés (pas de provisioning si tout décoché).
+* Après submit : toast + lien options projet si run actif.
 
 ## 8.3 Options projet — onglet Microsoft 365
 
 Carte Teams enrichie :
 
-* si pas de `teamId` : bouton **« Créer l’équipe Teams »** (si M365 OK + settings client actifs) ;
+* si pas de `teamId` : bouton **« Créer l’équipe Teams »** → **lot 5** : ouvrir un dialogue avec les **mêmes cases** que §8.2 (pas de provisioning sans choix explicite) ;
+* **MVP livré** : POST provision sans body (Teams seul) ;
 * si provisioning en cours : badge + polling statut (`aria-live="polite"`) ;
 * si terminé : afficher `teamName`, lien `teamWebUrl` (nouvel onglet), canal principal ;
 * si échec : alerte + bouton réessayer (si pas de teamId).
@@ -504,6 +622,8 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 * Idempotence canaux : template « Pilotage » non recréé si existe.
 * Échec Graph → statut `FAILED`, projet intact.
 * Succès → `ProjectMicrosoftLink` mis à jour, champs dénormalisés.
+* **Lot 5** : si Planner coché mais Graph refuse → `PARTIAL`, Team conservée, `plannerPlanId` null.
+* **Lot 5** : `enableTasksSync` sans `createPlannerPlan` → rejet validation.
 * Un seul `isPrimary` par client — rejet validation.
 
 ## 10.2 Unitaires (template service)
@@ -520,13 +640,15 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 
 ## 10.4 Frontend
 
-* Options : CRUD canaux, désactivation si pas M365.
-* Création projet : case visible / masquée selon settings.
-* Carte Teams : états loading / empty / error / in progress.
+* Options : CRUD canaux, désactivation si pas M365 ; lecture seule sans `projects.update`.
+* Création projet : cases visibles / masquées selon settings ; **lot 5** : sous-cases Planner / fichiers / sync.
+* Carte Teams : états loading / empty / error / in progress ; dialogue options sur provisioning à la demande.
 
 ---
 
 # 11. Critères d’acceptation
+
+## 11.1 MVP Teams (livré)
 
 * [x] Un admin client configure des canaux par défaut dans `/projects/options`.
 * [x] La feature est désactivable globalement par client (`isEnabled=false` par défaut).
@@ -534,11 +656,21 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 * [x] Depuis les options projet, l’utilisateur peut créer l’équipe a posteriori.
 * [x] L’équipe et les canaux configurés sont créés dans M365 (sous réserve des droits tenant).
 * [x] `ProjectMicrosoftLink` est renseigné avec team + canal principal.
+* [x] Planner / fichiers / sync **non** créés automatiquement sans case dédiée.
 * [x] L’état de provisioning est consultable (polling React Query sur runs actifs).
 * [x] Aucune fuite inter-client ; pas de `clientId` en body.
 * [x] Audits émis sur actions sensibles.
 * [x] Échec Microsoft ne supprime ni ne corrompt le projet Starium.
 * [x] Flux manuel INT-007 conservé (rattachement équipe existante).
+
+## 11.2 Lot 5 — provisioning modulaire (à livrer)
+
+* [ ] Cases distinctes : Teams, Planner, dossier documents, sync tâches — **toutes décochées par défaut**.
+* [ ] Aucune ressource M365 créée pour une option non cochée.
+* [ ] Sync tâches impossible sans Planner coché (UI + API).
+* [ ] Run persisté avec flags `request*` ; retry respecte les mêmes options.
+* [ ] `PARTIAL` si Team OK mais Planner ou dossier en échec ; message exploitable par option.
+* [ ] Même panneau de cases à la création projet et au provisioning à la demande (options projet).
 
 ---
 
@@ -549,7 +681,8 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 | **1 — Data + API template** | Prisma, CRUD settings + canaux, UI `/projects/options` |
 | **2 — Service provisioning** | Graph create team/channels (hypothèses doc Microsoft), statuts, audits |
 | **3 — Points d’entrée projet** | POST provision, hook création projet, UI options projet |
-| **4 — Durcissement** | Tests, messages d’erreur, doc API.md, runbook ops |
+| **4 — Durcissement** | Tests, messages d’erreur, doc API.md | ✅ livré |
+| **5 — Options modulaires** | Cases Planner / fichiers / sync ; Prisma `request*` ; Graph plan + drive ; UI création + dialogue options projet | 🔲 planifié |
 
 > Spike Graph dédié : **hors planning immédiat** (décision produit 2026-07-08).
 
@@ -557,11 +690,12 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 
 # 13. Récapitulatif
 
-Cette RFC ajoute le **provisioning Teams configurable** manquant au socle M365 :
+Cette RFC ajoute le **provisioning Microsoft 365 configurable** au socle INT-007 :
 
-* **Configuration** centralisée dans les options module Projets (canaux par défaut, nommage).
+* **Configuration** centralisée (canaux par défaut, nommage).
 * **Déclenchement** à la création ou en cours de vie projet.
-* **Lien automatique** vers `ProjectMicrosoftLink` pour enchaîner sync tâches/documents (RFC-INT-008/009).
+* **Modularité (lot 5)** : l’utilisateur coche Teams, Planner, fichiers, sync tâches — rien d’autre n’est créé.
+* **Lien automatique** vers `ProjectMicrosoftLink` pour enchaîner sync tâches/documents (RFC-INT-008/009) **uniquement si demandé**.
 
 ---
 
@@ -626,12 +760,12 @@ Cette RFC ajoute le **provisioning Teams configurable** manquant au socle M365 :
 
 Exemple de jeu initial proposé à la première activation (à valider métier) :
 
-| Ordre | Canal | Description | Favori | Principal |
-|-------|-------|-------------|--------|-----------|
-| — | Général | (créé par Microsoft) | oui | oui si aucun autre |
-| 1 | Pilotage | COPIL, COPROJ, décisions | oui | non |
-| 2 | Exécution | Suivi opérationnel | non | non |
-| 3 | Documentation | Livrables et références | non | non |
+| Ordre | Canal | Description | Principal |
+|-------|-------|-------------|-----------|
+| — | Général | (créé par Microsoft) | oui si aucun autre |
+| 1 | Pilotage | COPIL, COPROJ, décisions | non |
+| 2 | Exécution | Suivi opérationnel | non |
+| 3 | Documentation | Livrables et références | non |
 
 ---
 
@@ -657,18 +791,27 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 
 | Sujet | RFC initiale | Implémentation |
 |-------|--------------|----------------|
-| `offerOnProjectCreate` | défaut `true` | défaut **`false`** (opt-in explicite côté client) |
-| Champ `isFavoriteByDefault` sur template canal | prévu | **non implémenté** (hors MVP) |
+| `offerOnProjectCreate` | défaut `true` | défaut **`false`** |
 | Réponse POST provision | `202 Accepted` | **200** avec DTO run |
-| Corps POST provision | `activateMicrosoftLink` | **aucun body** ; lien créé en fin de job |
-| Audits canaux | préfixe `project.microsoft_teams.channel_template.*` | codes courts `channel_template.*` |
-| Audits provision | préfixe `project.microsoft_teams.provision.*` | codes courts `provision.*` |
-| Composants FE canaux | table + dialog dédiés | **formulaire intégré** dans `microsoft-teams-provisioning-settings.tsx` |
-| `aria-live` sur statut provisioning | exigé | **à densifier** (polling + alertes présents ; annonce live perfectible) |
+| Audits canaux / provision | préfixe long | codes courts `channel_template.*` / `provision.*` |
+| Composants FE canaux | table + dialog dédiés | formulaire intégré `microsoft-teams-provisioning-settings.tsx` |
+| `aria-live` sur statut provisioning | exigé | **à densifier** |
 
-## 18.3 Suites possibles (hors MVP)
+## 18.3 Lot 5 — non livré (spec §3.4)
 
-* Tests controller / intégration cross-client sur les nouvelles routes.
-* Tests FE intégrés (création projet + options projet).
-* Suffixe auto sur nom d’équipe dupliqué côté tenant M365.
-* `aria-live="polite"` explicite sur la carte Teams pendant `PENDING` / `IN_PROGRESS`.
+| Capacité | Statut code |
+|----------|-------------|
+| Cases UI Planner / fichiers / sync tâches | ❌ |
+| DTO `microsoftProvisioning` / `options` sur POST provision | ❌ |
+| Champs Prisma `requestCreatePlannerPlan`, etc. | ❌ |
+| Graph `createPlannerPlan`, résolution `filesDriveId` canal | ❌ |
+| Job : étapes conditionnelles + sync flags sur lien | ❌ |
+
+Comportement actuel si `provisionMicrosoftTeams: true` : **Team + canaux uniquement** ; Planner et fichiers restent manuels (INT-007).
+
+## 18.4 Autres suites
+
+* Tests controller / intégration cross-client.
+* Tests FE intégrés (création projet + options modulaires).
+* Suffixe auto nom d’équipe dupliqué tenant M365.
+* `aria-live="polite"` explicite sur carte Teams.

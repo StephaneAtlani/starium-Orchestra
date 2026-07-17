@@ -68,7 +68,7 @@ export class ProjectMicrosoftTeamsTemplateService {
 
     const nextData = {
       isEnabled: dto.isEnabled,
-      offerOnProjectCreate: dto.offerOnProjectCreate,
+      offerOnProjectCreate: dto.isEnabled ? dto.offerOnProjectCreate : false,
       teamNameTemplate: dto.teamNameTemplate.trim(),
       teamDescriptionTemplate: dto.teamDescriptionTemplate?.trim() || null,
     };
