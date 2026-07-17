@@ -426,7 +426,9 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `microsoft-link-configure-dialog` - `features/projects/options/components/microsoft-link-configure-dialog.tsx` - ouvre un dialogue pour microsoft link configure.
 - `microsoft-planner-card` - `features/projects/options/components/microsoft-planner-card.tsx` - affiche une carte de synthese pour microsoft planner.
 - `microsoft-teams-card` - `features/projects/options/components/microsoft-teams-card.tsx` - affiche la carte Teams du projet avec provisioning INT-010 et rattachement manuel INT-007.
-- `microsoft-teams-provisioning-settings` - `features/projects/options/components/microsoft-teams-provisioning-settings.tsx` - settings client et templates de canaux Teams (INT-010) sur `/projects/options` ; mutations gated `projects.update`.
+- `microsoft-teams-provisioning-settings` - `features/projects/options/components/microsoft-teams-provisioning-settings.tsx` - orchestrateur settings client et templates de canaux Teams (INT-010) sur `/projects/options` ; mutations gated `projects.update`.
+- `microsoft-teams-channel-templates-table` - `features/projects/options/components/microsoft-teams-channel-templates-table.tsx` - liste des templates de canaux Teams (nom, description, principal, ordre) ; actions gated `canEdit`.
+- `microsoft-teams-channel-template-form-dialog` - `features/projects/options/components/microsoft-teams-channel-template-form-dialog.tsx` - dialogue création/édition d’un template de canal Teams (`displayName`, `description`, `isPrimary`).
 - `project-microsoft-settings` - `features/projects/options/components/project-microsoft-settings.tsx` - gere l’onglet Microsoft 365 projet (connexion, provisioning Teams, reprise/resolve, flux manuel).
 - `project-options-tabs` - `features/projects/options/components/project-options-tabs.tsx` - organise les onglets pour projet options.
 - `project-options-view` - `features/projects/options/components/project-options-view.tsx` - affiche la vue de projet options.

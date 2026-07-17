@@ -26,6 +26,7 @@ import { MicrosoftDocumentsCard } from './microsoft-documents-card';
 import { MicrosoftLinkConfigureDialog } from './microsoft-link-configure-dialog';
 import type { UpdateProjectMicrosoftLinkPayload } from '../types/project-options.types';
 import { getMicrosoftTeamsProvisioningSettings } from '../api/microsoft-teams-provisioning-settings.api';
+import { projectOptionsKeys } from '../lib/project-options-query-keys';
 
 type MicrosoftConnectionDto = {
   id: string;
@@ -72,7 +73,7 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
     enabled: Boolean(clientId),
   });
   const provisioningSettingsQuery = useQuery({
-    queryKey: ['projects', 'microsoft-teams-provisioning-settings', clientId],
+    queryKey: projectOptionsKeys.microsoftTeamsProvisioningSettings(clientId),
     queryFn: () => getMicrosoftTeamsProvisioningSettings(authFetch),
     enabled: Boolean(clientId),
     retry: false,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -22,18 +23,13 @@ import {
   updateMicrosoftTeamsProvisioningSettings,
 } from '../api/microsoft-teams-provisioning-settings.api';
 import { projectOptionsKeys } from '../lib/project-options-query-keys';
-
-type TemplateFormState = {
-  displayName: string;
-  description: string;
-  isPrimary: boolean;
-};
-
-const EMPTY_FORM: TemplateFormState = {
-  displayName: '',
-  description: '',
-  isPrimary: false,
-};
+import type { ProjectMicrosoftTeamsChannelTemplateDto } from '../types/project-options.types';
+import {
+  EMPTY_TEAMS_CHANNEL_TEMPLATE_FORM,
+  MicrosoftTeamsChannelTemplateFormDialog,
+  type TeamsChannelTemplateFormValues,
+} from './microsoft-teams-channel-template-form-dialog';
+import { MicrosoftTeamsChannelTemplatesTable } from './microsoft-teams-channel-templates-table';
 
 export function MicrosoftTeamsProvisioningSettings() {
   const { has } = usePermissions();
@@ -47,9 +43,13 @@ export function MicrosoftTeamsProvisioningSettings() {
   const [teamDescriptionTemplate, setTeamDescriptionTemplate] = useState('');
   const [isEnabled, setIsEnabled] = useState(false);
   const [offerOnProjectCreate, setOfferOnProjectCreate] = useState(false);
-  const [newTemplate, setNewTemplate] = useState<TemplateFormState>(EMPTY_FORM);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [editingTemplate, setEditingTemplate] =
+    useState<TeamsChannelTemplateFormValues>(EMPTY_TEAMS_CHANNEL_TEMPLATE_FORM);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
-  const [editingTemplate, setEditingTemplate] = useState<TemplateFormState>(EMPTY_FORM);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const settingsQuery = useQuery({
     queryKey: projectOptionsKeys.microsoftTeamsProvisioningSettings(clientId),
@@ -107,18 +107,16 @@ export function MicrosoftTeamsProvisioningSettings() {
   });
 
   const createTemplateMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (body: TeamsChannelTemplateFormValues) =>
       createMicrosoftTeamsChannelTemplate(authFetch, {
-        displayName: newTemplate.displayName,
-        description: newTemplate.description,
-        isPrimary: newTemplate.isPrimary,
+        displayName: body.displayName,
+        description: body.description,
+        isPrimary: body.isPrimary,
       }),
     onSuccess: async () => {
-      setNewTemplate(EMPTY_FORM);
       await refresh();
       toast.success('Canal par défaut ajouté.');
     },
-    onError: (error: Error) => toast.error(error.message || 'Création impossible.'),
   });
 
   const updateTemplateMutation = useMutation({
@@ -127,7 +125,7 @@ export function MicrosoftTeamsProvisioningSettings() {
       body,
     }: {
       id: string;
-      body: TemplateFormState;
+      body: TeamsChannelTemplateFormValues;
     }) =>
       updateMicrosoftTeamsChannelTemplate(authFetch, id, {
         displayName: body.displayName,
@@ -135,12 +133,9 @@ export function MicrosoftTeamsProvisioningSettings() {
         isPrimary: body.isPrimary,
       }),
     onSuccess: async () => {
-      setEditingTemplateId(null);
-      setEditingTemplate(EMPTY_FORM);
       await refresh();
       toast.success('Template mis à jour.');
     },
-    onError: (error: Error) => toast.error(error.message || 'Mise à jour impossible.'),
   });
 
   const deleteTemplateMutation = useMutation({
@@ -164,6 +159,8 @@ export function MicrosoftTeamsProvisioningSettings() {
   const templates = templatesQuery.data?.items ?? [];
   const connectionActive = connectionQuery.data?.connection?.status === 'ACTIVE';
 
+  const dialogPending = createTemplateMutation.isPending || updateTemplateMutation.isPending;
+
   useEffect(() => {
     const settings = settingsQuery.data;
     if (!settings) return;
@@ -172,6 +169,77 @@ export function MicrosoftTeamsProvisioningSettings() {
     setIsEnabled(settings.isEnabled);
     setOfferOnProjectCreate(settings.offerOnProjectCreate);
   }, [settingsQuery.data]);
+
+  const openCreateDialog = () => {
+    setDialogMode('create');
+    setEditingTemplateId(null);
+    setEditingTemplate(EMPTY_TEAMS_CHANNEL_TEMPLATE_FORM);
+    setSubmitError(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (template: ProjectMicrosoftTeamsChannelTemplateDto) => {
+    setDialogMode('edit');
+    setEditingTemplateId(template.id);
+    setEditingTemplate({
+      displayName: template.displayName,
+      description: template.description ?? '',
+      isPrimary: template.isPrimary,
+    });
+    setSubmitError(null);
+    setDialogOpen(true);
+  };
+
+  const handleDialogSubmit = async (body: TeamsChannelTemplateFormValues) => {
+    setSubmitError(null);
+    try {
+      if (dialogMode === 'create') {
+        await createTemplateMutation.mutateAsync(body);
+      } else if (editingTemplateId) {
+        await updateTemplateMutation.mutateAsync({ id: editingTemplateId, body });
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Enregistrement impossible.';
+      setSubmitError(message);
+      throw error;
+    }
+  };
+
+  const handleMoveUp = (index: number) => {
+    reorderTemplateMutation.mutate(
+      templates.map((item, currentIndex) => {
+        if (currentIndex === index - 1) {
+          return { id: item.id, sortOrder: currentIndex + 1 };
+        }
+        if (currentIndex === index) {
+          return { id: item.id, sortOrder: currentIndex - 1 };
+        }
+        return { id: item.id, sortOrder: currentIndex };
+      }),
+    );
+  };
+
+  const handleMoveDown = (index: number) => {
+    reorderTemplateMutation.mutate(
+      templates.map((item, currentIndex) => {
+        if (currentIndex === index) {
+          return { id: item.id, sortOrder: currentIndex + 1 };
+        }
+        if (currentIndex === index + 1) {
+          return { id: item.id, sortOrder: currentIndex - 1 };
+        }
+        return { id: item.id, sortOrder: currentIndex };
+      }),
+    );
+  };
+
+  const handleIsEnabledChange = (checked: boolean) => {
+    setIsEnabled(checked);
+    if (!checked) {
+      setOfferOnProjectCreate(false);
+    }
+  };
 
   if (settingsQuery.isLoading || templatesQuery.isLoading || connectionQuery.isLoading) {
     return <LoadingState rows={6} />;
@@ -199,7 +267,11 @@ export function MicrosoftTeamsProvisioningSettings() {
             <AlertTitle>Connexion Microsoft inactive</AlertTitle>
             <AlertDescription>
               Le flux manuel INT-007 reste disponible, mais le provisioning Teams restera inactif
-              tant que la connexion Microsoft 365 n’est pas active.
+              tant que la connexion Microsoft 365 n’est pas active. Connectez le client dans{' '}
+              <Link className="underline" href="/client/administration/microsoft-365">
+                Microsoft 365
+              </Link>
+              .
             </AlertDescription>
           </Alert>
         ) : null}
@@ -237,7 +309,7 @@ export function MicrosoftTeamsProvisioningSettings() {
               type="checkbox"
               className="mt-1 size-4 rounded border-input accent-primary"
               checked={isEnabled}
-              onChange={(e) => setIsEnabled(e.target.checked)}
+              onChange={(e) => handleIsEnabledChange(e.target.checked)}
               disabled={!canEdit}
             />
             <span className="space-y-1">
@@ -256,9 +328,7 @@ export function MicrosoftTeamsProvisioningSettings() {
               disabled={!canEdit || !isEnabled}
             />
             <span className="space-y-1">
-              <span className="block text-sm font-medium">
-                Proposer à la création projet
-              </span>
+              <span className="block text-sm font-medium">Proposer à la création projet</span>
               <span className="block text-xs text-muted-foreground">
                 La case restera décochée par défaut sur l’écran “Nouveau projet”.
               </span>
@@ -281,220 +351,42 @@ export function MicrosoftTeamsProvisioningSettings() {
         )}
 
         <div className="space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold">Canaux par défaut</h3>
-            <p className="text-xs text-muted-foreground">
-              Un seul canal principal est autorisé. Sans canal principal configuré ici, le canal
-              Microsoft “Général” restera la cible du lien Starium.
-            </p>
-          </div>
-
-          {canEdit ? (
-            <div className="grid gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
-              <Input
-                value={newTemplate.displayName}
-                onChange={(e) =>
-                  setNewTemplate((prev) => ({ ...prev, displayName: e.target.value }))
-                }
-                placeholder="Nom du canal"
-              />
-              <Input
-                value={newTemplate.description}
-                onChange={(e) =>
-                  setNewTemplate((prev) => ({ ...prev, description: e.target.value }))
-                }
-                placeholder="Description"
-              />
-              <label className="flex min-h-10 items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-4 rounded border-input accent-primary"
-                  checked={newTemplate.isPrimary}
-                  onChange={(e) =>
-                    setNewTemplate((prev) => ({ ...prev, isPrimary: e.target.checked }))
-                  }
-                />
-                Principal
-              </label>
-              <Button
-                type="button"
-                onClick={() => createTemplateMutation.mutate()}
-                disabled={!newTemplate.displayName.trim() || createTemplateMutation.isPending}
-              >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Canaux par défaut</h3>
+              <p className="text-xs text-muted-foreground">
+                Un seul canal principal est autorisé. Sans canal principal configuré ici, le canal
+                Microsoft “Général” restera la cible du lien Starium.
+              </p>
+            </div>
+            {canEdit ? (
+              <Button type="button" onClick={openCreateDialog}>
                 Ajouter
               </Button>
-            </div>
-          ) : null}
-
-          <div className="space-y-2">
-            {templates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Aucun canal par défaut configuré. Exemples suggérés : Pilotage, Exécution,
-                Documentation.
-              </p>
-            ) : (
-              templates.map((template, index) => {
-                const isEditing = editingTemplateId === template.id;
-                return (
-                  <div
-                    key={template.id}
-                    className="flex flex-col gap-3 rounded-lg border border-border/70 p-3"
-                  >
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>Ordre {template.sortOrder + 1}</span>
-                      {template.isPrimary ? <span>Canal principal</span> : null}
-                    </div>
-
-                    {isEditing ? (
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                        <Input
-                          value={editingTemplate.displayName}
-                          onChange={(e) =>
-                            setEditingTemplate((prev) => ({
-                              ...prev,
-                              displayName: e.target.value,
-                            }))
-                          }
-                        />
-                        <Input
-                          value={editingTemplate.description}
-                          onChange={(e) =>
-                            setEditingTemplate((prev) => ({
-                              ...prev,
-                              description: e.target.value,
-                            }))
-                          }
-                        />
-                        <label className="flex min-h-10 items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="size-4 rounded border-input accent-primary"
-                            checked={editingTemplate.isPrimary}
-                            onChange={(e) =>
-                              setEditingTemplate((prev) => ({
-                                ...prev,
-                                isPrimary: e.target.checked,
-                              }))
-                            }
-                          />
-                          Principal
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="grid gap-1">
-                        <p className="text-sm font-medium">{template.displayName}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {template.description || 'Aucune description'}
-                        </p>
-                      </div>
-                    )}
-
-                    {canEdit ? (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={index === 0 || reorderTemplateMutation.isPending}
-                          onClick={() =>
-                            reorderTemplateMutation.mutate(
-                              templates.map((item, currentIndex) => {
-                                if (currentIndex === index - 1) {
-                                  return { id: item.id, sortOrder: currentIndex + 1 };
-                                }
-                                if (currentIndex === index) {
-                                  return { id: item.id, sortOrder: currentIndex - 1 };
-                                }
-                                return { id: item.id, sortOrder: currentIndex };
-                              }),
-                            )
-                          }
-                        >
-                          Monter
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            index === templates.length - 1 || reorderTemplateMutation.isPending
-                          }
-                          onClick={() =>
-                            reorderTemplateMutation.mutate(
-                              templates.map((item, currentIndex) => {
-                                if (currentIndex === index) {
-                                  return { id: item.id, sortOrder: currentIndex + 1 };
-                                }
-                                if (currentIndex === index + 1) {
-                                  return { id: item.id, sortOrder: currentIndex - 1 };
-                                }
-                                return { id: item.id, sortOrder: currentIndex };
-                              }),
-                            )
-                          }
-                        >
-                          Descendre
-                        </Button>
-                        {isEditing ? (
-                          <>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() =>
-                                updateTemplateMutation.mutate({
-                                  id: template.id,
-                                  body: editingTemplate,
-                                })
-                              }
-                              disabled={!editingTemplate.displayName.trim()}
-                            >
-                              Enregistrer
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingTemplateId(null);
-                                setEditingTemplate(EMPTY_FORM);
-                              }}
-                            >
-                              Annuler
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingTemplateId(template.id);
-                              setEditingTemplate({
-                                displayName: template.displayName,
-                                description: template.description ?? '',
-                                isPrimary: template.isPrimary,
-                              });
-                            }}
-                          >
-                            Modifier
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteTemplateMutation.mutate(template.id)}
-                        >
-                          Supprimer
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })
-            )}
+            ) : null}
           </div>
+
+          <MicrosoftTeamsChannelTemplatesTable
+            templates={templates}
+            canEdit={canEdit}
+            isReordering={reorderTemplateMutation.isPending}
+            onEdit={openEditDialog}
+            onDelete={(id) => deleteTemplateMutation.mutate(id)}
+            onMoveUp={handleMoveUp}
+            onMoveDown={handleMoveDown}
+          />
         </div>
+
+        <MicrosoftTeamsChannelTemplateFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          mode={dialogMode}
+          initialValues={editingTemplate}
+          onSubmit={handleDialogSubmit}
+          isPending={dialogPending}
+          canEdit={canEdit}
+          errorMessage={submitError}
+        />
       </CardContent>
     </Card>
   );

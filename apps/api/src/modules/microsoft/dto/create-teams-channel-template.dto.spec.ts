@@ -20,7 +20,7 @@ describe('CreateTeamsChannelTemplateDto', () => {
         displayName: `Pilotage${forbidden}`,
         isPrimary: false,
       });
-      const errors = validateSync(inst, { transform: true });
+      const errors = validateSync(inst);
       expect(errors.length).toBeGreaterThan(0);
     }
   });
@@ -30,7 +30,7 @@ describe('CreateTeamsChannelTemplateDto', () => {
       displayName: '   ',
       isPrimary: false,
     });
-    const errors = validateSync(inst, { transform: true });
+    const errors = validateSync(inst);
     expect(errors.length).toBeGreaterThan(0);
   });
 

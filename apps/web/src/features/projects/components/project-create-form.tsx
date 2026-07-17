@@ -75,6 +75,7 @@ import {
   type RetroplanMacroStepRow,
 } from '../lib/project-retroplan-macro-form';
 import { getMicrosoftTeamsProvisioningSettings } from '../options/api/microsoft-teams-provisioning-settings.api';
+import { projectOptionsKeys } from '../options/lib/project-options-query-keys';
 import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 
 const textareaClass = cn(
@@ -315,7 +316,7 @@ export function ProjectCreateForm() {
     retry: false,
   });
   const microsoftTeamsSettingsQuery = useQuery({
-    queryKey: ['projects', 'microsoft-teams-provisioning-settings', clientId],
+    queryKey: projectOptionsKeys.microsoftTeamsProvisioningSettings(clientId),
     queryFn: () => getMicrosoftTeamsProvisioningSettings(authFetch),
     enabled: Boolean(clientId),
     retry: false,
