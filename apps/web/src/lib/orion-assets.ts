@@ -45,7 +45,7 @@ export const ORION_PRODUCT_NAME = 'Orion';
 export const ORION_SUBTITLE = 'Assistant & base de connaissance';
 
 export type OrionPersonalityContext = {
-  tab: 'home' | 'conversations' | 'help' | 'feedback';
+  tab: 'home' | 'news' | 'conversations' | 'help' | 'feedback';
   status: 'idle' | 'loading' | 'empty' | 'error' | 'unauthorized';
   feedbackStatus?: 'idle' | 'sending' | 'success' | 'error';
   remoteArticleLoading?: boolean;
