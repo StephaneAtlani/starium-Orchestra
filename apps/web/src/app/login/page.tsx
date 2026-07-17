@@ -596,7 +596,7 @@ function LoginPageContent() {
           className="starium-login-form"
           aria-labelledby="login-form-title"
         >
-          <div className="starium-login-form__inner">
+          <div className="starium-login-form__inner starium-login-enter starium-login-enter--delay-1">
             <div className="mb-8 flex justify-center md:hidden">
               <Image
                 src="/brand/logo-horizontal.png"

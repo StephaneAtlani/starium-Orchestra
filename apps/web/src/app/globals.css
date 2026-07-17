@@ -7327,7 +7327,115 @@ body {
 .starium-login-news {
   margin-top: 0.5rem;
   border-left: 3px solid var(--brand-gold);
-  padding: 0.875rem 0 0.875rem 1rem;
-  border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
-  background: color-mix(in srgb, var(--brand-gold) 8%, transparent);
+  padding: 1rem 1.125rem;
+  border-radius: var(--radius-lg, 14px);
+  background: color-mix(in srgb, var(--brand-gold) 15%, var(--brand-ink));
+}
+
+.starium-login-news-title {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 0.5rem;
+  padding: 0.3125rem 0.75rem;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.starium-login-news--information {
+  border-left-color: color-mix(in srgb, var(--purple) 25%, var(--purple-bg));
+  background: color-mix(in srgb, var(--purple) 55%, var(--brand-ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--purple) 40%, transparent);
+}
+
+.starium-login-news--information .starium-login-news-accent {
+  color: color-mix(in srgb, var(--purple) 10%, white);
+}
+
+.starium-login-news--information .starium-login-news-title {
+  color: color-mix(in srgb, var(--purple) 8%, white);
+  background: color-mix(in srgb, var(--purple) 72%, var(--brand-ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--purple-bg) 45%, transparent);
+}
+
+.starium-login-news--warning {
+  border-left-color: color-mix(in srgb, var(--state-warning) 30%, var(--state-warning-bg));
+  background: color-mix(in srgb, var(--state-warning) 52%, var(--brand-ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-warning) 38%, transparent);
+}
+
+.starium-login-news--warning .starium-login-news-accent {
+  color: color-mix(in srgb, var(--state-warning-bg) 55%, white);
+}
+
+.starium-login-news--warning .starium-login-news-title {
+  color: var(--brand-ink);
+  background: color-mix(in srgb, var(--state-warning-bg) 78%, var(--state-warning));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-warning) 40%, transparent);
+}
+
+.starium-login-news--urgent {
+  border-left-color: color-mix(in srgb, var(--state-danger) 25%, white);
+  background: color-mix(in srgb, var(--state-danger) 55%, var(--brand-ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-danger) 40%, transparent);
+}
+
+.starium-login-news--urgent .starium-login-news-accent {
+  color: color-mix(in srgb, var(--state-danger) 12%, white);
+}
+
+.starium-login-news--urgent .starium-login-news-title {
+  color: white;
+  background: color-mix(in srgb, var(--state-danger) 78%, var(--brand-ink));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--state-danger) 35%, white);
+}
+
+@keyframes starium-login-fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes starium-login-news-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.starium-login-enter {
+  animation: starium-login-fade-up-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.starium-login-enter--delay-1 {
+  animation-delay: 0.12s;
+}
+
+.starium-login-enter--delay-2 {
+  animation-delay: 0.24s;
+}
+
+.starium-login-news--enter {
+  animation: starium-login-news-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starium-login-enter,
+  .starium-login-news--enter {
+    animation: none;
+  }
 }

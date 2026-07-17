@@ -2,15 +2,43 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Megaphone } from 'lucide-react';
-import { fetchLoginNewsApi } from '@/services/login-news';
+import { AlertOctagon, AlertTriangle, Info } from 'lucide-react';
+import {
+  fetchLoginNewsApi,
+  LOGIN_NEWS_MESSAGE_TYPE_LABEL,
+  type LoginNewsMessageType,
+} from '@/services/login-news';
+
+const LOGIN_NEWS_TYPE_CLASS: Record<LoginNewsMessageType, string> = {
+  INFORMATION: 'starium-login-news--information',
+  WARNING: 'starium-login-news--warning',
+  URGENT: 'starium-login-news--urgent',
+};
+
+function LoginNewsIcon({ messageType }: { messageType: LoginNewsMessageType }) {
+  const className = 'starium-login-news-accent mt-0.5 size-5 shrink-0';
+  switch (messageType) {
+    case 'WARNING':
+      return <AlertTriangle className={className} aria-hidden />;
+    case 'URGENT':
+      return <AlertOctagon className={className} aria-hidden />;
+    case 'INFORMATION':
+    default:
+      return <Info className={className} aria-hidden />;
+  }
+}
 
 export function LoginBrandPanel() {
   const year = new Date().getFullYear();
   const [newsMessage, setNewsMessage] = useState<string | null>(null);
+  const [newsMessageType, setNewsMessageType] =
+    useState<LoginNewsMessageType>('INFORMATION');
 
   useEffect(() => {
-    void fetchLoginNewsApi().then(({ message }) => setNewsMessage(message));
+    void fetchLoginNewsApi().then(({ message, messageType }) => {
+      setNewsMessage(message);
+      setNewsMessageType(messageType);
+    });
   }, []);
 
   return (
@@ -28,7 +56,7 @@ export function LoginBrandPanel() {
         className="pointer-events-none object-cover opacity-80"
       />
 
-      <div className="relative z-10">
+      <div className="relative z-10 starium-login-enter">
         <div className="flex items-center gap-3">
           <Image
             src="/brand/icon-starium-white.png"
@@ -48,7 +76,7 @@ export function LoginBrandPanel() {
         </div>
       </div>
 
-      <div className="relative z-10 space-y-4">
+      <div className="relative z-10 space-y-4 starium-login-enter starium-login-enter--delay-1">
         <p className="starium-login-overline text-[color:var(--brand-gold)]">
           Portail de pilotage
         </p>
@@ -62,18 +90,15 @@ export function LoginBrandPanel() {
 
         {newsMessage ? (
           <div
-            className="starium-login-news max-w-md"
+            className={`starium-login-news starium-login-news--enter max-w-md ${LOGIN_NEWS_TYPE_CLASS[newsMessageType]}`}
             role="status"
             aria-live="polite"
           >
             <div className="flex items-start gap-3">
-              <Megaphone
-                className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-gold)]"
-                aria-hidden
-              />
+              <LoginNewsIcon messageType={newsMessageType} />
               <div className="space-y-1">
-                <p className="starium-login-overline text-[color:var(--brand-gold)]">
-                  Actualité
+                <p className="starium-login-news-title starium-login-news-accent">
+                  {LOGIN_NEWS_MESSAGE_TYPE_LABEL[newsMessageType]}
                 </p>
                 <p className="text-sm leading-relaxed text-white/85 whitespace-pre-wrap lg:text-base">
                   {newsMessage}
@@ -84,7 +109,7 @@ export function LoginBrandPanel() {
         ) : null}
       </div>
 
-      <p className="relative z-10 text-xs text-white/45">
+      <p className="relative z-10 text-xs text-white/45 starium-login-enter starium-login-enter--delay-2">
         © {year} Starium — Tous droits réservés
       </p>
     </aside>

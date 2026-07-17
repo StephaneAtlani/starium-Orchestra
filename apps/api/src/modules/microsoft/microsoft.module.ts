@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { QueueModule } from '../queue/queue.module';
 import { QUEUE_CONNECTION } from '../queue/queue.constants';
 import { MicrosoftTokenCryptoService } from './microsoft-token-crypto.service';
@@ -42,7 +43,7 @@ import { ProjectMicrosoftTeamsTemplateController } from './project-microsoft-tea
 import { ProjectMicrosoftTeamsTemplateService } from './project-microsoft-teams-template.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, AuditLogsModule, forwardRef(() => ProjectsModule), QueueModule],
+  imports: [PrismaModule, AuthModule, AuditLogsModule, AccessDecisionModule, forwardRef(() => ProjectsModule), QueueModule],
   controllers: [
     MicrosoftAuthController,
     MicrosoftOAuthCallbackController,

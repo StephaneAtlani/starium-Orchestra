@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { PlatformLoginNewsType } from '@prisma/client';
 import { PLATFORM_LOGIN_NEWS_MAX_LENGTH } from '../platform-login-news.constants';
 
 export class UpdatePlatformLoginNewsDto {
@@ -8,4 +9,9 @@ export class UpdatePlatformLoginNewsDto {
   @IsString()
   @MaxLength(PLATFORM_LOGIN_NEWS_MAX_LENGTH)
   message?: string | null;
+
+  /** Niveau visuel du message : information, avertissement ou urgent. */
+  @IsOptional()
+  @IsEnum(PlatformLoginNewsType)
+  messageType?: PlatformLoginNewsType;
 }

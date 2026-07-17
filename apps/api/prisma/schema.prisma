@@ -506,10 +506,17 @@ model PlatformUploadSettings {
 }
 
 /// Message d’actualité affiché sur l’écran de connexion (singleton id = `default`).
+enum PlatformLoginNewsType {
+  INFORMATION
+  WARNING
+  URGENT
+}
+
 model PlatformLoginNews {
-  id        String   @id @default("default")
-  message   String?
-  updatedAt DateTime @updatedAt
+  id          String                 @id @default("default")
+  message     String?
+  messageType PlatformLoginNewsType  @default(INFORMATION)
+  updatedAt   DateTime               @updatedAt
 }
 
 model PlatformProcurementS3Settings {
