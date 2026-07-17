@@ -460,6 +460,8 @@ apps/api/src/modules/microsoft/
 │   ├── reorder-teams-channel-templates.dto.ts
 │   └── resolve-project-microsoft-teams-provisioning.dto.ts
 ├── project-microsoft-teams-provisioning.processor.ts
+├── migration-int-010.spec.ts                    # gate SQL index partiels + FK CASCADE
+├── project-microsoft-teams-template.controller.spec.ts
 └── tests/
     ├── project-microsoft-teams-provisioning.service.spec.ts
     └── project-microsoft-teams-template.service.spec.ts
@@ -468,6 +470,8 @@ apps/api/src/modules/projects/
 ├── dto/create-project.dto.ts                    # + provisionMicrosoftTeams?
 └── projects.service.ts                          # hook post-create
 ```
+
+`MicrosoftModule` importe **`AccessDecisionModule`** (DI `ResourceAccessDecisionGuard` sur `ProjectMicrosoftTeamsProvisioningController`, RFC-ACL-025).
 
 ### Backend — modifier
 
@@ -483,7 +487,9 @@ apps/api/prisma/schema.prisma
 ```
 apps/web/src/features/projects/options/
 ├── api/microsoft-teams-provisioning-settings.api.ts
-├── components/microsoft-teams-provisioning-settings.tsx
+├── components/microsoft-teams-provisioning-settings.tsx      # orchestrateur
+├── components/microsoft-teams-channel-templates-table.tsx
+├── components/microsoft-teams-channel-template-form-dialog.tsx
 ├── api/project-microsoft-teams-provisioning.ts
 └── hooks/use-project-microsoft-teams-provisioning-query.ts
 
@@ -782,20 +788,21 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 
 ## 18.1 Livré
 
-* Migration Prisma `20260717100000_project_microsoft_teams_provisioning` avec **index partiels uniques** SQL (`one_primary_per_client`, `one_active_run_per_project`).
+* Migration Prisma `20260717100000_project_microsoft_teams_provisioning` avec **index partiels uniques** SQL (`one_primary_per_client`, `one_active_run_per_project`) ; test statique `migration-int-010.spec.ts`.
 * Services : `ProjectMicrosoftTeamsTemplateService`, `ProjectMicrosoftTeamsProvisioningService` ; worker `ProjectMicrosoftTeamsProvisioningProcessor` (BullMQ).
 * Graph : `createTeam`, `pollAsyncOperation`, `createTeamChannel`, `listTeamChannels`, `getTeam` ; scopes `Team.Create`, `Channel.Create`.
-* UI : `/projects/options` (section Équipes Microsoft), création projet (case opt-in), options projet (carte Teams + retry/resolve).
+* **Lot 1 gate (référentiel client)** : API settings/canaux + audits ; UI `/projects/options` (orchestrateur `microsoft-teams-provisioning-settings`, table `microsoft-teams-channel-templates-table`, dialog `microsoft-teams-channel-template-form-dialog`) ; query keys `projectOptionsKeys.microsoftTeamsProvisioningSettings` ; tests unitaires BE (template service/controller, DTOs, migration SQL) et FE (table, dialog, orchestrateur).
+* UI projet : création projet (case opt-in), options projet (carte Teams + retry/resolve).
+* `MicrosoftModule` : import `AccessDecisionModule` pour `ResourceAccessDecisionGuard` sur les routes provisioning projet.
 
 ## 18.2 Écarts documentés (MVP acceptés)
 
 | Sujet | RFC initiale | Implémentation |
 |-------|--------------|----------------|
-| `offerOnProjectCreate` | défaut `true` | défaut **`false`** |
+| `offerOnProjectCreate` | défaut `true` | défaut **`false`** ; backend force `false` si `isEnabled=false` |
 | Réponse POST provision | `202 Accepted` | **200** avec DTO run |
 | Audits canaux / provision | préfixe long | codes courts `channel_template.*` / `provision.*` |
-| Composants FE canaux | table + dialog dédiés | formulaire intégré `microsoft-teams-provisioning-settings.tsx` |
-| `aria-live` sur statut provisioning | exigé | **à densifier** |
+| `aria-live` sur statut provisioning | exigé | **à densifier** (carte projet) |
 
 ## 18.3 Lot 5 — non livré (spec §3.4)
 
@@ -811,7 +818,8 @@ Comportement actuel si `provisionMicrosoftTeams: true` : **Team + canaux uniquem
 
 ## 18.4 Autres suites
 
-* Tests controller / intégration cross-client.
-* Tests FE intégrés (création projet + options modulaires).
+* Tests intégration / E2E cross-client (provisioning + options).
+* Tests FE intégrés (création projet + options modulaires lot 5).
 * Suffixe auto nom d’équipe dupliqué tenant M365.
-* `aria-live="polite"` explicite sur carte Teams.
+* `aria-live="polite"` explicite sur carte Teams (projet).
+* Vérification runtime migration : index partiels en base (`\di`) avant déploiement prod.

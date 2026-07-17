@@ -3068,14 +3068,14 @@ Provisioning asynchrone d’une nouvelle Team Microsoft pour un projet Starium, 
 Référentiel client pour le provisioning Teams (désactivé par défaut) et liste des canaux à créer lors du provisioning.
 
 - **GET /api/projects/options/microsoft-teams-provisioning** — Lecture des settings client (`isEnabled`, `offerOnProjectCreate`, `teamNameTemplate`, `teamDescriptionTemplate`). Retourne des valeurs par défaut si aucune ligne n’existe encore. **`projects.read`**
-- **PUT /api/projects/options/microsoft-teams-provisioning** — Mise à jour des settings client. Audit **`project.microsoft_teams.settings.updated`**. **`projects.update`**
+- **PUT /api/projects/options/microsoft-teams-provisioning** — Mise à jour des settings client. Si `isEnabled=false`, `offerOnProjectCreate` est **forcé à `false`** côté serveur. Audit **`project.microsoft_teams.settings.updated`**. **`projects.update`**
 - **GET /api/projects/options/microsoft-teams-channels** — Liste triée des templates de canaux (`displayName`, `description`, `sortOrder`, `isPrimary`). **`projects.read`**
 - **POST /api/projects/options/microsoft-teams-channels** — Création d’un template de canal. Validation métier : nom <= 50 caractères, caractères interdits Teams rejetés, un seul `isPrimary=true` par client. Audit **`channel_template.created`**. **`projects.update`**
 - **PATCH /api/projects/options/microsoft-teams-channels/:id** — Mise à jour d’un template. Audit **`channel_template.updated`**. **`projects.update`**
 - **PUT /api/projects/options/microsoft-teams-channels/reorder** — Réordonnancement explicite (`items: [{ id, sortOrder }]`). **`projects.update`**
 - **DELETE /api/projects/options/microsoft-teams-channels/:id** — Suppression + compaction des `sortOrder`. Audit **`channel_template.deleted`**. **`projects.update`**
 
-**UI `/projects/options`** : section **Équipes Microsoft** (`microsoft-teams-provisioning-settings`) — mutations visibles uniquement avec **`projects.update`** ; lecture seule sinon.
+**UI `/projects/options`** : section **Équipes Microsoft** — orchestrateur `microsoft-teams-provisioning-settings` (settings + bouton **Ajouter**), liste `microsoft-teams-channel-templates-table`, dialogue `microsoft-teams-channel-template-form-dialog`. Mutations visibles uniquement avec **`projects.update`** ; lecture seule sinon. Si connexion M365 inactive : bandeau + lien **`/client/administration/microsoft-365`**. Query keys : `projectOptionsKeys.microsoftTeamsProvisioningSettings(clientId)` et `microsoftTeamsChannelTemplates(clientId)`.
 
 **UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), onglet Planning (buckets), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
 

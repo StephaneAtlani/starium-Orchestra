@@ -419,7 +419,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 
 - `project-gantt-view` - `features/projects/gantt/components/project-gantt-view.tsx` - affiche la vue de projet gantt.
 
-## Projets / Options (12)
+## Projets / Options (14)
 
 - `microsoft-connection-status-card` - `features/projects/options/components/microsoft-connection-status-card.tsx` - affiche une carte de synthese pour microsoft connection statut.
 - `microsoft-documents-card` - `features/projects/options/components/microsoft-documents-card.tsx` - affiche une carte de synthese pour microsoft documents.
