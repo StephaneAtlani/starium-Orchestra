@@ -2788,7 +2788,7 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **GET /api/projects/portfolio-summary** — KPI agrégés sur **tous** les projets du client actif (sans pagination liste, **non filtré** par `tagIds`). Permission **`projects.read`**.
 - **GET /api/projects/assignable-users** — Membres **actifs** du client (id, email, nom) pour désigner un responsable projet sans exiger le rôle client admin. Permission **`projects.read`**.
 - **GET /api/projects/assignable-parents** — Projets **éligibles comme parent** (même client ; exclut `excludeProjectId`, ses descendants, candidats qui feraient dépasser la profondeur max). Query : `excludeProjectId?`, `search?`, `limit?` (défaut 20, max 50). Réponse : `{ items: [{ id, name, code, status, kind }] }`. Permission **`projects.read`**. *(RFC-PROJ-019)*
-- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
+- **POST /api/projects** — Création (DTO validé : `name`, `code`, `type`, `priority`, `criticality`, champs optionnels dates, `progressPercent`, `ownerUserId`, **`parentProjectId`**, **`provisionMicrosoftTeams`** (opt-in provisioning Teams — RFC-PROJ-INT-010 : ignoré si settings client désactivés ou connexion M365 inactive), etc.). Validation serveur : même client, anti-cycle, profondeur max 5. Permission **`projects.create`**.
 - **GET /api/projects/:id** — Détail enrichi (même enrichissement pilotage que la liste + champs étendus description, notes, etc.) ; inclut **`ancestorChain`** (ancêtres racine → parent direct) et **météo du comité** : `committeeMood` (`GREEN` \| `ORANGE` \| `RED` \| `null`), `committeeMoodReviewId`, `committeeMoodReviewTitle`, `committeeMoodReviewDate` (dernière valeur connue, scope client). Permission **`projects.read`**.
 - **GET /api/projects/:id/children** — Liste paginée des **enfants directs** (format item liste enrichie ; mêmes filtres query optionnels que la liste, restreints aux enfants). Permission **`projects.read`**. *(RFC-PROJ-019)*
 - **PATCH /api/projects/:id** — Mise à jour partielle (`parentProjectId` nullable pour détacher). Audits dédiés `project.parent.assigned` / `detached` / `changed` si le parent change. Permission **`projects.update`** (+ décision d’accès intent `write` sur le projet).
@@ -3041,16 +3041,41 @@ Registre métier **sans** upload ni téléchargement binaire côté API MVP. Iso
 
 Audits : **`project.document.created`**, **`project.document.updated`**, **`project.document.archived`**, **`project.document.deleted`**.
 
-### Lien Microsoft projet (RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016) — `/api/projects/:projectId/microsoft-link`
+### Lien Microsoft projet (RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-010 / RFC-PROJ-INT-016) — `/api/projects/:projectId/microsoft-link`
 
 Configuration du lien projet ↔ Teams / Planner / drive fichiers ; sync **manuelle** vers Planner (tâches) et vers le **drive** SharePoint du canal (documents). **Isolation** : `projectId` + **client actif** ; pas de `clientId` dans le body.
 
 **Guards** : `JwtAuthGuard`, `ActiveClientGuard`, `MicrosoftIntegrationAccessGuard`, `@RequirePermissions('projects.update')` (même logique d’accès Microsoft que les routes `/api/microsoft/*` — voir section Intégration Microsoft 365).
 
 - **GET** — Lecture config `ProjectMicrosoftLink` (404 si non créée). **`projects.read`**
-- **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId`, `syncTasksEnabled`, `syncDocumentsEnabled`, `useMicrosoftPlannerBuckets` (remplace les buckets Starium par l’import des buckets du plan Planner — RFC-PROJ-OPT-001), `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
+- **PUT** — Création / mise à jour (`UpdateProjectMicrosoftLinkDto`) : `isEnabled`, `teamId`, `channelId`, `plannerPlanId` (optionnel pour un lien issu du provisioning Teams RFC-PROJ-INT-010, toujours fourni par le flux manuel INT-007), `syncTasksEnabled`, `syncDocumentsEnabled`, `useMicrosoftPlannerBuckets` (remplace les buckets Starium par l’import des buckets du plan Planner — RFC-PROJ-OPT-001), `filesDriveId`, `filesFolderId`, libellés optionnels. **`projects.update`**
 - **POST /api/projects/:projectId/microsoft-link/sync-tasks** — Sync bidirectionnelle des tâches (Phase A `Planner -> Starium`, puis Phase B `Starium -> Planner`, arrêt au premier échec, `lastSyncAt` mis à jour uniquement en succès complet). Contrat de réponse : `{ projectId, status, summary: { plannerTasksRead, createdInStarium, updatedInStarium, syncedToPlanner, conflictsResolvedByStarium, errors }, lastSyncAt }`. Audits : **`project.microsoft_tasks.bidirectional_sync_started`**, **`project.microsoft_tasks.imported`**, **`project.microsoft_tasks.updated_from_microsoft`**, **`project.microsoft_tasks.conflict_resolved_starium_wins`**, **`project.microsoft_tasks.bidirectional_sync_completed`**, **`project.microsoft_sync.failed`**. **`projects.update`**
 - **POST /api/projects/:projectId/microsoft-link/sync-documents** — Sync one-way des `ProjectDocument` **STARIUM** (fichiers lus via `PROJECT_DOCUMENTS_STORAGE_ROOT`) vers le dossier `starium-project-{projectId}` du drive configuré. Réponse `{ total, synced, failed, skipped }`. Audits **`project.microsoft_documents.synced`** ou **`project.microsoft_sync.failed`**. **`projects.update`**
+
+### Provisioning Teams projet (RFC-PROJ-INT-010) — `/api/projects/:projectId/microsoft-teams/provision`
+
+Provisioning asynchrone d’une nouvelle Team Microsoft pour un projet Starium, sans remplacer le flux manuel INT-007. **Isolation** : `projectId` + **client actif** ; ownership Microsoft effectif porté par l’identité OAuth déléguée active (pas par `triggeredByUserId`, qui reste une trace Starium).
+
+**Guards** : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`, `MicrosoftIntegrationAccessGuard`, `ResourceAccessDecisionGuard` + `@RequireAccessIntent({ module: 'projects', intent: 'read|write' })`.
+
+- **GET** — Retourne le dernier run de provisioning du projet ou `null`. Statuts possibles : `PENDING`, `IN_PROGRESS`, `COMPLETED`, `PARTIAL`, `FAILED`. Réponse enrichie : `teamDisplayName`, `microsoftTeamId`, `teamWebUrl`, `graphOperationUrl`, `retryCount`, `errorCode`, `errorMessage`, etc. Audits consultation indirecte via run existant. **`projects.read`**
+- **POST** — Lance un nouveau provisioning si les settings client sont actifs, si la connexion Microsoft est `ACTIVE`, s’il n’existe pas déjà de `teamId` sur le lien projet et s’il n’existe pas de run actif `PENDING|IN_PROGRESS`. Corps vide (MVP). Réponse **200** avec le run créé (`status: PENDING`). La Team Graph est créée avec le payload MVP figé : `displayName`, `description?`, `visibility: "private"`. Aucun membre/propriétaire Starium n’est ajouté automatiquement. Audit **`provision.started`**. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-teams/provision/:provisioningId/retry** — Relance un run `FAILED` ou `PARTIAL` (file BullMQ). Refus si l’état Graph est encore incertain et non résolu. Audit **`provision.started`**. **`projects.update`**
+- **POST /api/projects/:projectId/microsoft-teams/provision/:provisioningId/resolve-unknown** — Résolution manuelle d’un run `FAILED` avec issue Graph incertaine (`TEAM_CREATION_OUTCOME_UNKNOWN`) : `TEAM_FOUND` ou `CONFIRMED_NOT_CREATED`. Audit **`provision.unknown_resolved`**. **`projects.update`**
+
+### Options client Teams (RFC-PROJ-INT-010) — `/api/projects/options/microsoft-teams-provisioning`, `/api/projects/options/microsoft-teams-channels`
+
+Référentiel client pour le provisioning Teams (désactivé par défaut) et liste des canaux à créer lors du provisioning.
+
+- **GET /api/projects/options/microsoft-teams-provisioning** — Lecture des settings client (`isEnabled`, `offerOnProjectCreate`, `teamNameTemplate`, `teamDescriptionTemplate`). Retourne des valeurs par défaut si aucune ligne n’existe encore. **`projects.read`**
+- **PUT /api/projects/options/microsoft-teams-provisioning** — Mise à jour des settings client. Audit **`project.microsoft_teams.settings.updated`**. **`projects.update`**
+- **GET /api/projects/options/microsoft-teams-channels** — Liste triée des templates de canaux (`displayName`, `description`, `sortOrder`, `isPrimary`). **`projects.read`**
+- **POST /api/projects/options/microsoft-teams-channels** — Création d’un template de canal. Validation métier : nom <= 50 caractères, caractères interdits Teams rejetés, un seul `isPrimary=true` par client. Audit **`channel_template.created`**. **`projects.update`**
+- **PATCH /api/projects/options/microsoft-teams-channels/:id** — Mise à jour d’un template. Audit **`channel_template.updated`**. **`projects.update`**
+- **PUT /api/projects/options/microsoft-teams-channels/reorder** — Réordonnancement explicite (`items: [{ id, sortOrder }]`). **`projects.update`**
+- **DELETE /api/projects/options/microsoft-teams-channels/:id** — Suppression + compaction des `sortOrder`. Audit **`channel_template.deleted`**. **`projects.update`**
+
+**UI `/projects/options`** : section **Équipes Microsoft** (`microsoft-teams-provisioning-settings`) — mutations visibles uniquement avec **`projects.update`** ; lecture seule sinon.
 
 **UI (RFC-PROJ-OPT-001)** : page **`/projects/[projectId]/options`** (`apps/web/src/features/projects/options/`) — paramètres projet (réutilise **`PATCH /api/projects/:id`**), onglet Planning (buckets), configuration et état de la liaison (routes ci-dessus), connexion Microsoft côté client (**`GET /api/microsoft/connection`**, démarrage OAuth **`GET /api/microsoft/auth/url`** → lecture de l’URL dans la réponse → redirection). Isolation **client actif** inchangée (header `X-Client-Id`).
 

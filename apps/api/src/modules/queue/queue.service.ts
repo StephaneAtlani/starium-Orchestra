@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { JobsOptions, Queue } from 'bullmq';
+import { Job, JobsOptions, Queue } from 'bullmq';
 import {
   EMAIL_QUEUE,
   LICENSE_EXPIRATION_QUEUE,
   LICENSE_EXPIRATION_SCAN_JOB,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE,
 } from './queue.constants';
 
 export type SendEmailJobPayload = {
@@ -17,6 +19,10 @@ export type LicenseExpirationScanJobPayload = {
   windowEndIso: string;
 };
 
+export type ProjectMicrosoftTeamsProvisioningJobPayload = {
+  provisioningId: string;
+};
+
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
@@ -25,6 +31,8 @@ export class QueueService {
     @Inject(EMAIL_QUEUE) private readonly emailQueue: Queue,
     @Inject(LICENSE_EXPIRATION_QUEUE)
     private readonly licenseExpirationQueue: Queue,
+    @Inject(PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE)
+    private readonly projectMicrosoftTeamsProvisioningQueue: Queue,
   ) {}
 
   async enqueueSendEmail(payload: SendEmailJobPayload): Promise<void> {
@@ -77,5 +85,38 @@ export class QueueService {
     this.logger.log(
       `[LICENSE_EXPIRATION queue] job BullMQ id=${String(job.id)} window=${payload.windowStartIso}`,
     );
+  }
+
+  async enqueueProjectMicrosoftTeamsProvisioning(
+    payload: ProjectMicrosoftTeamsProvisioningJobPayload,
+  ): Promise<Job<ProjectMicrosoftTeamsProvisioningJobPayload>> {
+    const attempts = Number(
+      process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_RETRY_ATTEMPTS ?? '3',
+    );
+    const backoffMs = Number(
+      process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_BACKOFF_MS ?? '5000',
+    );
+    const job = await this.projectMicrosoftTeamsProvisioningQueue.add(
+      PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB,
+      payload,
+      {
+        attempts,
+        backoff: {
+          type: 'exponential',
+          delay: backoffMs,
+        },
+        removeOnComplete: 1000,
+        removeOnFail: false,
+        jobId: `project_ms_teams_provisioning_${payload.provisioningId}`,
+      },
+    );
+    this.logger.log(
+      `[PROJECT_MS_TEAMS queue] job BullMQ id=${String(job.id)} provisioningId=${payload.provisioningId}`,
+    );
+    return job as Job<ProjectMicrosoftTeamsProvisioningJobPayload>;
+  }
+
+  getProjectMicrosoftTeamsProvisioningQueue(): Queue {
+    return this.projectMicrosoftTeamsProvisioningQueue;
   }
 }

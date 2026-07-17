@@ -15,8 +15,11 @@ type Props = {
   canEdit: boolean;
   configureDisabled: boolean;
   dissociateDisabled: boolean;
+  provisionDisabled: boolean;
+  provisioningStatusLabel?: string | null;
   onConfigure: () => void;
   onDissociate: () => void;
+  onProvision: () => void;
 };
 
 export function MicrosoftTeamsCard({
@@ -25,8 +28,11 @@ export function MicrosoftTeamsCard({
   canEdit,
   configureDisabled,
   dissociateDisabled,
+  provisionDisabled,
+  provisioningStatusLabel,
   onConfigure,
   onDissociate,
+  onProvision,
 }: Props) {
   return (
     <Card className="border-border/70">
@@ -45,10 +51,16 @@ export function MicrosoftTeamsCard({
             <dd className="font-medium">{channelName ?? '—'}</dd>
           </div>
         </dl>
+        {provisioningStatusLabel ? (
+          <p className="text-xs text-muted-foreground">{provisioningStatusLabel}</p>
+        ) : null}
         {canEdit ? (
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={onConfigure} disabled={configureDisabled}>
-              Configurer
+            <Button type="button" size="sm" onClick={onProvision} disabled={provisionDisabled}>
+              Créer l’équipe Teams
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={onConfigure} disabled={configureDisabled}>
+              Rattacher une équipe existante
             </Button>
             <Button
               type="button"

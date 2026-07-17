@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft**
+**Implémenté (MVP)** — lots 1 à 4 livrés (2026-07-17) ; voir §18 pour écarts documentés et suites possibles.
 
 ## Priorité
 
@@ -35,9 +35,9 @@ Starium reste la source de vérité métier ; Microsoft Teams est un espace coll
 | `MicrosoftConnection` | ✅ Implémenté | Connexion OAuth déléguée par client |
 | `ProjectMicrosoftLink` | ✅ Implémenté | Liaison manuelle team / canal / plan existants |
 | `GET /api/microsoft/teams` + canaux + plans | 🟡 Partiel (RFC-INT-006) | **Lecture** seule — pas de création |
-| Page `/projects/[projectId]/options` | ✅ Implémenté | Sélection d’équipe/canal **existants** |
-| Page `/projects/options` | ✅ Implémenté | Référentiels tags + catégories portefeuille |
-| Création projet `POST /api/projects` | ✅ Implémenté | Aucun hook provisioning Teams |
+| Page `/projects/[projectId]/options` | ✅ Implémenté | Sélection manuelle INT-007 + provisioning Teams INT-010 |
+| Page `/projects/options` | ✅ Implémenté | Référentiels tags, catégories portefeuille, **Équipes Microsoft** (settings + canaux) |
+| Création projet `POST /api/projects` | ✅ Implémenté | Champ optionnel `provisionMicrosoftTeams` (opt-in, ignoré si feature désactivée) |
 
 ## 1.2 Exclusions historiques (à lever)
 
@@ -83,7 +83,7 @@ Le socle de liaison projet ↔ Teams existe ; il manque :
 | H2 | Le token **OAuth délégué** de l’utilisateur peut créer des Teams | Basculer vers permissions **application** + admin consent (hors MVP) |
 | H3 | Le canal **« Général »** est toujours créé par Microsoft | Ne pas recréer « Général » ; le canal principal de sync est ce canal ou un canal template marqué `isPrimary` |
 | H4 | La création Planner automatique reste **hors scope** de cette RFC | L’utilisateur lie un plan existant via RFC-INT-007 après provisioning |
-| H5 | L’ajout automatique des membres projet dans la Team est **phase 2** | MVP : owners = utilisateur déclencheur (+ option owner métier si droits Graph) |
+| H5 | L’ajout automatique des membres projet dans la Team est **phase 2** | MVP : **aucun** membre/propriétaire Starium ajouté ; propriétaire Teams effectif = identité OAuth déléguée active ; `triggeredByUserId` = trace Starium uniquement |
 | H6 | Le nom d’équipe Teams est dérivé du projet (`code`, `name`) via un **modèle configurable** | Ajuster le modèle côté options client |
 
 ---
@@ -175,7 +175,7 @@ model ProjectMicrosoftTeamsProvisioningSettings {
   teamDescriptionTemplate String?
 
   /// Si true, proposition case à cocher à la création projet
-  offerOnProjectCreate Boolean @default(true)
+  offerOnProjectCreate Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,7 +196,6 @@ model ProjectMicrosoftTeamsChannelTemplate {
   displayName         String  /// libellé métier affiché (max 50 car. Graph)
   description         String?
   sortOrder           Int     @default(0)
-  isFavoriteByDefault Boolean @default(false)
   isPrimary           Boolean @default(false) /// canal principal pour ProjectMicrosoftLink
 
   createdAt DateTime @default(now())
@@ -299,7 +298,6 @@ Corps POST canal :
 {
   "displayName": "Pilotage",
   "description": "COPIL, arbitrages et décisions",
-  "isFavoriteByDefault": true,
   "isPrimary": false
 }
 ```
@@ -310,26 +308,24 @@ Validation : `displayName` 1–50 caractères ; unicité par client ; un seul `i
 
 | Méthode | Ressource | Permission | Description |
 |---------|-----------|------------|-------------|
-| POST | `/api/projects/:projectId/microsoft-teams/provision` | `projects.update` | Démarre provisioning (async) |
-| GET | `/api/projects/:projectId/microsoft-teams/provision` | `projects.read` | Dernier état / historique court (MVP : dernier run) |
+| POST | `/api/projects/:projectId/microsoft-teams/provision` | `projects.update` | Démarre provisioning (async, file BullMQ) |
+| GET | `/api/projects/:projectId/microsoft-teams/provision` | `projects.read` | Dernier run du projet ou `null` |
+| POST | `/api/projects/:projectId/microsoft-teams/provision/:provisioningId/retry` | `projects.update` | Relance un run `FAILED` ou `PARTIAL` |
+| POST | `/api/projects/:projectId/microsoft-teams/provision/:provisioningId/resolve-unknown` | `projects.update` | Résolution manuelle si issue Graph incertaine (`TEAM_CREATION_OUTCOME_UNKNOWN`) |
 
-Corps POST (optionnel) :
+Guards provisioning projet : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`, `MicrosoftIntegrationAccessGuard`, `ResourceAccessDecisionGuard` + `@RequireAccessIntent({ module: 'projects', intent: 'read|write' })`.
 
-```json
-{
-  "activateMicrosoftLink": true
-}
-```
+Corps POST provision : **aucun** (MVP). À la fin du job : upsert `ProjectMicrosoftLink` avec `teamId`, `channelId`, noms dénormalisés ; `plannerPlanId` reste `null` (configuration manuelle INT-007 ultérieure).
 
-Si `activateMicrosoftLink=true` (défaut) : upsert `ProjectMicrosoftLink` avec `isEnabled=true`, `teamId`, `channelId`, noms dénormalisés ; `plannerPlanId` reste null (configuration manuelle ultérieure).
-
-Réponse `202 Accepted` :
+Réponse POST provision (MVP : **200** avec le run créé) :
 
 ```json
 {
-  "provisioningId": "…",
+  "id": "…",
   "status": "PENDING",
-  "message": "Création de l'équipe Teams en cours. Cela peut prendre plusieurs minutes."
+  "teamDisplayName": "PRJ-001 — Mon projet",
+  "microsoftTeamId": null,
+  "errorCode": null
 }
 ```
 
@@ -372,7 +368,8 @@ apps/api/src/modules/microsoft/
 │   ├── create-teams-channel-template.dto.ts
 │   ├── update-teams-channel-template.dto.ts
 │   ├── reorder-teams-channel-templates.dto.ts
-│   └── provision-project-teams.dto.ts
+│   └── resolve-project-microsoft-teams-provisioning.dto.ts
+├── project-microsoft-teams-provisioning.processor.ts
 └── tests/
     ├── project-microsoft-teams-provisioning.service.spec.ts
     └── project-microsoft-teams-template.service.spec.ts
@@ -397,8 +394,8 @@ apps/api/prisma/schema.prisma
 apps/web/src/features/projects/options/
 ├── api/microsoft-teams-provisioning-settings.api.ts
 ├── components/microsoft-teams-provisioning-settings.tsx
-├── components/microsoft-teams-channel-templates-table.tsx
-└── components/microsoft-teams-channel-template-form-dialog.tsx
+├── api/project-microsoft-teams-provisioning.ts
+└── hooks/use-project-microsoft-teams-provisioning-query.ts
 
 apps/web/src/features/projects/
 ├── components/project-create-form.tsx           # case à cocher
@@ -482,13 +479,14 @@ Toujours **libellés métier** (`teamName`, `displayName`) — jamais UUID seul 
 | Action | Déclencheur |
 |--------|-------------|
 | `project.microsoft_teams.settings.updated` | PUT settings |
-| `project.microsoft_teams.channel_template.created` | POST canal |
-| `project.microsoft_teams.channel_template.updated` | PATCH canal |
-| `project.microsoft_teams.channel_template.deleted` | DELETE canal |
-| `project.microsoft_teams.provision.started` | POST provision |
-| `project.microsoft_teams.provision.completed` | succès COMPLETED |
-| `project.microsoft_teams.provision.partial` | PARTIAL |
-| `project.microsoft_teams.provision.failed` | FAILED |
+| `channel_template.created` | POST canal |
+| `channel_template.updated` | PATCH canal / reorder |
+| `channel_template.deleted` | DELETE canal |
+| `provision.started` | POST provision / retry |
+| `provision.completed` | succès COMPLETED |
+| `provision.partial` | PARTIAL |
+| `provision.failed` | FAILED |
+| `provision.unknown_resolved` | POST resolve-unknown |
 
 Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 
@@ -530,16 +528,17 @@ Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 
 # 11. Critères d’acceptation
 
-* [ ] Un admin client configure des canaux par défaut dans `/projects/options`.
-* [ ] La feature est désactivable globalement par client.
-* [ ] À la création projet, l’utilisateur peut opt-in la création Teams (si M365 connecté).
-* [ ] Depuis les options projet, l’utilisateur peut créer l’équipe a posteriori.
-* [ ] L’équipe et les canaux configurés sont créés dans M365 (sous réserve des droits tenant).
-* [ ] `ProjectMicrosoftLink` est renseigné avec team + canal principal.
-* [ ] L’état de provisioning est consultable et annoncé accessoirement (`aria-live`).
-* [ ] Aucune fuite inter-client ; pas de `clientId` en body.
-* [ ] Audits émis sur actions sensibles.
-* [ ] Échec Microsoft ne supprime ni ne corrompt le projet Starium.
+* [x] Un admin client configure des canaux par défaut dans `/projects/options`.
+* [x] La feature est désactivable globalement par client (`isEnabled=false` par défaut).
+* [x] À la création projet, l’utilisateur peut opt-in la création Teams (si M365 connecté + `offerOnProjectCreate`).
+* [x] Depuis les options projet, l’utilisateur peut créer l’équipe a posteriori.
+* [x] L’équipe et les canaux configurés sont créés dans M365 (sous réserve des droits tenant).
+* [x] `ProjectMicrosoftLink` est renseigné avec team + canal principal.
+* [x] L’état de provisioning est consultable (polling React Query sur runs actifs).
+* [x] Aucune fuite inter-client ; pas de `clientId` en body.
+* [x] Audits émis sur actions sensibles.
+* [x] Échec Microsoft ne supprime ni ne corrompt le projet Starium.
+* [x] Flux manuel INT-007 conservé (rattachement équipe existante).
 
 ---
 
@@ -638,9 +637,38 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 
 # 17. Mise à jour documentation associée
 
-À faire à l’implémentation :
+* [x] [docs/API.md](../API.md) — routes `projects/options/microsoft-teams-*`, `projects/:id/microsoft-teams/provision*`, champ `provisionMicrosoftTeams` sur `POST /api/projects`
+* [x] [docs/RFC/_RFC Liste.md](./_RFC Liste.md) — entrée RFC-PROJ-INT-010
+* [x] [docs/INVENTAIRE-COMPOSANTS.md](../INVENTAIRE-COMPOSANTS.md) — composants UI
+* [x] [docs/ARCHITECTURE.md](../ARCHITECTURE.md) — module `microsoft` (provisioning Teams)
 
-* [docs/API.md](../API.md) — nouvelles routes `projects/options/microsoft-teams-*` et `projects/:id/microsoft-teams/provision`
-* [docs/RFC/_RFC Liste.md](./_RFC Liste.md) — entrée RFC-PROJ-INT-010
-* [docs/INVENTAIRE-COMPOSANTS.md](../INVENTAIRE-COMPOSANTS.md) — composants UI
-* [docs/modules/projects-mvp.md](../modules/projects-mvp.md) — périmètre module
+---
+
+# 18. Implémentation — écarts et suites
+
+## 18.1 Livré
+
+* Migration Prisma `20260717100000_project_microsoft_teams_provisioning` avec **index partiels uniques** SQL (`one_primary_per_client`, `one_active_run_per_project`).
+* Services : `ProjectMicrosoftTeamsTemplateService`, `ProjectMicrosoftTeamsProvisioningService` ; worker `ProjectMicrosoftTeamsProvisioningProcessor` (BullMQ).
+* Graph : `createTeam`, `pollAsyncOperation`, `createTeamChannel`, `listTeamChannels`, `getTeam` ; scopes `Team.Create`, `Channel.Create`.
+* UI : `/projects/options` (section Équipes Microsoft), création projet (case opt-in), options projet (carte Teams + retry/resolve).
+
+## 18.2 Écarts documentés (MVP acceptés)
+
+| Sujet | RFC initiale | Implémentation |
+|-------|--------------|----------------|
+| `offerOnProjectCreate` | défaut `true` | défaut **`false`** (opt-in explicite côté client) |
+| Champ `isFavoriteByDefault` sur template canal | prévu | **non implémenté** (hors MVP) |
+| Réponse POST provision | `202 Accepted` | **200** avec DTO run |
+| Corps POST provision | `activateMicrosoftLink` | **aucun body** ; lien créé en fin de job |
+| Audits canaux | préfixe `project.microsoft_teams.channel_template.*` | codes courts `channel_template.*` |
+| Audits provision | préfixe `project.microsoft_teams.provision.*` | codes courts `provision.*` |
+| Composants FE canaux | table + dialog dédiés | **formulaire intégré** dans `microsoft-teams-provisioning-settings.tsx` |
+| `aria-live` sur statut provisioning | exigé | **à densifier** (polling + alertes présents ; annonce live perfectible) |
+
+## 18.3 Suites possibles (hors MVP)
+
+* Tests controller / intégration cross-client sur les nouvelles routes.
+* Tests FE intégrés (création projet + options projet).
+* Suffixe auto sur nom d’équipe dupliqué côté tenant M365.
+* `aria-live="polite"` explicite sur la carte Teams pendant `PENDING` / `IN_PROGRESS`.

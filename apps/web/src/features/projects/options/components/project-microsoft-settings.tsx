@@ -6,18 +6,26 @@ import { useSearchParams, usePathname } from 'next/navigation';
 import { toast } from '@/lib/toast';
 import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useProjectMicrosoftLinkQuery } from '../hooks/use-project-microsoft-link-query';
-import { useUpdateProjectMicrosoftLinkMutation } from '../hooks/use-project-microsoft-link-mutations';
+import {
+  useResolveProjectMicrosoftTeamsProvisioningMutation,
+  useRetryProjectMicrosoftTeamsProvisioningMutation,
+  useStartProjectMicrosoftTeamsProvisioningMutation,
+  useUpdateProjectMicrosoftLinkMutation,
+} from '../hooks/use-project-microsoft-link-mutations';
+import { useProjectMicrosoftTeamsProvisioningQuery } from '../hooks/use-project-microsoft-teams-provisioning-query';
 import { MicrosoftConnectionStatusCard } from './microsoft-connection-status-card';
 import { MicrosoftTeamsCard } from './microsoft-teams-card';
 import { MicrosoftPlannerCard } from './microsoft-planner-card';
 import { MicrosoftDocumentsCard } from './microsoft-documents-card';
 import { MicrosoftLinkConfigureDialog } from './microsoft-link-configure-dialog';
 import type { UpdateProjectMicrosoftLinkPayload } from '../types/project-options.types';
+import { getMicrosoftTeamsProvisioningSettings } from '../api/microsoft-teams-provisioning-settings.api';
 
 type MicrosoftConnectionDto = {
   id: string;
@@ -43,7 +51,11 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
   const [configureOpen, setConfigureOpen] = useState(false);
 
   const linkQuery = useProjectMicrosoftLinkQuery(projectId);
+  const provisioningQuery = useProjectMicrosoftTeamsProvisioningQuery(projectId);
   const updateMutation = useUpdateProjectMicrosoftLinkMutation(projectId);
+  const startProvisioningMutation = useStartProjectMicrosoftTeamsProvisioningMutation(projectId);
+  const retryProvisioningMutation = useRetryProjectMicrosoftTeamsProvisioningMutation(projectId);
+  const resolveProvisioningMutation = useResolveProjectMicrosoftTeamsProvisioningMutation(projectId);
 
   const connectionQuery = useQuery({
     queryKey: ['microsoft-connection', clientId],
@@ -59,9 +71,16 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
     },
     enabled: Boolean(clientId),
   });
+  const provisioningSettingsQuery = useQuery({
+    queryKey: ['projects', 'microsoft-teams-provisioning-settings', clientId],
+    queryFn: () => getMicrosoftTeamsProvisioningSettings(authFetch),
+    enabled: Boolean(clientId),
+    retry: false,
+  });
 
   const connection = connectionQuery.data?.connection ?? null;
   const connectionActive = connection?.status === 'ACTIVE';
+  const provisioning = provisioningQuery.data ?? null;
 
   useEffect(() => {
     const m = searchParams.get('microsoft');
@@ -109,25 +128,66 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
     [updateMutation],
   );
 
-  if (linkQuery.isLoading || connectionQuery.isLoading) {
+  if (
+    linkQuery.isLoading ||
+    connectionQuery.isLoading ||
+    provisioningQuery.isLoading ||
+    provisioningSettingsQuery.isLoading
+  ) {
     return <LoadingState rows={5} />;
   }
 
-  if (linkQuery.isError) {
+  if (
+    linkQuery.isError ||
+    connectionQuery.isError ||
+    provisioningQuery.isError ||
+    provisioningSettingsQuery.isError
+  ) {
+    const errorMessage =
+      (linkQuery.error as Error | undefined)?.message ??
+      (connectionQuery.error as Error | undefined)?.message ??
+      (provisioningQuery.error as Error | undefined)?.message ??
+      (provisioningSettingsQuery.error as Error | undefined)?.message ??
+      'Impossible de charger la liaison Microsoft.';
+
     return (
       <Alert variant="destructive">
         <AlertTitle>Erreur</AlertTitle>
-        <AlertDescription>
-          {(linkQuery.error as Error)?.message ?? 'Impossible de charger la liaison Microsoft.'}
-        </AlertDescription>
+        <AlertDescription>{errorMessage}</AlertDescription>
       </Alert>
     );
   }
 
   const link = linkQuery.data ?? null;
+  const canCreateTeams =
+    Boolean(
+      provisioningSettingsQuery.data?.isEnabled &&
+        connectionActive &&
+        !link?.teamId &&
+        provisioning?.status !== 'PENDING' &&
+        provisioning?.status !== 'IN_PROGRESS' &&
+        !(provisioning?.status === 'PARTIAL' && provisioning?.microsoftTeamId),
+    ) && canEdit;
   const blockActions = !canEdit || !connectionActive;
-  const configureDisabled = blockActions;
+  const configureDisabled =
+    blockActions ||
+    provisioning?.status === 'PENDING' ||
+    provisioning?.status === 'IN_PROGRESS' ||
+    (provisioning?.status === 'PARTIAL' && Boolean(provisioning.microsoftTeamId));
   const dissociateDisabled = blockActions || !link;
+  const provisionDisabled =
+    !canCreateTeams ||
+    startProvisioningMutation.isPending ||
+    retryProvisioningMutation.isPending;
+
+  const provisioningStatusLabel =
+    provisioning?.status === 'PENDING' || provisioning?.status === 'IN_PROGRESS'
+      ? 'Provisioning Teams en cours.'
+      : provisioning?.status === 'PARTIAL'
+        ? 'Provisioning partiel : la Team existe, certains éléments restent à finaliser.'
+        : provisioning?.status === 'FAILED'
+          ? provisioning.errorMessage || 'Dernier provisioning en échec.'
+          : null;
 
   return (
     <div className="space-y-6">
@@ -138,12 +198,97 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
         onConnect={() => void handleConnect().catch((e) => toast.error(e instanceof Error ? e.message : 'Connexion impossible'))}
       />
 
+      {provisioning?.status === 'FAILED' &&
+      provisioning.errorCode === 'TEAM_CREATION_OUTCOME_UNKNOWN' &&
+      !provisioning.resolvedAt ? (
+        <Alert>
+          <AlertTitle>Résultat Teams inconnu</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              La création Teams a peut-être réussi côté Microsoft sans retour exploitable. Vérifiez
+              la Team créée, puis confirmez sa présence ou son absence avant un nouveau retry.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  resolveProvisioningMutation.mutate({
+                    provisioningId: provisioning.id,
+                    body: { resolutionType: 'CONFIRMED_NOT_CREATED' },
+                  })
+                }
+              >
+                Confirmer qu’aucune Team n’a été créée
+              </Button>
+              {provisioning.microsoftTeamId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    resolveProvisioningMutation.mutate({
+                      provisioningId: provisioning.id,
+                      body: {
+                        resolutionType: 'TEAM_FOUND',
+                        teamId: provisioning.microsoftTeamId ?? undefined,
+                      },
+                    })
+                  }
+                >
+                  Confirmer la Team retrouvée
+                </Button>
+              ) : null}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {provisioning?.status === 'FAILED' &&
+      provisioning.errorCode !== 'TEAM_CREATION_OUTCOME_UNKNOWN' ? (
+        <Alert variant="destructive">
+          <AlertTitle>Provisioning Teams en échec</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{provisioning.errorMessage || 'Le provisioning n’a pas abouti.'}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => retryProvisioningMutation.mutate(provisioning.id)}
+              disabled={retryProvisioningMutation.isPending}
+            >
+              Relancer le provisioning
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {provisioning?.status === 'PARTIAL' ? (
+        <Alert>
+          <AlertTitle>Provisioning Teams partiel</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>
+              La Team Microsoft a été créée. Vous pouvez relancer le provisioning pour terminer les
+              canaux manquants ou rattacher manuellement cette même Team.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => retryProvisioningMutation.mutate(provisioning.id)}
+              disabled={retryProvisioningMutation.isPending}
+            >
+              Reprendre le provisioning
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {!link ? (
         <Alert>
           <AlertTitle>Aucune configuration Microsoft</AlertTitle>
           <AlertDescription>
-            Enregistrez une liaison Teams / Planner pour ce projet via « Configurer » sur une des
-            cartes ci-dessous (création du lien côté API).
+            Enregistrez une liaison Teams / Planner pour ce projet ou lancez le provisioning Teams
+            si le client l’a activé.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -155,8 +300,11 @@ export function ProjectMicrosoftSettings({ projectId }: Props) {
           canEdit={canEdit}
           configureDisabled={configureDisabled}
           dissociateDisabled={dissociateDisabled}
+          provisionDisabled={provisionDisabled}
+          provisioningStatusLabel={provisioningStatusLabel}
           onConfigure={() => setConfigureOpen(true)}
           onDissociate={handleDissociate}
+          onProvision={() => startProvisioningMutation.mutate()}
         />
         <MicrosoftPlannerCard
           plannerPlanTitle={link?.plannerPlanTitle ?? null}

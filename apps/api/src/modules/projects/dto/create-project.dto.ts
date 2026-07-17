@@ -116,4 +116,8 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   pilotNotes?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  provisionMicrosoftTeams?: boolean;
 }

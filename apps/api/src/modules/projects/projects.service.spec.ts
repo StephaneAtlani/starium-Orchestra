@@ -142,6 +142,7 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
     const projectTeam = {
       ensureDefaultTeamRolesForClient: jest.fn().mockResolvedValue(undefined),
       syncTeamMembersFromProjectSponsorOwner: jest.fn().mockResolvedValue(undefined),
+      addMember: jest.fn().mockResolvedValue(undefined),
     };
     service = new ProjectsService(
       prisma,
@@ -153,6 +154,9 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         assertAllowed: jest.fn().mockResolvedValue(undefined),
         filterResourceIdsByAccess: jest.fn().mockImplementation(async (p: { resourceIds: string[] }) => p.resourceIds),
       } as any,
+      undefined,
+      undefined,
+      { startProvisioningAfterProjectCreate: jest.fn().mockResolvedValue(undefined) } as any,
     );
   });
 
@@ -440,9 +444,13 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
         {
           ensureDefaultTeamRolesForClient: jest.fn(),
           syncTeamMembersFromProjectSponsorOwner: jest.fn(),
+          addMember: jest.fn(),
         } as any,
         undefined,
         accessDecision as any,
+        undefined,
+        undefined,
+        { startProvisioningAfterProjectCreate: jest.fn().mockResolvedValue(undefined) } as any,
       );
 
       await expect(

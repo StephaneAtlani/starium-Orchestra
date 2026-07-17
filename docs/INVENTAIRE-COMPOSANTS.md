@@ -419,14 +419,15 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 
 - `project-gantt-view` - `features/projects/gantt/components/project-gantt-view.tsx` - affiche la vue de projet gantt.
 
-## Projets / Options (11)
+## Projets / Options (12)
 
 - `microsoft-connection-status-card` - `features/projects/options/components/microsoft-connection-status-card.tsx` - affiche une carte de synthese pour microsoft connection statut.
 - `microsoft-documents-card` - `features/projects/options/components/microsoft-documents-card.tsx` - affiche une carte de synthese pour microsoft documents.
 - `microsoft-link-configure-dialog` - `features/projects/options/components/microsoft-link-configure-dialog.tsx` - ouvre un dialogue pour microsoft link configure.
 - `microsoft-planner-card` - `features/projects/options/components/microsoft-planner-card.tsx` - affiche une carte de synthese pour microsoft planner.
-- `microsoft-teams-card` - `features/projects/options/components/microsoft-teams-card.tsx` - affiche une carte de synthese pour microsoft equipes.
-- `project-microsoft-settings` - `features/projects/options/components/project-microsoft-settings.tsx` - gere l'interface de projet microsoft settings.
+- `microsoft-teams-card` - `features/projects/options/components/microsoft-teams-card.tsx` - affiche la carte Teams du projet avec provisioning INT-010 et rattachement manuel INT-007.
+- `microsoft-teams-provisioning-settings` - `features/projects/options/components/microsoft-teams-provisioning-settings.tsx` - settings client et templates de canaux Teams (INT-010) sur `/projects/options` ; mutations gated `projects.update`.
+- `project-microsoft-settings` - `features/projects/options/components/project-microsoft-settings.tsx` - gere l’onglet Microsoft 365 projet (connexion, provisioning Teams, reprise/resolve, flux manuel).
 - `project-options-tabs` - `features/projects/options/components/project-options-tabs.tsx` - organise les onglets pour projet options.
 - `project-options-view` - `features/projects/options/components/project-options-view.tsx` - affiche la vue de projet options.
 - `project-planning-buckets-settings` - `features/projects/options/components/project-planning-buckets-settings.tsx` - gere l'interface de projet planning buckets settings.

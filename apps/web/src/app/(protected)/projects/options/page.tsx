@@ -28,6 +28,7 @@ import {
 } from '@/features/projects/api/projects.api';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ProjectPortfolioCategoryNode } from '@/features/projects/types/project.types';
+import { MicrosoftTeamsProvisioningSettings } from '@/features/projects/options/components/microsoft-teams-provisioning-settings';
 
 const DEFAULT_TAG_COLORS = [
   '#64748B',
@@ -263,6 +264,7 @@ export default function ProjectsOptionsPage() {
           title="Options portefeuille projets"
           description="Gerer les etiquettes et l'arborescence des categories portefeuille."
         />
+        <MicrosoftTeamsProvisioningSettings />
         <Card size="sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Etiquettes</CardTitle>

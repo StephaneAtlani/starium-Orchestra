@@ -101,6 +101,7 @@ import {
   loadCommitteeMoodHistoryForProject,
   loadLatestCommitteeMoodForProject,
 } from './project-reviews/project-review-committee-mood.helpers';
+import { ProjectMicrosoftTeamsProvisioningService } from '../microsoft/project-microsoft-teams-provisioning.service';
 
 const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
@@ -333,6 +334,7 @@ export class ProjectsService {
     > = {
       assertOwnerOrgUnitForClient: async () => undefined,
     },
+    private readonly microsoftTeamsProvisioning: ProjectMicrosoftTeamsProvisioningService,
   ) {}
 
   private async isAccessV2Enabled(
@@ -1981,6 +1983,15 @@ export class ProjectsService {
         freeLabel: freeTrim!,
         affiliation: dto.ownerAffiliation!,
       });
+    }
+
+    if (dto.provisionMicrosoftTeams === true) {
+      await this.microsoftTeamsProvisioning.startProvisioningAfterProjectCreate(
+        clientId,
+        created.id,
+        context?.actorUserId,
+        context,
+      );
     }
 
     return this.getById(clientId, created.id, context?.actorUserId);

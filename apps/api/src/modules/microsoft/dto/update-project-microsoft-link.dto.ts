@@ -22,10 +22,10 @@ export class UpdateProjectMicrosoftLinkDto {
   @IsNotEmpty()
   channelId!: string;
 
-  @ValidateIf((o: UpdateProjectMicrosoftLinkDto) => o.isEnabled === true)
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  plannerPlanId!: string;
+  plannerPlanId?: string;
 
   // Valeurs booleennes : laissées facultatives pour éviter la purge accidentelle
   // si le frontend ne fournit pas tout le payload.

@@ -74,6 +74,8 @@ import {
   parseRetroplanMacroSteps,
   type RetroplanMacroStepRow,
 } from '../lib/project-retroplan-macro-form';
+import { getMicrosoftTeamsProvisioningSettings } from '../options/api/microsoft-teams-provisioning-settings.api';
+import { readApiErrorMessageFromResponse } from '@/lib/read-api-error-message';
 
 const textareaClass = cn(
   'min-h-[100px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -228,6 +230,7 @@ export function ProjectCreateForm() {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [tagToAdd, setTagToAdd] = useState('');
   const [milestonesEnabled, setMilestonesEnabled] = useState(true);
+  const [provisionMicrosoftTeams, setProvisionMicrosoftTeams] = useState(false);
   const [retroplanSteps, setRetroplanSteps] = useState<RetroplanMacroStepRow[]>(
     cloneDefaultRetroplanMacroSteps,
   );
@@ -296,6 +299,27 @@ export function ProjectCreateForm() {
     enabled: Boolean(clientId),
   });
   const tagCatalog = useMemo(() => tagsOptionsQuery.data ?? [], [tagsOptionsQuery.data]);
+  const microsoftConnectionQuery = useQuery({
+    queryKey: ['microsoft-connection', clientId],
+    queryFn: async () => {
+      const res = await authFetch('/api/microsoft/connection');
+      if (!res.ok) {
+        throw new Error(
+          (await readApiErrorMessageFromResponse(res)) ||
+            'Impossible de charger la connexion Microsoft.',
+        );
+      }
+      return res.json() as Promise<{ connection: { status: string } | null }>;
+    },
+    enabled: Boolean(clientId),
+    retry: false,
+  });
+  const microsoftTeamsSettingsQuery = useQuery({
+    queryKey: ['projects', 'microsoft-teams-provisioning-settings', clientId],
+    queryFn: () => getMicrosoftTeamsProvisioningSettings(authFetch),
+    enabled: Boolean(clientId),
+    retry: false,
+  });
   const availableTagsForCreate = useMemo(
     () => tagCatalog.filter((t) => !selectedTagIds.includes(t.id)),
     [tagCatalog, selectedTagIds],
@@ -306,6 +330,11 @@ export function ProjectCreateForm() {
         .map((id) => tagCatalog.find((t) => t.id === id))
         .filter((t): t is (typeof tagCatalog)[number] => t != null),
     [selectedTagIds, tagCatalog],
+  );
+  const canOfferTeamsProvisioning = Boolean(
+    microsoftTeamsSettingsQuery.data?.isEnabled &&
+      microsoftTeamsSettingsQuery.data?.offerOnProjectCreate &&
+      microsoftConnectionQuery.data?.connection?.status === 'ACTIVE',
   );
 
   const nameOk = name.trim().length > 0;
@@ -361,6 +390,9 @@ export function ProjectCreateForm() {
       const r = ownerResourceDetails;
       body.ownerFreeLabel = formatResourceDisplayName(r).slice(0, 200);
       body.ownerAffiliation = r.affiliation === 'EXTERNAL' ? 'EXTERNAL' : 'INTERNAL';
+    }
+    if (canOfferTeamsProvisioning && provisionMicrosoftTeams) {
+      body.provisionMicrosoftTeams = true;
     }
 
     let retroplanMacro: { anchorEndDate: string; steps: { name: string; daysBeforeEnd: number }[] } | undefined;
@@ -1245,6 +1277,32 @@ export function ProjectCreateForm() {
                     </p>
                   </div>
                 </div>
+
+                {canOfferTeamsProvisioning ? (
+                  <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+                    <div className="flex items-start gap-3">
+                      <input
+                        id="project-create-provision-teams"
+                        type="checkbox"
+                        className="mt-1 size-4 rounded border-input accent-primary"
+                        checked={provisionMicrosoftTeams}
+                        onChange={(e) => setProvisionMicrosoftTeams(e.target.checked)}
+                      />
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="project-create-provision-teams"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Créer l’équipe Microsoft Teams
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Option désactivée par défaut. Le provisioning ne sera lancé qu’après la
+                          création du projet si vous cochez explicitement cette case.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
 

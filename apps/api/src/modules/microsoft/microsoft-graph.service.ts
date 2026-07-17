@@ -206,6 +206,155 @@ export class MicrosoftGraphService {
     return result as { id: string };
   }
 
+  async createTeam(
+    connection: { clientId: string; id: string },
+    payload: {
+      displayName: string;
+      description?: string | null;
+      visibility: 'private' | 'public';
+    },
+  ): Promise<{
+    location: string | null;
+    contentLocation: string | null;
+  }> {
+    const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+      connection.id,
+      connection.clientId,
+    );
+    const response = await this.singleFetchNoRetryResponse(accessToken, 'teams', {
+      method: 'POST',
+      headers: this.mergeJsonHeaders(undefined, payload),
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      location: response.headers.get('Location') ?? response.headers.get('location'),
+      contentLocation:
+        response.headers.get('Content-Location') ??
+        response.headers.get('content-location'),
+    };
+  }
+
+  async pollAsyncOperation(
+    connection: { clientId: string; id: string },
+    operationUrl: string,
+    options?: { signal?: AbortSignal; timeoutMs?: number },
+  ): Promise<unknown> {
+    const startedAt = Date.now();
+    const timeoutMs = options?.timeoutMs ?? 5 * 60_000;
+
+    while (true) {
+      options?.signal?.throwIfAborted();
+      if (Date.now() - startedAt > timeoutMs) {
+        throw new MicrosoftGraphHttpError(
+          'Délai dépassé lors du polling Microsoft Graph',
+          0,
+          'GRAPH_ASYNC_TIMEOUT',
+          'Délai dépassé lors du polling Microsoft Graph',
+          undefined,
+          undefined,
+        );
+      }
+
+      const accessToken = await this.microsoftOAuth.ensureFreshAccessToken(
+        connection.id,
+        connection.clientId,
+      );
+      const response = await this.singleFetchNoRetryResponse(
+        accessToken,
+        operationUrl,
+        {
+          method: 'GET',
+          expectJson: true,
+        },
+        true,
+      );
+
+      const body = await this.parseSuccessBody<unknown>(response, true);
+      const status =
+        body && typeof body === 'object' && 'status' in body
+          ? String((body as { status?: unknown }).status ?? '').toLowerCase()
+          : '';
+
+      if (status === 'succeeded' || status === 'completed') {
+        return body;
+      }
+      if (status === 'failed') {
+        throw new MicrosoftGraphHttpError(
+          'La création Microsoft Teams a échoué côté Graph',
+          409,
+          'GRAPH_ASYNC_FAILED',
+          'La création Microsoft Teams a échoué côté Graph',
+          extractRequestIdFromHeaders(response.headers),
+          undefined,
+        );
+      }
+
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryAfter = Number(retryAfterHeader ?? '30');
+      const delayMs =
+        Number.isFinite(retryAfter) && retryAfter >= 30 ? retryAfter * 1000 : 30_000;
+      await sleepMs(delayMs);
+    }
+  }
+
+  async getPrimaryTeamChannel(
+    connection: { clientId: string; id: string },
+    teamId: string,
+  ): Promise<{ id: string; displayName?: string | null }> {
+    const data = await this.requestForConnection<{ id: string; displayName?: string | null }>(
+      connection.clientId,
+      connection.id,
+      `teams/${teamId}/primaryChannel?$select=id,displayName`,
+      { expectJson: true },
+    );
+    return data as { id: string; displayName?: string | null };
+  }
+
+  async listTeamChannels(
+    connection: { clientId: string; id: string },
+    teamId: string,
+  ): Promise<Array<{ id: string; displayName: string }>> {
+    const data = await this.requestForConnection<{
+      value?: Array<{ id: string; displayName: string }>;
+    }>(connection.clientId, connection.id, `teams/${teamId}/channels?$select=id,displayName`, {
+      expectJson: true,
+    });
+    return data?.value ?? [];
+  }
+
+  async createTeamChannel(
+    connection: { clientId: string; id: string },
+    teamId: string,
+    payload: {
+      displayName: string;
+      description?: string | null;
+      membershipType: 'standard';
+    },
+  ): Promise<{ id: string; displayName: string }> {
+    const data = await this.postJsonForConnection<{ id: string; displayName: string }>(
+      connection.clientId,
+      connection.id,
+      `teams/${teamId}/channels`,
+      payload,
+    );
+    return data as { id: string; displayName: string };
+  }
+
+  async getTeam(
+    connection: { clientId: string; id: string },
+    teamId: string,
+  ): Promise<{ id: string; displayName?: string | null; webUrl?: string | null }> {
+    const data = await this.requestForConnection<{
+      id: string;
+      displayName?: string | null;
+      webUrl?: string | null;
+    }>(connection.clientId, connection.id, `groups/${teamId}?$select=id,displayName,webUrl`, {
+      expectJson: true,
+    });
+    return data as { id: string; displayName?: string | null; webUrl?: string | null };
+  }
+
   async patchCalendarEvent(
     clientId: string,
     connectionId: string,
@@ -702,6 +851,27 @@ export class MicrosoftGraphService {
       this.buildGraphUrl(path),
       init,
     );
+  }
+
+  private async singleFetchNoRetryResponse(
+    accessToken: string,
+    pathOrUrl: string,
+    init?: RequestInit & { expectJson?: boolean },
+    isFullUrl = false,
+  ): Promise<Response> {
+    const fullUrl = isFullUrl ? pathOrUrl : this.buildGraphUrl(pathOrUrl);
+    let res: Response;
+    try {
+      res = await this.fetchOnce(accessToken, fullUrl, init);
+    } catch (e: unknown) {
+      throw this.toNetworkGraphError(e);
+    }
+
+    if (!res.ok) {
+      await this.throwNormalizedError(res, undefined);
+    }
+
+    return res;
   }
 
   private async singleFetchNoRetryWithFullUrl<T>(

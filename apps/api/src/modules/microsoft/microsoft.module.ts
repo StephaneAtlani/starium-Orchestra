@@ -36,6 +36,10 @@ import { MicrosoftSelectionController } from './microsoft-selection.controller';
 import { MicrosoftSelectionService } from './microsoft-selection.service';
 import { ProjectMicrosoftLinksController } from './project-microsoft-links.controller';
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
+import { ProjectMicrosoftTeamsProvisioningController } from './project-microsoft-teams-provisioning.controller';
+import { ProjectMicrosoftTeamsProvisioningService } from './project-microsoft-teams-provisioning.service';
+import { ProjectMicrosoftTeamsTemplateController } from './project-microsoft-teams-template.controller';
+import { ProjectMicrosoftTeamsTemplateService } from './project-microsoft-teams-template.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, AuditLogsModule, forwardRef(() => ProjectsModule), QueueModule],
@@ -46,6 +50,8 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
     ClientMicrosoftOAuthController,
     MicrosoftSelectionController,
     ProjectMicrosoftLinksController,
+    ProjectMicrosoftTeamsProvisioningController,
+    ProjectMicrosoftTeamsTemplateController,
   ],
   providers: [
     ActiveClientGuard,
@@ -97,6 +103,8 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
     MicrosoftCallbackRateLimitService,
     MicrosoftSelectionService,
     ProjectMicrosoftLinksService,
+    ProjectMicrosoftTeamsProvisioningService,
+    ProjectMicrosoftTeamsTemplateService,
   ],
   exports: [
     MicrosoftOAuthService,
@@ -104,6 +112,7 @@ import { ProjectMicrosoftLinksService } from './project-microsoft-links.service'
     MicrosoftTokenCryptoService,
     MicrosoftPlatformConfigService,
     ClientMicrosoftOAuthService,
+    ProjectMicrosoftTeamsProvisioningService,
   ],
 })
 export class MicrosoftModule {}

@@ -6,6 +6,8 @@ import {
   EMAIL_QUEUE_NAME,
   LICENSE_EXPIRATION_QUEUE,
   LICENSE_EXPIRATION_QUEUE_NAME,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_NAME,
   QUEUE_CONNECTION,
 } from './queue.constants';
 import { QueueService } from './queue.service';
@@ -45,12 +47,21 @@ import { QueueService } from './queue.service';
           connection,
         }),
     },
+    {
+      provide: PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE,
+      inject: [QUEUE_CONNECTION],
+      useFactory: (connection: IORedis) =>
+        new Queue(PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_NAME, {
+          connection,
+        }),
+    },
     QueueService,
   ],
   exports: [
     QUEUE_CONNECTION,
     EMAIL_QUEUE,
     LICENSE_EXPIRATION_QUEUE,
+    PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE,
     QueueService,
   ],
 })

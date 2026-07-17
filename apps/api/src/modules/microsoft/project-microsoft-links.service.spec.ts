@@ -20,6 +20,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
   };
   let graph: any;
   let projectDocumentContent: { readStariumBuffer: jest.Mock };
+  let provisioningService: { assertManualLinkAllowed: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -113,6 +114,9 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
     projectDocumentContent = {
       readStariumBuffer: jest.fn().mockReturnValue(Buffer.from('x')),
     };
+    provisioningService = {
+      assertManualLinkAllowed: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new ProjectMicrosoftLinksService(
       prisma,
@@ -120,6 +124,7 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
       microsoftOAuth as unknown as MicrosoftOAuthService,
       graph,
       projectDocumentContent as any,
+      provisioningService as any,
     );
 
     jest.clearAllMocks();

@@ -31,6 +31,77 @@ export type ProjectMicrosoftLinkDto = {
   updatedAt: string;
 };
 
+export type ProjectMicrosoftTeamsProvisioningSettingsDto = {
+  id: string | null;
+  clientId: string;
+  isEnabled: boolean;
+  offerOnProjectCreate: boolean;
+  teamNameTemplate: string;
+  teamDescriptionTemplate: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type ProjectMicrosoftTeamsChannelTemplateDto = {
+  id: string;
+  clientId: string;
+  settingsId: string;
+  displayName: string;
+  description: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateTeamsProvisioningSettingsPayload = {
+  isEnabled: boolean;
+  offerOnProjectCreate: boolean;
+  teamNameTemplate: string;
+  teamDescriptionTemplate?: string;
+};
+
+export type CreateTeamsChannelTemplatePayload = {
+  displayName: string;
+  description?: string;
+  isPrimary: boolean;
+};
+
+export type UpdateTeamsChannelTemplatePayload = Partial<CreateTeamsChannelTemplatePayload>;
+
+export type ReorderTeamsChannelTemplatesPayload = {
+  items: Array<{ id: string; sortOrder: number }>;
+};
+
+export type ProjectMicrosoftTeamsProvisioningDto = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'PARTIAL' | 'FAILED';
+  teamDisplayName: string;
+  teamDescription: string | null;
+  microsoftTeamId: string | null;
+  teamWebUrl: string | null;
+  graphOperationUrl: string | null;
+  graphContentLocation: string | null;
+  graphCreateRequestedAt: string | null;
+  retryCount: number;
+  retryRequestedAt: string | null;
+  currentJobId: string | null;
+  lastHeartbeatAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  resolvedAt: string | null;
+  resolutionType: 'TEAM_FOUND' | 'CONFIRMED_NOT_CREATED' | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ResolveProjectMicrosoftTeamsProvisioningPayload = {
+  resolutionType: 'TEAM_FOUND' | 'CONFIRMED_NOT_CREATED';
+  teamId?: string;
+};
+
 /** Payload PUT — aligné sur UpdateProjectMicrosoftLinkDto backend. */
 export type UpdateProjectMicrosoftLinkPayload = {
   isEnabled: boolean;

@@ -8,8 +8,12 @@ describe('projectOptionsKeys', () => {
     expect(projectOptionsKeys.all(clientId)).toContain(clientId);
     expect(projectOptionsKeys.detail(clientId, projectId)).toContain(clientId);
     expect(projectOptionsKeys.detail(clientId, projectId)).toContain(projectId);
+    expect(projectOptionsKeys.microsoftTeamsProvisioningSettings(clientId)).toContain(clientId);
+    expect(projectOptionsKeys.microsoftTeamsChannelTemplates(clientId)).toContain(clientId);
     expect(projectOptionsKeys.microsoftLink(clientId, projectId)).toContain(clientId);
     expect(projectOptionsKeys.microsoftLink(clientId, projectId)).toContain(projectId);
+    expect(projectOptionsKeys.microsoftProvisioning(clientId, projectId)).toContain(clientId);
+    expect(projectOptionsKeys.microsoftProvisioning(clientId, projectId)).toContain(projectId);
   });
 
   it('produces different keys for different clients', () => {
@@ -22,6 +26,9 @@ describe('projectOptionsKeys', () => {
     const clientId = 'c';
     const projectId = 'p';
     expect(projectOptionsKeys.detail(clientId, projectId)).not.toEqual(
+      projectOptionsKeys.microsoftLink(clientId, projectId),
+    );
+    expect(projectOptionsKeys.microsoftProvisioning(clientId, projectId)).not.toEqual(
       projectOptionsKeys.microsoftLink(clientId, projectId),
     );
   });

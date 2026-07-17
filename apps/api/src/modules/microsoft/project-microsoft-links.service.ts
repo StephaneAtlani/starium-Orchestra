@@ -26,6 +26,7 @@ import {
   MicrosoftGraphHttpError,
 } from './microsoft-graph.types';
 import { buildPlannerChecklistPatchBody } from './planner-task-checklist-graph';
+import { ProjectMicrosoftTeamsProvisioningService } from './project-microsoft-teams-provisioning.service';
 
 const AUDIT_ACTION_ENABLED = 'project.microsoft_link.enabled';
 const AUDIT_ACTION_UPDATED = 'project.microsoft_link.updated';
@@ -183,6 +184,7 @@ export class ProjectMicrosoftLinksService {
     private readonly microsoftOAuth: MicrosoftOAuthService,
     private readonly graph: MicrosoftGraphService,
     private readonly projectDocumentContent: ProjectDocumentContentService,
+    private readonly provisioningService: ProjectMicrosoftTeamsProvisioningService,
   ) {}
 
   /**
@@ -339,6 +341,11 @@ export class ProjectMicrosoftLinksService {
     // Multi-client: aucune résolution Graph/Teams/Channels/Plans bloquante ici.
     let activeConnectionId: string | null = existing?.microsoftConnectionId ?? null;
     if (newEnabled === true) {
+      await this.provisioningService.assertManualLinkAllowed(
+        clientId,
+        projectId,
+        dto.teamId,
+      );
       const connection = await this.microsoftOAuth.getActiveConnection(clientId);
       if (!connection || connection.status !== MicrosoftConnectionStatus.ACTIVE) {
         throw new UnprocessableEntityException(
@@ -384,7 +391,7 @@ export class ProjectMicrosoftLinksService {
                 ? {
                     teamId: dto.teamId,
                     channelId: dto.channelId,
-                    plannerPlanId: dto.plannerPlanId,
+                    plannerPlanId: dto.plannerPlanId ?? existing?.plannerPlanId ?? null,
                     ...(dto.teamName !== undefined && { teamName: dto.teamName }),
                     ...(dto.channelName !== undefined && {
                       channelName: dto.channelName,
@@ -435,7 +442,7 @@ export class ProjectMicrosoftLinksService {
                 ? {
                     teamId: dto.teamId,
                     channelId: dto.channelId,
-                    plannerPlanId: dto.plannerPlanId,
+                    plannerPlanId: dto.plannerPlanId ?? null,
                     ...(dto.teamName !== undefined && { teamName: dto.teamName }),
                     ...(dto.channelName !== undefined && {
                       channelName: dto.channelName,
@@ -529,11 +536,10 @@ export class ProjectMicrosoftLinksService {
       requestId: context?.meta?.requestId,
     });
 
-    // Sanity: le PUT avec isEnabled=true ne doit jamais aboutir sans IDs
-    // (la validation DTO le garantit mais on garde un filet de sécurité).
+    // Sanity: le PUT manuel ne doit jamais aboutir sans team/channel.
     if (newEnabled === true) {
-      if (!dto.teamId || !dto.channelId || !dto.plannerPlanId) {
-        throw new BadRequestException('teamId, channelId et plannerPlanId sont requis');
+      if (!dto.teamId || !dto.channelId) {
+        throw new BadRequestException('teamId et channelId sont requis');
       }
     }
 
