@@ -116,6 +116,7 @@ import { ProjectMicrosoftTeamsTemplateService } from './project-microsoft-teams-
     MicrosoftPlatformConfigService,
     ClientMicrosoftOAuthService,
     ProjectMicrosoftTeamsProvisioningService,
+    ProjectMicrosoftTeamsProvisioningStaleMaintenanceService,
   ],
 })
 export class MicrosoftModule {}
