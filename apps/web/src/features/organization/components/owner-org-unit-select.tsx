@@ -54,6 +54,11 @@ export function OwnerOrgUnitSelect({
   );
 
   const selectValue = value ?? NONE;
+  const displayLabel = useMemo(() => {
+    if (value == null) return placeholder;
+    return options.find((o) => o.id === value)?.label ?? placeholder;
+  }, [value, options, placeholder]);
+
   const busy = unitsQ.isLoading || permsLoading;
   const inactive = disabled || !canReadOrg || busy || unitsQ.isError;
 
@@ -67,7 +72,9 @@ export function OwnerOrgUnitSelect({
       disabled={inactive}
     >
       <SelectTrigger id={id} className={triggerClassName} aria-busy={busy}>
-        <SelectValue placeholder={busy ? 'Chargement…' : placeholder} />
+        <SelectValue placeholder={busy ? 'Chargement…' : placeholder}>
+          {busy ? 'Chargement…' : displayLabel}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE}>{placeholder}</SelectItem>
