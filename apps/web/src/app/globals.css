@@ -6936,6 +6936,7 @@ body {
   overflow: hidden;
   background-color: var(--starium-sidebar-bg);
   color: var(--starium-surface);
+  border-radius: 0.75rem 0.75rem 0.75rem 0.75rem;
 }
 
 .starium-orion-drawer-hero::before {

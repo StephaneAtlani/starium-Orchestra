@@ -15,6 +15,11 @@ export class UpdateWorkTeamDto {
   @IsString()
   parentId?: string | null;
 
+  /** Direction / unité organisationnelle de rattachement (`null` = détacher). */
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string | null;
+
   @IsOptional()
   @IsString()
   leadResourceId?: string | null;

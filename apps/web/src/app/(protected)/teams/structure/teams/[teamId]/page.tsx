@@ -142,6 +142,10 @@ export default function WorkTeamDetailPage() {
                 <p className="text-muted-foreground">Parent</p>
                 <p className="font-medium">{team.parentTeamName ?? 'Racine'}</p>
               </div>
+              <div>
+                <p className="text-muted-foreground">Direction</p>
+                <p className="font-medium">{team.orgUnitName ?? '—'}</p>
+              </div>
               <div className="sm:col-span-2">
                 <p className="text-muted-foreground">Chemin</p>
                 <p className="font-medium">{team.pathLabel}</p>

@@ -7,6 +7,7 @@ import {
 import { Prisma, WorkTeam, WorkTeamStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { assertOrgUnitInClient } from '../organization/org-unit-ownership.helpers';
 import {
   assertResourceHuman,
   resourceHumanDisplayName,
@@ -18,6 +19,18 @@ import { UpdateWorkTeamDto } from './dto/update-work-team.dto';
 
 const MAX_TEAM_DEPTH = 20;
 const PATH_SEP = ' > ';
+
+const workTeamDetailInclude = {
+  lead: { select: { name: true, firstName: true } },
+  parent: { select: { name: true } },
+  orgUnit: { select: { id: true, name: true, code: true } },
+} satisfies Prisma.WorkTeamInclude;
+
+type WorkTeamWithDetails = WorkTeam & {
+  lead?: { name: string; firstName: string | null } | null;
+  parent?: { name: string } | null;
+  orgUnit?: { id: string; name: string; code: string | null } | null;
+};
 
 export type AuditMeta = {
   ipAddress?: string;
@@ -75,6 +88,7 @@ export class WorkTeamsService {
         include: {
           lead: { select: { name: true, firstName: true } },
           parent: { select: { name: true } },
+          orgUnit: { select: { id: true, name: true, code: true } },
         },
       }),
     ]);
@@ -121,10 +135,7 @@ export class WorkTeamsService {
   async getById(clientId: string, id: string) {
     const w = await this.prisma.workTeam.findFirst({
       where: { id, clientId },
-      include: {
-        lead: { select: { name: true, firstName: true } },
-        parent: { select: { name: true } },
-      },
+      include: workTeamDetailInclude,
     });
     if (!w) {
       throw new NotFoundException('Equipe introuvable');
@@ -157,20 +168,23 @@ export class WorkTeamsService {
 
     await this.assertLeadResourceHuman(clientId, dto.leadResourceId);
 
+    const orgUnitId = dto.orgUnitId?.trim() || null;
+    if (orgUnitId) {
+      await assertOrgUnitInClient(this.prisma, clientId, orgUnitId);
+    }
+
     const created = await this.prisma.workTeam.create({
       data: {
         clientId,
         name: dto.name,
         code,
         parentId: dto.parentId ?? null,
+        orgUnitId,
         leadResourceId: dto.leadResourceId,
         sortOrder: dto.sortOrder ?? 0,
         status: WorkTeamStatus.ACTIVE,
       },
-      include: {
-        lead: { select: { name: true, firstName: true } },
-        parent: { select: { name: true } },
-      },
+      include: workTeamDetailInclude,
     });
 
     await this.auditLogs.create({
@@ -179,7 +193,11 @@ export class WorkTeamsService {
       action: 'work_team.created',
       resourceType: 'work_team',
       resourceId: created.id,
-      newValue: { name: created.name, code: created.code },
+      newValue: {
+        name: created.name,
+        code: created.code,
+        orgUnitId: created.orgUnitId,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
@@ -253,13 +271,20 @@ export class WorkTeamsService {
       }
     }
 
+    if (dto.orgUnitId !== undefined) {
+      const nextOrgUnitId = dto.orgUnitId?.trim() || null;
+      if (nextOrgUnitId === null) {
+        data.orgUnit = { disconnect: true };
+      } else {
+        await assertOrgUnitInClient(this.prisma, clientId, nextOrgUnitId);
+        data.orgUnit = { connect: { id: nextOrgUnitId } };
+      }
+    }
+
     const updated = await this.prisma.workTeam.update({
       where: { id: existing.id },
       data,
-      include: {
-        lead: { select: { name: true, firstName: true } },
-        parent: { select: { name: true } },
-      },
+      include: workTeamDetailInclude,
     });
 
     await this.auditLogs.create({
@@ -268,8 +293,16 @@ export class WorkTeamsService {
       action: 'work_team.updated',
       resourceType: 'work_team',
       resourceId: updated.id,
-      oldValue: { name: existing.name, status: existing.status },
-      newValue: { name: updated.name, status: updated.status },
+      oldValue: {
+        name: existing.name,
+        status: existing.status,
+        orgUnitId: existing.orgUnitId,
+      },
+      newValue: {
+        name: updated.name,
+        status: updated.status,
+        orgUnitId: updated.orgUnitId,
+      },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
@@ -295,10 +328,7 @@ export class WorkTeamsService {
         clientId,
         await this.prisma.workTeam.findFirstOrThrow({
           where: { id },
-          include: {
-            lead: { select: { name: true, firstName: true } },
-            parent: { select: { name: true } },
-          },
+          include: workTeamDetailInclude,
         }),
       );
     }
@@ -309,10 +339,7 @@ export class WorkTeamsService {
         status: WorkTeamStatus.ARCHIVED,
         archivedAt: new Date(),
       },
-      include: {
-        lead: { select: { name: true, firstName: true } },
-        parent: { select: { name: true } },
-      },
+      include: workTeamDetailInclude,
     });
 
     await this.auditLogs.create({
@@ -348,10 +375,7 @@ export class WorkTeamsService {
         clientId,
         await this.prisma.workTeam.findFirstOrThrow({
           where: { id },
-          include: {
-            lead: { select: { name: true, firstName: true } },
-            parent: { select: { name: true } },
-          },
+          include: workTeamDetailInclude,
         }),
       );
     }
@@ -362,10 +386,7 @@ export class WorkTeamsService {
         status: WorkTeamStatus.ACTIVE,
         archivedAt: null,
       },
-      include: {
-        lead: { select: { name: true, firstName: true } },
-        parent: { select: { name: true } },
-      },
+      include: workTeamDetailInclude,
     });
 
     await this.auditLogs.create({
@@ -458,13 +479,7 @@ export class WorkTeamsService {
     await assertResourceHuman(this.prisma, clientId, resourceId);
   }
 
-  private async toWorkTeamResponse(
-    clientId: string,
-    w: WorkTeam & {
-      lead?: { name: string; firstName: string | null } | null;
-      parent?: { name: string } | null;
-    },
-  ) {
+  private async toWorkTeamResponse(clientId: string, w: WorkTeamWithDetails) {
     const pathLabel = await this.buildPathLabel(clientId, w);
     return {
       id: w.id,
@@ -472,6 +487,7 @@ export class WorkTeamsService {
       name: w.name,
       code: w.code,
       parentId: w.parentId,
+      orgUnitId: w.orgUnitId,
       status: w.status,
       archivedAt: w.archivedAt,
       sortOrder: w.sortOrder,
@@ -479,6 +495,7 @@ export class WorkTeamsService {
       createdAt: w.createdAt,
       updatedAt: w.updatedAt,
       parentTeamName: w.parent?.name ?? null,
+      orgUnitName: w.orgUnit?.name ?? null,
       leadDisplayName: w.lead ? resourceHumanDisplayName(w.lead) : null,
       pathLabel,
     };

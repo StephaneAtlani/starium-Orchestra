@@ -14,6 +14,11 @@ export class CreateWorkTeamDto {
   @IsString()
   parentId?: string | null;
 
+  /** Direction / unité organisationnelle de rattachement (optionnel). */
+  @IsOptional()
+  @IsString()
+  orgUnitId?: string | null;
+
   /** Responsable d’équipe — Resource `type = HUMAN` (obligatoire pour toute équipe active à la création). */
   @IsString()
   @IsNotEmpty()

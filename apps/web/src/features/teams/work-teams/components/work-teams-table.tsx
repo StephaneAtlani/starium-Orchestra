@@ -38,6 +38,12 @@ export function WorkTeamsTable({ items }: { items: WorkTeamDto[] }) {
         ),
       },
       {
+        key: 'orgUnit',
+        header: 'Direction',
+        mobilePriority: 'secondary',
+        cell: (t) => t.orgUnitName ?? '—',
+      },
+      {
         key: 'lead',
         header: 'Responsable',
         mobilePriority: 'secondary',

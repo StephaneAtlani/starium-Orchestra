@@ -1021,7 +1021,7 @@ export function StariumChatDrawer() {
             {tab === 'home' && (
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <div className="starium-orion-drawer-hero relative px-5 pb-14 pt-4">
-                  <div className="relative flex items-start gap-3 pr-8">
+                  <div className="relative flex items-start gap-3 pr-6">
                     <div className="min-w-0 flex-1 pt-1">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                         {ORION_PRODUCT_NAME}
@@ -1034,7 +1034,13 @@ export function StariumChatDrawer() {
                         Comment pouvons-nous vous aider ?
                       </p>
                     </div>
-                    <OrionAvatar personality="normal" size="lg" priority onDark />
+                    <OrionAvatar
+                      personality="normal"
+                      size="lg"
+                      priority
+                      onDark
+                      className="relative z-[1] shrink-0 translate-x-3"
+                    />
                   </div>
                 </div>
 

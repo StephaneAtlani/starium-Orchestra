@@ -393,7 +393,7 @@ function DialogContent({
 
   const closeBtnClass =
     panelLayout === "chat"
-      ? "absolute right-3 top-3 z-20 h-9 w-9 rounded-full text-white hover:bg-white/15 hover:text-white"
+      ? "absolute right-5 top-5 z-20 inline-flex size-11 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-white shadow-none transition-colors hover:bg-transparent hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-0 md:size-9"
       : sidePanel
         ? "absolute right-3 top-3 z-10 rounded-full bg-background/80 hover:bg-muted"
         : panelLayout === "legacy"
@@ -446,7 +446,8 @@ function DialogContent({
           {...props}
         >
           {normalizedChildren}
-          {showCloseButton && panelLayout === "starium" && !withHeader ? (
+          {showCloseButton &&
+          ((panelLayout === "starium" && !withHeader) || panelLayout === "chat") ? (
             <DialogPrimitive.Close
               data-slot="dialog-close"
               render={
@@ -460,7 +461,7 @@ function DialogContent({
               <XIcon className="size-[18px]" aria-hidden />
             </DialogPrimitive.Close>
           ) : null}
-          {showCloseButton && (panelLayout === "legacy" || sidePanel || panelLayout === "chat") ? (
+          {showCloseButton && (panelLayout === "legacy" || sidePanel) ? (
             <DialogPrimitive.Close
               data-slot="dialog-close"
               render={
