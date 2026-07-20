@@ -15,6 +15,8 @@ import {
 export class LicenseExpirationProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LicenseExpirationProcessor.name);
   private worker: Worker | null = null;
+  /** Connexion dédiée : Worker BullMQ = commandes bloquantes, ne doit pas partager l'IORedis des Queue. */
+  private workerConnection: IORedis | null = null;
 
   constructor(
     @Inject(QUEUE_CONNECTION) private readonly redis: IORedis,
@@ -27,6 +29,13 @@ export class LicenseExpirationProcessor implements OnModuleInit, OnModuleDestroy
       await this.redis.connect();
     }
 
+    // duplicate() obligatoire — sinon Missing lock / moveToFinished (BRPOPLPUSH vs Queue).
+    this.workerConnection = this.redis.duplicate();
+    const wc = this.workerConnection.status;
+    if (wc === 'wait' || wc === 'end') {
+      await this.workerConnection.connect();
+    }
+
     this.worker = new Worker(
       LICENSE_EXPIRATION_QUEUE_NAME,
       async (job: Job<LicenseExpirationScanJobPayload>) => {
@@ -36,7 +45,7 @@ export class LicenseExpirationProcessor implements OnModuleInit, OnModuleDestroy
         );
         await this.runner.runScan(job.data);
       },
-      { connection: this.redis },
+      { connection: this.workerConnection },
     );
 
     this.worker.on('failed', (job, error) => {
@@ -49,8 +58,13 @@ export class LicenseExpirationProcessor implements OnModuleInit, OnModuleDestroy
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (!this.worker) return;
-    await this.worker.close();
-    this.worker = null;
+    if (this.worker) {
+      await this.worker.close();
+      this.worker = null;
+    }
+    if (this.workerConnection) {
+      await this.workerConnection.quit();
+      this.workerConnection = null;
+    }
   }
 }

@@ -8,6 +8,8 @@ import { EmailService } from './email.service';
 export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailProcessor.name);
   private worker: Worker | null = null;
+  /** Connexion dédiée : Worker BullMQ = commandes bloquantes, ne doit pas partager l'IORedis des Queue. */
+  private workerConnection: IORedis | null = null;
 
   constructor(
     @Inject(QUEUE_CONNECTION) private readonly redis: IORedis,
@@ -20,6 +22,13 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
     const st = this.redis.status;
     if (st === 'wait' || st === 'end') {
       await this.redis.connect();
+    }
+
+    // duplicate() obligatoire — sinon Missing lock / moveToFinished (BRPOPLPUSH vs Queue).
+    this.workerConnection = this.redis.duplicate();
+    const wc = this.workerConnection.status;
+    if (wc === 'wait' || wc === 'end') {
+      await this.workerConnection.connect();
     }
 
     this.worker = new Worker(
@@ -44,7 +53,7 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
           throw e;
         }
       },
-      { connection: this.redis },
+      { connection: this.workerConnection },
     );
 
     this.worker.on('completed', (job) => {
@@ -65,6 +74,10 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
     if (this.worker) {
       await this.worker.close();
       this.worker = null;
+    }
+    if (this.workerConnection) {
+      await this.workerConnection.quit();
+      this.workerConnection = null;
     }
   }
 }

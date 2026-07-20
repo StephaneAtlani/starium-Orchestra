@@ -22,6 +22,8 @@ import { QueueService } from './queue.service';
         const port = Number(process.env.REDIS_PORT ?? '6379');
         const password = process.env.REDIS_PASSWORD?.trim() || undefined;
 
+        // Connexion partagée entre les Queue uniquement (commandes non bloquantes).
+        // Les Worker doivent appeler connection.duplicate() — sinon Missing lock / moveToFinished.
         return new IORedis({
           host,
           port,

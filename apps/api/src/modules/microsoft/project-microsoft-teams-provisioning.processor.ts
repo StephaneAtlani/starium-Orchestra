@@ -20,6 +20,8 @@ export class ProjectMicrosoftTeamsProvisioningProcessor
     ProjectMicrosoftTeamsProvisioningProcessor.name,
   );
   private worker: Worker | null = null;
+  /** Connexion dédiée : Worker BullMQ = commandes bloquantes, ne doit pas partager l'IORedis des Queue. */
+  private workerConnection: IORedis | null = null;
 
   constructor(
     @Inject(QUEUE_CONNECTION) private readonly redis: IORedis,
@@ -33,10 +35,21 @@ export class ProjectMicrosoftTeamsProvisioningProcessor
       await this.redis.connect();
     }
 
+    // duplicate() obligatoire — sinon Missing lock / moveToFinished (BRPOPLPUSH vs Queue).
+    this.workerConnection = this.redis.duplicate();
+    const wc = this.workerConnection.status;
+    if (wc === 'wait' || wc === 'end') {
+      await this.workerConnection.connect();
+    }
+
     this.worker = new Worker(
       PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_NAME,
       async (job: Job) => this.dispatchJob(job),
-      { connection: this.redis },
+      {
+        connection: this.workerConnection,
+        // Renouvellement auto à lockDuration/2 ; marge au-dessus du timeout métier.
+        lockDuration: Math.max(PROVISIONING_JOB_TIMEOUT_MS + 60_000, 120_000),
+      },
     );
 
     this.worker.on('failed', (job, error) => {
@@ -100,8 +113,13 @@ export class ProjectMicrosoftTeamsProvisioningProcessor
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (!this.worker) return;
-    await this.worker.close();
-    this.worker = null;
+    if (this.worker) {
+      await this.worker.close();
+      this.worker = null;
+    }
+    if (this.workerConnection) {
+      await this.workerConnection.quit();
+      this.workerConnection = null;
+    }
   }
 }

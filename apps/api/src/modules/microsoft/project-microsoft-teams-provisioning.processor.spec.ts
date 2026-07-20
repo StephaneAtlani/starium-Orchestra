@@ -22,6 +22,11 @@ describe('ProjectMicrosoftTeamsProvisioningProcessor', () => {
   const redis = {
     status: 'ready',
     connect: jest.fn(),
+    duplicate: jest.fn().mockReturnValue({
+      status: 'ready',
+      connect: jest.fn(),
+      quit: jest.fn(),
+    }),
   };
 
   let processor: ProjectMicrosoftTeamsProvisioningProcessor;
