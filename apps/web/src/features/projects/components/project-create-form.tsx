@@ -416,9 +416,13 @@ export function ProjectCreateForm() {
     }
 
     create.mutate({
-      body,
-      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      retroplanMacro,
+      payload: {
+        body,
+        tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+        retroplanMacro,
+      },
+      redirectToMicrosoftOptions:
+        canOfferTeamsProvisioning && provisionMicrosoftTeams,
     });
   };
 

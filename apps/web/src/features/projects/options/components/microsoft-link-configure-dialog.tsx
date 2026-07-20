@@ -23,6 +23,8 @@ import {
   listMicrosoftPlansForTeam,
   listMicrosoftTeams,
 } from '@/features/microsoft-365/api/microsoft-resources.api';
+import { MicrosoftTeamPicker } from '@/features/microsoft-365/components/microsoft-team-picker';
+import { isTeamSelectionAllowedForLockedTeam } from '../lib/microsoft-teams-provisioning.constants';
 import type { ProjectMicrosoftLinkDto } from '../types/project-options.types';
 import type { UpdateProjectMicrosoftLinkPayload } from '../types/project-options.types';
 
@@ -46,6 +48,7 @@ type Props = {
   connectionActive: boolean;
   canEdit: boolean;
   isSubmitting: boolean;
+  lockedTeamId?: string | null;
   onSave: (payload: UpdateProjectMicrosoftLinkPayload) => void;
 };
 
@@ -56,6 +59,7 @@ export function MicrosoftLinkConfigureDialog({
   connectionActive,
   canEdit,
   isSubmitting,
+  lockedTeamId,
   onSave,
 }: Props) {
   const authFetch = useAuthenticatedFetch();
@@ -74,7 +78,8 @@ export function MicrosoftLinkConfigureDialog({
 
   useEffect(() => {
     if (!open) return;
-    setTeamId(link?.teamId ?? '');
+    const initialTeamId = lockedTeamId?.trim() || link?.teamId || '';
+    setTeamId(initialTeamId);
     setChannelId(link?.channelId ?? '');
     setPlannerPlanId(link?.plannerPlanId ?? '');
     setFilesDriveId(link?.filesDriveId ?? '');
@@ -82,7 +87,7 @@ export function MicrosoftLinkConfigureDialog({
     setUseMsBuckets(link?.useMicrosoftPlannerBuckets ?? false);
     setUseMsLabels(link?.useMicrosoftPlannerLabels ?? false);
     setLabelsConfirmOpen(false);
-  }, [open, link]);
+  }, [open, link, lockedTeamId]);
 
   const teamsQuery = useQuery({
     queryKey: ['microsoft-teams', clientId],
@@ -105,14 +110,12 @@ export function MicrosoftLinkConfigureDialog({
     retry: false,
   });
 
-  /** Libellé affiché : liste Graph si chargée, sinon noms dénormalisés du lien (évite d’afficher les GUID). */
   const teamLabel = useMemo(() => {
     const fromList = teamsQuery.data?.items?.find((t) => t.teamId === teamId)?.teamName;
     if (fromList) return fromList;
     if (link?.teamId === teamId && link.teamName) return link.teamName;
-    if (teamId && teamsQuery.isLoading) return 'Chargement…';
     return '';
-  }, [teamsQuery.data?.items, teamsQuery.isLoading, teamId, link?.teamId, link?.teamName]);
+  }, [teamsQuery.data?.items, teamId, link?.teamId, link?.teamName]);
 
   const channelLabel = useMemo(() => {
     const fromList = channelsQuery.data?.items?.find((c) => c.channelId === channelId)?.channelName;
@@ -155,6 +158,9 @@ export function MicrosoftLinkConfigureDialog({
     if (!teamId?.trim() || !channelId?.trim() || !plannerPlanId?.trim()) {
       return;
     }
+    if (!isTeamSelectionAllowedForLockedTeam(lockedTeamId, teamId)) {
+      return;
+    }
     const payload: UpdateProjectMicrosoftLinkPayload = {
       isEnabled: true,
       teamId: teamId.trim(),
@@ -181,21 +187,26 @@ export function MicrosoftLinkConfigureDialog({
     useMsBuckets,
     useMsLabels,
     onSave,
+    lockedTeamId,
   ]);
+
+  const teamSelectionMismatch =
+    Boolean(teamId.trim()) && !isTeamSelectionAllowedForLockedTeam(lockedTeamId, teamId);
 
   const canSubmit =
     canEdit &&
     connectionActive &&
     Boolean(teamId?.trim()) &&
     Boolean(channelId?.trim()) &&
-    Boolean(plannerPlanId?.trim());
+    Boolean(plannerPlanId?.trim()) &&
+    !teamSelectionMismatch;
 
   return (
     <Fragment>
       <StariumModal
         open={open}
         onOpenChange={onOpenChange}
-        title="Configurer Microsoft 365"
+        title={lockedTeamId ? 'Rattacher l’équipe provisionnée' : 'Rattacher une équipe existante'}
         icon={Cloud}
         size="lg"
         footer={
@@ -220,56 +231,33 @@ export function MicrosoftLinkConfigureDialog({
               Connectez d’abord le client Microsoft 365 depuis la carte d’état ci-dessus.
             </AlertDescription>
           </Alert>
-        ) : teamsQuery.isLoading ? (
-          <LoadingState rows={3} />
-        ) : teamsQuery.isError ? (
-          <Alert variant="destructive" className="border-destructive/40">
-            <AlertTitle>Impossible de charger les équipes Teams</AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{graphQueryErrorMessage(teamsQuery.error)}</p>
-              <p className="text-xs text-muted-foreground">
-                Un refus Microsoft (403) indique souvent des droits ou consentements insuffisants sur
-                le tenant (scopes Graph pour Teams / Planner). Vérifiez la connexion dans
-                l’administration client Microsoft 365 ou demandez un consentement administrateur pour
-                l’application Azure liée à Starium.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="border-border/70"
-                onClick={() => void teamsQuery.refetch()}
-              >
-                Réessayer
-              </Button>
-            </AlertDescription>
-          </Alert>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Équipe Teams</p>
-              <Select
-                value={teamId}
-                onValueChange={(v) => {
-                  setTeamId(v ?? '');
-                  setChannelId('');
-                  setPlannerPlanId('');
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir une équipe">
-                    {teamLabel || undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(teamsQuery.data?.items ?? []).map((t) => (
-                    <SelectItem key={t.teamId} value={t.teamId}>
-                      {t.teamName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {lockedTeamId ? (
+              <Alert>
+                <AlertTitle>Rattachement limité à l’équipe provisionnée</AlertTitle>
+                <AlertDescription>
+                  Seule l’équipe Microsoft créée par le provisioning partiel peut être confirmée
+                  ici.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <MicrosoftTeamPicker
+              enabled={open && connectionActive}
+              value={teamId}
+              onValueChange={(v) => {
+                setTeamId(v);
+                setChannelId('');
+                setPlannerPlanId('');
+              }}
+              fallbackTeamName={teamLabel || link?.teamName}
+              id="configure-ms-team"
+            />
+            {teamSelectionMismatch ? (
+              <p className="text-sm text-destructive" role="alert">
+                Choisissez l’équipe provisionnée pour ce projet ou finalisez via le retry.
+              </p>
+            ) : null}
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground">Canal</p>
               {teamId ? (

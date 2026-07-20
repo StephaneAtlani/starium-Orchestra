@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -9,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import type { ProjectMicrosoftTeamsProvisioningDto } from '../types/project-options.types';
 
 type Props = {
   teamName: string | null;
@@ -23,10 +26,23 @@ type Props = {
   /** Run PENDING / IN_PROGRESS ou mutation en vol. */
   provisioningInProgress?: boolean;
   provisioningStatusLabel?: string | null;
+  provisioning?: ProjectMicrosoftTeamsProvisioningDto | null;
   onConfigure: () => void;
   onDissociate: () => void;
   onProvision: () => void;
 };
+
+function provisioningBadge(
+  status: ProjectMicrosoftTeamsProvisioningDto['status'] | undefined,
+): { label: string; variant: 'secondary' | 'outline' } | null {
+  if (status === 'PENDING') {
+    return { label: 'Provisioning en attente', variant: 'secondary' };
+  }
+  if (status === 'IN_PROGRESS') {
+    return { label: 'Provisioning en cours', variant: 'secondary' };
+  }
+  return null;
+}
 
 export function MicrosoftTeamsCard({
   teamName,
@@ -39,17 +55,29 @@ export function MicrosoftTeamsCard({
   provisionDisabled,
   provisioningInProgress = false,
   provisioningStatusLabel,
+  provisioning = null,
   onConfigure,
   onDissociate,
   onProvision,
 }: Props) {
   const hasTeam = Boolean(teamName);
   const showCreatePath = canEdit && !hasTeam;
+  const badge = provisioningBadge(provisioning?.status);
+  const showTeamWebUrl =
+    provisioning?.status === 'COMPLETED' &&
+    Boolean(provisioning.teamWebUrl?.trim());
 
   return (
     <Card className="border-border/70" aria-busy={provisioningInProgress || undefined}>
-      <CardHeader>
-        <CardTitle>Microsoft Teams</CardTitle>
+      <CardHeader className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Microsoft Teams</CardTitle>
+          {badge ? (
+            <Badge variant={badge.variant} className="min-h-6">
+              {badge.label}
+            </Badge>
+          ) : null}
+        </div>
         <CardDescription>
           {hasTeam
             ? 'Équipe et canal liés au projet.'
@@ -67,6 +95,18 @@ export function MicrosoftTeamsCard({
             <dd className="font-medium">{channelName ?? '—'}</dd>
           </div>
         </dl>
+
+        {showTeamWebUrl && provisioning?.teamWebUrl ? (
+          <a
+            href={provisioning.teamWebUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Ouvrir dans Teams
+            <ExternalLink className="size-4 shrink-0" aria-hidden />
+          </a>
+        ) : null}
 
         {provisioningStatusLabel ? (
           <p className="text-xs text-muted-foreground" aria-live="polite">

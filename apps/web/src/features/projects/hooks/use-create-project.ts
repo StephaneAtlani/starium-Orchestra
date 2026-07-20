@@ -14,21 +14,32 @@ import {
 import { projectDetail } from '../constants/project-routes';
 import type { CreateRetroplanMacroPayload, ProjectDetail } from '../types/project.types';
 
+/** Données réellement envoyées au backend — jamais de flag UI. */
 export type CreateProjectPayload = {
   body: Record<string, unknown>;
-  /** Étiquettes client — appliquées après création (PUT /projects/:id/tags). */
   tagIds?: string[];
-  /** Jalons macro — POST /projects/:id/milestones/retroplan-macro après création. */
   retroplanMacro?: CreateRetroplanMacroPayload;
 };
+
+/** Options locales frontend — jamais sérialisées dans le body HTTP. */
+export type CreateProjectMutationOptions = {
+  redirectToMicrosoftOptions?: boolean;
+};
+
+export type CreateProjectMutationVariables = {
+  payload: CreateProjectPayload;
+} & CreateProjectMutationOptions;
 
 export function useCreateProject() {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  return useMutation<ProjectDetail, ApiFormError, CreateProjectPayload>({
-    mutationFn: async ({ body, tagIds, retroplanMacro }) => {
+  const mutation = useMutation<ProjectDetail, ApiFormError, CreateProjectMutationVariables>({
+    mutationFn: async ({ payload, redirectToMicrosoftOptions: _redirect, ...rest }) => {
+      void _redirect;
+      void rest;
+      const { body, tagIds, retroplanMacro } = payload;
       const project = await createProject(authFetch, body);
       if (tagIds?.length) {
         await replaceProjectTags(authFetch, project.id, tagIds);
@@ -40,7 +51,16 @@ export function useCreateProject() {
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-      const milestoneCount = variables.retroplanMacro?.steps.length ?? 0;
+      const milestoneCount = variables.payload.retroplanMacro?.steps.length ?? 0;
+      if (variables.redirectToMicrosoftOptions) {
+        toast.success(
+          milestoneCount > 0
+            ? `Projet créé avec ${milestoneCount} jalon${milestoneCount > 1 ? 's' : ''} — provisioning Teams en cours.`
+            : 'Projet créé — provisioning Teams en cours.',
+        );
+        router.push(`/projects/${data.id}/options?tab=microsoft`);
+        return;
+      }
       toast.success(
         milestoneCount > 0
           ? `Projet créé avec ${milestoneCount} jalon${milestoneCount > 1 ? 's' : ''}.`
@@ -52,4 +72,6 @@ export function useCreateProject() {
       toast.error(err.message);
     },
   });
+
+  return mutation;
 }

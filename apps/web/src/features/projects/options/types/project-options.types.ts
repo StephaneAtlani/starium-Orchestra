@@ -97,10 +97,15 @@ export type ProjectMicrosoftTeamsProvisioningDto = {
   updatedAt: string;
 };
 
-export type ResolveProjectMicrosoftTeamsProvisioningPayload = {
-  resolutionType: 'TEAM_FOUND' | 'CONFIRMED_NOT_CREATED';
-  teamId?: string;
-};
+export type ResolveProjectMicrosoftTeamsProvisioningPayload =
+  | {
+      resolutionType: 'TEAM_FOUND';
+      teamId: string;
+    }
+  | {
+      resolutionType: 'CONFIRMED_NOT_CREATED';
+      confirmation: true;
+    };
 
 /** Payload PUT — aligné sur UpdateProjectMicrosoftLinkDto backend. */
 export type UpdateProjectMicrosoftLinkPayload = {
