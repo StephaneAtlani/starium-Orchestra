@@ -22,7 +22,7 @@ export function LoginBrandPanel() {
 
   return (
     <aside
-      className="starium-login-brand relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[color:var(--brand-ink)] p-8 text-white md:flex md:p-10 lg:p-12"
+      className="starium-login-brand relative hidden min-h-screen min-w-0 flex-col justify-between overflow-hidden bg-[color:var(--brand-ink)] p-8 text-white md:flex md:p-10 lg:p-12"
       aria-hidden={false}
     >
       <Image
@@ -55,11 +55,11 @@ export function LoginBrandPanel() {
         </div>
       </div>
 
-      <div className="relative z-10 space-y-4 starium-login-enter starium-login-enter--delay-1">
+      <div className="relative z-10 min-w-0 space-y-4 starium-login-enter starium-login-enter--delay-1">
         <p className="starium-login-overline text-[color:var(--brand-gold)]">
           Portail de pilotage
         </p>
-        <h1 className="text-4xl font-bold leading-tight tracking-tight whitespace-nowrap lg:text-[2.75rem]">
+        <h1 className="max-w-full text-[clamp(1.875rem,4.2vw,2.75rem)] font-bold leading-tight tracking-tight text-balance">
           Reprenez de la hauteur
         </h1>
         <p className="max-w-md text-base leading-relaxed text-white/70 lg:text-lg">

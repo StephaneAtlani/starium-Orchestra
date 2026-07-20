@@ -7159,6 +7159,7 @@ body {
 
 .starium-login-brand {
   min-height: 100dvh;
+  min-width: 0;
 }
 
 .starium-login-form {
