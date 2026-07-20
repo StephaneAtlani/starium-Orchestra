@@ -140,6 +140,33 @@ describe('ProjectMicrosoftLinksService — RFC-PROJ-INT-007', () => {
     expect(auditLogs.create).not.toHaveBeenCalled();
   });
 
+  it('upsertConfig : provisioning actif → assertManualLinkAllowed appelé', async () => {
+    prisma.project.findFirst.mockResolvedValue({ id: projectId });
+    provisioningService.assertManualLinkAllowed.mockRejectedValue(
+      new Error('PROVISIONING_IN_PROGRESS'),
+    );
+
+    await expect(
+      service.upsertConfig(
+        clientId,
+        projectId,
+        {
+          isEnabled: true,
+          teamId: 'team-1',
+          channelId: 'ch-1',
+          plannerPlanId: 'plan-1',
+        } as any,
+        { actorUserId: 'u1', meta: {} },
+      ),
+    ).rejects.toThrow('PROVISIONING_IN_PROGRESS');
+
+    expect(provisioningService.assertManualLinkAllowed).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      'team-1',
+    );
+  });
+
   it('upsertConfig : isEnabled=true sans connexion active => UnprocessableEntityException', async () => {
     prisma.project.findFirst.mockResolvedValue({ id: projectId });
     prisma.projectMicrosoftLink.findFirst.mockResolvedValue(null);

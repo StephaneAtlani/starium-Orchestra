@@ -1,12 +1,18 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Job, JobsOptions, Queue } from 'bullmq';
+import {
+  buildProjectMicrosoftTeamsProvisioningJobId,
+} from '../microsoft/project-microsoft-teams-provisioning.constants';
 import {
   EMAIL_QUEUE,
   LICENSE_EXPIRATION_QUEUE,
   LICENSE_EXPIRATION_SCAN_JOB,
   PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB,
   PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_JOB,
+  PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_SCHEDULER_ID,
 } from './queue.constants';
+import { PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS } from '../microsoft/project-microsoft-teams-provisioning.constants';
 
 export type SendEmailJobPayload = {
   emailDeliveryId: string;
@@ -24,8 +30,9 @@ export type ProjectMicrosoftTeamsProvisioningJobPayload = {
 };
 
 @Injectable()
-export class QueueService {
+export class QueueService implements OnModuleInit {
   private readonly logger = new Logger(QueueService.name);
+  private staleMaintenanceSchedulerInitialized = false;
 
   constructor(
     @Inject(EMAIL_QUEUE) private readonly emailQueue: Queue,
@@ -34,6 +41,10 @@ export class QueueService {
     @Inject(PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE)
     private readonly projectMicrosoftTeamsProvisioningQueue: Queue,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.ensureStaleMaintenanceScheduler();
+  }
 
   async enqueueSendEmail(payload: SendEmailJobPayload): Promise<void> {
     const attempts = Number(process.env.EMAIL_QUEUE_RETRY_ATTEMPTS ?? '3');
@@ -46,7 +57,6 @@ export class QueueService {
       },
       removeOnComplete: 1000,
       removeOnFail: 2000,
-      // BullMQ interdit les ":" dans les jobId custom (délimiteur Redis interne).
       jobId: `send_email_${payload.emailDeliveryId}`,
     };
 
@@ -73,7 +83,6 @@ export class QueueService {
       },
       removeOnComplete: 1000,
       removeOnFail: 2000,
-      // BullMQ interdit les ":" dans les jobId custom (délimiteur Redis interne).
       jobId: `${LICENSE_EXPIRATION_SCAN_JOB}_${payload.windowStartIso.replace(/:/g, '-')}`,
     };
 
@@ -87,36 +96,71 @@ export class QueueService {
     );
   }
 
-  async enqueueProjectMicrosoftTeamsProvisioning(
-    payload: ProjectMicrosoftTeamsProvisioningJobPayload,
-  ): Promise<Job<ProjectMicrosoftTeamsProvisioningJobPayload>> {
+  private projectMicrosoftTeamsProvisioningJobOptions(
+    jobId: string,
+  ): JobsOptions {
     const attempts = Number(
       process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_RETRY_ATTEMPTS ?? '3',
     );
     const backoffMs = Number(
-      process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_BACKOFF_MS ?? '5000',
+      process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_BACKOFF_MS ?? '30000',
+    );
+    return {
+      attempts,
+      backoff: {
+        type: 'exponential',
+        delay: backoffMs,
+      },
+      removeOnComplete: 1000,
+      removeOnFail: false,
+      jobId,
+    };
+  }
+
+  async enqueueProjectMicrosoftTeamsProvisioning(
+    payload: ProjectMicrosoftTeamsProvisioningJobPayload,
+    retryCount = 0,
+  ): Promise<Job<ProjectMicrosoftTeamsProvisioningJobPayload>> {
+    const jobId = buildProjectMicrosoftTeamsProvisioningJobId(
+      payload.provisioningId,
+      retryCount,
     );
     const job = await this.projectMicrosoftTeamsProvisioningQueue.add(
       PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB,
       payload,
-      {
-        attempts,
-        backoff: {
-          type: 'exponential',
-          delay: backoffMs,
-        },
-        removeOnComplete: 1000,
-        removeOnFail: false,
-        jobId: `project_ms_teams_provisioning_${payload.provisioningId}`,
-      },
+      this.projectMicrosoftTeamsProvisioningJobOptions(jobId),
     );
     this.logger.log(
-      `[PROJECT_MS_TEAMS queue] job BullMQ id=${String(job.id)} provisioningId=${payload.provisioningId}`,
+      `[PROJECT_MS_TEAMS queue] job BullMQ id=${String(job.id)} provisioningId=${payload.provisioningId} retryCount=${retryCount}`,
     );
     return job as Job<ProjectMicrosoftTeamsProvisioningJobPayload>;
   }
 
   getProjectMicrosoftTeamsProvisioningQueue(): Queue {
     return this.projectMicrosoftTeamsProvisioningQueue;
+  }
+
+  /** Idempotent : un seul scheduler logique pour la maintenance stale. */
+  async ensureStaleMaintenanceScheduler(): Promise<void> {
+    if (this.staleMaintenanceSchedulerInitialized) {
+      return;
+    }
+    await this.projectMicrosoftTeamsProvisioningQueue.upsertJobScheduler(
+      PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_SCHEDULER_ID,
+      { every: PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS },
+      {
+        name: PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_JOB,
+        data: {},
+        opts: {
+          attempts: 1,
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        },
+      },
+    );
+    this.staleMaintenanceSchedulerInitialized = true;
+    this.logger.log(
+      `[PROJECT_MS_TEAMS queue] scheduler stale maintenance id=${PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_SCHEDULER_ID} every=${PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS}ms`,
+    );
   }
 }

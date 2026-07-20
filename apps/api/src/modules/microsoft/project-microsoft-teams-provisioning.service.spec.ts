@@ -36,6 +36,7 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       projectMicrosoftTeamsChannelTemplate: {
         findMany: jest.fn(),
@@ -162,9 +163,10 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
 
     const result = await service.startProvisioning(clientId, projectId, 'u1');
 
-    expect(queueService.enqueueProjectMicrosoftTeamsProvisioning).toHaveBeenCalledWith({
-      provisioningId: 'prov-1',
-    });
+    expect(queueService.enqueueProjectMicrosoftTeamsProvisioning).toHaveBeenCalledWith(
+      { provisioningId: 'prov-1' },
+      0,
+    );
     expect(result.currentJobId).toBe('job-1');
   });
 
@@ -181,7 +183,78 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('classe un 403 Graph en erreur métier de droits lors du worker', async () => {
+  it('handleProvisioningJobError : 403 Graph → failRun conditionnel + UnrecoverableError', async () => {
+    prisma.projectMicrosoftTeamsProvisioning.findUnique.mockResolvedValue({
+      id: 'prov-1',
+      clientId,
+      projectId,
+      status: ProjectMicrosoftTeamsProvisioningStatus.IN_PROGRESS,
+      errorCode: null,
+      graphCreateRequestedAt: null,
+      graphOperationUrl: null,
+      microsoftTeamId: null,
+      triggeredByUserId: 'u1',
+    });
+    prisma.projectMicrosoftTeamsProvisioning.updateMany.mockResolvedValue({ count: 1 });
+    prisma.projectMicrosoftTeamsProvisioning.findUnique
+      .mockResolvedValueOnce({
+        id: 'prov-1',
+        clientId,
+        projectId,
+        status: ProjectMicrosoftTeamsProvisioningStatus.IN_PROGRESS,
+        errorCode: null,
+        graphCreateRequestedAt: null,
+        graphOperationUrl: null,
+        microsoftTeamId: null,
+        triggeredByUserId: 'u1',
+      })
+      .mockResolvedValueOnce({
+        id: 'prov-1',
+        clientId,
+        projectId,
+        status: ProjectMicrosoftTeamsProvisioningStatus.FAILED,
+        teamDisplayName: 'PROJ-1 - Projet Alpha',
+        teamDescription: null,
+        microsoftTeamId: null,
+        teamWebUrl: null,
+        graphOperationUrl: null,
+        graphContentLocation: null,
+        graphCreateRequestedAt: null,
+        retryCount: 0,
+        retryRequestedAt: null,
+        currentJobId: null,
+        lastHeartbeatAt: new Date(),
+        errorCode: 'MICROSOFT_TEAM_CREATE_FORBIDDEN',
+        errorMessage: 'forbidden',
+        resolvedAt: null,
+        resolutionType: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+    const job = {
+      data: { provisioningId: 'prov-1' },
+      opts: { attempts: 3 },
+      attemptsMade: 0,
+    } as any;
+
+    await expect(
+      service.handleProvisioningJobError(
+        job,
+        new MicrosoftGraphHttpError('forbidden', 403, 'Forbidden', 'forbidden'),
+      ),
+    ).rejects.toBeInstanceOf(Error);
+
+    expect(prisma.projectMicrosoftTeamsProvisioning.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          errorCode: 'MICROSOFT_TEAM_CREATE_FORBIDDEN',
+        }),
+      }),
+    );
+  });
+
+  it('classe un 403 Graph en erreur métier lors du worker', async () => {
     prisma.projectMicrosoftTeamsProvisioning.findUnique.mockResolvedValue({
       id: 'prov-1',
       clientId,
@@ -240,13 +313,7 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
       MicrosoftGraphHttpError,
     );
 
-    expect(prisma.projectMicrosoftTeamsProvisioning.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          errorCode: 'MICROSOFT_TEAM_CREATE_FORBIDDEN',
-        }),
-      }),
-    );
+    expect(graph.createTeam).toHaveBeenCalledTimes(1);
   });
 
   it('extrait le teamId depuis Content-Location OData teams(\'guid\') et finalise', async () => {
@@ -328,6 +395,7 @@ describe('ProjectMicrosoftTeamsProvisioningService', () => {
     expect(graph.pollAsyncOperation).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'conn-1' }),
       `/teams('${teamGuid}')/operations('op-1')`,
+      expect.objectContaining({ signal: undefined }),
     );
     expect(graph.getTeam).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'conn-1' }),

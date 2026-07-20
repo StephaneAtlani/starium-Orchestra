@@ -335,4 +335,46 @@ describe('MicrosoftGraphService', () => {
       message: expect.stringMatching(/Timeout Graph après 60000ms/),
     });
   });
+
+  it('pollAsyncOperation appelle onHeartbeat entre itérations', async () => {
+    jest.useFakeTimers();
+    let call = 0;
+    global.fetch = jest.fn().mockImplementation(async () => {
+      call += 1;
+      if (call === 1) {
+        return jsonResponse(
+          200,
+          JSON.stringify({ status: 'running' }),
+          { 'Retry-After': '30' },
+        );
+      }
+      return jsonResponse(200, JSON.stringify({ status: 'succeeded' }));
+    });
+    const svc = await createService();
+    const onHeartbeat = jest.fn();
+    const promise = svc.pollAsyncOperation(
+      { clientId: 'c1', id: 'conn-1' },
+      '/teams/op-1',
+      { onHeartbeat },
+    );
+    await jest.advanceTimersByTimeAsync(30_000);
+    await promise;
+    expect(onHeartbeat).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('getPrimaryTeamChannel retourne id + displayName', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(
+        200,
+        JSON.stringify({ id: 'ch-1', displayName: 'Général' }),
+      ),
+    );
+    const svc = await createService();
+    const channel = await svc.getPrimaryTeamChannel(
+      { clientId: 'c1', id: 'conn-1' },
+      'team-1',
+    );
+    expect(channel).toEqual({ id: 'ch-1', displayName: 'Général' });
+  });
 });

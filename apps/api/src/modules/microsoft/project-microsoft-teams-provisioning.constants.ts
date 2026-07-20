@@ -1,0 +1,82 @@
+/** Codes d'erreur figés — identiques service / maintenance / audits / tests. */
+export const ERROR_CODE_GRAPH_TRANSIENT_RETRIES_EXHAUSTED =
+  'GRAPH_TRANSIENT_RETRIES_EXHAUSTED';
+export const ERROR_CODE_QUEUE_JOB_COMPLETED_WITHOUT_RUN_UPDATE =
+  'QUEUE_JOB_COMPLETED_WITHOUT_RUN_UPDATE';
+export const ERROR_CODE_QUEUE_JOB_FAILED_ORPHAN = 'QUEUE_JOB_FAILED_ORPHAN';
+export const ERROR_CODE_QUEUE_JOB_MISSING = 'QUEUE_JOB_MISSING';
+export const ERROR_CODE_QUEUE_JOB_STATE_UNKNOWN = 'QUEUE_JOB_STATE_UNKNOWN';
+export const ERROR_CODE_QUEUE_RETRY_NOT_DISPATCHED = 'QUEUE_RETRY_NOT_DISPATCHED';
+export const ERROR_CODE_QUEUE_RETRY_FAILED = 'QUEUE_RETRY_FAILED';
+export const ERROR_CODE_QUEUE_UNAVAILABLE = 'QUEUE_UNAVAILABLE';
+export const ERROR_CODE_RECOVERY_REQUIRED = 'RECOVERY_REQUIRED';
+export const ERROR_CODE_TEAM_CREATION_OUTCOME_UNKNOWN =
+  'TEAM_CREATION_OUTCOME_UNKNOWN';
+export const ERROR_CODE_TEAM_CREATION_CONFIRMED_NOT_CREATED =
+  'TEAM_CREATION_CONFIRMED_NOT_CREATED';
+export const ERROR_CODE_PROVISIONED_TEAM_PENDING_RECOVERY =
+  'PROVISIONED_TEAM_PENDING_RECOVERY';
+export const ERROR_CODE_MICROSOFT_TEAM_CREATE_FORBIDDEN =
+  'MICROSOFT_TEAM_CREATE_FORBIDDEN';
+export const ERROR_CODE_MICROSOFT_GRAPH_REAUTH_REQUIRED =
+  'MICROSOFT_GRAPH_REAUTH_REQUIRED';
+
+/** Allowlist explicite des errorCode relançables via retryProvisioning. */
+export const RETRYABLE_PROVISIONING_ERROR_CODES = new Set<string>([
+  ERROR_CODE_GRAPH_TRANSIENT_RETRIES_EXHAUSTED,
+  ERROR_CODE_RECOVERY_REQUIRED,
+  ERROR_CODE_QUEUE_RETRY_NOT_DISPATCHED,
+  ERROR_CODE_QUEUE_JOB_MISSING,
+  ERROR_CODE_QUEUE_JOB_COMPLETED_WITHOUT_RUN_UPDATE,
+  ERROR_CODE_QUEUE_JOB_FAILED_ORPHAN,
+  ERROR_CODE_QUEUE_JOB_STATE_UNKNOWN,
+  ERROR_CODE_QUEUE_RETRY_FAILED,
+  ERROR_CODE_QUEUE_UNAVAILABLE,
+  ERROR_CODE_MICROSOFT_GRAPH_REAUTH_REQUIRED,
+  ERROR_CODE_MICROSOFT_TEAM_CREATE_FORBIDDEN,
+  ERROR_CODE_PROVISIONED_TEAM_PENDING_RECOVERY,
+]);
+
+export const PROVISIONING_JOB_TIMEOUT_MS = Number(
+  process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB_TIMEOUT_MS ?? '480000',
+);
+
+export const PROVISIONING_STALE_THRESHOLD_MS = Number(
+  process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_THRESHOLD_MS ?? '900000',
+);
+
+export const PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS = Number(
+  process.env.PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS ??
+    '300000',
+);
+
+export const PROVISIONING_STALE_BATCH_SIZE = 100;
+
+export const AUDIT_ACTION_PROVISIONING_UNKNOWN_RESOLVED =
+  'project.microsoft_teams.provision.unknown_resolved';
+
+/** JobId BullMQ unique par tentative (évite collision avec jobs retenus). */
+export function buildProjectMicrosoftTeamsProvisioningJobId(
+  provisioningId: string,
+  retryCount: number,
+): string {
+  return `project_ms_teams_provisioning_${provisioningId}_r${retryCount}`;
+}
+
+/** États BullMQ considérés « vivants » — pas de nouvel enqueue. */
+export const BULLMQ_LIVE_JOB_STATES = new Set([
+  'waiting',
+  'delayed',
+  'active',
+  'prioritized',
+  'waiting-children',
+  'wait',
+]);
+
+export const BULLMQ_PENDING_RUN_STATES = new Set([
+  'waiting',
+  'delayed',
+  'prioritized',
+  'waiting-children',
+  'wait',
+]);

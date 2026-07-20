@@ -1,72 +1,42 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
-import { validateSync } from 'class-validator';
+import { validate } from 'class-validator';
 import { UpdateProjectMicrosoftLinkDto } from './update-project-microsoft-link.dto';
 
-describe('UpdateProjectMicrosoftLinkDto', () => {
-  it('whitelist + forbidNonWhitelisted : accepte useMicrosoftPlannerBuckets', () => {
-    const plain = {
+describe('UpdateProjectMicrosoftLinkDto — plannerPlanId', () => {
+  async function validateDto(payload: Record<string, unknown>) {
+    const dto = plainToInstance(UpdateProjectMicrosoftLinkDto, payload);
+    return validate(dto);
+  }
+
+  it('isEnabled=true sans plannerPlanId → rejet', async () => {
+    const errors = await validateDto({
       isEnabled: true,
       teamId: 'team-1',
       channelId: 'ch-1',
-      plannerPlanId: 'plan-1',
-      useMicrosoftPlannerBuckets: true,
-    };
-    const inst = plainToInstance(UpdateProjectMicrosoftLinkDto, plain);
-    const errors = validateSync(inst, {
-      whitelist: true,
-      forbidNonWhitelisted: true,
     });
-    expect(errors).toHaveLength(0);
-    expect(inst.useMicrosoftPlannerBuckets).toBe(true);
+    expect(errors.some((e) => e.property === 'plannerPlanId')).toBe(true);
   });
 
-  it('whitelist + forbidNonWhitelisted : accepte useMicrosoftPlannerLabels', () => {
-    const plain = {
-      isEnabled: true,
-      teamId: 'team-1',
-      channelId: 'ch-1',
-      plannerPlanId: 'plan-1',
-      useMicrosoftPlannerLabels: true,
-    };
-    const inst = plainToInstance(UpdateProjectMicrosoftLinkDto, plain);
-    const errors = validateSync(inst, {
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    });
-    expect(errors).toHaveLength(0);
-    expect(inst.useMicrosoftPlannerLabels).toBe(true);
+  it('isEnabled=true plannerPlanId vide → rejet', async () => {
+    for (const plannerPlanId of ['', ' ', null]) {
+      const errors = await validateDto({
+        isEnabled: true,
+        teamId: 'team-1',
+        channelId: 'ch-1',
+        plannerPlanId,
+      });
+      expect(errors.some((e) => e.property === 'plannerPlanId')).toBe(true);
+    }
   });
 
-  it('accepte useMicrosoftPlannerLabels: false', () => {
-    const inst = plainToInstance(UpdateProjectMicrosoftLinkDto, {
+  it('isEnabled=true plannerPlanId valide → OK', async () => {
+    const errors = await validateDto({
       isEnabled: true,
       teamId: 'team-1',
       channelId: 'ch-1',
-      plannerPlanId: 'plan-1',
-      useMicrosoftPlannerLabels: false,
-    });
-    const errors = validateSync(inst, {
-      whitelist: true,
-      forbidNonWhitelisted: true,
+      plannerPlanId: 'plan-abc',
     });
     expect(errors).toHaveLength(0);
-    expect(inst.useMicrosoftPlannerLabels).toBe(false);
-  });
-
-  it('accepte useMicrosoftPlannerBuckets: false', () => {
-    const inst = plainToInstance(UpdateProjectMicrosoftLinkDto, {
-      isEnabled: true,
-      teamId: 'team-1',
-      channelId: 'ch-1',
-      plannerPlanId: 'plan-1',
-      useMicrosoftPlannerBuckets: false,
-    });
-    const errors = validateSync(inst, {
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    });
-    expect(errors).toHaveLength(0);
-    expect(inst.useMicrosoftPlannerBuckets).toBe(false);
   });
 });

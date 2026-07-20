@@ -1,7 +1,8 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   Allow,
   IsBoolean,
+  IsDefined,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -22,10 +23,12 @@ export class UpdateProjectMicrosoftLinkDto {
   @IsNotEmpty()
   channelId!: string;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateProjectMicrosoftLinkDto) => o.isEnabled === true)
+  @IsDefined()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
-  plannerPlanId?: string;
+  plannerPlanId!: string;
 
   // Valeurs booleennes : laissées facultatives pour éviter la purge accidentelle
   // si le frontend ne fournit pas tout le payload.

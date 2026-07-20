@@ -39,6 +39,7 @@ import { ProjectMicrosoftLinksController } from './project-microsoft-links.contr
 import { ProjectMicrosoftLinksService } from './project-microsoft-links.service';
 import { ProjectMicrosoftTeamsProvisioningController } from './project-microsoft-teams-provisioning.controller';
 import { ProjectMicrosoftTeamsProvisioningService } from './project-microsoft-teams-provisioning.service';
+import { ProjectMicrosoftTeamsProvisioningStaleMaintenanceService } from './project-microsoft-teams-provisioning-stale-maintenance.service';
 import { ProjectMicrosoftTeamsTemplateController } from './project-microsoft-teams-template.controller';
 import { ProjectMicrosoftTeamsTemplateService } from './project-microsoft-teams-template.service';
 
@@ -105,6 +106,7 @@ import { ProjectMicrosoftTeamsTemplateService } from './project-microsoft-teams-
     MicrosoftSelectionService,
     ProjectMicrosoftLinksService,
     ProjectMicrosoftTeamsProvisioningService,
+    ProjectMicrosoftTeamsProvisioningStaleMaintenanceService,
     ProjectMicrosoftTeamsTemplateService,
   ],
   exports: [

@@ -361,8 +361,28 @@ Validation : `displayName` 1–50 caractères ; unicité par client ; un seul `i
 |---------|-----------|------------|-------------|
 | POST | `/api/projects/:projectId/microsoft-teams/provision` | `projects.update` | Démarre provisioning (async, file BullMQ) |
 | GET | `/api/projects/:projectId/microsoft-teams/provision` | `projects.read` | Dernier run du projet ou `null` |
-| POST | `/api/projects/:projectId/microsoft-teams/provision/:provisioningId/retry` | `projects.update` | Relance un run `FAILED` ou `PARTIAL` |
+| POST | `/api/projects/:projectId/microsoft-teams/provision/:provisioningId/retry` | `projects.update` | Relance un run `FAILED` ou `PARTIAL` (allowlist `errorCode` — voir §18.4) |
 | POST | `/api/projects/:projectId/microsoft-teams/provision/:provisioningId/resolve-unknown` | `projects.update` | Résolution manuelle si issue Graph incertaine (`TEAM_CREATION_OUTCOME_UNKNOWN`) |
+
+Corps POST resolve-unknown :
+
+```json
+{
+  "resolutionType": "TEAM_FOUND",
+  "teamId": "optional-si-deja-connu"
+}
+```
+
+ou, pour confirmer l’absence de Team côté M365 :
+
+```json
+{
+  "resolutionType": "CONFIRMED_NOT_CREATED",
+  "confirmation": true
+}
+```
+
+`confirmation: true` est **obligatoire** pour `CONFIRMED_NOT_CREATED` (garde-fou UI). Après résolution `CONFIRMED_NOT_CREATED`, le run reste `FAILED` avec `errorCode: TEAM_CREATION_CONFIRMED_NOT_CREATED` et **n’est plus relançable** via retry — un nouveau POST provision est requis.
 
 Guards provisioning projet : `JwtAuthGuard`, `ActiveClientGuard`, `ModuleAccessGuard`, `PermissionsGuard`, `MicrosoftIntegrationAccessGuard`, `ResourceAccessDecisionGuard` + `@RequireAccessIntent({ module: 'projects', intent: 'read|write' })`.
 
@@ -460,6 +480,8 @@ apps/api/src/modules/microsoft/
 │   ├── reorder-teams-channel-templates.dto.ts
 │   └── resolve-project-microsoft-teams-provisioning.dto.ts
 ├── project-microsoft-teams-provisioning.processor.ts
+├── project-microsoft-teams-provisioning.constants.ts   # codes erreur, env timeouts, jobId BullMQ
+├── project-microsoft-teams-provisioning-stale-maintenance.service.ts
 ├── migration-int-010.spec.ts                    # gate SQL index partiels + FK CASCADE
 ├── project-microsoft-teams-template.controller.spec.ts
 └── tests/
@@ -507,9 +529,10 @@ apps/web/src/app/(protected)/projects/options/page.tsx  # section référentiel
 2. Créer ProjectMicrosoftTeamsProvisioning (PENDING) avec flags request* selon options utilisateur
 3. Si requestCreateTeam :
    a. Résoudre teamName depuis template + projet (troncature 50 car.)
-   b. Graph POST /teams (displayName, description?, visibility private)
-   c. Poll jusqu’à teamId disponible (backoff max 5 min)
-   d. Canaux template + canal principal
+   b. Graph POST /teams avec `template@odata.bind` (`https://graph.microsoft.com/v1.0/teamsTemplates('standard')`), `displayName`, `description?`, `visibility: private` ; timeout HTTP dédié **60 s** (`DEFAULT_MICROSOFT_GRAPH_CREATE_TEAM_TIMEOUT_MS`)
+   c. Poll **obligatoire** tant qu’une `graphOperationUrl` est présente (même si `teamId` extrait du `Content-Location`) ; heartbeat `lastHeartbeatAt` pendant le poll ; signal abortable (timeout job processor **8 min** par défaut)
+   d. Upsert `ProjectMicrosoftLink` dès que `teamId` connu, **avant** création des canaux template
+   e. Canaux template + canal principal
 4. Si requestCreatePlannerPlan (lot 5) :
    a. Graph POST plan Planner pour la Team
    b. Persister plannerPlanId / plannerPlanTitle
@@ -610,7 +633,7 @@ Toujours **libellés métier** (`teamName`, `displayName`) — jamais UUID seul 
 | `provision.completed` | succès COMPLETED |
 | `provision.partial` | PARTIAL |
 | `provision.failed` | FAILED |
-| `provision.unknown_resolved` | POST resolve-unknown |
+| `project.microsoft_teams.provision.unknown_resolved` | POST resolve-unknown |
 
 Payload audit : `projectId`, `provisioningId`, `microsoftTeamId` (pas de token).
 
@@ -789,8 +812,8 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 ## 18.1 Livré
 
 * Migration Prisma `20260717100000_project_microsoft_teams_provisioning` avec **index partiels uniques** SQL (`one_primary_per_client`, `one_active_run_per_project`) ; test statique `migration-int-010.spec.ts`.
-* Services : `ProjectMicrosoftTeamsTemplateService`, `ProjectMicrosoftTeamsProvisioningService` ; worker `ProjectMicrosoftTeamsProvisioningProcessor` (BullMQ).
-* Graph : `createTeam`, `pollAsyncOperation`, `createTeamChannel`, `listTeamChannels`, `getTeam` ; scopes `Team.Create`, `Channel.Create`.
+* Services : `ProjectMicrosoftTeamsTemplateService`, `ProjectMicrosoftTeamsProvisioningService` ; worker `ProjectMicrosoftTeamsProvisioningProcessor` (BullMQ) + maintenance stale (`ProjectMicrosoftTeamsProvisioningStaleMaintenanceService`, lot 2).
+* Graph : `createTeam` (`template@odata.bind`, timeout 60 s), `pollAsyncOperation` (heartbeat, signal abortable), `createTeamChannel`, `listTeamChannels`, `getTeam` ; scopes `Team.Create`, `Channel.Create`.
 * **Lot 1 gate (référentiel client)** : API settings/canaux + audits ; UI `/projects/options` (orchestrateur `microsoft-teams-provisioning-settings`, table `microsoft-teams-channel-templates-table`, dialog `microsoft-teams-channel-template-form-dialog`) ; query keys `projectOptionsKeys.microsoftTeamsProvisioningSettings` ; tests unitaires BE (template service/controller, DTOs, migration SQL) et FE (table, dialog, orchestrateur).
 * UI projet : création projet (case opt-in), options projet (carte Teams + retry/resolve).
 * `MicrosoftModule` : import `AccessDecisionModule` pour `ResourceAccessDecisionGuard` sur les routes provisioning projet.
@@ -816,7 +839,66 @@ Exemple de jeu initial proposé à la première activation (à valider métier) 
 
 Comportement actuel si `provisionMicrosoftTeams: true` : **Team + canaux uniquement** ; Planner et fichiers restent manuels (INT-007).
 
-## 18.4 Autres suites
+## 18.4 Lot 2 — fiabilisation backend (gap-close, livré)
+
+Objectif : robustesse file BullMQ, reprise après timeout Graph, anti-doublon Teams M365, maintenance des runs « zombies ».
+
+### Fichiers ajoutés / étendus
+
+* `project-microsoft-teams-provisioning.constants.ts` — codes d’erreur figés, allowlist retry, `buildProjectMicrosoftTeamsProvisioningJobId`, env :
+  * `PROJECT_MICROSOFT_TEAMS_PROVISIONING_JOB_TIMEOUT_MS` (défaut **480 000** = 8 min)
+  * `PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_THRESHOLD_MS` (défaut **900 000** = 15 min)
+  * `PROJECT_MICROSOFT_TEAMS_PROVISIONING_STALE_MAINTENANCE_INTERVAL_MS` (défaut **300 000** = 5 min)
+* `project-microsoft-teams-provisioning-stale-maintenance.service.ts` — scan batch (100 runs) `PENDING|IN_PROGRESS` sans heartbeat récent ; mapping états BullMQ → `FAILED` avec codes queue ou `TEAM_CREATION_OUTCOME_UNKNOWN` / `RECOVERY_REQUIRED`
+* `project-microsoft-teams-provisioning.processor.ts` — dispatch provisioning + job maintenance ; `AbortController` sur timeout job ; délégation erreurs à `handleProvisioningJobError`
+* `queue.service.ts` — backoff provisioning **30 s** (`PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_BACKOFF_MS`), `jobId` unique `project_ms_teams_provisioning_{id}_r{retryCount}`, scheduler idempotent maintenance stale
+* Specs : processor, stale maintenance, queue, DTO resolve, DTO lien manuel (`plannerPlanId` obligatoire si `isEnabled`)
+
+### File BullMQ
+
+* Queue : `project_microsoft_teams_provisioning`
+* Jobs : `project_microsoft_teams_provisioning` (run) ; `project_microsoft_teams_provisioning_stale_maintenance` (cron every 5 min)
+* Tentatives queue : `PROJECT_MICROSOFT_TEAMS_PROVISIONING_QUEUE_RETRY_ATTEMPTS` (défaut 3)
+* **Redémarrer le worker API** après déploiement pour charger processor + scheduler
+
+### Codes d’erreur (`errorCode` sur le run)
+
+| Code | Contexte |
+|------|----------|
+| `TEAM_CREATION_OUTCOME_UNKNOWN` | POST Graph sans issue claire → résolution manuelle obligatoire avant retry |
+| `TEAM_CREATION_CONFIRMED_NOT_CREATED` | Résolu `CONFIRMED_NOT_CREATED` → run clos, nouveau provision autorisé |
+| `PROVISIONED_TEAM_PENDING_RECOVERY` | Team connue, étapes suivantes à reprendre |
+| `RECOVERY_REQUIRED` | Run interrompu (timeout processor, stale IN_PROGRESS) — retry autorisé |
+| `GRAPH_TRANSIENT_RETRIES_EXHAUSTED` | Throttling / erreurs transitoires Graph épuisées |
+| `MICROSOFT_GRAPH_REAUTH_REQUIRED` | Token / consentement à renouveler |
+| `MICROSOFT_TEAM_CREATE_FORBIDDEN` | Permissions Graph insuffisantes |
+| `QUEUE_*` | Incohérence file (job manquant, orphelin, état illisible, retry non distribué, etc.) |
+
+Allowlist retry (`retryProvisioning`) : tous les codes ci-dessus **sauf** `TEAM_CREATION_OUTCOME_UNKNOWN` (non résolu) et `TEAM_CREATION_CONFIRMED_NOT_CREATED`.
+
+### Retry atomique (branches A–D)
+
+1. Job BullMQ existant `failed` → `job.retry('failed')` après transition DB réservée
+2. Job « vivant » (`waiting`, `active`, …) → resync statut run, pas de nouvel enqueue
+3. Pas de job / job terminal incohérent → nouvel enqueue avec `jobId` `_r{retryCount+1}`
+4. Échec enqueue → compensation DB (`QUEUE_RETRY_FAILED`)
+
+Refus retry si : run `TEAM_CREATION_OUTCOME_UNKNOWN` non résolu ; run `CONFIRMED_NOT_CREATED` ; statut ≠ `FAILED|PARTIAL` ; `errorCode` hors allowlist.
+
+### Resolve `TEAM_FOUND`
+
+* Vérifie la Team via Graph ; upsert lien projet ; tente canal principal ; statut `COMPLETED` ou `PARTIAL` si canaux template en échec
+* Idempotent si déjà résolu avec le même `teamId`
+
+### INT-007 — lien manuel
+
+* `UpdateProjectMicrosoftLinkDto` : si `isEnabled=true`, **`plannerPlanId` obligatoire** (non vide) en plus de `teamId` / `channelId` — aligné flux manuel INT-007 ; le lien issu du provisioning Teams peut rester sans plan Planner.
+
+### Tests Lot 2
+
+* Batterie Jest ciblée (processor, maintenance stale, queue, resolve DTO, lien manuel) — voir fichiers `*.spec.ts` du module `microsoft/`.
+
+## 18.5 Autres suites
 
 * Tests intégration / E2E cross-client (provisioning + options).
 * Tests FE intégrés (création projet + options modulaires lot 5).

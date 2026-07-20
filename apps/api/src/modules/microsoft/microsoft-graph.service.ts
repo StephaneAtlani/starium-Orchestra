@@ -261,7 +261,11 @@ export class MicrosoftGraphService {
   async pollAsyncOperation(
     connection: { clientId: string; id: string },
     operationUrl: string,
-    options?: { signal?: AbortSignal; timeoutMs?: number },
+    options?: {
+      signal?: AbortSignal;
+      timeoutMs?: number;
+      onHeartbeat?: () => void | Promise<void>;
+    },
   ): Promise<unknown> {
     const startedAt = Date.now();
     const timeoutMs = options?.timeoutMs ?? 5 * 60_000;
@@ -289,6 +293,7 @@ export class MicrosoftGraphService {
         {
           method: 'GET',
           expectJson: true,
+          signal: options?.signal,
         },
         /^https?:\/\//i.test(operationUrl.trim()),
       );
@@ -313,11 +318,15 @@ export class MicrosoftGraphService {
         );
       }
 
+      if (options?.onHeartbeat) {
+        await options.onHeartbeat();
+      }
+
       const retryAfterHeader = response.headers.get('Retry-After');
       const retryAfter = Number(retryAfterHeader ?? '30');
       const delayMs =
         Number.isFinite(retryAfter) && retryAfter >= 30 ? retryAfter * 1000 : 30_000;
-      await sleepMs(delayMs);
+      await sleepMsAbortable(delayMs, options?.signal);
     }
   }
 
@@ -923,13 +932,17 @@ export class MicrosoftGraphService {
   ): Promise<Response> {
     const rest = { ...(init ?? {}) } as GraphFetchInit;
     const timeoutMs = rest.timeoutMs ?? this.timeoutMs;
+    const externalSignal = rest.signal;
     delete rest.expectJson;
     delete rest.timeoutMs;
+    delete rest.signal;
     const headers = new Headers(rest.headers ?? undefined);
     headers.set('Authorization', `Bearer ${accessToken}`);
     headers.set('Accept', 'application/json');
 
     const controller = new AbortController();
+    const onExternalAbort = () => controller.abort();
+    externalSignal?.addEventListener('abort', onExternalAbort);
     const t = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(url, {
@@ -939,6 +952,7 @@ export class MicrosoftGraphService {
       });
     } finally {
       clearTimeout(t);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
     }
   }
 
@@ -1113,4 +1127,18 @@ function extractRequestIdFromHeaders(headers: Headers): string | undefined {
 
 function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sleepMsAbortable(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
