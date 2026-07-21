@@ -15,10 +15,10 @@ export class UpdateWorkTeamDto {
   @IsString()
   parentId?: string | null;
 
-  /** Direction / unité organisationnelle de rattachement (`null` = détacher). */
+  /** Direction stratégique de rattachement (`null` = détacher). */
   @IsOptional()
   @IsString()
-  orgUnitId?: string | null;
+  strategicDirectionId?: string | null;
 
   @IsOptional()
   @IsString()

@@ -1094,8 +1094,6 @@ model OrgUnit {
   ownedSuppliers           Supplier[]           @relation("OrgUnitOwnedSupplier")
   ownedSupplierContracts   SupplierContract[]   @relation("OrgUnitOwnedSupplierContract")
   ownedStrategicObjectives StrategicObjective[] @relation("OrgUnitOwnedStrategicObjective")
-  /// Équipes métier (WorkTeam) rattachées à cette direction / unité
-  workTeams                WorkTeam[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -1953,6 +1951,8 @@ model StrategicDirection {
   client     Client                      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   objectives StrategicObjective[]
   strategies StrategicDirectionStrategy[]
+  /// Équipes métier rattachées à cette direction stratégique
+  workTeams  WorkTeam[]
 
   @@unique([clientId, code])
   @@index([clientId])
@@ -5280,24 +5280,24 @@ model ResourceTimesheetMonth {
 }
 
 model WorkTeam {
-  id             String         @id @default(cuid())
-  clientId       String
-  name           String
-  code           String?
-  parentId       String?
-  /// Direction / unité organisationnelle de rattachement (optionnel)
-  orgUnitId      String?
-  leadResourceId String?
-  status         WorkTeamStatus @default(ACTIVE)
-  archivedAt     DateTime?
-  sortOrder      Int            @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                   String         @id @default(cuid())
+  clientId             String
+  name                 String
+  code                 String?
+  parentId             String?
+  /// Direction stratégique de rattachement (optionnel) — référentiel Vision
+  strategicDirectionId String?
+  leadResourceId       String?
+  status               WorkTeamStatus @default(ACTIVE)
+  archivedAt           DateTime?
+  sortOrder            Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   client               Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
   parent               WorkTeam?              @relation("WorkTeamHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children             WorkTeam[]             @relation("WorkTeamHierarchy")
-  orgUnit              OrgUnit?               @relation(fields: [orgUnitId], references: [id], onDelete: SetNull)
+  strategicDirection   StrategicDirection?    @relation(fields: [strategicDirectionId], references: [id], onDelete: SetNull)
   lead                 Resource?              @relation("WorkTeamLeadResource", fields: [leadResourceId], references: [id], onDelete: SetNull)
   memberships          WorkTeamMembership[]
   managerScopeRootRefs ManagerScopeRootTeam[]
@@ -5305,7 +5305,7 @@ model WorkTeam {
   @@unique([clientId, code])
   @@index([clientId, parentId])
   @@index([clientId, status])
-  @@index([clientId, orgUnitId])
+  @@index([clientId, strategicDirectionId])
 }
 
 model WorkTeamMembership {

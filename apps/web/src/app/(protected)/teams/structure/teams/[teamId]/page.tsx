@@ -144,7 +144,7 @@ export default function WorkTeamDetailPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">Direction</p>
-                <p className="font-medium">{team.orgUnitName ?? '—'}</p>
+                <p className="font-medium">{team.strategicDirectionName ?? '—'}</p>
               </div>
               <div className="sm:col-span-2">
                 <p className="text-muted-foreground">Chemin</p>

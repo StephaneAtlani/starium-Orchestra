@@ -10,8 +10,8 @@ export type WorkTeamDto = {
   name: string;
   code: string | null;
   parentId: string | null;
-  /** Direction / unité organisationnelle de rattachement (optionnel). */
-  orgUnitId: string | null;
+  /** Direction stratégique de rattachement (optionnel). */
+  strategicDirectionId: string | null;
   status: WorkTeamStatus;
   archivedAt: string | null;
   sortOrder: number;
@@ -19,8 +19,8 @@ export type WorkTeamDto = {
   createdAt: string;
   updatedAt: string;
   parentTeamName: string | null;
-  /** Libellé métier de la direction (jamais l’ID seul en UI). */
-  orgUnitName: string | null;
+  /** Libellé métier de la direction stratégique (jamais l’ID seul en UI). */
+  strategicDirectionName: string | null;
   leadDisplayName: string | null;
   pathLabel: string;
 };
@@ -92,7 +92,7 @@ export type CreateWorkTeamPayload = {
   name: string;
   code?: string | null;
   parentId?: string | null;
-  orgUnitId?: string | null;
+  strategicDirectionId?: string | null;
   /** Responsable d’équipe — Resource HUMAN, obligatoire à la création (équipe active). */
   leadResourceId: string;
   sortOrder?: number;
@@ -102,7 +102,7 @@ export type UpdateWorkTeamPayload = {
   name?: string;
   code?: string | null;
   parentId?: string | null;
-  orgUnitId?: string | null;
+  strategicDirectionId?: string | null;
   leadResourceId?: string | null;
   sortOrder?: number;
 };

@@ -14,7 +14,7 @@ describe('WorkTeamsService', () => {
       update: jest.Mock;
       findFirstOrThrow: jest.Mock;
     };
-    orgUnit: { findFirst: jest.Mock };
+    strategicDirection: { findFirst: jest.Mock };
     resource: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -30,7 +30,7 @@ describe('WorkTeamsService', () => {
         update: jest.fn(),
         findFirstOrThrow: jest.fn(),
       },
-      orgUnit: { findFirst: jest.fn() },
+      strategicDirection: { findFirst: jest.fn() },
       resource: { findFirst: jest.fn() },
       $transaction: jest.fn((ops: Array<Promise<unknown>>) => Promise.all(ops)),
     };
@@ -54,7 +54,7 @@ describe('WorkTeamsService', () => {
     expect(service.normalizeCode('  ABC  ')).toBe('ABC');
   });
 
-  it('create: rattache orgUnitId après validation client', async () => {
+  it('create: rattache strategicDirectionId après validation client', async () => {
     prisma.workTeam.findFirst.mockResolvedValue(null);
     prisma.resource.findFirst.mockResolvedValue({
       id: 'res1',
@@ -63,13 +63,9 @@ describe('WorkTeamsService', () => {
       name: 'Dupont',
       firstName: 'Alice',
     });
-    prisma.orgUnit.findFirst.mockResolvedValue({
-      id: 'ou1',
-      name: 'DSI',
-      type: 'DIRECTION',
-      code: 'DSI',
-      status: 'ACTIVE',
-      clientId: 'c1',
+    prisma.strategicDirection.findFirst.mockResolvedValue({
+      id: 'sd1',
+      isActive: true,
     });
     prisma.workTeam.create.mockResolvedValue({
       id: 'wt1',
@@ -77,7 +73,7 @@ describe('WorkTeamsService', () => {
       name: 'Infra',
       code: null,
       parentId: null,
-      orgUnitId: 'ou1',
+      strategicDirectionId: 'sd1',
       leadResourceId: 'res1',
       status: 'ACTIVE',
       archivedAt: null,
@@ -86,7 +82,7 @@ describe('WorkTeamsService', () => {
       updatedAt: new Date(),
       lead: { name: 'Dupont', firstName: 'Alice' },
       parent: null,
-      orgUnit: { id: 'ou1', name: 'DSI', code: 'DSI' },
+      strategicDirection: { id: 'sd1', name: 'DSI', code: 'DSI' },
     });
 
     const result = await service.create(
@@ -94,33 +90,36 @@ describe('WorkTeamsService', () => {
       {
         name: 'Infra',
         leadResourceId: 'res1',
-        orgUnitId: 'ou1',
+        strategicDirectionId: 'sd1',
       },
       'user1',
     );
 
-    expect(prisma.orgUnit.findFirst).toHaveBeenCalledWith(
+    expect(prisma.strategicDirection.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'ou1', clientId: 'c1' },
+        where: { id: 'sd1', clientId: 'c1' },
       }),
     );
     expect(prisma.workTeam.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ orgUnitId: 'ou1', name: 'Infra' }),
+        data: expect.objectContaining({
+          strategicDirectionId: 'sd1',
+          name: 'Infra',
+        }),
       }),
     );
-    expect(result.orgUnitId).toBe('ou1');
-    expect(result.orgUnitName).toBe('DSI');
+    expect(result.strategicDirectionId).toBe('sd1');
+    expect(result.strategicDirectionName).toBe('DSI');
   });
 
-  it('update: orgUnitId null détache la direction', async () => {
+  it('update: strategicDirectionId null détache la direction', async () => {
     prisma.workTeam.findFirst.mockResolvedValue({
       id: 'wt1',
       clientId: 'c1',
       name: 'Infra',
       code: null,
       parentId: null,
-      orgUnitId: 'ou1',
+      strategicDirectionId: 'sd1',
       leadResourceId: 'res1',
       status: 'ACTIVE',
       archivedAt: null,
@@ -134,7 +133,7 @@ describe('WorkTeamsService', () => {
       name: 'Infra',
       code: null,
       parentId: null,
-      orgUnitId: null,
+      strategicDirectionId: null,
       leadResourceId: 'res1',
       status: 'ACTIVE',
       archivedAt: null,
@@ -143,17 +142,24 @@ describe('WorkTeamsService', () => {
       updatedAt: new Date(),
       lead: { name: 'Dupont', firstName: 'Alice' },
       parent: null,
-      orgUnit: null,
+      strategicDirection: null,
     });
 
-    const result = await service.update('c1', 'wt1', { orgUnitId: null }, 'user1');
+    const result = await service.update(
+      'c1',
+      'wt1',
+      { strategicDirectionId: null },
+      'user1',
+    );
 
     expect(prisma.workTeam.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ orgUnit: { disconnect: true } }),
+        data: expect.objectContaining({
+          strategicDirection: { disconnect: true },
+        }),
       }),
     );
-    expect(result.orgUnitId).toBeNull();
-    expect(result.orgUnitName).toBeNull();
+    expect(result.strategicDirectionId).toBeNull();
+    expect(result.strategicDirectionName).toBeNull();
   });
 });

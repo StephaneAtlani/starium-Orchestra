@@ -7,7 +7,6 @@ import {
 import { Prisma, WorkTeam, WorkTeamStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
-import { assertOrgUnitInClient } from '../organization/org-unit-ownership.helpers';
 import {
   assertResourceHuman,
   resourceHumanDisplayName,
@@ -23,13 +22,13 @@ const PATH_SEP = ' > ';
 const workTeamDetailInclude = {
   lead: { select: { name: true, firstName: true } },
   parent: { select: { name: true } },
-  orgUnit: { select: { id: true, name: true, code: true } },
+  strategicDirection: { select: { id: true, name: true, code: true } },
 } satisfies Prisma.WorkTeamInclude;
 
 type WorkTeamWithDetails = WorkTeam & {
   lead?: { name: string; firstName: string | null } | null;
   parent?: { name: string } | null;
-  orgUnit?: { id: string; name: string; code: string | null } | null;
+  strategicDirection?: { id: string; name: string; code: string } | null;
 };
 
 export type AuditMeta = {
@@ -88,7 +87,7 @@ export class WorkTeamsService {
         include: {
           lead: { select: { name: true, firstName: true } },
           parent: { select: { name: true } },
-          orgUnit: { select: { id: true, name: true, code: true } },
+          strategicDirection: { select: { id: true, name: true, code: true } },
         },
       }),
     ]);
@@ -168,9 +167,9 @@ export class WorkTeamsService {
 
     await this.assertLeadResourceHuman(clientId, dto.leadResourceId);
 
-    const orgUnitId = dto.orgUnitId?.trim() || null;
-    if (orgUnitId) {
-      await assertOrgUnitInClient(this.prisma, clientId, orgUnitId);
+    const strategicDirectionId = dto.strategicDirectionId?.trim() || null;
+    if (strategicDirectionId) {
+      await this.assertStrategicDirectionInClient(clientId, strategicDirectionId);
     }
 
     const created = await this.prisma.workTeam.create({
@@ -179,7 +178,7 @@ export class WorkTeamsService {
         name: dto.name,
         code,
         parentId: dto.parentId ?? null,
-        orgUnitId,
+        strategicDirectionId,
         leadResourceId: dto.leadResourceId,
         sortOrder: dto.sortOrder ?? 0,
         status: WorkTeamStatus.ACTIVE,
@@ -196,7 +195,7 @@ export class WorkTeamsService {
       newValue: {
         name: created.name,
         code: created.code,
-        orgUnitId: created.orgUnitId,
+        strategicDirectionId: created.strategicDirectionId,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -271,13 +270,13 @@ export class WorkTeamsService {
       }
     }
 
-    if (dto.orgUnitId !== undefined) {
-      const nextOrgUnitId = dto.orgUnitId?.trim() || null;
-      if (nextOrgUnitId === null) {
-        data.orgUnit = { disconnect: true };
+    if (dto.strategicDirectionId !== undefined) {
+      const nextDirectionId = dto.strategicDirectionId?.trim() || null;
+      if (nextDirectionId === null) {
+        data.strategicDirection = { disconnect: true };
       } else {
-        await assertOrgUnitInClient(this.prisma, clientId, nextOrgUnitId);
-        data.orgUnit = { connect: { id: nextOrgUnitId } };
+        await this.assertStrategicDirectionInClient(clientId, nextDirectionId);
+        data.strategicDirection = { connect: { id: nextDirectionId } };
       }
     }
 
@@ -296,12 +295,12 @@ export class WorkTeamsService {
       oldValue: {
         name: existing.name,
         status: existing.status,
-        orgUnitId: existing.orgUnitId,
+        strategicDirectionId: existing.strategicDirectionId,
       },
       newValue: {
         name: updated.name,
         status: updated.status,
-        orgUnitId: updated.orgUnitId,
+        strategicDirectionId: updated.strategicDirectionId,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -479,6 +478,22 @@ export class WorkTeamsService {
     await assertResourceHuman(this.prisma, clientId, resourceId);
   }
 
+  private async assertStrategicDirectionInClient(
+    clientId: string,
+    strategicDirectionId: string,
+  ) {
+    const d = await this.prisma.strategicDirection.findFirst({
+      where: { id: strategicDirectionId, clientId },
+      select: { id: true, isActive: true },
+    });
+    if (!d) {
+      throw new NotFoundException('Direction stratégique introuvable pour ce client');
+    }
+    if (!d.isActive) {
+      throw new BadRequestException('Impossible de rattacher une direction stratégique inactive');
+    }
+  }
+
   private async toWorkTeamResponse(clientId: string, w: WorkTeamWithDetails) {
     const pathLabel = await this.buildPathLabel(clientId, w);
     return {
@@ -487,7 +502,7 @@ export class WorkTeamsService {
       name: w.name,
       code: w.code,
       parentId: w.parentId,
-      orgUnitId: w.orgUnitId,
+      strategicDirectionId: w.strategicDirectionId,
       status: w.status,
       archivedAt: w.archivedAt,
       sortOrder: w.sortOrder,
@@ -495,7 +510,7 @@ export class WorkTeamsService {
       createdAt: w.createdAt,
       updatedAt: w.updatedAt,
       parentTeamName: w.parent?.name ?? null,
-      orgUnitName: w.orgUnit?.name ?? null,
+      strategicDirectionName: w.strategicDirection?.name ?? null,
       leadDisplayName: w.lead ? resourceHumanDisplayName(w.lead) : null,
       pathLabel,
     };

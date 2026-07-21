@@ -6,11 +6,11 @@ import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
 import { useCreateWorkTeam, useUpdateWorkTeam } from '../hooks/use-work-team-mutations';
 import { useWorkTeamsList } from '../hooks/use-work-teams-list';
 import type { WorkTeamDto } from '../types/work-team.types';
 import { WorkTeamLeadCombobox } from './work-team-lead-combobox';
+import { WorkTeamStrategicDirectionSelect } from './work-team-strategic-direction-select';
 
 type Props = {
   open: boolean;
@@ -30,7 +30,7 @@ export function WorkTeamFormDialog({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [parentId, setParentId] = useState<string>('');
-  const [orgUnitId, setOrgUnitId] = useState<string | null>(null);
+  const [strategicDirectionId, setStrategicDirectionId] = useState<string | null>(null);
   const [leadResourceId, setLeadResourceId] = useState<string>('');
 
   const parentsQuery = useWorkTeamsList(
@@ -54,13 +54,13 @@ export function WorkTeamFormDialog({
       setName(team.name);
       setCode(team.code ?? '');
       setParentId(team.parentId ?? '');
-      setOrgUnitId(team.orgUnitId ?? null);
+      setStrategicDirectionId(team.strategicDirectionId ?? null);
       setLeadResourceId(team.leadResourceId ?? '');
     } else {
       setName('');
       setCode('');
       setParentId(defaultParentId ?? '');
-      setOrgUnitId(null);
+      setStrategicDirectionId(null);
       setLeadResourceId('');
     }
   }, [open, mode, team, defaultParentId]);
@@ -84,7 +84,7 @@ export function WorkTeamFormDialog({
           name: trimmed,
           code: code.trim() || null,
           parentId: parentId ? parentId : null,
-          orgUnitId,
+          strategicDirectionId,
           leadResourceId,
         });
         toast.success('Équipe créée');
@@ -97,7 +97,7 @@ export function WorkTeamFormDialog({
           name: trimmed,
           code: code.trim() || null,
           parentId: parentId ? parentId : null,
-          orgUnitId,
+          strategicDirectionId,
           leadResourceId: leadResourceId ? leadResourceId : null,
         });
         toast.success('Équipe mise à jour');
@@ -169,17 +169,16 @@ export function WorkTeamFormDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wt-org-unit">Direction (optionnel)</Label>
-              <OwnerOrgUnitSelect
-                id="wt-org-unit"
-                value={orgUnitId}
-                onChange={setOrgUnitId}
+              <Label htmlFor="wt-direction">Direction (optionnel)</Label>
+              <WorkTeamStrategicDirectionSelect
+                id="wt-direction"
+                value={strategicDirectionId}
+                onChange={setStrategicDirectionId}
                 disabled={busy}
-                triggerClassName="h-11 w-full min-h-11 text-sm sm:h-9 sm:min-h-9"
                 placeholder="Aucune direction"
               />
               <p className="text-xs text-muted-foreground">
-                Rattache l’équipe à une direction / unité de l’organisation client. Laisser vide si
+                Rattache l’équipe à une direction du référentiel Vision stratégique. Laisser vide si
                 hors direction.
               </p>
             </div>
