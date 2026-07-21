@@ -12,6 +12,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useDirectoryConnectionsQuery, useDirectoryGroupScopesQuery, useDirectoryJobsQuery, useProviderGroupsQuery } from '../hooks/use-team-sync-queries';
 import { useTeamSyncMutations } from '../hooks/use-team-sync-mutations';
 import type { DirectorySyncExecution } from '../types/team-sync.types';
+import { ProviderGroupCombobox } from './provider-group-combobox';
 import { TeamSyncHistory } from './team-sync-history';
 import { TeamSyncRunPanel } from './team-sync-run-panel';
 
@@ -250,18 +251,16 @@ export function TeamSyncSettings() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
-            <select
-              className="w-full rounded-md border border-border bg-background p-2 text-sm"
+            <ProviderGroupCombobox
               value={selectedProviderGroupId}
-              onChange={(e) => setSelectedProviderGroupId(e.target.value)}
-            >
-              <option value="">Sélectionner un groupe</option>
-              {providerGroupsQuery.data?.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedProviderGroupId}
+              groups={providerGroupsQuery.data ?? []}
+              excludeGroupIds={groupScopesQuery.data?.map((g) => g.groupId) ?? []}
+              isLoading={providerGroupsQuery.isLoading}
+              isError={providerGroupsQuery.isError}
+              disabled={!connectionId}
+              placeholder="Sélectionner un groupe"
+            />
             <Button onClick={handleAddGroup} type="button" disabled={!selectedProviderGroupId}>
               Ajouter
             </Button>
