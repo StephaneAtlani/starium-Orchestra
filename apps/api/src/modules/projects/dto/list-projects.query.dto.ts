@@ -83,6 +83,7 @@ export class ListProjectsQueryDto {
     'computedHealth',
     'progressPercent',
     'owner',
+    'portfolioCategory',
   ])
   sortBy?: string = 'targetEndDate';
 

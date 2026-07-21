@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -26,7 +27,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -58,7 +62,7 @@ import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-
 import type { ProjectsListFilters } from '../hooks/use-projects-list-filters';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { listAssignableUsers } from '../api/projects.api';
+import { listAssignableUsers, listProjectPortfolioCategories } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
 import { ProjectTagsFilter } from './project-tags-filter';
@@ -255,6 +259,31 @@ export function ProjectsListTableDesktop({
     queryFn: () => listAssignableUsers(authFetch),
     enabled: Boolean(clientId),
   });
+  const categoriesQuery = useQuery({
+    queryKey: projectQueryKeys.optionsPortfolioCategories(clientId),
+    queryFn: () => listProjectPortfolioCategories(authFetch),
+    enabled: Boolean(clientId),
+  });
+  const categoryGroups = useMemo(
+    () =>
+      (categoriesQuery.data ?? []).map((root) => ({
+        rootId: root.id,
+        rootName: root.name,
+        children: (root.children ?? []).map((child) => ({
+          id: child.id,
+          label: child.name,
+          fullLabel: `${root.name} / ${child.name}`,
+        })),
+      })),
+    [categoriesQuery.data],
+  );
+  const categoryOptions = useMemo(
+    () =>
+      categoryGroups.flatMap((group) =>
+        group.children.map((child) => ({ id: child.id, label: child.fullLabel })),
+      ),
+    [categoryGroups],
+  );
   const { merged: badgeMerged } = useClientUiBadgeConfig();
   const ownerOptions = (assignableUsersQuery.data?.users ?? [])
     .map((user) => {
@@ -263,6 +292,7 @@ export function ProjectsListTableDesktop({
     })
     .sort((a, b) => a.label.localeCompare(b.label, 'fr-FR'));
   const kindKey = filters.kind ?? '__all__';
+  const categoryKey = filters.portfolioCategoryId ?? '__all__';
   const statusKey = filters.status ?? '__all__';
   const healthKey = filters.computedHealth ?? '__all__';
   const myRoleKey = filters.myRole ?? '__all__';
@@ -300,7 +330,7 @@ export function ProjectsListTableDesktop({
               )}
             >
               <div className="starium-projects-table-project-head__inner flex h-full min-h-full flex-col">
-                <div className="starium-projects-table-project-head__label py-[var(--ds-table-head-py)] pl-4 pr-2">
+                <div className="starium-projects-table-project-head__label space-y-1 py-[var(--ds-table-head-py)] pl-4 pr-2">
                   <HeaderTip tip={PROJECTS_TABLE_HEADER_TOOLTIPS.project}>
                     <SortHeaderButton
                       label="Projet"
@@ -309,11 +339,56 @@ export function ProjectsListTableDesktop({
                       setFilters={setFilters}
                     />
                   </HeaderTip>
+                  <HeaderTip tip={PROJECTS_TABLE_HEADER_TOOLTIPS.portfolioCategory}>
+                    <SortHeaderButton
+                      label="Catégorie"
+                      sortKey="portfolioCategory"
+                      filters={filters}
+                      setFilters={setFilters}
+                    />
+                  </HeaderTip>
                 </div>
                 <div
-                  className="starium-projects-table-project-head__filter-slot flex-1 pl-4 pr-2"
-                  aria-label="Filtre par étiquettes"
+                  className="starium-projects-table-project-head__filter-slot flex flex-col gap-1.5 pl-4 pr-2 pt-1.5"
+                  aria-label="Filtres projet et catégorie"
                 >
+                  <Select
+                    value={categoryKey}
+                    onValueChange={(v) =>
+                      setFilters({
+                        portfolioCategoryId: !v || v === '__all__' ? undefined : v,
+                      })
+                    }
+                  >
+                    <SelectTrigger size="sm" className="starium-col-filter h-6 w-full text-[10px]">
+                      <SelectValue>
+                        {categoryKey === '__all__'
+                          ? 'Toutes catégories'
+                          : categoryOptions.find((option) => option.id === categoryKey)?.label ??
+                            'Catégorie'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Toutes les catégories</SelectItem>
+                      <SelectSeparator />
+                      {categoryGroups.map((group) => (
+                        <SelectGroup key={group.rootId}>
+                          <SelectLabel>{group.rootName}</SelectLabel>
+                          {group.children.length === 0 ? (
+                            <SelectItem value={`__empty__${group.rootId}`} disabled>
+                              Aucune sous-catégorie
+                            </SelectItem>
+                          ) : (
+                            group.children.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <ProjectTagsFilter
                     compact
                     value={filters.tagIds ?? []}

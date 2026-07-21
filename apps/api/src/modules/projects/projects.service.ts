@@ -1474,6 +1474,22 @@ export class ProjectsService {
           cmp = oa.localeCompare(ob, 'fr-FR');
           break;
         }
+        case 'portfolioCategory': {
+          const label = (item: (typeof enriched)[number]) => {
+            const category = item.portfolioCategory;
+            if (!category) return '';
+            if (category.parentName) {
+              return `${category.parentName} / ${category.name}`;
+            }
+            return category.name;
+          };
+          const la = label(a).toLocaleLowerCase('fr-FR');
+          const lb = label(b).toLocaleLowerCase('fr-FR');
+          if (!la && lb) cmp = 1;
+          else if (la && !lb) cmp = -1;
+          else cmp = la.localeCompare(lb, 'fr-FR');
+          break;
+        }
         default:
           cmp = 0;
       }

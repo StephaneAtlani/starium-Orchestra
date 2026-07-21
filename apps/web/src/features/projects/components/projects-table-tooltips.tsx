@@ -64,6 +64,7 @@ function formatSnapshotDate(iso: string | undefined): string {
 /** En-têtes colonnes. */
 export const PROJECTS_TABLE_HEADER_TOOLTIPS = {
   project: 'Nom et catégorie. Cliquer pour ouvrir la fiche.',
+  portfolioCategory: 'Catégorie portefeuille (racine / sous-catégorie). Cliquer pour trier.',
   kind: 'Projet structuré ou activité de suivi.',
   health: 'Santé calculée : retards, risques, jalons, blocages.',
   status: 'Statut métier du projet.',

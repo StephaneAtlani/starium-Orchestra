@@ -15,6 +15,7 @@ const SORT_BY_VALUES = [
   'computedHealth',
   'progressPercent',
   'owner',
+  'portfolioCategory',
 ] as const;
 
 export type ProjectsSortBy = (typeof SORT_BY_VALUES)[number];

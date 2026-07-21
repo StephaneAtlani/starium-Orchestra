@@ -37,6 +37,7 @@ const SORT_LABEL: Record<ProjectsListFilters['sortBy'], string> = {
   computedHealth: 'Santé',
   progressPercent: 'Avancement',
   owner: 'Chef de projets',
+  portfolioCategory: 'Catégorie portefeuille',
 };
 
 export interface ProjectsPortfolioFiltersBarProps {
