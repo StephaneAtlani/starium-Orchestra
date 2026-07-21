@@ -5,7 +5,7 @@ import { KpiCard } from '@/components/ui/kpi-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/feedback/error-state';
 import {
-  STRATEGIC_OVERVIEW_GOLD_ICON,
+  STRATEGIC_KPI_ICON,
   STRATEGIC_OVERVIEW_ICON_SIZE,
 } from '../lib/strategic-overview-theme';
 import type { StrategicVisionKpisResponseDto } from '../types/strategic-vision.types';
@@ -106,7 +106,7 @@ export function StrategicKpiCards({
           title="Alignement des projets"
           value={formatAlignmentRate(kpis.projectAlignmentRate)}
           icon={<Crosshair className={iconClass} aria-hidden />}
-          iconWrapperClassName={STRATEGIC_OVERVIEW_GOLD_ICON}
+          iconWrapperClassName={STRATEGIC_KPI_ICON.alignment}
         />
         <KpiCard
           variant="dense"
@@ -116,7 +116,7 @@ export function StrategicKpiCards({
           footer={`${kpis.objectivesAtRiskCount} à risque · ${kpis.objectivesOffTrackCount} hors trajectoire`}
           footerTone="muted"
           icon={<AlertTriangle className={iconClass} aria-hidden />}
-          iconWrapperClassName={STRATEGIC_OVERVIEW_GOLD_ICON}
+          iconWrapperClassName={STRATEGIC_KPI_ICON.objectivesAtRisk}
         />
         <KpiCard
           variant="dense"
@@ -124,7 +124,7 @@ export function StrategicKpiCards({
           title="Projets non alignés"
           value={String(kpis.unalignedProjectsCount)}
           icon={<Unlink className={iconClass} aria-hidden />}
-          iconWrapperClassName={STRATEGIC_OVERVIEW_GOLD_ICON}
+          iconWrapperClassName={STRATEGIC_KPI_ICON.unaligned}
         />
         <KpiCard
           variant="dense"
@@ -134,7 +134,7 @@ export function StrategicKpiCards({
           footer={`Score composite ${strategicDrift.visualScore}/100`}
           footerTone="muted"
           icon={<Activity className={iconClass} aria-hidden />}
-          iconWrapperClassName={STRATEGIC_OVERVIEW_GOLD_ICON}
+          iconWrapperClassName={STRATEGIC_KPI_ICON.drift}
         />
       </div>
     </section>

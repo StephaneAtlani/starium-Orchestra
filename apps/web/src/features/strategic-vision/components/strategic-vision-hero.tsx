@@ -42,13 +42,6 @@ function MetaItem({
 }
 
 export function StrategicVisionHero({ vision }: { vision: StrategicVisionDto }) {
-  const statusLabel =
-    vision.status === 'ACTIVE'
-      ? 'Active'
-      : vision.status === 'ARCHIVED'
-        ? 'Archivée'
-        : 'Brouillon';
-
   return (
     <section
       className="starium-vision-hero rounded-2xl border border-border/70 bg-card shadow-[var(--shadow-2)]"
@@ -62,9 +55,6 @@ export function StrategicVisionHero({ vision }: { vision: StrategicVisionDto }) 
               Notre vision
             </span>
           </div>
-          <span className="inline-flex items-center rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-            {statusLabel}
-          </span>
         </div>
 
         <blockquote

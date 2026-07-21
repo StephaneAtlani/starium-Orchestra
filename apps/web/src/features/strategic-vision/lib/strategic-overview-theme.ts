@@ -5,6 +5,16 @@ import type { StrategicAxisIconColor } from '../components/strategic-axis-icons'
 export const STRATEGIC_OVERVIEW_GOLD_ICON =
   'bg-[color:var(--brand-gold-100)] text-[color:var(--brand-gold)]';
 
+/** Pastilles icônes — grille KPI vue d’ensemble stratégique */
+export const STRATEGIC_KPI_ICON = {
+  alignment:
+    'bg-[color:var(--state-success-bg)] text-[color:var(--state-success)]',
+  objectivesAtRisk:
+    'bg-[color:var(--state-warning-bg)] text-[color:var(--state-warning)]',
+  unaligned: 'bg-[color:var(--state-info-bg)] text-[color:var(--state-info)]',
+  drift: 'bg-[color:var(--purple-bg)] text-[color:var(--purple)]',
+} as const;
+
 export const STRATEGIC_OVERVIEW_ICON_SIZE = 'size-5 [stroke-width:1.75]';
 
 export const STRATEGIC_OVERVIEW_DONUT_STROKE = 'var(--teal)';
