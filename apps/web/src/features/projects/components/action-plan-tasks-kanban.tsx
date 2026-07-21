@@ -102,10 +102,10 @@ export function ActionPlanTasksKanban({
   }, [items, statusFilter]);
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div className="starium-proj-tasks flex min-h-0 flex-col">
       {overflowCount > 0 ? (
-        <p className="border-b border-border/60 px-4 py-2 text-xs text-muted-foreground">
-          {overflowCount} tâche{overflowCount > 1 ? 's' : ''} hors colonnes principales — filtrez
+        <p className="mb-2 text-xs text-muted-foreground">
+          {overflowCount} action{overflowCount > 1 ? 's' : ''} hors colonnes principales — filtrez
           par statut (brouillon, annulé).
         </p>
       ) : null}
@@ -113,7 +113,7 @@ export function ActionPlanTasksKanban({
       <div
         ref={kanbanPan.scrollRef}
         className={cn(
-          'starium-kanban-scroll p-4 pt-3',
+          'starium-kanban-scroll',
           kanbanPan.isPanning && 'starium-kanban-scroll--panning',
         )}
         onPointerDown={kanbanPan.onPointerDown}

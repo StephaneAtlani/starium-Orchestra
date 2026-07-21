@@ -1,21 +1,10 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { Kanban, LayoutGrid, RotateCcw, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Columns2, List, RotateCcw, Search } from 'lucide-react';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import {
   PROJECT_TASK_PRIORITIES,
   PROJECT_TASK_STATUSES,
-  taskPriorityLabel,
-  taskStatusLabel,
 } from '@/lib/ui/badge-registry';
 import { cn } from '@/lib/utils';
 
@@ -25,52 +14,6 @@ type UserOption = {
   lastName: string | null;
   email: string;
 };
-
-function formatUserLabel(
-  id: string | null | undefined,
-  users: UserOption[],
-): string {
-  if (!id) return '—';
-  const u = users.find((x) => x.id === id);
-  if (!u) return '—';
-  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
-  return name || u.email;
-}
-
-function FilterSelectChip({
-  value,
-  onValueChange,
-  label,
-  active,
-  children,
-  'aria-label': ariaLabel,
-}: {
-  value: string;
-  onValueChange: (value: string) => void;
-  label: string;
-  active?: boolean;
-  children: ReactNode;
-  'aria-label'?: string;
-}) {
-  return (
-    <Select
-      value={value}
-      onValueChange={(v) => onValueChange(v ?? '')}
-    >
-      <SelectTrigger
-        size="sm"
-        aria-label={ariaLabel ?? label}
-        className={cn(
-          'starium-filter-chip h-auto min-h-[44px] w-full shadow-none focus-visible:ring-0 data-[size=sm]:h-auto md:min-h-0 md:w-auto',
-          active && 'starium-filter-chip--active',
-        )}
-      >
-        <SelectValue>{label}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>{children}</SelectContent>
-    </Select>
-  );
-}
 
 export type ActionPlanTasksToolbarProps = {
   search: string;
@@ -92,6 +35,7 @@ export type ActionPlanTasksToolbarProps = {
   hasActiveFilters: boolean;
   viewMode?: 'table' | 'kanban';
   onViewModeChange?: (mode: 'table' | 'kanban') => void;
+  className?: string;
 };
 
 export function ActionPlanTasksToolbar({
@@ -112,170 +56,150 @@ export function ActionPlanTasksToolbar({
   users,
   onReset,
   hasActiveFilters,
-  viewMode = 'table',
+  viewMode = 'kanban',
   onViewModeChange,
+  className,
 }: ActionPlanTasksToolbarProps) {
   const { merged } = useClientUiBadgeConfig();
 
-  const statusKey = status || '__all';
-  const priorityKey = priority || '__all';
-  const projectKey = projectId || '__all';
-  const riskKey = riskId || '__all';
-  const ownerKey = ownerUserId || '__all';
-
-  const statusLabel =
-    statusKey === '__all' ? 'Tous les statuts' : taskStatusLabel(merged, statusKey);
-  const priorityLabel =
-    priorityKey === '__all' ? 'Toutes les priorités' : taskPriorityLabel(merged, priorityKey);
-  const projectLabel =
-    projectKey === '__all'
-      ? 'Tous les projets'
-      : (projectOptions.find((p) => p.id === projectId)?.label ?? '—');
-  const riskLabel =
-    riskKey === '__all'
-      ? 'Tous les risques'
-      : (riskOptions.find((r) => r.id === riskId)?.label ?? '—');
-  const ownerLabel =
-    ownerKey === '__all'
-      ? 'Responsable : tous'
-      : `Responsable : ${formatUserLabel(ownerUserId, users)}`;
-
   return (
     <div
-      className="starium-filter-bar"
+      className={cn('starium-toolbar', className)}
       role="search"
-      aria-label="Filtrer et trier les tâches du plan"
+      aria-label="Filtrer et afficher les actions du plan"
     >
-      <div className="starium-filter-bar-left">
-        {onViewModeChange ? (
-          <div className="starium-filter-bar-view" role="tablist" aria-label="Mode d'affichage">
-            <div className="starium-tab-group">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={viewMode === 'table'}
-                className={cn('starium-tab-btn', viewMode === 'table' && 'starium-tab-btn--active')}
-                onClick={() => onViewModeChange('table')}
-              >
-                <LayoutGrid aria-hidden />
-                Liste
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={viewMode === 'kanban'}
-                className={cn('starium-tab-btn', viewMode === 'kanban' && 'starium-tab-btn--active')}
-                onClick={() => onViewModeChange('kanban')}
-              >
-                <Kanban aria-hidden />
-                Kanban
-              </button>
-            </div>
-          </div>
-        ) : null}
-        <div className="starium-filter-bar-chips">
-          <FilterSelectChip
-            value={statusKey}
-            onValueChange={(v) => onStatusChange(!v || v === '__all' ? '' : v)}
-            label={statusLabel}
-            active={statusKey !== '__all'}
-            aria-label="Filtrer par statut"
-          >
-            <SelectItem value="__all">Tous les statuts</SelectItem>
-            {PROJECT_TASK_STATUSES.map((k) => (
-              <SelectItem key={k} value={k}>
-                {merged.projectTaskStatus[k].label}
-              </SelectItem>
-            ))}
-          </FilterSelectChip>
-
-          <FilterSelectChip
-            value={priorityKey}
-            onValueChange={(v) => onPriorityChange(!v || v === '__all' ? '' : v)}
-            label={priorityLabel}
-            active={priorityKey !== '__all'}
-            aria-label="Filtrer par priorité"
-          >
-            <SelectItem value="__all">Toutes les priorités</SelectItem>
-            {PROJECT_TASK_PRIORITIES.map((k) => (
-              <SelectItem key={k} value={k}>
-                {merged.projectTaskPriority[k].label}
-              </SelectItem>
-            ))}
-          </FilterSelectChip>
-
-          <FilterSelectChip
-            value={projectKey}
-            onValueChange={(v) => onProjectIdChange(!v || v === '__all' ? '' : v)}
-            label={projectLabel}
-            active={projectKey !== '__all'}
-            aria-label="Filtrer par projet"
-          >
-            <SelectItem value="__all">Tous les projets</SelectItem>
-            {projectOptions.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.label}
-              </SelectItem>
-            ))}
-          </FilterSelectChip>
-
-          <FilterSelectChip
-            value={riskKey}
-            onValueChange={(v) => onRiskIdChange(!v || v === '__all' ? '' : v)}
-            label={riskLabel}
-            active={riskKey !== '__all'}
-            aria-label="Filtrer par risque"
-          >
-            <SelectItem value="__all">Tous les risques</SelectItem>
-            {riskOptions.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.label}
-              </SelectItem>
-            ))}
-          </FilterSelectChip>
-
-          <FilterSelectChip
-            value={ownerKey}
-            onValueChange={(v) => onOwnerUserIdChange(!v || v === '__all' ? '' : v)}
-            label={ownerLabel}
-            active={ownerKey !== '__all'}
-            aria-label="Filtrer par responsable"
-          >
-            <SelectItem value="__all">Responsable : tous</SelectItem>
-            {users.map((u) => {
-              const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email;
-              return (
-                <SelectItem key={u.id} value={u.id}>
-                  {name}
-                </SelectItem>
-              );
-            })}
-          </FilterSelectChip>
-
+      {onViewModeChange ? (
+        <div
+          className="starium-seg-toggle min-h-11 shrink-0 md:min-h-[38px]"
+          role="tablist"
+          aria-label="Mode d'affichage"
+        >
           <button
             type="button"
-            className="starium-filter-chip starium-filter-chip--reset starium-filter-chip--wide"
-            disabled={!hasActiveFilters}
-            onClick={onReset}
-            aria-label="Réinitialiser les filtres"
+            role="tab"
+            aria-selected={viewMode === 'kanban'}
+            className={cn(
+              'starium-seg-btn min-h-9 min-w-[44px]',
+              viewMode === 'kanban' && 'starium-seg-btn--active',
+            )}
+            onClick={() => onViewModeChange('kanban')}
           >
-            <RotateCcw aria-hidden />
-            <span>Réinitialiser</span>
+            <Columns2 strokeWidth={1.75} width={14} height={14} aria-hidden />
+            Kanban
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'table'}
+            className={cn(
+              'starium-seg-btn min-h-9 min-w-[44px]',
+              viewMode === 'table' && 'starium-seg-btn--active',
+            )}
+            onClick={() => onViewModeChange('table')}
+          >
+            <List strokeWidth={1.75} width={14} height={14} aria-hidden />
+            Liste
           </button>
         </div>
-      </div>
+      ) : null}
 
-      <div className="starium-filter-bar-right">
-        <div className="starium-filter-bar-search">
-          <Search className="starium-filter-bar-search-icon" aria-hidden />
-          <Input
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Rechercher une action…"
-            aria-label="Rechercher une action"
-            className="starium-filter-bar-search-input !pl-9 !pr-2.5"
-          />
-        </div>
+      <select
+        className="starium-nselect starium-nselect--sm min-h-11 w-full sm:w-auto md:min-h-[38px]"
+        value={status || 'all'}
+        onChange={(e) => onStatusChange(e.target.value === 'all' ? '' : e.target.value)}
+        aria-label="Filtrer par statut"
+      >
+        <option value="all">Tous les statuts</option>
+        {PROJECT_TASK_STATUSES.map((k) => (
+          <option key={k} value={k}>
+            {merged.projectTaskStatus[k].label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="starium-nselect starium-nselect--md min-h-11 w-full sm:w-auto md:min-h-[38px]"
+        value={ownerUserId || 'all'}
+        onChange={(e) =>
+          onOwnerUserIdChange(e.target.value === 'all' ? '' : e.target.value)
+        }
+        aria-label="Filtrer par responsable"
+      >
+        <option value="all">Responsable · tous</option>
+        {users.map((u) => {
+          const name =
+            [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email;
+          return (
+            <option key={u.id} value={u.id}>
+              {name}
+            </option>
+          );
+        })}
+      </select>
+
+      <select
+        className="starium-nselect starium-nselect--sm min-h-11 w-full sm:w-auto md:min-h-[38px]"
+        value={priority || 'all'}
+        onChange={(e) => onPriorityChange(e.target.value === 'all' ? '' : e.target.value)}
+        aria-label="Filtrer par priorité"
+      >
+        <option value="all">Toutes les priorités</option>
+        {PROJECT_TASK_PRIORITIES.map((k) => (
+          <option key={k} value={k}>
+            {merged.projectTaskPriority[k].label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="starium-nselect starium-nselect--md min-h-11 w-full sm:w-auto md:min-h-[38px]"
+        value={projectId || 'all'}
+        onChange={(e) => onProjectIdChange(e.target.value === 'all' ? '' : e.target.value)}
+        aria-label="Filtrer par projet"
+      >
+        <option value="all">Tous les projets</option>
+        {projectOptions.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className="starium-nselect starium-nselect--md min-h-11 w-full sm:w-auto md:min-h-[38px]"
+        value={riskId || 'all'}
+        onChange={(e) => onRiskIdChange(e.target.value === 'all' ? '' : e.target.value)}
+        aria-label="Filtrer par risque"
+      >
+        <option value="all">Tous les risques</option>
+        {riskOptions.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.label}
+          </option>
+        ))}
+      </select>
+
+      <button
+        type="button"
+        className="starium-toolbar-reset"
+        disabled={!hasActiveFilters}
+        onClick={onReset}
+        aria-label="Réinitialiser les filtres"
+      >
+        <RotateCcw aria-hidden />
+        <span className="hidden sm:inline">Réinitialiser</span>
+      </button>
+
+      <div className="starium-toolbar-spacer" aria-hidden />
+
+      <div className="starium-search-input min-h-11 w-full md:min-h-[38px] md:ml-0 md:w-auto">
+        <Search aria-hidden />
+        <input
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Rechercher une action…"
+          aria-label="Rechercher une action"
+        />
       </div>
     </div>
   );

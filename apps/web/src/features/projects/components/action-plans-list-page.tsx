@@ -9,14 +9,6 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -26,8 +18,7 @@ import {
   ActionPlansFiltersBar,
   type ActionPlansListFilters,
 } from '@/features/projects/components/action-plans-filters-bar';
-import { ActionPlansListKpiStrip } from '@/features/projects/components/action-plans-list-kpi-strip';
-import { ActionPlansListTable } from '@/features/projects/components/action-plans-list-table';
+import { ActionPlansListCards } from '@/features/projects/components/action-plans-list-cards';
 
 const PAGE_SIZE = 20;
 
@@ -100,7 +91,7 @@ export function ActionPlansListPage() {
         <PageHeader
           eyebrow="Pilotage › Plans d'action"
           title="Plans d'action"
-          description="Cockpit d'exécution — tâches regroupées par plan."
+          description="Sélectionnez un plan d'action à piloter — par projet ou vue consolidée."
           actions={
             <PermissionGate permission="projects.update">
               <Button
@@ -116,8 +107,6 @@ export function ActionPlansListPage() {
           }
         />
 
-        <ActionPlansListKpiStrip items={data?.items} isLoading={listEnabled && isLoading} />
-
         <ActionPlansFiltersBar
           filters={filters}
           onFiltersChange={patchFilters}
@@ -127,43 +116,32 @@ export function ActionPlansListPage() {
           hasActiveFilters={hasActiveFilters}
         />
 
-        <Card className="overflow-hidden shadow-sm">
-          <CardHeader className="border-b border-border/60 pb-3">
-            <CardTitle className="text-sm font-semibold">Plans d&apos;action</CardTitle>
-            <CardDescription>
-              Cliquez sur un plan pour ouvrir le cockpit de ses tâches.
-            </CardDescription>
-          </CardHeader>
+        <section className="space-y-3" aria-labelledby="action-plans-choose-label">
+          <h2 id="action-plans-choose-label" className="starium-mb-sec-label">
+            Choisir un plan d&apos;action
+          </h2>
 
-          <CardContent className="p-0">
-            {listEnabled && isLoading ? (
-              <div className="p-4">
-                <LoadingState rows={6} />
-              </div>
-            ) : error ? (
-              <div className="p-4">
-                <Alert variant="destructive">
-                  <AlertDescription>Impossible de charger les plans d&apos;action.</AlertDescription>
-                </Alert>
-              </div>
-            ) : data && data.items.length === 0 ? (
-              <div className="p-6">
-                <EmptyState
-                  title="Aucun plan d'action"
-                  description={
-                    hasActiveFilters || filters.search.trim()
-                      ? 'Aucun plan ne correspond aux filtres sélectionnés.'
-                      : 'Créez un plan pour regrouper des tâches de pilotage.'
-                  }
-                />
-              </div>
-            ) : data ? (
-              <ActionPlansListTable items={data.items} />
-            ) : null}
-          </CardContent>
+          {listEnabled && isLoading ? (
+            <LoadingState rows={6} />
+          ) : error ? (
+            <Alert variant="destructive">
+              <AlertDescription>Impossible de charger les plans d&apos;action.</AlertDescription>
+            </Alert>
+          ) : data && data.items.length === 0 ? (
+            <EmptyState
+              title="Aucun plan d'action"
+              description={
+                hasActiveFilters || filters.search.trim()
+                  ? 'Aucun plan ne correspond aux filtres sélectionnés.'
+                  : 'Créez un plan pour regrouper des tâches de pilotage.'
+              }
+            />
+          ) : data ? (
+            <ActionPlansListCards items={data.items} />
+          ) : null}
 
           {data && data.items.length > 0 ? (
-            <CardFooter className="starium-table-footer flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-muted-foreground">
               <p>
                 {total} plan{total > 1 ? 's' : ''} au total
                 {data.items.length < total
@@ -194,9 +172,9 @@ export function ActionPlansListPage() {
                   <ChevronRight className="size-4" aria-hidden />
                 </Button>
               </div>
-            </CardFooter>
+            </div>
           ) : null}
-        </Card>
+        </section>
 
         <ActionPlanCreateDialog
           open={createOpen}

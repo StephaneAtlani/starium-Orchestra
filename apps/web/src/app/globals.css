@@ -2641,6 +2641,74 @@ table.starium-dt {
   flex: 1 1 auto;
   min-width: 0.5rem;
 }
+.starium-nselect {
+  width: auto;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 8px 36px 8px 13px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background-color: var(--neutral-0, var(--card));
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238C8579' stroke-width='2.5' stroke-linecap='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--brand-ink, var(--foreground));
+  cursor: pointer;
+  outline: none;
+}
+.starium-nselect:hover {
+  background-color: var(--neutral-50, var(--muted));
+}
+.starium-nselect:focus {
+  border-color: var(--brand-gold);
+  box-shadow: var(--shadow-focus, 0 0 0 3px rgba(232, 163, 23, 0.32));
+}
+.starium-nselect:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-nselect--sm {
+  max-width: 170px;
+}
+.starium-nselect--md {
+  max-width: 190px;
+}
+.starium-toolbar-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-md, 10px);
+  background: var(--neutral-0, var(--card));
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+  cursor: pointer;
+}
+.starium-toolbar-reset:hover:not(:disabled) {
+  background: var(--neutral-50, var(--muted));
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-toolbar-reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.starium-toolbar-reset:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-toolbar-reset svg {
+  width: 14px;
+  height: 14px;
+}
 .starium-search-input {
   display: flex;
   flex: 1 1 14rem;
@@ -3085,6 +3153,231 @@ table.starium-dt {
 }
 .starium-kav {
   flex-shrink: 0;
+}
+
+/* Accueil multi-plans / multi-budgets (mockup .mb-cardgrid) */
+.starium-mb-sec-label {
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+}
+.starium-mb-cardgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .starium-mb-cardgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .starium-mb-cardgrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.starium-mb-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .starium-mb-card {
+    transition: none;
+  }
+}
+.starium-mb-card:hover {
+  border-color: var(--neutral-300, var(--border));
+  box-shadow: var(--shadow-3, 0 8px 24px rgba(14, 14, 16, 0.12));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .starium-mb-card:hover {
+    transform: translateY(-2px);
+  }
+}
+.starium-mb-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.starium-mb-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.starium-mb-card-ico {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+}
+.starium-mb-card-ico svg {
+  width: 22px;
+  height: 22px;
+}
+.starium-mb-card-ico--neutral {
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+}
+.starium-mb-card-ico--info {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-mb-card-ico--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-mb-card-ico--success {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-mb-card-ico--danger {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-mb-card-ico--teal {
+  background: var(--teal-bg, #e2f5f1);
+  color: var(--teal, #0e7462);
+}
+.starium-mb-card-ico--purple {
+  background: var(--purple-bg, #efe4fd);
+  color: var(--purple, #6b2fb2);
+}
+.starium-mb-card-tt {
+  flex: 1;
+  min-width: 0;
+}
+.starium-mb-card-name {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--brand-ink, var(--foreground));
+  line-height: 1.2;
+}
+.starium-mb-card-dir {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.starium-mb-card-total {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+}
+.starium-mb-card-total b {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-mb-card-track {
+  height: 7px;
+  margin: 9px 0 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--neutral-100, var(--muted));
+}
+.starium-mb-card-track > i,
+.starium-mb-card-track-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--state-success);
+}
+.starium-mb-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+}
+.starium-mb-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--neutral-100, color-mix(in srgb, var(--border) 70%, transparent));
+}
+.starium-mb-card-foot .mcf-k {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+}
+.starium-mb-card-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--state-danger);
+}
+.starium-mb-card-alert svg {
+  width: 12px;
+  height: 12px;
+}
+.starium-mb-card-ok {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--state-success);
+}
+.starium-mb-card-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-gold-700);
+}
+.starium-mb-card-arrow svg {
+  width: 14px;
+  height: 14px;
+}
+.starium-mb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
+  text-decoration: none;
+}
+.starium-mb-back:hover {
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-mb-back:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.starium-mb-back svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Planning macro Gantt (phases + jalons — mockup DS) */

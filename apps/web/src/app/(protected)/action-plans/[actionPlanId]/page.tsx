@@ -17,8 +17,7 @@ import {
   ACTION_PLAN_PRIORITY_LABELS,
   ACTION_PLAN_STATUS_LABELS,
 } from '@/features/projects/lib/action-plan-display';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { PermissionGate } from '@/components/PermissionGate';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -29,6 +28,7 @@ import {
   updateActionPlanTask,
   type UpdateActionPlanPayload,
 } from '@/features/projects/api/action-plans.api';
+import { ActionPlanDetailKpiStrip } from '@/features/projects/components/action-plan-detail-kpi-strip';
 import { ActionPlanTaskCreateDialog } from '@/features/projects/components/action-plan-task-create-dialog';
 import { ActionPlanTaskEditDialog } from '@/features/projects/components/action-plan-task-edit-dialog';
 import { ActionPlanTasksKanban } from '@/features/projects/components/action-plan-tasks-kanban';
@@ -44,7 +44,7 @@ import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanApi, ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { cn } from '@/lib/utils';
-import { AlertCircle, ChevronLeft, ClipboardList, Download, Plus } from 'lucide-react';
+import { AlertCircle, ChevronLeft, Download, Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Select,
@@ -125,7 +125,7 @@ export default function ActionPlanDetailPage() {
   const [ownerUserIdF, setOwnerUserIdF] = useState<string>('');
   const [sortByField, setSortByField] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [tasksViewMode, setTasksViewMode] = useState<'table' | 'kanban'>('table');
+  const [tasksViewMode, setTasksViewMode] = useState<'table' | 'kanban'>('kanban');
   const tablePan = useTablePan();
   const [activeMetaEdit, setActiveMetaEdit] = useState<
     'title' | 'status' | 'priority' | 'owner' | null
@@ -150,6 +150,13 @@ export default function ActionPlanDetailPage() {
       limit: 100,
       offset: 0,
     },
+    { enabled },
+  );
+
+  /** KPIs détail = toutes les actions du plan (hors filtres UI). */
+  const tasksStatsQuery = useActionPlanTasksQuery(
+    actionPlanId,
+    { limit: 100, offset: 0 },
     { enabled },
   );
 
@@ -195,7 +202,6 @@ export default function ActionPlanDetailPage() {
   const [exportFormatValue, setExportFormatValue] = useState<string>('');
 
   const plan = planQuery.data;
-  const progressPct = plan ? Math.min(100, Math.max(0, plan.progressPercent)) : 0;
   const ownerLabel = plan?.owner
     ? [plan.owner.firstName, plan.owner.lastName].filter(Boolean).join(' ').trim() || plan.owner.email
     : null;
@@ -466,7 +472,9 @@ export default function ActionPlanDetailPage() {
   );
 
   const pageDescription = plan
-    ? `${plan.code} · ${ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status} · avancement ${plan.progressPercent}%`
+    ? plan.description?.trim()
+      ? plan.description.trim()
+      : `Pilotez les actions correctives et d'amélioration — ${plan.code}.`
     : undefined;
 
   const selectedOwnerLabel =
@@ -514,18 +522,10 @@ export default function ActionPlanDetailPage() {
   return (
     <RequireActiveClient>
       <PageContainer>
-        <div className="mb-2">
-          <Link
-            href="/action-plans"
-            className={cn(
-              buttonVariants({ variant: 'ghost', size: 'sm' }),
-              '-ml-2 gap-1 text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <ChevronLeft className="size-4 shrink-0" aria-hidden />
-            Plans d’action
-          </Link>
-        </div>
+        <Link href="/action-plans" className="starium-mb-back">
+          <ChevronLeft aria-hidden />
+          Tous les plans d&apos;action
+        </Link>
 
         {planQuery.isLoading && <LoadingState rows={3} />}
 
@@ -621,144 +621,51 @@ export default function ActionPlanDetailPage() {
                   <PermissionGate permission="projects.update">
                     <Button type="button" size="sm" onClick={() => setOpen(true)}>
                       <Plus className="size-4" />
-                      Nouvelle tâche
+                      Nouvelle action
                     </Button>
                   </PermissionGate>
                 </div>
               }
             />
 
-            {/* §6.1 — synthèse compacte */}
-            <section className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div
-                    className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-                    aria-hidden
-                  >
-                    <ClipboardList className="size-5" />
-                  </div>
-                  <div className="min-w-0 space-y-2">
-                    {activeMetaEdit === 'status' || activeMetaEdit === 'priority' ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Select value={editableStatus} onValueChange={(value) => setEditableStatus(value ?? '')}>
-                          <SelectTrigger className="h-8 w-[150px] text-xs">
-                            <SelectValue>
-                              {ACTION_PLAN_STATUS_LABELS[editableStatus] ?? editableStatus}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(ACTION_PLAN_STATUS_LABELS).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={editablePriority}
-                          onValueChange={(value) => setEditablePriority(value ?? '')}
-                        >
-                          <SelectTrigger className="h-8 w-[150px] text-xs">
-                            <SelectValue>
-                              {ACTION_PLAN_PRIORITY_LABELS[editablePriority] ?? editablePriority}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(ACTION_PLAN_PRIORITY_LABELS).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled={planMetaMutation.isPending}
-                          onClick={() =>
-                            planMetaMutation.mutate({
-                              status: editableStatus,
-                              priority: editablePriority,
-                            })
-                          }
-                        >
-                          OK
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 text-xs"
-                          disabled={planMetaMutation.isPending}
-                          onClick={() => {
-                            setEditableStatus(plan.status);
-                            setEditablePriority(plan.priority);
-                            setActiveMetaEdit(null);
-                          }}
-                        >
-                          Annuler
-                        </Button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="rounded px-1 py-0.5 text-left hover:bg-muted"
-                        onClick={() => setActiveMetaEdit('status')}
-                      >
-                        <ActionPlanMetaBadges plan={plan} />
-                      </button>
-                    )}
-                    {plan.description?.trim() ? (
-                      <p className="max-w-2xl text-sm text-muted-foreground">{plan.description.trim()}</p>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Avancement
-                  </div>
-                  <div className="tabular-nums text-2xl font-semibold tracking-tight text-primary">
-                    {plan.progressPercent}%
-                  </div>
-                </div>
-              </div>
-              <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
-                  <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Début (calculé)
-                  </div>
-                  <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-                    {fmtShortDate(derivedWindow.startDate)}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2">
-                  <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Fin (calculée)
-                  </div>
-                  <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-                    {fmtShortDate(derivedWindow.endDate)}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-border/70 bg-muted/25 px-3 py-2 sm:col-span-2 lg:col-span-2">
-                  <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Responsable plan
-                  </div>
-                  {activeMetaEdit === 'owner' ? (
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <Select
-                        value={editableOwnerUserId}
-                        onValueChange={(value) => setEditableOwnerUserId(value ?? '__none__')}
-                      >
-                        <SelectTrigger className="h-8 w-[280px] text-xs">
-                          <SelectValue>{selectedOwnerLabel}</SelectValue>
+            <ActionPlanDetailKpiStrip
+              items={tasksStatsQuery.data?.items}
+              isLoading={tasksStatsQuery.isLoading && tasksStatsQuery.data == null}
+            />
+
+            {/* Métadonnées plan — édition compacte */}
+            <section className="rounded-[var(--radius-lg,14px)] border border-[color:var(--neutral-200)] bg-[color:var(--neutral-0)] p-4 shadow-[var(--shadow-1)]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 space-y-2">
+                  {activeMetaEdit === 'status' || activeMetaEdit === 'priority' ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Select value={editableStatus} onValueChange={(value) => setEditableStatus(value ?? '')}>
+                        <SelectTrigger className="h-8 w-[150px] text-xs">
+                          <SelectValue>
+                            {ACTION_PLAN_STATUS_LABELS[editableStatus] ?? editableStatus}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">Non assigné</SelectItem>
-                          {ownerOptions.map((option) => (
-                            <SelectItem key={option.id} value={option.id}>
-                              {option.label}
+                          {Object.entries(ACTION_PLAN_STATUS_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={editablePriority}
+                        onValueChange={(value) => setEditablePriority(value ?? '')}
+                      >
+                        <SelectTrigger className="h-8 w-[150px] text-xs">
+                          <SelectValue>
+                            {ACTION_PLAN_PRIORITY_LABELS[editablePriority] ?? editablePriority}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(ACTION_PLAN_PRIORITY_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -770,7 +677,8 @@ export default function ActionPlanDetailPage() {
                         disabled={planMetaMutation.isPending}
                         onClick={() =>
                           planMetaMutation.mutate({
-                            ownerUserId: editableOwnerUserId === '__none__' ? null : editableOwnerUserId,
+                            status: editableStatus,
+                            priority: editablePriority,
                           })
                         }
                       >
@@ -783,7 +691,8 @@ export default function ActionPlanDetailPage() {
                         className="h-8 px-2 text-xs"
                         disabled={planMetaMutation.isPending}
                         onClick={() => {
-                          setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
+                          setEditableStatus(plan.status);
+                          setEditablePriority(plan.priority);
                           setActiveMetaEdit(null);
                         }}
                       >
@@ -793,30 +702,101 @@ export default function ActionPlanDetailPage() {
                   ) : (
                     <button
                       type="button"
-                      className="mt-0.5 truncate rounded px-1 py-0.5 text-left text-sm font-medium text-foreground hover:bg-muted"
-                      onClick={() => setActiveMetaEdit('owner')}
+                      className="rounded px-1 py-0.5 text-left hover:bg-muted"
+                      onClick={() => {
+                        if (!canUpdateProjects) return;
+                        setActiveMetaEdit('status');
+                      }}
                     >
-                      {ownerLabel ?? '—'}
+                      <ActionPlanMetaBadges plan={plan} />
                     </button>
                   )}
                 </div>
-              </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">Progression du plan</span>
-                  <span className="tabular-nums text-xs text-muted-foreground">{progressPct}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${progressPct}%` }}
-                  />
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Début (calculé)
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
+                      {fmtShortDate(derivedWindow.startDate)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Fin (calculée)
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
+                      {fmtShortDate(derivedWindow.endDate)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Responsable plan
+                    </div>
+                    {activeMetaEdit === 'owner' ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <Select
+                          value={editableOwnerUserId}
+                          onValueChange={(value) => setEditableOwnerUserId(value ?? '__none__')}
+                        >
+                          <SelectTrigger className="h-8 w-[220px] text-xs">
+                            <SelectValue>{selectedOwnerLabel}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Non assigné</SelectItem>
+                            {ownerOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={planMetaMutation.isPending}
+                          onClick={() =>
+                            planMetaMutation.mutate({
+                              ownerUserId: editableOwnerUserId === '__none__' ? null : editableOwnerUserId,
+                            })
+                          }
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          disabled={planMetaMutation.isPending}
+                          onClick={() => {
+                            setEditableOwnerUserId(plan.ownerUserId ?? '__none__');
+                            setActiveMetaEdit(null);
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-0.5 truncate rounded px-1 py-0.5 text-left text-sm font-medium text-foreground hover:bg-muted"
+                        onClick={() => {
+                          if (!canUpdateProjects) return;
+                          setActiveMetaEdit('owner');
+                        }}
+                      >
+                        {ownerLabel ?? '—'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
 
-            {/* §7 — barre filtres DS + tableau (tri seulement, cf. FRONTEND_UI-UX §384) */}
-            <Card size="sm" className="starium-panel overflow-hidden shadow-none">
+            <section className="flex flex-col gap-[14px]" aria-label="Actions du plan">
               <ActionPlanTasksToolbar
                 search={searchF}
                 onSearchChange={setSearchF}
@@ -838,35 +818,44 @@ export default function ActionPlanDetailPage() {
                 viewMode={tasksViewMode}
                 onViewModeChange={handleTasksViewModeChange}
               />
+
               {tasksQuery.isLoading && tasksQuery.data == null ? (
-                <CardContent className="py-8">
+                <div className="starium-tablecard p-6">
                   <LoadingState rows={5} />
-                </CardContent>
+                </div>
               ) : tasksQuery.data && tasksQuery.data.items.length === 0 ? (
-                <CardContent className="py-10">
+                <div className="starium-tablecard p-10">
                   <EmptyState
-                    title="Aucune tâche"
-                    description="Ajoutez une tâche à ce plan ou élargissez les filtres."
+                    title="Aucune action"
+                    description="Ajoutez une action à ce plan ou élargissez les filtres."
                   />
-                </CardContent>
+                </div>
               ) : tasksQuery.data && tasksQuery.data.items.length > 0 ? (
-                <>
-                  <CardContent
-                    className={cn(
-                      'p-0',
-                      tasksViewMode === 'table' &&
-                        (tablePan.isPanning
-                          ? 'cursor-grabbing select-none touch-none'
-                          : 'cursor-grab'),
-                    )}
-                    ref={tasksViewMode === 'table' ? tablePan.scrollRef : undefined}
-                    onPointerDown={tasksViewMode === 'table' ? tablePan.onPointerDown : undefined}
-                  >
-                    <div
-                      key={tasksViewMode}
-                      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-out"
-                    >
-                      {tasksViewMode === 'table' ? (
+                <div
+                  key={tasksViewMode}
+                  className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-out"
+                >
+                  {tasksViewMode === 'kanban' ? (
+                    <ActionPlanTasksKanban
+                      items={tasksQuery.data.items}
+                      statusFilter={statusF || undefined}
+                      canUpdate={canUpdateProjects}
+                      isUpdating={taskStatusMutation.isPending}
+                      onTaskClick={(id) => setSelectedTaskId(id)}
+                      onStatusDrop={handleTaskStatusDrop}
+                    />
+                  ) : (
+                    <div className="starium-tablecard">
+                      <div
+                        className={cn(
+                          'starium-table-wrap',
+                          tablePan.isPanning
+                            ? 'cursor-grabbing select-none touch-none'
+                            : 'cursor-grab',
+                        )}
+                        ref={tablePan.scrollRef}
+                        onPointerDown={tablePan.onPointerDown}
+                      >
                         <ActionPlanTasksTable
                           items={tasksQuery.data.items}
                           sortBy={sortByField}
@@ -874,26 +863,17 @@ export default function ActionPlanDetailPage() {
                           onSort={applyTaskSort}
                           onRowClick={(id) => setSelectedTaskId(id)}
                         />
-                      ) : (
-                        <ActionPlanTasksKanban
-                          items={tasksQuery.data.items}
-                          statusFilter={statusF || undefined}
-                          canUpdate={canUpdateProjects}
-                          isUpdating={taskStatusMutation.isPending}
-                          onTaskClick={(id) => setSelectedTaskId(id)}
-                          onStatusDrop={handleTaskStatusDrop}
-                        />
-                      )}
+                      </div>
+                      <div className="starium-table-footer border-t border-[color:var(--neutral-100)] bg-[color:var(--neutral-50)] px-4 py-2 text-xs text-muted-foreground">
+                        {tasksQuery.data.items.length === tasksQuery.data.total
+                          ? `${tasksQuery.data.total} action${tasksQuery.data.total > 1 ? 's' : ''}`
+                          : `Affichage de ${tasksQuery.data.items.length} sur ${tasksQuery.data.total} action${tasksQuery.data.total > 1 ? 's' : ''}`}
+                      </div>
                     </div>
-                  </CardContent>
-                  <CardFooter className="starium-table-footer border-t border-border/60 bg-muted/15 py-2 text-xs text-muted-foreground">
-                    {tasksQuery.data.items.length === tasksQuery.data.total
-                      ? `${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`
-                      : `Affichage de ${tasksQuery.data.items.length} sur ${tasksQuery.data.total} tâche${tasksQuery.data.total > 1 ? 's' : ''}`}
-                  </CardFooter>
-                </>
+                  )}
+                </div>
               ) : null}
-            </Card>
+            </section>
           </>
         )}
 
