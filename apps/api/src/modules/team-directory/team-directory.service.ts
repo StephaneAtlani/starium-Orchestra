@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   CollaboratorSource,
   ClientUserRole,
@@ -19,6 +24,7 @@ import {
 import { RunDirectorySyncDto } from './dto/run-directory-sync.dto';
 import { DirectoryConnectionsService } from './directory-connections.service';
 import { DirectoryProvider } from './providers/directory-provider.interface';
+import { MicrosoftGraphHttpError } from '../microsoft/microsoft-graph.types';
 import { MicrosoftGraphDirectoryProvider } from './providers/microsoft-graph-directory.provider';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
@@ -218,12 +224,41 @@ export class TeamDirectoryService {
   async listProviderGroups(clientId: string, connectionId: string) {
     const connection = await this.connections.getConnectionOrThrow(clientId, connectionId);
     const provider = this.resolveProvider(connection.providerType);
-    const groups = await provider.listGroups({
-      id: connection.id,
-      clientId: connection.clientId,
-      providerType: connection.providerType,
-    });
-    return { items: groups };
+    try {
+      const groups = await provider.listGroups({
+        id: connection.id,
+        clientId: connection.clientId,
+        providerType: connection.providerType,
+      });
+      return { items: groups };
+    } catch (e) {
+      this.rethrowGraphProviderError(e);
+    }
+  }
+
+  private rethrowGraphProviderError(e: unknown): never {
+    if (e instanceof MicrosoftGraphHttpError) {
+      if (e.statusCode === 401) {
+        throw new UnauthorizedException(
+          e.graphMessage ??
+            'Accès Microsoft Graph non autorisé. Reconnectez la connexion Microsoft.',
+        );
+      }
+      if (e.statusCode === 403) {
+        throw new ForbiddenException(
+          e.graphMessage ??
+            'Accès Microsoft Graph refusé (scope Group.Read.All requis).',
+        );
+      }
+      if (e.statusCode === 0) {
+        throw new BadGatewayException(
+          e.graphMessage ??
+            'Impossible de joindre Microsoft Graph. Vérifiez la connectivité réseau du serveur.',
+        );
+      }
+      throw new BadGatewayException(e.graphMessage ?? 'Erreur Microsoft Graph');
+    }
+    throw e;
   }
 
   private resolveProvider(providerType: DirectoryProviderType): DirectoryProvider {

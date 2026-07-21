@@ -17,7 +17,7 @@ export const notificationsKeys = {
   root: (clientId: string) => ['notifications', clientId] as const,
 };
 
-export function useNotificationsQuery() {
+export function useNotificationsQuery(options?: { refetchInterval?: number | false }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -46,6 +46,7 @@ export function useNotificationsQuery() {
     },
     enabled: Boolean(clientId),
     retry: 1,
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 

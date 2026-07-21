@@ -1046,13 +1046,22 @@ export class MicrosoftGraphService {
         e instanceof DOMException &&
         e.name === 'AbortError') ||
       (e instanceof Error && e.message.toLowerCase().includes('abort'));
-    const msg = isAbort
+    const baseMsg = isAbort
       ? `Timeout Graph après ${timeoutMs ?? this.timeoutMs}ms (opération aborted)`
       : e instanceof Error
         ? e.message
         : 'Erreur réseau vers Microsoft Graph';
-    this.logger.warn(`Graph: ${msg}`);
-    return new MicrosoftGraphHttpError(msg, 0, undefined, msg, undefined, undefined);
+    const causeDetail = formatNetworkErrorCause(e);
+    const detail = causeDetail ? `${baseMsg} (${causeDetail})` : baseMsg;
+    this.logger.warn(`Graph: ${detail}`);
+    return new MicrosoftGraphHttpError(
+      detail,
+      0,
+      undefined,
+      detail,
+      undefined,
+      undefined,
+    );
   }
 
   private async throwNormalizedError(
@@ -1106,6 +1115,19 @@ export class MicrosoftGraphService {
       retryAfterSeconds,
     );
   }
+}
+
+function formatNetworkErrorCause(e: unknown): string | undefined {
+  if (!(e instanceof Error) || e.cause == null) {
+    return undefined;
+  }
+  const { cause } = e;
+  if (cause instanceof Error) {
+    const code =
+      'code' in cause && typeof cause.code === 'string' ? cause.code : undefined;
+    return code ? `${code}: ${cause.message}` : cause.message;
+  }
+  return String(cause);
 }
 
 function normalizeGraphPath(path: string): string {

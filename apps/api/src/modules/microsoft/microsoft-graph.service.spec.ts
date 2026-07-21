@@ -157,6 +157,23 @@ describe('MicrosoftGraphService', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('propage la cause réseau dans MicrosoftGraphHttpError', async () => {
+    const cause = Object.assign(
+      new Error('getaddrinfo ENOTFOUND graph.microsoft.com'),
+      { code: 'ENOTFOUND' },
+    );
+    const networkErr = new TypeError('fetch failed', { cause });
+    global.fetch = jest.fn().mockRejectedValue(networkErr);
+
+    const svc = await createService();
+    await expect(svc.getJson('tok', 'me')).rejects.toMatchObject({
+      statusCode: 0,
+      message: expect.stringContaining('ENOTFOUND'),
+      graphMessage: expect.stringContaining('ENOTFOUND'),
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it('erreur réseau puis succès au retry', async () => {
     let n = 0;
     global.fetch = jest.fn().mockImplementation(() => {

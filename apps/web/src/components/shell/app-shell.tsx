@@ -10,6 +10,7 @@ import { StariumChatDrawer } from '@/features/chatbot/starium-chat-drawer';
 import { MobileBottomNav } from './mobile-bottom-nav';
 import { MobileNavMenu } from './mobile-nav-menu';
 import { WorkspaceBreadcrumbProvider } from './workspace-breadcrumb-context';
+import { BrowserNotificationsBridge } from '@/features/notifications/components/browser-notifications-bridge';
 
 /** Élément DOM pour le plein écran « sans sidebar » : colonne header + main (+ drawer). */
 export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
@@ -50,6 +51,7 @@ export function AppShell({ children }: AppShellProps) {
             <MobileBottomNav />
             <MobileNavMenu />
             <StariumChatDrawer />
+            <BrowserNotificationsBridge />
           </div>
         </div>
         </WorkspaceBreadcrumbProvider>

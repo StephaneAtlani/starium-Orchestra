@@ -12,8 +12,15 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
+import { AlertSeverityBadge } from '@/features/alerts/components/alert-severity-badge';
+import { useAuth } from '@/context/auth-context';
+import { useActiveClient } from '@/hooks/use-active-client';
+import {
+  getBrowserNotificationPermission,
+  requestBrowserNotificationPermission,
+  seedNotifiedIds,
+} from '../lib/browser-notifications';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
-import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -27,28 +34,9 @@ import {
 
 import type { NotificationItem } from '@/services/notifications';
 
-function severityBadge(severity: NotificationItem['alertSeverity']) {
-  if (!severity) return null;
-  const label =
-    severity === 'CRITICAL'
-      ? 'Critique'
-      : severity === 'WARNING'
-        ? 'Attention'
-        : 'Info';
-  const className =
-    severity === 'CRITICAL'
-      ? 'border-destructive/35 bg-destructive/10 text-destructive'
-      : severity === 'WARNING'
-        ? 'border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-100'
-        : 'border-border bg-muted/70 text-muted-foreground';
-  return (
-    <Badge variant="outline" className={cn('shrink-0 font-medium', className)}>
-      {label}
-    </Badge>
-  );
-}
-
 export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inverse' }) {
+  const { user } = useAuth();
+  const { activeClient } = useActiveClient();
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -60,6 +48,8 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inv
   const unread = data?.unread ?? 0;
   const total = data?.total ?? 0;
   const items = data?.items ?? [];
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   useEffect(() => {
     const el = detailsRef.current;
@@ -96,6 +86,32 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inv
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [clearConfirmOpen]);
+
+  useEffect(() => {
+    const el = detailsRef.current;
+    if (!el) return;
+
+    const onToggle = () => {
+      if (!el.open) return;
+      if (getBrowserNotificationPermission() !== 'default') return;
+
+      const userId = user?.id;
+      const clientId = activeClient?.id;
+      if (!userId || !clientId) return;
+
+      void requestBrowserNotificationPermission().then((permission) => {
+        if (permission !== 'granted') return;
+        seedNotifiedIds(
+          userId,
+          clientId,
+          itemsRef.current.map((item) => item.id),
+        );
+      });
+    };
+
+    el.addEventListener('toggle', onToggle);
+    return () => el.removeEventListener('toggle', onToggle);
+  }, [user?.id, activeClient?.id]);
 
   async function handleMarkAll() {
     const result = await markAll.mutateAsync();
@@ -288,7 +304,7 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inv
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2">
                               {isUnread ? (
                                 <span
                                   className="size-1.5 shrink-0 rounded-full bg-primary"
@@ -296,7 +312,6 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inv
                                 />
                               ) : null}
                               <p className="truncate text-sm font-medium leading-snug">{item.title}</p>
-                              {severityBadge(item.alertSeverity)}
                             </div>
                             <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
                               {item.message}
@@ -305,6 +320,9 @@ export function NotificationBell({ tone = 'default' }: { tone?: 'default' | 'inv
                               <p className="text-xs font-medium text-foreground/90">{item.entityLabel}</p>
                             ) : null}
                           </div>
+                          {item.alertSeverity ? (
+                            <AlertSeverityBadge severity={item.alertSeverity} />
+                          ) : null}
                         </div>
                         <div className="mt-2.5 flex flex-wrap items-center gap-2">
                           {item.actionUrl ? (
