@@ -147,6 +147,7 @@ function LoginPageContent() {
     login,
     startMicrosoftSso,
     completeMicrosoftSso,
+    completeMicrosoftSsoHandoff,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,
@@ -224,10 +225,13 @@ function LoginPageContent() {
       return;
     }
 
+    const handoff = searchParams.get('handoff')?.trim();
+    // Compat : ancien flux #fragment (déploiements en cours) — à retirer après rollout.
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const accessToken = hash.get('accessToken');
-    const refreshToken = hash.get('refreshToken');
-    if (!accessToken || !refreshToken) {
+    const legacyAccess = hash.get('accessToken');
+    const legacyRefresh = hash.get('refreshToken');
+
+    if (!handoff && (!legacyAccess || !legacyRefresh)) {
       didHandleMicrosoftCallback.current = true;
       setError('Connexion Microsoft incomplète.');
       return;
@@ -236,8 +240,22 @@ function LoginPageContent() {
     didHandleMicrosoftCallback.current = true;
     ssoFlowInProgress.current = true;
     setSubmitAction('microsoft');
-    void completeMicrosoftSso(accessToken, refreshToken)
+
+    const run = handoff
+      ? completeMicrosoftSsoHandoff(handoff)
+      : completeMicrosoftSso(legacyAccess!, legacyRefresh!);
+
+    void run
       .then(async ({ user: loggedInUser, accessToken: token }) => {
+        if (typeof window !== 'undefined') {
+          const clean = new URL(window.location.href);
+          clean.searchParams.delete('handoff');
+          window.history.replaceState(
+            {},
+            '',
+            `${clean.pathname}${clean.search}`,
+          );
+        }
         const res = await fetch('/api/me/clients', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -275,7 +293,13 @@ function LoginPageContent() {
         ssoFlowInProgress.current = false;
         setSubmitAction(null);
       });
-  }, [completeMicrosoftSso, router, searchParams, setActiveClient]);
+  }, [
+    completeMicrosoftSso,
+    completeMicrosoftSsoHandoff,
+    router,
+    searchParams,
+    setActiveClient,
+  ]);
 
   async function refreshPasswordEligibility() {
     const trimmed = email.trim();

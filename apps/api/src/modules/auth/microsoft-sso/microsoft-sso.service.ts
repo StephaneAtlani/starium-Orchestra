@@ -12,6 +12,7 @@ import * as jose from 'jose';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftIdTokenService } from '../../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.service';
+import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
@@ -22,6 +23,8 @@ import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 const DEFAULT_SSO_SCOPES = 'openid profile email';
 const DEFAULT_STATE_TTL_SECONDS = 600;
 const DEFAULT_OAUTH_TENANT = 'common';
+/** TTL du code handoff SSO (échange one-shot côté /login — pas de jetons dans l’URL). */
+const SSO_HANDOFF_TTL_SECONDS = 120;
 
 interface ResolvedSsoCredentials {
   clientId: string;
@@ -59,6 +62,7 @@ export class MicrosoftSsoService {
     private readonly jwt: JwtService,
     private readonly microsoftIdToken: MicrosoftIdTokenService,
     private readonly tokenHttp: MicrosoftTokenHttpService,
+    private readonly tokenCrypto: MicrosoftTokenCryptoService,
     private readonly platformConfig: MicrosoftPlatformConfigService,
     private readonly securityLogs: SecurityLogsService,
   ) {}
@@ -490,6 +494,10 @@ export class MicrosoftSsoService {
     return legacy.replace('/api/microsoft/auth/callback', '/api/auth/microsoft/callback');
   }
 
+  /**
+   * Succès SSO : 302 vers /login?status=success&handoff=… (code opaque).
+   * Pas de jetons dans le fragment ni de page HTML + location.replace (heuristique phishing Safe Browsing).
+   */
   private async successRedirectUrl(tokens: {
     accessToken: string;
     refreshToken: string;
@@ -500,11 +508,68 @@ export class MicrosoftSsoService {
       this.config.get<string>('MICROSOFT_SSO_SUCCESS_URL')?.trim() ||
       this.config.get<string>('MICROSOFT_OAUTH_SUCCESS_URL')?.trim() ||
       'http://localhost:3000/login?status=success';
-    const fragment = new URLSearchParams({
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+    const handoff = randomBytes(32).toString('hex');
+    const payloadEnc = this.tokenCrypto.encrypt(
+      JSON.stringify({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      }),
+    );
+    await this.prisma.microsoftSsoHandoff.create({
+      data: {
+        handoffHash: this.hashToken(handoff),
+        payloadEnc,
+        expiresAt: new Date(Date.now() + SSO_HANDOFF_TTL_SECONDS * 1000),
+      },
     });
-    return `${base}#${fragment.toString()}`;
+    const url = new URL(base);
+    url.searchParams.set('status', 'success');
+    url.searchParams.set('handoff', handoff);
+    return url.toString();
+  }
+
+  /**
+   * POST /api/auth/microsoft/complete — échange one-shot du handoff contre les jetons session.
+   */
+  async completeHandoff(handoff: string): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    const handoffHash = this.hashToken(handoff.trim());
+    const now = new Date();
+    const row = await this.prisma.microsoftSsoHandoff.findFirst({
+      where: {
+        handoffHash,
+        consumedAt: null,
+        expiresAt: { gt: now },
+      },
+    });
+    if (!row) {
+      throw new UnauthorizedException('Handoff SSO invalide ou expiré');
+    }
+    const consumed = await this.prisma.microsoftSsoHandoff.updateMany({
+      where: { id: row.id, consumedAt: null },
+      data: { consumedAt: now },
+    });
+    if (consumed.count !== 1) {
+      throw new UnauthorizedException('Handoff SSO déjà utilisé');
+    }
+    try {
+      const parsed = JSON.parse(this.tokenCrypto.decrypt(row.payloadEnc)) as {
+        accessToken?: string;
+        refreshToken?: string;
+      };
+      if (!parsed.accessToken || !parsed.refreshToken) {
+        throw new UnauthorizedException('Handoff SSO corrompu');
+      }
+      return {
+        accessToken: parsed.accessToken,
+        refreshToken: parsed.refreshToken,
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      throw new UnauthorizedException('Handoff SSO illisible');
+    }
   }
 
   private async errorRedirectUrl(reason: string): Promise<string> {

@@ -4897,6 +4897,20 @@ model MicrosoftOAuthState {
   @@index([consumedAt])
 }
 
+/// Handoff SSO Microsoft : code opaque one-shot (pas de jetons dans l’URL / fragment — anti-phishing Safe Browsing).
+model MicrosoftSsoHandoff {
+  id          String    @id @default(cuid())
+  handoffHash String    @unique
+  /// JSON { accessToken, refreshToken } chiffré (AES-GCM).
+  payloadEnc  String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([consumedAt])
+}
+
 /// Connexion OAuth Microsoft 365 par client Starium (tokens chiffrés côté API uniquement).
 model MicrosoftConnection {
   id                    String                    @id @default(cuid())

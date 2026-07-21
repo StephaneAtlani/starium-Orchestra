@@ -14,7 +14,8 @@ function internalApiBase(): string {
 /**
  * Le rewrite `/api/*` → Nest peut casser sur une query OAuth énorme (`code`).
  * Une 307 vers l’API duplique l’URL dans `Location` (souvent trop long → « invalid response »).
- * On **proxifie** vers l’API et on renvoie au navigateur la **302** finale (URL courte vers /login).
+ * On **proxifie** vers l’API et on renvoie au navigateur la **302** finale (URL courte vers /login?handoff=…).
+ * Plus de page HTML interstitial ni de jetons dans le fragment (anti-phishing Safe Browsing).
  */
 export async function GET(request: NextRequest) {
   const target = `${internalApiBase()}/api/auth/microsoft/callback${request.nextUrl.search}`;

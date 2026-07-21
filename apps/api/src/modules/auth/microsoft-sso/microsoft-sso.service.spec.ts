@@ -5,6 +5,7 @@ import { MicrosoftSsoService } from './microsoft-sso.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { MicrosoftIdTokenService } from '../../microsoft/microsoft-id-token.service';
 import { MicrosoftTokenHttpService } from '../../microsoft/microsoft-token-http.service';
+import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-crypto.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 
@@ -65,6 +66,11 @@ describe('MicrosoftSsoService', () => {
             refreshToken: {
               create: jest.fn(),
             },
+            microsoftSsoHandoff: {
+              create: jest.fn(),
+              findFirst: jest.fn(),
+              updateMany: jest.fn(),
+            },
           },
         },
         {
@@ -78,6 +84,13 @@ describe('MicrosoftSsoService', () => {
         {
           provide: MicrosoftTokenHttpService,
           useValue: { postTokenForm: jest.fn() },
+        },
+        {
+          provide: MicrosoftTokenCryptoService,
+          useValue: {
+            encrypt: jest.fn((plain: string) => `enc:${plain}`),
+            decrypt: jest.fn((enc: string) => enc.replace(/^enc:/, '')),
+          },
         },
         {
           provide: SecurityLogsService,
@@ -187,7 +200,9 @@ describe('MicrosoftSsoService', () => {
       { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r-success-1' },
     );
     expect(result.redirectUrl).toContain('status=success');
-    expect(result.redirectUrl).toContain('#accessToken=');
+    expect(result.redirectUrl).toContain('handoff=');
+    expect(result.redirectUrl).not.toContain('#accessToken=');
+    expect(prisma.microsoftSsoHandoff.create).toHaveBeenCalledTimes(1);
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'u1' },
       data: { passwordLoginEnabled: false },
@@ -268,5 +283,33 @@ describe('MicrosoftSsoService', () => {
       { ipAddress: '127.0.0.1', userAgent: 'jest', requestId: 'r4' },
     );
     expect(result.redirectUrl).toContain('reason=invalid_or_expired_state');
+  });
+
+  it('completeHandoff échange un code opaque one-shot', async () => {
+    const payload = JSON.stringify({
+      accessToken: 'at',
+      refreshToken: 'rt',
+    });
+    (prisma.microsoftSsoHandoff.findFirst as jest.Mock).mockResolvedValue({
+      id: 'h1',
+      payloadEnc: `enc:${payload}`,
+    });
+    (prisma.microsoftSsoHandoff.updateMany as jest.Mock).mockResolvedValue({
+      count: 1,
+    });
+
+    const tokens = await service.completeHandoff('a'.repeat(64));
+    expect(tokens).toEqual({ accessToken: 'at', refreshToken: 'rt' });
+    expect(prisma.microsoftSsoHandoff.updateMany).toHaveBeenCalledWith({
+      where: { id: 'h1', consumedAt: null },
+      data: { consumedAt: expect.any(Date) },
+    });
+  });
+
+  it('completeHandoff refuse un code inconnu', async () => {
+    (prisma.microsoftSsoHandoff.findFirst as jest.Mock).mockResolvedValue(null);
+    await expect(service.completeHandoff('b'.repeat(64))).rejects.toThrow(
+      /invalide ou expiré/,
+    );
   });
 });

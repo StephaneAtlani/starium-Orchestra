@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -17,6 +18,7 @@ import { RequestUserId } from '../../../common/decorators/request-user.decorator
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { MicrosoftSsoService } from './microsoft-sso.service';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
+import { MicrosoftSsoCompleteDto } from './dto/microsoft-sso-complete.dto';
 
 @Controller('auth/microsoft')
 export class MicrosoftSsoController {
@@ -40,6 +42,16 @@ export class MicrosoftSsoController {
     await this.microsoftSso.ensurePasswordLoginDisabledForUser(userId);
   }
 
+  /**
+   * Échange le code handoff opaque (query /login?handoff=) contre access + refresh.
+   * Remplace l’ancien passage des jetons dans le #fragment (pattern phishing Safe Browsing).
+   */
+  @Post('complete')
+  @HttpCode(HttpStatus.OK)
+  async complete(@Body() dto: MicrosoftSsoCompleteDto) {
+    return this.microsoftSso.completeHandoff(dto.handoff);
+  }
+
   @Get('callback')
   async callback(
     @Query() query: MicrosoftCallbackQueryDto,
@@ -56,24 +68,7 @@ export class MicrosoftSsoController {
       userAgent: meta.userAgent,
       requestId: meta.requestId,
     });
-    this.sendOAuthResult(res, result.redirectUrl);
-  }
-
-  /**
-   * Les en-têtes HTTP `Location` des 3xx ne doivent pas contenir de `#fragment`.
-   * Le succès SSO met les jetons dans le fragment → page HTML + `location.replace`.
-   */
-  private sendOAuthResult(res: Response, redirectUrl: string): void {
-    if (redirectUrl.includes('#')) {
-      const safe = JSON.stringify(redirectUrl);
-      res
-        .status(200)
-        .type('html')
-        .send(
-          `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>Connexion</title></head><body><script>location.replace(${safe});</script><p>Redirection…</p></body></html>`,
-        );
-      return;
-    }
-    res.redirect(HttpStatus.FOUND, redirectUrl);
+    // Toujours 302 (pas de HTML + script) — Location courte vers /login.
+    res.redirect(HttpStatus.FOUND, result.redirectUrl);
   }
 }

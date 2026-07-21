@@ -11,6 +11,7 @@ import { getMe, type MeProfile } from '../services/me';
 import {
   getMicrosoftSsoAuthorizationUrlApi,
   loginApi,
+  completeMicrosoftSsoHandoffApi,
   postMicrosoftDisablePasswordLoginApi,
   verifyMfaEmailApi,
   verifyMfaRecoveryApi,
@@ -75,6 +76,10 @@ interface AuthContextValue {
   completeMicrosoftSso: (
     accessToken: string,
     refreshToken: string,
+  ) => Promise<{ user: AuthUser; accessToken: string }>;
+  /** Échange le handoff opaque (query) contre une session — flux SSO sans jetons dans l’URL. */
+  completeMicrosoftSsoHandoff: (
+    handoff: string,
   ) => Promise<{ user: AuthUser; accessToken: string }>;
   /** Finalise le login après challenge TOTP ou code de secours. */
   completeMfaTotp: (
@@ -263,6 +268,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const completeMicrosoftSsoHandoff = useCallback(
+    async (handoff: string) => {
+      const tokens = await completeMicrosoftSsoHandoffApi(handoff);
+      return completeMicrosoftSso(tokens.accessToken, tokens.refreshToken);
+    },
+    [completeMicrosoftSso],
+  );
+
   const completeMfaTotp = useCallback(
     async (challengeId: string, otp: string, trustDevice?: boolean) => {
       const data = await verifyMfaTotpApi(challengeId, otp, trustDevice);
@@ -370,6 +383,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     startMicrosoftSso,
     completeMicrosoftSso,
+    completeMicrosoftSsoHandoff,
     completeMfaTotp,
     sendMfaFallbackEmail,
     completeMfaEmail,

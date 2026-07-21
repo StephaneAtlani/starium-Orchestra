@@ -47,6 +47,32 @@ export async function postMicrosoftDisablePasswordLoginApi(
   return res.ok;
 }
 
+/** POST /api/auth/microsoft/complete — échange handoff opaque → jetons session. */
+export async function completeMicrosoftSsoHandoffApi(
+  handoff: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await fetch('/api/auth/microsoft/complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ handoff }),
+  });
+  if (!res.ok) {
+    const msg = await readApiErrorMessageFromResponse(res);
+    throw new Error(msg || 'Connexion Microsoft incomplète.');
+  }
+  const data = (await res.json().catch(() => ({}))) as {
+    accessToken?: string;
+    refreshToken?: string;
+  };
+  if (!data.accessToken || !data.refreshToken) {
+    throw new Error('Connexion Microsoft incomplète.');
+  }
+  return {
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+  };
+}
+
 /** POST /api/auth/password-login-eligibility — UX (compte Microsoft-only → false). */
 export async function fetchPasswordLoginEligibilityApi(
   email: string,
