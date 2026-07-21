@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
+  clearAllNotifications,
+  clearNotification,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -47,35 +49,63 @@ export function useNotificationsQuery() {
   });
 }
 
-export function useMarkNotificationReadMutation() {
-  const authFetch = useAuthenticatedFetch();
+function useInvalidateNotifications() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const queryClient = useQueryClient();
+  return async () => {
+    await queryClient.invalidateQueries({
+      queryKey: notificationsKeys.root(clientId),
+    });
+  };
+}
+
+export function useMarkNotificationReadMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const invalidate = useInvalidateNotifications();
 
   return useMutation({
     mutationFn: (notificationId: string) =>
       markNotificationRead(authFetch, notificationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: notificationsKeys.root(clientId),
-      });
+      await invalidate();
     },
   });
 }
 
 export function useMarkAllNotificationsReadMutation() {
   const authFetch = useAuthenticatedFetch();
-  const { activeClient } = useActiveClient();
-  const clientId = activeClient?.id ?? '';
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateNotifications();
 
   return useMutation({
     mutationFn: () => markAllNotificationsRead(authFetch),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: notificationsKeys.root(clientId),
-      });
+      await invalidate();
+    },
+  });
+}
+
+export function useClearAllNotificationsMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const invalidate = useInvalidateNotifications();
+
+  return useMutation({
+    mutationFn: () => clearAllNotifications(authFetch),
+    onSuccess: async () => {
+      await invalidate();
+    },
+  });
+}
+
+export function useClearNotificationMutation() {
+  const authFetch = useAuthenticatedFetch();
+  const invalidate = useInvalidateNotifications();
+
+  return useMutation({
+    mutationFn: (notificationId: string) =>
+      clearNotification(authFetch, notificationId),
+    onSuccess: async () => {
+      await invalidate();
     },
   });
 }

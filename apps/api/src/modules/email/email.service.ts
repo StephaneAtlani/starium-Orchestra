@@ -434,21 +434,62 @@ export class EmailService {
     });
 
     for (const recipient of recipients) {
-      await this.prisma.notification.create({
-        data: {
+      const existingNotif = await this.prisma.notification.findFirst({
+        where: {
           clientId: params.clientId,
           userId: recipient.userId,
           alertId: params.alertId,
-          type: NotificationType.ALERT,
-          title: params.title,
-          message: params.message,
-          status: NotificationStatus.UNREAD,
-          actionUrl: params.actionUrl ?? null,
-          alertSeverity: params.severity,
         },
+        select: { id: true },
       });
 
-      if (params.severity === 'CRITICAL') {
+      if (!existingNotif) {
+        try {
+          await this.prisma.notification.create({
+            data: {
+              clientId: params.clientId,
+              userId: recipient.userId,
+              alertId: params.alertId,
+              type: NotificationType.ALERT,
+              title: params.title,
+              message: params.message,
+              status: NotificationStatus.UNREAD,
+              actionUrl: params.actionUrl ?? null,
+              alertSeverity: params.severity,
+            },
+          });
+        } catch (error) {
+          if (
+            !(
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === 'P2002'
+            )
+          ) {
+            throw error;
+          }
+        }
+      }
+
+      if (params.severity !== 'CRITICAL') continue;
+
+      const existingEmail = await this.prisma.emailDelivery.findFirst({
+        where: {
+          alertId: params.alertId,
+          recipient: recipient.user.email,
+          templateKey: 'critical_alert',
+          status: {
+            in: [
+              EmailDeliveryStatus.PENDING,
+              EmailDeliveryStatus.SENT,
+              EmailDeliveryStatus.RETRYING,
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      if (existingEmail) continue;
+
+      try {
         await this.queueEmail({
           clientId: params.clientId,
           alertId: params.alertId,
@@ -459,6 +500,15 @@ export class EmailService {
           message: params.message,
           actionUrl: params.actionUrl,
         });
+      } catch (error) {
+        if (
+          !(
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          )
+        ) {
+          throw error;
+        }
       }
     }
   }

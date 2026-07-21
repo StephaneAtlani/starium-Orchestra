@@ -4787,6 +4787,8 @@ model Notification {
   @@index([clientId, userId, status])
   @@index([clientId, userId, createdAt])
   @@index([alertId])
+  /// Unicité partielle (clientId, userId, alertId) WHERE alertId IS NOT NULL :
+  /// voir migration 20260721080000_rfc_038_notification_email_fanout_dedup
 }
 
 model EmailDelivery {
@@ -4821,6 +4823,9 @@ model EmailDelivery {
   @@index([clientId, projectReviewId])
   @@index([alertId])
   @@index([recipient])
+  /// Unicité partielle (alertId, recipient, templateKey) WHERE alertId IS NOT NULL
+  /// AND templateKey = 'critical_alert' :
+  /// voir migration 20260721080000_rfc_038_notification_email_fanout_dedup
 }
 
 model AuditLogArchive {

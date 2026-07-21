@@ -169,6 +169,8 @@ Endpoints V1 :
 - `GET /api/notifications`
 - `PATCH /api/notifications/:id/read`
 - `PATCH /api/notifications/read-all`
+- `DELETE /api/notifications` (clear-all — suppression définitive user + client actif)
+- `DELETE /api/notifications/:id` (clear one)
 
 Exigences :
 
@@ -177,13 +179,14 @@ Exigences :
 - Tri par défaut : `createdAt desc`.
 - Guards + RBAC :
   - `GET /api/notifications` => `notifications.read`
-  - `PATCH /api/notifications/:id/read` et `PATCH /api/notifications/read-all` => `notifications.update`
+  - `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`, `DELETE /api/notifications`, `DELETE /api/notifications/:id` => `notifications.update`
 - Règle cloche V1 : tout utilisateur connecté au client actif doit pouvoir lire ses notifications personnelles ; `notifications.read` et `notifications.update` sont injectés **implicitement** par `EffectivePermissionsService` (socle — indépendant des profils `default-profiles.json`).
 - La visibilité de la cloche n’est pas conditionnée à `alerts.read`.
 - Filtrage `clientId` obligatoire ; le scope utilisateur courant ne retourne que **ses** notifications.
 - `GET /api/notifications` retourne strictement les notifications du `userId` courant dans le `clientId` actif.
 - Le badge de cloche doit compter strictement `status = unread`.
 - `PATCH /api/notifications/read-all` agit uniquement sur `userId` courant + `clientId` actif.
+- `DELETE /api/notifications` et `DELETE /:id` agissent uniquement sur `userId` courant + `clientId` actif ; n’impactent ni les `Alert` ni les `EmailDelivery`.
 
 ### 4.4 EmailModule
 
@@ -284,6 +287,25 @@ Déclenchement:
 - **`severity = critical`** : en plus des notifications, **enqueuer un job email** (file BullMQ), comme défini précédemment.
 - **`severity != critical`** : **notifications uniquement** (pas d’email).
 
+#### Fan-out idempotent (anti-boucle cron)
+
+`AlertsService.upsertAlert` est idempotent sur **l’Alert et les canaux** :
+
+| Code | Règle |
+|------|--------|
+| A1 | Une alerte ACTIVE unique par `(clientId, type, severity, entityType, entityId, ruleCode)`. |
+| A2 | Condition disparue → `resolveStaleByRule` → `RESOLVED`. |
+| A3 | Après `RESOLVED`/`DISMISSED`, condition vraie à nouveau → nouvelle Alert → nouveau fan-out. |
+| N1 | Fan-out notif seulement si aucune ligne `(clientId, userId, alertId)`. |
+| N2 | Jamais recréer ni repasser `READ` → `UNREAD` sur re-évaluation. |
+| N3 | Update Alert ACTIVE : maj titre/message ; ne pas toucher aux notifications existantes. |
+| N4 | Nouvel admin sans notif : reçoit 1 notif à la prochaine éval (N1), sans re-spammer les autres. |
+| E1 | Email seulement si `CRITICAL`. |
+| E2 | Au plus un `EmailDelivery` `critical_alert` par `(alertId, recipient)` tant que status ∈ `PENDING`/`SENT`/`RETRYING`. |
+| E3 | Pas d’email sur update d’Alert déjà notifiée. |
+
+Index uniques partiels (défense multi-instances) : `Notification_client_user_alert_unique_idx`, `EmailDelivery_critical_alert_dedup_unique_idx` — migration `20260721080000_rfc_038_notification_email_fanout_dedup` (inclut cleanup des doublons existants).
+
 Destinataires V1 (pour les alertes transformées en notifications / emails) :
 
 - utilisateurs du client avec permission `alerts.read` ou rôle `CLIENT_ADMIN`
@@ -295,6 +317,7 @@ Clarification RBAC :
 
 - La **sélection des destinataires d’une alerte** s’appuie sur `alerts.read` (ou `CLIENT_ADMIN`).
 - La **lecture des notifications personnelles** s’appuie sur `notifications.read`.
+- Les mutations cloche (`read`, `read-all`, `DELETE`) s’appuient sur `notifications.update`.
 
 ### 4.9 Audit logs
 
@@ -307,6 +330,8 @@ Clarification RBAC :
 - `email.failed`
 - `notification.created`
 - `notification.read`
+- `notification.cleared` (clear-all)
+- `notification.deleted` (clear one)
 
 Champs minimum recommandés dans les événements:
 
@@ -334,9 +359,14 @@ Priorisation de livraison V1:
 - Badge = **nombre de notifications `unread`** (pas le nombre d’`Alert`).
 - Liste des notifications : titre, message, statut lu/non lu.
 - **Priorité visuelle** selon la sévérité **uniquement si** la notification est liée à une alerte : exposer un champ dérivé API (ex. `alertSeverity`) ou équivalent **sans** logique métier côté UI.
-- Actions : marquer comme lu (`read` / `read-all`), navigation vers l’entité (`entityType` / `entityId` ou équivalent enrichi avec libellés).
+- Actions :
+  - marquer comme lu (`PATCH …/read`, `PATCH …/read-all`)
+  - **effacer une** (`DELETE /api/notifications/:id`)
+  - **effacer tout** (`DELETE /api/notifications`) — confirmation UI obligatoire ; suppression définitive des lignes du user + client actif
+  - navigation vers l’entité (`actionUrl` / libellés métier)
 - **La cloche n’affiche pas directement les `Alert`** ; les écrans qui manipulent les alertes restent sur `/api/alerts`.
-- V1 : pas de suppression de notification depuis la cloche ; `DELETE /api/notifications/:id` hors scope.
+- Clear-all / clear-one **n’impactent pas** les `Alert` ni les `EmailDelivery` déjà créés.
+- Règles cloche : C1 Tout lu ; C2 Effacer tout (DELETE) ; C3 Effacer une ; C4 scope user+client strict ; C5 empty state + `aria-live` ; C6 confirmation avant clear-all.
 
 Aucune règle métier locale : le frontend ne fait que consommer les APIs.
 
@@ -372,10 +402,11 @@ Aucune règle métier locale : le frontend ne fait que consommer les APIs.
 ### Backend
 
 - Unit tests `AlertsService` (création, resolve, dismiss, triggers, scoping client, **création des `Notification` associées**).
-- Unit tests `NotificationsService` (liste paginée, read, read-all, isolation `clientId` + `userId`).
+- Unit tests `NotificationsService` (liste paginée, read, read-all, clear-all, clear-one, isolation `clientId` + `userId`).
 - Tests RBAC/guards sur endpoints alertes et notifications.
 - Tests d’isolation multi-tenant (aucune fuite inter-client).
 - Test anti-doublon: une alerte active identique est mise à jour, pas recréée.
+- Test anti-boucle canaux: re-upsert Alert ACTIVE → 0 `notification.create`, 0 `queueEmail` si déjà diffusée.
 - Tests queue: création job `send_email`, retry, erreurs.
 - Tests worker: traitement job, succès, échec, audit.
 - Tests destinataires: exclusion suspendus/invités.
@@ -390,7 +421,7 @@ Aucune règle métier locale : le frontend ne fait que consommer les APIs.
 ### Frontend
 
 - Tests UI panel alertes critiques (loading/empty/data/error).
-- Tests Bell : liste notifications, badge unread, mark read / read-all.
+- Tests Bell : liste notifications, badge unread, mark read / read-all, clear-all (confirm), clear one.
 - Tests actions resolve/dismiss (mutation + refresh compteur).
 - Vérification affichage de valeurs métier (jamais d’ID brut visible).
 
@@ -412,7 +443,9 @@ Alignement **code / schéma Prisma** (à distinguer des libellés métier minusc
 - Migration : `apps/api/prisma/migrations/20260425195500_rfc_038_alerts_notifications_async_email/` — index unique partiel anti-doublon alertes actives `Alert_active_dedup_unique_idx` sur `(clientId, type, severity, entityType, entityId, ruleCode)` avec `WHERE status = 'ACTIVE'`.
 - Modules Nest enregistrés dans `apps/api/src/app.module.ts` : `AlertsModule`, `NotificationsModule`, `QueueModule`, `EmailModule`. Code sous `apps/api/src/modules/alerts/`, `notifications/`, `queue/`, `email/`.
 - Worker sans HTTP : `apps/api/src/worker/main.ts` + `WorkerModule` ; script `pnpm start:worker` depuis `apps/api` ; service Docker Compose **`api-worker`** (`docker-compose.yml`).
-- Orchestration : `AlertsService.upsertAlert` crée les `Notification` et enfile l’email si sévérité `CRITICAL` ; `AlertsService.resolveStaleByRule` résout les alertes actives devenues obsolètes.
+- Orchestration : `AlertsService.upsertAlert` upsert l’`Alert` ACTIVE puis fan-out **idempotent** (notif seulement si absente pour `(clientId,userId,alertId)` ; email CRITICAL seulement si aucun `EmailDelivery` actif) ; `AlertsService.resolveStaleByRule` résout les alertes actives devenues obsolètes.
+- Migration anti-boucle : `20260721080000_rfc_038_notification_email_fanout_dedup` (cleanup doublons + index uniques partiels).
+- API clear : `DELETE /api/notifications`, `DELETE /api/notifications/:id` (`notifications.update`).
 - Triggers **implémentés** : `AlertsTriggerService` — budget, projet, contrats (voir §4.7) ; `evaluateStrategicVisionAlerts` reste stub. Scheduler : `AlertsTriggerSchedulerService` (cron horaire par défaut).
 - API : `POST /api/alerts/evaluate` sur `AlertsController` (`alerts.update`).
 - **Socle RBAC implicite** (tout utilisateur authentifié, contexte client) :
@@ -448,7 +481,7 @@ Alignement **code / schéma Prisma** (à distinguer des libellés métier minusc
 - Ne jamais insérer de secrets/données sensibles dans `metadata`.
 - Conserver le périmètre V1 strict :
   - hors scope: SMS, push mobile, règles personnalisables par client, **préférences utilisateur notifications**, **filtrage personnalisé** des notifications, **multi-canal** (SMS, push), **digest** (email ou in-app).
-  - hors scope: suppression de notification (`DELETE`) en V1.
+  - **Dans le périmètre** : suppression notification (`DELETE /api/notifications`, `DELETE /:id`) + fan-out idempotent anti-boucle.
 
 ## Critères d’acceptation V1
 
@@ -458,6 +491,9 @@ Alignement **code / schéma Prisma** (à distinguer des libellés métier minusc
 - Worker opérationnel indépendamment du process API.
 - Audit complet des événements alertes, notifications et emails.
 - Une alerte critique identique ne génère pas plusieurs emails en boucle.
+- Une re-évaluation cron d’une Alert ACTIVE déjà notifiée ne recrée ni notification ni email pour les destinataires déjà couverts.
+- `DELETE /api/notifications` (clear-all) et `DELETE /:id` n’impactent pas les `Alert` ni les `EmailDelivery`.
+- Un utilisateur d’un autre client / un autre user ne peut pas supprimer les notifications hors de son scope.
 - Un utilisateur sans `alerts.read` ne voit aucune alerte via `GET /api/alerts` — **sauf** socle implicite : tout utilisateur authentifié reçoit `alerts.read` via `EffectivePermissionsService`.
 - Un utilisateur sans `notifications.read` ne voit aucune notification via `GET /api/notifications` (cloche vide côté données) — **sauf** socle implicite : tout utilisateur authentifié reçoit `notifications.read` / `notifications.update`.
 - Une alerte génère des **notifications par utilisateur** destinataire (règle V1).

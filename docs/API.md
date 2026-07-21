@@ -1339,7 +1339,23 @@ Socle transverse **distinct** de `GET /api/strategic-vision/alerts` (§5.3). Tou
 - **Permission** : `notifications.update`  
 - Effet : toutes les notifications **UNREAD** du **user courant** + **client actif** uniquement.
 
+### DELETE /api/notifications
+
+- **Permission** : `notifications.update`
+- Effet : suppression définitive de **toutes** les notifications du **user courant** + **client actif** (lues et non lues).
+- **Réponse 200** : `{ deleted: number }`
+- N’impacte ni les `Alert` ni les `EmailDelivery`.
+- Audit : `notification.cleared`.
+
+### DELETE /api/notifications/:id
+
+- **Permission** : `notifications.update`
+- Effet : suppression d’une notification scopée user + client ; **404** si hors scope.
+- **Réponse 200** : `{ deleted: 1 }`
+- Audit : `notification.deleted`.
+
 **Modules RBAC** : codes plateforme `alerts` et `notifications`. **Socle implicite** : `notifications.read`, `notifications.update` et `alerts.read` sont injectés à **tout** utilisateur authentifié par `EffectivePermissionsService` (indépendant des profils `default-profiles.json`). `alerts.update` reste porté par rôle (seed : « Client admin — alertes » pour les `CLIENT_ADMIN`). **Accès module** : `notifications` et `alerts` contournent la désactivation `ClientModule` et la visibilité par profil dans `ModuleAccessGuard` ; seul `Module.isActive = false` (plateforme) bloque. **Worker email** : traitement asynchrone des jobs `send_email` — process séparé (`api-worker` en Compose prod), voir [RFC-038](RFC/RFC-038%20%E2%80%94%20Socle%20alertes%20et%20emails%20async.md) et [ARCHITECTURE.md](../ARCHITECTURE.md) §7.
+- **Fan-out idempotent** : le cron horaire ne recrée pas notif/email pour une Alert ACTIVE déjà diffusée (voir RFC-038 §4.8).
 
 ## 6. Gestion des utilisateurs globaux — `/api/platform/users`
 

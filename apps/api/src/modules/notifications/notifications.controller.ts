@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequestUserId } from '../../common/decorators/request-user.decorator';
@@ -24,6 +32,15 @@ export class NotificationsController {
     return this.notificationsService.list(clientId!, userId!, query);
   }
 
+  @Patch('read-all')
+  @RequirePermissions('notifications.update')
+  markAllRead(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.notificationsService.markAllRead(clientId!, userId!);
+  }
+
   @Patch(':id/read')
   @RequirePermissions('notifications.update')
   markRead(
@@ -34,12 +51,22 @@ export class NotificationsController {
     return this.notificationsService.markRead(clientId!, userId!, id);
   }
 
-  @Patch('read-all')
+  @Delete()
   @RequirePermissions('notifications.update')
-  markAllRead(
+  clearAll(
     @ActiveClientId() clientId: string | undefined,
     @RequestUserId() userId: string | undefined,
   ) {
-    return this.notificationsService.markAllRead(clientId!, userId!);
+    return this.notificationsService.clearAll(clientId!, userId!);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('notifications.update')
+  clearOne(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.notificationsService.clearOne(clientId!, userId!, id);
   }
 }

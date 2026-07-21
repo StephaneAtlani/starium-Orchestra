@@ -100,3 +100,34 @@ export async function markAllNotificationsRead(
   }
   return res.json();
 }
+
+export async function clearAllNotifications(
+  authFetch: AuthFetch,
+): Promise<{ deleted: number }> {
+  const res = await authFetch('/api/notifications', {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new NotificationsApiError(
+      await extractErrorMessage(res, 'Suppression des notifications impossible'),
+      res.status,
+    );
+  }
+  return res.json();
+}
+
+export async function clearNotification(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<{ deleted: number }> {
+  const res = await authFetch(`/api/notifications/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new NotificationsApiError(
+      await extractErrorMessage(res, 'Suppression de la notification impossible'),
+      res.status,
+    );
+  }
+  return res.json();
+}

@@ -6,7 +6,8 @@ import { AlertsTriggerService } from './alerts-trigger.service';
 /**
  * RFC-038 — génération périodique des alertes métier (budget, projet, contrats).
  * Exécuté dans le process API (ScheduleModule.forRoot dans AppModule).
- * `upsertAlert` étant idempotent, une exécution multi-instances reste sûre.
+ * Idempotence : Alert ACTIVE dédupliquée + fan-out notif/email (N1/E2) —
+ * une exécution multi-instances / cron horaire ne re-spamme pas les canaux.
  */
 @Injectable()
 export class AlertsTriggerSchedulerService {

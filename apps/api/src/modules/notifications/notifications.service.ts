@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   NotificationStatus,
   NotificationType,
@@ -109,6 +109,46 @@ export class NotificationsService {
       newValue: { mode: 'read_all', updated: result.count },
     });
     return { updated: result.count };
+  }
+
+  /** Suppression définitive de toutes les notifications du user + client actif. */
+  async clearAll(clientId: string, userId: string) {
+    const result = await this.prisma.notification.deleteMany({
+      where: {
+        clientId,
+        userId,
+      },
+    });
+    await this.auditLogs.create({
+      clientId,
+      userId,
+      action: 'notification.cleared',
+      resourceType: 'notification',
+      newValue: { mode: 'clear_all', deleted: result.count },
+    });
+    return { deleted: result.count };
+  }
+
+  /** Suppression définitive d'une notification scopée user + client. */
+  async clearOne(clientId: string, userId: string, notificationId: string) {
+    const result = await this.prisma.notification.deleteMany({
+      where: {
+        id: notificationId,
+        clientId,
+        userId,
+      },
+    });
+    if (result.count === 0) {
+      throw new NotFoundException('Notification introuvable');
+    }
+    await this.auditLogs.create({
+      clientId,
+      userId,
+      action: 'notification.deleted',
+      resourceType: 'notification',
+      resourceId: notificationId,
+    });
+    return { deleted: result.count };
   }
 
   async createForUser(input: CreateNotificationForUserInput) {

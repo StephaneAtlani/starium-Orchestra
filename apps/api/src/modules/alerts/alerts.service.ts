@@ -2,8 +2,10 @@ import {
   AlertSeverity,
   AlertStatus,
   AlertType,
+  EmailDeliveryStatus,
   NotificationStatus,
   NotificationType,
+  Prisma,
 } from '@prisma/client';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -161,6 +163,11 @@ export class AlertsService {
     return stale.length;
   }
 
+  /**
+   * Upsert alerte ACTIVE (anti-doublon) puis fan-out canaux idempotent :
+   * - Notification : au plus une ligne par (clientId, userId, alertId)
+   * - Email CRITICAL : au plus un EmailDelivery actif par (alertId, recipient)
+   */
   async upsertAlert(input: UpsertAlertInput) {
     const existing = await this.prisma.alert.findFirst({
       where: {
@@ -217,6 +224,18 @@ export class AlertsService {
       });
     }
 
+    await this.fanOutAlertChannels(alert.id, input);
+    return alert;
+  }
+
+  /**
+   * Diffusion in-app + email CRITICAL, idempotente (N1/N2/E2).
+   * Nouvel admin sans notif existante : reçoit une notif à la prochaine éval.
+   */
+  private async fanOutAlertChannels(
+    alertId: string,
+    input: UpsertAlertInput,
+  ): Promise<void> {
     const recipients = await this.prisma.clientUser.findMany({
       where: {
         clientId: input.clientId,
@@ -247,33 +266,69 @@ export class AlertsService {
     });
 
     for (const recipient of recipients) {
-      await this.prisma.notification.create({
-        data: {
+      const existingNotif = await this.prisma.notification.findFirst({
+        where: {
           clientId: input.clientId,
           userId: recipient.userId,
-          alertId: alert.id,
-          type: NotificationType.ALERT,
-          title: input.title,
-          message: input.message,
-          status: NotificationStatus.UNREAD,
-          entityType: input.entityType ?? null,
-          entityId: input.entityId ?? null,
-          entityLabel: input.entityLabel ?? null,
-          actionUrl: input.actionUrl ?? null,
-          alertSeverity: input.severity,
+          alertId,
         },
-      });
-      await this.auditLogs.create({
-        clientId: input.clientId,
-        userId: input.actorUserId,
-        action: 'notification.created',
-        resourceType: 'notification',
+        select: { id: true },
       });
 
-      if (input.severity === AlertSeverity.CRITICAL) {
+      if (!existingNotif) {
+        try {
+          const created = await this.prisma.notification.create({
+            data: {
+              clientId: input.clientId,
+              userId: recipient.userId,
+              alertId,
+              type: NotificationType.ALERT,
+              title: input.title,
+              message: input.message,
+              status: NotificationStatus.UNREAD,
+              entityType: input.entityType ?? null,
+              entityId: input.entityId ?? null,
+              entityLabel: input.entityLabel ?? null,
+              actionUrl: input.actionUrl ?? null,
+              alertSeverity: input.severity,
+            },
+          });
+          await this.auditLogs.create({
+            clientId: input.clientId,
+            userId: input.actorUserId,
+            action: 'notification.created',
+            resourceType: 'notification',
+            resourceId: created.id,
+          });
+        } catch (error) {
+          if (!isUniqueViolation(error)) throw error;
+          // Course multi-instances : une notif existe déjà — skip.
+        }
+      }
+
+      if (input.severity !== AlertSeverity.CRITICAL) continue;
+
+      const existingEmail = await this.prisma.emailDelivery.findFirst({
+        where: {
+          alertId,
+          recipient: recipient.user.email,
+          templateKey: 'critical_alert',
+          status: {
+            in: [
+              EmailDeliveryStatus.PENDING,
+              EmailDeliveryStatus.SENT,
+              EmailDeliveryStatus.RETRYING,
+            ],
+          },
+        },
+        select: { id: true },
+      });
+      if (existingEmail) continue;
+
+      try {
         await this.emailService.queueEmail({
           clientId: input.clientId,
-          alertId: alert.id,
+          alertId,
           createdByUserId: input.actorUserId,
           recipient: recipient.user.email,
           templateKey: 'critical_alert',
@@ -281,9 +336,16 @@ export class AlertsService {
           message: input.message,
           actionUrl: input.actionUrl ?? null,
         });
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
       }
     }
-
-    return alert;
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  );
 }
