@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { useCollaboratorManagerOptions } from '@/features/teams/collaborators/hooks/use-collaborator-manager-options';
 import { useCollaboratorsList } from '@/features/teams/collaborators/hooks/use-collaborators-list';
 import { CollaboratorFiltersBar } from '@/features/teams/collaborators/components/collaborator-filters-bar';
@@ -74,11 +75,15 @@ export default function CollaboratorsPage() {
   const [filters, setFilters] = useState<CollaboratorsListParams>(initialFilters);
   const [newPersonModalOpen, setNewPersonModalOpen] = useState(false);
   const { has, isLoading: permsLoading, isSuccess: permsSuccess, isError: permsError } = usePermissions();
+  const { activeClient } = useActiveClient();
 
   const canRead = has('collaborators.read');
+  const canLinkPlatformUser =
+    activeClient?.role === 'CLIENT_ADMIN' && has('collaborators.link_platform_user');
   const enabled = permsSuccess && canRead;
   const listQuery = useCollaboratorsList(filters);
   const managersQuery = useCollaboratorManagerOptions('');
+  const linkRequiredFilter = filters.platformUserLinkStatus === 'LINK_REQUIRED';
 
   useEffect(() => {
     const next = toSearchParams(filters).toString();
@@ -99,8 +104,8 @@ export default function CollaboratorsPage() {
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
-          title="Collaborateurs"
-          description="Référentiel collaborateurs du client actif."
+          title="Collaborateurs annuaire"
+          description="Fiches synchronisées depuis l’annuaire. Rattachez-les aux comptes Starium (membres) pour le SSO Microsoft."
           actions={
             enabled ? (
               <div className="flex flex-wrap gap-2">
@@ -167,6 +172,19 @@ export default function CollaboratorsPage() {
               managerOptions={managersQuery.data?.items ?? []}
             />
 
+            {linkRequiredFilter && (
+              <Alert className="border-amber-500/35 bg-amber-500/5 dark:bg-amber-500/10">
+                <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />
+                <AlertTitle>Comptes Starium à rattacher</AlertTitle>
+                <AlertDescription>
+                  Collaborateurs synchronisés depuis l&apos;annuaire sans compte plateforme lié.
+                  {canLinkPlatformUser
+                    ? ' Ouvrez une fiche puis utilisez « Rattacher » pour associer le bon membre client (impact SSO Microsoft).'
+                    : ' Seul un administrateur client avec la permission de rattachement peut effectuer l’association.'}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {listQuery.isLoading && !data && <LoadingState rows={5} />}
             {listQuery.error && (
               <Alert variant="destructive">
@@ -183,7 +201,10 @@ export default function CollaboratorsPage() {
             {!listQuery.error && data && (
               <Card size="sm" className="overflow-hidden">
                 <CardContent className="p-0 overflow-auto">
-                  <CollaboratorsListTable items={data.items} />
+                  <CollaboratorsListTable
+                    items={data.items}
+                    canLinkPlatformUser={canLinkPlatformUser}
+                  />
                 </CardContent>
                 <CardFooter className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">

@@ -7,16 +7,20 @@ import { PlatformUserLinkBadge } from './platform-user-link-badge';
 export function CollaboratorDetailHeader({ collaborator }: { collaborator: CollaboratorListItem }) {
   return (
     <Card size="sm">
-      <CardContent className="flex flex-col gap-2 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+      <CardContent className="flex flex-col gap-3 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
             <h2 className="text-lg font-semibold">{collaborator.displayName}</h2>
             <p className="text-sm text-muted-foreground">{collaborator.email ?? '—'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <CollaboratorStatusBadge status={collaborator.status} />
             <CollaboratorSourceBadge source={collaborator.source} />
-            <PlatformUserLinkBadge status={collaborator.platformUserLinkStatus} />
+            {collaborator.source === 'DIRECTORY_SYNC' ? (
+              <PlatformUserLinkBadge
+                status={collaborator.platformUserLinkStatus ?? 'LINKED'}
+              />
+            ) : null}
           </div>
         </div>
         <div className="text-sm text-muted-foreground">

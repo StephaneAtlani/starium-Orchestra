@@ -14,8 +14,8 @@ const nextConfig: NextConfig = {
   ],
   async redirects() {
     return [
-      { source: '/teams/collaborators', destination: '/resources', permanent: false },
-      { source: '/teams/collaborators/:path*', destination: '/resources', permanent: false },
+      // Anciennes routes assignments → Ressources (pas de pages /teams/assignments).
+      // Ne pas rediriger /teams/collaborators : écrans admin annuaire (RFC-FE-TEAM-002).
       { source: '/teams/assignments', destination: '/resources', permanent: false },
       { source: '/teams/assignments/:path*', destination: '/resources', permanent: false },
       {

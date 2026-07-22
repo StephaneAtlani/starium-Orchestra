@@ -58,7 +58,11 @@ describe('platform navigation', () => {
     expect(teamsItem).toBeDefined();
     expect(teamsItem?.href).toBeUndefined();
     expect(teamsItem?.moduleCode).toBeUndefined();
-    expect(teamsItem?.requiredPermissions).toEqual(['skills.read', 'teams.read', 'resources.read']);
+    expect(teamsItem?.requiredPermissions).toEqual([
+      'skills.read',
+      'teams.read',
+      'resources.read',
+    ]);
     expect(teamsItem?.requiredPermissionsMatch).toBe('any');
     expect(teamsItem?.scope).toBe('client');
   });

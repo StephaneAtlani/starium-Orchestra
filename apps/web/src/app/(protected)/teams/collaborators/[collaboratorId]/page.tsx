@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { useCollaboratorDetail } from '@/features/teams/collaborators/hooks/use-collaborator-detail';
 import { CollaboratorDetailHeader } from '@/features/teams/collaborators/components/collaborator-detail-header';
 import { CollaboratorEditForm } from '@/features/teams/collaborators/components/collaborator-edit-form';
@@ -21,9 +22,11 @@ export default function CollaboratorDetailPage() {
   const params = useParams<{ collaboratorId: string }>();
   const collaboratorId = params?.collaboratorId ?? '';
   const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
+  const { activeClient } = useActiveClient();
   const canRead = has('collaborators.read');
   const canUpdate = has('collaborators.update');
-  const canLinkPlatformUser = has('collaborators.link_platform_user');
+  const canLinkPlatformUser =
+    activeClient?.role === 'CLIENT_ADMIN' && has('collaborators.link_platform_user');
 
   const query = useCollaboratorDetail(collaboratorId);
   const errorMessage = (query.error as Error | undefined)?.message ?? null;
@@ -33,15 +36,15 @@ export default function CollaboratorDetailPage() {
     <RequireActiveClient>
       <PageContainer>
         <PageHeader
-          title="Détail collaborateur"
-          description="Consultation et édition des champs métier autorisés."
+          title="Détail collaborateur annuaire"
+          description="Rattachement au compte Starium et édition des champs métier autorisés."
           actions={
             <Link
-              href="/teams/collaborators"
+              href="/client/administration/collaborators"
               className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
             >
               <ArrowLeft className="size-4" />
-              Retour liste
+              Retour Collaborateurs annuaire
             </Link>
           }
         />
@@ -75,7 +78,10 @@ export default function CollaboratorDetailPage() {
         {permsSuccess && canRead && query.data && (
           <div className="space-y-4">
             <CollaboratorDetailHeader collaborator={query.data} />
-            <LinkPlatformUserPanel collaborator={query.data} canLink={canLinkPlatformUser} />
+            <LinkPlatformUserPanel
+              collaborator={query.data}
+              canLink={canLinkPlatformUser}
+            />
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Édition</CardTitle>

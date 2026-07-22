@@ -142,7 +142,8 @@ export function CollaboratorFiltersBar({ filters, setFilters, managerOptions }: 
               type="button"
               size="sm"
               variant={filters.platformUserLinkStatus === 'LINK_REQUIRED' ? 'default' : 'outline'}
-              className="min-h-11"
+              className="min-h-11 gap-1.5"
+              aria-pressed={filters.platformUserLinkStatus === 'LINK_REQUIRED'}
               onClick={() =>
                 setFilters({
                   ...filters,

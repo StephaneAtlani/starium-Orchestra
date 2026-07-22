@@ -2142,6 +2142,10 @@ async function ensureClientAdminTeamsModuleRole(): Promise<void> {
     "resources.update",
     /** Création collaborateur MANUAL quand la ressource n’a pas encore de fiche Équipes. */
     "collaborators.create",
+    "collaborators.read",
+    "collaborators.update",
+    /** Rattachement compte Starium / SSO — réservé admin client (+ ClientAdminGuard API). */
+    "collaborators.link_platform_user",
   ] as const;
   const permissions = await prisma.permission.findMany({
     where: { code: { in: [...codes] } },

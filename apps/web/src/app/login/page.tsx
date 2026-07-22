@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LoginBrandPanel } from '@/features/auth/components/login-brand-panel';
 import { MicrosoftIcon } from '@/features/auth/components/microsoft-icon';
+import { humanizeFetchErrorMessage } from '@/lib/humanize-fetch-error';
 
 const BOOTSTRAP_FROM_LOGIN_KEY = 'starium.bootstrapFromLogin';
 const REMEMBER_LOGIN_KEY = 'starium.rememberLogin';
@@ -396,7 +397,11 @@ function LoginPageContent() {
       }
       router.replace(resolution.to);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Identifiants invalides');
+      setError(
+        humanizeFetchErrorMessage(
+          err instanceof Error ? err.message : 'Identifiants invalides',
+        ),
+      );
       setSubmitAction(null);
     }
   }
@@ -461,7 +466,11 @@ function LoginPageContent() {
       setMfaChallengeId(null);
       router.replace(resolution.to);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Code MFA invalide');
+      setError(
+        humanizeFetchErrorMessage(
+          err instanceof Error ? err.message : 'Code MFA invalide',
+        ),
+      );
       setSubmitAction(null);
     }
   }
@@ -531,7 +540,11 @@ function LoginPageContent() {
       setMfaChallengeId(null);
       router.replace(resolution.to);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Code invalide');
+      setError(
+        humanizeFetchErrorMessage(
+          err instanceof Error ? err.message : 'Code invalide',
+        ),
+      );
       setSubmitAction(null);
     }
   }
@@ -585,7 +598,11 @@ function LoginPageContent() {
       setMfaChallengeId(null);
       router.replace(resolution.to);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Code de secours invalide');
+      setError(
+        humanizeFetchErrorMessage(
+          err instanceof Error ? err.message : 'Code de secours invalide',
+        ),
+      );
       setSubmitAction(null);
     }
   }

@@ -18,6 +18,7 @@ import {
   KeyRound,
   Network,
   ClipboardList,
+  Link2,
 } from 'lucide-react';
 
 export default async function ClientAdministrationPage() {
@@ -38,6 +39,21 @@ export default async function ClientAdministrationPage() {
                 <h3 className="font-semibold">Membres</h3>
                 <p className="text-sm text-muted-foreground">
                   Gérer les utilisateurs et leurs rôles
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/client/administration/collaborators">
+          <Card className="transition-colors hover:bg-muted/50 cursor-pointer h-full">
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="rounded-lg bg-primary/10 p-3">
+                <Link2 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Collaborateurs annuaire</h3>
+                <p className="text-sm text-muted-foreground">
+                  Rattacher les fiches sync aux comptes Starium (SSO Microsoft)
                 </p>
               </div>
             </CardContent>

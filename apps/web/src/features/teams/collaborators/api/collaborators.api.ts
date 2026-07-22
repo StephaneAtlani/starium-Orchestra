@@ -10,7 +10,7 @@ import type {
 
 type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
-export type ApiFormError = Error & { status?: number };
+export type ApiFormError = Error & { status?: number; code?: string };
 
 function toQueryString(params: CollaboratorsListParams): string {
   const search = new URLSearchParams();
@@ -30,11 +30,24 @@ function toQueryString(params: CollaboratorsListParams): string {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const raw = (body as { message?: string | string[] })?.message;
-    const message = Array.isArray(raw) ? raw.join(', ') : (raw ?? 'Erreur lors de la requête');
+    const body = (await res.json().catch(() => ({}))) as {
+      message?: string | string[] | { message?: string; code?: string };
+      code?: string;
+    };
+    const raw = body.message;
+    let message = 'Erreur lors de la requête';
+    let code: string | undefined = typeof body.code === 'string' ? body.code : undefined;
+    if (typeof raw === 'string') {
+      message = raw;
+    } else if (Array.isArray(raw)) {
+      message = raw.join(', ');
+    } else if (raw && typeof raw === 'object') {
+      if (typeof raw.message === 'string') message = raw.message;
+      if (typeof raw.code === 'string') code = raw.code;
+    }
     const error = new Error(message) as ApiFormError;
     error.status = res.status;
+    if (code) error.code = code;
     throw error;
   }
   return res.json() as Promise<T>;
