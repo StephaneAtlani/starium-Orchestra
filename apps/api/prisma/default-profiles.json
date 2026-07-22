@@ -261,6 +261,7 @@
       "collaborators.create",
       "collaborators.update",
       "collaborators.delete",
+      "collaborators.link_platform_user",
       "teams.read",
       "teams.update",
       "teams.manage_scopes",

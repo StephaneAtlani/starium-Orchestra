@@ -16,6 +16,10 @@ import { MicrosoftTokenCryptoService } from '../../microsoft/microsoft-token-cry
 import { MicrosoftPlatformConfigService } from '../../microsoft/microsoft-platform-config.service';
 import { SecurityLogsService } from '../../security-logs/security-logs.service';
 import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
+import {
+  getEligibleUserIds,
+  resolveUserIdsByEmails,
+} from '../../../common/auth/platform-user-email-resolver';
 import { parseExpiration } from '../auth.constants';
 import { MicrosoftCallbackQueryDto } from './dto/microsoft-callback-query.dto';
 
@@ -379,13 +383,22 @@ export class MicrosoftSsoService {
           | 'user_without_valid_access';
       }
   > {
-    const primaryUsers = await this.prisma.user.findMany({
-      where: {
-        email: {
-          equals: normalizedEmail,
-          mode: 'insensitive',
-        },
-      },
+    const resolution = await resolveUserIdsByEmails(this.prisma, [normalizedEmail]);
+    const eligibleUserIds = getEligibleUserIds(resolution);
+
+    if (eligibleUserIds.length === 0) {
+      if (resolution.unverifiedIdentityUserIds.length > 0) {
+        return { ok: false, reason: 'email_not_verified' };
+      }
+      return { ok: false, reason: 'email_unknown' };
+    }
+    if (eligibleUserIds.length > 1) {
+      return { ok: false, reason: 'email_ambiguous' };
+    }
+
+    const userId = eligibleUserIds[0];
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
       select: {
         id: true,
         platformRole: true,
@@ -395,62 +408,11 @@ export class MicrosoftSsoService {
         },
       },
     });
-
-    const verifiedIdentities = await (this.prisma as any).userEmailIdentity.findMany({
-      where: {
-        emailNormalized: normalizedEmail,
-        isVerified: true,
-        isActive: true,
-      },
-      select: {
-        user: {
-          select: {
-            id: true,
-            platformRole: true,
-            clientUsers: {
-              where: { status: 'ACTIVE' },
-              select: { id: true },
-            },
-          },
-        },
-      },
-    });
-
-    const userMap = new Map<
-      string,
-      { id: string; platformRole: 'PLATFORM_ADMIN' | null; activeAccessCount: number }
-    >();
-    for (const user of primaryUsers) {
-      userMap.set(user.id, {
-        id: user.id,
-        platformRole: user.platformRole as 'PLATFORM_ADMIN' | null,
-        activeAccessCount: user.clientUsers.length,
-      });
-    }
-    for (const identity of verifiedIdentities) {
-      const user = identity.user;
-      userMap.set(user.id, {
-        id: user.id,
-        platformRole: user.platformRole as 'PLATFORM_ADMIN' | null,
-        activeAccessCount: user.clientUsers.length,
-      });
-    }
-
-    if (userMap.size === 0) {
-      const hasUnverified = await (this.prisma as any).userEmailIdentity.count({
-        where: { emailNormalized: normalizedEmail, isVerified: false },
-      });
-      if (hasUnverified > 0) {
-        return { ok: false, reason: 'email_not_verified' };
-      }
+    if (!user) {
       return { ok: false, reason: 'email_unknown' };
     }
-    if (userMap.size > 1) {
-      return { ok: false, reason: 'email_ambiguous' };
-    }
-    const user = [...userMap.values()][0];
     const hasValidAccess =
-      user.platformRole === 'PLATFORM_ADMIN' || user.activeAccessCount > 0;
+      user.platformRole === 'PLATFORM_ADMIN' || user.clientUsers.length > 0;
     if (!hasValidAccess) {
       return { ok: false, reason: 'user_without_valid_access' };
     }

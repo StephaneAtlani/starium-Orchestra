@@ -144,7 +144,46 @@ Envoyer:
 
 ---
 
-## 11) Références
+## 11) Doublon utilisateur après sync annuaire / SSO impossible
+
+### Symptômes
+
+- Connexion Microsoft : `/login?status=error&reason=email_ambiguous` ou `email_unknown`.
+- Deux comptes Starium pour la même personne (email perso + email pro).
+
+### Diagnostic SQL (prod, lecture seule)
+
+```sql
+SELECT id, email, "passwordLoginEnabled", "createdAt"
+FROM users WHERE email ILIKE '%<fragment>%';
+
+SELECT uei.*, u.email AS primary_email
+FROM user_email_identities uei
+JOIN users u ON u.id = uei."userId"
+WHERE uei."emailNormalized" ILIKE '%<fragment>%';
+
+SELECT cu.id, cu.status, cu.role, u.email
+FROM client_users cu JOIN users u ON u.id = cu."userId"
+WHERE u.email ILIKE '%<fragment>%';
+
+SELECT id, "userId", email, username, "externalDirectoryId", status
+FROM collaborators
+WHERE email ILIKE '%<fragment>%' OR username ILIKE '%<fragment>%';
+```
+
+Logs : `security_logs` avec `event = 'auth.microsoft_sso.failure'`.
+
+### Actions
+
+1. **Ne pas relancer** la sync annuaire avant réconciliation.
+2. Snapshot DB.
+3. Dry-run : `pnpm --filter @starium-orchestra/api exec ts-node scripts/reconcile-directory-duplicate-users.ts --dry-run --client-id=<uuid>`.
+4. Rattachement manuel si `USER_LINK_REQUIRED` : admin client → `POST /api/collaborators/:id/link-platform-user`.
+5. Réconciliation scriptée avec `--canonical-user-id` et `--duplicate-user-id` après validation humaine.
+
+---
+
+## 12) Références
 
 - `docs/API.md`
 - `docs/modules/client-rbac.md`

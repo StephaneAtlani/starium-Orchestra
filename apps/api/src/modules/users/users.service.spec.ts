@@ -16,6 +16,7 @@ import { ActiveClientCacheService } from '../../common/cache/active-client-cache
 import { UsersService } from './users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CollaboratorsService } from '../collaborators/collaborators.service';
+import { EmailReservationService } from '../../common/auth/email-reservation.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -50,41 +51,54 @@ describe('UsersService', () => {
       invalidate: jest.fn(),
     };
 
+    const emailReservationMock = {
+      reserveEmailsForNewUser: jest.fn().mockResolvedValue(undefined),
+      reserveEmailsForUser: jest.fn().mockResolvedValue(undefined),
+      assertEmailAvailableForUser: jest.fn().mockResolvedValue(undefined),
+      registerPrimaryEmail: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const prismaMock: Record<string, unknown> = {
+      user: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      clientUser: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        count: jest.fn(),
+      },
+      directoryConnection: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      collaborator: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      resource: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'res-1' }),
+        update: jest.fn().mockResolvedValue({}),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn(),
+    };
+    (prismaMock.$transaction as jest.Mock).mockImplementation((fn: (tx: unknown) => unknown) =>
+      fn(prismaMock),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         {
           provide: PrismaService,
-          useValue: {
-            user: {
-              findUnique: jest.fn(),
-              findMany: jest.fn(),
-              create: jest.fn(),
-              update: jest.fn(),
-            },
-            clientUser: {
-              findMany: jest.fn(),
-              findUnique: jest.fn(),
-              create: jest.fn(),
-              update: jest.fn(),
-              delete: jest.fn(),
-              count: jest.fn(),
-            },
-            directoryConnection: {
-              findFirst: jest.fn().mockResolvedValue(null),
-            },
-            collaborator: {
-              findMany: jest.fn().mockResolvedValue([]),
-              findFirst: jest.fn().mockResolvedValue(null),
-            },
-            resource: {
-              findFirst: jest.fn().mockResolvedValue(null),
-              findUnique: jest.fn(),
-              create: jest.fn().mockResolvedValue({ id: 'res-1' }),
-              update: jest.fn().mockResolvedValue({}),
-              delete: jest.fn().mockResolvedValue({}),
-            },
-          },
+          useValue: prismaMock,
         },
         {
           provide: ActiveClientCacheService,
@@ -102,6 +116,10 @@ describe('UsersService', () => {
             syncFromHumanIdentity: jest.fn().mockResolvedValue(undefined),
             clearMemberUserLink: jest.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          provide: EmailReservationService,
+          useValue: emailReservationMock,
         },
       ],
     }).compile();

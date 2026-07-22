@@ -41,6 +41,10 @@ export class ListCollaboratorsQueryDto {
   managerId?: string;
 
   @IsOptional()
+  @IsEnum(['LINK_REQUIRED', 'LINKED'])
+  platformUserLinkStatus?: 'LINK_REQUIRED' | 'LINKED';
+
+  @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()
   @Min(0)

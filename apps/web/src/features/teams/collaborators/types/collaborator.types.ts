@@ -1,5 +1,6 @@
 export type CollaboratorStatus = 'ACTIVE' | 'INACTIVE' | 'DISABLED_SYNC';
 export type CollaboratorSource = 'MANUAL' | 'DIRECTORY_SYNC';
+export type PlatformUserLinkStatus = 'LINK_REQUIRED' | 'LINKED';
 
 export type CollaboratorInternalTags = Record<string, unknown> | null;
 
@@ -7,6 +8,8 @@ export type CollaboratorListItem = {
   id: string;
   /** Compte plateforme lié (membre client) — identité pilotée par User. */
   linkedUserId: string | null;
+  /** Annuaire sans compte rattaché → action admin requise. */
+  platformUserLinkStatus?: PlatformUserLinkStatus;
   displayName: string;
   firstName: string | null;
   lastName: string | null;
@@ -37,6 +40,7 @@ export type CollaboratorsListParams = {
   source?: CollaboratorSource[];
   tag?: string[];
   managerId?: string;
+  platformUserLinkStatus?: PlatformUserLinkStatus;
   offset?: number;
   limit?: number;
 };

@@ -30,6 +30,10 @@ export function collaboratorSourceLabel(source: CollaboratorSource): string {
   }
 }
 
+export function platformUserLinkStatusLabel(status: 'LINK_REQUIRED' | 'LINKED'): string {
+  return status === 'LINK_REQUIRED' ? 'Compte Starium à rattacher' : 'Compte rattaché';
+}
+
 /** Libellé secondaire (email ou poste) — options managers ou ligne liste collaborateur. */
 export function collaboratorManagerSecondaryLabel(
   option: CollaboratorManagerOption | Pick<CollaboratorListItem, 'email' | 'jobTitle'>,

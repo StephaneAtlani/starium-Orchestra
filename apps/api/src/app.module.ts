@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuthCommonModule } from './common/auth/auth-common.module';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
@@ -65,6 +66,7 @@ import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AuthCommonModule,
     FeatureFlagsModule,
     CommonModule,
     HealthModule,

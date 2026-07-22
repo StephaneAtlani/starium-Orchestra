@@ -14,6 +14,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 describe('MeService', () => {
   let service: MeService;
   let prisma: any;
+  let emailReservation: {
+    assertEmailAvailableForUser: jest.Mock;
+    reserveEmailsForUser: jest.Mock;
+    registerIdentityEmail: jest.Mock;
+  };
   const securityLogs = { create: jest.fn() };
   const emailService = { queueEmail: jest.fn() };
   const mfa = {
@@ -88,6 +93,11 @@ describe('MeService', () => {
     const moduleVisibility = {
       getVisibleModuleCodesForUser: jest.fn().mockResolvedValue([]),
     };
+    emailReservation = {
+      assertEmailAvailableForUser: jest.fn().mockResolvedValue(undefined),
+      reserveEmailsForUser: jest.fn().mockResolvedValue(undefined),
+      registerIdentityEmail: jest.fn().mockResolvedValue(undefined),
+    };
     service = new MeService(
       prisma,
       securityLogs as any,
@@ -98,6 +108,7 @@ describe('MeService', () => {
       config as any,
       moduleVisibility as any,
       featureFlags as any,
+      emailReservation as any,
     );
   });
 
@@ -508,6 +519,13 @@ describe('MeService', () => {
         emailIdentityId: 'eid-1',
       } as any);
 
+      prisma.userEmailIdentity.findFirst.mockResolvedValue({
+        id: 'eid-1',
+        userId: 'user-1',
+        emailNormalized: 'secondary@example.com',
+        isActive: true,
+      } as any);
+
       prisma.emailIdentityVerificationToken.updateMany.mockResolvedValue({
         count: 1,
       } as any);
@@ -532,6 +550,7 @@ describe('MeService', () => {
           },
         }) as any,
       );
+      expect(emailReservation.reserveEmailsForUser).toHaveBeenCalled();
     });
 
     it('redirige vers l’URL erreur si token introuvable / expiré', async () => {

@@ -7,6 +7,7 @@ import type { DataTableColumn } from '@/components/data-table/data-table';
 import type { CollaboratorListItem } from '../types/collaborator.types';
 import { CollaboratorStatusBadge } from './collaborator-status-badge';
 import { CollaboratorSourceBadge } from './collaborator-source-badge';
+import { PlatformUserLinkBadge } from './platform-user-link-badge';
 
 export function CollaboratorsListTable({ items }: { items: CollaboratorListItem[] }) {
   const columns = useMemo<DataTableColumn<CollaboratorListItem>[]>(
@@ -33,6 +34,12 @@ export function CollaboratorsListTable({ items }: { items: CollaboratorListItem[
         header: 'Manager',
         mobilePriority: 'secondary',
         cell: (item) => item.managerDisplayName ?? '—',
+      },
+      {
+        key: 'link',
+        header: 'Compte',
+        mobilePriority: 'secondary',
+        cell: (item) => <PlatformUserLinkBadge status={item.platformUserLinkStatus} />,
       },
       {
         key: 'status',

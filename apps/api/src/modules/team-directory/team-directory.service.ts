@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -12,6 +13,7 @@ import {
   DirectorySyncJobStatus,
   DirectorySyncMode,
   ExternalDirectoryType,
+  Prisma,
 } from '@prisma/client';
 import bcrypt from '@/lib/bcrypt-compat';
 import { randomUUID } from 'crypto';
@@ -26,8 +28,40 @@ import { DirectoryConnectionsService } from './directory-connections.service';
 import { DirectoryProvider } from './providers/directory-provider.interface';
 import { MicrosoftGraphHttpError } from '../microsoft/microsoft-graph.types';
 import { MicrosoftGraphDirectoryProvider } from './providers/microsoft-graph-directory.provider';
+import { isAutoProvisionUsersEnabled } from '../../common/auth/directory-connection-metadata.util';
+import {
+  isEmailDomainAllowedForProvisioning,
+  readDirectoryProvisioningThresholds,
+  type DirectoryProvisioningThresholds,
+} from '../../common/auth/directory-connection-metadata.util';
+import {
+  applyDirectoryIdentityToPlatformUser,
+  collectDirectoryEmailCandidates,
+  type DirectoryIdentityProvenance,
+} from '../../common/auth/directory-identity-provisioning.util';
+import {
+  EMAIL_COLLISION_CODE,
+  EmailReservationService,
+} from '../../common/auth/email-reservation.service';
+import {
+  matchProvisioningFromResolution,
+  normalizeEmailCandidates,
+  resolveUserIdsByEmails,
+} from '../../common/auth/platform-user-email-resolver';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
+
+export type DirectorySyncEntryStatus =
+  | 'CREATED'
+  | 'UPDATED'
+  | 'SKIPPED'
+  | 'USER_LINK_REQUIRED';
+
+export type DirectorySyncSummaryEntry = {
+  externalDirectoryId: string;
+  status: DirectorySyncEntryStatus;
+  reasonCode?: string;
+};
 
 @Injectable()
 export class TeamDirectoryService {
@@ -37,6 +71,7 @@ export class TeamDirectoryService {
     private readonly collaborators: CollaboratorsService,
     private readonly connections: DirectoryConnectionsService,
     private readonly microsoftGraphProvider: MicrosoftGraphDirectoryProvider,
+    private readonly emailReservation: EmailReservationService,
   ) {}
 
   async testConnection(
@@ -58,21 +93,38 @@ export class TeamDirectoryService {
 
   async previewSync(clientId: string, dto: RunDirectorySyncDto) {
     const data = await this.collectSyncData(clientId, dto.connectionId);
-    const existing = await this.prisma.collaborator.findMany({
-      where: { clientId, source: CollaboratorSource.DIRECTORY_SYNC },
-      select: { externalDirectoryId: true },
-    });
-    const existingExternalIds = new Set(
-      existing
-        .map((c) => c.externalDirectoryId)
-        .filter((v): v is string => Boolean(v)),
-    );
+    const autoProvision = isAutoProvisionUsersEnabled(data.connection);
+    let userLinkRequiredCount = 0;
+    const entries: DirectorySyncSummaryEntry[] = [];
+
+    for (const user of data.users) {
+      const candidates = normalizeEmailCandidates([user.email, user.username]);
+      const resolution = await resolveUserIdsByEmails(this.prisma, candidates);
+      const match = matchProvisioningFromResolution(resolution);
+      let status: DirectorySyncEntryStatus = 'UPDATED';
+      if (match.kind === 'not_found' && !autoProvision) {
+        status = 'USER_LINK_REQUIRED';
+        userLinkRequiredCount++;
+      } else if (match.kind === 'ambiguous') {
+        status = 'SKIPPED';
+      } else if (match.kind === 'not_found' && autoProvision) {
+        status = 'CREATED';
+      }
+      entries.push({
+        externalDirectoryId: user.externalDirectoryId,
+        status,
+        ...(match.kind === 'ambiguous' ? { reasonCode: 'AMBIGUOUS' } : {}),
+      });
+    }
+
     return {
       mode: data.mode,
       totalFound: data.users.length,
       createCount: data.createCount,
       updateCount: data.updateCount,
       deactivateCount: data.deactivateCount,
+      userLinkRequiredCount,
+      entries,
       items: data.users.map((user) => ({
         externalDirectoryId: user.externalDirectoryId,
         displayName: user.displayName,
@@ -83,7 +135,8 @@ export class TeamDirectoryService {
         department: user.department,
         jobTitle: user.jobTitle,
         isActive: user.isActive,
-        action: existingExternalIds.has(user.externalDirectoryId) ? 'update' : 'create',
+        action: entries.find((e) => e.externalDirectoryId === user.externalDirectoryId)
+          ?.status,
       })),
       warnings: [] as string[],
       errors: [] as string[],
@@ -97,6 +150,9 @@ export class TeamDirectoryService {
     meta?: AuditMeta,
   ) {
     const data = await this.collectSyncData(clientId, dto.connectionId);
+    const autoProvision = isAutoProvisionUsersEnabled(data.connection);
+    const thresholds = readDirectoryProvisioningThresholds(data.connection);
+    const usersCreatedThisRun = { count: 0 };
     const job = await this.prisma.directorySyncJob.create({
       data: {
         clientId,
@@ -112,16 +168,51 @@ export class TeamDirectoryService {
     let updatedCount = 0;
     let skippedCount = 0;
     let deactivatedCount = 0;
+    let userLinkRequiredCount = 0;
+    const summaryEntries: DirectorySyncSummaryEntry[] = [];
+
+    let thresholdExceeded = false;
 
     try {
       const seenExternalIds = new Set<string>();
       for (const user of data.users) {
         seenExternalIds.add(user.externalDirectoryId);
-        const action = await this.collaborators.upsertFromDirectory(clientId, user);
-        if (action === 'created') createdCount++;
-        else if (action === 'updated') updatedCount++;
-        else skippedCount++;
-        await this.provisionDirectoryUserMembership(clientId, user);
+        try {
+          const entryResult = await this.processSyncEntry(
+            clientId,
+            dto.connectionId,
+            data.connection.providerType,
+            user,
+            autoProvision,
+            thresholds,
+            usersCreatedThisRun,
+            actorUserId,
+            meta,
+          );
+          summaryEntries.push({
+            externalDirectoryId: user.externalDirectoryId,
+            status: entryResult.status,
+            reasonCode: entryResult.reasonCode,
+          });
+          if (entryResult.status === 'CREATED') createdCount++;
+          else if (entryResult.status === 'UPDATED') updatedCount++;
+          else if (entryResult.status === 'USER_LINK_REQUIRED') {
+            userLinkRequiredCount++;
+            updatedCount++;
+          } else skippedCount++;
+        } catch (error) {
+          if (error instanceof SyncThresholdExceededError) {
+            thresholdExceeded = true;
+            skippedCount++;
+            summaryEntries.push({
+              externalDirectoryId: user.externalDirectoryId,
+              status: 'SKIPPED',
+              reasonCode: 'SECURITY_THRESHOLD_EXCEEDED',
+            });
+            break;
+          }
+          throw error;
+        }
       }
 
       deactivatedCount = await this.collaborators.deactivateMissingDirectoryCollaborators(
@@ -132,16 +223,21 @@ export class TeamDirectoryService {
       await this.prisma.directorySyncJob.update({
         where: { id: job.id },
         data: {
-          status: DirectorySyncJobStatus.COMPLETED,
+          status: thresholdExceeded
+            ? DirectorySyncJobStatus.FAILED
+            : DirectorySyncJobStatus.COMPLETED,
           finishedAt: new Date(),
           createdCount,
           updatedCount,
           skippedCount,
           deactivatedCount,
-          errorCount: 0,
+          errorCount: thresholdExceeded ? 1 : 0,
           summary: {
             providerType: data.connection.providerType,
             groupFiltered: data.mode === DirectorySyncMode.GROUP_FILTERED,
+            userLinkRequiredCount,
+            thresholdExceeded,
+            entries: summaryEntries,
           },
         },
       });
@@ -157,6 +253,7 @@ export class TeamDirectoryService {
           createdCount,
           updatedCount,
           deactivatedCount,
+          userLinkRequiredCount,
         },
         ipAddress: meta?.ipAddress,
         userAgent: meta?.userAgent,
@@ -171,6 +268,7 @@ export class TeamDirectoryService {
         updatedCount,
         deactivatedCount,
         skippedCount,
+        userLinkRequiredCount,
         errorCount: 0,
       };
     } catch (error) {
@@ -186,6 +284,7 @@ export class TeamDirectoryService {
           errorCount: 1,
           summary: {
             message: error instanceof Error ? error.message : 'Unknown error',
+            entries: summaryEntries,
           },
         },
       });
@@ -205,6 +304,243 @@ export class TeamDirectoryService {
       });
       throw error;
     }
+  }
+
+  private async processSyncEntry(
+    clientId: string,
+    connectionId: string,
+    connectionProviderType: DirectoryProviderType,
+    user: DirectoryCollaboratorInput,
+    autoProvision: boolean,
+    thresholds: DirectoryProvisioningThresholds,
+    usersCreatedThisRun: { count: number },
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ): Promise<{ status: DirectorySyncEntryStatus; reasonCode?: string }> {
+    const provenance: DirectoryIdentityProvenance = {
+      directoryConnectionId: connectionId,
+      externalDirectoryId: user.externalDirectoryId,
+      directorySourceType: connectionProviderType,
+      directoryLastSyncedAt: new Date(),
+    };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const upsert = await this.collaborators.upsertFromDirectory(clientId, user, tx);
+        const candidates = normalizeEmailCandidates([user.email, user.username]);
+        if (candidates.length === 0) {
+          return {
+            status: upsert.action === 'created' ? 'CREATED' : 'UPDATED',
+          };
+        }
+
+        const resolution = await resolveUserIdsByEmails(tx, candidates);
+        const match = matchProvisioningFromResolution(resolution);
+
+        if (match.kind === 'ambiguous') {
+          throw new SyncSkipError('AMBIGUOUS');
+        }
+
+        if (match.kind === 'not_found') {
+          if (!autoProvision) {
+            await tx.collaborator.update({
+              where: { id: upsert.collaboratorId },
+              data: { userId: null },
+            });
+            await this.auditLogs.create(
+              {
+                clientId,
+                userId: actorUserId,
+                action: 'collaborator_sync.entry_user_link_required',
+                resourceType: 'collaborator',
+                resourceId: upsert.collaboratorId,
+                newValue: { externalDirectoryId: user.externalDirectoryId },
+                ipAddress: meta?.ipAddress,
+                userAgent: meta?.userAgent,
+                requestId: meta?.requestId,
+              },
+              tx,
+            );
+            return { status: 'USER_LINK_REQUIRED' };
+          }
+          return this.autoProvisionDirectoryUser(tx, {
+            clientId,
+            connectionId,
+            connectionProviderType,
+            user,
+            collaboratorId: upsert.collaboratorId,
+            actorUserId,
+            meta,
+            upsertAction: upsert.action,
+            thresholds,
+            usersCreatedThisRun,
+            provenance,
+          });
+        }
+
+        await tx.collaborator.update({
+          where: { id: upsert.collaboratorId },
+          data: { userId: match.userId },
+        });
+        const directorySyncClientCount = await tx.collaborator.count({
+          where: { userId: match.userId, source: CollaboratorSource.DIRECTORY_SYNC },
+        });
+        await applyDirectoryIdentityToPlatformUser(tx, this.emailReservation, {
+          clientId,
+          userId: match.userId,
+          directoryInput: user,
+          directorySyncClientCount,
+          provenance,
+        });
+        await this.auditLogs.create(
+          {
+            clientId,
+            userId: actorUserId,
+            action: 'collaborator_sync.entry_updated',
+            resourceType: 'collaborator',
+            resourceId: upsert.collaboratorId,
+            newValue: { linkedUserId: match.userId },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            requestId: meta?.requestId,
+          },
+          tx,
+        );
+        return {
+          status: upsert.action === 'created' ? 'CREATED' : 'UPDATED',
+        };
+      });
+    } catch (error) {
+      if (error instanceof SyncSkipError) {
+        await this.auditLogs.create({
+          clientId,
+          userId: actorUserId,
+          action: 'collaborator_sync.entry_skipped',
+          resourceType: 'directory_sync_entry',
+          resourceId: user.externalDirectoryId,
+          newValue: { reasonCode: error.reasonCode },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+          requestId: meta?.requestId,
+        });
+        return { status: 'SKIPPED', reasonCode: error.reasonCode };
+      }
+      if (error instanceof ConflictException) {
+        const response = error.getResponse() as { code?: string };
+        const reasonCode =
+          response?.code === EMAIL_COLLISION_CODE ? 'EMAIL_COLLISION' : 'EMAIL_COLLISION';
+        await this.auditLogs.create({
+          clientId,
+          userId: actorUserId,
+          action: 'collaborator_sync.entry_skipped',
+          resourceType: 'directory_sync_entry',
+          resourceId: user.externalDirectoryId,
+          newValue: { reasonCode },
+          ipAddress: meta?.ipAddress,
+          userAgent: meta?.userAgent,
+          requestId: meta?.requestId,
+        });
+        return { status: 'SKIPPED', reasonCode };
+      }
+      throw error;
+    }
+  }
+
+  private async autoProvisionDirectoryUser(
+    tx: Prisma.TransactionClient,
+    params: {
+      clientId: string;
+      connectionId: string;
+      connectionProviderType: DirectoryProviderType;
+      user: DirectoryCollaboratorInput;
+      collaboratorId: string;
+      actorUserId?: string;
+      meta?: AuditMeta;
+      upsertAction: 'created' | 'updated' | 'skipped';
+      thresholds: DirectoryProvisioningThresholds;
+      usersCreatedThisRun: { count: number };
+      provenance: DirectoryIdentityProvenance;
+    },
+  ): Promise<{ status: DirectorySyncEntryStatus }> {
+    const primaryEmail =
+      params.user.email?.trim() || params.user.username?.trim() || null;
+    if (!primaryEmail?.includes('@')) {
+      throw new SyncSkipError('INVALID_EMAIL');
+    }
+    if (
+      !isEmailDomainAllowedForProvisioning(
+        primaryEmail,
+        params.thresholds.allowedEmailDomains,
+      )
+    ) {
+      throw new SyncSkipError('SECURITY_DOMAIN_DENIED');
+    }
+    if (params.usersCreatedThisRun.count >= params.thresholds.maxUsersCreatedPerRun) {
+      if (params.thresholds.stopOnThresholdExceeded) {
+        throw new SyncThresholdExceededError();
+      }
+      throw new SyncSkipError('SECURITY_THRESHOLD_EXCEEDED');
+    }
+    const emailCandidates = collectDirectoryEmailCandidates(params.user);
+    await this.emailReservation.reserveEmailsForNewUser(tx, emailCandidates);
+
+    const passwordHash = await bcrypt.hash(randomUUID(), 10);
+    const platformUser = await tx.user.create({
+      data: {
+        email: primaryEmail.toLowerCase(),
+        passwordHash,
+        firstName: params.user.firstName ?? null,
+        lastName: params.user.lastName ?? null,
+        department: params.user.department ?? null,
+        jobTitle: params.user.jobTitle ?? null,
+      },
+      select: { id: true },
+    });
+    await this.emailReservation.registerPrimaryEmail(tx, platformUser.id, primaryEmail);
+    params.usersCreatedThisRun.count += 1;
+
+    await tx.clientUser.create({
+      data: {
+        userId: platformUser.id,
+        clientId: params.clientId,
+        role: ClientUserRole.CLIENT_USER,
+        status:
+          params.user.isActive === false
+            ? ClientUserStatus.SUSPENDED
+            : ClientUserStatus.ACTIVE,
+      },
+    });
+
+    await tx.collaborator.update({
+      where: { id: params.collaboratorId },
+      data: { userId: platformUser.id },
+    });
+
+    await applyDirectoryIdentityToPlatformUser(tx, this.emailReservation, {
+      clientId: params.clientId,
+      userId: platformUser.id,
+      directoryInput: params.user,
+      directorySyncClientCount: 1,
+      provenance: params.provenance,
+    });
+
+    await this.auditLogs.create(
+      {
+        clientId: params.clientId,
+        userId: params.actorUserId,
+        action: 'collaborator_sync.entry_created',
+        resourceType: 'collaborator',
+        resourceId: params.collaboratorId,
+        newValue: { linkedUserId: platformUser.id, autoProvisioned: true },
+        ipAddress: params.meta?.ipAddress,
+        userAgent: params.meta?.userAgent,
+        requestId: params.meta?.requestId,
+      },
+      tx,
+    );
+
+    return {
+      status: params.upsertAction === 'created' ? 'CREATED' : 'UPDATED',
+    };
   }
 
   listJobs(clientId: string) {
@@ -359,106 +695,16 @@ export class TeamDirectoryService {
       user.department ?? '',
     ].join('|');
   }
+}
 
-  private async provisionDirectoryUserMembership(
-    clientId: string,
-    user: DirectoryCollaboratorInput,
-  ): Promise<void> {
-    const candidateEmail = user.email?.trim() || user.username?.trim() || null;
-    if (!candidateEmail || !candidateEmail.includes('@')) {
-      return;
-    }
+class SyncSkipError extends Error {
+  constructor(public readonly reasonCode: string) {
+    super(reasonCode);
+  }
+}
 
-    const normalizedEmail = candidateEmail.toLowerCase();
-    let platformUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        department: true,
-        jobTitle: true,
-      },
-    });
-
-    if (!platformUser) {
-      const passwordHash = await bcrypt.hash(randomUUID(), 10);
-      platformUser = await this.prisma.user.create({
-        data: {
-          email: normalizedEmail,
-          passwordHash,
-          firstName: user.firstName ?? null,
-          lastName: user.lastName ?? null,
-          department: user.department ?? null,
-          jobTitle: user.jobTitle ?? null,
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          department: true,
-          jobTitle: true,
-        },
-      });
-    } else {
-      const userPatch: {
-        firstName?: string | null;
-        lastName?: string | null;
-        department?: string | null;
-        jobTitle?: string | null;
-      } = {};
-
-      if ((platformUser.firstName ?? null) !== (user.firstName ?? null)) {
-        userPatch.firstName = user.firstName ?? null;
-      }
-      if ((platformUser.lastName ?? null) !== (user.lastName ?? null)) {
-        userPatch.lastName = user.lastName ?? null;
-      }
-      if ((platformUser.department ?? null) !== (user.department ?? null)) {
-        userPatch.department = user.department ?? null;
-      }
-      if ((platformUser.jobTitle ?? null) !== (user.jobTitle ?? null)) {
-        userPatch.jobTitle = user.jobTitle ?? null;
-      }
-
-      if (Object.keys(userPatch).length > 0) {
-        await this.prisma.user.update({
-          where: { id: platformUser.id },
-          data: userPatch,
-        });
-      }
-    }
-
-    const existingMembership = await this.prisma.clientUser.findUnique({
-      where: {
-        userId_clientId: {
-          userId: platformUser.id,
-          clientId,
-        },
-      },
-      select: { id: true, status: true },
-    });
-
-    const targetStatus =
-      user.isActive === false ? ClientUserStatus.SUSPENDED : ClientUserStatus.ACTIVE;
-
-    if (!existingMembership) {
-      await this.prisma.clientUser.create({
-        data: {
-          userId: platformUser.id,
-          clientId,
-          role: ClientUserRole.CLIENT_USER,
-          status: targetStatus,
-        },
-      });
-      return;
-    }
-
-    if (existingMembership.status !== targetStatus) {
-      await this.prisma.clientUser.update({
-        where: { id: existingMembership.id },
-        data: { status: targetStatus },
-      });
-    }
+class SyncThresholdExceededError extends Error {
+  constructor() {
+    super('SECURITY_THRESHOLD_EXCEEDED');
   }
 }

@@ -35,12 +35,15 @@ Le MVP livré utilise **Microsoft Graph** (Entra ID) comme provider annuaire dan
 * preview + exécution + historisation (`DirectorySyncJob`) ;
 * création / mise à jour / désactivation logique des `Collaborator`.
 
-En complément, l’exécution de sync alimente aussi les **membres client** :
+En complément, l’exécution de sync alimente les **membres client** avec le même matching que le SSO Microsoft :
 
-* provisioning automatique `User` + `ClientUser` à partir des entrées annuaire ;
-* rôle par défaut `CLIENT_USER` ;
-* statut `ClientUser` aligné sur l’état actif/inactif du compte annuaire ;
-* mise à jour des champs profil `User` (`firstName`, `lastName`, `department`, `jobTitle`) à chaque sync.
+* résolution `User.email` + `UserEmailIdentity` vérifiées (`platform-user-email-resolver`) ;
+* si aucun compte éligible : statut **`USER_LINK_REQUIRED`** (`Collaborator.userId` null) — pas de création silencieuse de `User` ;
+* provisioning automatique `User` + `ClientUser` **uniquement** si `DirectoryConnection.autoProvisionUsers === true` (défaut `false`) ;
+* identités annuaire `directoryManaged` sur le compte matched ;
+* rattachement manuel admin : `POST /api/collaborators/:id/link-platform-user` (permission `collaborators.link_platform_user`).
+
+Réservation globale des e-mails : `EmailReservationService` + verrous advisory PostgreSQL sur tous les flux d’écriture d’adresse.
 
 Quand l’option **"Verrouiller les collaborators synchronisés"** est active :
 

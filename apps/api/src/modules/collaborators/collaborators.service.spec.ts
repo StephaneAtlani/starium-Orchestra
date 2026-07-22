@@ -6,12 +6,22 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ClientUserRole,
+  ClientUserStatus,
   CollaboratorSource,
   CollaboratorStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CollaboratorsService } from './collaborators.service';
+import { EmailReservationService } from '../../common/auth/email-reservation.service';
+import { SensitiveOperationPolicyService } from '../../common/auth/sensitive-operation-policy.service';
+import * as resolver from '../../common/auth/platform-user-email-resolver';
+
+jest.mock('../../common/auth/platform-user-email-resolver', () => ({
+  normalizeEmailCandidates: jest.fn((emails: string[]) => emails.filter(Boolean)),
+  resolveUserIdsByEmails: jest.fn(),
+  matchProvisioningFromResolution: jest.fn(),
+}));
 
 describe('CollaboratorsService', () => {
   let service: CollaboratorsService;
@@ -61,6 +71,19 @@ describe('CollaboratorsService', () => {
         {
           provide: AuditLogsService,
           useValue: { create: jest.fn() },
+        },
+        {
+          provide: EmailReservationService,
+          useValue: {
+            reserveEmailsForUser: jest.fn(),
+            registerIdentityEmail: jest.fn(),
+          },
+        },
+        {
+          provide: SensitiveOperationPolicyService,
+          useValue: {
+            assertSensitiveAdminOperation: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();
@@ -349,5 +372,106 @@ describe('CollaboratorsService', () => {
         requestId: 'req-1',
       }),
     );
+  });
+
+  describe('linkDirectoryCollaboratorToPlatformUser', () => {
+    const directoryCollaborator = {
+      ...syncedCollaborator,
+      userId: null,
+      email: 'pro@client.fr',
+      username: 'pro@client.fr',
+      externalDirectoryId: 'ext-1',
+      lastSyncedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      (prisma.$transaction as jest.Mock).mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          ...prisma,
+          userEmailIdentity: {
+            findUnique: jest.fn().mockResolvedValue(null),
+            create: jest.fn().mockResolvedValue({
+              id: 'identity-1',
+              emailNormalized: 'pro@client.fr',
+            }),
+            update: jest.fn(),
+            findFirst: jest.fn().mockResolvedValue({ id: 'identity-1' }),
+          },
+          directoryEmailIdentityLink: { upsert: jest.fn().mockResolvedValue({}) },
+          user: {
+            findUnique: jest.fn().mockResolvedValue({
+              firstName: null,
+              lastName: null,
+              department: null,
+              jobTitle: null,
+            }),
+            update: jest.fn(),
+          },
+          collaborator: {
+            ...prisma.collaborator,
+            count: jest.fn().mockResolvedValue(1),
+            update: jest.fn().mockResolvedValue({}),
+          },
+          clientUser: {
+            findUnique: jest.fn().mockResolvedValue({
+              id: 'cu-1',
+              status: ClientUserStatus.ACTIVE,
+              defaultEmailIdentityId: null,
+            }),
+            create: jest.fn(),
+            update: jest.fn(),
+          },
+        }),
+      );
+      (resolver.resolveUserIdsByEmails as jest.Mock).mockResolvedValue({
+        primaryUserIds: [],
+        verifiedIdentityUserIds: [],
+        unverifiedIdentityUserIds: [],
+      });
+      (resolver.matchProvisioningFromResolution as jest.Mock).mockReturnValue({
+        kind: 'not_found',
+      });
+      (prisma.clientUser.findUnique as jest.Mock).mockResolvedValue({
+        status: ClientUserStatus.ACTIVE,
+      });
+      (prisma.collaborator.findFirst as jest.Mock).mockImplementation(
+        ({ where }: { where: { userId?: string; id?: { not: string } } }) => {
+          if (where.userId) return Promise.resolve(null);
+          return Promise.resolve(directoryCollaborator);
+        },
+      );
+      (prisma.directoryConnection.findFirst as jest.Mock).mockResolvedValue({
+        id: 'conn-1',
+        providerType: 'MICROSOFT_GRAPH',
+      });
+    });
+
+    it('exige MFA + réauth via SensitiveOperationPolicy', async () => {
+      const policy = (service as any).sensitiveOperationPolicy as {
+        assertSensitiveAdminOperation: jest.Mock;
+      };
+      await service.linkDirectoryCollaboratorToPlatformUser(
+        clientId,
+        directoryCollaborator.id,
+        { userId: 'user-target' },
+        'admin-1',
+      );
+      expect(policy.assertSensitiveAdminOperation).toHaveBeenCalledWith('admin-1');
+    });
+
+    it('refuse si collaborateur déjà rattaché', async () => {
+      (prisma.collaborator.findFirst as jest.Mock).mockResolvedValue({
+        ...directoryCollaborator,
+        userId: 'already-linked',
+      });
+      await expect(
+        service.linkDirectoryCollaboratorToPlatformUser(
+          clientId,
+          directoryCollaborator.id,
+          { userId: 'user-target' },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 });

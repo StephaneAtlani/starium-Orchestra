@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import {
   DirectoryProviderType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import {
+  isAutoProvisionUsersEnabled,
+  mergeAutoProvisionUsersMetadata,
+} from '../../common/auth/directory-connection-metadata.util';
+import { SensitiveOperationPolicyService } from '../../common/auth/sensitive-operation-policy.service';
 import { CreateDirectoryConnectionDto } from './dto/create-directory-connection.dto';
 import { CreateDirectoryGroupScopeDto } from './dto/create-directory-group-scope.dto';
 import { UpdateDirectoryConnectionDto } from './dto/update-directory-connection.dto';
@@ -17,13 +22,34 @@ export class DirectoryConnectionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly sensitiveOperationPolicy: SensitiveOperationPolicyService,
   ) {}
 
   async listConnections(clientId: string) {
-    return this.prisma.directoryConnection.findMany({
+    const rows = await this.prisma.directoryConnection.findMany({
       where: { clientId },
       orderBy: { updatedAt: 'desc' },
     });
+    return rows.map((row) => this.toConnectionResponse(row));
+  }
+
+  private toConnectionResponse(row: {
+    id: string;
+    clientId: string;
+    name: string;
+    providerType: DirectoryProviderType;
+    isActive: boolean;
+    isSyncEnabled: boolean;
+    lockSyncedCollaborators: boolean;
+    usersScope: Prisma.JsonValue | null;
+    metadata: Prisma.JsonValue | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      ...row,
+      autoProvisionUsers: isAutoProvisionUsersEnabled(row),
+    };
   }
 
   async createConnection(
@@ -76,6 +102,24 @@ export class DirectoryConnectionsService {
     });
     if (!existing) throw new NotFoundException('DirectoryConnection introuvable');
 
+    if (dto.autoProvisionUsers === true && !isAutoProvisionUsersEnabled(existing)) {
+      if (!actorUserId) {
+        throw new ForbiddenException('Utilisateur authentifié requis');
+      }
+      await this.sensitiveOperationPolicy.assertSensitiveAdminOperation(actorUserId);
+    }
+
+    let metadata: Prisma.InputJsonValue | undefined;
+    if (dto.metadata !== undefined) {
+      metadata = dto.metadata as Prisma.InputJsonValue;
+    }
+    if (dto.autoProvisionUsers !== undefined) {
+      metadata = mergeAutoProvisionUsersMetadata(
+        dto.metadata !== undefined ? (dto.metadata as Prisma.JsonValue) : existing.metadata,
+        dto.autoProvisionUsers,
+      );
+    }
+
     const updated = await this.prisma.directoryConnection.update({
       where: { id: existing.id },
       data: {
@@ -88,10 +132,7 @@ export class DirectoryConnectionsService {
           dto.usersScope === undefined
             ? undefined
             : (dto.usersScope as Prisma.InputJsonValue),
-        metadata:
-          dto.metadata === undefined
-            ? undefined
-            : (dto.metadata as Prisma.InputJsonValue),
+        ...(metadata !== undefined ? { metadata } : {}),
       },
     });
     await this.auditLogs.create({
@@ -106,7 +147,7 @@ export class DirectoryConnectionsService {
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
     });
-    return updated;
+    return this.toConnectionResponse(updated);
   }
 
   async testConnection(

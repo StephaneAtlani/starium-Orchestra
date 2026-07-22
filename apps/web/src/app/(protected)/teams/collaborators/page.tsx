@@ -22,6 +22,7 @@ import type {
   CollaboratorSource,
   CollaboratorStatus,
   CollaboratorsListParams,
+  PlatformUserLinkStatus,
 } from '@/features/teams/collaborators/types/collaborator.types';
 
 function parseCsv(value: string | null): string[] | undefined {
@@ -40,6 +41,8 @@ function parseFilters(searchParams: URLSearchParams): CollaboratorsListParams {
     source: parseCsv(searchParams.get('source')) as CollaboratorSource[] | undefined,
     tag: parseCsv(searchParams.get('tag')),
     managerId: searchParams.get('managerId') ?? undefined,
+    platformUserLinkStatus:
+      (searchParams.get('platformUserLinkStatus') as PlatformUserLinkStatus | null) ?? undefined,
     offset: Number(searchParams.get('offset') ?? 0),
     limit: Number(searchParams.get('limit') ?? 20),
   };
@@ -52,6 +55,9 @@ function toSearchParams(filters: CollaboratorsListParams): URLSearchParams {
   if (filters.source?.length) params.set('source', filters.source.join(','));
   if (filters.tag?.length) params.set('tag', filters.tag.join(','));
   if (filters.managerId) params.set('managerId', filters.managerId);
+  if (filters.platformUserLinkStatus) {
+    params.set('platformUserLinkStatus', filters.platformUserLinkStatus);
+  }
   if (filters.offset) params.set('offset', String(filters.offset));
   if (filters.limit && filters.limit !== 20) params.set('limit', String(filters.limit));
   return params;

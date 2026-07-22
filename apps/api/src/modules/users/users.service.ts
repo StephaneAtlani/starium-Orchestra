@@ -34,6 +34,7 @@ import {
   humanResourceSummaryFromRow,
   type HumanResourceSummaryPayload,
 } from '../../common/utils/human-resource-catalog-label';
+import { EmailReservationService } from '../../common/auth/email-reservation.service';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -127,6 +128,7 @@ export class UsersService {
     private readonly activeClientCache: ActiveClientCacheService,
     private readonly auditLogs: AuditLogsService,
     private readonly collaborators: CollaboratorsService,
+    private readonly emailReservation: EmailReservationService,
   ) {}
 
   private toResponse(
@@ -331,25 +333,30 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        firstName: dto.firstName ?? null,
-        lastName: dto.lastName ?? null,
-      },
-    });
-    const clientUser = await this.prisma.clientUser.create({
-      data: {
-        userId: user.id,
-        clientId,
-        role: dto.role,
-        status: ClientUserStatus.ACTIVE,
-        licenseType: ClientUserLicenseType.READ_ONLY,
-        licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
-        subscriptionId: null,
-        excludeFromResourceCatalog: excludeCatalog,
-      },
+    const { user, clientUser } = await this.prisma.$transaction(async (tx) => {
+      await this.emailReservation.reserveEmailsForNewUser(tx, [dto.email]);
+      const createdUser = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName ?? null,
+          lastName: dto.lastName ?? null,
+        },
+      });
+      await this.emailReservation.registerPrimaryEmail(tx, createdUser.id, dto.email);
+      const createdClientUser = await tx.clientUser.create({
+        data: {
+          userId: createdUser.id,
+          clientId,
+          role: dto.role,
+          status: ClientUserStatus.ACTIVE,
+          licenseType: ClientUserLicenseType.READ_ONLY,
+          licenseBillingMode: ClientUserLicenseBillingMode.NON_BILLABLE,
+          subscriptionId: null,
+          excludeFromResourceCatalog: excludeCatalog,
+        },
+      });
+      return { user: createdUser, clientUser: createdClientUser };
     });
     await this.syncMemberDerivedIdentities(
       clientId,
@@ -397,24 +404,28 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        firstName: dto.firstName ?? null,
-        lastName: dto.lastName ?? null,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        createdAt: true,
-        updatedAt: true,
-        platformRole: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await this.emailReservation.reserveEmailsForNewUser(tx, [dto.email]);
+      const created = await tx.user.create({
+        data: {
+          email: dto.email,
+          passwordHash,
+          firstName: dto.firstName ?? null,
+          lastName: dto.lastName ?? null,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          createdAt: true,
+          updatedAt: true,
+          platformRole: true,
+        },
+      });
+      await this.emailReservation.registerPrimaryEmail(tx, created.id, dto.email);
+      return created;
     });
-    return user;
   }
 
   /**

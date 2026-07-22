@@ -1248,6 +1248,7 @@ async function ensureCollaboratorsModuleAndPermissions(): Promise<void> {
     { code: "collaborators.create", label: "Collaborateurs — création" },
     { code: "collaborators.update", label: "Collaborateurs — mise à jour" },
     { code: "collaborators.delete", label: "Collaborateurs — suppression logique" },
+    { code: "collaborators.link_platform_user", label: "Collaborateurs — rattacher un compte plateforme (annuaire)" },
   ];
   for (const p of defs) {
     await prisma.permission.upsert({

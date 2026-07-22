@@ -607,6 +607,7 @@ model User {
   projectReviewActionItemContributions ProjectReviewActionItemContributor[]
   projectReviewParticipants            ProjectReviewParticipant[]
   emailIdentities                      UserEmailIdentity[]
+  emailAddressRegistryEntries          EmailAddressRegistry[]
   emailIdentityVerificationTokens    EmailIdentityVerificationToken[] @relation("EmailIdentityTokenUser")
   microsoftConnectionsConnected        MicrosoftConnection[]           @relation("MicrosoftConnectedBy")
   triggeredProjectMicrosoftTeamsProvisionings ProjectMicrosoftTeamsProvisioning[] @relation("ProjectMicrosoftTeamsProvisioningTriggeredBy")
@@ -637,6 +638,15 @@ model User {
   projectRequestsAsRequester           ProjectRequest[]                  @relation("ProjectRequestRequester")
   projectRequestsAsValidator           ProjectRequest[]                  @relation("ProjectRequestValidator")
   projectRequestsDecidedBy             ProjectRequest[]                  @relation("ProjectRequestDecidedBy")
+  lifecycleStatus                      UserLifecycleStatus               @default(ACTIVE)
+  mergedIntoUserId                     String?
+  mergedIntoUser                       User?                             @relation("UserMergeTarget", fields: [mergedIntoUserId], references: [id], onDelete: SetNull)
+  mergedFromUsers                      User[]                            @relation("UserMergeTarget")
+  mergedAt                             DateTime?
+  mergedByUserId                       String?
+  mergeOperationId                     String?
+  userMergeOperations                  UserMergeOperation[]              @relation("UserMergeCanonical")
+  userMergeOperationsAsDuplicate       UserMergeOperation[]              @relation("UserMergeDuplicate")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -658,9 +668,101 @@ model UserEmailIdentity {
   updatedAt          DateTime     @updatedAt
   clientUsersDefault ClientUser[] @relation("ClientUserDefaultEmail")
   verificationTokens EmailIdentityVerificationToken[] @relation("EmailIdentityTokenEmailIdentity")
+  registryEntry      EmailAddressRegistry?
+  directoryLinks     DirectoryEmailIdentityLink[]
 
   @@unique([userId, emailNormalized])
   @@index([userId])
+}
+
+enum EmailAddressRegistryType {
+  PRIMARY
+  SECONDARY
+  DIRECTORY
+}
+
+enum EmailAddressRegistryStatus {
+  ACTIVE
+  INACTIVE
+  QUARANTINED
+}
+
+/// Registre global des adresses e-mail (Lot 1 — unicité PostgreSQL).
+model EmailAddressRegistry {
+  id                  String                     @id @default(cuid())
+  emailNormalized     String                     @unique
+  userId              String
+  user                User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userEmailIdentityId String?                    @unique
+  userEmailIdentity   UserEmailIdentity?         @relation(fields: [userEmailIdentityId], references: [id], onDelete: SetNull)
+  type                EmailAddressRegistryType
+  status              EmailAddressRegistryStatus @default(ACTIVE)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  @@index([userId])
+}
+
+enum DirectoryIdentityProvenanceStatus {
+  ACTIVE
+  LEGACY_UNATTRIBUTED
+  REVOKED
+}
+
+/// Provenance multi-connexion des identités annuaire (Lot 2).
+model DirectoryEmailIdentityLink {
+  id                    String                            @id @default(cuid())
+  userEmailIdentityId   String
+  userEmailIdentity     UserEmailIdentity                 @relation(fields: [userEmailIdentityId], references: [id], onDelete: Cascade)
+  directoryConnectionId String
+  directoryConnection   DirectoryConnection               @relation(fields: [directoryConnectionId], references: [id], onDelete: Cascade)
+  externalDirectoryId   String
+  directorySourceType   DirectoryProviderType
+  directoryLastSyncedAt DateTime?
+  directoryManaged      Boolean                           @default(true)
+  provenanceStatus      DirectoryIdentityProvenanceStatus @default(ACTIVE)
+  emailNormalized       String
+  createdAt             DateTime                          @default(now())
+  updatedAt             DateTime                          @updatedAt
+
+  @@unique([directoryConnectionId, externalDirectoryId, emailNormalized])
+  @@unique([userEmailIdentityId, directoryConnectionId])
+  @@index([userEmailIdentityId])
+}
+
+enum UserLifecycleStatus {
+  ACTIVE
+  MERGE_PENDING
+  MERGED_QUARANTINED
+  DELETED
+}
+
+enum UserMergeOperationStatus {
+  PLANNED
+  RUNNING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+}
+
+model UserMergeOperation {
+  id                String                   @id @default(cuid())
+  mergeOperationId  String                   @unique @default(cuid())
+  status            UserMergeOperationStatus @default(PLANNED)
+  canonicalUserId   String
+  duplicateUserId   String
+  canonicalUser     User                     @relation("UserMergeCanonical", fields: [canonicalUserId], references: [id], onDelete: Restrict)
+  duplicateUser     User                     @relation("UserMergeDuplicate", fields: [duplicateUserId], references: [id], onDelete: Restrict)
+  planFileHash      String?
+  stepsCompleted    Json?
+  actorUserId       String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@index([canonicalUserId])
+  @@index([duplicateUserId])
 }
 
 /// Token de vérification pour une identité e-mail secondaire.
@@ -5135,6 +5237,7 @@ model DirectoryConnection {
   client      Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
   groupScopes DirectoryGroupScope[]
   syncJobs    DirectorySyncJob[]
+  directoryIdentityLinks DirectoryEmailIdentityLink[]
 
   @@index([clientId])
   @@index([clientId, isActive])

@@ -19,6 +19,9 @@ function toQueryString(params: CollaboratorsListParams): string {
   for (const source of params.source ?? []) search.append('source', source);
   for (const tag of params.tag ?? []) search.append('tag', tag);
   if (params.managerId) search.set('managerId', params.managerId);
+  if (params.platformUserLinkStatus) {
+    search.set('platformUserLinkStatus', params.platformUserLinkStatus);
+  }
   if (typeof params.offset === 'number') search.set('offset', String(params.offset));
   if (typeof params.limit === 'number') search.set('limit', String(params.limit));
   const value = search.toString();
@@ -105,4 +108,20 @@ export async function listCollaboratorManagerOptions(
   const query = search.toString();
   const res = await authFetch(`/api/collaborators/options/managers${query ? `?${query}` : ''}`);
   return handleResponse<CollaboratorOptionsResponse>(res);
+}
+
+export async function linkCollaboratorPlatformUser(
+  authFetch: AuthFetch,
+  collaboratorId: string,
+  userId: string,
+): Promise<CollaboratorListItem> {
+  const res = await authFetch(
+    `/api/collaborators/${encodeURIComponent(collaboratorId)}/link-platform-user`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    },
+  );
+  return handleResponse<CollaboratorListItem>(res);
 }

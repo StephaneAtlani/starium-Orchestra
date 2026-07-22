@@ -15,6 +15,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { useCollaboratorDetail } from '@/features/teams/collaborators/hooks/use-collaborator-detail';
 import { CollaboratorDetailHeader } from '@/features/teams/collaborators/components/collaborator-detail-header';
 import { CollaboratorEditForm } from '@/features/teams/collaborators/components/collaborator-edit-form';
+import { LinkPlatformUserPanel } from '@/features/teams/collaborators/components/link-platform-user-panel';
 
 export default function CollaboratorDetailPage() {
   const params = useParams<{ collaboratorId: string }>();
@@ -22,6 +23,7 @@ export default function CollaboratorDetailPage() {
   const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
   const canRead = has('collaborators.read');
   const canUpdate = has('collaborators.update');
+  const canLinkPlatformUser = has('collaborators.link_platform_user');
 
   const query = useCollaboratorDetail(collaboratorId);
   const errorMessage = (query.error as Error | undefined)?.message ?? null;
@@ -73,6 +75,7 @@ export default function CollaboratorDetailPage() {
         {permsSuccess && canRead && query.data && (
           <div className="space-y-4">
             <CollaboratorDetailHeader collaborator={query.data} />
+            <LinkPlatformUserPanel collaborator={query.data} canLink={canLinkPlatformUser} />
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Édition</CardTitle>

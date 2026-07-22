@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   ClientUserRole,
+  ClientUserStatus,
   CollaboratorSource,
   CollaboratorStatus,
   ExternalDirectoryType,
@@ -14,11 +15,25 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import {
+  applyDirectoryIdentityToPlatformUser,
+  collectDirectoryEmailCandidates,
+  type DirectoryIdentityProvenance,
+  upsertDirectoryManagedIdentity,
+} from '../../common/auth/directory-identity-provisioning.util';
+import { EmailReservationService } from '../../common/auth/email-reservation.service';
+import { SensitiveOperationPolicyService } from '../../common/auth/sensitive-operation-policy.service';
+import {
+  matchProvisioningFromResolution,
+  normalizeEmailCandidates,
+  resolveUserIdsByEmails,
+} from '../../common/auth/platform-user-email-resolver';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
 import { ListCollaboratorOptionsQueryDto } from './dto/list-collaborator-options.query.dto';
 import { ListCollaboratorsQueryDto } from './dto/list-collaborators.query.dto';
 import { UpdateCollaboratorDto } from './dto/update-collaborator.dto';
 import { UpdateCollaboratorStatusDto } from './dto/update-collaborator-status.dto';
+import { LinkPlatformUserDto } from './dto/link-platform-user.dto';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
 
@@ -53,6 +68,8 @@ export class CollaboratorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly emailReservation: EmailReservationService,
+    private readonly sensitiveOperationPolicy: SensitiveOperationPolicyService,
   ) {}
 
   /**
@@ -161,6 +178,12 @@ export class CollaboratorsService {
     }
     if (query.managerId) {
       where.managerId = query.managerId;
+    }
+    if (query.platformUserLinkStatus === 'LINK_REQUIRED') {
+      where.source = CollaboratorSource.DIRECTORY_SYNC;
+      where.userId = null;
+    } else if (query.platformUserLinkStatus === 'LINKED') {
+      where.userId = { not: null };
     }
 
     const offset = query.offset ?? 0;
@@ -560,14 +583,16 @@ export class CollaboratorsService {
   async upsertFromDirectory(
     clientId: string,
     input: DirectoryCollaboratorInput,
-  ): Promise<'created' | 'updated' | 'skipped'> {
-    const byExternalId = await this.prisma.collaborator.findFirst({
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ action: 'created' | 'updated' | 'skipped'; collaboratorId: string }> {
+    const db = tx ?? this.prisma;
+    const byExternalId = await db.collaborator.findFirst({
       where: { clientId, externalDirectoryId: input.externalDirectoryId },
     });
 
     const byFallback =
       byExternalId ??
-      (await this.prisma.collaborator.findFirst({
+      (await db.collaborator.findFirst({
         where: {
           clientId,
           OR: [
@@ -604,11 +629,11 @@ export class CollaboratorsService {
     };
 
     if (!byFallback) {
-      await this.prisma.collaborator.create({ data: payload });
-      return 'created';
+      const created = await db.collaborator.create({ data: payload });
+      return { action: 'created', collaboratorId: created.id };
     }
 
-    await this.prisma.collaborator.update({
+    await db.collaborator.update({
       where: { id: byFallback.id },
       data: {
         firstName: payload.firstName,
@@ -634,7 +659,162 @@ export class CollaboratorsService {
         internalNotes: byFallback.internalNotes ?? undefined,
       },
     });
-    return 'updated';
+    return { action: 'updated', collaboratorId: byFallback.id };
+  }
+
+  async linkDirectoryCollaboratorToPlatformUser(
+    clientId: string,
+    collaboratorId: string,
+    dto: LinkPlatformUserDto,
+    actorUserId?: string,
+    meta?: AuditMeta,
+  ) {
+    if (!actorUserId) {
+      throw new ForbiddenException('Utilisateur authentifié requis');
+    }
+    await this.sensitiveOperationPolicy.assertSensitiveAdminOperation(actorUserId);
+
+    const userId = dto.userId.trim();
+    const collaborator = await this.prisma.collaborator.findFirst({
+      where: { id: collaboratorId, clientId },
+    });
+    if (!collaborator) {
+      throw new NotFoundException('Collaborator introuvable');
+    }
+    if (collaborator.source !== CollaboratorSource.DIRECTORY_SYNC) {
+      throw new BadRequestException('Seuls les collaborateurs annuaire peuvent être rattachés');
+    }
+    if (collaborator.userId !== null) {
+      throw new ConflictException('Ce collaborateur est déjà rattaché à un compte');
+    }
+
+    const clientUser = await this.prisma.clientUser.findUnique({
+      where: { userId_clientId: { userId, clientId } },
+      select: { status: true },
+    });
+    if (!clientUser || clientUser.status !== ClientUserStatus.ACTIVE) {
+      throw new BadRequestException('Le compte sélectionné doit être membre actif du client');
+    }
+
+    const otherLinked = await this.prisma.collaborator.findFirst({
+      where: { clientId, userId, id: { not: collaboratorId } },
+      select: { id: true },
+    });
+    if (otherLinked) {
+      throw new ConflictException('Ce compte est déjà rattaché à un autre collaborateur');
+    }
+
+    const resolution = await resolveUserIdsByEmails(
+      this.prisma,
+      normalizeEmailCandidates([collaborator.email, collaborator.username]),
+    );
+    const match = matchProvisioningFromResolution(resolution);
+    if (match.kind === 'ambiguous') {
+      throw new ConflictException({
+        code: 'AMBIGUOUS',
+        message: 'Adresse ambiguë entre plusieurs comptes',
+      });
+    }
+    if (match.kind === 'matched' && match.userId !== userId) {
+      throw new ConflictException({
+        code: 'MATCHED_OTHER_USER',
+        message: 'Cette adresse correspond à un autre compte',
+      });
+    }
+
+    const emailCandidates = collectDirectoryEmailCandidates({
+      email: collaborator.email,
+      username: collaborator.username,
+    });
+    if (emailCandidates.length === 0) {
+      throw new BadRequestException('Aucune adresse e-mail annuaire exploitable');
+    }
+
+    const directoryConnection = await this.prisma.directoryConnection.findFirst({
+      where: { clientId, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, providerType: true },
+    });
+    const provenance: DirectoryIdentityProvenance | undefined =
+      directoryConnection && collaborator.externalDirectoryId
+        ? {
+            directoryConnectionId: directoryConnection.id,
+            externalDirectoryId: collaborator.externalDirectoryId,
+            directorySourceType: directoryConnection.providerType,
+            directoryLastSyncedAt: collaborator.lastSyncedAt ?? new Date(),
+          }
+        : undefined;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.emailReservation.reserveEmailsForUser(tx, userId, emailCandidates);
+        for (const email of emailCandidates) {
+          await upsertDirectoryManagedIdentity(tx, this.emailReservation, {
+            userId,
+            email,
+            displayName: collaborator.displayName,
+            provenance,
+          });
+        }
+        await tx.collaborator.update({
+          where: { id: collaboratorId },
+          data: { userId },
+        });
+        const directorySyncClientCount = await tx.collaborator.count({
+          where: { userId, source: CollaboratorSource.DIRECTORY_SYNC },
+        });
+        await applyDirectoryIdentityToPlatformUser(tx, this.emailReservation, {
+          clientId,
+          userId,
+          directoryInput: {
+            firstName: collaborator.firstName,
+            lastName: collaborator.lastName,
+            department: collaborator.department,
+            jobTitle: collaborator.jobTitle,
+            email: collaborator.email,
+            username: collaborator.username,
+            displayName: collaborator.displayName,
+            isActive: collaborator.status === CollaboratorStatus.ACTIVE,
+          },
+          directorySyncClientCount,
+          provenance,
+        });
+        await this.auditLogs.create(
+          {
+            clientId,
+            userId: actorUserId,
+            action: 'collaborator.platform_user_linked',
+            resourceType: 'collaborator',
+            resourceId: collaboratorId,
+            newValue: { linkedUserId: userId },
+            ipAddress: meta?.ipAddress,
+            userAgent: meta?.userAgent,
+            requestId: meta?.requestId,
+          },
+          tx,
+        );
+      });
+    } catch (error) {
+      await this.auditLogs.create({
+        clientId,
+        userId: actorUserId,
+        action: 'collaborator.platform_user_link_denied',
+        resourceType: 'collaborator',
+        resourceId: collaboratorId,
+        newValue: {
+          reason:
+            error instanceof ConflictException
+              ? (error.getResponse() as { code?: string })?.code ?? 'EMAIL_COLLISION'
+              : 'ERROR',
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+        requestId: meta?.requestId,
+      });
+      throw error;
+    }
+
+    return this.getById(clientId, collaboratorId);
   }
 
   async reconcileManagers(clientId: string): Promise<void> {
@@ -755,6 +935,11 @@ export class CollaboratorsService {
     return {
       id: collaborator.id,
       linkedUserId: collaborator.userId ?? null,
+      platformUserLinkStatus:
+        collaborator.source === CollaboratorSource.DIRECTORY_SYNC &&
+        collaborator.userId == null
+          ? ('LINK_REQUIRED' as const)
+          : ('LINKED' as const),
       displayName: collaborator.displayName,
       firstName: collaborator.firstName,
       lastName: collaborator.lastName,

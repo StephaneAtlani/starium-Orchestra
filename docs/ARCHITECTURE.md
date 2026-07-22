@@ -224,6 +224,26 @@ ClientUser
 
 L’unicité des adresses « triviales » est portée par **`emailNormalized`** avec **`@@unique([userId, emailNormalized])`**.
 
+#### 4.0.1 Gouvernance identité et e-mail (sync annuaire / SSO)
+
+Composants critiques :
+
+| Composant | Rôle |
+| --- | --- |
+| `EmailReservationService` | **Seule** porte d’entrée pour toute mutation `User.email` / `UserEmailIdentity.emailNormalized` (verrous advisory + collision). |
+| `EmailAddressRegistry` | Source de vérité PostgreSQL (`emailNormalized` UNIQUE) lorsque `EMAIL_REGISTRY_ENFORCED=true`. |
+| `DirectoryEmailIdentityLink` | Provenance annuaire multi-connexion (`ACTIVE` / `LEGACY_UNATTRIBUTED`). |
+| `SensitiveOperationPolicyService` | MFA TOTP + connexion récente (≤ 10 min) sur opérations sensibles (`link-platform-user`, activation `autoProvisionUsers`). |
+
+Règles d’évolution :
+
+- Aucun nouveau flux d’écriture e-mail sans passage par `EmailReservationService` — liste blanche : `apps/api/src/common/auth/email-write-paths.whitelist.ts` (test T63).
+- Toute nouvelle relation Prisma vers `User` → MAJ `apps/api/scripts/reconcile-user-fk-whitelist.ts`.
+- Sync annuaire : `USER_LINK_REQUIRED` par défaut ; création `User` uniquement si `autoProvisionUsers === true` (booléen strict) avec seuils `maxUsersCreatedPerRun` / `allowedEmailDomains`.
+- Réconciliation doublons : script `reconcile-directory-duplicate-users.ts` (dry-run obligatoire) ; pas de fusion ad hoc en prod.
+
+Voir aussi [RFC-TEAM-001](./RFC/RFC-TEAM-001%20—%20Synchronisation%20des%20collaborateurs%20depuis%20AD%20DS.md) §1.1 et `docs/security/identity-merge-checklist.md`.
+
 ### 4.1 Structure budgétaire
 
 ```text

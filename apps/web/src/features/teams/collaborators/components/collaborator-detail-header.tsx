@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { CollaboratorListItem } from '../types/collaborator.types';
 import { CollaboratorSourceBadge } from './collaborator-source-badge';
 import { CollaboratorStatusBadge } from './collaborator-status-badge';
+import { PlatformUserLinkBadge } from './platform-user-link-badge';
 
 export function CollaboratorDetailHeader({ collaborator }: { collaborator: CollaboratorListItem }) {
   return (
@@ -12,9 +13,10 @@ export function CollaboratorDetailHeader({ collaborator }: { collaborator: Colla
             <h2 className="text-lg font-semibold">{collaborator.displayName}</h2>
             <p className="text-sm text-muted-foreground">{collaborator.email ?? '—'}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <CollaboratorStatusBadge status={collaborator.status} />
             <CollaboratorSourceBadge source={collaborator.source} />
+            <PlatformUserLinkBadge status={collaborator.platformUserLinkStatus} />
           </div>
         </div>
         <div className="text-sm text-muted-foreground">

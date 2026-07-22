@@ -24,6 +24,7 @@ import {
   humanResourceSummaryFromRow,
   type HumanResourceSummaryPayload,
 } from '../../common/utils/human-resource-catalog-label';
+import { EmailReservationService } from '../../common/auth/email-reservation.service';
 
 @Injectable()
 export class ClientMembershipService {
@@ -31,6 +32,7 @@ export class ClientMembershipService {
     private readonly prisma: PrismaService,
     private readonly activeClientCache: ActiveClientCacheService,
     private readonly auditLogs: AuditLogsService,
+    private readonly emailReservation: EmailReservationService,
   ) {}
 
   /**
@@ -191,13 +193,18 @@ export class ClientMembershipService {
           );
         }
         const passwordHash = await bcrypt.hash(dto.password, 10);
-        const user = await this.prisma.user.create({
-          data: {
-            email: dto.email!,
-            passwordHash,
-            firstName: dto.firstName ?? null,
-            lastName: dto.lastName ?? null,
-          },
+        const user = await this.prisma.$transaction(async (tx) => {
+          await this.emailReservation.reserveEmailsForNewUser(tx, [dto.email!]);
+          const created = await tx.user.create({
+            data: {
+              email: dto.email!,
+              passwordHash,
+              firstName: dto.firstName ?? null,
+              lastName: dto.lastName ?? null,
+            },
+          });
+          await this.emailReservation.registerPrimaryEmail(tx, created.id, dto.email!);
+          return created;
         });
         userId = user.id;
       }
