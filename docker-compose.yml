@@ -57,6 +57,8 @@ x-api-base-env: &api-base-env
   # Ignoré en prod côté app ; laisser vide. Dev seulement.
   STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-}
   EMAIL_DELIVERIES_INLINE: ${EMAIL_DELIVERIES_INLINE:-}
+  # APP_PUBLIC_URL / WEB_ORIGIN : via `.env` / `apps/api/.env` / UI Dokploy (pas ici —
+  # un `${APP_PUBLIC_URL:-}` vide écraserait env_file). Obligatoire pour liens e-mail absolus.
 
 x-redis-healthcheck: &redis-healthcheck
   test: ["CMD", "redis-cli", "ping"]

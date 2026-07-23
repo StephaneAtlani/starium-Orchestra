@@ -13,7 +13,7 @@ import {
 } from '../project-audit.constants';
 import { buildProjectReviewInvitationActionUrl } from './project-review-invitation-labels';
 import { buildAppAbsoluteLink } from './project-review-report-branding.helpers';
-import { resolveProjectReviewReportAppBaseUrl } from './project-review-report.builder';
+import { requireProjectReviewReportAppBaseUrl } from './project-review-report.builder';
 import {
   normalizeExternalEmail,
   pseudonymizeEmail,
@@ -82,7 +82,15 @@ export class ProjectReviewEmailReportService {
       );
     }
 
-    const appBaseUrl = resolveProjectReviewReportAppBaseUrl();
+    let appBaseUrl: string;
+    try {
+      appBaseUrl = requireProjectReviewReportAppBaseUrl();
+    } catch (err) {
+      throw new BadRequestException(
+        (err as Error)?.message ??
+          'APP_PUBLIC_URL manquant pour les liens e-mail du compte rendu.',
+      );
+    }
     const actionUrl = buildAppAbsoluteLink(
       buildProjectReviewInvitationActionUrl(input.projectId, input.reviewId),
       appBaseUrl,

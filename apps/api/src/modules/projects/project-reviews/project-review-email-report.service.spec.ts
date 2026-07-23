@@ -57,7 +57,9 @@ describe('ProjectReviewEmailReportService', () => {
         templateKey: 'project_review_report',
         recipient: 'alice@example.com',
         htmlBody: '<p>Contenu CR</p>',
-        actionUrl: expect.stringContaining('/projects/p1?openReview=r1'),
+        actionUrl: expect.stringMatching(
+          /^https?:\/\/.+\/projects\/p1\?openReview=r1$/,
+        ),
       }),
     );
     expect(auditLogs.create).toHaveBeenCalledWith(

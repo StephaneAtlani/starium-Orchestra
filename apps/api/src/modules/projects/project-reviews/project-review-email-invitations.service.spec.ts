@@ -54,6 +54,9 @@ describe('ProjectReviewEmailInvitationsService', () => {
       expect.objectContaining({
         templateKey: 'project_review_invitation',
         recipient: 'ext@example.com',
+        actionUrl: expect.stringMatching(
+          /^https?:\/\/.+\/projects\/p1\?openReview=r1$/,
+        ),
       }),
     );
     expect(auditLogs.create).toHaveBeenCalledWith(

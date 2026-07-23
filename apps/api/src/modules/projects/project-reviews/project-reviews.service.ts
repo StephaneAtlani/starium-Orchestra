@@ -50,6 +50,7 @@ import {
 import {
   buildProjectReviewReportContent,
   parseProjectReviewSnapshotPayload,
+  requireProjectReviewReportAppBaseUrl,
   resolveProjectReviewReportAppBaseUrl,
 } from './project-review-report.builder';
 import {
@@ -1875,12 +1876,21 @@ export class ProjectReviewsService {
       projectId,
       review,
     );
+    let appBaseUrl: string;
+    try {
+      appBaseUrl = requireProjectReviewReportAppBaseUrl();
+    } catch (err) {
+      throw new BadRequestException(
+        (err as Error)?.message ??
+          'APP_PUBLIC_URL manquant pour les liens e-mail du compte rendu.',
+      );
+    }
     const report = buildProjectReviewReportContent({
       projectName: ctx.project.name,
       projectId,
       reviewId,
       snapshot,
-      appBaseUrl: resolveProjectReviewReportAppBaseUrl(),
+      appBaseUrl,
       clientOrganization,
     });
 

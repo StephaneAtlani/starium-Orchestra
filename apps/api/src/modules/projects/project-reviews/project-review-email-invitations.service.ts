@@ -17,6 +17,8 @@ import {
   buildProjectReviewInvitationTitle,
 } from './project-review-invitation-labels';
 import { normalizeExternalEmail, pseudonymizeEmail } from './project-review-invitation-privacy.helpers';
+import { buildAppAbsoluteLink } from './project-review-report-branding.helpers';
+import { requireProjectReviewReportAppBaseUrl } from './project-review-report.builder';
 
 export type ProjectReviewEmailInviteResult = {
   emailed: number;
@@ -104,9 +106,18 @@ export class ProjectReviewEmailInvitationsService {
       meetingMode: input.review.meetingMode,
       location: input.review.location,
     });
-    const actionUrl = buildProjectReviewInvitationActionUrl(
-      input.projectId,
-      input.reviewId,
+    let appBaseUrl: string;
+    try {
+      appBaseUrl = requireProjectReviewReportAppBaseUrl();
+    } catch (err) {
+      throw new BadRequestException(
+        (err as Error)?.message ??
+          'APP_PUBLIC_URL manquant pour les liens e-mail d’invitation.',
+      );
+    }
+    const actionUrl = buildAppAbsoluteLink(
+      buildProjectReviewInvitationActionUrl(input.projectId, input.reviewId),
+      appBaseUrl,
     );
     const meetingJoinUrl = input.review.meetingUrl?.trim() || null;
     const now = new Date();

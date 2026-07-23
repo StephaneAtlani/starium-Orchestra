@@ -837,3 +837,18 @@ export function resolveProjectReviewReportAppBaseUrl(): string | null {
   }
   return null;
 }
+
+/**
+ * Base URL absolue obligatoire pour les e-mails (Brevo / clients mail refuse les href relatifs).
+ * Sans APP_PUBLIC_URL|WEB_ORIGIN en prod, le CTA « Ouvrir dans Starium » finit en tracking sendibt3
+ * pointant vers un chemin relatif cassé.
+ */
+export function requireProjectReviewReportAppBaseUrl(): string {
+  const base = resolveProjectReviewReportAppBaseUrl();
+  if (!base) {
+    throw new Error(
+      'APP_PUBLIC_URL manquant : définissez l’URL publique du front (ex. https://app.example.com) pour les liens e-mail.',
+    );
+  }
+  return base;
+}
