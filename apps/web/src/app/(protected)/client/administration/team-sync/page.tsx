@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { TeamSyncSettings } from '@/features/team-sync/components/team-sync-settings';
 
 export default function TeamSyncAdministrationPage() {
@@ -21,12 +20,9 @@ export default function TeamSyncAdministrationPage() {
             Administration → Membres → Modifier le membre → section « Rattachement ADDS ↔ compte
             membre » (MFA + connexion récente). Pas de lien ADDS ↔ ADDS.
           </p>
-          <Link
-            href="/client/members"
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'inline-flex min-h-11')}
-          >
-            Ouvrir Membres
-          </Link>
+          <Button asChild variant="outline" size="sm" className="inline-flex min-h-11">
+            <Link href="/client/members">Ouvrir Membres</Link>
+          </Button>
         </AlertDescription>
       </Alert>
       <Alert className="mb-4">

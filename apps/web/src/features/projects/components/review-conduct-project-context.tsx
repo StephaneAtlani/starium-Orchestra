@@ -241,7 +241,10 @@ export function ReviewConductProjectContext({
   const tasksQuery = useProjectTasksQuery(projectId);
   const previousDetailQuery = useProjectReviewDetailQuery(projectId, previousReviewId);
 
-  const allMilestones = milestonesQuery.data?.items ?? [];
+  const allMilestones = useMemo(
+    () => milestonesQuery.data?.items ?? [],
+    [milestonesQuery.data?.items],
+  );
 
   const openRisks = useMemo(
     () => (risksQuery.data ?? []).filter((r) => r.status === 'OPEN'),

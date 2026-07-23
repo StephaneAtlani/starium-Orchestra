@@ -50,7 +50,10 @@ export function StrategicDirectionStrategyVersionComparePanel({
   strategyId: string;
 }) {
   const versionsQ = useStrategicDirectionStrategyVersionsQuery(strategyId);
-  const versions = versionsQ.data?.versions ?? [];
+  const versions = useMemo(
+    () => versionsQ.data?.versions ?? [],
+    [versionsQ.data?.versions],
+  );
   const defaultCompareIds = useMemo(() => {
     if (!versionsQ.data || versions.length < 2) return null;
     return pickDefaultCompareIds(versions, versionsQ.data.currentStrategyId);
