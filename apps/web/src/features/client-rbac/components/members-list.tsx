@@ -372,7 +372,7 @@ export function MembersList() {
         className="starium-panel overflow-hidden max-md:border-0 max-md:bg-transparent max-md:shadow-none"
       >
         <div className="border-b border-border/60 px-3 py-3 sm:px-4">
-          <FilterBar aria-label="Recherche membres" asSearch desktopColumns={1}>
+          <FilterBar aria-label="Recherche membres" asSearch desktopColumns="auto">
             <FilterBarField id="members-search" label="Rechercher">
               {({ controlId }) => (
                 <div className="relative">
