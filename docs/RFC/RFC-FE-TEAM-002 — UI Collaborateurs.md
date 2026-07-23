@@ -2,7 +2,7 @@
 
 ## Statut
 
-Implémentée (MVP FE)
+Implémentée (MVP FE) — **parcours rattachement ADDS recentré sur Membres (2026-07)**
 
 ## Priorité
 
@@ -16,6 +16,18 @@ Haute
 - `docs/ARCHITECTURE.md` — API-first, isolation multi-client, conventions frontend
 - `docs/FRONTEND_UI-UX.md` — règles UX/UI de base
 - `.cursorrules` + règle projet : afficher une valeur métier lisible, jamais un ID brut
+
+---
+
+# 0. État produit actuel (2026-07)
+
+- Les routes `/teams/collaborators` et `/teams/collaborators/[collaboratorId]` **redirigent** vers `/client/members` (`next.config` + pages `redirect`).
+- Le module `apps/web/src/features/teams/collaborators/*` reste comme **client API / helpers** (manager combobox, resources, erreurs `link-platform-user`) — plus d’UI liste/détail Collaborateurs dans le menu Équipes.
+- **Rattachement fiche ADDS ↔ compte membre** : UI dans `MemberDirectoryLinkSection` (`apps/web/src/features/client-rbac/components/member-directory-link-section.tsx`), ouverte depuis **Modifier** un membre sur `/client/members`.
+  - Cible autorisée : compte membre Starium (pas une identité ADDS sync).
+  - Combobox unique recherche + sélection des fiches `DIRECTORY_SYNC` + `LINK_REQUIRED`.
+  - Lien officiel uniquement (`Collaborator.userId`) : badge **Lié** + détacher ; MFA + reconnexion récente.
+- Liste Membres : colonne Annuaire (`ADDS` / `ADDS verrouillé`) + badge **Lié** (`Link2`) si `linkedDirectoryCollaborator` présent.
 
 ---
 
@@ -91,8 +103,12 @@ La RFC couvre:
 
 ## 4.2 Routes frontend
 
+**Historique MVP** (déprécié en navigation produit) :
+
 - `GET /teams/collaborators` -> liste + filtres + actions
 - `GET /teams/collaborators/[collaboratorId]` -> détail + édition
+
+**Depuis 2026-07** : ces routes **redirigent** vers `/client/members`. Le rattachement ADDS / compte se fait dans l’édition membre (section dédiée). Le code `features/teams/collaborators` reste pour l’API client et les combobox transverses (manager, etc.).
 
 Option v2 (hors MVP): drawer détail inline depuis la liste.
 

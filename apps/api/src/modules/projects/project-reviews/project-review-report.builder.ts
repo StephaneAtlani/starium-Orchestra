@@ -131,12 +131,26 @@ const ATTACHMENT_TYPE_LABEL: Record<string, string> = {
   OTHER: 'Autre',
 };
 
+/** Paliers (métier / comité / CODIR) + statut global legacy. */
 const ARBITRATION_STATUS_LABEL: Record<string, string> = {
   BROUILLON: 'Proposition',
   EN_COURS: 'En préparation',
   SOUMIS_VALIDATION: 'Soumis à validation',
   VALIDE: 'Validé',
   REFUSE: 'Refusé',
+  // Global (`arbitrationStatus`)
+  DRAFT: 'Brouillon',
+  TO_REVIEW: 'À arbitrer',
+  VALIDATED: 'Arbitrage validé',
+  REJECTED: 'Arbitrage refusé',
+};
+
+/** Aligné UI fiche budget (`ALLOCATION_MODE_LABELS`). */
+const ALLOCATION_TYPE_LABEL: Record<string, string> = {
+  FULL: 'Intégral (100 % de la ligne)',
+  PERCENTAGE: 'Pourcentage de la ligne',
+  BUDGET_PERCENTAGE: 'Pourcentage du budget',
+  FIXED: 'Montant fixe',
 };
 
 /* ── Utils ──────────────────────────────────────────────────────────────── */
@@ -355,7 +369,8 @@ export function buildProjectReviewReportContent(input: {
 
   textLines.push('', '— Accès rapide —');
   textLines.push(`Point : ${link(routes.review)}`);
-  textLines.push(`Fiche projet : ${link(routes.project)}`);
+  textLines.push(`Projet : ${link(routes.project)}`);
+  textLines.push(`Fiche projet : ${link(routes.sheet)}`);
   textLines.push(`Tâches : ${link(routes.tasks)}`);
   textLines.push(`Risques : ${link(routes.risks)}`);
   textLines.push(`Jalons : ${link(routes.milestones)}`);
@@ -408,7 +423,9 @@ export function buildProjectReviewReportContent(input: {
     textLines.push('', `Liaisons budget (${snapshot.budget.links.length})`);
     for (const b of snapshot.budget.links) {
       const amt = b.amount ? `${b.amount} €` : b.percentage ? `${b.percentage} %` : '—';
-      textLines.push(`  • ${b.label} (${b.allocationType}) : ${amt}`);
+      textLines.push(
+        `  • ${b.label} (${label(ALLOCATION_TYPE_LABEL, b.allocationType)}) : ${amt}`,
+      );
     }
   }
 
@@ -508,8 +525,8 @@ export function buildProjectReviewReportContent(input: {
 
   const quickLinks = [
     { href: link(routes.review), label: 'Ouvrir le point' },
-    { href: link(routes.project), label: 'Fiche projet' },
-    { href: link(routes.sheet), label: 'Project Sheet' },
+    { href: link(routes.project), label: 'Projet' },
+    { href: link(routes.sheet), label: 'Fiche projet' },
     { href: link(routes.tasks), label: 'Tâches' },
     { href: link(routes.risks), label: 'Risques' },
     { href: link(routes.milestones), label: 'Jalons' },
@@ -642,7 +659,8 @@ export function buildProjectReviewReportContent(input: {
     const rows = snapshot.budget.links
       .map((b) => {
         const amt = b.amount ? `${b.amount} €` : b.percentage ? `${b.percentage} %` : '—';
-        return `<tr><td style="${HTML_STYLES.td}">${escapeHtml(b.label)}</td><td style="${HTML_STYLES.td}">${escapeHtml(b.allocationType)}</td><td style="${HTML_STYLES.td}">${escapeHtml(amt)}</td></tr>`;
+        const typeLabel = label(ALLOCATION_TYPE_LABEL, b.allocationType);
+        return `<tr><td style="${HTML_STYLES.td}">${escapeHtml(b.label)}</td><td style="${HTML_STYLES.td}">${escapeHtml(typeLabel)}</td><td style="${HTML_STYLES.td}">${escapeHtml(amt)}</td></tr>`;
       })
       .join('');
     bodySections += htmlSection(

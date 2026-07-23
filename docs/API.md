@@ -278,6 +278,11 @@ Liste des utilisateurs du **client actif** uniquement (tous les ClientUser pour 
 
 La réponse peut inclure les champs licence sur le lien client (`licenseType`, `licenseBillingMode`, `subscriptionId`, `licenseStartsAt`, `licenseEndsAt`, `licenseAssignmentReason`) lorsque le backend les expose pour ce client.
 
+Champs annuaire (RFC-TEAM-001) lorsqu’exposés :
+
+- `isDirectorySynced` / `isDirectoryLocked` — membre concerné par sync / verrouillage identité ;
+- `linkedDirectoryCollaborator` — résumé de la fiche `DIRECTORY_SYNC` liée **officiellement** (`Collaborator.userId = user.id`) : `id`, `displayName`, `email`, `username`, `jobTitle`, `department` (sinon `null`).
+
 ---
 
 ### GET /api/platform/clients/:clientId/users
@@ -3152,6 +3157,17 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
 
 **Erreurs courantes (reste du module projets) :** 401, 403 (module inactif ou permission manquante), 404 (projet ou sous-ressource hors périmètre client), 409 (ex. code projet déjà utilisé).
+
+---
+
+## Équipes — rattachement fiche ADDS ↔ compte membre (RFC-TEAM-001)
+
+Isolation **client actif** (`X-Client-Id`). UI produit : `/client/members` (les routes `/teams/collaborators*` redirigent vers Membres).
+
+- **POST** `/api/collaborators/:id/link-platform-user` — body `{ "userId": "<cuid>" }` (ID `User` Prisma **cuid**, pas UUID). Lie une fiche `DIRECTORY_SYNC` (`userId` null) à un membre **ACTIVE** du client. Permission **`collaborators.link_platform_user`** + `ClientAdminGuard` + MFA TOTP + connexion ≤ 10 min. Peut reclaimer l’e-mail annuaire depuis un User doublon (même e-mail primaire). Audit `collaborator.platform_user_linked` / `collaborator.platform_user_link_denied`.
+- **DELETE** `/api/collaborators/:id/link-platform-user` — détache (`Collaborator.userId = null`) ; mêmes garde-fous sensibles. N’efface pas les `UserEmailIdentity`.
+
+Filtres liste utiles : `source=DIRECTORY_SYNC`, `platformUserLinkStatus=LINK_REQUIRED|LINKED`, `linkedUserId=<cuid>`.
 
 ---
 

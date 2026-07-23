@@ -138,11 +138,41 @@ describe('project-review-report.builder', () => {
     expect(report.html).toContain('Accès rapide');
     expect(report.html).toContain('https://app.starium.test/projects/p1/risks');
     expect(report.html).toContain('Alice Martin');
+    expect(report.html).toContain('Montant fixe');
     expect(report.html).toContain('#0e0e10');
     expect(report.html).toContain('#e8a317');
     expect(report.html).not.toMatch(/#1e293b|#1d4ed8|#334155/i);
     expect(report.html).not.toMatch(/meetingUrl/i);
     expect(report.html).not.toMatch(/externalEmail/i);
+  });
+
+  it('affiche le libellé métier du type d’allocation budget (pas le code)', () => {
+    const report = buildProjectReviewReportContent({
+      projectName: 'Telephonie',
+      projectId: 'p1',
+      reviewId: 'r1',
+      snapshot: {
+        ...baseSnapshot,
+        budget: {
+          links: [
+            {
+              budgetLineId: 'bl1',
+              label: 'OPEX-2026 — Téléphonie',
+              allocationType: 'FULL',
+              percentage: null,
+              amount: null,
+            },
+          ],
+        },
+      },
+      appBaseUrl: 'https://app.starium.test',
+      clientOrganization: { name: 'NeoTech AI', logoUrl: null },
+    });
+
+    expect(report.html).toContain('Intégral (100 % de la ligne)');
+    expect(report.html).not.toContain('>FULL<');
+    expect(report.text).toContain('Intégral (100 % de la ligne)');
+    expect(report.text).not.toContain('(FULL)');
   });
 
   it('utilise la météo du comité du point avec repli sur les points précédents', () => {
@@ -180,6 +210,32 @@ describe('project-review-report.builder', () => {
     expect(withoutMood.text).not.toContain('Attention');
     expect(withoutMood.text).not.toContain('Critique');
     expect(withoutMood.text).not.toContain('Mitigé');
+  });
+
+  it('affiche les libellés métier des statuts d’arbitrage (pas les codes)', () => {
+    const report = buildProjectReviewReportContent({
+      projectName: 'Telephonie',
+      projectId: 'p1',
+      reviewId: 'r1',
+      snapshot: {
+        ...baseSnapshot,
+        arbitration: {
+          arbitrationMetierStatus: 'SOUMIS_VALIDATION',
+          arbitrationComiteStatus: 'EN_COURS',
+          arbitrationCodirStatus: null,
+          arbitrationStatus: 'TO_REVIEW',
+        },
+      },
+      appBaseUrl: 'https://app.starium.test',
+      clientOrganization: { name: 'NeoTech AI', logoUrl: null },
+    });
+
+    expect(report.html).toContain('À arbitrer');
+    expect(report.html).toContain('Soumis à validation');
+    expect(report.html).toContain('En préparation');
+    expect(report.html).not.toContain('>TO_REVIEW<');
+    expect(report.text).toContain('Global : À arbitrer');
+    expect(report.text).not.toContain('TO_REVIEW');
   });
 
   it('parseProjectReviewSnapshotPayload refuse schemaVersion != 2', () => {

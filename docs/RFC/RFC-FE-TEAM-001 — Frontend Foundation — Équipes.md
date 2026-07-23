@@ -23,11 +23,11 @@ Le module Équipes a démarré avec `RFC-FE-TEAM-002` (UI Collaborateurs) mais l
 
 Constat actuel:
 
-- structure `apps/web/src/features/teams/collaborators/*` déjà présente;
-- routes `/teams/collaborators` et `/teams/collaborators/[collaboratorId]` en place;
-- API client teams dédiée et hooks React Query existants;
-- conventions d'état (`loading`, `error`, `empty`) appliquées sur la liste et le détail;
-- navigation module Équipes branchée avec contrôle permission `collaborators.read`.
+- structure `apps/web/src/features/teams/collaborators/*` conservée (API client / helpers) ;
+- routes `/teams/collaborators*` **redirigent** vers `/client/members` (2026-07) — rattachement ADDS dans l’édition membre ;
+- API client teams dédiée et hooks React Query existants pour compétences / structure / temps ;
+- conventions d’état (`loading`, `error`, `empty`) appliquées ;
+- navigation module Équipes : compétences, structure, temps (plus d’entrée Collaborateurs dédiée).
 
 Objectif de cette RFC: figer la fondation frontend du module Équipes pour sécuriser les lots FE-TEAM-003 à FE-TEAM-009.
 

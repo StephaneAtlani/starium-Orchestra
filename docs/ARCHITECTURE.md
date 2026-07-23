@@ -234,6 +234,7 @@ Composants critiques :
 | `EmailAddressRegistry` | Source de vérité PostgreSQL (`emailNormalized` UNIQUE) lorsque `EMAIL_REGISTRY_ENFORCED=true`. |
 | `DirectoryEmailIdentityLink` | Provenance annuaire multi-connexion (`ACTIVE` / `LEGACY_UNATTRIBUTED`). |
 | `SensitiveOperationPolicyService` | MFA TOTP + connexion récente (≤ 10 min) sur opérations sensibles (`link-platform-user`, activation `autoProvisionUsers`). |
+| UI rattachement ADDS | **Membres** `/client/members` → Modifier → section ADDS ; badge **Lié** = `Collaborator.userId` uniquement. |
 
 Règles d’évolution :
 
@@ -470,9 +471,12 @@ Aucune suppression physique
 /procurement/invoices
    → gestion métier procurement
 
+/client/members
+   → membres du client actif (RBAC) ; rattachement fiche ADDS ↔ compte (RFC-TEAM-001 / RFC-FE-TEAM-002 §0)
+
 /teams/collaborators
 /teams/collaborators/[collaboratorId]
-   → référentiel collaborateurs (RFC-FE-TEAM-002)
+   → redirect vers `/client/members` (UI Collaborateurs dédiée retirée de la navigation ; helpers API conservés)
 
 /teams/skills
    → catalogue compétences client : catégories, skills, dialog porteurs (RFC-FE-TEAM-003)

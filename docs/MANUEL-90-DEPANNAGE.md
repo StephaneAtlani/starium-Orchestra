@@ -178,7 +178,10 @@ Logs : `security_logs` avec `event = 'auth.microsoft_sso.failure'`.
 1. **Ne pas relancer** la sync annuaire avant réconciliation.
 2. Snapshot DB.
 3. Dry-run : `pnpm --filter @starium-orchestra/api exec ts-node scripts/reconcile-directory-duplicate-users.ts --dry-run --client-id=<uuid>`.
-4. Rattachement manuel si `USER_LINK_REQUIRED` : admin client → `POST /api/collaborators/:id/link-platform-user`.
+4. Rattachement manuel si `USER_LINK_REQUIRED` :
+   - UI : **Administration → Membres** → Modifier le **compte membre Starium** cible (pas le compte identité ADDS) → section « Rattachement ADDS ↔ compte membre » (MFA TOTP + connexion ≤ 10 min) ;
+   - API : `POST /api/collaborators/:id/link-platform-user` body `{ "userId": "<cuid membre>" }` ; détacher : `DELETE` même chemin ;
+   - permission `collaborators.link_platform_user`.
 5. Réconciliation scriptée avec `--canonical-user-id` et `--duplicate-user-id` après validation humaine.
 
 ---

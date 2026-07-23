@@ -38,10 +38,18 @@ Le MVP livré utilise **Microsoft Graph** (Entra ID) comme provider annuaire dan
 En complément, l’exécution de sync alimente les **membres client** avec le même matching que le SSO Microsoft :
 
 * résolution `User.email` + `UserEmailIdentity` vérifiées (`platform-user-email-resolver`) ;
-* si aucun compte éligible : statut **`USER_LINK_REQUIRED`** (`Collaborator.userId` null) — pas de création silencieuse de `User` ;
+* si aucun compte éligible : statut **`USER_LINK_REQUIRED`** / `platformUserLinkStatus=LINK_REQUIRED` (`Collaborator.userId` null) — pas de création silencieuse de `User` ;
 * provisioning automatique `User` + `ClientUser` **uniquement** si `DirectoryConnection.autoProvisionUsers === true` (défaut `false`) ;
 * identités annuaire `directoryManaged` sur le compte matched ;
-* rattachement manuel admin : `POST /api/collaborators/:id/link-platform-user` (permission `collaborators.link_platform_user`).
+* rattachement manuel admin (lien officiel `Collaborator.userId`) :
+  * `POST /api/collaborators/:id/link-platform-user` body `{ userId }` (**cuid** Prisma, pas UUID) ;
+  * `DELETE /api/collaborators/:id/link-platform-user` (détachement) ;
+  * permission `collaborators.link_platform_user` + `ClientAdminGuard` ;
+  * `SensitiveOperationPolicyService` : MFA TOTP activé + connexion réussie ≤ 10 min ;
+  * règles métier : **fiche ADDS (`DIRECTORY_SYNC`) → compte membre Starium** uniquement ; **interdit** ADDS → compte identité ADDS ; un seul lien `DIRECTORY_SYNC` par membre et par client ; reclaim d’e-mail si l’adresse annuaire est encore sur un User doublon provisionné (même e-mail primaire) ;
+  * audit : `collaborator.platform_user_linked` / `collaborator.platform_user_link_denied` / détachement associé.
+
+**UI produit (2026-07)** : plus d’écran métier sur `/teams/collaborators` (redirect → `/client/members`). Le rattachement se fait dans **Administration client → Membres** (`/client/members`) → Modifier un membre → section `MemberDirectoryLinkSection` (combobox fiches ADDS `LINK_REQUIRED`). Badge liste **Lié** uniquement si lien officiel (`GET /api/users` → `linkedDirectoryCollaborator` dérivé de `Collaborator.userId`, pas d’un simple match e-mail). Sync admin : `/client/administration/team-sync` pointe vers Membres.
 
 Réservation globale des e-mails : `EmailReservationService` + verrous advisory PostgreSQL sur tous les flux d’écriture d’adresse.
 
