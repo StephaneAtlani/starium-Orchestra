@@ -35,6 +35,7 @@ describe('UsersController', () => {
             create: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+            getMemberAvatarFile: jest.fn(),
           },
         },
       ],

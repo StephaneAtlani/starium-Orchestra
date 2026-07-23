@@ -5,6 +5,7 @@ import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { CollaboratorsModule } from '../collaborators/collaborators.module';
+import { MeModule } from '../me/me.module';
 import { PlatformClientUsersController } from './platform-client-users.controller';
 import { PlatformUsersController } from './platform-users.controller';
 import { UserRolesController } from './user-roles.controller';
@@ -13,7 +14,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [AuthModule, AuditLogsModule, CollaboratorsModule],
+  imports: [AuthModule, AuditLogsModule, CollaboratorsModule, MeModule],
   controllers: [
     UsersController,
     PlatformUsersController,

@@ -19,6 +19,8 @@ export function CollaboratorDetailHeader({ collaborator }: { collaborator: Colla
             {collaborator.source === 'DIRECTORY_SYNC' ? (
               <PlatformUserLinkBadge
                 status={collaborator.platformUserLinkStatus ?? 'LINKED'}
+                linkedUserEmail={collaborator.linkedUserEmail}
+                linkedUserDisplayName={collaborator.linkedUserDisplayName}
               />
             ) : null}
           </div>

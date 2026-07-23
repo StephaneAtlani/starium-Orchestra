@@ -17,6 +17,7 @@ import { UsersService } from './users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { CollaboratorsService } from '../collaborators/collaborators.service';
 import { EmailReservationService } from '../../common/auth/email-reservation.service';
+import { MeAvatarStorageService } from '../me/me-avatar.storage';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -121,6 +122,13 @@ describe('UsersService', () => {
           provide: EmailReservationService,
           useValue: emailReservationMock,
         },
+        {
+          provide: MeAvatarStorageService,
+          useValue: {
+            exists: jest.fn().mockReturnValue(false),
+            createReadStream: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -162,11 +170,13 @@ describe('UsersService', () => {
             select: { id: true, name: true, firstName: true, email: true, type: true },
           },
         },
+        orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
       });
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe(mockUser.id);
       expect(result[0].email).toBe(mockUser.email);
       expect(result[0].role).toBe(ClientUserRole.CLIENT_ADMIN);
+      expect(result[0].hasAvatar).toBe(false);
       expect(result[0].humanResourceSummary).toBeNull();
     });
 

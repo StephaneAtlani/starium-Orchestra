@@ -18,6 +18,8 @@ import { HumanResourceCombobox } from '@/features/teams/work-teams/components/hu
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useUpdateClientMember } from '../hooks/use-update-client-member';
 import type { ClientMember, UpdateClientMemberPayload } from '../api/user-roles';
+import { MemberDirectoryLinkSection } from './member-directory-link-section';
+import { MemberAvatar } from './member-avatar';
 
 const ROLE_LABEL: Record<'CLIENT_ADMIN' | 'CLIENT_USER', string> = {
   CLIENT_ADMIN: 'Administrateur client',
@@ -118,7 +120,7 @@ export function EditMemberDialog({
       title="Modifier le membre"
       description="Identité et statut sur ce client. L'email du compte plateforme n'est pas modifiable ici."
       icon={UserCog}
-      size="md"
+      size="lg"
       footer={
         member ? (
           <>
@@ -144,6 +146,25 @@ export function EditMemberDialog({
     >
       {member ? (
         <form id={formId} onSubmit={(e) => void submit(e)} className="space-y-3">
+          <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <MemberAvatar
+              userId={member.id}
+              displayName={
+                [firstName, lastName].filter(Boolean).join(' ').trim() || member.email
+              }
+              hasAvatar={member.hasAvatar}
+              size="lg"
+            />
+            <div className="min-w-0 space-y-0.5">
+              <p className="truncate font-semibold">
+                {[firstName, lastName].filter(Boolean).join(' ').trim() || '—'}
+              </p>
+              <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+              {member.jobTitle ? (
+                <p className="truncate text-xs text-muted-foreground">{member.jobTitle}</p>
+              ) : null}
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-muted-foreground">Email</Label>
             <p className="rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-sm">
@@ -310,6 +331,11 @@ export function EditMemberDialog({
             </p>
           ) : null}
         </form>
+      ) : null}
+      {member ? (
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <MemberDirectoryLinkSection member={member} enabled={open} />
+        </div>
       ) : null}
     </StariumModal>
   );

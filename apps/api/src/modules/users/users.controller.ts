@@ -38,6 +38,15 @@ export class UsersController {
     return this.users.findAll(clientId!);
   }
 
+  /** GET /users/:id/avatar — Photo de profil du membre (si présente). */
+  @Get(':id/avatar')
+  getAvatar(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') userId: string,
+  ) {
+    return this.users.getMemberAvatarFile(clientId!, userId);
+  }
+
   /** POST /users — Crée un utilisateur ou rattache un existant au client ; 409 si déjà rattaché. */
   @Post()
   async create(

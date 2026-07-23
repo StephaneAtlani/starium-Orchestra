@@ -4,11 +4,16 @@ import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { UserCircle, ChevronDown, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { ClientSwitcher } from '../ClientSwitcher';
 
 interface AccountMenuDropdownProps {
+  /** URL blob photo (GET /me/avatar) ou null. */
   avatarPreview: string | null;
-  avatarInitials: string;
+  /** Libellé métier pour initiales (nom, sinon email). */
+  displayName: string;
+  /** Seed couleur palette (id utilisateur). */
+  avatarSeed?: string;
   onLogout: () => void;
   /** Classes sur le panneau déroulant */
   menuClassName?: string;
@@ -24,7 +29,8 @@ interface AccountMenuDropdownProps {
 
 export function AccountMenuDropdown({
   avatarPreview,
-  avatarInitials,
+  displayName,
+  avatarSeed,
   onLogout,
   menuClassName,
   triggerClassName,
@@ -65,12 +71,7 @@ export function AccountMenuDropdown({
     };
   }, []);
 
-  const avatarClassName =
-    variant === 'topbar'
-      ? 'starium-topbar-avatar'
-      : variant === 'mobile'
-        ? 'starium-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold'
-        : 'starium-avatar flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold md:h-8 md:w-8 md:font-medium';
+  const avatarSize = variant === 'topbar' ? 'md' : 'sm';
 
   return (
     <details ref={menuRef} className="group/details relative shrink-0">
@@ -82,18 +83,18 @@ export function AccountMenuDropdown({
         )}
         aria-label="Mon compte, organisation et déconnexion"
       >
-        <span className={avatarClassName}>
-          {avatarPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL objet blob
-            <img
-              src={avatarPreview}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            avatarInitials
+        <UserInitialsAvatar
+          displayName={displayName}
+          seed={avatarSeed ?? displayName}
+          imageUrl={avatarPreview}
+          size={avatarSize}
+          title={displayName}
+          className={cn(
+            'shadow-sm ring-1 ring-border/40',
+            variant === 'topbar' &&
+              'size-10 border-[1.5px] border-[color:var(--starium-primary)]',
           )}
-        </span>
+        />
         {showChevron ? (
           <span className="starium-topbar-chevron" aria-hidden>
             <ChevronDown className="h-3.5 w-3.5" />

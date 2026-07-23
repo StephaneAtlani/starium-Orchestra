@@ -15,6 +15,10 @@ export interface ClientMember {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  jobTitle?: string | null;
+  department?: string | null;
+  /** Photo disponible via GET /api/users/:id/avatar. */
+  hasAvatar?: boolean;
   role: 'CLIENT_ADMIN' | 'CLIENT_USER' | string;
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | string;
   /** Licence — RFC-ACL-001/002, dates et motif exposés depuis RFC-ACL-010. */
@@ -40,6 +44,15 @@ export interface ClientMember {
   } | null;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
+  /** Fiche ADDS rattachée (Collaborator DIRECTORY_SYNC) — infos métier. */
+  linkedDirectoryCollaborator?: {
+    id: string;
+    displayName: string;
+    email: string | null;
+    username: string | null;
+    jobTitle: string | null;
+    department: string | null;
+  } | null;
   [key: string]: unknown;
 }
 

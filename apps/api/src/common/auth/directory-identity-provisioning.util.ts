@@ -141,6 +141,80 @@ export async function upsertDirectoryManagedIdentity(
   return { id: created.id, emailNormalized: created.emailNormalized };
 }
 
+/**
+ * Transfère les e-mails annuaire d’un User doublon (provisionné ADDS) vers le compte membre cible.
+ * Cas métier : rattachement explicite admin ADDS → membre alors que l’email est encore sur le User sync.
+ */
+export async function reclaimDirectoryEmailsFromDuplicateUser(
+  tx: Prisma.TransactionClient,
+  emailReservation: EmailReservationService,
+  params: {
+    fromUserId: string;
+    toUserId: string;
+    emailCandidates: string[];
+  },
+): Promise<void> {
+  const { fromUserId, toUserId, emailCandidates } = params;
+  if (fromUserId === toUserId || emailCandidates.length === 0) return;
+
+  const fromUser = await tx.user.findUnique({
+    where: { id: fromUserId },
+    select: { id: true, email: true },
+  });
+  if (!fromUser) return;
+
+  const fromPrimary = normalizeEmail(fromUser.email);
+  if (emailCandidates.includes(fromPrimary)) {
+    const placeholder = `merged.${fromUserId}@invalid.starium.local`;
+    await tx.user.update({
+      where: { id: fromUserId },
+      data: { email: placeholder, passwordLoginEnabled: false },
+    });
+    await emailReservation.registerPrimaryEmail(tx, fromUserId, placeholder);
+  }
+
+  for (const emailNormalized of emailCandidates) {
+    const sourceIdentity = await tx.userEmailIdentity.findFirst({
+      where: { userId: fromUserId, emailNormalized },
+    });
+    if (!sourceIdentity) continue;
+
+    const targetIdentity = await tx.userEmailIdentity.findUnique({
+      where: {
+        userId_emailNormalized: { userId: toUserId, emailNormalized },
+      },
+    });
+
+    if (targetIdentity) {
+      await tx.directoryEmailIdentityLink.updateMany({
+        where: { userEmailIdentityId: sourceIdentity.id },
+        data: { userEmailIdentityId: targetIdentity.id },
+      });
+      await tx.clientUser.updateMany({
+        where: { defaultEmailIdentityId: sourceIdentity.id },
+        data: { defaultEmailIdentityId: targetIdentity.id },
+      });
+      await tx.emailAddressRegistry.updateMany({
+        where: { userEmailIdentityId: sourceIdentity.id },
+        data: {
+          userEmailIdentityId: targetIdentity.id,
+          userId: toUserId,
+        },
+      });
+      await tx.userEmailIdentity.delete({ where: { id: sourceIdentity.id } });
+    } else {
+      await tx.userEmailIdentity.update({
+        where: { id: sourceIdentity.id },
+        data: { userId: toUserId, directoryManaged: true },
+      });
+      await tx.emailAddressRegistry.updateMany({
+        where: { emailNormalized },
+        data: { userId: toUserId },
+      });
+    }
+  }
+}
+
 export async function applyDirectoryIdentityToPlatformUser(
   tx: Prisma.TransactionClient,
   emailReservation: EmailReservationService,

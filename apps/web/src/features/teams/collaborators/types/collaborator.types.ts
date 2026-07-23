@@ -8,7 +8,11 @@ export type CollaboratorListItem = {
   id: string;
   /** Compte plateforme lié (membre client) — identité pilotée par User. */
   linkedUserId: string | null;
-  /** Annuaire sans compte rattaché → action admin requise. */
+  /** Email du compte Starium lié (libellé UI — jamais l’UUID seul). */
+  linkedUserEmail?: string | null;
+  /** Nom affiché du compte Starium lié. */
+  linkedUserDisplayName?: string | null;
+  /** Annuaire sans compte rattaché → action admin requise. Absent si source ≠ DIRECTORY_SYNC. */
   platformUserLinkStatus?: PlatformUserLinkStatus;
   displayName: string;
   firstName: string | null;
@@ -41,6 +45,8 @@ export type CollaboratorsListParams = {
   tag?: string[];
   managerId?: string;
   platformUserLinkStatus?: PlatformUserLinkStatus;
+  /** Compte plateforme déjà lié (filtre API). */
+  linkedUserId?: string;
   offset?: number;
   limit?: number;
 };

@@ -16,7 +16,6 @@ import type {
   CollaboratorSource,
   CollaboratorStatus,
   CollaboratorsListParams,
-  PlatformUserLinkStatus,
 } from '../types/collaborator.types';
 import {
   collaboratorSourceLabel,
@@ -132,31 +131,6 @@ export function CollaboratorFiltersBar({ filters, setFilters, managerOptions }: 
                 </Button>
               );
             })}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <span className="text-xs font-medium text-muted-foreground">Rattachement compte</span>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={filters.platformUserLinkStatus === 'LINK_REQUIRED' ? 'default' : 'outline'}
-              className="min-h-11 gap-1.5"
-              aria-pressed={filters.platformUserLinkStatus === 'LINK_REQUIRED'}
-              onClick={() =>
-                setFilters({
-                  ...filters,
-                  platformUserLinkStatus:
-                    filters.platformUserLinkStatus === 'LINK_REQUIRED'
-                      ? undefined
-                      : ('LINK_REQUIRED' as PlatformUserLinkStatus),
-                  offset: 0,
-                })
-              }
-            >
-              Compte Starium à rattacher
-            </Button>
           </div>
         </div>
 

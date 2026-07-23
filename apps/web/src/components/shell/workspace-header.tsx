@@ -18,6 +18,18 @@ interface WorkspaceHeaderProps {
   contentClassName?: string;
 }
 
+function accountDisplayName(user: {
+  platformRole?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+}): string {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  if (name) return name;
+  if (user.platformRole === 'PLATFORM_ADMIN') return 'Platform Admin';
+  return user.email?.trim() || 'Compte';
+}
+
 export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
   const { mobileOpen, toggleMobile } = useSidebarNav();
   const router = useRouter();
@@ -86,20 +98,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
     router.replace('/login');
   }
 
-  const avatarInitials =
-    user?.platformRole === 'PLATFORM_ADMIN'
-      ? 'PA'
-      : user
-        ? (user.firstName || user.lastName || user.email || 'C')
-            .toString()
-            .trim()
-            .split(' ')
-            .filter(Boolean)
-            .map((part) => part[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase()
-        : '';
+  const displayName = user ? accountDisplayName(user) : '';
 
   return (
     <header className="starium-header sticky top-0 z-10 shrink-0">
@@ -113,7 +112,7 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
         multiClient={multiClient}
         user={user}
         avatarPreview={avatarPreview}
-        avatarInitials={avatarInitials}
+        displayName={displayName}
         onLogout={() => void handleLogout()}
       />
 
@@ -157,7 +156,8 @@ export function WorkspaceHeader({ contentClassName }: WorkspaceHeaderProps) {
             {user ? (
               <AccountMenuDropdown
                 avatarPreview={avatarPreview}
-                avatarInitials={avatarInitials}
+                displayName={displayName}
+                avatarSeed={user.id}
                 onLogout={() => void handleLogout()}
                 variant="topbar"
                 showChevron

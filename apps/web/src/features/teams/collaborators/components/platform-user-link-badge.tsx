@@ -1,43 +1,43 @@
-import { Link2, Link2Off } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { PlatformUserLinkStatus } from '../types/collaborator.types';
 import { platformUserLinkStatusLabel } from '../lib/collaborator-label-mappers';
 
 export function PlatformUserLinkBadge({
   status,
+  linkedUserEmail,
+  linkedUserDisplayName,
   className,
 }: {
   status: PlatformUserLinkStatus | undefined;
+  linkedUserEmail?: string | null;
+  linkedUserDisplayName?: string | null;
   className?: string;
 }) {
   if (!status) return null;
 
-  if (status === 'LINK_REQUIRED') {
-    return (
-      <Badge
-        variant="outline"
-        className={cn(
-          'gap-1 border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-100',
-          className,
-        )}
-      >
-        <Link2Off className="size-3.5 shrink-0" aria-hidden />
-        <span>{platformUserLinkStatusLabel(status)}</span>
-      </Badge>
-    );
-  }
+  const label = platformUserLinkStatusLabel(status, {
+    email: linkedUserEmail,
+    displayName: linkedUserDisplayName,
+  });
+
+  const isRequired = status === 'LINK_REQUIRED';
 
   return (
-    <Badge
-      variant="outline"
+    <span
       className={cn(
-        'gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100',
+        'starium-ds-badge max-w-[14rem]',
+        isRequired ? 'starium-ds-badge--warn' : 'starium-ds-badge--success',
         className,
       )}
+      title={
+        isRequired
+          ? 'Compte Starium à rattacher pour le SSO'
+          : linkedUserEmail
+            ? `Compte Starium lié : ${linkedUserEmail}`
+            : 'Compte Starium lié'
+      }
     >
-      <Link2 className="size-3.5 shrink-0" aria-hidden />
-      <span>{platformUserLinkStatusLabel(status)}</span>
-    </Badge>
+      <span className="truncate">{label}</span>
+    </span>
   );
 }

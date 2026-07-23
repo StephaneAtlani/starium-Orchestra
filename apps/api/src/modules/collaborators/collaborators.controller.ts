@@ -113,6 +113,24 @@ export class CollaboratorsController {
     );
   }
 
+  @Delete(':id/link-platform-user')
+  @UseGuards(ClientAdminGuard)
+  @RequirePermissions('collaborators.link_platform_user')
+  unlinkPlatformUser(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta()
+    meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    return this.collaborators.unlinkDirectoryCollaboratorFromPlatformUser(
+      clientId!,
+      id,
+      actorUserId,
+      meta,
+    );
+  }
+
   @Get(':id')
   @RequirePermissions('collaborators.read')
   getById(

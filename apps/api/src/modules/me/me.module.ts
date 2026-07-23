@@ -20,6 +20,6 @@ import { MeAvatarStorageService } from './me-avatar.storage';
   ],
   controllers: [MeController, EmailIdentitiesVerificationController],
   providers: [MeService, MeAvatarStorageService, ActiveClientGuard],
-  exports: [MeService],
+  exports: [MeService, MeAvatarStorageService],
 })
 export class MeModule {}

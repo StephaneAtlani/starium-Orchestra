@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   ClientUserLicenseBillingMode,
@@ -35,6 +36,7 @@ import {
   type HumanResourceSummaryPayload,
 } from '../../common/utils/human-resource-catalog-label';
 import { EmailReservationService } from '../../common/auth/email-reservation.service';
+import { MeAvatarStorageService } from '../me/me-avatar.storage';
 
 /** Réponse utilisateur exposée par l’API (User + ClientUser pour le client actif, sans passwordHash). */
 export interface UserResponse {
@@ -42,6 +44,12 @@ export interface UserResponse {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  /** Intitulé de poste (profil User). */
+  jobTitle: string | null;
+  /** Service / département (profil User). */
+  department: string | null;
+  /** true si une photo est disponible via GET /users/:id/avatar. */
+  hasAvatar: boolean;
   role: ClientUserRole;
   status: ClientUserStatus;
   licenseType: ClientUserLicenseType;
@@ -57,9 +65,23 @@ export interface UserResponse {
   excludeFromResourceCatalog: boolean;
   /** RFC-ORG-002 — fiche Resource HUMAN liée au ClientUser (null si aucune). */
   humanResourceSummary: HumanResourceSummaryPayload | null;
+  /**
+   * Fiche Collaborator DIRECTORY_SYNC rattachée à ce membre sur ce client (null si aucune).
+   * C’est la seule cible de rattachement ADDS ↔ compte membre.
+   */
+  linkedDirectoryCollaborator: LinkedDirectoryCollaboratorSummary | null;
   isDirectorySynced?: boolean;
   isDirectoryLocked?: boolean;
 }
+
+export type LinkedDirectoryCollaboratorSummary = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  username: string | null;
+  jobTitle: string | null;
+  department: string | null;
+};
 
 /**
  * Vue compacte d'une licence (par client) pour l'affichage liste plateforme.
@@ -129,10 +151,19 @@ export class UsersService {
     private readonly auditLogs: AuditLogsService,
     private readonly collaborators: CollaboratorsService,
     private readonly emailReservation: EmailReservationService,
+    private readonly avatarStorage: MeAvatarStorageService,
   ) {}
 
   private toResponse(
-    user: { id: string; email: string; firstName: string | null; lastName: string | null },
+    user: {
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      jobTitle?: string | null;
+      department?: string | null;
+      avatarMimeType?: string | null;
+    },
     clientUser: {
       role: ClientUserRole;
       status: ClientUserStatus;
@@ -151,7 +182,11 @@ export class UsersService {
         type: ResourceType;
       } | null;
     },
-    options?: { isDirectorySynced?: boolean; isDirectoryLocked?: boolean },
+    options?: {
+      isDirectorySynced?: boolean;
+      isDirectoryLocked?: boolean;
+      linkedDirectoryCollaborator?: LinkedDirectoryCollaboratorSummary | null;
+    },
   ): UserResponse {
     const toIso = (v: Date | string | null | undefined): string | null => {
       if (v == null) return null;
@@ -167,11 +202,17 @@ export class UsersService {
             email: hr.email,
           })
         : null;
+    const hasAvatar = Boolean(
+      user.avatarMimeType && this.avatarStorage.exists(user.id),
+    );
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      jobTitle: user.jobTitle ?? null,
+      department: user.department ?? null,
+      hasAvatar,
       role: clientUser.role,
       status: clientUser.status,
       licenseType: clientUser.licenseType ?? ClientUserLicenseType.READ_ONLY,
@@ -183,6 +224,7 @@ export class UsersService {
       licenseAssignmentReason: clientUser.licenseAssignmentReason ?? null,
       excludeFromResourceCatalog: clientUser.excludeFromResourceCatalog ?? false,
       humanResourceSummary,
+      linkedDirectoryCollaborator: options?.linkedDirectoryCollaborator ?? null,
       isDirectorySynced: options?.isDirectorySynced ?? false,
       isDirectoryLocked: options?.isDirectoryLocked ?? false,
     };
@@ -198,24 +240,40 @@ export class UsersService {
           select: { id: true, name: true, firstName: true, email: true, type: true },
         },
       },
+      orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
     });
     const emails = clientUsers
       .map((cu) => cu.user.email?.trim().toLowerCase())
       .filter((v): v is string => Boolean(v));
+    const userIds = clientUsers.map((cu) => cu.userId);
     const lockPolicy = await this.getDirectoryLockPolicy(clientId);
     const syncedCollaborators =
-      emails.length > 0
+      emails.length > 0 || userIds.length > 0
         ? await this.prisma.collaborator.findMany({
             where: {
               clientId,
               source: CollaboratorSource.DIRECTORY_SYNC,
               OR: [
-                { email: { in: emails } },
-                { username: { in: emails } },
-                { externalUsername: { in: emails } },
+                ...(emails.length > 0
+                  ? [
+                      { email: { in: emails } },
+                      { username: { in: emails } },
+                      { externalUsername: { in: emails } },
+                    ]
+                  : []),
+                ...(userIds.length > 0 ? [{ userId: { in: userIds } }] : []),
               ],
             },
-            select: { email: true, username: true, externalUsername: true },
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              username: true,
+              jobTitle: true,
+              department: true,
+              externalUsername: true,
+              userId: true,
+            },
           })
         : [];
     const syncedEmails = new Set(
@@ -225,9 +283,25 @@ export class UsersService {
           .filter((v): v is string => Boolean(v)),
       ),
     );
+    const linkedByUserId = new Map<string, LinkedDirectoryCollaboratorSummary>();
+    for (const row of syncedCollaborators) {
+      if (!row.userId || linkedByUserId.has(row.userId)) continue;
+      linkedByUserId.set(row.userId, {
+        id: row.id,
+        displayName: row.displayName,
+        email: row.email,
+        username: row.username,
+        jobTitle: row.jobTitle,
+        department: row.department,
+      });
+    }
 
     return clientUsers.map((cu) => {
-      const isDirectorySynced = syncedEmails.has(cu.user.email.toLowerCase());
+      const emailKey = cu.user.email.trim().toLowerCase();
+      /** Lien officiel uniquement (`Collaborator.userId`) — pas le simple match e-mail. */
+      const linkedDirectoryCollaborator = linkedByUserId.get(cu.userId) ?? null;
+      const isDirectorySynced =
+        Boolean(linkedDirectoryCollaborator) || syncedEmails.has(emailKey);
       return this.toResponse(
         cu.user,
         {
@@ -245,8 +319,31 @@ export class UsersService {
         {
           isDirectorySynced,
           isDirectoryLocked: isDirectorySynced && lockPolicy,
+          linkedDirectoryCollaborator,
         },
       );
+    });
+  }
+
+  /**
+   * Photo de profil d’un membre du client actif (même stockage que GET /me/avatar).
+   */
+  async getMemberAvatarFile(clientId: string, userId: string): Promise<StreamableFile> {
+    const link = await this.prisma.clientUser.findUnique({
+      where: { userId_clientId: { userId, clientId } },
+      select: {
+        user: { select: { id: true, avatarMimeType: true } },
+      },
+    });
+    if (!link) {
+      throw new NotFoundException('Membre introuvable pour ce client');
+    }
+    const mime = link.user.avatarMimeType;
+    if (!mime || !this.avatarStorage.exists(userId)) {
+      throw new NotFoundException('Aucune photo de profil');
+    }
+    return new StreamableFile(this.avatarStorage.createReadStream(userId), {
+      type: mime,
     });
   }
 

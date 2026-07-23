@@ -4,20 +4,12 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { DataTable } from '@/components/data-table/data-table';
 import type { DataTableColumn } from '@/components/data-table/data-table';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { CollaboratorListItem } from '../types/collaborator.types';
 import { CollaboratorStatusBadge } from './collaborator-status-badge';
 import { CollaboratorSourceBadge } from './collaborator-source-badge';
 import { PlatformUserLinkBadge } from './platform-user-link-badge';
 
-export function CollaboratorsListTable({
-  items,
-  canLinkPlatformUser = false,
-}: {
-  items: CollaboratorListItem[];
-  canLinkPlatformUser?: boolean;
-}) {
+export function CollaboratorsListTable({ items }: { items: CollaboratorListItem[] }) {
   const columns = useMemo<DataTableColumn<CollaboratorListItem>[]>(
     () => [
       {
@@ -30,7 +22,11 @@ export function CollaboratorsListTable({
             <div className="text-xs text-muted-foreground">{item.email ?? '—'}</div>
             {item.platformUserLinkStatus === 'LINK_REQUIRED' ? (
               <div className="sm:hidden">
-                <PlatformUserLinkBadge status={item.platformUserLinkStatus} />
+                <PlatformUserLinkBadge
+                  status={item.platformUserLinkStatus}
+                  linkedUserEmail={item.linkedUserEmail}
+                  linkedUserDisplayName={item.linkedUserDisplayName}
+                />
               </div>
             ) : null}
           </div>
@@ -54,7 +50,11 @@ export function CollaboratorsListTable({
         mobilePriority: 'secondary',
         cell: (item) =>
           item.source === 'DIRECTORY_SYNC' ? (
-            <PlatformUserLinkBadge status={item.platformUserLinkStatus ?? 'LINKED'} />
+            <PlatformUserLinkBadge
+              status={item.platformUserLinkStatus ?? 'LINKED'}
+              linkedUserEmail={item.linkedUserEmail}
+              linkedUserDisplayName={item.linkedUserDisplayName}
+            />
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -75,34 +75,17 @@ export function CollaboratorsListTable({
         key: 'actions',
         header: 'Actions',
         mobilePriority: 'actions',
-        cell: (item) => {
-          const needsLink = item.platformUserLinkStatus === 'LINK_REQUIRED';
-          const href = `/teams/collaborators/${item.id}`;
-          if (needsLink && canLinkPlatformUser) {
-            return (
-              <Link
-                href={href}
-                className={cn(
-                  buttonVariants({ variant: 'default', size: 'sm' }),
-                  'min-h-11',
-                )}
-              >
-                Rattacher
-              </Link>
-            );
-          }
-          return (
-            <Link
-              href={href}
-              className="inline-flex min-h-11 items-center text-primary hover:underline"
-            >
-              Voir / Éditer
-            </Link>
-          );
-        },
+        cell: (item) => (
+          <Link
+            href={`/teams/collaborators/${item.id}`}
+            className="inline-flex min-h-11 items-center text-primary hover:underline"
+          >
+            Voir / Éditer
+          </Link>
+        ),
       },
     ],
-    [canLinkPlatformUser],
+    [],
   );
 
   return (

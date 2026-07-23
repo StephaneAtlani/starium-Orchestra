@@ -17,15 +17,15 @@ export default function TeamSyncAdministrationPage() {
         <AlertTitle>Après une sync</AlertTitle>
         <AlertDescription className="space-y-3">
           <p>
-            Les fiches sans compte Starium apparaissent en « Compte à rattacher ». Le
-            rattachement se fait dans Administration (opération sensible : MFA +
-            connexion récente).
+            Pour rattacher une fiche ADDS à un compte membre Starium :
+            Administration → Membres → Modifier le membre → section « Rattachement ADDS ↔ compte
+            membre » (MFA + connexion récente). Pas de lien ADDS ↔ ADDS.
           </p>
           <Link
-            href="/client/administration/collaborators"
+            href="/client/members"
             className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'inline-flex min-h-11')}
           >
-            Ouvrir Collaborateurs annuaire
+            Ouvrir Membres
           </Link>
         </AlertDescription>
       </Alert>

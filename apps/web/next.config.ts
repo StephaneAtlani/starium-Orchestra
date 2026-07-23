@@ -14,10 +14,16 @@ const nextConfig: NextConfig = {
   ],
   async redirects() {
     return [
-      // Anciennes routes assignments → Ressources (pas de pages /teams/assignments).
-      // Ne pas rediriger /teams/collaborators : écrans admin annuaire (RFC-FE-TEAM-002).
+      // Anciennes routes assignments → Ressources.
       { source: '/teams/assignments', destination: '/resources', permanent: false },
       { source: '/teams/assignments/:path*', destination: '/resources', permanent: false },
+      // Ancienne UI Collaborateurs → Membres (rattachement ADDS / compte).
+      { source: '/teams/collaborators', destination: '/client/members', permanent: false },
+      {
+        source: '/teams/collaborators/:path*',
+        destination: '/client/members',
+        permanent: false,
+      },
       {
         source: '/projects/:projectId/staffing',
         destination: '/projects/:projectId',

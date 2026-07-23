@@ -12,6 +12,7 @@ interface MobileWorkspaceHeaderBarProps {
   activeClient: { id: string; name: string } | null;
   multiClient: boolean;
   user: {
+    id?: string;
     platformRole?: string | null;
     firstName?: string | null;
     lastName?: string | null;
@@ -19,7 +20,7 @@ interface MobileWorkspaceHeaderBarProps {
     hasAvatar?: boolean;
   } | null;
   avatarPreview: string | null;
-  avatarInitials: string;
+  displayName: string;
   onLogout: () => void;
 }
 
@@ -31,7 +32,7 @@ export function MobileWorkspaceHeaderBar({
   multiClient,
   user,
   avatarPreview,
-  avatarInitials,
+  displayName,
   onLogout,
 }: MobileWorkspaceHeaderBarProps) {
   return (
@@ -69,7 +70,8 @@ export function MobileWorkspaceHeaderBar({
           {user ? (
             <AccountMenuDropdown
               avatarPreview={avatarPreview}
-              avatarInitials={avatarInitials}
+              displayName={displayName}
+              avatarSeed={user.id}
               onLogout={onLogout}
               variant="mobile"
               accessToken={accessToken}

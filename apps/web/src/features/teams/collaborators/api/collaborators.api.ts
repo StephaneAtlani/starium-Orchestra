@@ -22,6 +22,9 @@ function toQueryString(params: CollaboratorsListParams): string {
   if (params.platformUserLinkStatus) {
     search.set('platformUserLinkStatus', params.platformUserLinkStatus);
   }
+  if (params.linkedUserId?.trim()) {
+    search.set('linkedUserId', params.linkedUserId.trim());
+  }
   if (typeof params.offset === 'number') search.set('offset', String(params.offset));
   if (typeof params.limit === 'number') search.set('limit', String(params.limit));
   const value = search.toString();
@@ -135,6 +138,17 @@ export async function linkCollaboratorPlatformUser(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId }),
     },
+  );
+  return handleResponse<CollaboratorListItem>(res);
+}
+
+export async function unlinkCollaboratorPlatformUser(
+  authFetch: AuthFetch,
+  collaboratorId: string,
+): Promise<CollaboratorListItem> {
+  const res = await authFetch(
+    `/api/collaborators/${encodeURIComponent(collaboratorId)}/link-platform-user`,
+    { method: 'DELETE' },
   );
   return handleResponse<CollaboratorListItem>(res);
 }

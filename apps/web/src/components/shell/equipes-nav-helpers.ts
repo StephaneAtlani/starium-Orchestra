@@ -4,11 +4,6 @@
  */
 export function isEquipesDropdownChildActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
-  if (href === '/teams/collaborators') {
-    return (
-      pathname === '/teams/collaborators' || pathname.startsWith('/teams/collaborators/')
-    );
-  }
   if (href === '/teams/skills') {
     return pathname === '/teams/skills' || pathname.startsWith('/teams/skills/');
   }

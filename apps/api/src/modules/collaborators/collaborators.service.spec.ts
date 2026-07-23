@@ -435,8 +435,11 @@ describe('CollaboratorsService', () => {
         status: ClientUserStatus.ACTIVE,
       });
       (prisma.collaborator.findFirst as jest.Mock).mockImplementation(
-        ({ where }: { where: { userId?: string; id?: { not: string } } }) => {
-          if (where.userId) return Promise.resolve(null);
+        ({ where }: { where: { userId?: string; id?: { not: string }; source?: string } }) => {
+          if (where.userId) {
+            // Une fiche MANUAL existante ne doit pas bloquer le rattachement ADDS.
+            return Promise.resolve(null);
+          }
           return Promise.resolve(directoryCollaborator);
         },
       );
@@ -472,6 +475,91 @@ describe('CollaboratorsService', () => {
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('ignore une fiche MANUAL déjà liée au même user (seul ADDS compte)', async () => {
+      let call = 0;
+      (prisma.collaborator.findFirst as jest.Mock).mockImplementation(
+        ({ where }: { where: { userId?: string; source?: string } }) => {
+          call += 1;
+          if (where.userId) {
+            expect(where.source).toBe(CollaboratorSource.DIRECTORY_SYNC);
+            return Promise.resolve(null);
+          }
+          return Promise.resolve(directoryCollaborator);
+        },
+      );
+      await service.linkDirectoryCollaboratorToPlatformUser(
+        clientId,
+        directoryCollaborator.id,
+        { userId: 'user-target' },
+        'admin-1',
+      );
+      expect(call).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('unlinkDirectoryCollaboratorFromPlatformUser', () => {
+    const directoryCollaborator = {
+      ...syncedCollaborator,
+      userId: 'user-linked',
+      email: 'pro@client.fr',
+      username: 'pro@client.fr',
+      externalDirectoryId: 'ext-1',
+      lastSyncedAt: new Date(),
+    };
+
+    it('détache userId et exige MFA', async () => {
+      (prisma.collaborator.findFirst as jest.Mock)
+        .mockResolvedValueOnce({
+          ...directoryCollaborator,
+          userId: 'user-linked',
+        })
+        .mockResolvedValueOnce({
+          ...directoryCollaborator,
+          userId: null,
+          manager: null,
+          linkedUser: null,
+        });
+      (prisma.collaborator.update as jest.Mock).mockResolvedValue({
+        ...directoryCollaborator,
+        userId: null,
+      });
+      (prisma.$transaction as jest.Mock).mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma),
+      );
+
+      const policy = (service as any).sensitiveOperationPolicy as {
+        assertSensitiveAdminOperation: jest.Mock;
+      };
+
+      await service.unlinkDirectoryCollaboratorFromPlatformUser(
+        clientId,
+        directoryCollaborator.id,
+        'admin-1',
+      );
+
+      expect(policy.assertSensitiveAdminOperation).toHaveBeenCalledWith('admin-1');
+      expect(prisma.collaborator.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: directoryCollaborator.id },
+          data: { userId: null },
+        }),
+      );
+    });
+
+    it('refuse si déjà détaché', async () => {
+      (prisma.collaborator.findFirst as jest.Mock).mockResolvedValue({
+        ...directoryCollaborator,
+        userId: null,
+      });
+      await expect(
+        service.unlinkDirectoryCollaboratorFromPlatformUser(
+          clientId,
+          directoryCollaborator.id,
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

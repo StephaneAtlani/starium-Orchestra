@@ -2,19 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { isEquipesDropdownChildActive } from './equipes-nav-helpers';
 
 describe('isEquipesDropdownChildActive', () => {
-  it('Collaborateurs: actif sur liste et détail', () => {
-    expect(
-      isEquipesDropdownChildActive('/teams/collaborators', '/teams/collaborators'),
-    ).toBe(true);
-    expect(
-      isEquipesDropdownChildActive('/teams/collaborators/abc', '/teams/collaborators'),
-    ).toBe(true);
-    expect(isEquipesDropdownChildActive('/teams/skills', '/teams/collaborators')).toBe(false);
-  });
-
   it('Compétences: actif sur catalogue', () => {
     expect(isEquipesDropdownChildActive('/teams/skills', '/teams/skills')).toBe(true);
     expect(isEquipesDropdownChildActive('/teams/structure/teams', '/teams/skills')).toBe(false);
+  });
+
+  it('ancienne route /teams/collaborators n’est plus un item Équipes', () => {
+    expect(isEquipesDropdownChildActive('/teams/collaborators', '/teams/skills')).toBe(false);
+    expect(isEquipesDropdownChildActive('/client/members', '/teams/skills')).toBe(false);
   });
 
   it('Temps réalisé: actif sur /teams/time-entries', () => {

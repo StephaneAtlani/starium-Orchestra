@@ -44,6 +44,11 @@ export class ListCollaboratorsQueryDto {
   @IsEnum(['LINK_REQUIRED', 'LINKED'])
   platformUserLinkStatus?: 'LINK_REQUIRED' | 'LINKED';
 
+  /** Filtre exact : fiche(s) déjà rattachée(s) à ce compte plateforme (membre). */
+  @IsOptional()
+  @IsString()
+  linkedUserId?: string;
+
   @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()

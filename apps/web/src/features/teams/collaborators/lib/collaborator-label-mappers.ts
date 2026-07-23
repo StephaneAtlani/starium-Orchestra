@@ -30,8 +30,16 @@ export function collaboratorSourceLabel(source: CollaboratorSource): string {
   }
 }
 
-export function platformUserLinkStatusLabel(status: 'LINK_REQUIRED' | 'LINKED'): string {
-  return status === 'LINK_REQUIRED' ? 'Compte Starium à rattacher' : 'Compte rattaché';
+export function platformUserLinkStatusLabel(
+  status: 'LINK_REQUIRED' | 'LINKED',
+  linkedUser?: { email?: string | null; displayName?: string | null },
+): string {
+  if (status === 'LINK_REQUIRED') return 'À rattacher';
+  const email = linkedUser?.email?.trim();
+  if (email) return email;
+  const name = linkedUser?.displayName?.trim();
+  if (name) return name;
+  return 'Compte lié';
 }
 
 /** Libellé secondaire (email ou poste) — options managers ou ligne liste collaborateur. */
