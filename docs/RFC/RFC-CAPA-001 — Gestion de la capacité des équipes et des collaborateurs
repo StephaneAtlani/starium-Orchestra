@@ -1,9 +1,40 @@
 # RFC-CAPA-001 — Gestion de la capacité des équipes et des collaborateurs
 
-**Statut :** Proposition
+**Statut :** Implémentée (lots 1-5) — UI MVP ; écarts connus documentés ci-dessous
 **Priorité :** Haute
-**Module :** Capacity Management (Core)
+**Module :** Capacity Management (Core) — code Nest/Next `capacity`
 **Impact :** Projets, Activités, Risques, Plans d'actions, Orion, Reporting
+
+> **Implémentation (lots 1-5)** : module `apps/api/src/modules/capacity/` + UI `/teams/capacity/*`. Centre de capacité = **`WorkTeam`** ; collaborateurs = **`Resource` type HUMAN**. Quatre permissions : `capacity.read`, `capacity.settings.manage`, `capacity.members.manage`, `capacity.allocations.manage`. API `/api/capacity/*` (voir [API.md](../API.md)). Isolation stricte par **client actif** (pas de `clientId` dans le body).
+
+---
+
+# 0. État d'implémentation (réalité code — juillet 2026)
+
+## Livré
+
+| Zone | Détail |
+|------|--------|
+| Prisma | `ClientMonthlyCapacity`, `ResourceCapacityException`, `CapacityAllocation` (+ `CapacityAllocationMonth`), `Resource.primaryCapacityWorkTeamId`, `consumesCapacity` sur `Project` / `ProjectRisk` / `ActionPlan` |
+| API | Settings mensuels, membres, allocations, dashboards ressources / work-teams / portefeuille, allocations par source |
+| Moteur | Jours ouvrés FR, répartition « plus fort reste » (`Prisma.Decimal`), `resolveCommitmentKind`, `resolveConsumesCapacity`, agrégats `activePrimaryWorkTeam` + bucket sans WorkTeam active |
+| AuthZ | Guards `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard` ; module catalogue `capacity` |
+| FE | Pages `/teams/capacity/{settings,members,allocations,dashboard}` ; nav Équipes ; combobox Resource HUMAN ; switch « Porte sa capacité » **sur fiche projet** |
+| Seed | `ensureCapacityModuleAndPermissions` + profils Lecteur / Gestionnaire Équipes |
+
+## Écarts connus (ne pas considérer comme « done » produit)
+
+* **UI** : MVP fonctionnelle (pas encore alignée Design System complet : `PageContainer`, DataTable, etc.).
+* **Fiches risque / plan d’actions** : `consumesCapacity` exposé en API (`PATCH`) ; **pas** d’encart UI dédié (fiche projet seulement).
+* **Contrat allocations** : réponse API = objets imbriqués `workTeam` / `resource` (`{ id, name, … }`) — le client FE doit mapper ces formes (pas de champs plats `workTeamName` / `resourceName`).
+* **ACL sources** : `PROJECT` via `AccessDecisionService` (intent `read`) ; `PROJECT_RISK` / `ACTION_PLAN` = existence tenant-scopée + `projects.read` (pas de décision ACL ressource dédiée).
+* **Liste allocations** : filtre `?sourceId=` ne réapplique pas `canReadSource` (préférer `GET /api/capacity/sources/:type/:id/allocations` pour une source donnée).
+* **DTOs écrits** : montants J/H en **string numérique** (`IsNumberString`) sur create/put allocations / settings.
+* **Tests** : libs + metadata guards + seed ; **pas** encore de suite isolation runtime / ACL sources.
+
+## Recommandation
+
+Je créerais ce module comme un **module Core** (`Capacity Management`) et non comme une fonctionnalité du module Projets. Ainsi, il deviendra un service transverse consommé par tous les modules de Starium (Projets, Activités, Risques, Finance, RH, Audits, etc.), ce qui est parfaitement cohérent avec la vision de **Starium comme système d'exploitation des fonctions support**.
 
 ---
 
@@ -416,19 +447,31 @@ Par défaut :
 
 # 15. Droits
 
-Deux permissions :
+Quatre permissions (seed + profils) :
+
+```
+capacity.read
+```
+
+Lecture settings / membres / allocations / dashboards / sources.
 
 ```
 capacity.settings.manage
 ```
 
-Gestion des capacités générales.
+Gestion du calendrier mensuel client (jours ouvrés).
 
 ```
 capacity.members.manage
 ```
 
-Gestion des capacités individuelles.
+Gestion des capacités individuelles et équipe primaire.
+
+```
+capacity.allocations.manage
+```
+
+Création / mise à jour / suppression des allocations.
 
 ---
 
@@ -467,9 +510,3 @@ Elle permettra notamment à **Orion** de répondre à des questions comme :
 * Architecture extensible vers un SIRH.
 * Aucune double comptabilisation grâce à la règle d'héritage de capacité.
 * Base solide pour les analyses prédictives d'Orion.
-
----
-
-## Recommandation
-
-Je créerais ce module comme un **module Core** (`Capacity Management`) et non comme une fonctionnalité du module Projets. Ainsi, il deviendra un service transverse consommé par tous les modules de Starium (Projets, Activités, Risques, Finance, RH, Audits, etc.), ce qui est parfaitement cohérent avec la vision de **Starium comme système d'exploitation des fonctions support**.

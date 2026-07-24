@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,6 +9,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   ProjectRiskCriticality,
@@ -134,4 +136,10 @@ export class UpdateProjectRiskDto {
   @IsOptional()
   @IsString()
   complementaryTreatmentMeasures?: string;
+
+  /** RFC-CAPA-001 — null = héritage / défaut (autonome si hors projet). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsBoolean()
+  consumesCapacity?: boolean | null;
 }

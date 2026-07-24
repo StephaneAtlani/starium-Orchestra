@@ -384,6 +384,11 @@ model Client {
   activityTypes                    ActivityType[]
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
+  /// RFC-CAPA-001 — capacité mensuelle / affectations
+  clientMonthlyCapacities          ClientMonthlyCapacity[]
+  resourceCapacityExceptions       ResourceCapacityException[]
+  capacityAllocations              CapacityAllocation[]
+  capacityAllocationMonths         CapacityAllocationMonth[]
   orgUnits                         OrgUnit[]
   orgGroups                        OrgGroup[]
   orgUnitMemberships               OrgUnitMembership[]
@@ -1091,6 +1096,8 @@ model Resource {
   phone          String?
   mobile         String?
   employeeNumber String?
+  /// RFC-CAPA-001 — WorkTeam principale pour le calcul de capacité (1 seule).
+  primaryCapacityWorkTeamId String?
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
 
@@ -1102,11 +1109,14 @@ model Resource {
   assignedProjectTasks             ProjectTaskAssignee[]             @relation("ProjectTaskAssigneeResource")
   workTeamMemberships              WorkTeamMembership[]
   ledWorkTeams                     WorkTeam[]                        @relation("WorkTeamLeadResource")
+  primaryCapacityWorkTeam          WorkTeam?                         @relation("ResourcePrimaryCapacityWorkTeam", fields: [clientId, primaryCapacityWorkTeamId], references: [clientId, id], onDelete: Restrict)
   managerScopeConfig               ManagerScopeConfig?
   projectScenarioResourcePlans     ProjectScenarioResourcePlan[]
   projectScenarioCapacitySnapshots ProjectScenarioCapacitySnapshot[]
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
+  resourceCapacityExceptions       ResourceCapacityException[]
+  capacityAllocations              CapacityAllocation[]
   orgUnitMemberships               OrgUnitMembership[]
   orgGroupMemberships              OrgGroupMembership[]
   /// RFC-ORG-002 — au plus un ClientUser lié à cette fiche HUMAN.
@@ -1119,10 +1129,12 @@ model Resource {
   stewardedSupplierContracts       SupplierContract[]                @relation("SupplierContractStewardResource")
   stewardedStrategicObjectives     StrategicObjective[]              @relation("StrategicObjectiveStewardResource")
 
+  @@unique([clientId, id])
   @@unique([clientId, email])
   @@unique([clientId, code])
   @@index([clientId])
   @@index([clientId, type])
+  @@index([clientId, primaryCapacityWorkTeamId])
 }
 
 // --- Organization client (RFC-ORG-001) ---
@@ -1804,6 +1816,9 @@ model Project {
 
   /// RFC-PROJ-019 — projet parent optionnel (même client).
   parentProjectId String?
+
+  /// RFC-CAPA-001 — null = défaut (autonome porte / enfant hérite).
+  consumesCapacity Boolean?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2917,6 +2932,8 @@ model ActionPlan {
   startDate       DateTime?
   targetDate      DateTime?
   progressPercent Int                @default(0)
+  /// RFC-CAPA-001 — null = défaut selon rattachement tâches.
+  consumesCapacity Boolean?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3332,6 +3349,9 @@ model ProjectRisk {
   /// Classification métier : FK vers `RiskType` (domaine dérivé via jointure).
   riskTypeId String
   riskType   RiskType @relation(fields: [riskTypeId], references: [id], onDelete: Restrict)
+
+  /// RFC-CAPA-001 — null = défaut (autonome porte / rattaché hérite).
+  consumesCapacity Boolean?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -5423,7 +5443,11 @@ model WorkTeam {
   lead                 Resource?              @relation("WorkTeamLeadResource", fields: [leadResourceId], references: [id], onDelete: SetNull)
   memberships          WorkTeamMembership[]
   managerScopeRootRefs ManagerScopeRootTeam[]
+  /// RFC-CAPA-001
+  primaryCapacityResources Resource[]            @relation("ResourcePrimaryCapacityWorkTeam")
+  capacityAllocations      CapacityAllocation[]
 
+  @@unique([clientId, id])
   @@unique([clientId, code])
   @@index([clientId, parentId])
   @@index([clientId, status])
@@ -5777,4 +5801,94 @@ model BudgetGovernanceDecision {
   @@index([clientId, budgetId, decidedAt])
   @@index([instanceId])
   @@index([itemId])
+}
+
+// --- RFC-CAPA-001 Capacity Management ---
+
+enum CapacitySource {
+  CALENDAR
+  CLIENT_PARAM
+  MEMBER_EXCEPTION
+  SIRH
+}
+
+enum CapacityAllocationSourceType {
+  MANUAL
+  PROJECT
+  PROJECT_RISK
+  ACTION_PLAN
+}
+
+model ClientMonthlyCapacity {
+  id        String         @id @default(cuid())
+  clientId  String
+  /// Mois civil canonique YYYY-MM (indépendant du fuseau).
+  yearMonth String
+  days      Decimal        @db.Decimal(8, 2)
+  source    CapacitySource
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, yearMonth])
+  @@index([clientId])
+}
+
+model ResourceCapacityException {
+  id         String         @id @default(cuid())
+  clientId   String
+  resourceId String
+  yearMonth  String
+  /// null = hérite de la capacité client.
+  days       Decimal?       @db.Decimal(8, 2)
+  source     CapacitySource @default(MEMBER_EXCEPTION)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [clientId, resourceId], references: [clientId, id], onDelete: Restrict)
+
+  @@unique([clientId, resourceId, yearMonth])
+  @@index([clientId, resourceId])
+}
+
+model CapacityAllocation {
+  id          String                        @id @default(cuid())
+  clientId    String
+  startDate   DateTime                      @db.Date
+  endDate     DateTime                      @db.Date
+  totalDays   Decimal                       @db.Decimal(8, 2)
+  comment     String?
+  workTeamId  String?
+  resourceId  String?
+  sourceType  CapacityAllocationSourceType  @default(MANUAL)
+  sourceId    String?
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
+
+  client    Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workTeam  WorkTeam?                 @relation(fields: [clientId, workTeamId], references: [clientId, id], onDelete: Restrict)
+  resource  Resource?                 @relation(fields: [clientId, resourceId], references: [clientId, id], onDelete: Restrict)
+  months    CapacityAllocationMonth[]
+
+  @@index([clientId, sourceType, sourceId])
+  @@index([clientId, workTeamId])
+  @@index([clientId, resourceId])
+  @@index([clientId, startDate, endDate])
+}
+
+model CapacityAllocationMonth {
+  id           String  @id @default(cuid())
+  clientId     String
+  allocationId String
+  yearMonth    String
+  days         Decimal @db.Decimal(8, 2)
+
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  allocation CapacityAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  @@unique([allocationId, yearMonth])
+  @@index([clientId, yearMonth])
+  @@index([allocationId])
 }

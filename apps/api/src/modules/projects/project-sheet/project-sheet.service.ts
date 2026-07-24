@@ -36,6 +36,7 @@ import {
 import { SetArbitrationDto } from './dto/set-arbitration.dto';
 import { UpdateProjectSheetDto } from './dto/update-project-sheet.dto';
 import { ProjectSheetDecisionSnapshotsService } from './project-sheet-decision-snapshots.service';
+import { resolveProjectConsumesCapacity } from '../../capacity/lib/resolve-consumes-capacity';
 import {
   parseJsonStringArray,
   parseTowsActions,
@@ -92,6 +93,10 @@ export type ProjectSheetResponseDto = {
   swotOpportunities: string[];
   swotThreats: string[];
   towsActions: TowsActionsShape | null;
+  /** RFC-CAPA-001 */
+  consumesCapacity: boolean | null;
+  /** Valeur effective après résolution (parent / override). */
+  effectiveConsumesCapacity: boolean;
 };
 
 function decimalToNumber(d: Prisma.Decimal | null | undefined): number | null {
@@ -206,6 +211,11 @@ export class ProjectSheetService {
       swotOpportunities: parseJsonStringArray(p.swotOpportunities) ?? [],
       swotThreats: parseJsonStringArray(p.swotThreats) ?? [],
       towsActions: tows ?? null,
+      consumesCapacity: p.consumesCapacity ?? null,
+      effectiveConsumesCapacity: resolveProjectConsumesCapacity(
+        p.consumesCapacity ?? null,
+        p.parentProjectId ?? null,
+      ),
     };
   }
 
@@ -366,6 +376,9 @@ export class ProjectSheetService {
           ? Prisma.JsonNull
           : (merged.swotThreats as unknown as Prisma.InputJsonValue),
       towsActions: towsJson,
+      ...(dto.consumesCapacity !== undefined && {
+        consumesCapacity: dto.consumesCapacity,
+      }),
     };
 
     const updated = await this.prisma.project.update({

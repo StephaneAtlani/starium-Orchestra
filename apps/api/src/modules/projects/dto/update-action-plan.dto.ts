@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,6 +9,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { ActionPlanPriority, ActionPlanStatus } from '@prisma/client';
 
@@ -47,4 +49,10 @@ export class UpdateActionPlanDto {
   @Min(0)
   @Max(100)
   progressPercent?: number;
+
+  /** RFC-CAPA-001 — null = défaut ; `true` interdit si tâches liées projet/risque. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsBoolean()
+  consumesCapacity?: boolean | null;
 }

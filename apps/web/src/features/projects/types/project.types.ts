@@ -785,6 +785,9 @@ export type ProjectSheet = {
     WO: string[];
     WT: string[];
   } | null;
+  /** RFC-CAPA-001 */
+  consumesCapacity: boolean | null;
+  effectiveConsumesCapacity: boolean;
 };
 
 export type UpdateProjectSheetPayload = {
@@ -828,6 +831,8 @@ export type UpdateProjectSheetPayload = {
   towsActions?: TowsActionsPayload;
   /** Si true et passage d’un niveau d’arbitrage à VALIDE, créer un snapshot par niveau. */
   recordDecisionSnapshot?: boolean;
+  /** RFC-CAPA-001 */
+  consumesCapacity?: boolean | null;
 };
 
 /** Métadonnée liste — historique des décisions (snapshots fiche). */

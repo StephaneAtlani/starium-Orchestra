@@ -391,6 +391,28 @@ export function NavigationMenuBody({ className }: NavigationMenuBodyProps) {
                     href: '/teams/time-entries/options',
                   });
                 }
+                if (
+                  permsSuccess &&
+                  has('capacity.read') &&
+                  isModuleVisible('capacity')
+                ) {
+                  teamsChildren.push({
+                    label: 'Capacité — paramètres',
+                    href: '/teams/capacity/settings',
+                  });
+                  teamsChildren.push({
+                    label: 'Capacité — membres',
+                    href: '/teams/capacity/members',
+                  });
+                  teamsChildren.push({
+                    label: 'Capacité — affectations',
+                    href: '/teams/capacity/allocations',
+                  });
+                  teamsChildren.push({
+                    label: 'Capacité — pilotage',
+                    href: '/teams/capacity/dashboard',
+                  });
+                }
 
                 if (teamsChildren.length === 0) {
                   return null;

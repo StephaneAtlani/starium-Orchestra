@@ -46,6 +46,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectTagDto } from './dto/create-project-tag.dto';
 import { UpdateProjectTagDto } from './dto/update-project-tag.dto';
 import { ReplaceProjectTagsDto } from './dto/replace-project-tags.dto';
+import { resolveProjectConsumesCapacity } from '../capacity/lib/resolve-consumes-capacity';
 import { buildProjectListPilotageSnapshot } from './project-list-pilotage-snapshot';
 import {
   ProjectsPilotageService,
@@ -216,6 +217,9 @@ export type ProjectDetailDto = ProjectListItemDto & {
   committeeMoodReviewId: string | null;
   committeeMoodReviewTitle: string | null;
   committeeMoodReviewDate: string | null;
+  /** RFC-CAPA-001 */
+  consumesCapacity: boolean | null;
+  effectiveConsumesCapacity: boolean;
 };
 
 export type ProjectsPortfolioSummaryDto = {
@@ -1754,6 +1758,11 @@ export class ProjectsService {
       lastModifiedByDisplayName: lastModification?.userDisplayName ?? null,
       ancestorChain,
       ...committeeMoodSummary,
+      consumesCapacity: project.consumesCapacity ?? null,
+      effectiveConsumesCapacity: resolveProjectConsumesCapacity(
+        project.consumesCapacity ?? null,
+        project.parentProjectId ?? null,
+      ),
     };
   }
 
@@ -2128,6 +2137,9 @@ export class ProjectsService {
     }
     if (dto.copilRecommendation !== undefined) {
       data.copilRecommendation = dto.copilRecommendation;
+    }
+    if (dto.consumesCapacity !== undefined) {
+      data.consumesCapacity = dto.consumesCapacity;
     }
 
     const nameForSearch =

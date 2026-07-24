@@ -353,6 +353,9 @@ export class ClientScopedRisksService {
         ...(dto.riskTypeId !== undefined && {
           riskType: { connect: { id: dto.riskTypeId } },
         }),
+        ...(dto.consumesCapacity !== undefined && {
+          consumesCapacity: dto.consumesCapacity,
+        }),
       },
       include: riskInclude,
     });

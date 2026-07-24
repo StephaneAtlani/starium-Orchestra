@@ -13,6 +13,7 @@ import {
 import { UpdateActionPlanDto } from './dto/update-action-plan.dto';
 import { normalizeListPagination } from './lib/paginated-list.util';
 import { ProjectsService } from './projects.service';
+import { resolveActionPlanConsumesCapacity } from '../capacity/lib/resolve-consumes-capacity';
 
 @Injectable()
 export class ActionPlansService {
@@ -118,6 +119,21 @@ export class ActionPlansService {
     if (dto.ownerUserId !== undefined && dto.ownerUserId) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
     }
+    if (dto.consumesCapacity !== undefined) {
+      const tasks = await this.prisma.projectTask.findMany({
+        where: { clientId, actionPlanId },
+        select: { projectId: true, riskId: true },
+      });
+      const resolution = resolveActionPlanConsumesCapacity(
+        dto.consumesCapacity,
+        tasks,
+      );
+      if (resolution.status === 'reject') {
+        throw new BadRequestException(
+          'Impossible d’activer « Porte sa capacité » : des tâches sont liées à un projet ou un risque.',
+        );
+      }
+    }
     return this.prisma.actionPlan.update({
       where: { id: actionPlanId },
       data: {
@@ -136,6 +152,9 @@ export class ActionPlansService {
         }),
         ...(dto.progressPercent !== undefined && {
           progressPercent: dto.progressPercent,
+        }),
+        ...(dto.consumesCapacity !== undefined && {
+          consumesCapacity: dto.consumesCapacity,
         }),
       },
       include: {

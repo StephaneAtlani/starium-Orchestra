@@ -71,6 +71,7 @@ import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { EntityCapacityPanel } from '@/features/capacity/components/entity-capacity-panel';
 import {
   getProjectSheetDecisionSnapshot,
   listProjectSheetDecisionSnapshots,
@@ -1501,6 +1502,24 @@ export function ProjectSheetView({
               Une entité par ligne ou séparées par des virgules — {involvedTeams.length}/2000 caractères.
             </p>
           </div>
+          {!sheetReadOnlyOverride && sheet ? (
+            <EntityCapacityPanel
+              sourceType="PROJECT"
+              sourceId={projectId}
+              consumesCapacity={sheet.consumesCapacity ?? null}
+              effectiveConsumesCapacity={sheet.effectiveConsumesCapacity ?? false}
+              canEdit={canEdit}
+              helperText="Par défaut un projet racine porte sa capacité ; un sous-projet hérite du parent sauf override."
+              onPersistConsumes={async (next) => {
+                await updateProjectSheet(authFetch, projectId, {
+                  consumesCapacity: next,
+                });
+                await queryClient.invalidateQueries({
+                  queryKey: projectQueryKeys.sheet(clientId, projectId),
+                });
+              }}
+            />
+          ) : null}
         </CardContent>
       </Card>
 

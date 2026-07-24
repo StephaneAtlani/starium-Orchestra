@@ -1334,6 +1334,43 @@ async function ensureActivityTypesModuleAndPermissions(): Promise<void> {
   }
 }
 
+/** RFC-CAPA-001 — module Core Capacity Management. */
+async function ensureCapacityModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "capacity" },
+    create: {
+      code: "capacity",
+      name: "Capacité",
+      description:
+        "Capacité mensuelle, centres WorkTeam, affectations J/H (RFC-CAPA-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "capacity.read", label: "Capacité — lecture" },
+    {
+      code: "capacity.settings.manage",
+      label: "Capacité — paramètres mensuels client",
+    },
+    {
+      code: "capacity.members.manage",
+      label: "Capacité — exceptions membres / WorkTeam principale",
+    },
+    {
+      code: "capacity.allocations.manage",
+      label: "Capacité — affectations de charge",
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
 async function ensureContractsModuleAndPermissions(): Promise<void> {
   const mod = await prisma.module.upsert({
     where: { code: "contracts" },
@@ -3939,6 +3976,7 @@ async function main() {
   await ensureSkillsModuleAndPermissions();
   await ensureTeamsModuleAndPermissions();
   await ensureActivityTypesModuleAndPermissions();
+  await ensureCapacityModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
   await ensureOrganizationModuleAndPermissions();

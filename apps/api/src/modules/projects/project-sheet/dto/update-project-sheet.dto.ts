@@ -269,4 +269,10 @@ export class UpdateProjectSheetDto {
   @IsOptional()
   @IsBoolean()
   recordDecisionSnapshot?: boolean;
+
+  /** RFC-CAPA-001 — null = héritage / défaut (autonome si pas de parent). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsBoolean()
+  consumesCapacity?: boolean | null;
 }

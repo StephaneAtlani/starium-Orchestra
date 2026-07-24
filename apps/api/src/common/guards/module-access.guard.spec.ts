@@ -364,4 +364,87 @@ describe('ModuleAccessGuard', () => {
       guard.canActivate(createExecutionContext(req)),
     ).resolves.toBe(true);
   });
+
+  it('RFC-CAPA-001 : capacity.read accepté si module capacity ENABLED + visible', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['capacity.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['capacity.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['capacity', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'capacity',
+        isActive: true,
+        clientModules: [{ id: 'cm-capa' }],
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).resolves.toBe(true);
+  });
+
+  it('RFC-CAPA-001 : capacity.read refusé si ClientModule absent', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['capacity.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['capacity.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['capacity', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      { code: 'capacity', isActive: true, clientModules: [] },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('RFC-CAPA-001 : capacity.read refusé si module globalement inactif', async () => {
+    const req: Partial<RequestWithClient> = {
+      user: { userId: 'user-1' },
+      activeClient: { id: 'client-1', role: null as any, status: null as any },
+    };
+    (reflector.get as jest.Mock).mockImplementation((key: string) => {
+      if (key === REQUIRE_ANY_PERMISSIONS_KEY) return undefined;
+      if (key === REQUIRE_PERMISSIONS_KEY) return ['capacity.read'];
+      return undefined;
+    });
+    effectivePermissions.resolvePermissionCodesForRequest.mockResolvedValue(
+      new Set(['capacity.read']),
+    );
+    moduleVisibility.getVisibilityMap.mockResolvedValue(
+      new Map([['capacity', true]]),
+    );
+    prisma.module.findMany.mockResolvedValue([
+      {
+        code: 'capacity',
+        isActive: false,
+        clientModules: [{ id: 'cm-capa' }],
+      },
+    ] as any);
+
+    await expect(
+      guard.canActivate(createExecutionContext(req)),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 });

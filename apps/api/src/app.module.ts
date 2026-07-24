@@ -35,6 +35,7 @@ import { PlatformUsageModule } from './modules/platform-usage/platform-usage.mod
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
 import { ActivityTypesModule } from './modules/activity-types/activity-types.module';
+import { CapacityModule } from './modules/capacity/capacity.module';
 import { ResourceTimeEntriesModule } from './modules/resource-time-entries/resource-time-entries.module';
 import { ContractsModule } from './modules/contracts/contracts.module';
 import { StrategicDirectionStrategyModule } from './modules/strategic-direction-strategy/strategic-direction-strategy.module';
@@ -100,6 +101,7 @@ import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-
     SkillsModule,
     WorkTeamsModule,
     ActivityTypesModule,
+    CapacityModule,
     ResourceTimeEntriesModule,
     ContractsModule,
     StrategicDirectionStrategyModule,

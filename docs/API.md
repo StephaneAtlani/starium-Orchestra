@@ -3260,6 +3260,76 @@ Code : `apps/api/src/modules/resource-time-entries/resource-timesheet-months.con
 
 ---
 
+## Capacité — `/api/capacity` (RFC-CAPA-001)
+
+Module Nest `capacity` (client actif obligatoire). Centre de capacité = **`WorkTeam`** ; personnes = **`Resource` type HUMAN**. Pas de `clientId` dans le body. Guards : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`. Module catalogue **`capacity`** (activation `ClientModule`).
+
+**Permissions :**
+- `capacity.read` — lecture
+- `capacity.settings.manage` — calendrier mensuel client
+- `capacity.members.manage` — capacité membre / équipe primaire
+- `capacity.allocations.manage` — CRUD allocations
+
+**J/H** : champs `days` / `totalDays` en **string numérique** côté write (`IsNumberString`, ex. `"10.50"`).
+
+### Settings (calendrier mensuel)
+
+- **GET** `/api/capacity/settings/monthly?year=` — Liste `{ items: [{ yearMonth, days, source }] }`. **`capacity.read`**
+- **PUT** `/api/capacity/settings/monthly` — Body `{ items: [{ yearMonth, days }] }` (`days` string). **`capacity.settings.manage`**
+- **POST** `/api/capacity/settings/monthly/generate` — Body `{ year, force? }` — jours ouvrés FR. **`capacity.settings.manage`**
+
+### Members
+
+- **GET** `/api/capacity/members/:resourceId/monthly?year=` — Capacité mensuelle + `resourceName`, `primaryCapacityWorkTeamId`, `primaryCapacityWorkTeamName`. **`capacity.read`**
+- **PUT** `/api/capacity/members/:resourceId/monthly` — Upsert exceptions (`days` string ou `null` = héritage). **`capacity.members.manage`**
+- **PATCH** `/api/capacity/members/:resourceId/primary-work-team` — Body `{ primaryCapacityWorkTeamId: string | null }`. **`capacity.members.manage`**
+
+### Allocations
+
+- **GET** `/api/capacity/allocations` — Query : `limit`, `offset`, `yearMonthFrom|To`, `workTeamId`, `resourceId`, `sourceType`, `sourceId`. **`capacity.read`**
+- **GET** `/api/capacity/allocations/:id` — Détail. **`capacity.read`**
+- **POST** `/api/capacity/allocations` — Création (XOR `workTeamId` / `resourceId` ; `totalDays` string ; `sourceType` défaut `MANUAL`). **`capacity.allocations.manage`**
+- **PATCH** `/api/capacity/allocations/:id` — Mise à jour. **`capacity.allocations.manage`**
+- **DELETE** `/api/capacity/allocations/:id` — Suppression. **`capacity.allocations.manage`**
+
+**Forme réponse allocation (extrait) :**
+- `workTeam: { id, name, status } | null`
+- `resource: { id, name } | null`
+- `totalDays` / `months[].days` : strings
+- `commitmentKind` : `FORECAST` | `COMMITTED` | `EXCLUDED` (dérivé, non persisté)
+- Si source métier non lisible : `sourceRestricted: true`, `sourceId: null`, `sourceRef: null` (totaux de charge restent visibles pour le pilotage client)
+
+**ACL sources (écritures + masquage lecture) :**
+- `MANUAL` — N/A
+- `PROJECT` — `AccessDecisionService` intent `read`
+- `PROJECT_RISK` / `ACTION_PLAN` — existence `{ id, clientId }` + permission effective `projects.read`
+
+Pour lister les allocations d’une source avec contrôle d’accès source, préférer la route Sources ci-dessous (plutôt que `?sourceId=` seul).
+
+### Dashboard
+
+- **GET** `/api/capacity/dashboard/resources?from=&to=&includeArchivedWorkTeams=` — Agrégats par ressource. **`capacity.read`**
+- **GET** `/api/capacity/dashboard/work-teams?...` — Agrégats par équipe. **`capacity.read`**
+- **GET** `/api/capacity/dashboard/portfolio?...` — Vue portefeuille. **`capacity.read`**
+
+### Sources
+
+- **GET** `/api/capacity/sources/:type/:id/allocations` — Allocations liées (`MANUAL` \| `PROJECT` \| `PROJECT_RISK` \| `ACTION_PLAN`) ; applique `canReadSource`. **`capacity.read`**
+
+### Hooks métier `consumesCapacity`
+
+Champ nullable `boolean | null` (null = héritage / défaut) :
+
+- **PATCH** `/api/projects/:id` et **PATCH** `/api/projects/:id/project-sheet` — body `consumesCapacity` ; réponse fiche : `consumesCapacity`, `effectiveConsumesCapacity`
+- **PATCH** risque client / projet — `consumesCapacity`
+- **PATCH** `/api/action-plans/:id` — `consumesCapacity` ; **400** si `true` explicite alors que des tâches sont liées à un projet ou un risque
+
+**UI** : `/teams/capacity/settings|members|allocations|dashboard` — `apps/web/src/features/capacity/` ; encart capacité sur **fiche projet** (`EntityCapacityPanel`). UI risque / plan d’actions : API seulement (pas d’encart dédié à date).
+
+Code : `apps/api/src/modules/capacity/capacity.controller.ts`.
+
+---
+
 ## Intégration Microsoft 365 — `/api/microsoft` (RFC-PROJ-INT-003 / RFC-PROJ-INT-005)
 
 Toutes les routes ci-dessous sont préfixées par **`/api`**. Les jetons Microsoft (**access** / **refresh**) ne sont **jamais** renvoyés au client : ils sont stockés chiffrés côté serveur et associés au **client Starium** concerné — **`clientId` du contexte client actif** sur les routes JWT, **`clientId` issu du `state` validé** sur le callback OAuth (pas d’`clientId` dans le body des requêtes).

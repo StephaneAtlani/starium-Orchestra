@@ -77,6 +77,7 @@ describe('ProjectsPilotageService', () => {
     swotThreats: null,
     towsActions: null,
     searchText: null,
+    consumesCapacity: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -143,6 +144,7 @@ describe('ProjectsPilotageService', () => {
           residualRiskLevel: null,
           residualJustification: null,
           complementaryTreatmentMeasures: null,
+          consumesCapacity: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         },

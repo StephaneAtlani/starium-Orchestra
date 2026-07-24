@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -9,6 +10,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   ProjectCopilRecommendation,
@@ -114,4 +116,10 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsEnum(ProjectCopilRecommendation)
   copilRecommendation?: ProjectCopilRecommendation;
+
+  /** RFC-CAPA-001 — null = héritage / défaut (autonome si pas de parent). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsBoolean()
+  consumesCapacity?: boolean | null;
 }

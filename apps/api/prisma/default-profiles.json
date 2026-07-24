@@ -246,7 +246,8 @@
       "collaborators.read",
       "teams.read",
       "activity_types.read",
-      "resources.read"
+      "resources.read",
+      "capacity.read"
     ]
   },
   {
@@ -268,7 +269,11 @@
       "activity_types.manage",
       "resources.read",
       "resources.create",
-      "resources.update"
+      "resources.update",
+      "capacity.read",
+      "capacity.settings.manage",
+      "capacity.members.manage",
+      "capacity.allocations.manage"
     ]
   },
   {
