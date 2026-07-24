@@ -1,0 +1,475 @@
+# RFC-CAPA-001 — Gestion de la capacité des équipes et des collaborateurs
+
+**Statut :** Proposition
+**Priorité :** Haute
+**Module :** Capacity Management (Core)
+**Impact :** Projets, Activités, Risques, Plans d'actions, Orion, Reporting
+
+---
+
+# 1. Contexte
+
+Aujourd'hui, Starium permet de piloter les projets, les activités et les budgets.
+
+En revanche, il n'existe pas de vision de la **capacité disponible** des équipes ni de l'impact des projets sur les fonctions support.
+
+L'objectif n'est **pas** de créer un outil de staffing complexe comme Planview ou Sciforma.
+
+L'objectif est de fournir au CODIR et aux managers une vision simple :
+
+* avons-nous la capacité ?
+* qui est surchargé ?
+* quelle équipe est la plus sollicitée ?
+* quel sera l'impact d'un nouveau projet ?
+
+---
+
+# 2. Objectifs
+
+Permettre de :
+
+* piloter la capacité mensuelle des collaborateurs
+* piloter la capacité des équipes
+* anticiper les surcharges
+* mesurer l'impact des projets sur les fonctions support
+* aider le CODIR à arbitrer les priorités
+
+Sans entrer dans la planification quotidienne.
+
+---
+
+# 3. Principe général
+
+Chaque projet ou activité consomme une capacité exprimée en **Jours/Homme (J/H)**.
+
+Cette capacité peut être affectée :
+
+* à une équipe (Centre de capacité)
+* à un collaborateur
+
+La consommation est ensuite agrégée automatiquement.
+
+---
+
+# 4. Les centres de capacité
+
+Le système repose sur un référentiel unique appelé :
+
+> **Centre de capacité**
+
+Un centre de capacité représente une équipe ou une fonction capable de réaliser du travail.
+
+Exemples :
+
+## IT
+
+* Chefs de projet
+* Infrastructure
+* Exploitation
+* Support
+* Cybersécurité
+* Développement
+
+## Fonctions support
+
+* RH
+* Comptabilité
+* Finance
+* Juridique
+* Achats
+* Communication
+
+## Métiers
+
+* Production
+* Maintenance
+* Commerce
+* Marketing
+* Qualité
+
+Le modèle est volontairement générique afin de couvrir l'ensemble de l'entreprise.
+
+---
+
+# 5. Collaborateurs
+
+Chaque collaborateur possède :
+
+* un centre de capacité principal
+* une capacité mensuelle
+
+Un collaborateur peut appartenir à plusieurs équipes fonctionnelles.
+
+En revanche :
+
+> **Une seule équipe contribue au calcul de capacité.**
+
+Cela évite tout double comptage.
+
+---
+
+# 6. Capacité mensuelle
+
+## 6.1 Valeur par défaut
+
+Le client possède une capacité mensuelle par défaut.
+
+Elle est générée automatiquement à partir :
+
+* du calendrier français
+* des jours ouvrés
+* des jours fériés
+* de la zone géographique
+
+Exemple :
+
+| Mois    | J/H |
+| ------- | --: |
+| Janvier |  21 |
+| Février |  20 |
+| Mars    |  22 |
+| Avril   |  21 |
+| Mai     |  17 |
+
+L'administrateur peut modifier ces valeurs.
+
+---
+
+## 6.2 Capacité individuelle
+
+Chaque collaborateur hérite automatiquement de cette capacité.
+
+Une exception peut être définie.
+
+Exemple :
+
+```
+Octobre
+
+Valeur générale : 20
+
+Jean : 15
+
+Marie : hérite donc 20
+```
+
+Une valeur vide signifie :
+
+> utiliser la valeur générale.
+
+---
+
+# 7. Sources de capacité
+
+Chaque capacité possède une origine.
+
+```
+CALENDRIER
+
+PARAMETRE_CLIENT
+
+EXCEPTION_COLLABORATEUR
+
+SIRH
+```
+
+Ordre de priorité :
+
+```
+SIRH
+
+↓
+
+Exception collaborateur
+
+↓
+
+Paramètre client
+
+↓
+
+Calendrier automatique
+```
+
+Le SIRH sera ajouté ultérieurement.
+
+---
+
+# 8. Capacité des centres
+
+La capacité d'un centre est calculée automatiquement.
+
+```
+Capacité du centre
+
+=
+
+Somme des capacités des collaborateurs
+```
+
+Aucune capacité n'est saisie manuellement au niveau du centre.
+
+---
+
+# 9. Affectation de charge
+
+Une charge peut être affectée :
+
+* à un centre
+* à un collaborateur
+
+Chaque affectation comporte :
+
+* période
+* J/H
+* commentaire
+
+Exemple :
+
+```
+Migration ERP
+
+Infrastructure
+
+25 J/H
+```
+
+ou
+
+```
+Migration ERP
+
+Jean Dupont
+
+15 J/H
+```
+
+---
+
+# 10. Répartition automatique
+
+Une charge définie sur une période est répartie automatiquement sur les mois concernés.
+
+Exemple :
+
+```
+40 J/H
+
+01/09 → 31/10
+```
+
+devient
+
+```
+Septembre
+
+20
+
+Octobre
+
+20
+```
+
+La répartition est automatique.
+
+---
+
+# 11. Prévisionnel / Engagé
+
+Aucune saisie supplémentaire.
+
+Le statut du projet détermine automatiquement :
+
+Prévisionnel
+
+ou
+
+Engagé.
+
+Exemple :
+
+Brouillon
+
+↓
+
+Prévisionnel
+
+Projet validé
+
+↓
+
+Engagé
+
+---
+
+# 12. Tableaux de bord
+
+Pour chaque mois :
+
+## Collaborateur
+
+* capacité
+* engagé
+* prévisionnel
+* disponible
+
+---
+
+## Centre
+
+* capacité
+* engagé
+* prévisionnel
+* disponible
+
+---
+
+## Portefeuille
+
+* capacité totale
+* consommation
+* surcharge
+* taux d'occupation
+
+---
+
+# 13. Règle fondamentale : anti double comptage
+
+La capacité est comptabilisée **une seule fois**.
+
+Lorsqu'un objet est rattaché à un autre objet consommant déjà de la capacité :
+
+* il devient un élément de pilotage
+* il ne génère pas de consommation supplémentaire
+
+Exemples :
+
+```
+Programme
+
+└── Projet
+
+     └── Activité
+
+          └── Plan d'action
+```
+
+ou
+
+```
+Projet
+
+└── Risque
+
+     └── Plan d'action
+```
+
+Dans ces cas :
+
+* Projet = consommation
+* Activité = suivi
+* Risque = suivi
+* Plan d'action = suivi
+
+Aucune consommation supplémentaire.
+
+---
+
+## Cas inverse
+
+Un risque autonome peut porter sa propre capacité.
+
+Exemple :
+
+```
+Audit cybersécurité
+
+↓
+
+Risque
+
+↓
+
+15 J/H
+```
+
+Il est alors comptabilisé.
+
+---
+
+# 14. Paramètre de consommation
+
+Chaque objet possède une règle :
+
+```
+☑ Porte sa capacité
+
+☐ Hérite de la capacité du parent
+```
+
+Par défaut :
+
+* un objet autonome porte sa capacité ;
+* un objet rattaché hérite de la capacité de son parent.
+
+---
+
+# 15. Droits
+
+Deux permissions :
+
+```
+capacity.settings.manage
+```
+
+Gestion des capacités générales.
+
+```
+capacity.members.manage
+```
+
+Gestion des capacités individuelles.
+
+---
+
+# 16. Vision long terme
+
+Cette architecture sera utilisée par l'ensemble de Starium :
+
+* Projets
+* Activités
+* Programmes
+* Portefeuilles
+* Demandes
+* Risques
+* Plans d'actions
+* Audits
+* Orion
+* Finance
+* RH
+
+Elle permettra notamment à **Orion** de répondre à des questions comme :
+
+* « Quel est l'impact de ce projet sur les RH ? »
+* « Quelle équipe sera surchargée au quatrième trimestre ? »
+* « Si ce projet est lancé en septembre, quelle sera la capacité restante de l'infrastructure ? »
+* « Quels centres de capacité sont actuellement les plus sollicités ? »
+
+---
+
+# 17. Bénéfices
+
+* Vision globale de la capacité de l'entreprise.
+* Pilotage transverse des fonctions IT et support.
+* Aide à la priorisation des projets.
+* Détection anticipée des surcharges.
+* Aucune complexité de planification quotidienne.
+* Architecture extensible vers un SIRH.
+* Aucune double comptabilisation grâce à la règle d'héritage de capacité.
+* Base solide pour les analyses prédictives d'Orion.
+
+---
+
+## Recommandation
+
+Je créerais ce module comme un **module Core** (`Capacity Management`) et non comme une fonctionnalité du module Projets. Ainsi, il deviendra un service transverse consommé par tous les modules de Starium (Projets, Activités, Risques, Finance, RH, Audits, etc.), ce qui est parfaitement cohérent avec la vision de **Starium comme système d'exploitation des fonctions support**.
