@@ -50,7 +50,7 @@ export async function getMonthlySettings(
 
 export async function putMonthlySettings(
   authFetch: AuthFetch,
-  items: Array<{ yearMonth: string; days: number }>,
+  items: Array<{ yearMonth: string; days: string }>,
 ): Promise<{ items: MonthlyCapacityRow[] }> {
   const res = await authFetch(`/api/capacity/settings/monthly`, {
     method: 'PUT',
@@ -94,7 +94,7 @@ export async function getMemberMonthly(
 export async function putMemberMonthly(
   authFetch: AuthFetch,
   resourceId: string,
-  items: Array<{ yearMonth: string; days: number | null }>,
+  items: Array<{ yearMonth: string; days: string | null }>,
 ): Promise<{ items: MemberMonthlyCapacityRow[] }> {
   const res = await authFetch(`/api/capacity/members/${resourceId}/monthly`, {
     method: 'PUT',
@@ -138,6 +138,18 @@ export async function listAllocations(
   return handleResponse(res);
 }
 
+/** Liste scopée source + ACL `canReadSource` (préférer à `?sourceId=`). */
+export async function listAllocationsBySource(
+  authFetch: AuthFetch,
+  sourceType: string,
+  sourceId: string,
+): Promise<{ items: CapacityAllocationDto[]; total: number }> {
+  const res = await authFetch(
+    `/api/capacity/sources/${encodeURIComponent(sourceType)}/${encodeURIComponent(sourceId)}/allocations`,
+  );
+  return handleResponse(res);
+}
+
 export async function getAllocation(
   authFetch: AuthFetch,
   id: string,
@@ -151,7 +163,8 @@ export async function createAllocation(
   payload: {
     startDate: string;
     endDate: string;
-    totalDays: number;
+    /** String numérique (IsNumberString backend). */
+    totalDays: string;
     comment?: string | null;
     workTeamId?: string | null;
     resourceId?: string | null;

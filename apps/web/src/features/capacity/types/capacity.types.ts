@@ -14,14 +14,14 @@ export type CapacityCommitmentKind = 'FORECAST' | 'COMMITTED' | 'EXCLUDED';
 
 export type MonthlyCapacityRow = {
   yearMonth: string;
-  days: number;
+  days: string | number;
   source: CapacitySource;
 };
 
 export type MemberMonthlyCapacityRow = {
   yearMonth: string;
-  days: number | null;
-  resolvedDays: number;
+  days: string | number | null;
+  resolvedDays: string | number;
   source: CapacitySource;
   inherits: boolean;
 };
@@ -30,37 +30,55 @@ export type CapacityAllocationDto = {
   id: string;
   startDate: string;
   endDate: string;
-  totalDays: number;
+  /** J/H — string côté API. */
+  totalDays: string | number;
   comment: string | null;
-  workTeamId: string | null;
-  workTeamName: string | null;
-  resourceId: string | null;
-  resourceName: string | null;
+  workTeam: { id: string; name: string; status?: string } | null;
+  resource: { id: string; name: string } | null;
   sourceType: CapacityAllocationSourceType;
   sourceId: string | null;
   sourceRestricted: boolean;
-  sourceRef: { type: CapacityAllocationSourceType; id: string; label: string } | null;
+  sourceRef: { id: string; label: string } | null;
   commitmentKind: CapacityCommitmentKind;
-  months: Array<{ yearMonth: string; days: number }>;
+  months: Array<{ yearMonth: string; days: string | number }>;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type CapacityDashboardRow = {
   id: string;
   label: string;
   yearMonth: string;
-  capacity: number;
-  allocated: number;
-  forecast?: number;
-  committed?: number;
-  available: number;
+  capacity: number | string;
+  allocated: number | string;
+  forecast?: number | string;
+  committed?: number | string;
+  available: number | string;
   bucket?: 'NO_ACTIVE_WORK_TEAM';
 };
 
 export type CapacityPortfolioSummary = {
   yearMonth: string;
-  capacity: number;
-  allocated: number;
-  forecast?: number;
-  committed?: number;
-  available: number;
+  capacity: number | string;
+  allocated: number | string;
+  forecast?: number | string;
+  committed?: number | string;
+  available: number | string;
 };
+
+/** Onglets de la page unique capacité. */
+export type CapacityWorkspaceTab = 'pilotage' | 'affectations' | 'reglages';
+
+export const CAPACITY_WORKSPACE_TABS: CapacityWorkspaceTab[] = [
+  'pilotage',
+  'affectations',
+  'reglages',
+];
+
+export function parseCapacityTab(raw: string | null | undefined): CapacityWorkspaceTab {
+  if (raw === 'affectations' || raw === 'reglages' || raw === 'pilotage') return raw;
+  if (raw === 'allocations') return 'affectations';
+  if (raw === 'settings' || raw === 'members') return 'reglages';
+  if (raw === 'dashboard') return 'pilotage';
+  return 'pilotage';
+}

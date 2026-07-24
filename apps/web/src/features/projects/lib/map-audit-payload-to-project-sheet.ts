@@ -139,5 +139,7 @@ export function mapAuditPayloadToProjectSheet(
     swotOpportunities: strArr(payload.swotOpportunities),
     swotThreats: strArr(payload.swotThreats),
     towsActions: parseTows(payload.towsActions),
+    consumesCapacity: null,
+    effectiveConsumesCapacity: false,
   };
 }

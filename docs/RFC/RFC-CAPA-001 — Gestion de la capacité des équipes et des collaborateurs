@@ -24,13 +24,13 @@
 
 ## Écarts connus (ne pas considérer comme « done » produit)
 
-* **UI** : MVP fonctionnelle (pas encore alignée Design System complet : `PageContainer`, DataTable, etc.).
-* **Fiches risque / plan d’actions** : `consumesCapacity` exposé en API (`PATCH`) ; **pas** d’encart UI dédié (fiche projet seulement).
-* **Contrat allocations** : réponse API = objets imbriqués `workTeam` / `resource` (`{ id, name, … }`) — le client FE doit mapper ces formes (pas de champs plats `workTeamName` / `resourceName`).
+* **UI** : **page unique** `/teams/capacity` (onglets Pilotage / Affectations / Réglages) — [RFC-FE-CAPA-001](./RFC-FE-CAPA-001%20%E2%80%94%20UI%20UX%20Capacit%C3%A9%20%E2%80%94%20compl%C3%A9ments%20post-MVP.md). Reste polish DS + encarts risque/plan.
+* **Fiches risque / plan d’actions** : `consumesCapacity` exposé en API (`PATCH`) ; **pas** d’encart UI dédié (fiche projet seulement) → Lot D FE-CAPA-001.
+* **Contrat allocations** : réponse API = objets imbriqués `workTeam` / `resource` (`{ id, name, … }`) — le client FE doit mapper ces formes (pas de champs plats `workTeamName` / `resourceName`) → Lot A FE-CAPA-001.
 * **ACL sources** : `PROJECT` via `AccessDecisionService` (intent `read`) ; `PROJECT_RISK` / `ACTION_PLAN` = existence tenant-scopée + `projects.read` (pas de décision ACL ressource dédiée).
-* **Liste allocations** : filtre `?sourceId=` ne réapplique pas `canReadSource` (préférer `GET /api/capacity/sources/:type/:id/allocations` pour une source donnée).
-* **DTOs écrits** : montants J/H en **string numérique** (`IsNumberString`) sur create/put allocations / settings.
-* **Tests** : libs + metadata guards + seed ; **pas** encore de suite isolation runtime / ACL sources.
+* **Liste allocations** : filtre `?sourceId=` ne réapplique pas `canReadSource` (préférer `GET /api/capacity/sources/:type/:id/allocations` pour une source donnée) → Lot A FE-CAPA-001.
+* **DTOs écrits** : montants J/H en **string numérique** (`IsNumberString`) sur create/put allocations / settings → Lot A FE-CAPA-001.
+* **Tests** : libs + metadata guards + seed ; **pas** encore de suite isolation runtime / ACL sources (backend) ; tests FE → Lot E FE-CAPA-001.
 
 ## Recommandation
 

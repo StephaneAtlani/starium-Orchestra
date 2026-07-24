@@ -3324,7 +3324,7 @@ Champ nullable `boolean | null` (null = héritage / défaut) :
 - **PATCH** risque client / projet — `consumesCapacity`
 - **PATCH** `/api/action-plans/:id` — `consumesCapacity` ; **400** si `true` explicite alors que des tâches sont liées à un projet ou un risque
 
-**UI** : `/teams/capacity/settings|members|allocations|dashboard` — `apps/web/src/features/capacity/` ; encart capacité sur **fiche projet** (`EntityCapacityPanel`). UI risque / plan d’actions : API seulement (pas d’encart dédié à date).
+**UI** : page unique `/teams/capacity` (onglets Pilotage \| Affectations \| Réglages) — `apps/web/src/features/capacity/`. Anciennes sous-routes redirigent vers `?tab=`. Encart capacité sur **fiche projet** (`EntityCapacityPanel`). UI risque / plan d’actions : API seulement (pas d’encart dédié à date).
 
 Code : `apps/api/src/modules/capacity/capacity.controller.ts`.
 

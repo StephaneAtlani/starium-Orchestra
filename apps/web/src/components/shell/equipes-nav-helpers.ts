@@ -25,5 +25,8 @@ export function isEquipesDropdownChildActive(pathname: string | null, href: stri
       !pathname.startsWith('/teams/skills')
     );
   }
+  if (href === '/teams/capacity') {
+    return pathname === '/teams/capacity' || pathname.startsWith('/teams/capacity/');
+  }
   return false;
 }

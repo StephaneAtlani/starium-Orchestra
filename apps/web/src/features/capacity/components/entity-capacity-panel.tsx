@@ -13,17 +13,19 @@ import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
-import { listAllocations } from '../api/capacity.api';
+import { listAllocationsBySource } from '../api/capacity.api';
 import { capacityQueryKeys } from '../lib/capacity-query-keys';
+import {
+  allocationTargetLabel,
+  formatCapacityDays,
+} from '../lib/allocation-display';
 
 export type CapacitySourceType = 'PROJECT' | 'PROJECT_RISK' | 'ACTION_PLAN';
 
 type EntityCapacityPanelProps = {
   sourceType: CapacitySourceType;
   sourceId: string;
-  /** Valeur persistée (null = héritage). */
   consumesCapacity: boolean | null;
-  /** Valeur effective après résolution. */
   effectiveConsumesCapacity: boolean;
   canEdit: boolean;
   onPersistConsumes: (next: boolean | null) => Promise<void>;
@@ -48,13 +50,7 @@ export function EntityCapacityPanel({
 
   const allocations = useQuery({
     queryKey: capacityQueryKeys.allocationsBySource(clientId, sourceType, sourceId),
-    queryFn: () =>
-      listAllocations(authFetch, {
-        sourceType,
-        sourceId,
-        limit: 20,
-        offset: 0,
-      }),
+    queryFn: () => listAllocationsBySource(authFetch, sourceType, sourceId),
     enabled: !!clientId && canReadCapacity && !!sourceId,
   });
 
@@ -120,13 +116,13 @@ export function EntityCapacityPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-sm font-medium">Affectations liées</h4>
           <Link
-            href="/teams/capacity/allocations"
+            href="/teams/capacity?tab=affectations"
             className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11')}
           >
             Gérer les affectations
           </Link>
         </div>
-        {allocations.isLoading ? <LoadingState message="Chargement des affectations…" /> : null}
+        {allocations.isLoading ? <LoadingState rows={2} /> : null}
         {allocations.isError ? (
           <Alert variant="destructive">
             <AlertTitle>Erreur</AlertTitle>
@@ -149,13 +145,15 @@ export function EntityCapacityPanel({
                 className="flex min-h-11 flex-wrap items-baseline justify-between gap-2 rounded-md border px-3 py-2"
               >
                 <span>
-                  {a.workTeamName ?? a.resourceName ?? 'Cible'}
+                  {allocationTargetLabel(a)}
                   <span className="text-muted-foreground">
                     {' '}
                     · {a.startDate.slice(0, 10)} → {a.endDate.slice(0, 10)}
                   </span>
                 </span>
-                <span className="font-medium tabular-nums">{a.totalDays} j/h</span>
+                <span className="font-medium tabular-nums">
+                  {formatCapacityDays(a.totalDays)} j/h
+                </span>
               </li>
             ))}
           </ul>

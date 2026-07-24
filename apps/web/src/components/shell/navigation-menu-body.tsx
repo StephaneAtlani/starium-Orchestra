@@ -397,20 +397,8 @@ export function NavigationMenuBody({ className }: NavigationMenuBodyProps) {
                   isModuleVisible('capacity')
                 ) {
                   teamsChildren.push({
-                    label: 'Capacité — paramètres',
-                    href: '/teams/capacity/settings',
-                  });
-                  teamsChildren.push({
-                    label: 'Capacité — membres',
-                    href: '/teams/capacity/members',
-                  });
-                  teamsChildren.push({
-                    label: 'Capacité — affectations',
-                    href: '/teams/capacity/allocations',
-                  });
-                  teamsChildren.push({
-                    label: 'Capacité — pilotage',
-                    href: '/teams/capacity/dashboard',
+                    label: 'Capacité',
+                    href: '/teams/capacity',
                   });
                 }
 

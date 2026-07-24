@@ -39,7 +39,7 @@ export function usePutCapacityMonthlySettings() {
   const qc = useQueryClient();
   const clientId = activeClient?.id ?? '';
   return useMutation({
-    mutationFn: (items: Array<{ yearMonth: string; days: number }>) =>
+    mutationFn: (items: Array<{ yearMonth: string; days: string }>) =>
       putMonthlySettings(authFetch, items),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: capacityQueryKeys.all(clientId) });
@@ -68,7 +68,7 @@ export function usePutMemberMonthlyCapacity(resourceId: string) {
   const qc = useQueryClient();
   const clientId = activeClient?.id ?? '';
   return useMutation({
-    mutationFn: (items: Array<{ yearMonth: string; days: number | null }>) =>
+    mutationFn: (items: Array<{ yearMonth: string; days: string | null }>) =>
       putMemberMonthly(authFetch, resourceId, items),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: capacityQueryKeys.all(clientId) });

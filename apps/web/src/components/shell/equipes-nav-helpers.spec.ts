@@ -41,4 +41,10 @@ describe('isEquipesDropdownChildActive', () => {
       false,
     );
   });
+
+  it('Capacité: page unique + anciennes sous-routes', () => {
+    expect(isEquipesDropdownChildActive('/teams/capacity', '/teams/capacity')).toBe(true);
+    expect(isEquipesDropdownChildActive('/teams/capacity/settings', '/teams/capacity')).toBe(true);
+    expect(isEquipesDropdownChildActive('/teams/skills', '/teams/capacity')).toBe(false);
+  });
 });
