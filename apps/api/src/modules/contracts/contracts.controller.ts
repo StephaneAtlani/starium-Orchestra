@@ -51,6 +51,17 @@ export class ContractsController {
     return this.contracts.list(clientId!, query, userId, request);
   }
 
+  /** Synthèse portefeuille pour le bandeau KPI — déclaré avant `:id`. */
+  @Get('summary')
+  @RequireAccessIntent({ module: 'contracts', intent: 'read' })
+  summary(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
+  ) {
+    return this.contracts.summary(clientId!, userId, request);
+  }
+
   /** Fournisseurs du client pour sélecteur contrat (sans exiger procurement.read). */
   @Get('supplier-options')
   @RequireAnyPermissions('contracts.read', 'contracts.create', 'contracts.update')

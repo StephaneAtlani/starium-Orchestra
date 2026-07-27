@@ -51,6 +51,10 @@ import {
   riskCriticalityDsBadgeClass,
   riskCriticalityLabel,
 } from '../lib/project-risk-display';
+import {
+  criticalityLevelFromPiScore,
+  matrixCellSurfaceClass,
+} from '../risks/lib/risk-criticality-matrix';
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { ChevronDown, CloudUpload, ListPlus, Loader2, ShieldAlert } from 'lucide-react';
 
@@ -242,26 +246,6 @@ function InitialRiskSummary({
       </div>
     </div>
   );
-}
-
-function criticalityLevelFromPiScore(score: number): ProjectRiskCriticalityLevel {
-  if (score <= 4) return 'LOW';
-  if (score <= 9) return 'MEDIUM';
-  if (score <= 16) return 'HIGH';
-  return 'CRITICAL';
-}
-
-function matrixCellSurfaceClass(level: ProjectRiskCriticalityLevel): string {
-  switch (level) {
-    case 'CRITICAL':
-      return 'bg-violet-500/25 text-violet-950 dark:bg-violet-500/20 dark:text-violet-100';
-    case 'HIGH':
-      return 'bg-red-500/20 text-red-950 dark:bg-red-500/15 dark:text-red-100';
-    case 'MEDIUM':
-      return 'bg-amber-500/20 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100';
-    default:
-      return 'bg-emerald-500/15 text-emerald-950 dark:bg-emerald-500/10 dark:text-emerald-100';
-  }
 }
 
 function CriticalityMatrix({

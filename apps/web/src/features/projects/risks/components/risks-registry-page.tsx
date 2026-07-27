@@ -37,6 +37,8 @@ import {
   type RisksRegistrySortKey,
 } from '../lib/risks-registry-table-sort';
 import { RisksRegistryKpi } from './risks-registry-kpi';
+import { RisksRegistryMatrix } from './risks-registry-matrix';
+import { RisksRegistryWatchlist } from './risks-registry-watchlist';
 import { RisksRegistryFiltersBar } from './risks-registry-filters-bar';
 import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -318,6 +320,24 @@ export function RisksRegistryPage() {
               rows={filtered}
               isLoading={showProjectsLoading || showRisksLoading}
             />
+
+            {!showError && (
+              <section
+                className="grid gap-3 lg:grid-cols-2 sm:gap-4"
+                aria-label="Synthèse visuelle des risques"
+              >
+                <RisksRegistryMatrix
+                  rows={filtered}
+                  isLoading={showProjectsLoading || showRisksLoading}
+                />
+                <RisksRegistryWatchlist
+                  rows={filtered}
+                  isLoading={showProjectsLoading || showRisksLoading}
+                  onOpenRisk={canEdit ? openEditRisk : undefined}
+                  onShowAllCritical={() => patchFilters({ criticality: 'CRITICAL' })}
+                />
+              </section>
+            )}
 
             <RisksRegistryFiltersBar
               filters={filters}

@@ -120,6 +120,29 @@ export interface ListContractsResult {
   offset: number;
 }
 
+/** Fenêtre « échéances à anticiper » du bandeau KPI contrats. */
+export const CONTRACTS_EXPIRY_HORIZON_DAYS = 90;
+
+/** Synthèse portefeuille contrats — `GET /contracts/summary`. */
+export interface ContractsSummaryResult {
+  /** Contrats visibles, tous statuts confondus. */
+  totalCount: number;
+  /** Contrats en vigueur (ACTIVE ou NOTICE). */
+  activeCount: number;
+  activeSupplierCount: number;
+  /** Somme des engagements des contrats en vigueur ; `null` si multi-devises. */
+  committedValue: number | null;
+  /** Somme des valeurs annuelles des contrats en vigueur ; `null` si multi-devises. */
+  annualValue: number | null;
+  /** Devise unique du portefeuille en vigueur, sinon `null`. */
+  currency: string | null;
+  currencyMixed: boolean;
+  expiringSoonCount: number;
+  expiringSoonHorizonDays: number;
+  /** Contrats au statut « en préavis » — renégociation à instruire. */
+  inRenewalCount: number;
+}
+
 function decToNumber(v: Prisma.Decimal | null | undefined): number | null {
   if (v == null) return null;
   return Number(v);
@@ -379,6 +402,123 @@ export class ContractsService {
     } as const;
   }
 
+  /**
+   * Restreint une liste d'ids contrat aux seuls lisibles par l'utilisateur
+   * (ACL v2 si le flag est actif, sinon ACL ressource historique).
+   * Sans `userId` (appel interne / système), la liste est renvoyée telle quelle.
+   */
+  private async filterReadableContractIds(
+    clientId: string,
+    contractIds: string[],
+    userId?: string,
+    request?: RequestWithClient,
+  ): Promise<string[]> {
+    if (!userId) return contractIds;
+    if (contractIds.length === 0) return [];
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      return this.accessDecision.filterResourceIdsByAccess({
+        request: request as RequestWithClient,
+        clientId,
+        userId,
+        resourceType: 'CONTRACT',
+        resourceIds: contractIds,
+        intent: 'list',
+      });
+    }
+    return this.accessControl.filterReadableResourceIds({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
+      resourceIds: contractIds,
+      operation: 'read',
+      sharingFloorAllows: true,
+    });
+  }
+
+  /**
+   * Synthèse portefeuille contrats (bandeau KPI `/contracts`).
+   *
+   * Portée : tous les contrats du client lisibles par l'utilisateur — indépendant
+   * des filtres de la liste. Les montants sont sommés par devise : `committedValue`
+   * n'est renseigné que si le portefeuille est mono-devise, sinon `currencyMixed`
+   * est vrai et l'UI masque le montant plutôt que d'additionner des devises.
+   */
+  async summary(
+    clientId: string,
+    userId?: string,
+    request?: RequestWithClient,
+    now: Date = new Date(),
+  ): Promise<ContractsSummaryResult> {
+    const rows = await this.prisma.supplierContract.findMany({
+      where: { clientId },
+      select: {
+        id: true,
+        status: true,
+        supplierId: true,
+        effectiveEnd: true,
+        currency: true,
+        annualValue: true,
+        totalCommittedValue: true,
+      },
+    });
+
+    const readableIds = new Set(
+      await this.filterReadableContractIds(
+        clientId,
+        rows.map((r) => r.id),
+        userId,
+        request,
+      ),
+    );
+    const visible = rows.filter((r) => readableIds.has(r.id));
+
+    const horizon = new Date(now);
+    horizon.setUTCDate(horizon.getUTCDate() + CONTRACTS_EXPIRY_HORIZON_DAYS);
+
+    const activeSuppliers = new Set<string>();
+    const currencies = new Set<string>();
+    let activeCount = 0;
+    let committedValue = 0;
+    let annualValue = 0;
+    let expiringSoon = 0;
+    let inRenewal = 0;
+
+    for (const row of visible) {
+      const isActive =
+        row.status === SupplierContractStatus.ACTIVE ||
+        row.status === SupplierContractStatus.NOTICE;
+
+      if (row.status === SupplierContractStatus.NOTICE) inRenewal += 1;
+
+      if (!isActive) continue;
+
+      activeCount += 1;
+      activeSuppliers.add(row.supplierId);
+      currencies.add(row.currency);
+      committedValue += decToNumber(row.totalCommittedValue) ?? 0;
+      annualValue += decToNumber(row.annualValue) ?? 0;
+
+      if (row.effectiveEnd && row.effectiveEnd >= now && row.effectiveEnd <= horizon) {
+        expiringSoon += 1;
+      }
+    }
+
+    const currencyMixed = currencies.size > 1;
+
+    return {
+      totalCount: visible.length,
+      activeCount,
+      activeSupplierCount: activeSuppliers.size,
+      committedValue: currencyMixed ? null : committedValue,
+      annualValue: currencyMixed ? null : annualValue,
+      currency: currencies.size === 1 ? [...currencies][0] : null,
+      currencyMixed,
+      expiringSoonCount: expiringSoon,
+      expiringSoonHorizonDays: CONTRACTS_EXPIRY_HORIZON_DAYS,
+      inRenewalCount: inRenewal,
+    };
+  }
+
   async list(
     clientId: string,
     query: ListContractsQueryDto,
@@ -415,25 +555,12 @@ export class ContractsService {
       orderBy: [{ effectiveStart: 'desc' }, { createdAt: 'desc' }],
       select: { id: true },
     });
-    const readableIds = userId
-      ? (await this.isAccessV2Enabled(clientId, request))
-        ? await this.accessDecision.filterResourceIdsByAccess({
-            request: request as RequestWithClient,
-            clientId,
-            userId,
-            resourceType: 'CONTRACT',
-            resourceIds: orderedIds.map((row) => row.id),
-            intent: 'list',
-          })
-        : await this.accessControl.filterReadableResourceIds({
-            clientId,
-            userId,
-            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.CONTRACT,
-            resourceIds: orderedIds.map((row) => row.id),
-            operation: 'read',
-            sharingFloorAllows: true,
-          })
-      : orderedIds.map((row) => row.id);
+    const readableIds = await this.filterReadableContractIds(
+      clientId,
+      orderedIds.map((row) => row.id),
+      userId,
+      request,
+    );
     const total = readableIds.length;
     const pagedIds = readableIds.slice(offset, offset + limit);
     const rows =
