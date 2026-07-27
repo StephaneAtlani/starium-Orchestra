@@ -1,10 +1,27 @@
+# Les motifs sans `**/` ne matchent QUE la racine du contexte de build.
+# Sans eux, `apps/api/dist`, `apps/web/.next` et les `node_modules` des
+# workspaces partaient dans l'image : un `dist` périmé combiné à la
+# compilation incrémentale produisait un build mixte (ex. `app.module.js`
+# obsolète -> erreur d'injection Nest au démarrage).
 node_modules
+**/node_modules
+
 .next
+**/.next
+
 dist
+**/dist
+
+# État de compilation incrémentale TypeScript : doit être régénéré dans l'image,
+# sinon `nest build` considère à tort certains fichiers comme déjà à jour.
+**/*.tsbuildinfo
+
 .git
 *.log
 .env
 .env.*
 !.env.example
 coverage
+**/coverage
 .nyc_output
+.test-recap
