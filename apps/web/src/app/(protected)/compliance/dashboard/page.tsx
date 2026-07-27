@@ -2,113 +2,112 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { AlertCircle } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LoadingState } from '@/components/feedback/loading-state';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { getComplianceDashboard } from '@/features/compliance/api/compliance.api';
+import {
+  getComplianceDashboard,
+  listComplianceFrameworkSummaries,
+  listComplianceStatuses,
+} from '@/features/compliance/api/compliance.api';
+import { ComplianceKpiStrip } from '@/features/compliance/components/compliance-kpi-strip';
+import { ComplianceFrameworkCards } from '@/features/compliance/components/compliance-framework-cards';
+import { ComplianceControlsTable } from '@/features/compliance/components/compliance-controls-table';
 
 export default function ComplianceDashboardPage() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
+  const clientId = activeClient?.id ?? '';
+  const enabled = Boolean(clientId);
 
-  const q = useQuery({
-    queryKey: ['compliance', 'dashboard', activeClient?.id],
+  const dashboardQ = useQuery({
+    queryKey: ['compliance', clientId, 'dashboard'],
     queryFn: () => getComplianceDashboard(authFetch),
-    enabled: !!activeClient?.id,
+    enabled,
+  });
+
+  const frameworksQ = useQuery({
+    queryKey: ['compliance', clientId, 'frameworks-summary'],
+    queryFn: () => listComplianceFrameworkSummaries(authFetch),
+    enabled,
+    staleTime: 30_000,
+  });
+
+  const statusesQ = useQuery({
+    queryKey: ['compliance', clientId, 'statuses'],
+    queryFn: () => listComplianceStatuses(authFetch),
+    enabled,
+    staleTime: 30_000,
   });
 
   return (
     <RequireActiveClient>
-      <PageContainer className="flex flex-col gap-6">
+      <PageContainer>
         <PageHeader
+          eyebrow="Gouvernance › Conformité"
           title="Conformité"
-          description="Cockpit — référentiels actifs, exigences évaluées et liens risques critiques"
+          description="Suivi des référentiels réglementaires et de l'avancement des contrôles."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/compliance/frameworks"
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+              >
+                Référentiels
+              </Link>
+              <Link
+                href="/compliance/requirements"
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+              >
+                Exigences
+              </Link>
+            </div>
+          }
         />
-        <div className="flex flex-wrap gap-2">
-          <Link href="/compliance/frameworks" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-            Référentiels
-          </Link>
-          <Link
-            href="/compliance/requirements"
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-          >
-            Exigences
-          </Link>
-        </div>
 
-        {q.isLoading ? (
-          <LoadingState rows={4} />
-        ) : q.error ? (
-          <p className="text-sm text-destructive">{(q.error as Error).message}</p>
-        ) : q.data ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Conformité (évalué)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">
-                  {q.data.compliancePercent != null ? `${q.data.compliancePercent} %` : '—'}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Numérateur : conformes / dénominateur : évalués (hors N/A)
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Non-conformités</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">{q.data.nonCompliantCount}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Partiellement conformes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">
-                  {q.data.partiallyCompliantCount}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Exigences non évaluées</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">
-                  {q.data.notAssessedRequirementCount}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Sans preuve</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">
-                  {q.data.requirementsWithoutEvidence}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Risques critiques (lien conformité)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tabular-nums">{q.data.criticalRisksLinked}</p>
-              </CardContent>
-            </Card>
-          </div>
-        ) : null}
+        {dashboardQ.isError ? (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Impossible de charger la synthèse de conformité</AlertTitle>
+            <AlertDescription>
+              {dashboardQ.error instanceof Error
+                ? dashboardQ.error.message
+                : 'Une erreur est survenue. Réessayez dans un instant.'}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <ComplianceKpiStrip dashboard={dashboardQ.data} isLoading={dashboardQ.isLoading} />
+        )}
+
+        {frameworksQ.isError ? (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Impossible de charger les référentiels</AlertTitle>
+            <AlertDescription>
+              {frameworksQ.error instanceof Error
+                ? frameworksQ.error.message
+                : 'Une erreur est survenue. Réessayez dans un instant.'}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <ComplianceFrameworkCards
+            summaries={frameworksQ.data}
+            isLoading={frameworksQ.isLoading}
+          />
+        )}
+
+        <ComplianceControlsTable
+          rows={statusesQ.data}
+          isLoading={statusesQ.isLoading}
+          error={statusesQ.error instanceof Error ? statusesQ.error : null}
+          onRetry={() => void statusesQ.refetch()}
+        />
       </PageContainer>
     </RequireActiveClient>
   );

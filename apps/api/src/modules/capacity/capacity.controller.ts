@@ -202,6 +202,26 @@ export class CapacityController {
     return this.aggregates.dashboardResources(clientId!, query);
   }
 
+  /** Plan de charge ressource × projet (matrice `/resources`). */
+  @Get('dashboard/resource-project-load')
+  @RequirePermissions('capacity.read')
+  dashboardResourceProjectLoad(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: DashboardQueryDto,
+  ) {
+    return this.aggregates.dashboardResourceProjectLoad(clientId!, query);
+  }
+
+  /** Charge par équipe (cartes `/teams`). */
+  @Get('dashboard/work-team-load')
+  @RequirePermissions('capacity.read')
+  dashboardWorkTeamLoad(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: DashboardQueryDto,
+  ) {
+    return this.aggregates.dashboardWorkTeamLoad(clientId!, query);
+  }
+
   @Get('dashboard/work-teams')
   @RequirePermissions('capacity.read')
   dashboardWorkTeams(

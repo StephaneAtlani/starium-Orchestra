@@ -3189,6 +3189,8 @@ model ComplianceFramework {
   name      String
   version   String
   isActive  Boolean  @default(true)
+  /// Prochaine échéance d'audit / recertification (cartes référentiels).
+  nextAuditAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -4217,6 +4219,8 @@ model Supplier {
   logoMimeType       String?
   vatNumber          String?
   notes              String?
+  /// Évaluation fournisseur sur 5 (1.0–5.0), saisie manuelle. Null = non évalué.
+  performanceRating  Decimal?           @db.Decimal(2, 1)
   /// RFC-ORG-003
   ownerOrgUnitId     String?
   /// RFC-ORG-004

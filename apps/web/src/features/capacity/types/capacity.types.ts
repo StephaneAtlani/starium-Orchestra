@@ -57,6 +57,40 @@ export type CapacityDashboardRow = {
   bucket?: 'NO_ACTIVE_WORK_TEAM';
 };
 
+/** Ligne du plan de charge ressource × projet (`/capacity/dashboard/resource-project-load`). */
+export type ResourceProjectLoadRow = {
+  resourceId: string;
+  label: string;
+  roleName: string | null;
+  capacityDays: number;
+  allocatedDays: number;
+  availableDays: number;
+  /** Alloué / capacité en % ; `null` si aucune capacité résolue sur la fenêtre. */
+  loadPercent: number | null;
+  /** Jours alloués par projet (clé = id projet). */
+  byProject: Record<string, number>;
+  /** Jours alloués hors projet (manuel, risques, plans d'action). */
+  otherDays: number;
+};
+
+export type ResourceProjectLoadResult = {
+  months: string[];
+  projects: Array<{ id: string; name: string; code: string | null }>;
+  items: ResourceProjectLoadRow[];
+};
+
+/** Charge d'une équipe (`/capacity/dashboard/work-team-load`). */
+export type WorkTeamLoadRow = {
+  workTeamId: string;
+  label: string;
+  capacityDays: number;
+  allocatedDays: number;
+  availableDays: number;
+  /** Alloué / capacité en % ; `null` si aucune capacité résolue. */
+  loadPercent: number | null;
+  projectCount: number;
+};
+
 export type CapacityPortfolioSummary = {
   yearMonth: string;
   capacity: number | string;

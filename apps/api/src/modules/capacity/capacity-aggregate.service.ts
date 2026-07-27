@@ -29,6 +29,42 @@ function eachYearMonth(from: string, to: string): string[] {
   return out;
 }
 
+/** Ligne du plan de charge ressource × projet. */
+export interface ResourceProjectLoadRow {
+  resourceId: string;
+  label: string;
+  roleName: string | null;
+  capacityDays: number;
+  allocatedDays: number;
+  availableDays: number;
+  /** Alloué / capacité en % ; `null` si aucune capacité résolue sur la fenêtre. */
+  loadPercent: number | null;
+  /** Jours alloués par projet (clé = id projet), colonnes de la matrice. */
+  byProject: Record<string, number>;
+  /** Jours alloués hors projet (manuel, risques, plans d'action). */
+  otherDays: number;
+}
+
+/** `GET /capacity/dashboard/resource-project-load`. */
+export interface ResourceProjectLoadResult {
+  months: string[];
+  projects: Array<{ id: string; name: string; code: string | null }>;
+  items: ResourceProjectLoadRow[];
+}
+
+/** Charge d'une équipe — `GET /capacity/dashboard/work-team-load`. */
+export interface WorkTeamLoadRow {
+  workTeamId: string;
+  label: string;
+  capacityDays: number;
+  allocatedDays: number;
+  availableDays: number;
+  /** Alloué / capacité en % ; `null` si aucune capacité résolue. */
+  loadPercent: number | null;
+  /** Projets distincts engagés par l'équipe sur la fenêtre. */
+  projectCount: number;
+}
+
 @Injectable()
 export class CapacityAggregateService {
   constructor(
@@ -106,6 +142,236 @@ export class CapacityAggregateService {
       return a?.status ?? null;
     }
     return null;
+  }
+
+  /**
+   * Plan de charge ressource × projet — matrice de la page `/resources`.
+   *
+   * Agrège les jours alloués sur la fenêtre `from`–`to` en colonnes projet
+   * (`sourceType = PROJECT`). Les allocations manuelles ou issues de risques /
+   * plans d'action sont regroupées dans `otherDays` : la matrice reste lisible
+   * tout en gardant `allocatedDays` cohérent avec `dashboardResources`.
+   *
+   * Les mêmes règles d'exclusion que les autres agrégats s'appliquent (équipe
+   * archivée, source qui n'émet plus, engagement exclu).
+   */
+  async dashboardResourceProjectLoad(
+    clientId: string,
+    query: DashboardQueryDto,
+  ): Promise<ResourceProjectLoadResult> {
+    const months = eachYearMonth(query.from, query.to);
+
+    const resources = await this.prisma.resource.findMany({
+      where: { clientId, type: ResourceType.HUMAN },
+      select: {
+        id: true,
+        name: true,
+        resourceRole: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    const allocationMonths = await this.prisma.capacityAllocationMonth.findMany({
+      where: {
+        clientId,
+        yearMonth: { in: months },
+        allocation: { resourceId: { not: null } },
+      },
+      include: {
+        allocation: {
+          include: { workTeam: { select: { status: true } } },
+        },
+      },
+    });
+
+    /** Cache d'inclusion : une allocation peut porter plusieurs mois. */
+    const includedByAllocationId = new Map<string, boolean>();
+    const daysByResourceProject = new Map<string, Prisma.Decimal>();
+    const otherDaysByResource = new Map<string, Prisma.Decimal>();
+    const projectIds = new Set<string>();
+
+    for (const month of allocationMonths) {
+      const allocation = month.allocation;
+      const resourceId = allocation.resourceId;
+      if (!resourceId) continue;
+
+      let included = includedByAllocationId.get(allocation.id);
+      if (included === undefined) {
+        included = await this.allocationIncludedInActiveAggregates(clientId, allocation);
+        includedByAllocationId.set(allocation.id, included);
+      }
+      if (!included) continue;
+
+      const isProject =
+        allocation.sourceType === CapacityAllocationSourceType.PROJECT && allocation.sourceId;
+
+      if (isProject) {
+        const projectId = allocation.sourceId!;
+        projectIds.add(projectId);
+        const key = `${resourceId}::${projectId}`;
+        daysByResourceProject.set(
+          key,
+          (daysByResourceProject.get(key) ?? new Prisma.Decimal(0)).plus(month.days),
+        );
+      } else {
+        otherDaysByResource.set(
+          resourceId,
+          (otherDaysByResource.get(resourceId) ?? new Prisma.Decimal(0)).plus(month.days),
+        );
+      }
+    }
+
+    const projectRows =
+      projectIds.size === 0
+        ? []
+        : await this.prisma.project.findMany({
+            where: { clientId, id: { in: [...projectIds] } },
+            select: { id: true, name: true, code: true },
+            orderBy: { name: 'asc' },
+          });
+
+    const items: ResourceProjectLoadRow[] = [];
+    for (const resource of resources) {
+      let capacity = new Prisma.Decimal(0);
+      for (const yearMonth of months) {
+        const monthly = await this.resolve.resolveResourceMonthly(
+          clientId,
+          resource.id,
+          yearMonth,
+        );
+        capacity = capacity.plus(new Prisma.Decimal(monthly.days));
+      }
+
+      const byProject: Record<string, number> = {};
+      let allocated = new Prisma.Decimal(0);
+      for (const project of projectRows) {
+        const days = daysByResourceProject.get(`${resource.id}::${project.id}`);
+        if (!days) continue;
+        byProject[project.id] = Number(decimalToString(days));
+        allocated = allocated.plus(days);
+      }
+
+      const otherDays = otherDaysByResource.get(resource.id) ?? new Prisma.Decimal(0);
+      allocated = allocated.plus(otherDays);
+
+      const capacityDays = Number(decimalToString(capacity));
+      const allocatedDays = Number(decimalToString(allocated));
+
+      items.push({
+        resourceId: resource.id,
+        label: resource.name,
+        roleName: resource.resourceRole?.name ?? null,
+        capacityDays,
+        allocatedDays,
+        availableDays: Number(decimalToString(capacity.minus(allocated))),
+        // Sans capacité résolue, le taux n'a pas de sens : null plutôt que 0 ou ∞.
+        loadPercent:
+          capacityDays > 0 ? Math.round((100 * allocatedDays) / capacityDays) : null,
+        byProject,
+        otherDays: Number(decimalToString(otherDays)),
+      });
+    }
+
+    return {
+      months,
+      projects: projectRows.map((p) => ({ id: p.id, name: p.name, code: p.code })),
+      items,
+    };
+  }
+
+  /**
+   * Charge par équipe — statistiques des cartes `/teams`.
+   *
+   * Agrège les allocations portées par l'équipe (`workTeamId`) sur la fenêtre :
+   * jours alloués, taux de charge et nombre de projets distincts engagés.
+   * Mêmes règles d'exclusion que les autres agrégats.
+   */
+  async dashboardWorkTeamLoad(
+    clientId: string,
+    query: DashboardQueryDto,
+  ): Promise<{ months: string[]; items: WorkTeamLoadRow[] }> {
+    const months = eachYearMonth(query.from, query.to);
+
+    const teams = await this.prisma.workTeam.findMany({
+      where: { clientId, status: WorkTeamStatus.ACTIVE },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+    if (teams.length === 0) return { months, items: [] };
+
+    const allocationMonths = await this.prisma.capacityAllocationMonth.findMany({
+      where: {
+        clientId,
+        yearMonth: { in: months },
+        allocation: { workTeamId: { not: null } },
+      },
+      include: {
+        allocation: {
+          include: { workTeam: { select: { status: true } } },
+        },
+      },
+    });
+
+    const includedByAllocationId = new Map<string, boolean>();
+    const allocatedByTeam = new Map<string, Prisma.Decimal>();
+    const projectsByTeam = new Map<string, Set<string>>();
+
+    for (const month of allocationMonths) {
+      const allocation = month.allocation;
+      const workTeamId = allocation.workTeamId;
+      if (!workTeamId) continue;
+
+      let included = includedByAllocationId.get(allocation.id);
+      if (included === undefined) {
+        included = await this.allocationIncludedInActiveAggregates(clientId, allocation);
+        includedByAllocationId.set(allocation.id, included);
+      }
+      if (!included) continue;
+
+      allocatedByTeam.set(
+        workTeamId,
+        (allocatedByTeam.get(workTeamId) ?? new Prisma.Decimal(0)).plus(month.days),
+      );
+
+      if (
+        allocation.sourceType === CapacityAllocationSourceType.PROJECT &&
+        allocation.sourceId
+      ) {
+        const set = projectsByTeam.get(workTeamId) ?? new Set<string>();
+        set.add(allocation.sourceId);
+        projectsByTeam.set(workTeamId, set);
+      }
+    }
+
+    const items: WorkTeamLoadRow[] = [];
+    for (const team of teams) {
+      let capacity = new Prisma.Decimal(0);
+      for (const yearMonth of months) {
+        const monthly = await this.resolve.resolveWorkTeamMonthly(
+          clientId,
+          team.id,
+          yearMonth,
+        );
+        capacity = capacity.plus(new Prisma.Decimal(monthly.days));
+      }
+
+      const allocated = allocatedByTeam.get(team.id) ?? new Prisma.Decimal(0);
+      const capacityDays = Number(decimalToString(capacity));
+      const allocatedDays = Number(decimalToString(allocated));
+
+      items.push({
+        workTeamId: team.id,
+        label: team.name,
+        capacityDays,
+        allocatedDays,
+        availableDays: Number(decimalToString(capacity.minus(allocated))),
+        loadPercent:
+          capacityDays > 0 ? Math.round((100 * allocatedDays) / capacityDays) : null,
+        projectCount: projectsByTeam.get(team.id)?.size ?? 0,
+      });
+    }
+
+    return { months, items };
   }
 
   async dashboardResources(clientId: string, query: DashboardQueryDto) {

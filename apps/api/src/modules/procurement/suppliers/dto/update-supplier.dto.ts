@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class UpdateSupplierDto {
   @IsOptional()
@@ -50,6 +50,13 @@ export class UpdateSupplierDto {
   @IsString()
   @MaxLength(50)
   supplierCategoryId?: string | null;
+
+  /** Évaluation sur 5 (1.0–5.0) ; `null` remet le fournisseur à « non évalué ». */
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(1)
+  @Max(5)
+  performanceRating?: number | null;
 
   /** RFC-ORG-003 — unité organisationnelle propriétaire (nullable). */
   @IsOptional()

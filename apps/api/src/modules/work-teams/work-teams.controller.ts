@@ -53,6 +53,18 @@ export class WorkTeamsController {
     return this.workTeams.list(clientId!, query);
   }
 
+  /** Cartes équipes de `/teams` — déclaré avant `:id`. */
+  @Get('summary')
+  @RequirePermissions('teams.read')
+  summary(
+    @ActiveClientId() clientId: string | undefined,
+    @Query('includeArchived') includeArchived?: string,
+  ) {
+    return this.workTeams.summary(clientId!, {
+      includeArchived: includeArchived === 'true',
+    });
+  }
+
   @Post()
   @RequirePermissions('teams.update')
   create(

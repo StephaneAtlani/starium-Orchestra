@@ -3309,6 +3309,8 @@ Pour lister les allocations d’une source avec contrôle d’accès source, pr�
 ### Dashboard
 
 - **GET** `/api/capacity/dashboard/resources?from=&to=&includeArchivedWorkTeams=` — Agrégats par ressource. **`capacity.read`**
+- **GET** `/api/capacity/dashboard/resource-project-load?from=&to=` — **Plan de charge ressource × projet** (matrice `/resources`). Réponse `{ months, projects: [{ id, name, code }], items: [{ resourceId, label, roleName, capacityDays, allocatedDays, availableDays, loadPercent, byProject: { [projectId]: days }, otherDays }] }`. Les colonnes viennent des allocations `sourceType = PROJECT` ; le manuel, les risques et les plans d’action sont regroupés dans **`otherDays`** (comptés dans `allocatedDays`). `loadPercent` = `null` si aucune capacité résolue sur la fenêtre. Mêmes exclusions que les autres agrégats (équipe archivée, source qui n’émet plus, engagement exclu). **`capacity.read`**
+- **GET** `/api/capacity/dashboard/work-team-load?from=&to=` — **Charge par équipe** (statistiques des cartes `/teams`). Réponse `{ months, items: [{ workTeamId, label, capacityDays, allocatedDays, availableDays, loadPercent, projectCount }] }` ; `projectCount` = projets **distincts** engagés (allocations `sourceType = PROJECT`). Équipes `ACTIVE` uniquement. **`capacity.read`**
 - **GET** `/api/capacity/dashboard/work-teams?...` — Agrégats par équipe. **`capacity.read`**
 - **GET** `/api/capacity/dashboard/portfolio?...` — Vue portefeuille. **`capacity.read`**
 
@@ -3327,6 +3329,25 @@ Champ nullable `boolean | null` (null = héritage / défaut) :
 **UI** : page unique `/teams/capacity` (onglets Pilotage \| Affectations \| Réglages) — `apps/web/src/features/capacity/`. Anciennes sous-routes redirigent vers `?tab=`. Encart capacité sur **fiche projet** (`EntityCapacityPanel`). UI risque / plan d’actions : API seulement (pas d’encart dédié à date).
 
 Code : `apps/api/src/modules/capacity/capacity.controller.ts`.
+
+---
+
+## Synthèses de liste — refonte portail client
+
+Agrégats de bandeau KPI et de cartes, alimentant la refonte des pages de liste
+(`ui_kits/app/Refonte Portail Client.html`). Toutes ces routes sont **client-scopées**
+(JWT + `X-Client-Id`) et en **lecture seule**.
+
+| Méthode | Route | Permission | Description |
+|---------|--------|------------|-------------|
+| `GET` | `/api/suppliers/summary` | `procurement.read` | Synthèse panel fournisseurs : `activeCount`, `archivedCount`, `addedThisYear`, `annualSpend`, `currency`, `currencyMixed`, `activeContractCount`, `inRenewalCount`, `averageRating`, `ratedCount`. **ACL appliquée** : seuls les fournisseurs lisibles comptent, et la dépense annuelle n’agrège que les contrats **en vigueur** (ACTIVE / NOTICE) de ces fournisseurs. `annualSpend: null` + `currencyMixed: true` si plusieurs devises. |
+| `GET` | `/api/compliance/frameworks/summary` | `compliance.read` | Avancement **par référentiel** (cartes « Référentiels réglementaires ») : `requirementCount`, `compliantCount`, `partiallyCompliantCount`, `nonCompliantCount`, `notApplicableCount`, `notAssessedCount`, `evaluatedCount`, `compliancePercent`, `nextAuditAt`. `compliancePercent` = conformes / **évaluées** (hors `NOT_APPLICABLE` et non évaluées), `null` si aucune évaluation — même convention que `GET /api/compliance/dashboard`. |
+| `GET` | `/api/work-teams/summary?includeArchived=` | `teams.read` | Cartes équipes de `/teams` : `memberCount`, `leads` (rôles d’équipe `LEAD` / `DEPUTY`, responsables d’abord), `members` (aperçu borné à 6 pour la pile d’avatars), `strategicDirectionName`, `parentName`. Équipes `ACTIVE` par défaut. **Sans indicateur de charge** : celui-ci vient de `GET /api/capacity/dashboard/work-team-load`, qui porte les règles d’exclusion capacité. |
+
+**Champs de schéma ajoutés** :
+
+- `Supplier.performanceRating` — `Decimal(2,1)` nullable, contrainte `CHECK` 1.0–5.0. Exposé en lecture par `GET /api/suppliers*`, modifiable via `POST` / `PATCH /api/suppliers` (`performanceRating`, `null` = « non évalué »). Migration `20260727120000_supplier_performance_rating`.
+- `ComplianceFramework.nextAuditAt` — `DateTime?`, échéance d’audit / recertification. Accepté à la création (`POST /api/compliance/frameworks`). Migration `20260727121000_compliance_framework_next_audit`.
 
 ---
 
@@ -3505,6 +3526,7 @@ Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module **`contracts`*
 | Méthode | Route | Permission | Description |
 |---------|--------|------------|-------------|
 | `GET` | `/api/contracts` | `contracts.read` | Liste paginée (`limit`, `offset`, `supplierId`, `status`, `expiresBefore`, `search`). |
+| `GET` | `/api/contracts/summary` | `contracts.read` | Synthèse portefeuille du bandeau KPI `/contracts` : `totalCount`, `activeCount` (ACTIVE + NOTICE), `activeSupplierCount`, `committedValue`, `annualValue`, `currency`, `currencyMixed`, `expiringSoonCount` + `expiringSoonHorizonDays` (90 j), `inRenewalCount`. Portée = tous les contrats **lisibles** du client (ACL appliquée), indépendante des filtres de liste. Montants à `null` et `currencyMixed: true` si le portefeuille mêle plusieurs devises (jamais d’addition inter-devises). |
 | `GET` | `/api/contracts/supplier-options` | `contracts.read` **ou** `contracts.create` **ou** `contracts.update` | Liste fournisseurs du client (mêmes filtres que `GET /api/suppliers`) pour formulaires / filtres contrat **sans** exiger `procurement.read` (le `ModuleAccessGuard` n’autorise qu’un module par route). |
 | `GET` | `/api/contracts/supplier/:supplierId` | idem | Détail fournisseur (même forme que `GET /api/suppliers/:id`) pour libellés. |
 | `GET` | `/api/contracts/kind-types` | `contracts.read` **ou** `contracts.create` **ou** `contracts.update` | Liste fusionnée des types de contrat (catalogue plateforme + types client **actifs**) pour sélecteurs. |

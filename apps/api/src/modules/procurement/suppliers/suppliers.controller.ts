@@ -62,6 +62,17 @@ export class SuppliersController {
     return this.suppliers.getDashboardStats(clientId!);
   }
 
+  /** Synthèse portefeuille pour le bandeau KPI — déclaré avant `:id`. */
+  @Get('summary')
+  @RequireAccessIntent({ module: 'procurement', intent: 'read' })
+  summary(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Req() request: RequestWithClient,
+  ) {
+    return this.suppliers.summary(clientId!, userId, request);
+  }
+
   @Get(':id')
   @RequireAccessIntent({ module: 'procurement', intent: 'read' })
   @AccessDecision({ resourceType: 'SUPPLIER', resourceIdParam: 'id', intent: 'read' })

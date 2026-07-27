@@ -69,6 +69,8 @@ export interface SupplierResponse {
   website: string | null;
   logoUrl: string | null;
   notes: string | null;
+  /** Évaluation sur 5 (1.0–5.0) ; `null` si le fournisseur n'est pas encore évalué. */
+  performanceRating: number | null;
   status: string;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategorySummary | null;
@@ -83,6 +85,27 @@ export interface ListSuppliersResult {
   total: number;
   limit: number;
   offset: number;
+}
+
+/**
+ * Synthèse portefeuille fournisseurs — `GET /suppliers/summary`.
+ *
+ * Portée : fournisseurs non archivés du client. `annualSpend` agrège la valeur
+ * annuelle des contrats en vigueur (ACTIVE / NOTICE) ; `null` si multi-devises.
+ */
+export interface SuppliersSummaryResult {
+  activeCount: number;
+  archivedCount: number;
+  /** Fournisseurs créés depuis le 1er janvier de l'année courante. */
+  addedThisYear: number;
+  annualSpend: number | null;
+  currency: string | null;
+  currencyMixed: boolean;
+  activeContractCount: number;
+  inRenewalCount: number;
+  /** Moyenne des évaluations renseignées, arrondie au dixième ; `null` si aucune. */
+  averageRating: number | null;
+  ratedCount: number;
 }
 
 /** Agrégats lecture seule pour GET /suppliers/dashboard (périmètre client actif). */
@@ -254,6 +277,133 @@ export class SuppliersService {
     };
   }
 
+  /**
+   * Restreint une liste d'ids fournisseur aux seuls lisibles par l'utilisateur
+   * (ACL v2 si le flag est actif, sinon ACL ressource historique).
+   * Sans `userId` (appel interne / système), la liste est renvoyée telle quelle.
+   */
+  private async filterReadableSupplierIds(
+    clientId: string,
+    supplierIds: string[],
+    userId?: string,
+    request?: RequestWithClient,
+  ): Promise<string[]> {
+    if (!userId) return supplierIds;
+    if (supplierIds.length === 0) return [];
+    if (await this.isAccessV2Enabled(clientId, request)) {
+      return this.accessDecision.filterResourceIdsByAccess({
+        request: request as RequestWithClient,
+        clientId,
+        userId,
+        resourceType: 'SUPPLIER',
+        resourceIds: supplierIds,
+        intent: 'list',
+      });
+    }
+    return this.accessControl.filterReadableResourceIds({
+      clientId,
+      userId,
+      resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
+      resourceIds: supplierIds,
+      operation: 'read',
+      sharingFloorAllows: true,
+    });
+  }
+
+  /**
+   * Synthèse portefeuille fournisseurs (bandeau KPI `/suppliers`).
+   *
+   * Portée : fournisseurs du client lisibles par l'utilisateur — indépendant des
+   * filtres de la liste. La dépense annuelle agrège les contrats en vigueur des
+   * seuls fournisseurs visibles ; elle est masquée si plusieurs devises coexistent.
+   */
+  async summary(
+    clientId: string,
+    userId?: string,
+    request?: RequestWithClient,
+    now: Date = new Date(),
+  ): Promise<SuppliersSummaryResult> {
+    const prisma = this.prisma as any;
+    const supplierRepo = this.getSupplierRepo(prisma);
+
+    const rows = await supplierRepo.findMany({
+      where: { clientId },
+      select: {
+        id: true,
+        status: true,
+        performanceRating: true,
+        createdAt: true,
+      },
+    });
+
+    const readableIds = new Set(
+      await this.filterReadableSupplierIds(
+        clientId,
+        rows.map((row: { id: string }) => row.id),
+        userId,
+        request,
+      ),
+    );
+    const visible = rows.filter((row: { id: string }) => readableIds.has(row.id));
+
+    const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const activeIds: string[] = [];
+    let archivedCount = 0;
+    let addedThisYear = 0;
+    let ratingSum = 0;
+    let ratedCount = 0;
+
+    for (const row of visible) {
+      if (row.status === 'ARCHIVED') {
+        archivedCount += 1;
+        continue;
+      }
+      activeIds.push(row.id);
+      if (row.createdAt >= startOfYear) addedThisYear += 1;
+      if (row.performanceRating != null) {
+        ratingSum += Number(row.performanceRating);
+        ratedCount += 1;
+      }
+    }
+
+    const contracts =
+      activeIds.length === 0
+        ? []
+        : await prisma.supplierContract.findMany({
+            where: {
+              clientId,
+              supplierId: { in: activeIds },
+              status: { in: ['ACTIVE', 'NOTICE'] },
+            },
+            select: { status: true, currency: true, annualValue: true },
+          });
+
+    const currencies = new Set<string>();
+    let annualSpend = 0;
+    let inRenewalCount = 0;
+
+    for (const contract of contracts) {
+      currencies.add(contract.currency);
+      annualSpend += contract.annualValue == null ? 0 : Number(contract.annualValue);
+      if (contract.status === 'NOTICE') inRenewalCount += 1;
+    }
+
+    const currencyMixed = currencies.size > 1;
+
+    return {
+      activeCount: activeIds.length,
+      archivedCount,
+      addedThisYear,
+      annualSpend: currencyMixed ? null : annualSpend,
+      currency: currencies.size === 1 ? [...currencies][0] : null,
+      currencyMixed,
+      activeContractCount: contracts.length,
+      inRenewalCount,
+      averageRating: ratedCount === 0 ? null : Math.round((ratingSum / ratedCount) * 10) / 10,
+      ratedCount,
+    };
+  }
+
   async list(
     clientId: string,
     query: ListSuppliersQueryDto,
@@ -281,25 +431,12 @@ export class SuppliersService {
       orderBy: [{ name: 'asc' }, { createdAt: 'desc' }],
       select: { id: true },
     });
-    const readableIds = userId
-      ? (await this.isAccessV2Enabled(clientId, request))
-        ? await this.accessDecision.filterResourceIdsByAccess({
-            request: request as RequestWithClient,
-            clientId,
-            userId,
-            resourceType: 'SUPPLIER',
-            resourceIds: orderedIds.map((row: { id: string }) => row.id),
-            intent: 'list',
-          })
-        : await this.accessControl.filterReadableResourceIds({
-            clientId,
-            userId,
-            resourceTypeNormalized: RESOURCE_ACL_RESOURCE_TYPES.SUPPLIER,
-            resourceIds: orderedIds.map((row: { id: string }) => row.id),
-            operation: 'read',
-            sharingFloorAllows: true,
-          })
-      : orderedIds.map((row: { id: string }) => row.id);
+    const readableIds = await this.filterReadableSupplierIds(
+      clientId,
+      orderedIds.map((row: { id: string }) => row.id),
+      userId,
+      request,
+    );
     const total = readableIds.length;
     const pagedIds = readableIds.slice(offset, offset + limit);
     const items =
@@ -375,6 +512,7 @@ export class SuppliersService {
           website: dto.website?.trim() || null,
           vatNumber: normalizedVatNumber,
           notes: dto.notes?.trim() || null,
+          performanceRating: dto.performanceRating ?? null,
           ownerOrgUnitId,
         },
       });
@@ -571,6 +709,9 @@ export class SuppliersService {
           ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
           ...(dto.supplierCategoryId !== undefined && {
             supplierCategoryId: nextSupplierCategoryId,
+          }),
+          ...(dto.performanceRating !== undefined && {
+            performanceRating: dto.performanceRating ?? null,
           }),
           ...(dto.ownerOrgUnitId !== undefined && {
             ownerOrgUnitId: dto.ownerOrgUnitId?.trim() || null,
@@ -990,6 +1131,7 @@ function toSupplierResponse(row: any): SupplierResponse {
     website: row.website ?? null,
     logoUrl: row.logoUrl ?? null,
     notes: row.notes ?? null,
+    performanceRating: row.performanceRating == null ? null : Number(row.performanceRating),
     status: row.status,
     supplierCategoryId: row.supplierCategoryId ?? null,
     supplierCategory,

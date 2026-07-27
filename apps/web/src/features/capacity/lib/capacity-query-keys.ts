@@ -21,6 +21,10 @@ export const capacityQueryKeys = {
     [...capacityQueryKeys.all(clientId), 'allocation', id] as const,
   dashboardResources: (clientId: string, params: Record<string, unknown>) =>
     [...capacityQueryKeys.all(clientId), 'dashboard-resources', params] as const,
+  dashboardResourceProjectLoad: (clientId: string, params: Record<string, unknown>) =>
+    [...capacityQueryKeys.all(clientId), 'dashboard-resource-project-load', params] as const,
+  dashboardWorkTeamLoad: (clientId: string, params: Record<string, unknown>) =>
+    [...capacityQueryKeys.all(clientId), 'dashboard-work-team-load', params] as const,
   dashboardWorkTeams: (clientId: string, params: Record<string, unknown>) =>
     [...capacityQueryKeys.all(clientId), 'dashboard-work-teams', params] as const,
   dashboardPortfolio: (clientId: string, params: Record<string, unknown>) =>

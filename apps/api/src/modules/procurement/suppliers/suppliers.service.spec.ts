@@ -23,6 +23,7 @@ describe('SuppliersService', () => {
       purchaseOrder: { count: jest.fn() },
       invoice: { count: jest.fn() },
       supplierContact: { count: jest.fn() },
+      supplierContract: { findMany: jest.fn().mockResolvedValue([]) },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     logoStorage = {
@@ -445,6 +446,145 @@ describe('SuppliersService', () => {
       purchaseOrdersCount: 12,
       invoicesCount: 5,
       contactsActiveCount: 20,
+    });
+  });
+
+  describe('summary', () => {
+    const NOW = new Date('2026-06-01T00:00:00.000Z');
+
+    function supplierRow(over?: Partial<Record<string, unknown>>) {
+      return {
+        id: 'sup-1',
+        status: 'ACTIVE',
+        performanceRating: null,
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        ...over,
+      };
+    }
+
+    it('sépare actifs et archivés, et compte les créations de l’année', async () => {
+      prisma.supplier.findMany.mockResolvedValue([
+        supplierRow({ id: 'a', createdAt: new Date('2026-02-01T00:00:00.000Z') }),
+        supplierRow({ id: 'b', createdAt: new Date('2025-11-01T00:00:00.000Z') }),
+        supplierRow({ id: 'c', status: 'ARCHIVED' }),
+      ]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      expect(result.activeCount).toBe(2);
+      expect(result.archivedCount).toBe(1);
+      expect(result.addedThisYear).toBe(1);
+    });
+
+    it('moyenne les évaluations renseignées au dixième et ignore les non évalués', async () => {
+      prisma.supplier.findMany.mockResolvedValue([
+        supplierRow({ id: 'a', performanceRating: new Prisma.Decimal('4.6') }),
+        supplierRow({ id: 'b', performanceRating: new Prisma.Decimal('4.1') }),
+        supplierRow({ id: 'c', performanceRating: new Prisma.Decimal('3.4') }),
+        supplierRow({ id: 'd', performanceRating: null }),
+        // Archivé : exclu de la moyenne.
+        supplierRow({ id: 'e', status: 'ARCHIVED', performanceRating: new Prisma.Decimal('1.0') }),
+      ]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      expect(result.ratedCount).toBe(3);
+      expect(result.averageRating).toBe(4);
+    });
+
+    it('renvoie une moyenne nulle si aucun fournisseur n’est évalué', async () => {
+      prisma.supplier.findMany.mockResolvedValue([supplierRow({ id: 'a' })]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      expect(result.averageRating).toBeNull();
+      expect(result.ratedCount).toBe(0);
+    });
+
+    it('agrège la dépense annuelle des contrats en vigueur des fournisseurs actifs', async () => {
+      prisma.supplier.findMany.mockResolvedValue([
+        supplierRow({ id: 'a' }),
+        supplierRow({ id: 'b' }),
+        supplierRow({ id: 'archived', status: 'ARCHIVED' }),
+      ]);
+      prisma.supplierContract.findMany.mockResolvedValue([
+        { status: 'ACTIVE', currency: 'EUR', annualValue: new Prisma.Decimal(98_000) },
+        { status: 'ACTIVE', currency: 'EUR', annualValue: new Prisma.Decimal(42_000) },
+        { status: 'NOTICE', currency: 'EUR', annualValue: new Prisma.Decimal(10_000) },
+        { status: 'ACTIVE', currency: 'EUR', annualValue: null },
+      ]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      // Seuls les fournisseurs actifs alimentent la requête contrats.
+      expect(prisma.supplierContract.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId: 'c1',
+            supplierId: { in: ['a', 'b'] },
+            status: { in: ['ACTIVE', 'NOTICE'] },
+          }),
+        }),
+      );
+      expect(result.annualSpend).toBe(150_000);
+      expect(result.activeContractCount).toBe(4);
+      expect(result.inRenewalCount).toBe(1);
+      expect(result.currency).toBe('EUR');
+      expect(result.currencyMixed).toBe(false);
+    });
+
+    it('masque la dépense si les contrats mêlent plusieurs devises', async () => {
+      prisma.supplier.findMany.mockResolvedValue([supplierRow({ id: 'a' })]);
+      prisma.supplierContract.findMany.mockResolvedValue([
+        { status: 'ACTIVE', currency: 'EUR', annualValue: new Prisma.Decimal(1000) },
+        { status: 'ACTIVE', currency: 'CHF', annualValue: new Prisma.Decimal(2000) },
+      ]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      expect(result.currencyMixed).toBe(true);
+      expect(result.annualSpend).toBeNull();
+      expect(result.currency).toBeNull();
+    });
+
+    it('n’interroge pas les contrats si aucun fournisseur actif n’est visible', async () => {
+      prisma.supplier.findMany.mockResolvedValue([
+        supplierRow({ id: 'a', status: 'ARCHIVED' }),
+      ]);
+
+      const result = await service.summary('c1', undefined, undefined, NOW);
+
+      expect(prisma.supplierContract.findMany).not.toHaveBeenCalled();
+      expect(result.activeContractCount).toBe(0);
+      expect(result.annualSpend).toBe(0);
+    });
+
+    it('exclut les fournisseurs non lisibles par l’utilisateur (ACL)', async () => {
+      const accessControl = {
+        canReadResource: jest.fn(),
+        canWriteResource: jest.fn(),
+        canAdminResource: jest.fn(),
+        filterReadableResourceIds: jest.fn().mockResolvedValue(['a']),
+      };
+      const scoped = new SuppliersService(
+        prisma,
+        auditLogs,
+        logoStorage,
+        accessControl as any,
+      );
+
+      prisma.supplier.findMany.mockResolvedValue([
+        supplierRow({ id: 'a', performanceRating: new Prisma.Decimal('5.0') }),
+        supplierRow({ id: 'b', performanceRating: new Prisma.Decimal('1.0') }),
+      ]);
+
+      const result = await scoped.summary('c1', 'u1', undefined, NOW);
+
+      expect(accessControl.filterReadableResourceIds).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: 'c1', userId: 'u1', resourceIds: ['a', 'b'] }),
+      );
+      expect(result.activeCount).toBe(1);
+      expect(result.averageRating).toBe(5);
     });
   });
 });

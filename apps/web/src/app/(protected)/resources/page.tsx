@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -30,6 +30,10 @@ import {
 } from '@/lib/resource-labels';
 import { listResources } from '@/services/resources';
 import type { ResourceType } from '@/services/resources';
+import { getDashboardResourceProjectLoad } from '@/features/capacity/api/capacity.api';
+import { capacityQueryKeys } from '@/features/capacity/lib/capacity-query-keys';
+import { ResourceWorkloadKpiStrip } from '@/features/capacity/components/resource-workload-kpi-strip';
+import { ResourceWorkloadMatrix } from '@/features/capacity/components/resource-workload-matrix';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { EditResourceForm } from './_components/edit-resource-form';
 import { NewResourceForm } from './_components/new-resource-form';
@@ -45,6 +49,35 @@ import {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
+/** Fenêtres proposées pour le plan de charge, en mois glissants depuis le mois courant. */
+const WORKLOAD_WINDOWS = [
+  { value: '1', label: 'Mois en cours', months: 1 },
+  { value: '3', label: '3 mois', months: 3 },
+  { value: '6', label: '6 mois', months: 6 },
+] as const;
+
+function toYearMonth(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Fenêtre `from`–`to` et libellé lisible pour N mois glissants. */
+function workloadRange(months: number): { from: string; to: string; label: string } {
+  const start = new Date();
+  start.setDate(1);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + months - 1);
+
+  const monthLabel = (d: Date) =>
+    d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  return {
+    from: toYearMonth(start),
+    to: toYearMonth(end),
+    label:
+      months === 1 ? monthLabel(start) : `${monthLabel(start)} → ${monthLabel(end)}`,
+  };
+}
+
 export default function ResourcesListPage() {
   const [newResourceModalOpen, setNewResourceModalOpen] = useState(false);
   const [editResourceId, setEditResourceId] = useState<string | null>(null);
@@ -55,7 +88,30 @@ export default function ResourcesListPage() {
     usePermissions();
   const canRead = has('resources.read');
   const canUpdateResource = permsSuccess && has('resources.update');
+  const canReadCapacity = permsSuccess && has('capacity.read');
   const enabled = !!clientId && permsSuccess && canRead;
+
+  const [workloadWindow, setWorkloadWindow] = useState<string>('1');
+  const workloadMonths =
+    WORKLOAD_WINDOWS.find((w) => w.value === workloadWindow)?.months ?? 1;
+  const workloadRangeValue = useMemo(
+    () => workloadRange(workloadMonths),
+    [workloadMonths],
+  );
+
+  const workloadQuery = useQuery({
+    queryKey: capacityQueryKeys.dashboardResourceProjectLoad(clientId, {
+      from: workloadRangeValue.from,
+      to: workloadRangeValue.to,
+    }),
+    queryFn: () =>
+      getDashboardResourceProjectLoad(authFetch, {
+        from: workloadRangeValue.from,
+        to: workloadRangeValue.to,
+      }),
+    enabled: !!clientId && canReadCapacity,
+    staleTime: 30_000,
+  });
 
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -186,6 +242,65 @@ export default function ResourcesListPage() {
             <AlertCircle className="size-4" />
             <AlertTitle>Permissions</AlertTitle>
             <AlertDescription>Impossible de charger les droits.</AlertDescription>
+          </Alert>
+        )}
+
+        {!!clientId && canReadCapacity && !workloadQuery.isError && (
+          <>
+            <ResourceWorkloadKpiStrip
+              rows={workloadQuery.data?.items}
+              isLoading={workloadQuery.isLoading}
+              periodLabel={workloadRangeValue.label}
+            />
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="w-full space-y-2 sm:w-48">
+                <Label htmlFor="workload-window">Période du plan de charge</Label>
+                <Select
+                  value={workloadWindow}
+                  onValueChange={(v) => setWorkloadWindow(v ?? '1')}
+                >
+                  <SelectTrigger id="workload-window" className="w-full border-input">
+                    <SelectValue>
+                      {WORKLOAD_WINDOWS.find((w) => w.value === workloadWindow)?.label ??
+                        'Mois en cours'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORKLOAD_WINDOWS.map((w) => (
+                      <SelectItem key={w.value} value={w.value}>
+                        {w.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <ResourceWorkloadMatrix
+              data={workloadQuery.data}
+              isLoading={workloadQuery.isLoading}
+            />
+          </>
+        )}
+
+        {!!clientId && canReadCapacity && workloadQuery.isError && (
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Plan de charge indisponible</AlertTitle>
+            <AlertDescription>
+              {workloadQuery.error instanceof Error
+                ? workloadQuery.error.message
+                : 'Impossible de charger le plan de charge.'}
+            </AlertDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => void workloadQuery.refetch()}
+            >
+              Réessayer
+            </Button>
           </Alert>
         )}
 

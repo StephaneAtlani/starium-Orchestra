@@ -4,11 +4,10 @@ import { selectRisksToArbitrate } from './risks-registry-watchlist';
 
 function row(partial: Partial<ProjectRiskRegistryRow> & { id: string }): ProjectRiskRegistryRow {
   return {
-    id: partial.id,
     clientId: 'c1',
     projectId: 'p1',
     code: 'R-001',
-    title: partial.title ?? `Risque ${partial.id}`,
+    title: `Risque ${partial.id}`,
     description: null,
     category: null,
     fearedEvent: '—',

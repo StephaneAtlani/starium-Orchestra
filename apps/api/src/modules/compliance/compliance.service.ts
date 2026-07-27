@@ -22,6 +22,25 @@ import { PatchComplianceStatusDto } from './dto/patch-compliance-status.dto';
 import { ListComplianceRequirementsQueryDto } from './dto/list-compliance-requirements.query.dto';
 import { ListComplianceStatusQueryDto } from './dto/list-compliance-status.query.dto';
 
+/** Avancement d'un référentiel — `GET /compliance/frameworks/summary`. */
+export interface ComplianceFrameworkSummary {
+  id: string;
+  name: string;
+  version: string;
+  isActive: boolean;
+  nextAuditAt: Date | null;
+  requirementCount: number;
+  compliantCount: number;
+  partiallyCompliantCount: number;
+  nonCompliantCount: number;
+  notApplicableCount: number;
+  notAssessedCount: number;
+  /** Exigences comptées au dénominateur du taux (hors N/A et non évaluées). */
+  evaluatedCount: number;
+  /** Conformes / évaluées, en % ; `null` si aucune évaluation. */
+  compliancePercent: number | null;
+}
+
 @Injectable()
 export class ComplianceService {
   constructor(
@@ -36,6 +55,95 @@ export class ComplianceService {
     });
   }
 
+  /**
+   * Avancement par référentiel — cartes « Référentiels réglementaires » de `/compliance`.
+   *
+   * `compliancePercent` suit la même convention que `dashboard()` : conformes / évalués
+   * (hors NOT_APPLICABLE), `null` si aucune exigence n'a encore été évaluée.
+   */
+  async frameworksSummary(clientId: string): Promise<ComplianceFrameworkSummary[]> {
+    const frameworks = await this.prisma.complianceFramework.findMany({
+      where: { clientId },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }, { version: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        version: true,
+        isActive: true,
+        nextAuditAt: true,
+      },
+    });
+    if (frameworks.length === 0) return [];
+
+    const requirements = await this.prisma.complianceRequirement.findMany({
+      where: { frameworkId: { in: frameworks.map((f) => f.id) } },
+      select: { id: true, frameworkId: true },
+    });
+
+    const statuses = await this.prisma.complianceStatus.findMany({
+      where: { clientId, requirementId: { in: requirements.map((r) => r.id) } },
+      select: { requirementId: true, status: true },
+    });
+    const statusByRequirement = new Map(statuses.map((s) => [s.requirementId, s.status]));
+
+    const requirementsByFramework = new Map<string, string[]>();
+    for (const requirement of requirements) {
+      const bucket = requirementsByFramework.get(requirement.frameworkId);
+      if (bucket) bucket.push(requirement.id);
+      else requirementsByFramework.set(requirement.frameworkId, [requirement.id]);
+    }
+
+    return frameworks.map((framework) => {
+      const requirementIds = requirementsByFramework.get(framework.id) ?? [];
+      let compliantCount = 0;
+      let partiallyCompliantCount = 0;
+      let nonCompliantCount = 0;
+      let notApplicableCount = 0;
+      let notAssessedCount = 0;
+
+      for (const requirementId of requirementIds) {
+        const status = statusByRequirement.get(requirementId);
+        if (!status) {
+          notAssessedCount += 1;
+          continue;
+        }
+        switch (status) {
+          case ComplianceAssessmentStatus.COMPLIANT:
+            compliantCount += 1;
+            break;
+          case ComplianceAssessmentStatus.PARTIALLY_COMPLIANT:
+            partiallyCompliantCount += 1;
+            break;
+          case ComplianceAssessmentStatus.NON_COMPLIANT:
+            nonCompliantCount += 1;
+            break;
+          case ComplianceAssessmentStatus.NOT_APPLICABLE:
+            notApplicableCount += 1;
+            break;
+        }
+      }
+
+      const evaluatedCount = compliantCount + partiallyCompliantCount + nonCompliantCount;
+
+      return {
+        id: framework.id,
+        name: framework.name,
+        version: framework.version,
+        isActive: framework.isActive,
+        nextAuditAt: framework.nextAuditAt,
+        requirementCount: requirementIds.length,
+        compliantCount,
+        partiallyCompliantCount,
+        nonCompliantCount,
+        notApplicableCount,
+        notAssessedCount,
+        evaluatedCount,
+        compliancePercent:
+          evaluatedCount > 0 ? Math.round((100 * compliantCount) / evaluatedCount) : null,
+      } satisfies ComplianceFrameworkSummary;
+    });
+  }
+
   async createFramework(
     clientId: string,
     dto: CreateComplianceFrameworkDto,
@@ -47,6 +155,7 @@ export class ComplianceService {
         name: dto.name.trim(),
         version: dto.version.trim(),
         isActive: dto.isActive ?? true,
+        nextAuditAt: dto.nextAuditAt ? new Date(dto.nextAuditAt) : null,
       },
     });
     await this.auditLogs.create({

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateComplianceFrameworkDto {
   @IsString()
@@ -12,4 +12,9 @@ export class CreateComplianceFrameworkDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /** Prochaine échéance d'audit / recertification (ISO 8601) ; `null` pour l'effacer. */
+  @IsOptional()
+  @IsDateString()
+  nextAuditAt?: string | null;
 }

@@ -37,12 +37,110 @@ export type AuditMeta = {
   requestId?: string;
 };
 
+/** Membre mis en avant sur une carte équipe. */
+export interface WorkTeamSummaryMember {
+  resourceId: string;
+  displayName: string;
+  /** Rôle métier de la ressource (référentiel `ResourceRole`), pas le rôle d'équipe. */
+  roleName: string | null;
+  /** Rôle dans l'équipe — `LEAD` responsable, `DEPUTY` adjoint. */
+  teamRole: 'LEAD' | 'DEPUTY' | 'MEMBER';
+}
+
+/** Carte équipe — `GET /work-teams/summary`. */
+export interface WorkTeamSummary {
+  id: string;
+  name: string;
+  code: string | null;
+  status: WorkTeamStatus;
+  /** Direction stratégique de rattachement, sous-titre de la carte. */
+  strategicDirectionName: string | null;
+  parentName: string | null;
+  memberCount: number;
+  /** Responsables et adjoints, responsables d'abord. */
+  leads: WorkTeamSummaryMember[];
+  /** Aperçu pour la pile d'avatars (responsables puis membres, ordre alphabétique). */
+  members: WorkTeamSummaryMember[];
+}
+
+/** Nombre de membres exposés pour la pile d'avatars. */
+const SUMMARY_MEMBERS_PREVIEW = 6;
+
 @Injectable()
 export class WorkTeamsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
   ) {}
+
+  /**
+   * Cartes équipes de la page `/teams` — effectifs, responsables et rattachement.
+   *
+   * Les indicateurs de charge ne sont pas ici : ils viennent du module capacité
+   * (`GET /capacity/dashboard/work-team-load`), qui porte les règles d'exclusion.
+   */
+  async summary(
+    clientId: string,
+    options?: { includeArchived?: boolean },
+  ): Promise<WorkTeamSummary[]> {
+    const teams = await this.prisma.workTeam.findMany({
+      where: {
+        clientId,
+        ...(options?.includeArchived ? {} : { status: WorkTeamStatus.ACTIVE }),
+      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        status: true,
+        parent: { select: { name: true } },
+        strategicDirection: { select: { name: true } },
+        memberships: {
+          select: {
+            role: true,
+            resource: {
+              select: {
+                id: true,
+                name: true,
+                firstName: true,
+                resourceRole: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const TEAM_ROLE_RANK: Record<string, number> = { LEAD: 0, DEPUTY: 1, MEMBER: 2 };
+
+    return teams.map((team) => {
+      const members: WorkTeamSummaryMember[] = team.memberships
+        .map((membership) => ({
+          resourceId: membership.resource.id,
+          displayName: resourceHumanDisplayName(membership.resource),
+          roleName: membership.resource.resourceRole?.name ?? null,
+          teamRole: membership.role as WorkTeamSummaryMember['teamRole'],
+        }))
+        .sort((a, b) => {
+          const rank = TEAM_ROLE_RANK[a.teamRole] - TEAM_ROLE_RANK[b.teamRole];
+          if (rank !== 0) return rank;
+          return a.displayName.localeCompare(b.displayName, 'fr');
+        });
+
+      return {
+        id: team.id,
+        name: team.name,
+        code: team.code,
+        status: team.status,
+        strategicDirectionName: team.strategicDirection?.name ?? null,
+        parentName: team.parent?.name ?? null,
+        memberCount: members.length,
+        leads: members.filter((m) => m.teamRole !== 'MEMBER'),
+        members: members.slice(0, SUMMARY_MEMBERS_PREVIEW),
+      } satisfies WorkTeamSummary;
+    });
+  }
 
   normalizeCode(code: string | null | undefined): string | null {
     if (code === undefined || code === null) return null;

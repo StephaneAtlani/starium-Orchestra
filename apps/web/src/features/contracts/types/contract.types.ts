@@ -57,6 +57,26 @@ export interface ContractListResult {
   offset: number;
 }
 
+/**
+ * Synthèse portefeuille contrats (`GET /api/contracts/summary`).
+ * Portée : tous les contrats lisibles du client, indépendamment des filtres de liste.
+ */
+export interface ContractsSummary {
+  totalCount: number;
+  /** Contrats en vigueur (actifs ou en préavis). */
+  activeCount: number;
+  activeSupplierCount: number;
+  /** `null` si le portefeuille mêle plusieurs devises. */
+  committedValue: number | null;
+  /** `null` si le portefeuille mêle plusieurs devises. */
+  annualValue: number | null;
+  currency: string | null;
+  currencyMixed: boolean;
+  expiringSoonCount: number;
+  expiringSoonHorizonDays: number;
+  inRenewalCount: number;
+}
+
 export interface ContractAttachment {
   id: string;
   name: string;

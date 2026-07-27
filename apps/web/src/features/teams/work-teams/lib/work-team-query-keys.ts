@@ -9,6 +9,8 @@ export const workTeamQueryKeys = {
     [...workTeamQueryKeys.all, 'list', clientId, params] as const,
   tree: (clientId: string, params: WorkTeamsTreeParams) =>
     [...workTeamQueryKeys.all, 'tree', clientId, params] as const,
+  summary: (clientId: string, includeArchived: boolean) =>
+    [...workTeamQueryKeys.all, 'summary', clientId, includeArchived] as const,
   detail: (clientId: string, teamId: string) =>
     [...workTeamQueryKeys.all, 'detail', clientId, teamId] as const,
   members: (clientId: string, teamId: string, params: WorkTeamMembersParams) =>

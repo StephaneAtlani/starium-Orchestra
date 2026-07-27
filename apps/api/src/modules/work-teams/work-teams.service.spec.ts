@@ -162,4 +162,139 @@ describe('WorkTeamsService', () => {
     expect(result.strategicDirectionId).toBeNull();
     expect(result.strategicDirectionName).toBeNull();
   });
+  describe('summary', () => {
+    function membership(
+      role: 'LEAD' | 'DEPUTY' | 'MEMBER',
+      id: string,
+      name: string,
+      firstName: string | null = null,
+      roleName: string | null = null,
+    ) {
+      return {
+        role,
+        resource: {
+          id,
+          name,
+          firstName,
+          resourceRole: roleName ? { name: roleName } : null,
+        },
+      };
+    }
+
+    it('ne retient que les équipes actives par défaut', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([]);
+
+      await service.summary('c1');
+
+      expect(prisma.workTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId: 'c1', status: 'ACTIVE' },
+        }),
+      );
+    });
+
+    it('inclut les archivées sur demande', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([]);
+
+      await service.summary('c1', { includeArchived: true });
+
+      expect(prisma.workTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { clientId: 'c1' } }),
+      );
+    });
+
+    it('classe responsables puis adjoints puis membres, et compte l’effectif', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([
+        {
+          id: 'wt-1',
+          name: 'Développement',
+          code: 'DEV',
+          status: 'ACTIVE',
+          parent: { name: 'DSI' },
+          strategicDirection: { name: 'Ingénierie logicielle' },
+          memberships: [
+            membership('MEMBER', 'r3', 'Dubois', 'Paul'),
+            membership('LEAD', 'r1', 'Thomas', 'Julien', 'Lead technique'),
+            membership('DEPUTY', 'r2', 'Dupont', 'Marc', 'Chef de projet'),
+          ],
+        },
+      ]);
+
+      const [team] = await service.summary('c1');
+
+      expect(team.memberCount).toBe(3);
+      expect(team.strategicDirectionName).toBe('Ingénierie logicielle');
+      expect(team.parentName).toBe('DSI');
+      expect(team.members.map((m) => m.displayName)).toEqual([
+        'Julien Thomas',
+        'Marc Dupont',
+        'Paul Dubois',
+      ]);
+      expect(team.leads.map((m) => m.teamRole)).toEqual(['LEAD', 'DEPUTY']);
+      expect(team.leads[0].roleName).toBe('Lead technique');
+    });
+
+    it('trie par nom à rôle d’équipe égal', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([
+        {
+          id: 'wt-1',
+          name: 'Équipe',
+          code: null,
+          status: 'ACTIVE',
+          parent: null,
+          strategicDirection: null,
+          memberships: [
+            membership('MEMBER', 'r2', 'Zoé'),
+            membership('MEMBER', 'r1', 'Alice'),
+          ],
+        },
+      ]);
+
+      const [team] = await service.summary('c1');
+
+      expect(team.members.map((m) => m.displayName)).toEqual(['Alice', 'Zoé']);
+    });
+
+    it('borne l’aperçu des membres sans fausser le compte', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([
+        {
+          id: 'wt-1',
+          name: 'Grande équipe',
+          code: null,
+          status: 'ACTIVE',
+          parent: null,
+          strategicDirection: null,
+          memberships: Array.from({ length: 9 }, (_, i) =>
+            membership('MEMBER', `r${i}`, `Membre ${String(i).padStart(2, '0')}`),
+          ),
+        },
+      ]);
+
+      const [team] = await service.summary('c1');
+
+      expect(team.memberCount).toBe(9);
+      expect(team.members).toHaveLength(6);
+    });
+
+    it('gère une équipe sans membre ni rattachement', async () => {
+      prisma.workTeam.findMany.mockResolvedValue([
+        {
+          id: 'wt-1',
+          name: 'Nouvelle équipe',
+          code: null,
+          status: 'ACTIVE',
+          parent: null,
+          strategicDirection: null,
+          memberships: [],
+        },
+      ]);
+
+      const [team] = await service.summary('c1');
+
+      expect(team.memberCount).toBe(0);
+      expect(team.leads).toEqual([]);
+      expect(team.members).toEqual([]);
+      expect(team.strategicDirectionName).toBeNull();
+    });
+  });
 });

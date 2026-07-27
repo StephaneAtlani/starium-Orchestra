@@ -28,6 +28,7 @@ import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useFormAutosave } from '@/hooks/use-form-autosave';
@@ -40,6 +41,7 @@ import {
   deactivateSupplierContact,
   deleteSupplierLogo,
   listSupplierContacts,
+  getSuppliersSummary,
   listSupplierCategories,
   listSuppliers,
   uploadSupplierLogo,
@@ -49,6 +51,12 @@ import {
   updateSupplierCategory,
 } from '@/features/procurement/api/procurement.api';
 import { ImageUploadDropzone } from '@/features/procurement/components/image-upload-dropzone';
+import { SupplierRating } from '@/features/procurement/components/suppliers/supplier-rating';
+import {
+  parseSupplierRating,
+  supplierRatingPayloadValue,
+} from '@/features/procurement/lib/supplier-rating';
+import { SuppliersListKpiStrip } from '@/features/procurement/components/suppliers/suppliers-list-kpi-strip';
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 import { SupplierContactModal } from '@/features/procurement/components/suppliers/supplier-contact-modal';
 import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
@@ -67,6 +75,8 @@ type SupplierFormState = {
   phone: string;
   website: string;
   notes: string;
+  /** Évaluation sur 5 saisie au format texte ; vide = non évalué. */
+  performanceRating: string;
   supplierCategoryId: string;
   ownerOrgUnitId: string | null;
 };
@@ -176,6 +186,7 @@ export default function SuppliersPage() {
     phone: '',
     website: '',
     notes: '',
+    performanceRating: '',
     supplierCategoryId: '__none__',
     ownerOrgUnitId: null as string | null,
   });
@@ -197,6 +208,7 @@ export default function SuppliersPage() {
     phone: '',
     website: '',
     notes: '',
+    performanceRating: '',
     supplierCategoryId: '__none__',
     ownerOrgUnitId: null as string | null,
   });
@@ -328,13 +340,19 @@ export default function SuppliersPage() {
         cell: (supplier) => (
           <button
             type="button"
-            className="cursor-pointer text-left text-primary hover:underline"
+            className="flex cursor-pointer items-center gap-2.5 text-left"
             onClick={() => {
               setReadSupplierId(supplier.id);
               setReadSupplierModalOpen(true);
             }}
           >
-            {supplier.name}
+            <UserInitialsAvatar
+              displayName={supplier.name}
+              seed={supplier.id}
+              imageUrl={supplier.logoUrl}
+              size="sm"
+            />
+            <span className="font-medium text-primary hover:underline">{supplier.name}</span>
           </button>
         ),
       },
@@ -357,6 +375,12 @@ export default function SuppliersPage() {
         cell: (supplier) => supplier.supplierCategory?.name ?? '—',
       },
       {
+        key: 'performanceRating',
+        header: 'Évaluation',
+        mobilePriority: 'secondary',
+        cell: (supplier) => <SupplierRating rating={supplier.performanceRating} />,
+      },
+      {
         key: 'status',
         header: 'Statut',
         mobilePriority: 'secondary',
@@ -375,6 +399,13 @@ export default function SuppliersPage() {
         offset: 0,
       }),
     enabled: !!clientId && permsSuccess && canReadSuppliers,
+  });
+
+  const suppliersSummaryQuery = useQuery({
+    queryKey: ['procurement', clientId, 'suppliers-summary'],
+    queryFn: () => getSuppliersSummary(authFetch),
+    enabled: !!clientId && permsSuccess && canReadSuppliers,
+    staleTime: 30_000,
   });
 
   const suppliersQuery = useQuery({
@@ -448,6 +479,12 @@ export default function SuppliersPage() {
     }
     if (values.siret.length > 32) errors.siret = 'Maximum 32 caractères.';
     if (values.notes.length > 2000) errors.notes = 'Maximum 2000 caractères.';
+    if (values.performanceRating.trim()) {
+      const rating = parseSupplierRating(values.performanceRating);
+      if (rating == null) {
+        errors.performanceRating = 'Note entre 1 et 5, un chiffre après la virgule (ex : 4,2).';
+      }
+    }
 
     return errors;
   };
@@ -469,6 +506,7 @@ export default function SuppliersPage() {
         phone: form.phone || undefined,
         website: form.website || undefined,
         notes: form.notes || undefined,
+        performanceRating: parseSupplierRating(form.performanceRating) ?? undefined,
         ownerOrgUnitId: form.ownerOrgUnitId,
       });
 
@@ -495,6 +533,7 @@ export default function SuppliersPage() {
         phone: '',
         website: '',
         notes: '',
+        performanceRating: '',
         supplierCategoryId: '__none__',
         ownerOrgUnitId: null,
       });
@@ -544,6 +583,7 @@ export default function SuppliersPage() {
           editForm.supplierCategoryId === '__none__'
             ? null
             : editForm.supplierCategoryId,
+        performanceRating: supplierRatingPayloadValue(editForm.performanceRating),
         ownerOrgUnitId: editForm.ownerOrgUnitId,
       });
     },
@@ -775,6 +815,8 @@ export default function SuppliersPage() {
       phone: supplier.phone ?? '',
       website: supplier.website ?? '',
       notes: supplier.notes ?? '',
+      performanceRating:
+        supplier.performanceRating == null ? '' : String(supplier.performanceRating),
       supplierCategoryId: supplier.supplierCategoryId ?? '__none__',
       ownerOrgUnitId: supplier.ownerOrgUnitId ?? null,
     });
@@ -980,6 +1022,33 @@ export default function SuppliersPage() {
                     {formErrors.siret ? (
                       <p className="text-xs text-destructive">{formErrors.siret}</p>
                     ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier-rating">Évaluation (sur 5)</Label>
+                    <Input
+                      id="supplier-rating"
+                      value={form.performanceRating}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, performanceRating: e.target.value }))
+                      }
+                      placeholder="Ex: 4,2"
+                      inputMode="decimal"
+                      aria-invalid={formErrors.performanceRating ? true : undefined}
+                      aria-describedby={
+                        formErrors.performanceRating
+                          ? 'supplier-rating-error'
+                          : 'supplier-rating-hint'
+                      }
+                    />
+                    {formErrors.performanceRating ? (
+                      <p id="supplier-rating-error" className="text-xs text-destructive">
+                        {formErrors.performanceRating}
+                      </p>
+                    ) : (
+                      <p id="supplier-rating-hint" className="text-xs text-muted-foreground">
+                        Laissez vide si le fournisseur n&apos;est pas encore évalué.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="supplier-vat">Numéro TVA</Label>
@@ -1289,9 +1358,20 @@ export default function SuppliersPage() {
                       <Input value={editForm.vatNumber} onChange={(e) => setEditForm((p) => ({ ...p, vatNumber: sanitizeVat(e.target.value) }))} placeholder="Numero TVA" />
                       {editFormErrors.vatNumber ? <p className="text-xs text-destructive">{editFormErrors.vatNumber}</p> : null}
                     </div>
-                    <div className="space-y-1 md:col-span-2">
+                    <div className="space-y-1">
                       <Input value={editForm.externalId} onChange={(e) => setEditForm((p) => ({ ...p, externalId: sanitizeTrimmed(e.target.value, 128) }))} placeholder="ID externe" />
                       {editFormErrors.externalId ? <p className="text-xs text-destructive">{editFormErrors.externalId}</p> : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Input
+                        value={editForm.performanceRating}
+                        onChange={(e) => setEditForm((p) => ({ ...p, performanceRating: e.target.value }))}
+                        placeholder="Évaluation sur 5 (ex : 4,2)"
+                        inputMode="decimal"
+                        aria-label="Évaluation sur 5"
+                        aria-invalid={editFormErrors.performanceRating ? true : undefined}
+                      />
+                      {editFormErrors.performanceRating ? <p className="text-xs text-destructive">{editFormErrors.performanceRating}</p> : null}
                     </div>
                   </div>
                 </section>
@@ -1599,6 +1679,13 @@ export default function SuppliersPage() {
               Votre rôle n&apos;inclut pas la permission <code>procurement.read</code>.
             </AlertDescription>
           </Alert>
+        )}
+
+        {permsSuccess && canReadSuppliers && !suppliersSummaryQuery.isError && (
+          <SuppliersListKpiStrip
+            summary={suppliersSummaryQuery.data}
+            isLoading={suppliersSummaryQuery.isLoading}
+          />
         )}
 
         {permsSuccess && canReadSuppliers && (

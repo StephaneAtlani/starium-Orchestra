@@ -36,6 +36,13 @@ export class ComplianceController {
     return this.compliance.listFrameworks(clientId!);
   }
 
+  /** Avancement par référentiel (cartes « Référentiels réglementaires »). */
+  @Get('frameworks/summary')
+  @RequirePermissions('compliance.read')
+  frameworksSummary(@ActiveClientId() clientId: string | undefined) {
+    return this.compliance.frameworksSummary(clientId!);
+  }
+
   @Post('frameworks')
   @RequirePermissions('compliance.update')
   createFramework(

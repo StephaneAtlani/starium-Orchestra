@@ -27,6 +27,8 @@ export interface Supplier {
   website: string | null;
   logoUrl: string | null;
   notes: string | null;
+  /** Évaluation sur 5 (1.0–5.0) ; `null` si le fournisseur n'est pas encore évalué. */
+  performanceRating: number | null;
   supplierCategoryId: string | null;
   supplierCategory: SupplierCategory | null;
   ownerOrgUnitId?: string | null;
@@ -34,6 +36,25 @@ export interface Supplier {
   status: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Synthèse portefeuille fournisseurs (`GET /api/suppliers/summary`).
+ * Portée : fournisseurs lisibles du client, indépendamment des filtres de liste.
+ */
+export interface SuppliersSummary {
+  activeCount: number;
+  archivedCount: number;
+  addedThisYear: number;
+  /** `null` si les contrats mêlent plusieurs devises. */
+  annualSpend: number | null;
+  currency: string | null;
+  currencyMixed: boolean;
+  activeContractCount: number;
+  inRenewalCount: number;
+  /** Moyenne sur 5 des évaluations renseignées ; `null` si aucune. */
+  averageRating: number | null;
+  ratedCount: number;
 }
 
 export interface SupplierCategory {

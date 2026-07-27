@@ -5,6 +5,7 @@ import type {
   ContractAttachment,
   ContractListResult,
   ContractAttachmentCategory,
+  ContractsSummary,
 } from '../types/contract.types';
 import type { PaginatedResponse, Supplier } from '@/features/procurement/types/supplier.types';
 import type {
@@ -60,6 +61,13 @@ export async function listContracts(
   const res = await authFetch(`${BASE}${qs}`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ContractListResult>;
+}
+
+/** Synthèse portefeuille pour le bandeau KPI `/contracts`. */
+export async function getContractsSummary(authFetch: AuthFetch): Promise<ContractsSummary> {
+  const res = await authFetch(`${BASE}/summary`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ContractsSummary>;
 }
 
 export async function getContract(authFetch: AuthFetch, id: string): Promise<Contract> {

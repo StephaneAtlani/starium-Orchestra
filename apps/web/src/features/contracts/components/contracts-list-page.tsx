@@ -29,10 +29,11 @@ import {
   getContractSupplierById,
   listContractSupplierOptions,
 } from '../api/contracts.api';
-import { useContractsListQuery } from '../hooks/use-contracts-queries';
+import { useContractsListQuery, useContractsSummaryQuery } from '../hooks/use-contracts-queries';
 import { contractKindLabel, contractStatusLabel } from '../lib/contracts-labels';
 import type { SupplierContractStatus, Contract } from '../types/contract.types';
 import { ContractFormDialog } from './contract-form-dialog';
+import { ContractsListKpiStrip } from './contracts-list-kpi-strip';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -138,6 +139,8 @@ export function ContractsListPage() {
       suppliersSorted.find((s) => s.id === supplierIdFromUrl)?.name ??
       (supplierFilterLabelQ.isLoading ? 'Chargement…' : 'Fournisseur');
 
+  const summaryQ = useContractsSummaryQuery({ enabled: canRead });
+
   const q = useContractsListQuery({
     search: search.trim() || undefined,
     status: status || undefined,
@@ -191,6 +194,10 @@ export function ContractsListPage() {
           ) : undefined
         }
       />
+
+      {!summaryQ.isError && (
+        <ContractsListKpiStrip summary={summaryQ.data} isLoading={summaryQ.isLoading} />
+      )}
 
       <FilterBar aria-label="Filtres contrats" asSearch desktopColumns="auto">
         <FilterBarField id="contracts-search" label="Recherche">

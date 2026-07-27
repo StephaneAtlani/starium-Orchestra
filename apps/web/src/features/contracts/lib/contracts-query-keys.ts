@@ -4,6 +4,7 @@ export const contractsKeys = {
     clientId: string,
     params: Record<string, string | number | undefined>,
   ) => [...contractsKeys.root(clientId), 'list', params] as const,
+  summary: (clientId: string) => [...contractsKeys.root(clientId), 'summary'] as const,
   detail: (clientId: string, contractId: string) =>
     [...contractsKeys.root(clientId), 'detail', contractId] as const,
   attachments: (clientId: string, contractId: string) =>

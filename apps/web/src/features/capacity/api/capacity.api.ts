@@ -4,6 +4,8 @@ import type {
   CapacityPortfolioSummary,
   MemberMonthlyCapacityRow,
   MonthlyCapacityRow,
+  ResourceProjectLoadResult,
+  WorkTeamLoadRow,
 } from '../types/capacity.types';
 
 type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
@@ -204,6 +206,26 @@ export async function getDashboardResources(
 ): Promise<{ items: CapacityDashboardRow[] }> {
   const qs = toQueryString(params);
   const res = await authFetch(`/api/capacity/dashboard/resources${qs}`);
+  return handleResponse(res);
+}
+
+/** Plan de charge ressource × projet — matrice `/resources`. */
+export async function getDashboardResourceProjectLoad(
+  authFetch: AuthFetch,
+  params: { from: string; to: string },
+): Promise<ResourceProjectLoadResult> {
+  const qs = toQueryString(params);
+  const res = await authFetch(`/api/capacity/dashboard/resource-project-load${qs}`);
+  return handleResponse(res);
+}
+
+/** Charge par équipe — statistiques des cartes `/teams`. */
+export async function getDashboardWorkTeamLoad(
+  authFetch: AuthFetch,
+  params: { from: string; to: string },
+): Promise<{ months: string[]; items: WorkTeamLoadRow[] }> {
+  const qs = toQueryString(params);
+  const res = await authFetch(`/api/capacity/dashboard/work-team-load${qs}`);
   return handleResponse(res);
 }
 

@@ -66,6 +66,37 @@ export async function listWorkTeams(
   return handleResponse<WorkTeamsListResponse>(res);
 }
 
+/** Membre mis en avant sur une carte équipe. */
+export type WorkTeamSummaryMemberDto = {
+  resourceId: string;
+  displayName: string;
+  /** Rôle métier de la ressource, pas le rôle d'équipe. */
+  roleName: string | null;
+  teamRole: 'LEAD' | 'DEPUTY' | 'MEMBER';
+};
+
+/** Carte équipe — `GET /api/work-teams/summary`. */
+export type WorkTeamSummaryDto = {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string;
+  strategicDirectionName: string | null;
+  parentName: string | null;
+  memberCount: number;
+  leads: WorkTeamSummaryMemberDto[];
+  members: WorkTeamSummaryMemberDto[];
+};
+
+export async function listWorkTeamSummaries(
+  authFetch: AuthFetch,
+  params: { includeArchived?: boolean } = {},
+): Promise<WorkTeamSummaryDto[]> {
+  const qs = toQueryString({ includeArchived: params.includeArchived });
+  const res = await authFetch(`/api/work-teams/summary${qs}`);
+  return handleResponse<WorkTeamSummaryDto[]>(res);
+}
+
 export async function getWorkTeamsTree(
   authFetch: AuthFetch,
   params: WorkTeamsTreeParams = {},

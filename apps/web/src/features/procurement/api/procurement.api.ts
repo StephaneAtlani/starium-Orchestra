@@ -7,6 +7,7 @@ import type {
   SupplierContact,
   SupplierOption,
   SuppliersDashboardStats,
+  SuppliersSummary,
 } from '../types/supplier.types';
 import type {
   CreatePurchaseOrderPayload,
@@ -88,6 +89,15 @@ export async function getSuppliersDashboard(
   const res = await authFetch(`${BASE_SUPPLIERS}/dashboard`);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<SuppliersDashboardStats>;
+}
+
+/** Synthèse portefeuille pour le bandeau KPI `/suppliers`. */
+export async function getSuppliersSummary(
+  authFetch: AuthFetch,
+): Promise<SuppliersSummary> {
+  const res = await authFetch(`${BASE_SUPPLIERS}/summary`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<SuppliersSummary>;
 }
 
 export async function listSuppliers(
@@ -181,6 +191,8 @@ export interface CreateSupplierPayload {
   phone?: string;
   website?: string;
   notes?: string;
+  /** Évaluation sur 5 (1.0–5.0). */
+  performanceRating?: number | null;
   ownerOrgUnitId?: string | null;
 }
 
@@ -208,6 +220,8 @@ export interface UpdateSupplierPayload {
   website?: string;
   notes?: string;
   supplierCategoryId?: string | null;
+  /** Évaluation sur 5 (1.0–5.0) ; `null` remet à « non évalué ». */
+  performanceRating?: number | null;
   ownerOrgUnitId?: string | null;
 }
 
