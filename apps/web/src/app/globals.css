@@ -760,20 +760,20 @@ html.dark {
   line-height: 1;
 }
 .starium-avatar-chip--1 {
-  background: #d7e3f6;
-  color: #2a52a0;
+  background: var(--avatar-1-bg);
+  color: var(--avatar-1-fg);
 }
 .starium-avatar-chip--2 {
-  background: #f6e0d7;
-  color: #a0532a;
+  background: var(--avatar-2-bg);
+  color: var(--avatar-2-fg);
 }
 .starium-avatar-chip--3 {
-  background: #d7f0e3;
-  color: #1f7a52;
+  background: var(--avatar-3-bg);
+  color: var(--avatar-3-fg);
 }
 .starium-avatar-chip--4 {
-  background: #efe0f6;
-  color: var(--purple);
+  background: var(--avatar-4-bg);
+  color: var(--avatar-4-fg);
 }
 
 /* Grille aperçu projet (mockup .g4) — 2 lignes : météo puis 4 cartes */
@@ -4144,12 +4144,12 @@ table.starium-dt {
 }
 
 .starium-avatar-chip--5 {
-  background: var(--brand-gold-100);
-  color: var(--brand-gold-700);
+  background: var(--avatar-5-bg);
+  color: var(--avatar-5-fg);
 }
 .starium-avatar-chip--6 {
-  background: #f6d7e3;
-  color: #a02a52;
+  background: var(--avatar-6-bg);
+  color: var(--avatar-6-fg);
 }
 
 /* Shell : classes sémantiques (variables :root) */

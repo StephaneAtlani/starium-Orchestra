@@ -12,6 +12,8 @@
   --brand-gold: #e8a317;
   --brand-gold-600: #cc8e0e;
   --brand-gold-700: #5f3f00;
+  /** Palier or intermédiaire — bordures et contours hover d'une surface dorée claire. */
+  --brand-gold-400: #d9b84a;
   --brand-gold-100: #f4d58a;
   --brand-gold-050: #fbeab5;
   --brand-ink: #0e0e10;
@@ -20,6 +22,8 @@
   --neutral-0: #ffffff;
   --neutral-50: #faf9f7;
   --neutral-100: #f4f2ee;
+  /** Palier entre 100 et 200 — pistes de barres de progression, séparateurs très doux. */
+  --neutral-150: #edebe4;
   --neutral-200: #e9e6e0;
   --neutral-300: #d6d2ca;
   --neutral-400: #b6b0a4;
@@ -38,6 +42,54 @@
   --state-danger-bg: #fbe8e6;
   --state-info: #2a6fdb;
   --state-info-bg: #e3eefb;
+  /** Bordures des encarts d'état (alerte budget, encart de confirmation). */
+  --state-success-border: #c5e6d4;
+  --state-warning-border: #f2d9a8;
+  /** Pastille « en cours / en direct » (séance animée). Toujours doublée d'un libellé. */
+  --state-live: #ff5a5a;
+
+  /* ----------------------------------------------------------------------
+   * Accent « Scénario » — seul accent non doré assumé du DS.
+   * Réservé au planificateur de capacité (barres déplaçables, jalons de
+   * simulation) pour distinguer le prévisionnel simulé de l'engagé (or).
+   * Ne pas l'employer comme accent générique.
+   * -------------------------------------------------------------------- */
+  --scn: #5b5fe0;
+  --scn-600: #4a4ecb;
+
+  /* ----------------------------------------------------------------------
+   * Palette avatars — 6 teintes assignées de façon déterministe (hash du
+   * nom), jamais porteuses de sens. Chaque couple atteint 4.5:1.
+   * -------------------------------------------------------------------- */
+  --avatar-1-bg: #d7e3f6;
+  --avatar-1-fg: #2a52a0;
+  --avatar-2-bg: #f6e0d7;
+  --avatar-2-fg: #9d5129;
+  --avatar-3-bg: #d7f0e3;
+  --avatar-3-fg: #1e7850;
+  --avatar-4-bg: #efe0f6;
+  --avatar-4-fg: #6b2fb2;
+  --avatar-5-bg: var(--brand-gold-100);
+  --avatar-5-fg: var(--brand-gold-700);
+  --avatar-6-bg: #f6d7e3;
+  --avatar-6-fg: #a02a52;
+
+  /* ----------------------------------------------------------------------
+   * Barème de chaleur — 5 paliers pour les matrices probabilité × impact
+   * et les cartographies de criticité. Dégradé vert → rouge, neutres chauds
+   * conservés. Chaque couple bg/fg atteint 4.5:1 : la valeur chiffrée reste
+   * lisible, la couleur ne porte jamais seule l'information.
+   * -------------------------------------------------------------------- */
+  --heat-1-bg: #dcf0e4;
+  --heat-1-fg: #1f7951;
+  --heat-2-bg: #fce9c7;
+  --heat-2-fg: #8f6100;
+  --heat-3-bg: #f9d9a8;
+  --heat-3-fg: #875800;
+  --heat-4-bg: #f6c6a0;
+  --heat-4-fg: #884724;
+  --heat-5-bg: #f4b0a8;
+  --heat-5-fg: #93271d;
 
   /* ---------- Pont sémantique (surchargeable par client) ---------- */
   --color-primary: #e8a317;
