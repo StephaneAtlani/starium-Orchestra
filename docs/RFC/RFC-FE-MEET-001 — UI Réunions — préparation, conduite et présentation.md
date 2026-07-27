@@ -1,6 +1,6 @@
 # RFC-FE-MEET-001 — UI Réunions — préparation, conduite et présentation
 
-**Statut :** 📝 Draft
+**Statut :** 📝 Draft — aucun écran livré. Les lots **F1** (liste) et **I** (administration des modèles) sont **débloqués** : leurs routes API existent depuis le lot A de RFC-MEET-001. Les lots **G** (conduite, présentation) et **H** (exports, compte rendu) attendent les lots **B→E** côté API.
 **Priorité :** Haute
 **Module :** Meetings (frontend) — feature `apps/web/src/features/meetings/`
 **Impact :** Navigation, module Projets (onglet « Points projet »), présentation comité CODIR

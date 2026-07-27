@@ -1,6 +1,6 @@
 # RFC-MEET-001 — Module Réunions de gouvernance (CODIR, COPIL, COPRO)
 
-**Statut :** 📝 Draft
+**Statut :** 🚧 En cours — **lot A livré** (schéma, migration, module Nest, CRUD, modèles système, RBAC) ; lots B→E à faire (§7)
 **Priorité :** Haute
 **Module :** Meetings (Core) — code Nest/Next `meetings`
 **Impact :** Projets, Points projet (`ProjectReview`), Cycles de pilotage, Risques, Planning, Budgets, Capacité, Alertes
@@ -367,6 +367,8 @@ Quatre règles à ajouter dans [`alerts-trigger.service.ts`](../../apps/api/src/
 ## 4.10 Contrat API
 
 Préfixe `/api`. Guards, dans l'ordre : `JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard`.
+
+> **Contrat cible.** Une partie de ces routes n'est pas encore exposée (lots B→E, H) — voir §7.1 pour le périmètre réellement livré. Les routes **effectivement déployées** sont documentées dans [docs/API.md](../API.md), qui fait foi pour l'intégration.
 
 ### Réunions
 
@@ -925,7 +927,7 @@ pnpm lint
 
 | Lot | Contenu | État |
 | --- | --- | --- |
-| **A** | Prisma (10 modèles, 13 enums) + migration + `MeetingsModule` + CRUD réunions + templates système au seed + RBAC | ❌ à faire |
+| **A** | Prisma (10 modèles, 13 enums) + migration + `MeetingsModule` + CRUD réunions + templates système au seed + RBAC | ✅ **livré** |
 | **B** | `meeting-deck.service` : agrégation des 16 sections + `GET /meetings/:id/deck` + filtrage `AccessDecisionService` | ❌ à faire |
 | **C** | Cycle de vie complet + appel / émargement + quorum + `meeting-project-review-bridge` (+ correctif enum §3.3) | ❌ à faire |
 | **D** | Décisions et arbitrages (dont `MACRO_TASK`) + propagation vers `ProjectReview` / `GovernanceCycleInstance` | ❌ à faire |
@@ -937,6 +939,19 @@ pnpm lint
 | **J** | Convergence : alertes réunion, bandeau sur l'onglet « Points projet », deep-links, manuel utilisateur | ❌ à faire |
 
 Ordre recommandé : **A → C → B → D → E**, puis **F → G → H → I**, **J** en clôture. C avant B parce que le pont conditionne le contrat du deck.
+
+## 7.1 État livré — lot A
+
+| Élément | Réalisation |
+| --- | --- |
+| Schéma | 10 modèles + 13 enums dans `apps/api/prisma/schema.prisma` ; FK composites tenant-scopées `(clientId, id)` |
+| Migration | `apps/api/prisma/migrations/20260727120000_rfc_meet_001_meetings/` — **purement additive** (aucun `DROP` ni `RENAME`), `ADD COLUMN IF NOT EXISTS` pour `EmailDelivery.meetingId` |
+| Module Nest | `apps/api/src/modules/meetings/` — `meetings.service.ts`, `meeting-templates.service.ts`, 2 contrôleurs, `dto/meeting.dto.ts`, `lib/` (catalogue de sections, transitions, quorum, codes d'erreur, modèles système) |
+| API | 16 routes `/api/meetings` + 8 routes `/api/meeting-templates` — contrat détaillé dans [docs/API.md](../API.md) |
+| Seed | `ensureMeetingsModuleAndPermissions()` (5 permissions) + `ensureSystemMeetingTemplates()` (idempotent, préserve `isHidden`) ; `default-profiles.json` mis à jour |
+| Tests | **6 suites / 55 tests** — `pnpm --filter @starium-orchestra/api test -- meetings` |
+
+**Non encore implémenté**, malgré la présence du contrat en §4.10 : `GET …/deck` (lot B), l'appel **en écriture** et les convocations (lot C), les décisions, les points bloquants, les pièces jointes, le compte rendu et les exports (lots D, E, H). `GET …/attendance` est livré en lecture seule ; les convoqués ne sont pas encore créables par l'API.
 
 ---
 
@@ -952,7 +967,7 @@ Ordre recommandé : **A → C → B → D → E**, puis **F → G → H → I**,
 | 6 | **Sur-exposition par le deck** | Le deck est la route la plus exposée du module : elle traverse projets, budgets, risques et capacité. `AccessDecisionService` par projet est **obligatoire**, testé par `meeting-deck.service.spec.ts` |
 | 7 | **`EmailDelivery` ne connaît que `projectReviewId`** | Ajout de `meetingId?` (§5.3) |
 | 8 | **Aucune règle d'alerte réunion** | 4 règles ajoutées (§4.9) |
-| 9 | **Désynchronisation de types** : le TS `ProjectReviewType` n'expose que 7 des 12 valeurs Prisma | **Correctif préalable au lot C** — sinon le pont ne peut pas écrire `ARBITRATION`, `BUDGET_REVIEW`, `CRISIS_POINT` |
+| 9 | ~~**Désynchronisation de types** : le TS `ProjectReviewType` n'expose que 7 des 12 valeurs Prisma~~ | ✅ **Levé** — `project.types.ts` aligné sur les 12 valeurs Prisma, libellés ajoutés dans `project-enum-labels.ts`. Le pont du lot C peut écrire `ARBITRATION`, `BUDGET_REVIEW`, `CRISIS_POINT` |
 | 10 | **Deck CODIR persisté en `localStorage`** (`committee-codir-page-settings`) | La configuration devient serveur. Migration douce : à la première ouverture du module, proposer d'importer les réglages locaux dans un template client |
 | 11 | **Catalogue de sections fermé** | Un client ne peut pas créer un **type** de section (cela suppose du code d'agrégation). Échappatoire : `FREE_TEXT` instanciable N fois avec titre libre. À exposer clairement dans l'UI d'administration |
 | 12 | **Portée de template immuable** | Basculer `PROJECT` ↔ `PORTFOLIO` casserait l'inscription des projets et le pont. Deux templates distincts — plus lisible à l'usage |
