@@ -225,6 +225,21 @@ Cadrage : [RFC-PROJ-INT-001 — Intégration Microsoft 365](./RFC-PROJ-INT-001%2
 
 ---
 
+## 📅 GOUVERNANCE — RÉUNIONS (CODIR / COPIL / COPRO)
+
+**Principe produit** : **Projet = exécuter** · **Cycle = arbitrer** · **Instance = décider à une date** · **Réunion = préparer, tenir, restituer**
+
+Module `meetings` en **surcouche** : il orchestre le rituel (template, périmètre multi-projets, appel, sections, deck, points bloquants) et **ne duplique aucune donnée métier**. La trace par projet reste dans `ProjectReview` (RFC-PROJ-013-2), la trace portefeuille dans `GovernanceCycleInstance` (RFC-PROJ-CYCLE-003).
+
+| Ordre | RFC | Nom | Description | État | Commentaire |
+| ----- | --- | --- | --- | --- | --- |
+| 31b-1 | **RFC-MEET-001** | Module Réunions de gouvernance (CODIR, COPIL, COPRO) | Prisma (`MeetingTemplate`, `MeetingTemplateSection`, `Meeting`, `MeetingProject`, `MeetingAttendee`, `MeetingSectionInstance`, `MeetingAgendaItem`, `MeetingDecision`, `MeetingBlocker`, `MeetingAttachment`), module Nest `meetings`, API `/api/meetings` + `/api/meeting-templates`, RBAC `meetings.*` (5 permissions), 16 types de section, 9 templates système + surcharge client, pont `ProjectReview`, décision de portée `MACRO_TASK`, registre des points bloquants, `GET …/deck` | 📝 Draft | [RFC](./RFC-MEET-001%20%E2%80%94%20Module%20R%C3%A9unions%20de%20gouvernance%20(CODIR%2C%20COPIL%2C%20COPRO).md) — lots A–E ; 3 règles de surcouche non négociables (§1.1) ; `EmailDelivery.meetingId` ; 4 règles d'alerte réunion (RFC-038) |
+| 31b-2 | **RFC-FE-MEET-001** | UI Réunions — préparation, conduite et présentation | Feature `features/meetings/`, routes `/meetings`, `/meetings/[id]`, `…/conduct`, `…/present`, `/meetings/templates` ; registre de 16 sections (`Panel` / `Slide` / `toExportSlides`) ; appel et quorum ; mode présentation ; exports **PDF** et **PPTX** (`pptxgenjs`, déjà en dépendance et jamais importé) ; compte rendu e-mail | 📝 Draft | [RFC](./RFC-FE-MEET-001%20%E2%80%94%20UI%20R%C3%A9unions%20%E2%80%94%20pr%C3%A9paration%2C%20conduite%20et%20pr%C3%A9sentation.md) — lots F1–J ; réutilise `committee-presentation` (slides, widgets, `codir-minimal-pdf`), `build-macro-planning-gantt`, `risk-criticality-matrix` ; **ne pas reproduire** le monolithe `project-review-editor-dialog.tsx` (142 Ko) |
+
+> **Prérequis technique au lot C** : le type TS `ProjectReviewType` ([`project.types.ts:888`](../../apps/web/src/features/projects/types/project.types.ts)) n'expose que **7** des **12** valeurs de l'enum Prisma. À corriger avant le pont réunion ↔ point projet.
+
+---
+
 ## 📥 INTAKE — DEMANDES PROJET (AMONT PORTEFEUILLE)
 
 | Ordre | RFC | Nom | Description | État | Commentaire |
