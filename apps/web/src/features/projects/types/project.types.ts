@@ -884,15 +884,26 @@ export type ProjectHistoryResponse = {
   offset: number;
 };
 
-/** RFC-PROJ-013 — points projet */
+/**
+ * RFC-PROJ-013 — points projet.
+ * Aligné sur l'enum Prisma `ProjectReviewType` (12 valeurs) — RFC-MEET-001 §8-9.
+ */
 export type ProjectReviewType =
   | 'COPIL'
   | 'COPRO'
+  /** Legacy RFC-PROJ-013-2 — migré vers `PROJECT_REVIEW` */
   | 'CODIR_REVIEW'
   | 'RISK_REVIEW'
   | 'MILESTONE_REVIEW'
+  /** Legacy RFC-PROJ-013-2 — migré vers `OTHER` */
   | 'AD_HOC'
-  | 'POST_MORTEM';
+  | 'POST_MORTEM'
+  /** RFC-PROJ-013-2 */
+  | 'PROJECT_REVIEW'
+  | 'BUDGET_REVIEW'
+  | 'ARBITRATION'
+  | 'CRISIS_POINT'
+  | 'OTHER';
 
 export type ProjectReviewStatus =
   | 'PREPARING'

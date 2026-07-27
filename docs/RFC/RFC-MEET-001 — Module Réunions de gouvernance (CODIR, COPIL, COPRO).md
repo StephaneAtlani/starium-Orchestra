@@ -59,7 +59,21 @@
 - **Planning macro** — `GET /api/projects/:projectId/gantt` (phases + jalons) et `GET /api/projects/portfolio-gantt` ([`projects.controller.ts:68`](../../apps/api/src/modules/projects/projects.controller.ts)).
 - **Alertes** — 7 règles en place dans [`alerts-trigger.service.ts`](../../apps/api/src/modules/alerts/alerts-trigger.service.ts) : `budget.line.overrun`, `budget.line.near_limit`, `project.overdue`, `project.milestone.delayed`, `project.risk.critical`, `contract.expiring`, `contract.expired`. **Aucune règle réunion.**
 
-## 0.4 Écarts qui motivent cette RFC
+## 0.4 Approche écartée — absorption de `ProjectReview` (2026-07-26)
+
+Une première conception a été menée puis **abandonnée pour raison produit**. Elle est conservée ici pour mémoire, afin qu'elle ne soit pas reproposée.
+
+| | Détail |
+| --- | --- |
+| **Où** | Branche `backup/pre-revert-48029b3`, divergée de `ae9de89` — commits `2b2f717` (RFC, 1 409 l.) et `10d2600` (implémentation API, ~4 000 l.) |
+| **Principe** | *Extraction* du domaine Points projet : `RFC-MEET-001` d'alors **supersédait** RFC-PROJ-013 / 013-1 / 013-2, avec §23 « Migration depuis Points projet et **retrait de `ProjectReview`** » et un script `migrate-project-reviews-to-meetings.ts` |
+| **Ampleur livrée** | Module Nest `meetings` (controller, service, `meeting-run`, `meeting-deck`, `meeting-dispatch`), migration SQL de 942 lignes, `seed-meetings.ts`, suppression des DTO `project-reviews` |
+| **Sort** | Non fusionnée sur `main` — retirée par rollback (stash `temp-before-rollback-2b2f717`) |
+| **Motif** | **Décision produit** : l'absorption de `ProjectReview` a été jugée **trop large et trop risquée**. Elle imposait une migration de données irréversible et la réécriture d'un domaine déjà stabilisé et éprouvé en production |
+
+**Conséquence pour la présente RFC** : la surcouche (§1.1) n'est pas un choix par défaut, c'est la réponse explicite à cet arbitrage. `ProjectReview` **reste la source de vérité du point projet** ; le module Réunions orchestre sans migrer. Toute proposition future de fusionner les deux domaines doit d'abord traiter le risque de migration qui a fait échouer la première tentative.
+
+## 0.5 Écarts qui motivent cette RFC
 
 | # | Écart | Conséquence métier |
 | --- | --- | --- |

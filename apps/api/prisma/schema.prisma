@@ -401,6 +401,17 @@ model Client {
   chatbotKnowledgeEntries          ChatbotKnowledgeEntry[]
   chatbotConversations             ChatbotConversation[]
   chatbotMessages                  ChatbotMessage[]
+  /// RFC-MEET-001 — module Réunions de gouvernance
+  meetingTemplates                 MeetingTemplate[]
+  meetingTemplateSections          MeetingTemplateSection[]
+  meetings                         Meeting[]
+  meetingProjects                  MeetingProject[]
+  meetingAttendees                 MeetingAttendee[]
+  meetingSectionInstances          MeetingSectionInstance[]
+  meetingAgendaItems               MeetingAgendaItem[]
+  meetingDecisions                 MeetingDecision[]
+  meetingBlockers                  MeetingBlocker[]
+  meetingAttachments               MeetingAttachment[]
 
   /// App Azure AD (BYO) — identifiants OAuth par client Starium ; secret chiffré au repos.
   microsoftOAuthClientId              String?
@@ -652,6 +663,20 @@ model User {
   mergeOperationId                     String?
   userMergeOperations                  UserMergeOperation[]              @relation("UserMergeCanonical")
   userMergeOperationsAsDuplicate       UserMergeOperation[]              @relation("UserMergeDuplicate")
+
+  /// RFC-MEET-001 — module Réunions de gouvernance
+  meetingTemplatesCreated              MeetingTemplate[]                 @relation("MeetingTemplateCreatedBy")
+  meetingsFacilitated                  Meeting[]                         @relation("MeetingFacilitator")
+  meetingsStarted                      Meeting[]                         @relation("MeetingStartedBy")
+  meetingsFinalized                    Meeting[]                         @relation("MeetingFinalizedBy")
+  meetingsCancelled                    Meeting[]                         @relation("MeetingCancelledBy")
+  meetingsCreated                      Meeting[]                         @relation("MeetingCreatedBy")
+  meetingProjectsRapporteur            MeetingProject[]                  @relation("MeetingProjectRapporteur")
+  meetingAttendances                   MeetingAttendee[]                 @relation("MeetingAttendeeUser")
+  meetingAgendaItemsOwned              MeetingAgendaItem[]               @relation("MeetingAgendaItemOwner")
+  meetingDecisionsDecided              MeetingDecision[]                 @relation("MeetingDecisionDecidedBy")
+  meetingBlockersOwned                 MeetingBlocker[]                  @relation("MeetingBlockerOwner")
+  meetingAttachmentsUploaded           MeetingAttachment[]               @relation("MeetingAttachmentUploadedBy")
 }
 
 /// Adresse e-mail déclarée par l’utilisateur (affichage / futur envoi). Une par user + email normalisé.
@@ -1116,6 +1141,8 @@ model Resource {
   resourceTimeEntries              ResourceTimeEntry[]
   resourceTimesheetMonths          ResourceTimesheetMonth[]
   resourceCapacityExceptions       ResourceCapacityException[]
+  /// RFC-MEET-001 — participation aux réunions de gouvernance
+  meetingAttendances               MeetingAttendee[]                 @relation("MeetingAttendeeResource")
   capacityAllocations              CapacityAllocation[]
   orgUnitMemberships               OrgUnitMembership[]
   orgGroupMemberships              OrgGroupMembership[]
@@ -1873,6 +1900,14 @@ model Project {
   @@index([clientId, stewardResourceId])
   @@index([clientId, parentProjectId])
   @@index([targetEndDate])
+
+  /// RFC-MEET-001 — inscription du projet à des réunions de gouvernance
+  meetingProjects    MeetingProject[]
+  meetingAgendaItems MeetingAgendaItem[] @relation("MeetingAgendaItemProject")
+  meetingDecisions   MeetingDecision[]   @relation("MeetingDecisionProject")
+  meetingBlockers    MeetingBlocker[]    @relation("MeetingBlockerProject")
+
+  @@unique([clientId, id])
 }
 
 /// RFC-PROJ-INTAKE-001 — demande projet (amont, distincte de Project)
@@ -2383,6 +2418,8 @@ model ProjectDocument {
   uploadedByUser User?                         @relation("ProjectDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   microsoftSync  ProjectDocumentMicrosoftSync?
   reviewAttachments ProjectReviewAttachment[]
+  /// RFC-MEET-001 — pièces jointes de réunion référençant ce document
+  meetingAttachments MeetingAttachment[] @relation("MeetingAttachmentDocument")
 
   @@index([clientId])
   @@index([projectId])
@@ -2528,6 +2565,9 @@ model ProjectReview {
   actionItems  ProjectReviewActionItem[]
   agendaItems  ProjectReviewAgendaItem[]
   attachments  ProjectReviewAttachment[]
+
+  /// RFC-MEET-001 — point projet créé/lié par une réunion (pont de surcouche)
+  meetingProjects MeetingProject[]
 
   @@index([clientId, projectId, reviewDate])
   @@index([clientId, projectId, status])
@@ -2913,6 +2953,8 @@ model ProjectTaskPhase {
   project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks      ProjectTask[]
   milestones ProjectMilestone[]
+  /// RFC-MEET-001 — décisions de portée MACRO_TASK portant sur cette phase
+  meetingDecisions MeetingDecision[] @relation("MeetingDecisionPhase")
 
   @@unique([projectId, sortOrder])
   @@index([clientId, projectId])
@@ -3034,6 +3076,10 @@ model ProjectTask {
   @@index([plannedEndDate])
   @@index([bucketId])
   @@index([responsibleResourceId])
+
+  /// RFC-MEET-001 — décisions de portée MACRO_TASK et points bloquants liés
+  meetingDecisions MeetingDecision[] @relation("MeetingDecisionTask")
+  meetingBlockers  MeetingBlocker[]  @relation("MeetingBlockerTask")
 }
 
 /// Ressources humaines assignées à une tâche (exécution — plusieurs possibles).
@@ -3372,6 +3418,9 @@ model ProjectRisk {
   @@index([projectId, sortOrder])
   @@index([complianceRequirementId])
   @@index([riskTypeId])
+
+  /// RFC-MEET-001 — points bloquants promus depuis ce risque
+  meetingBlockers MeetingBlocker[] @relation("MeetingBlockerRisk")
 }
 
 /// RFC-PROJ-011 — jalon (sans durée)
@@ -4922,6 +4971,8 @@ model EmailDelivery {
   clientId        String
   alertId         String?
   projectReviewId String?
+  /// RFC-MEET-001 — traçabilité des invitations et comptes rendus de réunion
+  meetingId       String?
   recipient       String
   subject         String
   /// Lien CTA (ex. vérification e-mail) — requis au traitement async car non porté par Alert.
@@ -4943,10 +4994,12 @@ model EmailDelivery {
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   alert  Alert? @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
   createdBy User? @relation("EmailDeliveryCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([clientId, status, createdAt])
   @@index([clientId, projectReviewId])
+  @@index([clientId, meetingId])
   @@index([alertId])
   @@index([recipient])
   /// Unicité partielle (alertId, recipient, templateKey) WHERE alertId IS NOT NULL
@@ -5736,6 +5789,8 @@ model GovernanceCycleInstance {
   decisions                 GovernanceCycleInstanceDecision[]
   agendaItems               GovernanceCycleInstanceAgendaItem[]
   budgetGovernanceDecisions BudgetGovernanceDecision[]
+  /// RFC-MEET-001 — réunions rattachées à cette instance de décision
+  meetings                  Meeting[]
 
   @@index([clientId])
   @@index([cycleId])
@@ -5895,4 +5950,519 @@ model CapacityAllocationMonth {
   @@unique([allocationId, yearMonth])
   @@index([clientId, yearMonth])
   @@index([allocationId])
+}
+
+// ============================================================================
+// RFC-MEET-001 — Module Réunions de gouvernance (CODIR, COPIL, COPRO)
+// Surcouche : le module orchestre le rituel et ne duplique aucune donnée
+// métier. La trace par projet reste dans `ProjectReview`, la trace
+// portefeuille dans `GovernanceCycleInstance`.
+// ============================================================================
+
+/// RFC-MEET-001 — cycle de vie d'une réunion de gouvernance
+enum MeetingStatus {
+  PREPARING
+  SCHEDULED
+  IN_PROGRESS
+  FINALIZED
+  CANCELLED
+}
+
+/// RFC-MEET-001 — famille de rituel portée par un modèle de réunion
+enum MeetingTemplateKind {
+  CODIR
+  COPIL
+  COPRO
+  PROJECT_REVIEW
+  BUDGET_REVIEW
+  RISK_COMMITTEE
+  ARBITRATION
+  CRISIS_POINT
+  POST_MORTEM
+  CUSTOM
+}
+
+/// RFC-MEET-001 — portée d'un modèle ; immuable après création (§8-12)
+enum MeetingScope {
+  PROJECT
+  PORTFOLIO
+}
+
+/// RFC-MEET-001 — catalogue fermé des sections restituables (§4.2)
+enum MeetingSectionType {
+  COVER
+  ATTENDANCE
+  AGENDA
+  PORTFOLIO_SYNTHESIS
+  PROJECT_STATUS
+  PLANNING_MACRO
+  ALERTS
+  RISKS
+  BLOCKERS
+  BUDGET_CONSUMPTION
+  CAPACITY
+  ARBITRATIONS
+  DECISIONS
+  ACTIONS
+  NEXT_STEPS
+  FREE_TEXT
+}
+
+enum MeetingMode {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+/// RFC-MEET-001 — appel / émargement
+enum MeetingAttendanceStatus {
+  EXPECTED
+  PRESENT
+  ABSENT
+  EXCUSED
+}
+
+enum MeetingAgendaItemStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+/// RFC-MEET-001 — portée d'une décision (§4.7)
+enum MeetingDecisionScope {
+  MEETING
+  PROJECT
+  MACRO_TASK
+}
+
+enum MeetingDecisionType {
+  GO
+  NO_GO
+  ARBITRATION
+  BUDGET_VALIDATION
+  SCOPE_CHANGE
+  RISK_ACCEPTANCE
+  PRIORITY_CHANGE
+  OTHER
+}
+
+enum MeetingDecisionStatus {
+  DRAFT
+  VALIDATED
+  REJECTED
+  SUPERSEDED
+}
+
+enum MeetingBlockerSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MeetingBlockerStatus {
+  OPEN
+  ESCALATED
+  RESOLVED
+}
+
+enum MeetingAttachmentType {
+  URL
+  DOCUMENT_REFERENCE
+  POWERBI_LINK
+  SHAREPOINT_LINK
+  OTHER
+}
+
+/// RFC-MEET-001 — modèle de rituel (système livré au seed, ou copie client)
+model MeetingTemplate {
+  id       String @id @default(cuid())
+  clientId String
+
+  code        String
+  name        String  @db.VarChar(200)
+  description String? @db.VarChar(1000)
+
+  kind MeetingTemplateKind
+  /// Immuable après création — bascule PROJECT ↔ PORTFOLIO interdite (§8-12)
+  scope MeetingScope
+
+  /// Modèle fourni par Starium : non supprimable, non modifiable (masquable seulement)
+  isSystem Boolean @default(false)
+  isHidden Boolean @default(false)
+
+  defaultDurationMinutes Int?
+  cadence                GovernanceCycleCadence?
+  /// Ordre du jour par défaut (tableau JSON) — repris des presets RFC-PROJ-013-2
+  defaultAgenda          Json?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client    Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?                    @relation("MeetingTemplateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  sections  MeetingTemplateSection[]
+  meetings  Meeting[]
+
+  @@unique([clientId, id])
+  @@unique([clientId, code])
+  @@index([clientId])
+  @@index([clientId, kind])
+}
+
+/// RFC-MEET-001 — composition d'un modèle : quelles sections, dans quel ordre
+model MeetingTemplateSection {
+  id         String @id @default(cuid())
+  clientId   String
+  templateId String
+
+  sectionType   MeetingSectionType
+  sortOrder     Int
+  titleOverride String?            @db.VarChar(200)
+  isEnabled     Boolean            @default(true)
+  /// Réglages de section (ex. { "topRisksLimit": 3 }) — jamais de DCP
+  config        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  template MeetingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, sortOrder])
+  @@index([clientId])
+  @@index([clientId, templateId])
+}
+
+/// RFC-MEET-001 — une réunion de gouvernance, portant 1..N projets
+model Meeting {
+  id         String @id @default(cuid())
+  clientId   String
+  templateId String
+
+  title     String  @db.VarChar(300)
+  objective String? @db.VarChar(2000)
+
+  status          MeetingStatus @default(PREPARING)
+  scheduledAt     DateTime?
+  durationMinutes Int?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+
+  meetingMode MeetingMode?
+  location    String?      @db.VarChar(300)
+  /// DCP indirecte — exclue du snapshot, du compte rendu et de l'audit
+  meetingUrl  String?
+
+  facilitatorUserId String?
+
+  /// Rattachement optionnel à une instance de cycle (RFC-PROJ-CYCLE-003) :
+  /// les arbitrages de portée MEETING y sont propagés à la finalisation.
+  governanceCycleInstanceId String?
+
+  /// Règle de quorum, ex. { "requiredRatio": 0.6 } — évaluée à la finalisation
+  quorumRule Json?
+
+  /// Composition des sections figée au démarrage
+  sectionsLockedAt  DateTime?
+  startedAt         DateTime?
+  startedByUserId   String?
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+  cancelledAt       DateTime?
+  cancelledByUserId String?
+  cancelReason      String?   @db.VarChar(1000)
+
+  /// Figé à la finalisation — sans meetingUrl ni e-mail externe
+  snapshotPayload Json?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  template    MeetingTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  facilitator User?           @relation("MeetingFacilitator", fields: [facilitatorUserId], references: [id], onDelete: SetNull)
+  startedBy   User?           @relation("MeetingStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  finalizedBy User?           @relation("MeetingFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+  cancelledBy User?           @relation("MeetingCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  createdBy   User?           @relation("MeetingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  governanceCycleInstance GovernanceCycleInstance? @relation(fields: [governanceCycleInstanceId], references: [id], onDelete: SetNull)
+
+  projects    MeetingProject[]
+  attendees   MeetingAttendee[]
+  sections    MeetingSectionInstance[]
+  agendaItems MeetingAgendaItem[]
+  decisions   MeetingDecision[]
+  attachments MeetingAttachment[]
+
+  raisedBlockers   MeetingBlocker[] @relation("MeetingBlockerRaisedAt")
+  resolvedBlockers MeetingBlocker[] @relation("MeetingBlockerResolvedAt")
+
+  emailDeliveries EmailDelivery[]
+
+  @@unique([clientId, id])
+  @@index([clientId])
+  @@index([clientId, status])
+  @@index([clientId, scheduledAt])
+  @@index([clientId, templateId])
+  @@index([clientId, governanceCycleInstanceId])
+}
+
+/// RFC-MEET-001 — périmètre : un projet inscrit à une réunion.
+/// `projectReviewId` est le pont vers le point projet (règle de surcouche §1.1-2).
+model MeetingProject {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+  projectId String
+
+  sortOrder        Int     @default(0)
+  rapporteurUserId String?
+  allocatedMinutes Int?
+  /// Point projet créé/lié à la planification — porte décisions et actions du projet
+  projectReviewId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting       Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  /// FK composite tenant-scopée : la base refuse qu'une réunion référence
+  /// un projet d'un autre client, même en cas de bug applicatif (RFC-MEET-001 §5.4).
+  project       Project        @relation(fields: [clientId, projectId], references: [clientId, id], onDelete: Cascade)
+  projectReview ProjectReview? @relation(fields: [projectReviewId], references: [id], onDelete: SetNull)
+  rapporteur    User?          @relation("MeetingProjectRapporteur", fields: [rapporteurUserId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, projectId])
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([meetingId, sortOrder])
+  @@index([projectReviewId])
+}
+
+/// RFC-MEET-001 — convoqué et son émargement
+model MeetingAttendee {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+
+  userId     String?
+  resourceId String?
+  /// DCP — participant externe sans compte. Jamais affiché en UI, jamais journalisé.
+  externalEmail String?
+  displayName   String? @db.VarChar(200)
+  roleLabel     String? @db.VarChar(200)
+
+  isRequired       Boolean                 @default(false)
+  attendanceStatus MeetingAttendanceStatus @default(EXPECTED)
+  /// Horodatage de l'appel en séance
+  checkedInAt      DateTime?
+  /// Représentation : ce participant remplace un autre convoqué
+  delegateOfAttendeeId String?
+
+  invitedAt     DateTime?
+  lastInvitedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting    Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user       User?            @relation("MeetingAttendeeUser", fields: [userId], references: [id], onDelete: SetNull)
+  resource   Resource?        @relation("MeetingAttendeeResource", fields: [resourceId], references: [id], onDelete: SetNull)
+  delegateOf MeetingAttendee?  @relation("MeetingAttendeeDelegation", fields: [delegateOfAttendeeId], references: [id], onDelete: SetNull)
+  delegates  MeetingAttendee[] @relation("MeetingAttendeeDelegation")
+
+  @@index([clientId])
+  @@index([clientId, meetingId])
+  @@index([userId])
+  @@index([resourceId])
+}
+
+/// RFC-MEET-001 — sections retenues pour CETTE réunion (copie du modèle,
+/// réordonnable sans altérer le modèle)
+model MeetingSectionInstance {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+
+  sectionType   MeetingSectionType
+  sortOrder     Int
+  titleOverride String?            @db.VarChar(200)
+  isEnabled     Boolean            @default(true)
+  config        Json?
+  /// Notes de séance saisies sur la section
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting     Meeting             @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agendaItems MeetingAgendaItem[]
+
+  @@unique([meetingId, sortOrder])
+  @@index([clientId])
+  @@index([clientId, meetingId])
+}
+
+/// RFC-MEET-001 — point d'ordre du jour, rattaché à une section et/ou un projet
+model MeetingAgendaItem {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+
+  sectionInstanceId String?
+  projectId         String?
+
+  title                  String  @db.VarChar(300)
+  description            String?
+  objective              String? @db.VarChar(1000)
+  expectedDecision       String? @db.VarChar(1000)
+  sortOrder              Int
+  plannedDurationMinutes Int?
+  ownerUserId            String?
+  status                 MeetingAgendaItemStatus @default(TODO)
+  notes                  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting         Meeting                 @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  sectionInstance MeetingSectionInstance? @relation(fields: [sectionInstanceId], references: [id], onDelete: SetNull)
+  project         Project?                @relation("MeetingAgendaItemProject", fields: [projectId], references: [id], onDelete: SetNull)
+  owner           User?                   @relation("MeetingAgendaItemOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  decisions   MeetingDecision[]
+  attachments MeetingAttachment[]
+
+  @@index([clientId])
+  @@index([clientId, meetingId])
+  @@index([meetingId, sortOrder])
+}
+
+/// RFC-MEET-001 — décision ou arbitrage. `scope` distingue une décision
+/// transverse, une décision projet et une décision sur une macro-tâche (§4.7).
+model MeetingDecision {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+
+  scope              MeetingDecisionScope @default(MEETING)
+  projectId          String?
+  projectTaskPhaseId String?
+  projectTaskId      String?
+  agendaItemId       String?
+
+  title        String                @db.VarChar(300)
+  description  String?
+  decisionType MeetingDecisionType   @default(OTHER)
+  status       MeetingDecisionStatus @default(VALIDATED)
+  impact       String?               @db.VarChar(2000)
+
+  decidedByUserId String?
+  decidedAt       DateTime?
+
+  /// Décision répliquée dans `ProjectReviewDecision` à la finalisation (§4.7)
+  propagatedDecisionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client           Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting          Meeting            @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  project          Project?           @relation("MeetingDecisionProject", fields: [projectId], references: [id], onDelete: SetNull)
+  projectTaskPhase ProjectTaskPhase?  @relation("MeetingDecisionPhase", fields: [projectTaskPhaseId], references: [id], onDelete: SetNull)
+  projectTask      ProjectTask?       @relation("MeetingDecisionTask", fields: [projectTaskId], references: [id], onDelete: SetNull)
+  agendaItem       MeetingAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  decidedBy        User?              @relation("MeetingDecisionDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  attachments MeetingAttachment[]
+
+  @@index([clientId])
+  @@index([clientId, meetingId])
+  @@index([clientId, projectId])
+  @@index([agendaItemId])
+}
+
+/// RFC-MEET-001 — registre des points bloquants. Survit à la réunion qui l'a levé :
+/// c'est un objet de gouvernance, pas une note de séance.
+model MeetingBlocker {
+  id       String @id @default(cuid())
+  clientId String
+
+  title       String                 @db.VarChar(300)
+  description String?
+  severity    MeetingBlockerSeverity @default(MEDIUM)
+  status      MeetingBlockerStatus   @default(OPEN)
+
+  projectId   String?
+  riskId      String?
+  taskId      String?
+  ownerUserId String?
+  dueDate     DateTime?
+
+  raisedAtMeetingId   String
+  resolvedAtMeetingId String?
+  resolvedAt          DateTime?
+  resolutionNote      String?   @db.VarChar(2000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project    Project?     @relation("MeetingBlockerProject", fields: [projectId], references: [id], onDelete: SetNull)
+  risk       ProjectRisk? @relation("MeetingBlockerRisk", fields: [riskId], references: [id], onDelete: SetNull)
+  task       ProjectTask? @relation("MeetingBlockerTask", fields: [taskId], references: [id], onDelete: SetNull)
+  owner      User?        @relation("MeetingBlockerOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  raisedAt   Meeting      @relation("MeetingBlockerRaisedAt", fields: [raisedAtMeetingId], references: [id], onDelete: Cascade)
+  resolvedIn Meeting?     @relation("MeetingBlockerResolvedAt", fields: [resolvedAtMeetingId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, status])
+  @@index([clientId, projectId])
+  @@index([raisedAtMeetingId])
+}
+
+/// RFC-MEET-001 — pièce jointe : référence `ProjectDocument` ou URL externe.
+/// Aucun stockage binaire (aligné RFC-PROJ-DOC-001).
+model MeetingAttachment {
+  id        String @id @default(cuid())
+  clientId  String
+  meetingId String
+
+  agendaItemId String?
+  decisionId   String?
+
+  attachmentType MeetingAttachmentType
+  title          String                @db.VarChar(300)
+  description    String?               @db.VarChar(1000)
+  /// DCP indirecte — jamais journalisée ni exposée dans le snapshot
+  url            String?
+  documentId     String?
+  fileName       String?               @db.VarChar(300)
+  mimeType       String?               @db.VarChar(200)
+  sizeBytes      Int?
+
+  uploadedByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  meeting    Meeting            @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agendaItem MeetingAgendaItem? @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  decision   MeetingDecision?   @relation(fields: [decisionId], references: [id], onDelete: SetNull)
+  document   ProjectDocument?   @relation("MeetingAttachmentDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  uploadedBy User?              @relation("MeetingAttachmentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([clientId, meetingId])
+  @@index([agendaItemId])
+  @@index([decisionId])
 }

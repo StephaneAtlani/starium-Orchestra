@@ -41,6 +41,7 @@ import { ContractsModule } from './modules/contracts/contracts.module';
 import { StrategicDirectionStrategyModule } from './modules/strategic-direction-strategy/strategic-direction-strategy.module';
 import { StrategicVisionModule } from './modules/strategic-vision/strategic-vision.module';
 import { GovernanceCyclesModule } from './modules/governance-cycles/governance-cycles.module';
+import { MeetingsModule } from './modules/meetings/meetings.module';
 import { ProjectRequestsModule } from './modules/project-requests/project-requests.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -102,6 +103,7 @@ import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-
     WorkTeamsModule,
     ActivityTypesModule,
     CapacityModule,
+    MeetingsModule,
     ResourceTimeEntriesModule,
     ContractsModule,
     StrategicDirectionStrategyModule,

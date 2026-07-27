@@ -237,6 +237,8 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 | 31b-2 | **RFC-FE-MEET-001** | UI Réunions — préparation, conduite et présentation | Feature `features/meetings/`, routes `/meetings`, `/meetings/[id]`, `…/conduct`, `…/present`, `/meetings/templates` ; registre de 16 sections (`Panel` / `Slide` / `toExportSlides`) ; appel et quorum ; mode présentation ; exports **PDF** et **PPTX** (`pptxgenjs`, déjà en dépendance et jamais importé) ; compte rendu e-mail | 📝 Draft | [RFC](./RFC-FE-MEET-001%20%E2%80%94%20UI%20R%C3%A9unions%20%E2%80%94%20pr%C3%A9paration%2C%20conduite%20et%20pr%C3%A9sentation.md) — lots F1–J ; réutilise `committee-presentation` (slides, widgets, `codir-minimal-pdf`), `build-macro-planning-gantt`, `risk-criticality-matrix` ; **ne pas reproduire** le monolithe `project-review-editor-dialog.tsx` (142 Ko) |
 
 > **Prérequis technique au lot C** : le type TS `ProjectReviewType` ([`project.types.ts:888`](../../apps/web/src/features/projects/types/project.types.ts)) n'expose que **7** des **12** valeurs de l'enum Prisma. À corriger avant le pont réunion ↔ point projet.
+>
+> **Approche écartée (2026-07-26)** : une première conception par **absorption** de `ProjectReview` (RFC + module API sur la branche `backup/pre-revert-48029b3`, commits `2b2f717` / `10d2600`) a été **abandonnée pour raison produit** — migration irréversible et réécriture d'un domaine déjà stabilisé. Ne pas la reproposer sans traiter ce risque. Détail : RFC-MEET-001 §0.4.
 
 ---
 

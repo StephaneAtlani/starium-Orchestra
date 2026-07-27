@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import { SYSTEM_MEETING_TEMPLATES } from "../src/modules/meetings/lib/system-meeting-templates";
 import * as path from "path";
 import {
   Prisma,
@@ -1368,6 +1369,110 @@ async function ensureCapacityModuleAndPermissions(): Promise<void> {
       create: { code: p.code, label: p.label, moduleId: mod.id },
       update: { label: p.label, moduleId: mod.id },
     });
+  }
+}
+
+/** RFC-MEET-001 — module Réunions de gouvernance (CODIR, COPIL, COPRO). */
+async function ensureMeetingsModuleAndPermissions(): Promise<void> {
+  const mod = await prisma.module.upsert({
+    where: { code: "meetings" },
+    create: {
+      code: "meetings",
+      name: "Réunions",
+      description:
+        "Réunions de gouvernance : modèles CODIR/COPIL/COPRO, appel, sections, décisions (RFC-MEET-001)",
+      isActive: true,
+    },
+    update: { isActive: true },
+  });
+  const defs: Array<{ code: string; label: string }> = [
+    { code: "meetings.read", label: "Réunions — lecture" },
+    { code: "meetings.create", label: "Réunions — création" },
+    {
+      code: "meetings.update",
+      label: "Réunions — préparation, périmètre et convocation",
+    },
+    {
+      code: "meetings.conduct",
+      label: "Réunions — conduite (appel, décisions, clôture)",
+    },
+    {
+      code: "meetings.templates.manage",
+      label: "Réunions — gestion des modèles",
+    },
+  ];
+  for (const p of defs) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      create: { code: p.code, label: p.label, moduleId: mod.id },
+      update: { label: p.label, moduleId: mod.id },
+    });
+  }
+}
+
+/**
+ * RFC-MEET-001 §4.3 — modèles de rituel livrés par Starium, instanciés **par
+ * client** (`isSystem = true`). Ré-exécutable : l'upsert sur `(clientId, code)`
+ * ne réécrit ni `isHidden` ni les copies personnalisées du client.
+ */
+async function ensureSystemMeetingTemplates(): Promise<void> {
+  const clients = await prisma.client.findMany({ select: { id: true } });
+  for (const client of clients) {
+    for (const template of SYSTEM_MEETING_TEMPLATES) {
+      const existing = await prisma.meetingTemplate.findFirst({
+        where: { clientId: client.id, code: template.code },
+        select: { id: true },
+      });
+
+      if (existing) {
+        // On rafraîchit le contenu éditorial, jamais la visibilité choisie par le client.
+        await prisma.meetingTemplate.update({
+          where: { id: existing.id },
+          data: {
+            name: template.name,
+            description: template.description,
+            kind: template.kind,
+            scope: template.scope,
+            isSystem: true,
+            defaultDurationMinutes: template.defaultDurationMinutes,
+            defaultAgenda: template.defaultAgenda as unknown as Prisma.InputJsonValue,
+          },
+        });
+        await prisma.meetingTemplateSection.deleteMany({
+          where: { clientId: client.id, templateId: existing.id },
+        });
+        await prisma.meetingTemplateSection.createMany({
+          data: template.sections.map((sectionType, index) => ({
+            clientId: client.id,
+            templateId: existing.id,
+            sectionType,
+            sortOrder: index,
+          })),
+        });
+        continue;
+      }
+
+      await prisma.meetingTemplate.create({
+        data: {
+          clientId: client.id,
+          code: template.code,
+          name: template.name,
+          description: template.description,
+          kind: template.kind,
+          scope: template.scope,
+          isSystem: true,
+          defaultDurationMinutes: template.defaultDurationMinutes,
+          defaultAgenda: template.defaultAgenda as unknown as Prisma.InputJsonValue,
+          sections: {
+            create: template.sections.map((sectionType, index) => ({
+              clientId: client.id,
+              sectionType,
+              sortOrder: index,
+            })),
+          },
+        },
+      });
+    }
   }
 }
 
@@ -3977,6 +4082,7 @@ async function main() {
   await ensureTeamsModuleAndPermissions();
   await ensureActivityTypesModuleAndPermissions();
   await ensureCapacityModuleAndPermissions();
+  await ensureMeetingsModuleAndPermissions();
   await ensureRisksModuleAndPermissions();
   await ensureResourcesModuleAndPermissions();
   await ensureOrganizationModuleAndPermissions();
@@ -3987,6 +4093,7 @@ async function main() {
   await ensureGlobalBudgetSnapshotOccasionTypes();
   await ensureClientAdminRiskTaxonomyRole();
   await ensureEnabledClientModulesForAllClients();
+  await ensureSystemMeetingTemplates();
 
   if (runDemoSeed) {
     const passwordHash = await bcrypt.hash(PASSWORD, 10);

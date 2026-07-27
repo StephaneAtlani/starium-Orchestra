@@ -162,6 +162,12 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   MILESTONE_REVIEW: 'Point jalons',
   AD_HOC: 'Point ad hoc',
   POST_MORTEM: "Retour d'expérience",
+  /** RFC-PROJ-013-2 — types de rituel ajoutés en base (RFC-MEET-001 §8-9) */
+  PROJECT_REVIEW: 'Revue de projet',
+  BUDGET_REVIEW: 'Revue budgétaire',
+  ARBITRATION: 'Arbitrage',
+  CRISIS_POINT: 'Point de crise',
+  OTHER: 'Autre point',
 };
 
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {

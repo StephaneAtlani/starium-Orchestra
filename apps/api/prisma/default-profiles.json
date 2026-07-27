@@ -13,7 +13,12 @@
       "collaborators.read",
       "strategic_vision.read",
       "governance_cycles.read",
-      "project_requests.read"
+      "project_requests.read",
+      "meetings.read",
+      "meetings.create",
+      "meetings.update",
+      "meetings.conduct",
+      "meetings.templates.manage"
     ]
   },
   {
@@ -86,7 +91,11 @@
       "project_requests.read",
       "project_requests.create",
       "project_requests.update",
-      "project_requests.validate"
+      "project_requests.validate",
+      "meetings.read",
+      "meetings.create",
+      "meetings.update",
+      "meetings.conduct"
     ]
   },
   {
@@ -169,7 +178,8 @@
       "notifications.update",
       "alerts.read",
       "governance_cycles.read",
-      "projects.read"
+      "projects.read",
+      "meetings.read"
     ]
   },
   {
@@ -188,7 +198,11 @@
       "governance_cycles.arbitrate",
       "projects.read",
       "budgets.read",
-      "strategic_vision.read"
+      "strategic_vision.read",
+      "meetings.read",
+      "meetings.create",
+      "meetings.update",
+      "meetings.conduct"
     ]
   },
   {

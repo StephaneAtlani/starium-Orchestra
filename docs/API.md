@@ -3332,6 +3332,69 @@ Code : `apps/api/src/modules/capacity/capacity.controller.ts`.
 
 ---
 
+## Réunions de gouvernance — `/api/meetings`, `/api/meeting-templates` (RFC-MEET-001)
+
+Module Nest `meetings` (client actif obligatoire). **Surcouche** : le module orchestre le rituel (modèle, périmètre multi-projets, appel, sections) et **ne duplique aucune donnée métier** — la trace par projet reste dans `ProjectReview`, la trace portefeuille dans `GovernanceCycleInstance`. Guards : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`. Module catalogue **`meetings`** (activation `ClientModule`). **Pas de `clientId` dans le body** : il est dérivé du client actif.
+
+**Permissions :**
+- `meetings.read` — lecture (liste, détail, appel, catalogue de sections, modèles)
+- `meetings.create` — création d'une réunion
+- `meetings.update` — préparation, périmètre, sections, convocation, annulation
+- `meetings.conduct` — conduite : démarrer, finaliser (appel et décisions au lot C/D)
+- `meetings.templates.manage` — CRUD des modèles de rituel
+
+**Isolation** : tout projet inscrit au périmètre passe par `AccessDecisionService` (intent `read`) — un projet hors périmètre d'accès est refusé (**403 `ACCESS_DECISION_DENIED`**), jamais ignoré silencieusement. `MeetingProject` référence `Project` par **FK composite `(clientId, projectId)`** : la base refuse une référence inter-clients.
+
+**Cycle de vie** : `PREPARING` → `SCHEDULED` → `IN_PROGRESS` → `FINALIZED`, `CANCELLED` possible tant que la réunion n'est pas finalisée.
+
+### Réunions
+
+- **GET** `/api/meetings` — Liste `{ items, total }`. Query : `status`, `templateKind`, `projectId`, `from`, `to`, `offset`, `limit` (max 200). **`meetings.read`**
+- **POST** `/api/meetings` — Body `{ templateId, title, objective?, scheduledAt?, durationMinutes?, periodStart?, periodEnd?, meetingMode?, location?, meetingUrl?, facilitatorUserId?, governanceCycleInstanceId?, quorumRule?, projectIds? }`. Instancie les sections et l'ordre du jour depuis le modèle. **`meetings.create`**
+- **GET** `/api/meetings/:meetingId` — Détail (périmètre, sections, convoqués, ODJ, décisions). **`meetings.read`**
+- **PATCH** `/api/meetings/:meetingId` — Mise à jour du cadrage. **`meetings.update`**
+- **POST** `/api/meetings/:meetingId/schedule` — Body `{ scheduledAt?, durationMinutes? }`. Refus **400 `MEETING_SCHEDULE_REQUIRES_DATE`** sans date, **400 `MEETING_SCOPE_REQUIRES_PROJECT`** si le modèle est de portée `PROJECT` sans projet inscrit. **`meetings.update`**
+- **POST** `/api/meetings/:meetingId/start` — Ouvre la séance et **fige la composition des sections**. **`meetings.conduct`**
+- **POST** `/api/meetings/:meetingId/finalize` — Calcule le quorum et fige la réunion. **`meetings.conduct`**
+- **POST** `/api/meetings/:meetingId/cancel` — Body `{ reason }`. **`meetings.update`**
+
+Toute transition invalide renvoie **409 `MEETING_INVALID_TRANSITION`**.
+
+### Périmètre projets
+
+- **POST** `/api/meetings/:meetingId/projects` — Body `{ projectIds: string[] }`. Max **30** projets par réunion (**400 `MEETING_TOO_MANY_PROJECTS`**) ; doublon → **409 `MEETING_PROJECT_ALREADY_IN_SCOPE`**. **`meetings.update`**
+- **PATCH** `/api/meetings/:meetingId/projects/reorder` — Body `{ meetingProjectIds: string[] }` (ordre de passage). **`meetings.update`**
+- **PATCH** `/api/meetings/:meetingId/projects/:meetingProjectId` — Body `{ rapporteurUserId?, allocatedMinutes? }`. **`meetings.update`**
+- **DELETE** `/api/meetings/:meetingId/projects/:meetingProjectId` — Retire le projet du périmètre. Le `ProjectReview` éventuellement lié est **délié, jamais supprimé** (il porte peut-être des décisions). **`meetings.update`**
+
+### Appel
+
+- **GET** `/api/meetings/:meetingId/attendance` — `{ attendees, quorum: { requiredCount, presentCount, ratio, isMet } }`. `isMet` vaut `null` si aucune règle de quorum n'est définie : le quorum n'est alors pas bloquant. Un délégué ne compte pas pour lui-même — sa présence est portée par le convoqué représenté. **`meetings.read`**
+
+### Sections de la réunion
+
+- **PATCH** `/api/meetings/:meetingId/sections/reorder` — Body `{ sectionInstanceIds: string[] }`. Refusé après le démarrage de la séance. **`meetings.update`**
+- **PATCH** `/api/meetings/:meetingId/sections/:sectionId` — Body `{ isEnabled?, titleOverride?, config?, notes? }`. Les **notes de séance** restent saisissables après le figeage ; l'activation et le titre, non. **`meetings.update`**
+
+### Modèles de rituel
+
+Neuf modèles système sont livrés par client au seed (`CODIR`, `COPIL`, `COPRO`, `PROJECT_REVIEW`, `BUDGET_REVIEW`, `RISK_COMMITTEE`, `ARBITRATION`, `CRISIS_POINT`, `POST_MORTEM`). Ils sont **non supprimables et non modifiables**, mais **masquables** ; pour les adapter, on les duplique.
+
+- **GET** `/api/meeting-templates/section-catalog` — Catalogue **fermé** des 16 types de section, avec libellé métier et description. **`meetings.read`**
+- **GET** `/api/meeting-templates` — Query : `scope`, `kind`, `includeHidden`. **`meetings.read`**
+- **POST** `/api/meeting-templates` — Body `{ code, name, description?, kind, scope, defaultDurationMinutes?, sections: [{ sectionType, isEnabled?, titleOverride?, config? }] }`. Code déjà pris → **409 `MEETING_TEMPLATE_CODE_TAKEN`**. **`meetings.templates.manage`**
+- **GET** `/api/meeting-templates/:templateId` — Détail avec sections ordonnées. **`meetings.read`**
+- **PATCH** `/api/meeting-templates/:templateId` — Body `{ name?, description?, defaultDurationMinutes?, isHidden? }`. Sur un modèle système, seul `isHidden` est accepté (sinon **409 `MEETING_TEMPLATE_SYSTEM_READONLY`**). **`meetings.templates.manage`**
+- **DELETE** `/api/meeting-templates/:templateId` — **204**. Refusé pour un modèle système ou utilisé par des réunions. **`meetings.templates.manage`**
+- **POST** `/api/meeting-templates/:templateId/duplicate` — Body `{ code, name }`. La copie a `isSystem = false`. **`meetings.templates.manage`**
+- **PUT** `/api/meeting-templates/:templateId/sections` — Remplace la composition. Seul `FREE_TEXT` est instanciable plusieurs fois ; tout autre doublon est refusé (**400**). **`meetings.templates.manage`**
+
+La **portée** (`PROJECT` / `PORTFOLIO`) est **immuable** après création (**409 `MEETING_TEMPLATE_SCOPE_IMMUTABLE`**) : la changer casserait l'inscription des projets et le pont vers les points projet.
+
+> **Lots suivants** : `GET /api/meetings/:id/deck` (agrégation des sections), appel en écriture, décisions et arbitrages, registre des points bloquants, compte rendu et exports — voir [RFC-MEET-001](./RFC/RFC-MEET-001%20%E2%80%94%20Module%20R%C3%A9unions%20de%20gouvernance%20(CODIR%2C%20COPIL%2C%20COPRO).md) §7.
+
+---
+
 ## Synthèses de liste — refonte portail client
 
 Agrégats de bandeau KPI et de cartes, alimentant la refonte des pages de liste
