@@ -6626,10 +6626,19 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
   .starium-progress-fill--muted {
     background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
   }
+  .starium-progress-fill--info {
+    background: var(--state-info);
+  }
+  .starium-progress-fill--brand {
+    background: var(--brand-gold);
+  }
+  /* Carte portefeuille générique (+ alias projets mobile) */
+  .starium-portfolio-card .starium-progress-track,
   .starium-project-mobile-card .starium-progress-track {
     width: 100%;
     height: 5px;
   }
+  .starium-portfolio-card__accent,
   .starium-project-mobile-card__accent {
     position: absolute;
     inset-block: 0;
@@ -6637,20 +6646,28 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     width: 6px;
     border-radius: 0;
   }
+  .starium-portfolio-card__accent--danger,
   .starium-project-mobile-card__accent--danger {
     background: var(--destructive);
   }
+  .starium-portfolio-card__accent--warn,
   .starium-project-mobile-card__accent--warn {
     background: var(--state-warning);
   }
+  .starium-portfolio-card__accent--ok,
   .starium-project-mobile-card__accent--ok {
     background: var(--state-success);
   }
+  .starium-portfolio-card__accent--muted,
   .starium-project-mobile-card__accent--muted {
     background: color-mix(in srgb, var(--muted-foreground) 28%, transparent);
   }
+  .starium-portfolio-card__accent--info,
   .starium-project-mobile-card__accent--info {
-    background: color-mix(in srgb, var(--chart-2) 72%, var(--border));
+    background: var(--state-info);
+  }
+  .starium-portfolio-card__accent--brand {
+    background: var(--brand-gold);
   }
   .starium-signals-col {
     display: flex;

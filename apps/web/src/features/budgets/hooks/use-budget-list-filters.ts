@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { BudgetExercisesListParams, BudgetsListParams } from '../types/budget-list.types';
+import type { BudgetExercisesListParams, BudgetsListParams, PortfolioViewMode } from '../types/budget-list.types';
 import { DEFAULT_LIMIT, DEFAULT_PAGE } from '../constants/budget-filters';
 
 function parseNumber(value: string | null, fallback: number): number {
@@ -80,12 +80,15 @@ export function useBudgetsListFilters(): {
     const search = searchParams.get('search') ?? undefined;
     const status = searchParams.get('status') ?? undefined;
     const exerciseId = searchParams.get('exerciseId') ?? undefined;
+    const rawView = searchParams.get('view');
+    const view: PortfolioViewMode = rawView === 'table' ? 'table' : 'cards';
     const page = parseNumber(searchParams.get('page'), DEFAULT_PAGE);
     const limit = parseNumber(searchParams.get('limit'), DEFAULT_LIMIT);
     return {
       search: search || undefined,
       exerciseId: exerciseId || undefined,
       status: (status === 'ALL' || !status ? 'ALL' : status) as BudgetsListParams['status'],
+      view,
       page,
       limit,
     };
@@ -97,6 +100,7 @@ export function useBudgetsListFilters(): {
       if (next.search?.trim()) params.set('search', next.search.trim());
       if (next.exerciseId) params.set('exerciseId', next.exerciseId);
       if (next.status && next.status !== 'ALL') params.set('status', next.status);
+      if (next.view && next.view !== 'cards') params.set('view', next.view);
       if (next.page != null && next.page !== DEFAULT_PAGE) params.set('page', String(next.page));
       if (next.limit != null && next.limit !== DEFAULT_LIMIT) params.set('limit', String(next.limit));
       const qs = params.toString();

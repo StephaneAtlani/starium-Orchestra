@@ -2405,6 +2405,8 @@ Référence : **RFC-016** (Budget Reporting API). Module **budget-reporting** : 
 
 KPI consolidés de l’exercice (toutes les lignes des budgets de l’exercice). **404** si exercice absent ou hors client. **400** si plusieurs devises dans les lignes.
 
+**Frontend** : bandeau KPI consolidation sur **`/budgets`** (5 cellules : Alloué, Engagé, Consommé, Reste, Prévision — RFC-FE-BUD-031).
+
 ---
 
 ### GET /api/budget-reporting/exercises/:id/budgets
@@ -2414,6 +2416,8 @@ Liste paginée des budgets de l’exercice avec KPI synthétiques par budget.
 **Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetStatus).
 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : budget (id, name, code, currency, status, …) + `kpi` (BudgetSummaryKpi).
+
+**Frontend** : page **`/budgets`** (RFC-FE-BUD-031 Lot A) — grille cartes ou tableau portefeuille, export CSV des lignes visibles ; consommation via `listBudgetsForExercise` + `GET /api/budget-reporting/exercises/:id/summary` pour le bandeau KPI consolidation. Permission **`budgets.read`** requise (garde UI + API).
 
 **Erreurs :** 401, 403, 404 (exercice), 400 (multi-devise dans un budget).
 

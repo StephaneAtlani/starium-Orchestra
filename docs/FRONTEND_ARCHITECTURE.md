@@ -417,7 +417,7 @@ On n’introduit pas de faux préfixe `/workspace/*` dans l’URL.
 /select-client    — choix du client actif (plusieurs clients ACTIVE)
 /no-client        — écran bloquant si aucun client ACTIVE (non platform admin)
 /dashboard
-/budgets          — liste des budgets (RFC-FE-003), filtres et pagination
+/budgets          — portefeuille budgets (RFC-FE-BUD-031), KPI consolidation, cartes/table, export CSV
 /budgets/exercises — liste des exercices budgétaires (RFC-FE-003)
 /budgets/[id]
 /projects
@@ -909,22 +909,23 @@ L’Admin Studio est le cockpit de gestion plateforme. Il fait partie du core pl
 
 Chaque feature suit une structure stable.
 
-### Exemple : `features/budgets` (RFC-FE-001 + RFC-FE-003)
+### Exemple : `features/budgets` (RFC-FE-001 + RFC-FE-003 + RFC-FE-BUD-031)
 
-Structure réelle du module budget frontend (fondation et listes) :
+Structure réelle du module budget frontend (fondation, listes exercices, portefeuille `/budgets`) :
 
 ```text
 features/budgets/
 ├── api/
 │   ├── budget-management.api.ts
 │   ├── get-budget-exercises.ts, get-budgets.ts, get-budget-exercise-options.ts  # RFC-FE-003
-│   ├── budget-reporting.api.ts
+│   ├── budget-reporting.api.ts   # summary + listBudgetsForExercise (RFC-FE-BUD-031)
 │   ├── budget-dashboard.api.ts
 │   └── stubs (snapshots, reallocations, imports, versioning)
 ├── hooks/
 │   ├── use-budget-exercises.ts, use-budgets.ts
 │   ├── use-budget-exercises-query.ts, use-budgets-query.ts, use-budget-exercise-options-query.ts  # RFC-FE-003
-│   ├── use-budget-list-filters.ts   # RFC-FE-003 (filtres URL)
+│   ├── use-budget-list-filters.ts   # RFC-FE-003 + view (RFC-FE-BUD-031)
+│   ├── use-exercise-reporting-summary-query.ts, use-exercise-budgets-reporting-query.ts  # RFC-FE-BUD-031
 │   ├── use-budget-summary.ts
 │   └── use-budget-dashboard.ts
 ├── components/

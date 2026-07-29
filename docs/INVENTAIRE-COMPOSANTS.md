@@ -49,6 +49,15 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `filter-bar` - `components/layout/filter-bar.tsx` - grille responsive de filtres liste (`section` + `grid-cols-1` mobile). Props : `desktopColumns`, `aria-label`, `asSearch` (optionnel).
 - `filter-bar-field` - `components/layout/filter-bar-field.tsx` - champ filtre accessible : `id`, `label`, `description?`, `children` en render props `{ controlId, labelId, descriptionId }` pour câbler Input/Select/Radix.
 
+## Portefeuille partagé (6)
+
+- `PortfolioEntityCard` - `components/portfolio/portfolio-entity-card.tsx` - carte liste riche (accent, icône, pills, barre, footer).
+- `PortfolioProgressBar` - `components/portfolio/portfolio-progress-bar.tsx` - barre progression tonale (dont variante consommation).
+- `PortfolioViewToggle` - `components/portfolio/portfolio-view-toggle.tsx` - toggle Cartes / Tableau.
+- `PortfolioKpiRow` - `components/portfolio/portfolio-kpi-row.tsx` - grille KPI dense sans Card parente.
+- `status-tone` - `components/portfolio/status-tone.ts` - tons sémantiques + helpers classes.
+- `table-tone` - `components/portfolio/table-tone.tsx` - montants / badges / lignes alerte en tableau.
+
 ## Shell applicatif (11)
 
 - `app-shell` - `components/shell/app-shell.tsx` - structure le shell de app (`WorkspaceBreadcrumbProvider`, gutter workspace).
@@ -155,8 +164,10 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `budget-status-badge` - `features/budgets/components/budget-status-badge.tsx` - affiche un badge ou un etat pour budget statut.
 - `budget-toolbar` - `features/budgets/components/budget-toolbar.tsx` - centralise les actions et filtres pour budget.
 - `budget-view-tabs` - `features/budgets/components/budget-view-tabs.tsx` - organise les onglets pour budget.
-- `budgets-table` - `features/budgets/components/budgets-table.tsx` - affiche un tableau pour budgets.
-- `budgets-toolbar` - `features/budgets/components/budgets-toolbar.tsx` - centralise les actions et filtres pour budgets.
+- `budgets-table` - `features/budgets/components/budgets-table.tsx` - tableau portefeuille budgets (tons, barres exécution, RFC-FE-BUD-031).
+- `budgets-toolbar` - `features/budgets/components/budgets-toolbar.tsx` - filtres portefeuille + toggle Cartes/Tableau (RFC-FE-BUD-031).
+- `budgets-portfolio-kpi` - `features/budgets/components/budgets-portfolio-kpi.tsx` - bandeau KPI consolidation exercice (5 cellules, RFC-FE-BUD-031).
+- `budgets-portfolio-cards` - `features/budgets/components/budgets-portfolio-cards.tsx` - grille cartes portefeuille budgets (RFC-FE-BUD-031).
 - `create-budget-snapshot-dialog` - `features/budgets/components/create-budget-snapshot-dialog.tsx` - ouvre un dialogue pour creation budget snapshot.
 - `new-budget-line-dialog` - `features/budgets/components/new-budget-line-dialog.tsx` - ouvre un dialogue pour creation budget ligne.
 - `pagination-summary` - `features/budgets/components/pagination-summary.tsx` - gere l'interface de pagination synthese.

@@ -14,17 +14,16 @@ import {
 } from '@/components/ui/table';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
+import { PortfolioProgressBar, type StatusTone } from '@/components/portfolio';
 import type { StrategicObjectiveDto } from '../types/strategic-vision.types';
 import {
   initials,
   objectiveProgress,
   objectiveTone,
-  toneProgressFillClass,
   type StrategicTone,
 } from '../lib/strategic-overview-progress';
 import { paginateOverviewItems } from '../lib/strategic-overview-view';
 import { ObjectiveStatusBadge } from './objective-status-badge';
-import { cn } from '@/lib/utils';
 
 export const STRATEGIC_OBJECTIVES_PAGE_SIZE = 6;
 
@@ -39,14 +38,27 @@ function formatDeadline(value: string | null): string {
   });
 }
 
+function strategicToneToStatus(tone: StrategicTone): StatusTone {
+  switch (tone) {
+    case 'success':
+      return 'ok';
+    case 'warning':
+      return 'warn';
+    case 'danger':
+      return 'danger';
+    default:
+      return 'muted';
+  }
+}
+
 function ObjectiveProgressBar({ pct, tone }: { pct: number; tone: StrategicTone }) {
   return (
-    <div className="starium-progress-track min-w-0 flex-1">
-      <div
-        className={cn('starium-progress-fill', toneProgressFillClass(tone))}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
+    <PortfolioProgressBar
+      value={pct}
+      tone={strategicToneToStatus(tone)}
+      showPercent
+      label="Avancement objectif"
+    />
   );
 }
 
@@ -125,12 +137,7 @@ export function StrategicObjectivesOverviewTable({
                         {formatDeadline(objective.deadline)}
                       </TableCell>
                       <TableCell>
-                        <span className="flex items-center gap-2.5">
-                          <ObjectiveProgressBar pct={pct} tone={tone} />
-                          <span className="w-9 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
-                            {pct}%
-                          </span>
-                        </span>
+                        <ObjectiveProgressBar pct={pct} tone={tone} />
                       </TableCell>
                       <TableCell>
                         <ObjectiveStatusBadge status={objective.status} />

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { DataTable } from '@/components/data-table/data-table';
 import type { DataTableColumn } from '@/components/data-table/data-table';
-import { cn } from '@/lib/utils';
+import { PortfolioProgressBar } from '@/components/portfolio';
 import type { ActionPlanApi } from '../types/project.types';
 import {
   actionPlanOwnerLabel,
@@ -14,21 +14,16 @@ import { ActionPlanMetaBadges } from './action-plan-meta-badges';
 
 function ActionPlanProgressCell({ percent }: { percent: number }) {
   const clamped = Math.min(100, Math.max(0, percent));
-  const tone =
-    clamped >= 100 ? 'ok' : clamped >= 40 ? 'muted' : 'warn';
+  const tone = clamped >= 100 ? 'ok' : clamped >= 40 ? 'brand' : 'warn';
 
   return (
-    <div className="flex min-w-[7.5rem] items-center gap-1.5">
-      <div className="starium-progress-track min-w-0 flex-1">
-        <div
-          className={cn('starium-progress-fill', `starium-progress-fill--${tone}`)}
-          style={{ width: `${clamped}%` }}
-        />
-      </div>
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">
-        {percent} %
-      </span>
-    </div>
+    <PortfolioProgressBar
+      value={clamped}
+      tone={tone}
+      showPercent
+      className="min-w-[7.5rem]"
+      label="Avancement"
+    />
   );
 }
 

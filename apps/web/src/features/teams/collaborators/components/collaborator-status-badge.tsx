@@ -1,14 +1,22 @@
-import { Badge } from '@/components/ui/badge';
+import { TableToneBadge, type StatusTone } from '@/components/portfolio';
 import { collaboratorStatusLabel } from '../lib/collaborator-label-mappers';
 import type { CollaboratorStatus } from '../types/collaborator.types';
 
-export function CollaboratorStatusBadge({ status }: { status: CollaboratorStatus }) {
-  const variant =
-    status === 'ACTIVE'
-      ? 'default'
-      : status === 'INACTIVE'
-        ? 'secondary'
-        : 'destructive';
-  return <Badge variant={variant}>{collaboratorStatusLabel(status)}</Badge>;
+function collaboratorTone(status: CollaboratorStatus): StatusTone {
+  switch (status) {
+    case 'ACTIVE':
+      return 'ok';
+    case 'INACTIVE':
+      return 'muted';
+    default:
+      return 'danger';
+  }
 }
 
+export function CollaboratorStatusBadge({ status }: { status: CollaboratorStatus }) {
+  return (
+    <TableToneBadge tone={collaboratorTone(status)}>
+      {collaboratorStatusLabel(status)}
+    </TableToneBadge>
+  );
+}

@@ -19,6 +19,11 @@ import {
   type ActionPlansListFilters,
 } from '@/features/projects/components/action-plans-filters-bar';
 import { ActionPlansListCards } from '@/features/projects/components/action-plans-list-cards';
+import { ActionPlansListTable } from '@/features/projects/components/action-plans-list-table';
+import {
+  PortfolioViewToggle,
+  type PortfolioViewMode,
+} from '@/components/portfolio';
 
 const PAGE_SIZE = 20;
 
@@ -39,6 +44,7 @@ export function ActionPlansListPage() {
   const [filters, setFilters] = useState<ActionPlansListFilters>(DEFAULT_FILTERS);
   const [offset, setOffset] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('cards');
 
   const apiParams = useMemo(
     () => ({
@@ -117,9 +123,16 @@ export function ActionPlansListPage() {
         />
 
         <section className="space-y-3" aria-labelledby="action-plans-choose-label">
-          <h2 id="action-plans-choose-label" className="starium-mb-sec-label">
-            Choisir un plan d&apos;action
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="action-plans-choose-label" className="starium-overline">
+              Choisir un plan d&apos;action
+            </h2>
+            <PortfolioViewToggle
+              value={viewMode}
+              onChange={setViewMode}
+              ariaLabel="Mode d'affichage des plans d'action"
+            />
+          </div>
 
           {listEnabled && isLoading ? (
             <LoadingState rows={6} />
@@ -137,7 +150,11 @@ export function ActionPlansListPage() {
               }
             />
           ) : data ? (
-            <ActionPlansListCards items={data.items} />
+            viewMode === 'cards' ? (
+              <ActionPlansListCards items={data.items} />
+            ) : (
+              <ActionPlansListTable items={data.items} />
+            )
           ) : null}
 
           {data && data.items.length > 0 ? (

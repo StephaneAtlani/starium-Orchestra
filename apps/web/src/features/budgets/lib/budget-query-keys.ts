@@ -18,6 +18,9 @@ export const budgetQueryKeys = {
   exerciseSummary: (clientId: string, exerciseId: string) =>
     ['budgets', clientId, 'exercise-summary', exerciseId] as const,
 
+  exerciseBudgetsWithKpi: (clientId: string, exerciseId: string, query?: object) =>
+    ['budgets', clientId, 'exercise-budgets-reporting', exerciseId, query] as const,
+
   budgetList: (clientId: string, filters?: object) =>
     ['budgets', clientId, 'budget-list', filters] as const,
 

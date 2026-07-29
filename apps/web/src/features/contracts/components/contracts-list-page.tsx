@@ -34,6 +34,13 @@ import { contractKindLabel, contractStatusLabel } from '../lib/contracts-labels'
 import type { SupplierContractStatus, Contract } from '../types/contract.types';
 import { ContractFormDialog } from './contract-form-dialog';
 import { ContractsListKpiStrip } from './contracts-list-kpi-strip';
+import { ContractsPortfolioCards, contractStatusTone } from './contracts-portfolio-cards';
+import {
+  PortfolioViewToggle,
+  TableToneBadge,
+  tableAlertRowClass,
+  type PortfolioViewMode,
+} from '@/components/portfolio';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -52,7 +59,7 @@ const contractColumns: DataTableColumn<Contract>[] = [
     cell: (c) => (
       <Link
         href={`/contracts/${c.id}`}
-        className="font-medium text-primary underline-offset-4 hover:underline"
+        className="font-medium text-[color:var(--brand-gold-700)] underline-offset-4 hover:underline"
       >
         {c.reference}
       </Link>
@@ -74,13 +81,19 @@ const contractColumns: DataTableColumn<Contract>[] = [
     key: 'kind',
     header: 'Type',
     mobilePriority: 'secondary',
-    cell: (c) => contractKindLabel(c.kind, c.kindLabel),
+    cell: (c) => (
+      <TableToneBadge tone="brand">{contractKindLabel(c.kind, c.kindLabel)}</TableToneBadge>
+    ),
   },
   {
     key: 'status',
     header: 'Statut',
     mobilePriority: 'secondary',
-    cell: (c) => contractStatusLabel(c.status),
+    cell: (c) => (
+      <TableToneBadge tone={contractStatusTone(c.status)}>
+        {contractStatusLabel(c.status)}
+      </TableToneBadge>
+    ),
   },
   {
     key: 'effectiveEnd',
@@ -107,6 +120,7 @@ export function ContractsListPage() {
   const [status, setStatus] = useState<string>('');
   const [expiresBefore, setExpiresBefore] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('cards');
 
   const setSupplierFilter = (nextId: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -199,103 +213,111 @@ export function ContractsListPage() {
         <ContractsListKpiStrip summary={summaryQ.data} isLoading={summaryQ.isLoading} />
       )}
 
-      <FilterBar aria-label="Filtres contrats" asSearch desktopColumns="auto">
-        <FilterBarField id="contracts-search" label="Recherche">
-          {({ controlId }) => (
-            <Input
-              id={controlId}
-              placeholder="Titre, référence, fournisseur…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full border-input"
-            />
-          )}
-        </FilterBarField>
-        <FilterBarField id="contracts-status" label="Statut">
-          {({ controlId, labelId }) => (
-            <Select
-              value={status || '__all'}
-              onValueChange={(v) => setStatus(v === '__all' || v == null ? '' : v)}
-            >
-              <SelectTrigger
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <FilterBar aria-label="Filtres contrats" asSearch desktopColumns="auto" className="flex-1">
+          <FilterBarField id="contracts-search" label="Recherche">
+            {({ controlId }) => (
+              <Input
                 id={controlId}
-                aria-labelledby={labelId}
+                placeholder="Titre, référence, fournisseur…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full border-input"
+              />
+            )}
+          </FilterBarField>
+          <FilterBarField id="contracts-status" label="Statut">
+            {({ controlId, labelId }) => (
+              <Select
+                value={status || '__all'}
+                onValueChange={(v) => setStatus(v === '__all' || v == null ? '' : v)}
               >
-                <SelectValue placeholder="Tous statuts">
-                  {status === ''
-                    ? 'Tous statuts'
-                    : contractStatusLabel(status as SupplierContractStatus)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all">Tous statuts</SelectItem>
-                {(
-                  [
-                    'DRAFT',
-                    'ACTIVE',
-                    'SUSPENDED',
-                    'NOTICE',
-                    'EXPIRED',
-                    'TERMINATED',
-                  ] as SupplierContractStatus[]
-                ).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {contractStatusLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField id="contracts-supplier" label="Fournisseur">
-          {({ controlId, labelId }) => (
-            <Select
-              value={supplierIdFromUrl ? supplierIdFromUrl : '__all'}
-              onValueChange={(v) => setSupplierFilter(v === '__all' || v == null ? '' : v)}
-            >
-              <SelectTrigger
-                id={controlId}
-                aria-labelledby={labelId}
-                className="w-full border-input"
-              >
-                <SelectValue placeholder="Tous les fournisseurs">
-                  {supplierSelectLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all">Tous les fournisseurs</SelectItem>
-                {supplierFilterLabelQ.data &&
-                  !suppliersSorted.some((s) => s.id === supplierFilterLabelQ.data!.id) && (
-                    <SelectItem value={supplierFilterLabelQ.data.id}>
-                      {supplierFilterLabelQ.data.name}
-                      {supplierFilterLabelQ.data.code
-                        ? ` · ${supplierFilterLabelQ.data.code}`
-                        : ''}
+                <SelectTrigger
+                  id={controlId}
+                  aria-labelledby={labelId}
+                  className="w-full border-input"
+                >
+                  <SelectValue placeholder="Tous statuts">
+                    {status === ''
+                      ? 'Tous statuts'
+                      : contractStatusLabel(status as SupplierContractStatus)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Tous statuts</SelectItem>
+                  {(
+                    [
+                      'DRAFT',
+                      'ACTIVE',
+                      'SUSPENDED',
+                      'NOTICE',
+                      'EXPIRED',
+                      'TERMINATED',
+                    ] as SupplierContractStatus[]
+                  ).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {contractStatusLabel(s)}
                     </SelectItem>
-                  )}
-                {suppliersSorted.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                    {s.code ? ` · ${s.code}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField id="contracts-expires-before" label="Expire au plus tard le">
-          {({ controlId }) => (
-            <Input
-              id={controlId}
-              type="date"
-              value={expiresBefore}
-              onChange={(e) => setExpiresBefore(e.target.value)}
-              className="w-full border-input"
-            />
-          )}
-        </FilterBarField>
-      </FilterBar>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FilterBarField>
+          <FilterBarField id="contracts-supplier" label="Fournisseur">
+            {({ controlId, labelId }) => (
+              <Select
+                value={supplierIdFromUrl ? supplierIdFromUrl : '__all'}
+                onValueChange={(v) => setSupplierFilter(v === '__all' || v == null ? '' : v)}
+              >
+                <SelectTrigger
+                  id={controlId}
+                  aria-labelledby={labelId}
+                  className="w-full border-input"
+                >
+                  <SelectValue placeholder="Tous les fournisseurs">
+                    {supplierSelectLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Tous les fournisseurs</SelectItem>
+                  {supplierFilterLabelQ.data &&
+                    !suppliersSorted.some((s) => s.id === supplierFilterLabelQ.data!.id) && (
+                      <SelectItem value={supplierFilterLabelQ.data.id}>
+                        {supplierFilterLabelQ.data.name}
+                        {supplierFilterLabelQ.data.code
+                          ? ` · ${supplierFilterLabelQ.data.code}`
+                          : ''}
+                      </SelectItem>
+                    )}
+                  {suppliersSorted.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                      {s.code ? ` · ${s.code}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FilterBarField>
+          <FilterBarField id="contracts-expires-before" label="Expire au plus tard le">
+            {({ controlId }) => (
+              <Input
+                id={controlId}
+                type="date"
+                value={expiresBefore}
+                onChange={(e) => setExpiresBefore(e.target.value)}
+                className="w-full border-input"
+              />
+            )}
+          </FilterBarField>
+        </FilterBar>
+        <PortfolioViewToggle
+          value={viewMode}
+          onChange={setViewMode}
+          ariaLabel="Mode d'affichage des contrats"
+          className="shrink-0"
+        />
+      </div>
 
       {supplierIdFromUrl && (
         <p className="text-sm text-muted-foreground">
@@ -332,16 +354,29 @@ export function ContractsListPage() {
               ? 'Aucun contrat ne correspond aux filtres.'
               : `${q.data.total} contrat${q.data.total === 1 ? '' : 's'}`}
           </p>
-          <div className="rounded-lg border border-border/70 bg-card p-2 shadow-sm sm:p-4">
-            <DataTable
-              columns={contractColumns}
-              data={q.data.items}
-              getRowId={(row) => row.id}
-              mobileCardsAriaLabel="Liste des contrats"
-              emptyTitle="Aucun contrat à afficher"
-              emptyDescription="Créez un contrat ou élargissez les filtres."
-            />
-          </div>
+          {viewMode === 'cards' ? (
+            <ContractsPortfolioCards items={q.data.items} />
+          ) : (
+            <div className="rounded-lg border border-border/70 bg-card p-2 shadow-sm sm:p-4">
+              <DataTable
+                columns={contractColumns}
+                data={q.data.items}
+                getRowId={(row) => row.id}
+                getRowClassName={(row) =>
+                  tableAlertRowClass(
+                    row.status === 'NOTICE' || row.status === 'EXPIRED'
+                      ? row.status === 'EXPIRED'
+                        ? 'danger'
+                        : 'warn'
+                      : false,
+                  )
+                }
+                mobileCardsAriaLabel="Liste des contrats"
+                emptyTitle="Aucun contrat à afficher"
+                emptyDescription="Créez un contrat ou élargissez les filtres."
+              />
+            </div>
+          )}
         </>
       )}
 

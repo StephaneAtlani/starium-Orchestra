@@ -8,15 +8,16 @@ import { getBudgetExerciseOptions } from '../api/get-budget-exercise-options';
 
 const STALE_TIME_MS = 120_000;
 
-export function useBudgetExerciseOptionsQuery() {
+export function useBudgetExerciseOptionsQuery(options?: { enabled?: boolean }) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const enabled = options?.enabled ?? true;
 
   return useQuery({
     queryKey: budgetQueryKeys.budgetExerciseOptions(clientId),
     queryFn: () => getBudgetExerciseOptions(authFetch),
-    enabled: !!clientId,
+    enabled: !!clientId && enabled,
     staleTime: STALE_TIME_MS,
   });
 }

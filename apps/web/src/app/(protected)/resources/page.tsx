@@ -37,6 +37,13 @@ import { ResourceWorkloadMatrix } from '@/features/capacity/components/resource-
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { EditResourceForm } from './_components/edit-resource-form';
 import { NewResourceForm } from './_components/new-resource-form';
+import { ResourcesPortfolioCards } from './_components/resources-portfolio-cards';
+import {
+  PortfolioViewToggle,
+  TableToneBadge,
+  type PortfolioViewMode,
+  type StatusTone,
+} from '@/components/portfolio';
 import { AlertCircle, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import {
   Table,
@@ -81,6 +88,7 @@ function workloadRange(months: number): { from: string; to: string; label: strin
 export default function ResourcesListPage() {
   const [newResourceModalOpen, setNewResourceModalOpen] = useState(false);
   const [editResourceId, setEditResourceId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('cards');
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
@@ -381,13 +389,27 @@ export default function ResourcesListPage() {
         )}
         {enabled && !isLoading && !error && total > 0 && (
           <Card size="sm" className="overflow-hidden shadow-sm">
-            <CardHeader className="border-b border-border/60 pb-3">
-              <CardTitle className="text-sm font-medium">Liste des ressources</CardTitle>
-              <CardDescription className="text-xs">
-                Cliquez sur un nom pour modifier la ressource (si autorisé).
-              </CardDescription>
+            <CardHeader className="flex flex-col gap-3 border-b border-border/60 pb-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-sm font-medium">Liste des ressources</CardTitle>
+                <CardDescription className="text-xs">
+                  Cliquez sur un nom pour modifier la ressource (si autorisé).
+                </CardDescription>
+              </div>
+              <PortfolioViewToggle
+                value={viewMode}
+                onChange={setViewMode}
+                ariaLabel="Mode d'affichage des ressources"
+                className="shrink-0"
+              />
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className={viewMode === 'cards' ? 'p-3 sm:p-4' : 'p-0'}>
+              {viewMode === 'cards' ? (
+                <ResourcesPortfolioCards
+                  items={items}
+                  onOpen={canUpdateResource ? (id) => setEditResourceId(id) : undefined}
+                />
+              ) : (
               <Table className="min-w-[56rem]">
                 <TableHeader>
                   <TableRow>
@@ -399,13 +421,16 @@ export default function ResourcesListPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((r) => (
+                  {items.map((r) => {
+                    const typeTone: StatusTone =
+                      r.type === 'HUMAN' ? 'info' : r.type === 'LICENSE' ? 'warn' : 'brand';
+                    return (
                     <TableRow key={r.id}>
                       <TableCell className="px-3">
                         {canUpdateResource ? (
                           <button
                             type="button"
-                            className="cursor-pointer text-left text-primary hover:underline"
+                            className="cursor-pointer text-left text-[color:var(--brand-gold-700)] hover:underline"
                             title="Modifier la ressource"
                             aria-label={`Modifier ${formatResourceDisplayName(r)}`}
                             onClick={() => setEditResourceId(r.id)}
@@ -418,7 +443,11 @@ export default function ResourcesListPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="px-3">{RESOURCE_TYPE_LABEL[r.type]}</TableCell>
+                      <TableCell className="px-3">
+                        <TableToneBadge tone={typeTone}>
+                          {RESOURCE_TYPE_LABEL[r.type]}
+                        </TableToneBadge>
+                      </TableCell>
                       <TableCell className="px-3">
                         {r.type === 'HUMAN' && r.affiliation
                           ? RESOURCE_AFFILIATION_LABEL[r.affiliation]
@@ -431,9 +460,11 @@ export default function ResourcesListPage() {
                       </TableCell>
                       <TableCell className="px-3">{r.role?.name ?? '—'}</TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col items-stretch justify-between gap-3 border-t border-border/60 bg-transparent pt-3 sm:flex-row sm:items-center">
               <p className="text-sm text-muted-foreground">

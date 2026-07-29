@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Draft — **liste `/budgets` supersédée visuellement** par [RFC-FE-BUD-031](./RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) (portefeuille reporting + cartes/table). Cette RFC reste source de vérité pour **`/budgets/exercises`** et les patterns listes paginées (filtres URL, pagination).
 
 ## Titre
 

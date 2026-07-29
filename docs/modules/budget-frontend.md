@@ -45,8 +45,10 @@ features/budgets/
 │   ├── use-budget-exercises-query.ts   # Liste paginée + filtres URL (RFC-FE-003)
 │   ├── use-budgets.ts
 │   ├── use-budgets-query.ts            # Liste paginée + filtres URL (RFC-FE-003)
-│   ├── use-budget-exercise-options-query.ts  # Options filtre exercice (RFC-FE-003)
-│   ├── use-budget-list-filters.ts      # Filtres URL exercices / budgets (RFC-FE-003)
+│   ├── use-budget-exercise-options-query.ts  # Options filtre exercice (RFC-FE-003 / RFC-FE-BUD-031)
+│   ├── use-budget-list-filters.ts      # Filtres URL exercices / budgets (RFC-FE-003 + view RFC-FE-BUD-031)
+│   ├── use-exercise-reporting-summary-query.ts   # KPI consolidation exercice (RFC-FE-BUD-031)
+│   ├── use-exercise-budgets-reporting-query.ts   # Liste budgets + KPI par exercice (RFC-FE-BUD-031)
 │   ├── use-budget-summary.ts
 │   ├── use-budget-dashboard.ts
 │   ├── use-budget-envelopes.ts         # Toutes enveloppes d’un budget (RFC-FE-004, aussi utilisé par le formulaire de ligne)
@@ -63,9 +65,11 @@ features/budgets/
 │   ├── budget-kpi-cards.tsx
 │   ├── budget-toolbar.tsx
 │   ├── budget-exercises-toolbar.tsx    # Recherche, status, limit, reset (RFC-FE-003)
-│   ├── budgets-toolbar.tsx             # + filtre exercice (RFC-FE-003)
+│   ├── budgets-toolbar.tsx             # Filtres + toggle Cartes/Tableau (RFC-FE-003 / RFC-FE-BUD-031)
+│   ├── budgets-portfolio-kpi.tsx       # Bandeau KPI consolidation exercice (RFC-FE-BUD-031)
+│   ├── budgets-portfolio-cards.tsx     # Grille cartes portefeuille (RFC-FE-BUD-031)
 │   ├── budget-exercises-table.tsx      # Table liste exercices (RFC-FE-003)
-│   ├── budgets-table.tsx               # Table liste budgets (RFC-FE-003)
+│   ├── budgets-table.tsx               # Table portefeuille budgets + KPI (RFC-FE-BUD-031)
 │   ├── budget-list-table.tsx
 │   ├── budget-lines-progress.tsx       # Barre Consommé % / Solde % (RFC-FE-004)
 │   ├── budget-explorer-table.tsx      # Tableau hiérarchique enveloppes/lignes — Statut + Libellé à gauche (RFC-FE-004)
@@ -105,7 +109,9 @@ features/budgets/
 │   ├── budget-version-history.types.ts
 │   └── placeholders (reallocations, imports — autres stubs éventuels)
 ├── lib/
-│   ├── budget-query-keys.ts   # + budgetExercisesList, budgetsList, budgetEnvelopes(..., { full }), budgetLinesByBudget (RFC-FE-003, RFC-FE-004)
+│   ├── budget-query-keys.ts   # + exerciseSummary, exerciseBudgetsWithKpi (RFC-FE-BUD-031), budgetExercisesList, budgetsList, …
+│   ├── budget-portfolio-format.ts   # format montant/taux, libellé statut, alerte carte (RFC-FE-BUD-031)
+│   ├── budget-portfolio-export.ts   # export CSV portefeuille (RFC-FE-BUD-031)
 │   ├── budget-formatters.ts   # + formatCurrency (DAF, RFC-FE-BUD-030)
 │   ├── fetch-budget-explorer-data.ts   # fetchAllEnvelopesForBudget, fetchAllLinesForBudget (RFC-FE-004)
 │   ├── build-budget-tree.ts            # Arbre enveloppes/lignes, orphelins (RFC-FE-004)
@@ -131,6 +137,8 @@ Exemples :
 - `budgetQueryKeys.budgetExercisesList(clientId, filters?)` — listes paginées (RFC-FE-003)
 - `budgetQueryKeys.budgetsList(clientId, filters?)` — listes paginées (RFC-FE-003)
 - `budgetQueryKeys.budgetExerciseOptions(clientId)` — options filtre exercice (RFC-FE-003)
+- `budgetQueryKeys.exerciseSummary(clientId, exerciseId)` — KPI consolidation exercice (RFC-FE-BUD-031)
+- `budgetQueryKeys.exerciseBudgetsWithKpi(clientId, exerciseId, query?)` — liste budgets reporting (RFC-FE-BUD-031)
 - `budgetQueryKeys.exerciseDetail(clientId, id)` — détail exercice pour formulaire edit (RFC-FE-015)
 - `budgetQueryKeys.generalLedgerAccountOptions(clientId)` — options comptes formulaire ligne (RFC-FE-015)
 - `budgetQueryKeys.budgetDetail(clientId, budgetId)`
@@ -177,8 +185,10 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | `useBudgetDashboardQuery(params?)` | use-budget-dashboard | Données dashboard |
 | `useBudgetExercisesQuery(filters)` | use-budget-exercises-query | Liste exercices paginée, filtres URL (RFC-FE-003) |
 | `useBudgetsQuery(filters)` | use-budgets-query | Liste budgets paginée, filtres URL (RFC-FE-003) |
-| `useBudgetExerciseOptionsQuery()` | use-budget-exercise-options-query | Options filtre exercice (RFC-FE-003) |
-| `useBudgetExercisesListFilters()` / `useBudgetsListFilters()` | use-budget-list-filters | Filtres dans l'URL (RFC-FE-003) |
+| `useBudgetExerciseOptionsQuery(options?)` | use-budget-exercise-options-query | Options filtre exercice ; `enabled` optionnel (RFC-FE-003 / RFC-FE-BUD-031) |
+| `useExerciseReportingSummaryQuery(exerciseId, options?)` | use-exercise-reporting-summary-query | KPI consolidation exercice (RFC-FE-BUD-031) |
+| `useExerciseBudgetsReportingQuery(exerciseId, query?, options?)` | use-exercise-budgets-reporting-query | Liste budgets + KPI par exercice (RFC-FE-BUD-031) |
+| `useBudgetExercisesListFilters()` / `useBudgetsListFilters()` | use-budget-list-filters | Filtres dans l'URL : search, status, exerciseId, **view** (`cards` \| `table`), page, limit |
 | `useBudgetEnvelopesAll(budgetId)` | use-budget-envelopes | Toutes enveloppes du budget, pagination en boucle (RFC-FE-004, réutilisé par le formulaire de ligne pour le select d’enveloppe) |
 | `useBudgetLinesByBudget(budgetId)` | use-budget-lines | Toutes lignes du budget, sans filtres API (RFC-FE-004) |
 | `useBudgetExplorer(budgetId)` | use-budget-explorer | Agrégat budget + enveloppes + lignes, états (RFC-FE-004) |
@@ -209,10 +219,12 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetKpiCards` | Grille de cartes KPI (`items: { label, value, trend? }[]`) |
 | `BudgetToolbar` | Barre filtres/recherche/actions (TableToolbar) |
 | `BudgetExercisesToolbar` | Recherche (debounce), status, limit, reset — sync URL (RFC-FE-003) |
-| `BudgetsToolbar` | Idem + filtre exercice (RFC-FE-003) |
+| `BudgetsToolbar` | Recherche, exercice (obligatoire), statut, toggle Cartes/Tableau, reset — sync URL (RFC-FE-003 / RFC-FE-BUD-031) |
+| `BudgetsPortfolioKpi` | Bandeau 5 KPI consolidation exercice : Alloué, Engagé, Consommé, Reste, Prévision (`PortfolioKpiRow`) — RFC-FE-BUD-031 |
+| `BudgetsPortfolioCards` | Grille cartes cliquables → `/budgets/[id]` (`PortfolioEntityCard`) — RFC-FE-BUD-031 |
 | `BudgetListTable` | Table générique (colonnes configurables, keyExtractor) |
 | `BudgetExercisesTable` | Table liste exercices (RFC-FE-003) |
-| `BudgetsTable` | Table liste budgets (RFC-FE-003) |
+| `BudgetsTable` | Table portefeuille budgets avec tons et barres d’exécution (RFC-FE-BUD-031) |
 | `BudgetLinesProgress` | Barre Consommé % / Solde % pour une ligne budgétaire (RFC-FE-004) |
 | `BudgetExplorerTable` | Tableau hiérarchique enveloppes/lignes, expand/collapse (RFC-FE-004) |
 | `BudgetExplorerRow` | Ligne enveloppe ou ligne budgétaire ; **Statut** (étroit : badge ligne ou « — » enveloppe) puis **Libellé** (indentation, chevron, aria) ; **lecture seule** sur les montants — clic sur le **libellé** (nom) → drawer intelligence ([RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)) ; pas d’édition inline ni d’UI planning dans la ligne |
@@ -240,7 +252,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 
 | Route | Contenu |
 |-------|---------|
-| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 — plan) : consolidation exercice, cartes/table KPI, choix budget ; remplace visuellement la liste RFC-FE-003 |
+| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 Lot A) : `PageHeader`, garde `budgets.read`, bandeau KPI consolidation (5 cellules), toggle **Cartes / Tableau** (`?view=cards\|table`), filtres URL (`exerciseId`, `search`, `status`, `page`, `limit`), source **`GET /api/budget-reporting/exercises/:id/summary`** + **`GET /api/budget-reporting/exercises/:id/budgets`** ; export CSV lignes visibles (`downloadBudgetsPortfolioCsv`) ; kit partagé `components/portfolio` |
 | `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
 | `/budgets/exercises/new` | **Création exercice** (RFC-FE-015) |
@@ -262,7 +274,9 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types de version figée** → `/budgets/snapshot-occasion-types` (RFC-033) |
 | `/admin/snapshot-occasion-types` | CRUD types de version figée **globaux** (`PLATFORM_ADMIN`, RFC-033) |
 
-Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL. La page **reporting** forecast gère en outre un état **no-result** (`lines.length === 0` après succès) distinct du vide générique.
+Chaque page de données gère **loading**, **error**, **empty**, **success**. Les listes `/budgets` et `/budgets/exercises` reflètent filtres et pagination dans l'URL (`view` omis si `cards`). La page **reporting** forecast gère en outre un état **no-result** (`lines.length === 0` après succès) distinct du vide générique.
+
+**Kit portefeuille partagé** : `apps/web/src/components/portfolio/` (`PortfolioEntityCard`, `PortfolioKpiRow`, `PortfolioViewToggle`, `PortfolioProgressBar`, tons table) — référence UX : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6.2.
 
 **Enveloppe** (`/budget-envelopes/[envelopeId]`) : bloc forecast KPI + table lignes forecast paginée + lien vers le reporting budget (RFC-FE-BUD-030).
 
@@ -273,7 +287,7 @@ Chaque page de données gère **loading**, **error**, **empty**, **success**. Le
 Dans `config/navigation.ts` et `components/shell/sidebar.tsx`, section Finance (dropdown Budgets) :
 
 - **Dashboard** : `href: "/budgets/dashboard"` — cockpit budgétaire
-- **Budget** : `href: "/budgets"` — liste principale des budgets (page par défaut du module)
+- **Budget** : `href: "/budgets"` — portefeuille budgétaire (page par défaut du module, RFC-FE-BUD-031)
 - **Configuration** : `href: "/budgets/configuration"` — accès aux Exercices et Imports
 
 `moduleCode: "budgets"`, `requiredPermissions: ["budgets.read"]`.
@@ -305,7 +319,7 @@ Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` �
 - [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md)
 - [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md) — listes paginées, filtres, sync URL
 - [RFC-FE-003 — Conformité](../RFC/RFC-FE-003-conformite.md)
-- [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) — `/budgets` portefeuille, alignement fiche budget
+- [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) — `/budgets` portefeuille reporting, export CSV, kit `components/portfolio`
 - [Module Budget MVP (backend)](budget-mvp.md)
 - [API.md](../API.md) §15 (Budget Management), §16 (Financial Core), §18 (Budget Reporting), §18.1 (Budget Dashboard)
 - [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) (architecture frontend globale)

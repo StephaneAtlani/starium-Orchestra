@@ -40,6 +40,11 @@ import { RisksRegistryKpi } from './risks-registry-kpi';
 import { RisksRegistryMatrix } from './risks-registry-matrix';
 import { RisksRegistryWatchlist } from './risks-registry-watchlist';
 import { RisksRegistryFiltersBar } from './risks-registry-filters-bar';
+import { RisksRegistryCards } from './risks-registry-cards';
+import {
+  PortfolioViewToggle,
+  type PortfolioViewMode,
+} from '@/components/portfolio';
 import { useProjectRisksRegistryQuery, type ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -124,6 +129,7 @@ export function RisksRegistryPage() {
     order: 'asc',
   });
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('table');
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [riskDialogMode, setRiskDialogMode] = useState<'create' | 'edit'>('edit');
   const [editingRisk, setEditingRisk] = useState<ProjectRiskApi | null>(null);
@@ -430,21 +436,36 @@ export function RisksRegistryPage() {
                 size="sm"
                 className="starium-panel max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden border border-border shadow-sm"
               >
-                <CardHeader className="border-b border-border/60 pb-3">
-                  <CardTitle className="text-sm font-semibold">Registre des risques</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    Cliquez sur une ligne pour ouvrir la fiche EBIOS RM.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <RisksRegistryTable
-                    pageRows={slice.pageRows}
-                    canEdit={canEdit}
-                    onEditRisk={canEdit ? openEditRisk : undefined}
-                    sortKey={sort.key}
-                    sortOrder={sort.order}
-                    onSort={handleSort}
+                <CardHeader className="flex flex-col gap-3 border-b border-border/60 pb-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Registre des risques</CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Cliquez sur une ligne ou une carte pour ouvrir la fiche EBIOS RM.
+                    </CardDescription>
+                  </div>
+                  <PortfolioViewToggle
+                    value={viewMode}
+                    onChange={setViewMode}
+                    ariaLabel="Mode d'affichage du registre des risques"
+                    className="shrink-0"
                   />
+                </CardHeader>
+                <CardContent className={viewMode === 'cards' ? 'p-3 sm:p-4' : 'p-0'}>
+                  {viewMode === 'cards' ? (
+                    <RisksRegistryCards
+                      items={slice.pageRows}
+                      onOpen={canEdit ? openEditRisk : undefined}
+                    />
+                  ) : (
+                    <RisksRegistryTable
+                      pageRows={slice.pageRows}
+                      canEdit={canEdit}
+                      onEditRisk={canEdit ? openEditRisk : undefined}
+                      sortKey={sort.key}
+                      sortOrder={sort.order}
+                      onSort={handleSort}
+                    />
+                  )}
                 </CardContent>
                 <CardFooter className="starium-table-footer flex flex-col gap-3 border-t border-border/60 bg-muted/15 py-2 sm:flex-row sm:items-center sm:justify-between">
                   <RisksRegistryPagination

@@ -54,11 +54,14 @@ export type BudgetExercisesListParams = {
   limit?: number;
 };
 
+export type PortfolioViewMode = 'cards' | 'table';
+
 export type BudgetsListParams = {
   search?: string;
   exerciseId?: string;
   status?: BudgetStatus | 'ALL';
   ownerUserId?: string;
+  view?: PortfolioViewMode;
   page?: number;
   limit?: number;
 };

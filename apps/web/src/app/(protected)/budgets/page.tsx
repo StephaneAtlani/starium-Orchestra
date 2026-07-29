@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -24,11 +24,18 @@ import { useExerciseBudgetsReportingQuery } from '@/features/budgets/hooks/use-e
 import { BudgetsPortfolioKpi } from '@/features/budgets/components/budgets-portfolio-kpi';
 import { BudgetsPortfolioCards } from '@/features/budgets/components/budgets-portfolio-cards';
 import { formatBudgetExerciseOptionLabel } from '@/features/budgets/lib/budget-exercise-option-label';
+import { downloadBudgetsPortfolioCsv } from '@/features/budgets/lib/budget-portfolio-export';
+import { usePermissions } from '@/hooks/use-permissions';
 
 export default function BudgetsListPage() {
   const { filters, setFilters, reset } = useBudgetsListFilters();
-  const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery();
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
+  const canReadBudgets = permsSuccess && has('budgets.read');
+  const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery({
+    enabled: canReadBudgets,
+  });
+  const viewMode = filters.view ?? 'cards';
+  const setViewMode = (mode: 'cards' | 'table') => setFilters({ view: mode });
 
   const selectedExerciseId = useMemo(() => {
     if (filters.exerciseId) return filters.exerciseId;
@@ -52,9 +59,11 @@ export default function BudgetsListPage() {
     [filters.limit, filters.page, filters.search, filters.status],
   );
 
-  const summaryQuery = useExerciseReportingSummaryQuery(selectedExerciseId);
+  const summaryQuery = useExerciseReportingSummaryQuery(selectedExerciseId, {
+    enabled: canReadBudgets,
+  });
   const budgetsQuery = useExerciseBudgetsReportingQuery(selectedExerciseId, reportingQueryParams, {
-    enabled: !!selectedExerciseId,
+    enabled: !!selectedExerciseId && canReadBudgets,
   });
 
   const data = budgetsQuery.data;
@@ -71,32 +80,8 @@ export default function BudgetsListPage() {
 
   const exportVisibleRows = () => {
     if (!data?.items.length) return;
-    const lines = [
-      ['Budget', 'Code', 'Alloué', 'Engagé', 'Consommé', 'Reste', 'Exécution', 'État'].join(';'),
-      ...data.items.map((row) =>
-        [
-          row.budget.name,
-          row.budget.code ?? '',
-          row.kpi.totalInitialAmount,
-          row.kpi.totalCommittedAmount,
-          row.kpi.totalConsumedAmount,
-          row.kpi.totalRemainingAmount,
-          row.kpi.consumptionRate != null ? Math.round(row.kpi.consumptionRate * 100) : '',
-          row.budget.status,
-        ]
-          .map((value) => `"${String(value).replaceAll('"', '""')}"`)
-          .join(';'),
-      ),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `budgets-${selectedExercise?.code ?? selectedExercise?.name ?? 'export'}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    const hint = selectedExercise?.code ?? selectedExercise?.name ?? 'export';
+    downloadBudgetsPortfolioCsv(data.items, hint);
   };
 
   return (
@@ -131,17 +116,36 @@ export default function BudgetsListPage() {
             </div>
           }
         />
+
+        {permsLoading && (
+          <div data-testid="budgets-permissions-loading" aria-live="polite">
+            <LoadingState rows={3} />
+          </div>
+        )}
+
+        {permsSuccess && !canReadBudgets && (
+          <Alert variant="destructive">
+            <AlertTitle>Accès insuffisant</AlertTitle>
+            <AlertDescription>
+              Vous n&apos;avez pas la permission requise pour consulter le portefeuille budgets.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {canReadBudgets && (
+          <>
         <BudgetsToolbar viewMode={viewMode} onViewModeChange={setViewMode} />
 
         {selectedExerciseId && (
           <BudgetsPortfolioKpi
             kpi={summaryQuery.data?.kpi}
             isLoading={summaryQuery.isLoading || (!summaryQuery.data && isLoading)}
+            totalBudgets={data?.total ?? data?.items.length ?? 0}
           />
         )}
 
         {isLoading && !data && (
-          <div data-testid="budgets-loading">
+          <div data-testid="budgets-loading" aria-live="polite">
             <LoadingState rows={5} />
           </div>
         )}
@@ -223,6 +227,8 @@ export default function BudgetsListPage() {
                 </Button>
               </div>
             </div>
+          </>
+        )}
           </>
         )}
       </PageContainer>

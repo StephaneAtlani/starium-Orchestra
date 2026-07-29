@@ -57,6 +57,16 @@ import {
   supplierRatingPayloadValue,
 } from '@/features/procurement/lib/supplier-rating';
 import { SuppliersListKpiStrip } from '@/features/procurement/components/suppliers/suppliers-list-kpi-strip';
+import {
+  SuppliersPortfolioCards,
+  supplierStatusLabel,
+  supplierStatusTone,
+} from '@/features/procurement/components/suppliers/suppliers-portfolio-cards';
+import {
+  PortfolioViewToggle,
+  TableToneBadge,
+  type PortfolioViewMode,
+} from '@/components/portfolio';
 import { SupplierVisualizationModal } from '@/features/procurement/components/suppliers/supplier-visualization-modal';
 import { SupplierContactModal } from '@/features/procurement/components/suppliers/supplier-contact-modal';
 import { SupplierContactVisualizationModal } from '@/features/procurement/components/suppliers/supplier-contact-visualization-modal';
@@ -191,6 +201,7 @@ export default function SuppliersPage() {
     ownerOrgUnitId: null as string | null,
   });
   const [supplierCategoryFilter, setSupplierCategoryFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<PortfolioViewMode>('cards');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
   const [newCategoryTarget, setNewCategoryTarget] = useState<'create' | 'edit'>('create');
@@ -372,7 +383,12 @@ export default function SuppliersPage() {
         key: 'category',
         header: 'Categorie',
         mobilePriority: 'secondary',
-        cell: (supplier) => supplier.supplierCategory?.name ?? '—',
+        cell: (supplier) =>
+          supplier.supplierCategory?.name ? (
+            <TableToneBadge tone="brand">{supplier.supplierCategory.name}</TableToneBadge>
+          ) : (
+            '—'
+          ),
       },
       {
         key: 'performanceRating',
@@ -384,7 +400,11 @@ export default function SuppliersPage() {
         key: 'status',
         header: 'Statut',
         mobilePriority: 'secondary',
-        cell: (supplier) => supplier.status,
+        cell: (supplier) => (
+          <TableToneBadge tone={supplierStatusTone(supplier.status)}>
+            {supplierStatusLabel(supplier.status)}
+          </TableToneBadge>
+        ),
       },
     ],
     [],
@@ -1697,52 +1717,65 @@ export default function SuppliersPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <FilterBar aria-label="Filtres fournisseurs" asSearch desktopColumns={2}>
-                <FilterBarField id="suppliers-search" label="Recherche">
-                  {({ controlId }) => (
-                    <div className="relative w-full">
-                      <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
-                      <Input
-                        id={controlId}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Rechercher un fournisseur"
-                        className="w-full pl-8"
-                      />
-                    </div>
-                  )}
-                </FilterBarField>
-                <FilterBarField id="suppliers-category" label="Catégorie">
-                  {({ controlId, labelId }) => (
-                    <Select
-                      value={supplierCategoryFilter}
-                      onValueChange={(value) => setSupplierCategoryFilter(value ?? 'all')}
-                    >
-                      <SelectTrigger
-                        id={controlId}
-                        aria-labelledby={labelId}
-                        className="w-full"
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <FilterBar
+                  aria-label="Filtres fournisseurs"
+                  asSearch
+                  desktopColumns={2}
+                  className="flex-1"
+                >
+                  <FilterBarField id="suppliers-search" label="Recherche">
+                    {({ controlId }) => (
+                      <div className="relative w-full">
+                        <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" />
+                        <Input
+                          id={controlId}
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Rechercher un fournisseur"
+                          className="w-full pl-8"
+                        />
+                      </div>
+                    )}
+                  </FilterBarField>
+                  <FilterBarField id="suppliers-category" label="Catégorie">
+                    {({ controlId, labelId }) => (
+                      <Select
+                        value={supplierCategoryFilter}
+                        onValueChange={(value) => setSupplierCategoryFilter(value ?? 'all')}
                       >
-                        <SelectValue>
-                          {supplierCategoryFilter === 'all'
-                            ? 'Toutes les categories'
-                            : categoriesQuery.data?.items.find(
-                                (item) => item.id === supplierCategoryFilter,
-                              )?.name ?? 'Categorie'}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Toutes les categories</SelectItem>
-                        {(categoriesQuery.data?.items ?? []).map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </FilterBarField>
-              </FilterBar>
+                        <SelectTrigger
+                          id={controlId}
+                          aria-labelledby={labelId}
+                          className="w-full"
+                        >
+                          <SelectValue>
+                            {supplierCategoryFilter === 'all'
+                              ? 'Toutes les categories'
+                              : categoriesQuery.data?.items.find(
+                                  (item) => item.id === supplierCategoryFilter,
+                                )?.name ?? 'Categorie'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Toutes les categories</SelectItem>
+                          {(categoriesQuery.data?.items ?? []).map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </FilterBarField>
+                </FilterBar>
+                <PortfolioViewToggle
+                  value={viewMode}
+                  onChange={setViewMode}
+                  ariaLabel="Mode d'affichage des fournisseurs"
+                  className="shrink-0"
+                />
+              </div>
               {suppliersQuery.isError ? (
                 <Alert variant="destructive">
                   <AlertCircle className="size-4" />
@@ -1753,6 +1786,14 @@ export default function SuppliersPage() {
                 </Alert>
               ) : suppliersQuery.isLoading ? (
                 <LoadingState rows={5} />
+              ) : viewMode === 'cards' ? (
+                <SuppliersPortfolioCards
+                  items={suppliersQuery.data?.items ?? []}
+                  onOpen={(id) => {
+                    setReadSupplierId(id);
+                    setReadSupplierModalOpen(true);
+                  }}
+                />
               ) : (
                 <DataTable
                   columns={supplierColumns}
@@ -1760,7 +1801,7 @@ export default function SuppliersPage() {
                   getRowId={(row) => row.id}
                   mobileCardsAriaLabel="Liste des fournisseurs"
                   emptyTitle="Aucun fournisseur"
-                  emptyDescription="Aucun fournisseur ne correspond à votre recherche ou filtre."
+                  emptyDescription="Ajoutez un fournisseur ou élargissez les filtres."
                 />
               )}
             </CardContent>

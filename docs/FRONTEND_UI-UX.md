@@ -313,6 +313,25 @@ Fichier : `features/projects/components/projects-portfolio-kpi.tsx`.
 - Données : `GET /api/projects/portfolio-summary` (`usePortfolioSummaryQuery`).
 - **Note** : la classe **`.starium-kpi-strip`** (9 indicateurs / 3 groupes) reste en CSS pour d’autres écrans ; le cockpit liste `/projects` n’utilise plus ce markup.
 
+### 6.2 Kit portefeuille partagé (`components/portfolio`)
+
+Pattern unique pour **toutes** les pages liste / portefeuille (Budgets, Contrats, Fournisseurs, Risques, etc.) :
+
+| Composant | Rôle |
+|-----------|------|
+| `StatusTone` + helpers | `ok` / `warn` / `danger` / `info` / `muted` / `brand` — accent, icône, badge, barre, montant |
+| `PortfolioEntityCard` | Carte riche : accent latéral, icône teintée, pills, métrique, barre, footer |
+| `PortfolioProgressBar` | `.starium-progress-fill--*` ; `variant="consumption"` (&lt;80 info, 80–99 warn, ≥100 danger) |
+| `PortfolioViewToggle` | Segmented Cartes / Tableau (`.starium-tab-group`) |
+| `PortfolioKpiRow` | `.starium-module` + N × `KpiCard` dense (icônes colorées) |
+| `TableToneAmount` / `TableToneBadge` / `tableAlertRowClass` | Cellules et lignes de tableau sémantiques |
+
+Import : `@/components/portfolio`. CSS : `.starium-portfolio-card` (+ alias `.starium-project-mobile-card`).
+
+**Référence implémentée** : `/budgets` — `budgets-portfolio-kpi.tsx`, `budgets-portfolio-cards.tsx`, `budgets-table.tsx` (RFC-FE-BUD-031).
+
+**Règle** : chaque feature mappe ses données → `StatusTone` ; pas de logique métier dans le kit.
+
 ---
 
 ## 7. Filtres — cockpit portefeuille Projets (référence)

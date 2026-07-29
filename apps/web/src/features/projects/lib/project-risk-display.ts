@@ -52,6 +52,23 @@ export function riskCriticalityDsBadgeClass(level: ProjectRiskCriticalityLevel |
   }
 }
 
+/** Tone portefeuille pour criticité risque. */
+export function riskCriticalityTone(
+  level: ProjectRiskCriticalityLevel | string,
+): 'ok' | 'warn' | 'danger' | 'muted' {
+  switch (level) {
+    case 'CRITICAL':
+      return 'danger';
+    case 'HIGH':
+    case 'MEDIUM':
+      return 'warn';
+    case 'LOW':
+      return 'ok';
+    default:
+      return 'muted';
+  }
+}
+
 export function riskStatusDsBadgeClass(status: string): string {
   switch (status) {
     case 'OPEN':

@@ -1,8 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { AlertTriangle, ChevronRight, ClipboardList } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
+import {
+  PortfolioEntityCard,
+  PortfolioProgressBar,
+  TableToneBadge,
+  type StatusTone,
+} from '@/components/portfolio';
 import type { ActionPlanApi } from '../types/project.types';
 import {
   ACTION_PLAN_STATUS_LABELS,
@@ -10,20 +14,30 @@ import {
   fmtActionPlanShortDate,
 } from '../lib/action-plan-display';
 
-const ICO_TONES = [
-  'starium-mb-card-ico--info',
-  'starium-mb-card-ico--gold',
-  'starium-mb-card-ico--teal',
-  'starium-mb-card-ico--purple',
-  'starium-mb-card-ico--success',
-  'starium-mb-card-ico--neutral',
-] as const;
+function planTone(plan: ActionPlanApi, overdue: boolean): StatusTone {
+  if (overdue) return 'danger';
+  if (plan.priority === 'HIGH') return 'warn';
+  if (plan.status === 'COMPLETED') return 'ok';
+  if (plan.status === 'ON_HOLD' || plan.status === 'CANCELLED') return 'muted';
+  if (plan.status === 'DRAFT') return 'info';
+  return 'brand';
+}
 
-function planIcoTone(plan: ActionPlanApi, index: number): string {
-  if (plan.priority === 'HIGH') return 'starium-mb-card-ico--danger';
-  if (plan.status === 'COMPLETED') return 'starium-mb-card-ico--success';
-  if (plan.status === 'ON_HOLD') return 'starium-mb-card-ico--gold';
-  return ICO_TONES[index % ICO_TONES.length]!;
+function statusTone(status: ActionPlanApi['status']): StatusTone {
+  switch (status) {
+    case 'COMPLETED':
+      return 'ok';
+    case 'ACTIVE':
+      return 'brand';
+    case 'DRAFT':
+      return 'info';
+    case 'ON_HOLD':
+      return 'warn';
+    case 'CANCELLED':
+      return 'muted';
+    default:
+      return 'muted';
+  }
 }
 
 function isPlanOverdue(plan: ActionPlanApi): boolean {
@@ -39,86 +53,63 @@ function isPlanOverdue(plan: ActionPlanApi): boolean {
 export function ActionPlansListCards({ items }: { items: ActionPlanApi[] }) {
   return (
     <div
-      className="starium-mb-cardgrid"
-      role="list"
-      aria-label="Choisir un plan d'action"
+      className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+      data-testid="action-plans-portfolio-cards"
     >
-      {items.map((plan, index) => {
+      {items.map((plan) => {
         const progress = Math.min(100, Math.max(0, plan.progressPercent ?? 0));
         const overdue = isPlanOverdue(plan);
         const owner = actionPlanOwnerLabel(plan);
         const statusLabel = ACTION_PLAN_STATUS_LABELS[plan.status] ?? plan.status;
-        const subtitle = [plan.code, owner !== 'Non assigné' ? owner : null]
-          .filter(Boolean)
-          .join(' · ');
+        const tone = planTone(plan, overdue);
+        const barTone: StatusTone =
+          progress >= 100 ? 'ok' : overdue ? 'danger' : progress >= 40 ? 'brand' : 'info';
 
         return (
-          <Link
+          <PortfolioEntityCard
             key={plan.id}
             href={`/action-plans/${plan.id}`}
-            role="listitem"
-            className="starium-mb-card min-h-[44px]"
-            aria-label={`Ouvrir le plan ${plan.title}`}
-          >
-            <div className="starium-mb-card-top">
-              <div
-                className={cn('starium-mb-card-ico', planIcoTone(plan, index))}
-                aria-hidden
-              >
-                <ClipboardList />
-              </div>
-              <div className="starium-mb-card-tt">
-                <div className="starium-mb-card-name">{plan.title}</div>
-                <div className="starium-mb-card-dir">{subtitle}</div>
-              </div>
-            </div>
-
-            <div className="starium-mb-card-total">
-              Avancement
-              <br />
-              <b>{progress}%</b>{' '}
-              <span className="text-[12px] font-semibold text-[color:var(--neutral-500)]">
-                · {statusLabel}
-              </span>
-            </div>
-
-            <div className="starium-mb-card-track" aria-hidden>
-              <span
-                className="starium-mb-card-track-fill"
-                style={{
-                  width: `${progress}%`,
-                  background:
-                    progress >= 100
-                      ? 'var(--state-success)'
-                      : progress >= 40
-                        ? 'var(--brand-gold)'
-                        : 'var(--state-info)',
-                }}
+            ariaLabel={`Ouvrir le plan ${plan.title}`}
+            tone={tone}
+            icon={<ClipboardList className="size-5" aria-hidden />}
+            title={<span className="line-clamp-2">{plan.title}</span>}
+            badges={
+              <>
+                <TableToneBadge tone={statusTone(plan.status)}>{statusLabel}</TableToneBadge>
+                {plan.priority === 'HIGH' ? (
+                  <TableToneBadge tone="danger">Priorité haute</TableToneBadge>
+                ) : null}
+              </>
+            }
+            subtitle={[plan.code, owner !== 'Non assigné' ? owner : null]
+              .filter(Boolean)
+              .join(' · ')}
+            progress={
+              <PortfolioProgressBar
+                value={progress}
+                tone={barTone}
+                showPercent
+                label={`Avancement ${plan.title}`}
               />
-            </div>
-
-            <div className="starium-mb-card-meta">
-              <span>Réalisé {progress}%</span>
-              <span>Échéance {fmtActionPlanShortDate(plan.targetDate)}</span>
-            </div>
-
-            <div className="starium-mb-card-foot">
-              <div>
-                {overdue ? (
-                  <span className="starium-mb-card-alert">
-                    <AlertTriangle aria-hidden />
-                    En retard
-                  </span>
-                ) : (
-                  <span className="starium-mb-card-ok">À jour</span>
-                )}
+            }
+            footer={
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span>
+                  {overdue ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-destructive">
+                      <AlertTriangle className="size-3.5" aria-hidden />
+                      En retard · {fmtActionPlanShortDate(plan.targetDate)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Échéance {fmtActionPlanShortDate(plan.targetDate)}
+                    </span>
+                  )}
+                </span>
+                <span className="font-semibold text-[color:var(--brand-gold-700)]">Ouvrir</span>
               </div>
-              <span className="starium-mb-card-arrow">
-                Ouvrir
-                <ChevronRight aria-hidden />
-              </span>
-            </div>
-          </Link>
+            }
+          />
         );
       })}
     </div>

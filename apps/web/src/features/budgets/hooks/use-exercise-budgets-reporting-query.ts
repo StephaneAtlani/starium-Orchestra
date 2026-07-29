@@ -20,7 +20,7 @@ export function useExerciseBudgetsReportingQuery(
   const enabled = options?.enabled ?? true;
 
   return useQuery({
-    queryKey: ['budgets', clientId, 'exercise-budgets-reporting', exerciseId ?? '', query] as const,
+    queryKey: budgetQueryKeys.exerciseBudgetsWithKpi(clientId, exerciseId ?? '', query),
     queryFn: () => listBudgetsForExercise(authFetch, exerciseId!, query),
     enabled: !!clientId && !!exerciseId && enabled,
     placeholderData: (previousData) => previousData,

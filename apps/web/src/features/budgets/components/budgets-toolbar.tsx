@@ -17,8 +17,8 @@ import { useBudgetsListFilters } from '../hooks/use-budget-list-filters';
 import { useBudgetExerciseOptionsQuery } from '../hooks/use-budget-exercise-options-query';
 import { BUDGET_STATUS_OPTIONS } from '../constants/budget-filters';
 import type { BudgetsListParams } from '../types/budget-list.types';
-import { LayoutGrid, List, RotateCcw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { RotateCcw } from 'lucide-react';
+import { PortfolioViewToggle } from '@/components/portfolio';
 
 const DEBOUNCE_MS = 300;
 
@@ -54,7 +54,8 @@ export function BudgetsToolbar({
   };
 
   const handleExerciseChange = (value: string | null) => {
-    setFilters({ exerciseId: value === '__all__' || !value ? undefined : value, page: 1 });
+    if (!value) return;
+    setFilters({ exerciseId: value, page: 1 });
   };
 
   return (
@@ -79,7 +80,7 @@ export function BudgetsToolbar({
         <FilterBarField id="budgets-exercise" label="Exercice">
           {({ controlId, labelId }) => (
             <Select
-              value={filters.exerciseId ?? '__all__'}
+              value={filters.exerciseId ?? ''}
               onValueChange={handleExerciseChange}
             >
               <SelectTrigger
@@ -90,7 +91,7 @@ export function BudgetsToolbar({
               >
                 <SelectValue placeholder="Exercice">
                   {(v) => {
-                    if (v === '__all__' || v == null) return 'Tous les exercices';
+                    if (!v) return 'Exercice';
                     const ex = exerciseOptions.find((e) => e.id === v);
                     if (!ex) return 'Exercice';
                     return `${ex.name}${ex.code ? ` (${ex.code})` : ''}`.trim();
@@ -98,7 +99,6 @@ export function BudgetsToolbar({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Tous les exercices</SelectItem>
                 {exerciseOptions.map((ex) => (
                   <SelectItem key={ex.id} value={ex.id}>
                     {ex.name} {ex.code ? `(${ex.code})` : ''}
@@ -134,30 +134,11 @@ export function BudgetsToolbar({
         </FilterBarField>
         <div className="flex shrink-0 items-end gap-2">
           {viewMode && onViewModeChange ? (
-            <div
-              className="starium-tab-group grid min-h-11 grid-cols-2 sm:min-h-9"
-              role="tablist"
-              aria-label="Mode d'affichage des budgets"
-            >
-              <button
-                type="button"
-                className={cn('starium-tab-btn', viewMode === 'cards' && 'starium-tab-btn--active')}
-                aria-pressed={viewMode === 'cards'}
-                onClick={() => onViewModeChange('cards')}
-              >
-                <LayoutGrid className="size-4" aria-hidden />
-                Cartes
-              </button>
-              <button
-                type="button"
-                className={cn('starium-tab-btn', viewMode === 'table' && 'starium-tab-btn--active')}
-                aria-pressed={viewMode === 'table'}
-                onClick={() => onViewModeChange('table')}
-              >
-                <List className="size-4" aria-hidden />
-                Tableau
-              </button>
-            </div>
+            <PortfolioViewToggle
+              value={viewMode}
+              onChange={onViewModeChange}
+              ariaLabel="Mode d'affichage des budgets"
+            />
           ) : null}
           <Button
             variant="outline"

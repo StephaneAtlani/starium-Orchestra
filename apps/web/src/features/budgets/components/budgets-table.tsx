@@ -12,6 +12,14 @@ import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
+import {
+  PortfolioProgressBar,
+  TableToneAmount,
+  consumptionTone,
+  rateToPercent,
+  tableAlertRowClass,
+  type StatusTone,
+} from '@/components/portfolio';
 
 function formatAmount(value: number, currency: string): string {
   return new Intl.NumberFormat('fr-FR', {
@@ -21,9 +29,13 @@ function formatAmount(value: number, currency: string): string {
   }).format(value);
 }
 
-function formatPercent(rate: number | undefined): string {
-  if (rate == null || !Number.isFinite(rate)) return '—';
-  return `${Math.round(rate * 100)} %`;
+function rowIsAlert(row: BudgetListItemWithKpi): boolean {
+  if (row.kpi.forecastGapAmount != null && row.kpi.forecastGapAmount > 0) return true;
+  if ((row.kpi.overConsumedLineCount ?? 0) > 0) return true;
+  if ((row.kpi.overCommittedLineCount ?? 0) > 0) return true;
+  if (row.kpi.totalRemainingAmount < 0) return true;
+  if ((row.kpi.consumptionRate ?? 0) >= 1) return true;
+  return false;
 }
 
 interface BudgetsTableProps {
@@ -33,8 +45,7 @@ interface BudgetsTableProps {
 }
 
 /**
- * Table liste budgets (RFC-FE-003).
- * Action : Ouvrir → détail budget uniquement (pas "Voir dashboard" avant RFC-FE-002).
+ * Table liste budgets (RFC-FE-003 / RFC-FE-BUD-031).
  */
 export function BudgetsTable({
   data,
@@ -60,7 +71,7 @@ export function BudgetsTable({
         cell: (row) => (
           <Link
             href={budgetDetail(row.budget.id)}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-[color:var(--brand-gold-700)] hover:underline"
             onClick={() => persistCockpitSelection(row)}
           >
             {row.budget.name}
@@ -77,37 +88,61 @@ export function BudgetsTable({
         key: 'allocated',
         header: 'Alloué',
         mobilePriority: 'secondary',
-        cell: (row) => formatAmount(row.kpi.totalInitialAmount, row.kpi.currency ?? row.budget.currency),
+        cell: (row) =>
+          formatAmount(row.kpi.totalInitialAmount, row.kpi.currency ?? row.budget.currency),
       },
       {
         key: 'committed',
         header: 'Engagé',
         mobilePriority: 'secondary',
-        cell: (row) => formatAmount(row.kpi.totalCommittedAmount, row.kpi.currency ?? row.budget.currency),
+        cell: (row) => (
+          <TableToneAmount tone="brand">
+            {formatAmount(row.kpi.totalCommittedAmount, row.kpi.currency ?? row.budget.currency)}
+          </TableToneAmount>
+        ),
       },
       {
         key: 'consumed',
         header: 'Consommé',
         mobilePriority: 'secondary',
-        cell: (row) => formatAmount(row.kpi.totalConsumedAmount, row.kpi.currency ?? row.budget.currency),
+        cell: (row) => (
+          <TableToneAmount tone="info">
+            {formatAmount(row.kpi.totalConsumedAmount, row.kpi.currency ?? row.budget.currency)}
+          </TableToneAmount>
+        ),
       },
       {
         key: 'remaining',
         header: 'Reste',
         mobilePriority: 'secondary',
-        cell: (row) => formatAmount(row.kpi.totalRemainingAmount, row.kpi.currency ?? row.budget.currency),
+        cell: (row) => {
+          const tone: StatusTone = row.kpi.totalRemainingAmount < 0 ? 'danger' : 'ok';
+          return (
+            <TableToneAmount tone={tone}>
+              {formatAmount(row.kpi.totalRemainingAmount, row.kpi.currency ?? row.budget.currency)}
+            </TableToneAmount>
+          );
+        },
       },
       {
         key: 'execution',
         header: 'Exécution',
         mobilePriority: 'secondary',
-        cell: (row) => formatPercent(row.kpi.consumptionRate),
+        cell: (row) => {
+          const pct = rateToPercent(row.kpi.consumptionRate);
+          const tone = consumptionTone(row.kpi.consumptionRate);
+          return (
+            <div className="flex min-w-[7rem] flex-col gap-1">
+              <PortfolioProgressBar value={pct} tone={tone} showPercent label="Exécution" />
+            </div>
+          );
+        },
       },
       {
         key: 'status',
         header: 'État',
         mobilePriority: 'secondary',
-        cell: (row) => <BudgetStatusBadge status={row.budget.status as any} />,
+        cell: (row) => <BudgetStatusBadge status={row.budget.status} />,
       },
       {
         key: 'actions',
@@ -128,7 +163,7 @@ export function BudgetsTable({
         ),
       },
     ],
-    [activeClient?.id],
+    [activeClient?.id, exerciseId],
   );
 
   return (
@@ -138,6 +173,7 @@ export function BudgetsTable({
           columns={columns}
           data={data}
           getRowId={(row) => row.budget.id}
+          getRowClassName={(row) => tableAlertRowClass(rowIsAlert(row))}
           mobileCardsAriaLabel="Liste des budgets"
           emptyTitle="Aucun budget"
           emptyDescription="Aucun budget ne correspond aux filtres."

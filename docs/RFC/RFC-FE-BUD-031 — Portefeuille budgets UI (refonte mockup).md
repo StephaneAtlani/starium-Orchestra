@@ -2,7 +2,7 @@
 
 ## Statut
 
-**Draft — plan d’implémentation**
+**Lot A implémenté** — Portefeuille `/budgets` livré : KPI consolidation (Alloué/Engagé/Consommé/Reste/Prévision), cartes tonales, table colorée, toggle Cartes/Tableau URL-synced, export CSV, kit partagé `components/portfolio`, query keys nommées, tests unitaires format/export. **Lot B / fiche détail** : spécification détaillée et plan de livraison dans **[RFC-FE-BUD-032](./RFC-FE-BUD-032%20%E2%80%94%20Fiche%20budget%20cockpit%20(refonte%20pr%C3%A9sentation%20%26%20fonctionnalit%C3%A9s).md)** (cette RFC-031 ne reste source de vérité que pour le portefeuille).
 
 ## Titre
 
@@ -92,18 +92,22 @@ Composants existants réutilisables :
 - États loading / empty / error conformes DS
 - Clic → `/budgets/[budgetId]`
 
-### Lot B — Fiche budget `/budgets/[budgetId]` (alignement mockup)
+### Lot B — Fiche budget `/budgets/[budgetId]`
+
+> **Supersédé** par [RFC-FE-BUD-032 — Fiche budget cockpit](./RFC-FE-BUD-032%20%E2%80%94%20Fiche%20budget%20cockpit%20(refonte%20pr%C3%A9sentation%20%26%20fonctionnalit%C3%A9s).md) (structure 3 zones, 6 onglets métier, KPI/alertes, snapshots, import/export, direction, suppressions scénarios fake / prévisionnel doublon).
+
+Résumé conservé pour historique mockup :
 
 - Header : retour portefeuille, switch budget (Select libellé), actions primaires
-- Bande KPI unifiée 5–6 indicateurs avec barres (`bud-kpis`)
-- Layout 2 colonnes : courbe consommation + donut / alerte
-- Segmented control sous-onglets : Synthèse | Catégories | Engagements & factures (mapping sur composants existants)
-- Filtre CAPEX/OPEX si données enveloppes disponibles
+- Bande KPI unifiée 5–6 indicateurs
+- Layout courbe + alertes + tableau enveloppes
 
 ### Lot C — Modales mockup (MVP ciblé)
 
-- « Saisir une dépense » → `StariumModal` (branchement orders/invoices existant ou placeholder action + lien module Achats si absent)
-- Réaffectation → lien `/budgets/[id]/reallocations` en V1 si modale complexe
+> Actions / modales de la fiche : voir RFC-FE-BUD-032 §3.C et §5 Lot 2.
+
+- « Saisir une dépense » → `StariumModal` (conservé, libellés clarifiés)
+- Réaffectation → onglet dédié ou dialog création (RFC-FE-BUD-032)
 
 ## Exclus (phases ultérieures)
 
@@ -128,30 +132,18 @@ Composants existants réutilisables :
 
 ## 4.2 Structure frontend
 
-```
-apps/web/src/features/budgets/portfolio/
-├── components/
-│   ├── budgets-portfolio-page.tsx          # shell (RequireActiveClient + PageContainer)
-│   ├── budgets-portfolio-header.tsx        # PageHeader + actions
-│   ├── budgets-portfolio-toolbar.tsx       # view toggle + exercice + export
-│   ├── budgets-portfolio-consol.tsx        # bandeau 5 KPI consolidation
-│   ├── budgets-portfolio-card.tsx          # carte mb-card
-│   ├── budgets-portfolio-card-grid.tsx
-│   ├── budgets-portfolio-table.tsx         # table financière
-│   └── budgets-portfolio-empty-state.tsx
-├── hooks/
-│   ├── use-budgets-portfolio-filters.ts    # URL: exerciseId, view, search, status
-│   ├── use-budgets-portfolio-exercise.ts   # exercice actif ( défaut = plus récent ACTIVE )
-│   ├── use-exercise-summary-query.ts
-│   └── use-exercise-budgets-with-kpi-query.ts
-├── lib/
-│   ├── budget-portfolio-format.ts          # montants, %, alertes
-│   └── budget-portfolio-export.ts          # CSV export
-└── types/
-    └── budget-portfolio.types.ts
-```
+**Lot A livré** (pas de dossier `portfolio/` dédié) :
 
-Fiche budget — refactor incrémental dans `features/budgets/components/` :
+| Rôle | Fichier |
+|------|---------|
+| Page | `apps/web/src/app/(protected)/budgets/page.tsx` |
+| Cartes | `features/budgets/components/budgets-portfolio-cards.tsx` → `PortfolioEntityCard` |
+| KPI | `features/budgets/components/budgets-portfolio-kpi.tsx` → `PortfolioKpiRow` |
+| Table | `features/budgets/components/budgets-table.tsx` (tons + barres) |
+| Toggle / filtres | `features/budgets/components/budgets-toolbar.tsx` → `PortfolioViewToggle` |
+| Kit DS | `apps/web/src/components/portfolio/` (`StatusTone`, card, progress, KPI row, table-tone) |
+
+Fiche budget — refactor incrémental dans `features/budgets/components/` (Lot B) :
 
 - `budget-detail-header.tsx` (nouveau)
 - `budget-detail-kpi-strip.tsx` (nouveau — remplace usage direct `BudgetKpiCards`)
@@ -241,54 +233,51 @@ Extension future possible : `Budget.portfolioType` enum (DIRECTION, SUPPORT, PRO
 
 ## Phase 0 — Préparation (0,5 j)
 
-- [ ] Valider exercice par défaut (dernier `ACTIVE` ou premier de `budget-exercise-options`)
-- [ ] Créer dossier `features/budgets/portfolio/`
-- [ ] Hooks query keys : `budgetQueryKeys.exerciseSummary(clientId, exerciseId)`, `exerciseBudgetsWithKpi(clientId, exerciseId, filters)`
+- [x] Valider exercice par défaut (dernier `ACTIVE` ou premier de `budget-exercise-options`)
+- [x] Hooks query keys : `budgetQueryKeys.exerciseSummary(clientId, exerciseId)`, `exerciseBudgetsWithKpi(clientId, exerciseId, filters)` — pas de dossier `features/budgets/portfolio/` (composants feature + kit `components/portfolio`)
 - [ ] Tests fixtures seed cockpit existant
 
 ## Phase 1 — Portefeuille home (2–3 j)
 
-1. `use-budgets-portfolio-filters.ts` — sync URL (`exerciseId`, `view`, `search`, `page`)
-2. `budgets-portfolio-consol.tsx` — `useExerciseSummaryQuery`
-3. `budgets-portfolio-card.tsx` + `card-grid.tsx`
-4. `budgets-portfolio-table.tsx` — colonnes mockup, mobile cartes (`DataTable` ou pattern projets)
-5. `budgets-portfolio-toolbar.tsx` — toggles DS
-6. Remplacer contenu `apps/web/src/app/(protected)/budgets/page.tsx` → `<BudgetsPortfolioPage />`
-7. Conserver `BudgetsTable` / `BudgetsToolbar` **deprecated** ou déplacer sous `/budgets/configuration` si encore utiles admin
+1. `use-budget-list-filters.ts` — sync URL (`exerciseId`, `view`, `search`, `status`, `page`)
+2. `budgets-portfolio-kpi.tsx` — `useExerciseReportingSummaryQuery`
+3. `budgets-portfolio-cards.tsx` + kit `PortfolioEntityCard`
+4. `budgets-table.tsx` — colonnes mockup, mobile cartes (`DataTable`)
+5. `budgets-toolbar.tsx` — toggles DS + `PortfolioViewToggle`
+6. `apps/web/src/app/(protected)/budgets/page.tsx` — portefeuille intégré
+7. `BudgetsTable` / `BudgetsToolbar` réutilisés sur `/budgets` (plus liste CRUD `GET /api/budgets` comme source principale)
 
 **DoD Phase 1**
 
-- [ ] Parité visuelle mockup home (structure, pas pixel-perfect)
-- [ ] Montants réels API reporting
-- [ ] Libellés exercice en UI (jamais UUID)
-- [ ] `pnpm --filter @starium-orchestra/web typecheck` + tests vitest hooks/format
+- [x] Parité visuelle mockup home (structure, pas pixel-perfect)
+- [x] Montants réels API reporting
+- [x] Libellés exercice en UI (jamais UUID)
+- [x] `pnpm --filter @starium-orchestra/web typecheck` + tests vitest format/export/filtres
 
 ## Phase 2 — Fiche budget (3–4 j)
 
+> **Voir le plan détaillé dans [RFC-FE-BUD-032](./RFC-FE-BUD-032%20%E2%80%94%20Fiche%20budget%20cockpit%20(refonte%20pr%C3%A9sentation%20%26%20fonctionnalit%C3%A9s).md) §5 et §9.** Ne plus implémenter uniquement les 6 points ci-dessous sans cette RFC.
+
 1. `budget-detail-header.tsx` — retour, Select budgets exercice, CTA
-2. `budget-detail-kpi-strip.tsx` — 5–6 KPI + barres (`BudgetKpiCard`)
-3. Refactor `budgets/[budgetId]/page.tsx` — layout `g-budget` / `mb-grid2`
-4. Brancher `BudgetMonthlyTrendCard` ou reporting burn chart
-5. Mapper `BudgetViewTabs` → libellés mockup (Synthèse / Catégories / Engagements)
-6. Filtre CAPEX/OPEX sur explorateur si `envelope.type` disponible
+2. `budget-detail-kpi-strip.tsx` — 5–6 KPI persistants
+3. Refactor `budgets/[budgetId]/page.tsx` — 3 zones
+4. Brancher alertes API + courbe
+5. Onglets métier RFC-FE-BUD-032 (pas les 7 modes historiques)
+6. Snapshots / import / export / direction formulaire
 
-**DoD Phase 2**
-
-- [ ] KPI strip unifiée (anti cadre-dans-cadre)
-- [ ] Navigation switch budget sans ID brut visible
-- [ ] Mobile 320px — cartes KPI 2 colonnes, table scroll contrôlé
+**DoD Phase 2** — critères d’acceptation RFC-FE-BUD-032 §8.
 
 ## Phase 3 — Actions & modales (2 j)
 
-1. CTA « Saisir une dépense » → `StariumModal` (workflow existant ou stub documenté)
-2. Export CSV portefeuille (`budget-portfolio-export.ts`)
-3. Lien Dashboard / Reporting depuis header fiche
+1. CTA « Saisir une dépense » → `StariumModal` (workflow existant ou stub documenté) — **Lot B / RFC-FE-BUD-032**
+2. [x] Export CSV portefeuille (`budget-portfolio-export.ts`)
+3. Lien Dashboard / Reporting depuis header fiche — **Lot B / RFC-FE-BUD-032**
 
 ## Phase 4 — Doc & dépréciation RFC-FE-003 (0,5 j)
 
-- [ ] Mettre à jour `docs/modules/budget-frontend.md`
-- [ ] Mettre à jour `docs/FRONTEND_ARCHITECTURE.md` § routes `/budgets`
-- [ ] Noter dans RFC-FE-003 : liste `/budgets` **supersédée visuellement** par RFC-FE-BUD-031
+- [x] Mettre à jour `docs/modules/budget-frontend.md`
+- [x] Mettre à jour `docs/FRONTEND_ARCHITECTURE.md` § routes `/budgets`
+- [x] Noter dans RFC-FE-003 : liste `/budgets` **supersédée visuellement** par RFC-FE-BUD-031
 
 ---
 
@@ -338,9 +327,8 @@ Extension future possible : `Budget.portfolioType` enum (DIRECTION, SUPPORT, PRO
 | Test | Cible |
 |------|-------|
 | `budget-portfolio-format.spec.ts` | % exécution, alerte dépassement, format montant |
-| `use-budgets-portfolio-filters.spec.ts` | sync URL exerciseId + view |
-| `budgets-portfolio-consol.spec.tsx` | rendu 5 KPI, état loading |
-| `budgets-portfolio-card.spec.tsx` | libellé budget, pas d’ID visible |
+| `budget-portfolio-export.spec.ts` | CSV headers + libellé statut, pas d’id budget |
+| `use-budget-list-filters.spec.ts` | sync URL `exerciseId` + `view` |
 | E2E manuel | clic carte → fiche, switch exercice, toggle cartes/table |
 
 ## Non-régression

@@ -1,10 +1,10 @@
-'use client';
+import { TableToneBadge } from '@/components/portfolio';
 
-import { Badge } from '@/components/ui/badge';
-import { workTeamStatusLabel } from '../lib/work-team-label-mappers';
-import type { WorkTeamStatus } from '../types/work-team.types';
-
-export function WorkTeamStatusBadge({ status }: { status: WorkTeamStatus }) {
-  const variant = status === 'ACTIVE' ? 'default' : 'secondary';
-  return <Badge variant={variant}>{workTeamStatusLabel(status)}</Badge>;
+export function WorkTeamStatusBadge({ status }: { status: string }) {
+  const isActive = status === 'ACTIVE';
+  return (
+    <TableToneBadge tone={isActive ? 'ok' : 'muted'}>
+      {isActive ? 'Active' : 'Archivée'}
+    </TableToneBadge>
+  );
 }

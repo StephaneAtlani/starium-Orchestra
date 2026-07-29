@@ -2,15 +2,16 @@
 
 import {
   CircleDollarSign,
-  PiggyBank,
   Scale,
   TrendingDown,
   Wallet,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
-import { KpiCard, type KpiCardFooterTone } from '@/components/ui/kpi-card';
+import { PortfolioKpiRow, type PortfolioKpiItem } from '@/components/portfolio';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BudgetSummaryKpi } from '../types/budget-reporting.types';
+import type { KpiCardFooterTone } from '@/components/ui/kpi-card';
 
 type BudgetPortfolioKpiDef = {
   id: string;
@@ -18,8 +19,15 @@ type BudgetPortfolioKpiDef = {
   Icon: LucideIcon;
   iconWrapperClassName: string;
   footerTone: KpiCardFooterTone;
-  value: (kpi: BudgetSummaryKpi | undefined, isLoading: boolean) => string;
-  footer: (kpi: BudgetSummaryKpi | undefined) => string | null;
+  value: (
+    kpi: BudgetSummaryKpi | undefined,
+    isLoading: boolean,
+    meta: { totalBudgets: number },
+  ) => string;
+  footer: (
+    kpi: BudgetSummaryKpi | undefined,
+    meta: { totalBudgets: number },
+  ) => string | null;
 };
 
 function formatCompactAmount(value: number | null | undefined, currency = 'EUR'): string {
@@ -40,20 +48,24 @@ function formatPercent(rate: number | undefined): string | null {
 const KPI_CARDS: BudgetPortfolioKpiDef[] = [
   {
     id: 'allocated',
-    label: 'Budget alloué',
+    label: 'Alloué',
     Icon: CircleDollarSign,
     iconWrapperClassName: 'bg-[color:var(--brand-gold)]/12 text-[color:var(--brand-gold-700)]',
     footerTone: 'brand',
     value: (kpi, isLoading) =>
       isLoading ? '—' : formatCompactAmount(kpi?.totalInitialAmount, kpi?.currency ?? 'EUR'),
-    footer: () => 'Base exercice sélectionné',
+    footer: (kpi, meta) => {
+      const pct = formatPercent(kpi?.consumptionRate);
+      const count = meta.totalBudgets > 0 ? `${meta.totalBudgets} budget${meta.totalBudgets > 1 ? 's' : ''}` : 'Base exercice';
+      return pct ? `${count} · ${pct}` : count;
+    },
   },
   {
     id: 'committed',
     label: 'Engagé',
     Icon: Scale,
-    iconWrapperClassName: 'bg-sky-500/12 text-sky-700 dark:text-sky-400',
-    footerTone: 'info',
+    iconWrapperClassName: 'bg-[color:var(--brand-gold)]/12 text-[color:var(--brand-gold-700)]',
+    footerTone: 'brand',
     value: (kpi, isLoading) =>
       isLoading ? '—' : formatCompactAmount(kpi?.totalCommittedAmount, kpi?.currency ?? 'EUR'),
     footer: (kpi) => formatPercent(kpi?.commitmentRate),
@@ -62,38 +74,44 @@ const KPI_CARDS: BudgetPortfolioKpiDef[] = [
     id: 'consumed',
     label: 'Consommé',
     Icon: TrendingDown,
-    iconWrapperClassName: 'bg-violet-500/12 text-violet-700 dark:text-violet-400',
-    footerTone: 'violet',
+    iconWrapperClassName: 'bg-[color:var(--state-info)]/12 text-[color:var(--state-info)]',
+    footerTone: 'info',
     value: (kpi, isLoading) =>
       isLoading ? '—' : formatCompactAmount(kpi?.totalConsumedAmount, kpi?.currency ?? 'EUR'),
     footer: (kpi) => formatPercent(kpi?.consumptionRate),
   },
   {
     id: 'remaining',
-    label: 'Reste disponible',
+    label: 'Reste',
     Icon: Wallet,
-    iconWrapperClassName: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400',
+    iconWrapperClassName: 'bg-[color:var(--state-success)]/12 text-[color:var(--state-success)]',
     footerTone: 'success',
-    value: (kpi, isLoading) =>
-      isLoading ? '—' : formatCompactAmount(kpi?.totalRemainingAmount, kpi?.currency ?? 'EUR'),
-    footer: (kpi) =>
-      kpi != null && kpi.totalRemainingAmount < 0 ? 'Budget dépassé' : 'Marge restante',
+    value: (kpi, isLoading) => {
+      if (isLoading) return '—';
+      return formatCompactAmount(kpi?.totalRemainingAmount, kpi?.currency ?? 'EUR');
+    },
+    footer: (kpi) => {
+      if (!kpi) return null;
+      return kpi.totalRemainingAmount < 0 ? 'Dépassement budgétaire' : 'Budget disponible';
+    },
   },
   {
     id: 'forecast',
-    label: 'Prévision fin',
-    Icon: PiggyBank,
-    iconWrapperClassName: 'bg-amber-500/12 text-amber-700 dark:text-amber-400',
+    label: 'Prévision',
+    Icon: TrendingUp,
+    iconWrapperClassName: 'bg-[color:var(--state-warning)]/12 text-[color:var(--state-warning)]',
     footerTone: 'warning',
-    value: (kpi, isLoading) =>
-      isLoading ? '—' : formatCompactAmount(kpi?.totalForecastAmount, kpi?.currency ?? 'EUR'),
+    value: (kpi, isLoading) => {
+      if (isLoading) return '—';
+      return formatCompactAmount(kpi?.totalForecastAmount, kpi?.currency ?? 'EUR');
+    },
     footer: (kpi) => {
       if (!kpi) return null;
-      const delta = kpi.totalForecastAmount - kpi.totalInitialAmount;
-      if (!Number.isFinite(delta)) return null;
-      if (delta > 0) return 'Atterrissage au-dessus du budget';
-      if (delta < 0) return 'Atterrissage sous le budget';
-      return 'Atterrissage sur cible';
+      const gap = kpi.forecastGapAmount;
+      if (gap != null && Number.isFinite(gap) && gap > 0) {
+        return `Écart +${formatCompactAmount(gap, kpi.currency ?? 'EUR')}`;
+      }
+      return 'Prévision dans le budget';
     },
   },
 ];
@@ -116,14 +134,18 @@ function KpiCardSkeleton() {
 export function BudgetsPortfolioKpi({
   kpi,
   isLoading,
+  totalBudgets = 0,
 }: {
   kpi: BudgetSummaryKpi | undefined;
   isLoading: boolean;
+  totalBudgets?: number;
 }) {
+  const meta = { totalBudgets };
+
   if (isLoading && !kpi) {
     return (
-      <section className="starium-module" data-testid="budgets-portfolio-kpi">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 sm:gap-3">
+      <section className="starium-module" aria-live="polite" data-testid="budgets-portfolio-kpi">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 sm:gap-3">
           {KPI_CARDS.map((card) => (
             <KpiCardSkeleton key={card.id} />
           ))}
@@ -132,23 +154,23 @@ export function BudgetsPortfolioKpi({
     );
   }
 
-  return (
-    <section className="starium-module" data-testid="budgets-portfolio-kpi">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5 sm:gap-3">
-        {KPI_CARDS.map((card) => (
-          <KpiCard
-            key={card.id}
-            variant="dense"
-            iconShape="circle"
-            title={card.label}
-            value={card.value(kpi, isLoading)}
-            footer={card.footer(kpi) ?? undefined}
-            footerTone={card.footerTone}
-            iconWrapperClassName={card.iconWrapperClassName}
-            icon={<card.Icon aria-hidden />}
-          />
-        ))}
-      </div>
-    </section>
-  );
+  const items: PortfolioKpiItem[] = KPI_CARDS.map((card) => ({
+    id: card.id,
+    title: card.label,
+    value: card.value(kpi, isLoading, meta),
+    footer: card.footer(kpi, meta) ?? undefined,
+    footerTone: card.footerTone === 'success' && kpi && kpi.totalRemainingAmount < 0
+      ? 'danger' as KpiCardFooterTone
+      : card.footerTone === 'warning' && kpi?.forecastGapAmount != null && kpi.forecastGapAmount > 0
+        ? 'danger' as KpiCardFooterTone
+        : card.footerTone,
+    iconWrapperClassName: card.id === 'remaining' && kpi && kpi.totalRemainingAmount < 0
+      ? 'bg-destructive/12 text-destructive'
+      : card.id === 'forecast' && kpi?.forecastGapAmount != null && kpi.forecastGapAmount > 0
+        ? 'bg-destructive/12 text-destructive'
+        : card.iconWrapperClassName,
+    icon: <card.Icon aria-hidden />,
+  }));
+
+  return <PortfolioKpiRow items={items} aria-live="polite" data-testid="budgets-portfolio-kpi" />;
 }

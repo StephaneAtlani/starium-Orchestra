@@ -41,6 +41,8 @@ interface DataTableProps<T> {
   isLoading?: boolean;
   error?: Error | null;
   getRowId: (row: T) => string;
+  /** Classes CSS additionnelles par ligne (table desktop). */
+  getRowClassName?: (row: T) => string | undefined;
   emptyTitle?: string;
   emptyDescription?: string;
   onRetry?: () => void;
@@ -56,6 +58,7 @@ export function DataTable<T>({
   isLoading = false,
   error = null,
   getRowId,
+  getRowClassName,
   emptyTitle,
   emptyDescription,
   onRetry,
@@ -99,7 +102,7 @@ export function DataTable<T>({
       </TableHeader>
       <TableBody>
         {data.map((row) => (
-          <TableRow key={getRowId(row)}>
+          <TableRow key={getRowId(row)} className={getRowClassName?.(row)}>
             {columns.map((col) => (
               <TableCell key={col.key} className={col.className}>
                 {renderCellContent(col, row)}

@@ -14,12 +14,13 @@ import { RISK_PI_SCALE_LABEL } from '../../constants/project-enum-labels';
 import type { ProjectRiskRegistryRow } from '../hooks/use-project-risks-registry-query';
 import type { RisksRegistrySortKey } from '../lib/risks-registry-table-sort';
 import {
-  riskCriticalityDsBadgeClass,
   riskCriticalityLabel,
+  riskCriticalityTone,
   riskPiShortLabel,
   riskPiTone,
   riskPiToneClass,
 } from '../../lib/project-risk-display';
+import { TableToneBadge } from '@/components/portfolio';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 25;
@@ -302,9 +303,9 @@ function RiskRegistryRow({
       <td>
         <div className="flex flex-col gap-1">
           <span className="tabular-nums text-sm font-semibold">{r.criticalityScore}</span>
-          <span className={cn('starium-ds-badge w-fit', riskCriticalityDsBadgeClass(r.criticalityLevel))}>
+          <TableToneBadge tone={riskCriticalityTone(r.criticalityLevel)}>
             {riskCriticalityLabel(r.criticalityLevel)}
-          </span>
+          </TableToneBadge>
         </div>
       </td>
       <td className="max-w-[12rem]">
@@ -315,9 +316,9 @@ function RiskRegistryRow({
       </td>
       <td>
         {r.residualRiskLevel ? (
-          <span className={cn('starium-ds-badge', riskCriticalityDsBadgeClass(r.residualRiskLevel))}>
+          <TableToneBadge tone={riskCriticalityTone(r.residualRiskLevel)}>
             {riskCriticalityLabel(r.residualRiskLevel)}
-          </span>
+          </TableToneBadge>
         ) : (
           <span className="text-muted-foreground">—</span>
         )}
