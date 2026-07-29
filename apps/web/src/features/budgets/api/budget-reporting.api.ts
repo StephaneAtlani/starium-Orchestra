@@ -18,6 +18,40 @@ import type {
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
+/** Forme renvoyée par Nest (`BudgetWithKpi`) — champs budget à la racine, pas sous `budget`. */
+interface BudgetWithKpiApiRow {
+  id: string;
+  name: string;
+  code: string | null;
+  currency: string;
+  status: string;
+  kpi: BudgetSummaryKpi;
+}
+
+function isNestedBudgetListItem(
+  item: BudgetWithKpiApiRow | BudgetListItemWithKpi,
+): item is BudgetListItemWithKpi {
+  return 'budget' in item && typeof item.budget?.id === 'string';
+}
+
+function normalizeBudgetListItem(
+  item: BudgetWithKpiApiRow | BudgetListItemWithKpi,
+): BudgetListItemWithKpi {
+  if (isNestedBudgetListItem(item)) {
+    return item;
+  }
+  return {
+    budget: {
+      id: item.id,
+      name: item.name,
+      code: item.code,
+      currency: item.currency,
+      status: item.status,
+    },
+    kpi: item.kpi,
+  };
+}
+
 const BASE = '/api/budget-reporting';
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -54,7 +88,11 @@ export async function listBudgetsForExercise(
 ): Promise<PaginatedReportingResponse<BudgetListItemWithKpi>> {
   const qs = buildQueryString(query as Record<string, string | number | boolean | undefined>);
   const res = await authFetch(`${BASE}/exercises/${exerciseId}/budgets${qs}`);
-  return handleResponse<PaginatedReportingResponse<BudgetListItemWithKpi>>(res);
+  const raw = await handleResponse<PaginatedReportingResponse<BudgetWithKpiApiRow>>(res);
+  return {
+    ...raw,
+    items: raw.items.map(normalizeBudgetListItem),
+  };
 }
 
 /** GET renvoie directement les KPI agrégés (pas d’enveloppe `{ kpi }` — aligné Nest `BudgetReportingService.getBudgetSummary`). */

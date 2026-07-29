@@ -7,28 +7,28 @@ import { DataTable } from '@/components/data-table/data-table';
 import type { DataTableColumn } from '@/components/data-table/data-table';
 import { BudgetStatusBadge } from './budget-status-badge';
 import { budgetDetail } from '../constants/budget-routes';
-import type { BudgetSummary, BudgetExerciseSummary } from '../types/budget-list.types';
+import type { BudgetListItemWithKpi } from '../types/budget-reporting.types';
 import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
 
-function formatDate(value: string | undefined): string {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch (_) {
-    return '—';
-  }
+function formatAmount(value: number, currency: string): string {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatPercent(rate: number | undefined): string {
+  if (rate == null || !Number.isFinite(rate)) return '—';
+  return `${Math.round(rate * 100)} %`;
 }
 
 interface BudgetsTableProps {
-  data: BudgetSummary[];
-  exerciseOptions: BudgetExerciseSummary[];
+  data: BudgetListItemWithKpi[];
+  exerciseId: string;
   dataTestId?: string;
 }
 
@@ -38,37 +38,32 @@ interface BudgetsTableProps {
  */
 export function BudgetsTable({
   data,
-  exerciseOptions,
+  exerciseId,
   dataTestId = 'budgets-table',
 }: BudgetsTableProps) {
   const { activeClient } = useActiveClient();
 
-  const persistCockpitSelection = (row: BudgetSummary) => {
+  const persistCockpitSelection = (row: BudgetListItemWithKpi) => {
     if (!activeClient?.id) return;
     saveBudgetCockpitSelection(activeClient.id, {
-      exerciseId: row.exerciseId,
-      budgetId: row.id,
+      exerciseId,
+      budgetId: row.budget.id,
     });
   };
 
-  const getExerciseLabel = (exerciseId: string): string => {
-    const ex = exerciseOptions.find((e) => e.id === exerciseId);
-    return ex ? ex.name : exerciseId;
-  };
-
-  const columns = useMemo<DataTableColumn<BudgetSummary>[]>(
+  const columns = useMemo<DataTableColumn<BudgetListItemWithKpi>[]>(
     () => [
       {
         key: 'name',
-        header: 'Nom',
+        header: 'Budget',
         mobilePriority: 'primary',
         cell: (row) => (
           <Link
-            href={budgetDetail(row.id)}
+            href={budgetDetail(row.budget.id)}
             className="font-medium text-primary hover:underline"
             onClick={() => persistCockpitSelection(row)}
           >
-            {row.name}
+            {row.budget.name}
           </Link>
         ),
       },
@@ -76,37 +71,43 @@ export function BudgetsTable({
         key: 'code',
         header: 'Code',
         mobilePriority: 'secondary',
-        cell: (row) => row.code ?? '—',
+        cell: (row) => row.budget.code ?? '—',
       },
       {
-        key: 'exercise',
-        header: 'Exercice',
+        key: 'allocated',
+        header: 'Alloué',
         mobilePriority: 'secondary',
-        cell: (row) => row.exerciseName ?? getExerciseLabel(row.exerciseId),
+        cell: (row) => formatAmount(row.kpi.totalInitialAmount, row.kpi.currency ?? row.budget.currency),
       },
       {
-        key: 'currency',
-        header: 'Devise',
+        key: 'committed',
+        header: 'Engagé',
         mobilePriority: 'secondary',
-        cell: (row) => row.currency,
+        cell: (row) => formatAmount(row.kpi.totalCommittedAmount, row.kpi.currency ?? row.budget.currency),
+      },
+      {
+        key: 'consumed',
+        header: 'Consommé',
+        mobilePriority: 'secondary',
+        cell: (row) => formatAmount(row.kpi.totalConsumedAmount, row.kpi.currency ?? row.budget.currency),
+      },
+      {
+        key: 'remaining',
+        header: 'Reste',
+        mobilePriority: 'secondary',
+        cell: (row) => formatAmount(row.kpi.totalRemainingAmount, row.kpi.currency ?? row.budget.currency),
+      },
+      {
+        key: 'execution',
+        header: 'Exécution',
+        mobilePriority: 'secondary',
+        cell: (row) => formatPercent(row.kpi.consumptionRate),
       },
       {
         key: 'status',
-        header: 'Statut',
+        header: 'État',
         mobilePriority: 'secondary',
-        cell: (row) => <BudgetStatusBadge status={row.status} />,
-      },
-      {
-        key: 'owner',
-        header: 'Responsable',
-        mobilePriority: 'secondary',
-        cell: (row) => row.ownerUserName ?? '—',
-      },
-      {
-        key: 'createdAt',
-        header: 'Créé le',
-        mobilePriority: 'secondary',
-        cell: (row) => formatDate(row.createdAt),
+        cell: (row) => <BudgetStatusBadge status={row.budget.status as any} />,
       },
       {
         key: 'actions',
@@ -114,7 +115,7 @@ export function BudgetsTable({
         mobilePriority: 'actions',
         cell: (row) => (
           <Link
-            href={budgetDetail(row.id)}
+            href={budgetDetail(row.budget.id)}
             className={cn(
               'inline-flex min-h-11 items-center gap-1 rounded-md px-2 py-1.5 text-sm',
               'hover:bg-muted hover:text-foreground',
@@ -127,8 +128,7 @@ export function BudgetsTable({
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- exerciseOptions labels
-    [exerciseOptions, activeClient?.id],
+    [activeClient?.id],
   );
 
   return (
@@ -137,7 +137,7 @@ export function BudgetsTable({
         <DataTable
           columns={columns}
           data={data}
-          getRowId={(row) => row.id}
+          getRowId={(row) => row.budget.id}
           mobileCardsAriaLabel="Liste des budgets"
           emptyTitle="Aucun budget"
           emptyDescription="Aucun budget ne correspond aux filtres."

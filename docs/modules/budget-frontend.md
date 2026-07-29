@@ -1,6 +1,6 @@
-# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003), explorateur (RFC-FE-004), cockpit (RFC-FE-002), formulaires (RFC-FE-015) et forecast / comparaison (RFC-FE-BUD-030)
+# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003), portefeuille (RFC-FE-BUD-031), explorateur (RFC-FE-004), cockpit (RFC-FE-002), formulaires (RFC-FE-015) et forecast / comparaison (RFC-FE-BUD-030)
 
-Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md), [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md), [RFC-FE-015 — Budget Forms UX](../RFC/RFC-FE-015%20—%20Budget%20Forms%20UX.md), [RFC-FE-BUD-030 — Forecast & Comparaison budgétaire UI](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md). **Vue cockpit** (`/budgets/dashboard`) : voir [Budget Cockpit — UI & intégration](budget-cockpit.md).
+Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md), [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md), [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md), [RFC-FE-015 — Budget Forms UX](../RFC/RFC-FE-015%20—%20Budget%20Forms%20UX.md), [RFC-FE-BUD-030 — Forecast & Comparaison budgétaire UI](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md). **Vue cockpit** (`/budgets/dashboard`) : voir [Budget Cockpit — UI & intégration](budget-cockpit.md).
 
 ---
 
@@ -240,7 +240,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 
 | Route | Contenu |
 |-------|---------|
-| `/budgets` | **Liste principale des budgets** (RFC-FE-003) : table paginée, filtres, sync URL |
+| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 — plan) : consolidation exercice, cartes/table KPI, choix budget ; remplace visuellement la liste RFC-FE-003 |
 | `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
 | `/budgets/exercises/new` | **Création exercice** (RFC-FE-015) |
@@ -305,7 +305,7 @@ Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` �
 - [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md)
 - [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md) — listes paginées, filtres, sync URL
 - [RFC-FE-003 — Conformité](../RFC/RFC-FE-003-conformite.md)
-- [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md) — page cockpit `/budgets/[budgetId]`, tableau hiérarchique, tree/filteredTree, pagination complète
+- [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) — `/budgets` portefeuille, alignement fiche budget
 - [Module Budget MVP (backend)](budget-mvp.md)
 - [API.md](../API.md) §15 (Budget Management), §16 (Financial Core), §18 (Budget Reporting), §18.1 (Budget Dashboard)
 - [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) (architecture frontend globale)

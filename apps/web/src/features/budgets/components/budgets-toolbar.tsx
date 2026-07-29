@@ -15,13 +15,20 @@ import {
 } from '@/components/ui/select';
 import { useBudgetsListFilters } from '../hooks/use-budget-list-filters';
 import { useBudgetExerciseOptionsQuery } from '../hooks/use-budget-exercise-options-query';
-import { BUDGET_STATUS_OPTIONS, LIMIT_OPTIONS } from '../constants/budget-filters';
+import { BUDGET_STATUS_OPTIONS } from '../constants/budget-filters';
 import type { BudgetsListParams } from '../types/budget-list.types';
-import { RotateCcw } from 'lucide-react';
+import { LayoutGrid, List, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const DEBOUNCE_MS = 300;
 
-export function BudgetsToolbar() {
+export function BudgetsToolbar({
+  viewMode,
+  onViewModeChange,
+}: {
+  viewMode?: 'cards' | 'table';
+  onViewModeChange?: (mode: 'cards' | 'table') => void;
+} = {}) {
   const { filters, setFilters, reset } = useBudgetsListFilters();
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
   const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery();
@@ -50,116 +57,119 @@ export function BudgetsToolbar() {
     setFilters({ exerciseId: value === '__all__' || !value ? undefined : value, page: 1 });
   };
 
-  const handleLimitChange = (value: string | null) => {
-    setFilters({ limit: value ? Number(value) : 20, page: 1 });
-  };
-
   return (
-    <TableToolbar>
-      <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <FilterBar aria-label="Filtres budgets" className="flex-1" desktopColumns="auto">
-          <FilterBarField id="budgets-search" label="Recherche">
-            {({ controlId }) => (
-              <Input
+    <TableToolbar className="block py-2">
+      <FilterBar
+        aria-label="Filtres budgets"
+        className="!grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] !items-end"
+        desktopColumns={3}
+      >
+        <FilterBarField id="budgets-search" label="Recherche">
+          {({ controlId }) => (
+            <Input
+              id={controlId}
+              placeholder="Rechercher (nom, code)…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full min-w-0"
+              data-testid="budgets-search"
+            />
+          )}
+        </FilterBarField>
+        <FilterBarField id="budgets-exercise" label="Exercice">
+          {({ controlId, labelId }) => (
+            <Select
+              value={filters.exerciseId ?? '__all__'}
+              onValueChange={handleExerciseChange}
+            >
+              <SelectTrigger
                 id={controlId}
-                placeholder="Rechercher (nom, code)…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full"
-                data-testid="budgets-search"
-              />
-            )}
-          </FilterBarField>
-          <FilterBarField id="budgets-exercise" label="Exercice">
-            {({ controlId, labelId }) => (
-              <Select
-                value={filters.exerciseId ?? '__all__'}
-                onValueChange={handleExerciseChange}
+                aria-labelledby={labelId}
+                className="w-full min-w-0"
+                data-testid="budgets-exercise"
               >
-                <SelectTrigger
-                  id={controlId}
-                  aria-labelledby={labelId}
-                  className="w-full"
-                  data-testid="budgets-exercise"
-                >
-                  <SelectValue placeholder="Exercice">
-                    {(v) => {
-                      if (v === '__all__' || v == null) return 'Tous les exercices';
-                      const ex = exerciseOptions.find((e) => e.id === v);
-                      if (!ex) return 'Exercice';
-                      return `${ex.name}${ex.code ? ` (${ex.code})` : ''}`.trim();
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Tous les exercices</SelectItem>
-                  {exerciseOptions.map((ex) => (
-                    <SelectItem key={ex.id} value={ex.id}>
-                      {ex.name} {ex.code ? `(${ex.code})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FilterBarField>
-          <FilterBarField id="budgets-status" label="Statut">
-            {({ controlId, labelId }) => (
-              <Select value={filters.status ?? 'ALL'} onValueChange={handleStatusChange}>
-                <SelectTrigger
-                  id={controlId}
-                  aria-labelledby={labelId}
-                  className="w-full"
-                  data-testid="budgets-status"
-                >
-                  <SelectValue placeholder="Statut">
-                    {BUDGET_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
-                      ?.label ?? 'Tous statuts'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {BUDGET_STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FilterBarField>
-          <FilterBarField id="budgets-limit" label="Pagination">
-            {({ controlId, labelId }) => (
-              <Select value={String(filters.limit ?? 20)} onValueChange={handleLimitChange}>
-                <SelectTrigger
-                  id={controlId}
-                  aria-labelledby={labelId}
-                  className="w-full"
-                  data-testid="budgets-limit"
-                >
-                  <SelectValue>{`${filters.limit ?? 20} / page`}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {LIMIT_OPTIONS.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
-                      {n} / page
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FilterBarField>
-        </FilterBar>
-        <div className="flex shrink-0 flex-wrap gap-2">
+                <SelectValue placeholder="Exercice">
+                  {(v) => {
+                    if (v === '__all__' || v == null) return 'Tous les exercices';
+                    const ex = exerciseOptions.find((e) => e.id === v);
+                    if (!ex) return 'Exercice';
+                    return `${ex.name}${ex.code ? ` (${ex.code})` : ''}`.trim();
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tous les exercices</SelectItem>
+                {exerciseOptions.map((ex) => (
+                  <SelectItem key={ex.id} value={ex.id}>
+                    {ex.name} {ex.code ? `(${ex.code})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <FilterBarField id="budgets-status" label="Statut">
+          {({ controlId, labelId }) => (
+            <Select value={filters.status ?? 'ALL'} onValueChange={handleStatusChange}>
+              <SelectTrigger
+                id={controlId}
+                aria-labelledby={labelId}
+                className="w-full min-w-0"
+                data-testid="budgets-status"
+              >
+                <SelectValue placeholder="Statut">
+                  {BUDGET_STATUS_OPTIONS.find((o) => o.value === (filters.status ?? 'ALL'))
+                    ?.label ?? 'Tous statuts'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {BUDGET_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FilterBarField>
+        <div className="flex shrink-0 items-end gap-2">
+          {viewMode && onViewModeChange ? (
+            <div
+              className="starium-tab-group grid min-h-11 grid-cols-2 sm:min-h-9"
+              role="tablist"
+              aria-label="Mode d'affichage des budgets"
+            >
+              <button
+                type="button"
+                className={cn('starium-tab-btn', viewMode === 'cards' && 'starium-tab-btn--active')}
+                aria-pressed={viewMode === 'cards'}
+                onClick={() => onViewModeChange('cards')}
+              >
+                <LayoutGrid className="size-4" aria-hidden />
+                Cartes
+              </button>
+              <button
+                type="button"
+                className={cn('starium-tab-btn', viewMode === 'table' && 'starium-tab-btn--active')}
+                aria-pressed={viewMode === 'table'}
+                onClick={() => onViewModeChange('table')}
+              >
+                <List className="size-4" aria-hidden />
+                Tableau
+              </button>
+            </div>
+          ) : null}
           <Button
             variant="outline"
             onClick={reset}
-            className="w-full sm:w-auto"
+            className="min-h-11 shrink-0 sm:min-h-9"
             data-testid="budgets-reset"
           >
             <RotateCcw className="size-4" />
             Réinitialiser
           </Button>
         </div>
-      </div>
+      </FilterBar>
     </TableToolbar>
   );
 }
