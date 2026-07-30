@@ -84,8 +84,8 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 | `.starium-section-subtitle` | Sous-titre carte / `CardDescription` — token `--ds-section-subtitle-size` | — |
 | `.starium-stack` | Empilement vertical de blocs page ou fiche — token `--ds-stack-gap` (2rem) ; utilisé par `PageContainer` et `ProjectSheetView` | — |
 | `.starium-filter-bar` | Barre « Filtrer et trier » (titre + actions) dans un panneau liste | — |
-| `.starium-filter-chip` | Bouton filtre outline ; `--active` = fond or ; `--muted` = Réinitialiser | — |
-| `.starium-tab-group` / `.starium-tab-btn` | Segmented control Tableau / Kanban (actif = or) | — |
+| `.starium-filter-chip` | Bouton filtre pilule (tokens `--control-*`) ; `--active` = fond encre / texte blanc ; `--reset` = Réinitialiser atténué | — |
+| `.starium-tab-group` / `.starium-tab-btn` | Segmented control pilule (conteneur blanc bordé ; actif = encre) | — |
 | `.starium-projects-table` | Densité et en-têtes overline du tableau portefeuille Projets ; sous-classes `starium-projects-table-label-row` (ligne libellés) et `starium-projects-table-filter-row` (filtres inline) — voir §7.2 | — |
 | `.starium-table-footer` | Pied pagination panneau liste (mockup Projets) | — |
 | `.starium-overline` | Libellé uppercase 11px (groupes compacts) | — |
@@ -97,7 +97,9 @@ Pas de markup ad hoc (`<p>Chargement…</p>`, divs vides custom) dans les featur
 
 **Composants** : `KpiCard` (`components/ui/kpi-card.tsx`, prop `iconWrapperClassName` pour pastilles colorées) et `BudgetKpiCard` consomment `.starium-kpi-card`. `ProjectsPortfolioKpi` consomme `.starium-module` + `KpiCard`. `Card` / `.starium-card` restent pour tableaux, modales, contenus non-KPI.
 
-**Modifier la charte globalement** : ajuster les tokens `--ds-card-*`, `--ds-kpi-*` dans `tokens.css` ou les règles `.starium-*` dans `globals.css` — pas les chaînes Tailwind répétées dans chaque feature.
+**Modifier la charte globalement** : ajuster les tokens `--ds-card-*`, `--ds-kpi-*`, `--control-*` dans `tokens.css` ou les règles `.starium-*` dans `globals.css` — pas les chaînes Tailwind répétées dans chaque feature.
+
+**Contrôles interactifs (charte « pilule »)** : boutons (`button-variants.ts`), chips (`.starium-filter-chip`), segmented (`.starium-tab-*`, Gantt), `Switch`, `Checkbox`, `Tabs` `variant="default"` — tokens `--control-*` (`tokens.css`). CTA / état actif = **encre** (`--control-active-bg`) texte blanc ; secondaires = blancs bordés (`--control-border`) ; rayon = `--control-radius` (pilule). L’or reste la signature d’accent (KPI, nav active, liens, focus ring, icône modale) — pas le fond des CTA. Détail : [design-system/README.md](./design-system/README.md) § Boutons et contrôles.
 
 ---
 
@@ -207,6 +209,16 @@ Fond de page app : `.starium-workspace-sheet` → `var(--starium-background)` (`
 
 `Button` repose sur **Base UI** : la prop `**asChild` (habitude Radix/shadcn) ne doit pas être passée au DOM**. Elle est **consommée** dans le wrapper et ignorée pour le rendu.
 
+Variantes CVA dans `apps/web/src/components/ui/button-variants.ts` (module sans `"use client"`, safe côté Server Components) :
+
+| `variant` | Rendu (tokens `--control-*`) |
+| --------- | ---------------------------- |
+| `default` | Pilule pleine **encre**, texte blanc — CTA primaire |
+| `outline` / `secondary` | Pilule blanche bordée `--control-border` — actions secondaires |
+| `ghost` | Pilule transparente, fond neutre au survol |
+| `destructive` | Pilule outline rouge |
+| `link` | Texte lien (or / `text-primary`), sans pilule |
+
 Pour un **lien** avec l’apparence d’un bouton, utiliser `**Link` + `buttonVariants`** :
 
 ```tsx
@@ -235,13 +247,14 @@ function Button({
   className,
   variant = "default",
   size = "default",
-  asChild: _asChild,
+  asChild,
   ...props
 }: ButtonProps) {
+  const Comp = asChild ? "span" : ButtonPrimitive;
   return (
-    <ButtonPrimitive
+    <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />
   );
@@ -348,7 +361,7 @@ L’écran **`/projects`** regroupe **filtres, liste et pagination** dans une **
   - **En retard**, **Mes projets** — `.starium-filter-chip` toggle.
   - **Plein écran** — `requestFullscreen` sur `#starium-app-workspace`.
   - **Toutes les colonnes** / **Colonnes de base** — bascule densité tableau (`columnDensity` : `basic` | `extended`, persistance `localStorage` clé `starium.projects.tableColumnDensity`) ; visible uniquement en mode **Tableau**.
-  - **Réinitialiser** — `.starium-filter-chip--muted`.
+  - **Réinitialiser** — `.starium-filter-chip--reset`.
 
 ### 7.1.1 Portals en plein écran (Select / Tooltip / Dialog)
 
@@ -705,7 +718,7 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (layout **`starium
 | **Fermeture** | `showCloseButton` (défaut `true`) ; `aria-label="Fermer"`. |
 | **Corps** | `.starium-modal__body` ; formulaires `.starium-form` + `.starium-form-*`. |
 | **Statut** | `.starium-modal__status` — bandeau sous le header (icône + badge + hint ; variante riche dans l’éditeur point projet) |
-| **Pied** | `.starium-modal__footer` : Annuler `outline` + primaire or, alignés à droite. |
+| **Pied** | `.starium-modal__footer` : Annuler `outline` + primaire encre (pilule), alignés à droite. |
 
 #### 11.4.1 Modale Starium — gabarit obligatoire
 

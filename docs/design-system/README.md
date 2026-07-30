@@ -415,11 +415,12 @@ font-weight: 600;
 
 | Artefact | Rôle |
 |----------|------|
-| `apps/web/src/styles/tokens.css` | Tokens DS + `--ds-*` (rayon, ombre, KPI) |
-| `apps/web/src/app/globals.css` | Pont shadcn, `.starium-card`, `.starium-module`, `.starium-kpi-card`, `.starium-kpi-strip`, `.starium-filter-bar` / `.starium-filter-chip`, `.starium-panel`, `.starium-projects-table`, remap `@theme` |
+| `apps/web/src/styles/tokens.css` | Tokens DS + `--ds-*` (rayon, ombre, KPI) + `--control-*` (boutons, chips, segmented, switch) |
+| `apps/web/src/app/globals.css` | Pont shadcn, `.starium-card`, `.starium-module`, `.starium-kpi-card`, `.starium-kpi-strip`, `.starium-filter-bar` / `.starium-filter-chip`, `.starium-tab-group` / `.starium-tab-btn`, `.starium-panel`, `.starium-projects-table`, remap `@theme` |
+| `apps/web/src/components/ui/button-variants.ts` | Variantes CVA boutons (pilule encre / outline / ghost / destructive) |
 | `apps/web/src/components/ui/kpi-card.tsx` | Score card KPI partagée (dashboard, budgets) |
 | `features/projects/components/projects-portfolio-kpi.tsx` | KPI portefeuille `/projects` (`.starium-module` + 4 × `KpiCard` dense ; `.starium-kpi-strip` reste en CSS pour autres écrans) |
-| [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §2.1 | Règles « pas de cadre dans cadre » et patterns cockpit |
+| [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §2.1 / §5 | Règles « pas de cadre dans cadre », charte contrôles, patterns cockpit |
 
 ---
 

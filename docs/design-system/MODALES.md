@@ -38,7 +38,7 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 │  (.starium-form, .starium-modal-seg-title)  │
 │                                             │
 ├─────────────────────────────────────────────┤
-│                    [Annuler]  [Action or]   │  ← DialogFooter (.starium-modal__footer)
+│                    [Annuler]  [Action encre] │  ← DialogFooter (.starium-modal__footer)
 └─────────────────────────────────────────────┘
 ```
 
@@ -171,7 +171,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Bouton | Variant | Position |
 |--------|---------|----------|
 | Annuler / Fermer | `outline` | Droite, avant l’action primaire |
-| Action principale | `default` (or) | Dernier à droite |
+| Action principale | `default` (pilule encre) | Dernier à droite |
 | Destructif | `destructive` ou outline rouge | Gauche du groupe **uniquement** si suppression explicite |
 
 - Cibles tactiles : `min-h-11` sur mobile, `sm:min-h-9` acceptable desktop.

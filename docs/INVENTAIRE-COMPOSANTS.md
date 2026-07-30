@@ -14,11 +14,11 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `PermissionGate` - `components/PermissionGate.tsx` - controle l'acces a permission.
 - `RequireActiveClient` - `components/RequireActiveClient.tsx` - gere l'interface de require active client.
 
-## UI partagee (17)
+## UI partagee (18)
 
 - `alert` - `components/ui/alert.tsx` - gere l'interface de alerte.
 - `badge` - `components/ui/badge.tsx` - affiche un badge ou un etat pour badge.
-- `button` - `components/ui/button.tsx` - gere l'interface de button.
+- `button` - `components/ui/button.tsx` (+ `button-variants.ts`) - boutons pilule (`default` = encre, `outline`/`secondary` = blanc bordé, `ghost`, `destructive`) ; tokens `--control-*`.
 - `card` - `components/ui/card.tsx` - affiche une carte de synthese pour carte.
 - `dialog` - `components/ui/dialog.tsx` - modale Starium par défaut (`layout="starium"`, centré, `size`, `DialogBody` scroll) ; exports `DialogHeader`, `DialogHeaderIcon`, `DialogHeaderClose`, `DialogBody`, `DialogFooter`. Voir `docs/design-system/MODALES.md`.
 - `icon-button` - `components/ui/icon-button.tsx` - bouton icone (wrapper `Button`, `aria-label` requis).
@@ -28,9 +28,10 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `phone-input` - `components/ui/phone-input.tsx` - gere l'interface de phone.
 - `select` - `components/ui/select.tsx` - gere l'interface de select.
 - `skeleton` - `components/ui/skeleton.tsx` - affiche l'etat de chargement pour skeleton.
-- `switch` - `components/ui/switch.tsx` - gere l'interface de switch.
+- `switch` - `components/ui/switch.tsx` - interrupteur (`role="switch"`) ; coché = encre (`--control-active-bg`).
 - `table` - `components/ui/table.tsx` - affiche un tableau pour tableau.
-- `tabs` - `components/ui/tabs.tsx` - organise les onglets pour onglets.
+- `tabs` - `components/ui/tabs.tsx` - onglets : `variant="default"` = segmented pilule encre ; `variant="line"` = soulignement or (navigation de page).
+- `checkbox` - `components/ui/checkbox.tsx` - case a cocher ; cochee = encre (`--control-active-bg`).
 - `tooltip` - `components/ui/tooltip.tsx` - affiche une infobulle pour infobulle.
 - `client-badges-admin-panel` - `features/ui/components/client-badges-admin-panel.tsx` - affiche un panneau pour client badges admin.
 
