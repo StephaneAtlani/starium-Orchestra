@@ -1,0 +1,81 @@
+# =============================================================================
+# Starium Orchestra — Docker Compose PRÉPROD
+# =============================================================================
+#
+# Stack prod-like (`docker-compose.yml`) + MailHog : capture SMTP obligatoire.
+# Les DCP / e-mails clients sont réels en préprod (UAT) — aucun envoi ne doit
+# sortir vers Internet.
+#
+# Usage :
+#   docker compose -f docker-compose.yml -f docker-compose.preprod.yml up -d --build
+#
+# UI MailHog : http://127.0.0.1:8025
+# SMTP interne : mailhog:1025 (forcé sur api + api-worker, écrase .env / Brevo)
+#
+# Projet Compose isolé (`starium-preprod`) pour ne pas mélanger volumes / réseau
+# avec un éventuel `docker compose` prod-like local.
+#
+# Secrets hors SMTP : `.env` racine (JWT_SECRET, MFA_ENCRYPTION_KEY, …).
+# MFA_ENCRYPTION_KEY doit être identique à la prod si MFA activé pour les clients.
+# =============================================================================
+
+name: starium-preprod
+
+services:
+  mailhog:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    # UI consultable par les opérateurs ; SMTP non publié sur l’hôte (réseau Docker uniquement).
+    ports:
+      - "127.0.0.1:8025:8025"
+    expose:
+      - "1025"
+    # MailHog n’a pas de healthcheck officiel ; started suffit pour depends_on.
+
+  api:
+    environment:
+      # Force sandbox — écrase SMTP_* venant de env_file / .env (Brevo, etc.).
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: ${SMTP_FROM:-noreply@preprod.starium.local}
+      SMTP_REQUIRE_TLS: "false"
+      # File BullMQ comme en prod (worker obligatoire).
+      EMAIL_DELIVERIES_INLINE: ""
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://preprod.starium.xyz}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://preprod.starium.xyz}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+
+  api-worker:
+    environment:
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: ${SMTP_FROM:-noreply@preprod.starium.local}
+      SMTP_REQUIRE_TLS: "false"
+      EMAIL_DELIVERIES_INLINE: ""
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://preprod.starium.xyz}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://preprod.starium.xyz}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+
+  web:
+    environment:
+      INTERNAL_API_URL: http://api:3001
+      # URL publique API préprod (figée au build — rebuild si changement).
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}

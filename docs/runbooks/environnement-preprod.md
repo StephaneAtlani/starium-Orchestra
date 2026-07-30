@@ -31,26 +31,39 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
-Même stack que la prod (`docker-compose.yml`, profil `standard`) mais **instance et secrets distincts** :
+Stack **prod-like + MailHog** via le double fichier Compose (projet isolé `starium-preprod`) :
+
+```bash
+# Secrets hors SMTP dans `.env` racine (JWT_SECRET, MFA_ENCRYPTION_KEY, …)
+docker compose -f docker-compose.yml -f docker-compose.preprod.yml up -d --build
+```
 
 | Variable | Exigence préprod |
 |---|---|
 | `DATABASE_URL` | Base préprod dédiée — **jamais** l'instance de prod |
 | `JWT_SECRET` | Valeur **différente** de la prod (un token prod ne doit pas être valide en préprod) |
 | `MFA_ENCRYPTION_KEY` | **Identique** à la prod si les clients ont le MFA activé (sinon TOTP inutilisable) |
-| `SMTP_*` | **Sandbox / capture obligatoire** (Mailpit, Brevo sandbox…) — **jamais** le relais de prod |
+| `SMTP_*` | **Forcés vers MailHog** par `docker-compose.preprod.yml` (écrase Brevo / `.env`) |
 | `APP_PUBLIC_URL`, `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` | URLs préprod (figées au `docker build` pour le web) |
 | `NODE_ENV` | `production` (comportement identique à la prod : fail-fast SMTP, logs) |
-| `EMAIL_DELIVERIES_INLINE` | Vide → file BullMQ, comme en prod |
+| `EMAIL_DELIVERIES_INLINE` | Vide → file BullMQ + `api-worker`, comme en prod |
 
-**Garde-fou e-mails (critique)** : les adresses sont réelles. Le refresh purge `EmailDelivery` pour ne pas rejouer la file de prod, mais tout envoi *nouveau* (invitation, reset MDP, notification) partira vers de vrais destinataires si le SMTP n'est pas en sandbox. Vérifier avant le 1er démarrage API/worker :
+**MailHog (sandbox SMTP obligatoire)** — fichier [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) :
+
+| | |
+|---|---|
+| SMTP interne | `mailhog:1025` (câblé sur `api` + `api-worker`) |
+| UI | http://127.0.0.1:8025 — lire les mails capturés (OTP MFA, invitations, etc.) |
+| Auth | Aucune (`SMTP_USER` / `SMTP_PASS` vidés volontairement) |
+
+Vérification au démarrage :
 
 ```bash
-docker compose exec api sh -lc 'env | grep ^SMTP_'
-# SMTP_HOST doit pointer vers le sandbox, pas Brevo/prod
+docker compose -f docker-compose.yml -f docker-compose.preprod.yml exec api sh -lc 'env | grep ^SMTP_'
+# Attendu : SMTP_HOST=mailhog  SMTP_PORT=1025  (jamais Brevo)
 ```
 
-**Connexion clients** : e-mail + mot de passe (et MFA) = ceux de la production. Après un refresh, les sessions sont invalidées → reconnexion obligatoire.
+**Connexion clients** : e-mail + mot de passe (et MFA) = ceux de la production. Après un refresh, les sessions sont invalidées → reconnexion obligatoire. Les e-mails générés pendant l'UAT n'atteignent **jamais** les boîtes réelles : les consulter dans MailHog.
 
 ---
 
@@ -102,7 +115,7 @@ La préprod contient des **données personnelles de production**. Cadre minimal 
 |---|---|
 | Finalité | Validation de release + UAT clients uniquement |
 | Accès | Restreint aux opérateurs + clients explicitement invités ; pas d'accès public large |
-| SMTP | Sandbox uniquement — aucun envoi vers des boîtes réelles |
+| SMTP | **MailHog uniquement** (`docker-compose.preprod.yml`) — aucun envoi vers des boîtes réelles |
 | Dumps | Supprimés après usage, jamais dans le repo (`.gitignore` : `.tmp/`, `*.dump`) |
 | Logs | Aucune DCP en clair (même règle qu'en prod) |
 | Anonymisation | Disponible via `--anonymize` si un refresh sans UAT est nécessaire |
@@ -132,6 +145,7 @@ Puis PR `preprod` → `main` et [passage-en-production.md](./passage-en-producti
 
 | Document | Sujet |
 |---|---|
+| [../../docker-compose.preprod.yml](../../docker-compose.preprod.yml) | Override préprod : MailHog + SMTP forcé |
 | [passage-en-production.md](./passage-en-production.md) | Déploiement release (ordre, migrations, rollback) |
 | [migration-org-scope-access.md](./migration-org-scope-access.md) | Rollout flags org/ACL par client |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Structure repo, multi-client |
