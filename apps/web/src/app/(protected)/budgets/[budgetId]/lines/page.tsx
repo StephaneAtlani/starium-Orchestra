@@ -19,7 +19,7 @@ export default function BudgetLinesPage() {
       <PageContainer>
         <BudgetPageHeader
           title="Lignes budgétaires"
-          description={`Budget ${budgetId} — liste des lignes (squelette).`}
+          description="Liste des lignes du budget (squelette)."
           actions={
             <div className="flex items-center gap-2">
               <Link

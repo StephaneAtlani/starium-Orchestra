@@ -1,25 +1,26 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Lightbulb,
-  TrendingUp,
-} from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
-import type { BudgetCockpitResponse } from '@/features/budgets/types/budget-dashboard.types';
+import type {
+  BudgetCockpitResponse,
+  BudgetDashboardLineRow,
+} from '@/features/budgets/types/budget-dashboard.types';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
-import { BudgetKpiGrid } from '@/features/budgets/dashboard/components/budget-kpi-grid';
-import { BudgetMonthlyTrendCard } from '@/features/budgets/dashboard/components/budget-monthly-trend-card';
-import { BudgetLinesProgress } from '@/features/budgets/components/budget-lines-progress';
-import type { BudgetEnvelope, BudgetLine } from '@/features/budgets/types/budget-management.types';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
+import { SvgGroupedBarChart } from '@/features/budgets/forecast/components/comparison-charts-svg';
+import { buildRealizedVsPlannedChartRows } from '@/features/budgets/lib/build-realized-vs-planned-chart';
+import type {
+  BudgetEnvelope,
+  BudgetLine,
+} from '@/features/budgets/types/budget-management.types';
 import { Badge } from '@/components/ui/badge';
+import { PortfolioProgressBar, TableToneAmount } from '@/components/portfolio';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StariumTableWrap } from '@/components/ui/starium-table-wrap';
 import {
   Table,
   TableBody,
@@ -49,10 +50,9 @@ type AmountSummary = Pick<
   'initial' | 'committed' | 'consumed' | 'forecast' | 'remaining' | 'overrun' | 'executionRate'
 >;
 
-function summarizeAmounts(
-  scopedLines: BudgetLine[],
-  initial: number,
-): AmountSummary {
+const MAX_CRITICAL_LINES = 6;
+
+function summarizeAmounts(scopedLines: BudgetLine[], initial: number): AmountSummary {
   const committed = scopedLines.reduce((sum, line) => sum + line.committedAmount, 0);
   const consumed = scopedLines.reduce((sum, line) => sum + line.consumedAmount, 0);
   const forecast = scopedLines.reduce((sum, line) => sum + line.forecastAmount, 0);
@@ -101,21 +101,25 @@ function AmountCells({
           defaultTaxRate,
         })}
       </TableCell>
-      <TableCell className="tabular-nums">
-        {formatDashboardAmount({
-          ht: amounts.committed,
-          currency,
-          mode: taxDisplayMode,
-          defaultTaxRate,
-        })}
+      <TableCell>
+        <TableToneAmount tone="brand">
+          {formatDashboardAmount({
+            ht: amounts.committed,
+            currency,
+            mode: taxDisplayMode,
+            defaultTaxRate,
+          })}
+        </TableToneAmount>
       </TableCell>
-      <TableCell className="tabular-nums text-[color:var(--state-info)]">
-        {formatDashboardAmount({
-          ht: amounts.consumed,
-          currency,
-          mode: taxDisplayMode,
-          defaultTaxRate,
-        })}
+      <TableCell>
+        <TableToneAmount tone="info">
+          {formatDashboardAmount({
+            ht: amounts.consumed,
+            currency,
+            mode: taxDisplayMode,
+            defaultTaxRate,
+          })}
+        </TableToneAmount>
       </TableCell>
       <TableCell className="tabular-nums">
         {formatDashboardAmount({
@@ -125,33 +129,38 @@ function AmountCells({
           defaultTaxRate,
         })}
       </TableCell>
-      <TableCell className="tabular-nums font-semibold text-destructive">
-        {amounts.overrun > 0
-          ? formatDashboardAmount({
+      <TableCell>
+        {amounts.overrun > 0 ? (
+          <TableToneAmount tone="danger" className="font-semibold">
+            {`+${formatDashboardAmount({
               ht: amounts.overrun,
               currency,
               mode: taxDisplayMode,
               defaultTaxRate,
-            })
-          : '—'}
+            })}`}
+          </TableToneAmount>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </TableCell>
-      <TableCell className="min-w-[10rem]">
-        <div className="space-y-1">
-          <BudgetLinesProgress
-            budgetAmount={amounts.initial}
-            consumedAmount={amounts.consumed}
-            remainingAmount={Math.max(0, amounts.remaining)}
-            currency={currency}
-          />
-          <div className="text-right text-xs font-semibold tabular-nums text-foreground">
-            {formatPercent(amounts.executionRate)}
-          </div>
-        </div>
+      <TableCell className="min-w-[9rem]">
+        <PortfolioProgressBar
+          value={amounts.executionRate * 100}
+          variant="consumption"
+          showPercent
+          label={`Exécution ${formatPercent(amounts.executionRate)}`}
+        />
       </TableCell>
     </>
   );
 }
 
+/**
+ * Onglet « Vue d'ensemble » de la fiche budget.
+ * Les KPI agrégés sont portés par la bande persistante du cockpit : ce panneau ne les répète pas.
+ * Les lignes critiques proviennent du widget `ALERT_LIST` de l'API — aucune analyse fabriquée
+ * côté client.
+ */
 export function BudgetDetailDashboard({
   kpi,
   dashboard,
@@ -160,6 +169,8 @@ export function BudgetDetailDashboard({
   defaultTaxRate,
   envelopes,
   lines,
+  exerciseStartDateIso,
+  plannedAmounts12,
   onBudgetLineClick,
 }: {
   kpi: BudgetSummaryKpi;
@@ -169,9 +180,15 @@ export function BudgetDetailDashboard({
   defaultTaxRate: number | null;
   envelopes: BudgetEnvelope[];
   lines: BudgetLine[];
+  /** Début d’exercice ISO — aligne les 12 colonnes du graphique. */
+  exerciseStartDateIso?: string | null;
+  /** Planning mensuel agrégé (somme des lignes) — optionnel. */
+  plannedAmounts12?: readonly number[] | null;
   onBudgetLineClick?: (lineId: string) => void;
 }) {
-  const [expandedEnvelopeIds, setExpandedEnvelopeIds] = useState<Set<string>>(() => new Set());
+  const [expandedEnvelopeIds, setExpandedEnvelopeIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const toggleEnvelope = useCallback((envelopeId: string) => {
     setExpandedEnvelopeIds((prev) => {
@@ -222,267 +239,275 @@ export function BudgetDetailDashboard({
     const chartWidget = dashboard?.widgets.find(
       (widget) => widget.type === 'CHART' && widget.data?.chartType === 'CONSUMPTION_TREND',
     );
-    if (chartWidget?.type === 'CHART' && chartWidget.data?.chartType === 'CONSUMPTION_TREND') {
+    if (
+      chartWidget?.type === 'CHART' &&
+      chartWidget.data?.chartType === 'CONSUMPTION_TREND'
+    ) {
       return chartWidget.data.series;
     }
     return [];
   }, [dashboard]);
 
-  const dashboardKpis = useMemo(() => {
-    const kpiWidget = dashboard?.widgets.find((widget) => widget.type === 'KPI');
-    if (kpiWidget?.type === 'KPI' && kpiWidget.data) {
-      return kpiWidget.data.kpis;
+  const monthlyChartRows = useMemo(
+    () =>
+      buildRealizedVsPlannedChartRows({
+        exerciseStartDateIso,
+        totalForecastAmount: kpi.totalForecastAmount,
+        monthlyTrend,
+        plannedAmounts12,
+      }),
+    [exerciseStartDateIso, kpi.totalForecastAmount, monthlyTrend, plannedAmounts12],
+  );
+
+  const hasChartSignal = monthlyChartRows.some(
+    (row) => row.left > 0 || row.right > 0,
+  );
+
+  const monthlyTaxHint =
+    taxDisplayMode === 'HT'
+      ? 'Prévu = plan de dépense · Réalisé = facturé / consommé par mois.'
+      : defaultTaxRate != null
+        ? 'TTC approximatif : TVA client par défaut appliquée aux montants HT.'
+        : 'Sans TVA par défaut, affichage en HT.';
+
+  const criticalLines = useMemo<BudgetDashboardLineRow[]>(() => {
+    const alertWidget = dashboard?.widgets.find((widget) => widget.type === 'ALERT_LIST');
+    if (alertWidget?.type === 'ALERT_LIST' && alertWidget.data?.items) {
+      return alertWidget.data.items.slice(0, MAX_CRITICAL_LINES);
     }
-    return {
-      totalBudget: kpi.totalInitialAmount,
-      committed: kpi.totalCommittedAmount,
-      consumed: kpi.totalConsumedAmount,
-      forecast: kpi.totalForecastAmount,
-      remaining: kpi.totalRemainingAmount,
-      consumptionRate: kpi.consumptionRate ?? 0,
-      totalBudgetTtc: kpi.totalInitialAmountTtc,
-      committedTtc: kpi.totalCommittedAmountTtc,
-      consumedTtc: kpi.totalConsumedAmountTtc,
-      forecastTtc: kpi.totalForecastAmountTtc,
-      remainingTtc: kpi.totalRemainingAmountTtc,
-    };
-  }, [dashboard, kpi]);
-
-  const recommendations = useMemo(() => {
-    const items: { tone: 'danger' | 'warning' | 'success'; title: string; body: string }[] = [];
-    const worstOverrun = [...envelopeRows].sort((a, b) => b.overrun - a.overrun)[0];
-
-    if (worstOverrun && worstOverrun.overrun > 0) {
-      items.push({
-        tone: 'danger',
-        title: `${worstOverrun.name} depasse son budget`,
-        body: `Prevision superieure au budget de ${formatDashboardAmount({
-          ht: worstOverrun.overrun,
-          currency,
-          mode: taxDisplayMode,
-          defaultTaxRate,
-        })}. Une reaffectation ou une reduction de charge est a arbitrer.`,
-      });
-    }
-
-    if ((kpi.totalRemainingAmount ?? 0) > 0) {
-      items.push({
-        tone: 'success',
-        title: 'Marge encore mobilisable',
-        body: `Reste disponible ${formatDashboardAmount({
-          ht: kpi.totalRemainingAmount,
-          currency,
-          mode: taxDisplayMode,
-          defaultTaxRate,
-        })}. Ce solde peut absorber un depassement prioritaire.`,
-      });
-    }
-
-    items.push({
-      tone: 'warning',
-      title: 'Execution a surveiller',
-      body: `Consommation ${formatPercent(kpi.consumptionRate ?? 0)} pour un forecast de ${formatDashboardAmount({
-        ht: kpi.totalForecastAmount,
-        currency,
-        mode: taxDisplayMode,
-        defaultTaxRate,
-      })}.`,
-    });
-
-    return items.slice(0, 3);
-  }, [currency, defaultTaxRate, envelopeRows, kpi, taxDisplayMode]);
+    return [];
+  }, [dashboard]);
 
   return (
     <div className="space-y-6" data-testid="budget-detail-dashboard">
-      <BudgetKpiGrid
-        kpis={dashboardKpis}
-        currency={currency}
-        taxDisplayMode={taxDisplayMode}
-        defaultTaxRate={defaultTaxRate}
-      />
-
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
-        <Card className="overflow-hidden border-border/70 shadow-[var(--shadow-1)]">
+        <Card className="starium-panel overflow-hidden">
           <CardHeader className="border-b border-border/60 pb-4">
-            <CardTitle className="text-base font-semibold text-foreground">
-              Realise vs prevu par mois
-            </CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base font-semibold text-foreground">
+                Réalisé vs prévu par mois
+              </CardTitle>
+              <ul className="flex items-center gap-3 text-xs text-muted-foreground">
+                <li className="flex items-center gap-1.5">
+                  <span
+                    className="size-2.5 rounded-sm bg-muted-foreground/35"
+                    aria-hidden
+                  />
+                  Prévu
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span
+                    className="size-2.5 rounded-sm bg-[color:var(--state-danger)]"
+                    aria-hidden
+                  />
+                  Réalisé
+                </li>
+              </ul>
+            </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
-            <BudgetMonthlyTrendCard
-              monthlyTrend={monthlyTrend}
-              currency={currency}
-              taxDisplayMode={taxDisplayMode}
-              defaultTaxRate={defaultTaxRate}
-            />
+          <CardContent className="space-y-2 p-4 sm:p-5">
+            {!hasChartSignal ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Aucune prévision ni consommation à afficher sur l’exercice.
+              </p>
+            ) : (
+              <SvgGroupedBarChart
+                rows={monthlyChartRows}
+                leftName="Prévu"
+                rightName="Réalisé"
+                leftColor="var(--neutral-300)"
+                rightColor="var(--state-danger)"
+                formatY={(value) =>
+                  formatDashboardAmount({
+                    ht: value,
+                    currency,
+                    mode: taxDisplayMode,
+                    defaultTaxRate,
+                  })
+                }
+                className="h-64 w-full"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">{monthlyTaxHint}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/70 shadow-[var(--shadow-1)]">
+        <Card className="starium-panel">
           <CardHeader className="border-b border-border/60 pb-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              <Lightbulb className="size-4" aria-hidden />
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <AlertTriangle className="size-4" aria-hidden />
               Analyse & recommandations
-            </div>
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 p-4 sm:p-5">
-            {recommendations.map((item, index) => (
-              <div
-                key={`${item.title}-${index}`}
-                className="rounded-lg border border-border/70 bg-muted/20 p-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={
-                      item.tone === 'danger'
-                        ? 'mt-0.5 rounded-full bg-destructive/10 p-1 text-destructive'
-                        : item.tone === 'warning'
-                          ? 'mt-0.5 rounded-full bg-[color:var(--brand-gold-050)] p-1 text-[color:var(--brand-gold-700)]'
-                          : 'mt-0.5 rounded-full bg-emerald-100 p-1 text-emerald-700'
-                    }
-                  >
-                    {item.tone === 'danger' ? (
-                      <AlertTriangle className="size-4" aria-hidden />
-                    ) : item.tone === 'warning' ? (
-                      <TrendingUp className="size-4" aria-hidden />
-                    ) : (
-                      <Check className="size-4" aria-hidden />
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                    <p className="text-sm leading-6 text-muted-foreground">{item.body}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <CardContent className="space-y-2 p-4 sm:p-5">
+            {criticalLines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucune ligne en alerte sur ce budget.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {criticalLines.map((line) => (
+                  <li key={line.lineId}>
+                    <button
+                      type="button"
+                      onClick={() => onBudgetLineClick?.(line.lineId)}
+                      disabled={!onBudgetLineClick}
+                      className="w-full rounded-[var(--radius-md)] border border-border/70 bg-muted/20 p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none"
+                    >
+                      <span className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                          {line.name}
+                        </span>
+                        <Badge variant={line.lineRiskLevel === 'CRITICAL' ? 'destructive' : 'outline'}>
+                          {line.lineRiskLevel === 'CRITICAL' ? 'Critique' : 'À surveiller'}
+                        </Badge>
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {line.envelopeName ?? 'Enveloppe non renseignée'} ·{' '}
+                        {BUDGET_LABELS.remaining}{' '}
+                        <span className="tabular-nums">
+                          {formatDashboardAmount({
+                            ht: line.remaining,
+                            currency,
+                            mode: taxDisplayMode,
+                            defaultTaxRate,
+                          })}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-border/70 shadow-[var(--shadow-1)]">
+      <Card className="starium-panel">
         <CardHeader className="border-b border-border/60 pb-4">
           <CardTitle className="text-base font-semibold text-foreground">
-            Enveloppes / lignes budgetaires
+            Enveloppes et lignes budgétaires
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[18rem]">Enveloppe / ligne budgetaire</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead>Engage</TableHead>
-                <TableHead>Consomme</TableHead>
-                <TableHead>Prevision</TableHead>
-                <TableHead>Depassement</TableHead>
-                <TableHead>Execution</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {envelopeRows.map((row) => {
-                const isExpanded = expandedEnvelopeIds.has(row.envelopeId);
-                const hasLines = row.scopedLines.length > 0;
+          <StariumTableWrap scrollLabel="Tableau des enveloppes et lignes budgétaires">
+            <Table noWrapper>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[18rem]">Enveloppe / ligne</TableHead>
+                  <TableHead>{BUDGET_LABELS.budget}</TableHead>
+                  <TableHead>{BUDGET_LABELS.committed}</TableHead>
+                  <TableHead>{BUDGET_LABELS.consumed}</TableHead>
+                  <TableHead>{BUDGET_LABELS.forecast}</TableHead>
+                  <TableHead>Dépassement</TableHead>
+                  <TableHead>Exécution</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {envelopeRows.map((row) => {
+                  const isExpanded = expandedEnvelopeIds.has(row.envelopeId);
+                  const hasLines = row.scopedLines.length > 0;
 
-                return (
-                  <React.Fragment key={row.envelopeId}>
-                    <TableRow className="bg-card">
-                      <TableCell className="min-w-[18rem]">
-                        <div className="flex items-start gap-2">
-                          {hasLines ? (
-                            <button
-                              type="button"
-                              className="mt-0.5 inline-flex size-11 min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-expanded={isExpanded}
-                              aria-label={
-                                isExpanded
-                                  ? `Reduire ${row.name}`
-                                  : `Developper les lignes de ${row.name}`
-                              }
-                              onClick={() => toggleEnvelope(row.envelopeId)}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="size-4" aria-hidden />
-                              ) : (
-                                <ChevronRight className="size-4" aria-hidden />
-                              )}
-                            </button>
-                          ) : (
-                            <span className="inline-block size-11 shrink-0" aria-hidden />
-                          )}
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="font-medium text-foreground">
-                              {row.code ? `${row.code} - ` : ''}
-                              {row.name}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="text-[11px]">
-                                {normalizeEnvelopeType(row.type)}
-                              </Badge>
-                              {hasLines ? (
-                                <span className="text-xs text-muted-foreground">
-                                  {row.scopedLines.length} ligne
-                                  {row.scopedLines.length > 1 ? 's' : ''}
-                                </span>
-                              ) : null}
+                  return (
+                    <React.Fragment key={row.envelopeId}>
+                      <TableRow className="bg-card">
+                        <TableCell className="min-w-[18rem]">
+                          <div className="flex items-start gap-2">
+                            {hasLines ? (
+                              <button
+                                type="button"
+                                className="mt-0.5 inline-flex size-11 min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-expanded={isExpanded}
+                                aria-label={
+                                  isExpanded
+                                    ? `Réduire ${row.name}`
+                                    : `Développer les lignes de ${row.name}`
+                                }
+                                onClick={() => toggleEnvelope(row.envelopeId)}
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="size-4" aria-hidden />
+                                ) : (
+                                  <ChevronRight className="size-4" aria-hidden />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="inline-block size-11 shrink-0" aria-hidden />
+                            )}
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="font-medium text-foreground">
+                                {row.code ? `${row.code} — ` : ''}
+                                {row.name}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="text-[11px]">
+                                  {normalizeEnvelopeType(row.type)}
+                                </Badge>
+                                {hasLines ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {row.scopedLines.length} ligne
+                                    {row.scopedLines.length > 1 ? 's' : ''}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <AmountCells
-                        amounts={row}
-                        currency={currency}
-                        taxDisplayMode={taxDisplayMode}
-                        defaultTaxRate={defaultTaxRate}
-                      />
-                    </TableRow>
+                        </TableCell>
+                        <AmountCells
+                          amounts={row}
+                          currency={currency}
+                          taxDisplayMode={taxDisplayMode}
+                          defaultTaxRate={defaultTaxRate}
+                        />
+                      </TableRow>
 
-                    {isExpanded
-                      ? row.scopedLines.map((line) => {
-                          const lineAmounts = lineAmountSummary(line);
-                          return (
-                            <TableRow
-                              key={line.id}
-                              className="cursor-pointer bg-muted/20 hover:bg-muted/35"
-                              onClick={() => onBudgetLineClick?.(line.id)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  onBudgetLineClick?.(line.id);
-                                }
-                              }}
-                              tabIndex={onBudgetLineClick ? 0 : undefined}
-                              data-testid={`budget-detail-line-${line.id}`}
-                            >
-                              <TableCell className="min-w-[18rem] pl-14">
-                                <div className="space-y-1">
-                                  <div className="font-medium text-foreground">
-                                    {line.code ? `${line.code} - ` : ''}
-                                    {line.name}
+                      {isExpanded
+                        ? row.scopedLines.map((line) => {
+                            const lineAmounts = lineAmountSummary(line);
+                            return (
+                              <TableRow
+                                key={line.id}
+                                className="cursor-pointer bg-muted/20 hover:bg-muted/35"
+                                onClick={() => onBudgetLineClick?.(line.id)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    onBudgetLineClick?.(line.id);
+                                  }
+                                }}
+                                tabIndex={onBudgetLineClick ? 0 : undefined}
+                                data-testid={`budget-detail-line-${line.id}`}
+                              >
+                                <TableCell className="min-w-[18rem] pl-14">
+                                  <div className="space-y-1">
+                                    <div className="font-medium text-foreground">
+                                      {line.code ? `${line.code} — ` : ''}
+                                      {line.name}
+                                    </div>
+                                    <Badge variant="outline" className="text-[11px]">
+                                      {line.expenseType}
+                                    </Badge>
                                   </div>
-                                  <Badge variant="outline" className="text-[11px]">
-                                    {line.expenseType}
-                                  </Badge>
-                                </div>
-                              </TableCell>
-                              <AmountCells
-                                amounts={lineAmounts}
-                                currency={currency}
-                                taxDisplayMode={taxDisplayMode}
-                                defaultTaxRate={defaultTaxRate}
-                              />
-                            </TableRow>
-                          );
-                        })
-                      : null}
-                  </React.Fragment>
-                );
-              })}
-            </TableBody>
-          </Table>
+                                </TableCell>
+                                <AmountCells
+                                  amounts={lineAmounts}
+                                  currency={currency}
+                                  taxDisplayMode={taxDisplayMode}
+                                  defaultTaxRate={defaultTaxRate}
+                                />
+                              </TableRow>
+                            );
+                          })
+                        : null}
+                    </React.Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </StariumTableWrap>
           <p className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground sm:px-5">
-            Cliquez sur une enveloppe pour afficher ses lignes budgetaires, puis sur une ligne pour
-            ouvrir le detail.
+            Ouvrez une enveloppe pour afficher ses lignes budgétaires, puis une ligne pour en
+            consulter le détail.
           </p>
         </CardContent>
       </Card>

@@ -36,6 +36,7 @@ pnpm typecheck            # tsc --noEmit -r
 pnpm build
 pnpm test                 # scripts/run-tests-with-recap.mjs (jest api + vitest web)
 pnpm audit:modals         # 0 DialogContent direct hors socle — doit passer
+pnpm audit:ui-ids         # 0 identifiant technique visible en UI — doit passer
 
 # API (apps/api)
 pnpm --filter @starium-orchestra/api start:dev
@@ -106,6 +107,15 @@ colonne de table, badge, chip, résultat de recherche, fil d'Ariane, résumé de
 comme texte visible. L'ID reste la valeur soumise au backend ; l'UI mappe ID → libellé. Prévoir dans
 les DTO / réponses API les champs de libellé (`name`, `title`, `code`, `label`) quand une relation
 est affichée.
+
+**Anti-pattern interdit — le repli sur l'ID.** Jamais `entity.name ?? entity.id`,
+`map.get(id) ?? id`, `` `Budget ${budgetId}` ``. Un libellé absent se remplace par un texte métier
+(« Ligne supprimée », « Compte supprimé »), via `displayLabel()` / `firstDisplayLabel()` de
+`apps/web/src/lib/display-label.ts`.
+
+Vérification : **`pnpm audit:ui-ids`** (joué aussi par `pnpm test`) — doit passer. Exceptions
+justifiées uniquement dans `scripts/audit-ui-ids.allowlist.json` ou via un commentaire
+`audit-ui-ids:ignore` quand la valeur n'est réellement jamais affichée.
 
 ### 4.4 Backend (NestJS)
 
@@ -212,7 +222,8 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 3. Planifier pour un changement moyen ou large.
 4. Implémenter **un changement borné à la fois**.
 5. Créer / mettre à jour les tests.
-6. `pnpm typecheck` + tests du workspace touché (+ `pnpm audit:modals` si modale).
+6. `pnpm typecheck` + tests du workspace touché (+ `pnpm audit:modals` si modale, `pnpm audit:ui-ids`
+ si UI).
 7. Relire le diff.
 8. Mettre à jour la doc si le comportement documenté change (skill `starium-documentation`).
 
@@ -224,7 +235,7 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 - [ ] RGAA : clavier, labels, contrastes AA, focus visible, dynamique annoncé
 - [ ] Design System : composants/tokens existants, aucune valeur en dur, loading/empty/error
 - [ ] Mobile : validé dès 320px, cibles ≥ 44px, tableaux exploitables
-- [ ] Libellés métier partout, aucun ID technique visible
+- [ ] Libellés métier partout, aucun ID technique visible (`pnpm audit:ui-ids` vert)
 - [ ] Aucun fichier hors périmètre modifié
 
 ---

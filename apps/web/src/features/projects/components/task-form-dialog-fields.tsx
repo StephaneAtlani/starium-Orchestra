@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 import {
   Select,
   SelectContent,
@@ -507,7 +508,7 @@ export function TaskFormDialogFields({
           <div className="starium-form-tags mb-3">
             {selectedLabelIds.map((id) => {
               const opt = labelById.get(id);
-              const name = opt?.label ?? id;
+              const name = displayLabel(opt?.label, 'Étiquette supprimée');
               const bg = resolveTaskLabelDisplayColor(
                 opt?.plannerCategoryId ?? null,
                 opt?.color ?? null,

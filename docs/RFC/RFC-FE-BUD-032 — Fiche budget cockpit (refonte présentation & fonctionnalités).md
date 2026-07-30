@@ -2,7 +2,20 @@
 
 ## Statut
 
-**Draft** — spécification à implémenter. Remplace et précise le **Lot B / Phase 2–3** de [RFC-FE-BUD-031](./RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) pour la route `/budgets/[budgetId]`.
+**Implémentée** (lots 1 → 4 front + lot F backend). Remplace et précise le **Lot B / Phase 2–3** de [RFC-FE-BUD-031](./RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) pour la route `/budgets/[budgetId]`.
+
+### Décisions d’implémentation et écarts assumés
+
+| Point | Décision retenue | Conséquence |
+|-------|------------------|-------------|
+| Scénarios budgétaires (§2 H4) | **Abandonnés** — la modale à coefficients `0.94` / `1.11` est supprimée sans remplacement | Les comparaisons reposent uniquement sur les **versions figées** réelles |
+| Export budget (§5.4) | **Génération CSV côté client** depuis l’arbre déjà chargé (`lib/budget-detail-export.ts`) | Aucun endpoint ajouté, et donc **pas d’audit log `budget.exported`** — à rouvrir si l’audit de l’export devient une exigence |
+| Onglet actif | Persisté en **query string** (`?onglet=`) | Liens profonds partageables vers un onglet ; pas de stockage local |
+| KPI d’atterrissage (`ForecastKpiCards`) | Retirés de la fiche | Doublon strict de la bande KPI persistante, avec un vocabulaire divergent (« Forecast » / « Budget total ») |
+| Dénouement de l’engagement (§5.2) | Événement porté par `sourceType: INVOICE` / `sourceId: invoiceId` (et non `PURCHASE_ORDER`) | L’annulation de facture est **exactement** réversible ; le plafonnement reste calculé au niveau de la commande |
+| En-tête fiche | Socle **`PageHeader`** (comme le portefeuille) : identité + Accès + CTA primaire ; outils secondaires en barre sous la carte | Alignement DS ; plus de header « maison » hors pattern |
+| Saisie de dépense | **Une seule** `StariumModal` avec formulaire simple : natures **Engagement / commande** et **Consommé / Facture** → `COMMITMENT_REGISTERED` / `CONSUMPTION_REGISTERED` manuels | Plus de pré-sélecteur à 3 cartes ni de 2ᵉ modale en cascade |
+| Graphique Vue d’ensemble | **Réalisé vs prévu** sur **12 mois** d’exercice (`build-realized-vs-planned-chart.ts`) : Prévu = prévision/planning, Réalisé = consommé du mois | Remplace Engagé/Consommé sparse du seul widget `CONSUMPTION_TREND` |
 
 ## Titre
 
@@ -210,44 +223,57 @@ Type TS : remplacer ou étendre `BudgetPilotageMode` → `BudgetDetailTabId`.
 
 ## 4.3 Fichiers à créer / modifier
 
-### Créer
+### Créés
+
+Tous les composants de la fiche vivent désormais dans `apps/web/src/features/budgets/components/budget-detail/` (barrel `index.ts`).
 
 | Fichier | Rôle |
 |---------|------|
-| `docs/RFC/RFC-FE-BUD-032 — Fiche budget cockpit (refonte présentation & fonctionnalités).md` | La présente RFC |
-| `apps/web/src/features/budgets/components/budget-detail-header.tsx` | Identité + actions |
-| `apps/web/src/features/budgets/components/budget-detail-kpi-strip.tsx` | Bande KPI persistante (`PortfolioKpiRow` / `BudgetKpiCard`) |
-| `apps/web/src/features/budgets/components/budget-detail-alerts-banner.tsx` | Wrap `BudgetAlertsPanel` ou bande compacte |
-| `apps/web/src/features/budgets/components/budget-detail-tabs.tsx` | Remplace `BudgetViewTabs` (6 onglets) |
-| `apps/web/src/features/budgets/components/budget-detail-workspace.tsx` | Switch contenu onglets |
-| `apps/web/src/features/budgets/lib/budget-display-labels.ts` | Libellés uniques + helper masquage code CUID |
-| `apps/api/src/modules/budget-export/…` *(si Lot F API)* | Export CSV |
+| `lib/budget-display-labels.ts` (+ `.spec.ts`) | Libellés uniques + `isHumanBudgetCode` / `formatBudgetSelectLabel` (masquage des fragments techniques) |
+| `types/budget-detail-tabs.types.ts` | `BudgetDetailTabId`, `BUDGET_DETAIL_TABS`, `budgetDetailTabToExplorerMode`, `isBudgetDetailTabId` |
+| `components/budget-detail/budget-detail-header.tsx` | `PageHeader` standard : identité + statut + méta ; actions principales (Select, Accès, Saisir) ; barre d’outils secondaire (Exporter, Version figée, Comparaisons, Prévisionnel, Réaffectations) |
+| `components/budget-detail/budget-detail-kpi-strip.tsx` | Bande **6 KPI** persistante (Budget, Engagé, Consommé, Restant, Dépassement, Taux d’exécution) + filtre Tout/CAPEX/OPEX + toggle HT/TTC |
+| `components/budget-detail/budget-detail-alerts-banner.tsx` | Alertes API `ALERT_LIST` (composant conservé ; bandeau optionnel selon composition page) |
+| `components/budget-detail/budget-detail-tabs.tsx` (+ `.spec.tsx`) | 6 onglets, `role="tablist"`, navigation flèches, scroll horizontal contrôlé |
+| `components/budget-detail/budget-detail-workspace.tsx` | Switch de contenu + toolbar contextuelle |
+| `components/budget-detail/budget-reallocations-panel.tsx` | Journal des réaffectations + CTA création (réutilisé par `/reallocations`) |
+| `components/budget-detail/budget-comparisons-panel.tsx` | Versions figées + comparaison (`BudgetReportingForecastPage variant="embedded"`) |
+| `components/budget-detail/budget-historique-panel.tsx` | Frise des décisions + accès à l’assistant d’import |
+| `lib/budget-detail-export.ts` (+ `.spec.ts`) | `buildBudgetDetailCsvContent` / `downloadBudgetDetailCsv` (CSV client) |
+| `lib/build-realized-vs-planned-chart.ts` (+ `.spec.ts`) | 12 colonnes Prévu / Réalisé pour la Vue d’ensemble |
+| `components/forms/budget-form-direction.spec.tsx` | Non-régression du champ Direction (libellé d’unité, jamais l’UUID) |
 
-### Modifier (principaux)
+### Modifiés
 
 | Fichier | Changement |
 |---------|------------|
-| `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx` | Orchestration mince ; délégation aux composants ci-dessus |
-| `apps/web/src/features/budgets/components/budget-detail-dashboard.tsx` | Anti cadre-dans-cadre ; alertes API ; montants TTC API ; accents |
-| `apps/web/src/features/budgets/components/budget-view-tabs.tsx` | Déprécié → `budget-detail-tabs.tsx` |
-| `apps/web/src/features/budgets/types/budget-pilotage.types.ts` | Nouveaux ids d’onglet |
-| `apps/web/src/features/budgets/components/forms/budget-form.tsx` | Champ `ownerOrgUnitId` |
-| `apps/web/src/features/budgets/schemas/create-budget.schema.ts` | `ownerOrgUnitId` optionnel |
-| `apps/web/src/features/budgets/components/budget-detail-modals/*` | Retirer Scénarios fake + Prévisionnel modale ; conserver expense / realloc |
-| `apps/api/src/modules/procurement/invoices/invoices.service.ts` | Dénouement engagement |
-| `apps/api/src/modules/financial-core/budget-line-amounts.aggregate.ts` | Doc + tests si formule évolue |
-| `docs/RFC/RFC-FE-BUD-031 — …` | Pointer Lot B → RFC-FE-BUD-032 |
-| `docs/RFC/_RFC Liste.md` | Index |
-| `docs/modules/budget-frontend.md` | Parcours fiche |
-| `docs/INVENTAIRE-COMPOSANTS.md` | Nouveaux composants détail |
+| `apps/web/src/app/(protected)/budgets/[budgetId]/page.tsx` | Orchestration mince : état planning + hooks de données, tout le JSX délégué |
+| `apps/web/src/app/(protected)/budgets/[budgetId]/reallocations/page.tsx` | Réutilise `BudgetReallocationsPanel` (fin de la duplication) |
+| `apps/web/src/features/budgets/components/budget-detail-dashboard.tsx` | Anti cadre-dans-cadre ; graphique **Réalisé vs prévu** (12 mois) ; panel Analyse & recommandations = lignes critiques API |
+| `apps/web/src/features/budgets/components/budget-detail-modals/budget-expense-entry-modal.tsx` | Formulaire unique : **Engagement / commande** et **Consommé / Facture** (libellé, enveloppe, ligne, montant HT, date, aperçu d’impact) → événement financier manuel |
+| `apps/web/src/features/budgets/components/budget-detail-modals/index.ts` | `BudgetDetailModal` réduit à `'expense' \| null` |
+| `apps/web/src/app/(protected)/budgets/page.tsx` | Portefeuille : fetch exercice effectif sans attendre la synchro URL (réduction du waterfall loading) |
+| `apps/api/src/modules/budget-reporting/budget-reporting.service.ts` | Portefeuille : select montants minimal + pas de TTC sur `getExerciseSummary` / `listBudgetsForExercise` |
+| `apps/web/src/features/budgets/components/forms/budget-form.tsx` | Champ Direction via `Controller` + `OwnerOrgUnitSelect` |
+| `apps/web/src/features/budgets/schemas/create-budget.schema.ts` | `ownerOrgUnitId: z.string().nullable().optional()` |
+| `apps/web/src/features/budgets/api/budget-management.api.ts` | `ownerOrgUnitId` sur `CreateBudgetPayload` |
+| `apps/web/src/features/budgets/mappers/budget-form.mappers.ts` | Mapping `ownerOrgUnitId` (API ↔ formulaire) |
+| `apps/api/src/modules/procurement/invoices/invoices.service.ts` (+ `.spec.ts`) | Dénouement / rétablissement de l’engagement de commande |
 
-### Supprimer / déprécier
+Aucun changement Prisma, aucun changement de formule dans `budget-line-amounts.aggregate.ts`.
 
-| Fichier | Action |
-|---------|--------|
-| `budget-detail-modals/budget-scenarios-versions-modal.tsx` | Supprimer ou gate `featureFlag` off + toast « non disponible » |
-| `budget-detail-modals/budget-previsionnel-modal.tsx` | Supprimer |
-| `budget-scenario-select.tsx` | Garder placeholder **uniquement** si RFC scénarios ouverte ; sinon retirer de la fiche |
+### Supprimés
+
+| Fichier | Motif |
+|---------|-------|
+| `budget-detail-modals/budget-scenarios-versions-modal.tsx` | Coefficients inventés `0.94` / `1.11` |
+| `budget-detail-modals/budget-previsionnel-modal.tsx` | Doublon strict de l’onglet Prévisionnel |
+| `budget-detail-modals/budget-forecast-revision-modal.tsx` | Repris par l’onglet Comparaisons |
+| `budget-detail-modals/budget-sources-imports-modal.tsx` | Remplacé par le CTA Importer → assistant d’import |
+| `budget-detail-modals/budget-reallocations-journal-modal.tsx` | Remplacé par `BudgetReallocationsPanel` |
+| `components/budget-view-tabs.tsx` | Remplacé par `BudgetDetailTabs` |
+| `components/budget-scenario-select.tsx` | Code mort (scénarios abandonnés) |
+| `components/budget-kpi-cards.tsx` | Remplacé par la bande KPI persistante |
 
 ---
 
@@ -294,19 +320,19 @@ Type TS : remplacer ou étendre `BudgetPilotageMode` → `BudgetDetailTabId`.
 
 ## 5.2 Backend — dénouement engagé (Lot F)
 
-**Règle :** à la validation d’une facture liée à une `PurchaseOrder` :
+**Règle implémentée** dans `invoices.service.ts` — à la création d’une facture liée à une `PurchaseOrder` et à une ligne budgétaire :
 
-1. Créer `CONSUMPTION_REGISTERED` (existant)
-2. Créer un `COMMITMENT_REGISTERED` **négatif** (ou événement dédié de dénouement) pour le montant facturé, plafonné à l’engagement restant de la commande, `sourceType: PURCHASE_ORDER`, `sourceId: poId`
+1. `CONSUMPTION_REGISTERED` (existant)
+2. `poCommitment` = somme des `amountHt` des `financialEvent` `{ clientId, budgetLineId, eventType: COMMITMENT_REGISTERED, sourceType: PURCHASE_ORDER, sourceId: po.id }` — intègre déjà les négatifs d’annulation de commande
+3. `alreadyInvoiced` = somme des `amountHt` des `invoice` `{ clientId, purchaseOrderId: po.id, status: { not: CANCELLED }, id: { not: created.id } }`
+4. `unwind = max(0, min(created.amountHt, poCommitment − alreadyInvoiced))`
+5. si `unwind > 0` → `COMMITMENT_REGISTERED` d’un montant **négatif**, `sourceType: INVOICE`, `sourceId: created.id`, libellé « Dénouement engagement commande *référence* »
 
-**Alternative acceptable :** recalcul `committedAmount = max(0, engagements − consommations liées PO)` — à documenter dans le service ; préférer la piste événements pour auditabilité.
+`cancel()` somme les dénouements portés par la facture et crée l’événement opposé, ce qui rétablit exactement l’engagement.
 
-Tests obligatoires :
+**Écart assumé vs proposition initiale :** l’événement de dénouement est porté par `sourceType: INVOICE` / `sourceId: invoiceId` (et non `PURCHASE_ORDER` / `poId`) afin que l’annulation de facture soit strictement réversible. Le plafonnement, lui, reste calculé au niveau de la commande.
 
-- Isolation client
-- Facture sans PO → pas de dénouement
-- Facture partielle → engagement résiduel correct
-- Annulation facture → rétablir l’engagement
+Tests (`invoices.service.spec.ts`) : facture sans PO → aucun dénouement · facture partielle → engagement résiduel correct · facture > engagement → plafonné · commande déjà entièrement facturée ou annulée → aucun dénouement · annulation de facture → engagement rétabli · agrégats scopés au client actif.
 
 ## 5.3 Codes budget
 
@@ -314,7 +340,11 @@ Tests obligatoires :
 - Format cible : `{clientCode}-{year}-{slug}-V{n}` ou code saisi utilisateur
 - Migration données existantes : **hors V1** (script optionnel)
 
-## 5.4 Export API (si Lot 3 côté serveur)
+## 5.4 Export — implémentation client (option retenue)
+
+L’endpoint ci-dessous n’a **pas** été créé. L’export est généré côté client dans `lib/budget-detail-export.ts` depuis les enveloppes et les lignes déjà chargées : une ligne de sous-total par enveloppe puis ses lignes, colonnes `Type ; Enveloppe ; Ligne ; Code ; Nature ; Budget HT ; Prévision HT ; Engagé HT ; Consommé HT ; Restant HT ; TVA % ; Budget TTC`, séparateur `;` et décimales françaises (Excel FR), aucun identifiant technique. Conséquence assumée : **pas d’audit log `budget.exported`**.
+
+Piste serveur conservée si l’audit de l’export ou l’export hors périmètre chargé devient une exigence :
 
 ```http
 GET /api/budgets/:budgetId/export?format=csv
@@ -344,20 +374,22 @@ Audit: budget.exported (sans DCP)
 
 | Cas | Module |
 |-----|--------|
-| Dénouement PO + facture | `invoices.service.spec.ts` |
-| Isolation client facture / PO | idem |
-| Export CSV scope client | `budget-export` si créé |
-| Recalcul remaining après dénouement | `budget-line-amounts.aggregate.spec.ts` |
+| Dénouement PO + facture (partiel, plafonné, déjà facturé, PO annulée) | `invoices.service.spec.ts` |
+| Annulation de facture → engagement rétabli | idem |
+| Isolation client des agrégats engagement / facturé | idem |
+| Export CSV scope client | *sans objet — export client* |
+| Recalcul remaining après dénouement | inchangé (`budget-line-amounts.aggregate.ts` non modifié) |
 
 ## Frontend
 
 | Cas | Fichier |
 |-----|---------|
-| Labels uniques / masquage CUID | `budget-display-labels.spec.ts` |
-| Onglets : mode → contenu | smoke / unit tabs |
-| Snapshot dialog ouvert depuis CTA | interaction légère |
-| Formulaire budget : champ direction présent | `budget-form` |
-| Pas de rendu Scénarios fake | assertion absence coefficients |
+| Libellés uniques / masquage des codes techniques | `lib/budget-display-labels.spec.ts` |
+| Onglets : 6 onglets, `aria-selected`, changement d’onglet, mapping mode explorateur | `components/budget-detail/budget-detail-tabs.spec.tsx` |
+| Export CSV : en-têtes, agrégation enveloppe, échappement, TTC absent | `lib/budget-detail-export.spec.ts` |
+| Graphique 12 mois Prévu / Réalisé | `lib/build-realized-vs-planned-chart.spec.ts` |
+| Formulaire budget : champ Direction avec libellé d’unité | `components/forms/budget-form-direction.spec.tsx` |
+| Surface des modales de la fiche réduite à `expense` | `components/budget-detail-modals/budget-detail-modals-surface.spec.ts` |
 
 Commandes :
 
@@ -372,18 +404,21 @@ pnpm audit:modals
 
 # 8. Critères d’acceptation
 
-- [ ] Structure 3 zones (identité / KPI+alertes / workspace)
-- [ ] ≤ 6 onglets métier alignés cahier des charges ; plus de « Synthèse prévision » creux
-- [ ] KPI persistants sur tous les onglets ; montants cohérents HT/TTC via API
-- [ ] CTA Version figée, Importer, Exporter, Réaffecter, Accès, Modifier visibles et fonctionnels
-- [ ] Aucune modale Scénarios avec coefficients inventés
-- [ ] Aucune modale Prévisionnel doublon
-- [ ] Alertes réelles (API) sur la fiche ; plus de recommandations hardcodées
-- [ ] Direction éditable sur le formulaire budget (libellé OrgUnit)
-- [ ] Aucun UUID / CUID affiché comme libellé principal
-- [ ] Accents FR ; tokens DS ; pas de cadre-dans-cadre
-- [ ] Mobile dès 320 px ; cibles ≥ 44 px
-- [ ] (Lot F) Facture liée à commande ne double plus engagé + consommé
+- [x] Structure 3 zones (identité / KPI / workspace Vue d’ensemble)
+- [x] 6 onglets métier alignés cahier des charges ; plus de « Synthèse prévision » creux
+- [x] KPI persistants (6 cellules mockup) ; montants cohérents HT/TTC via API
+- [x] CTA Version figée, Exporter, Comparaisons, Prévisionnel, Réaffectations, Accès, Saisir visibles et fonctionnels
+- [x] Aucune modale Scénarios avec coefficients inventés
+- [x] Aucune modale Prévisionnel doublon
+- [x] Saisie de dépense = formulaire unique (Engagement / commande · Consommé / Facture)
+- [x] Graphique Vue d’ensemble = Réalisé vs prévu sur 12 mois
+- [x] Alertes / lignes critiques depuis l’API (plus de recommandations hardcodées)
+- [x] Direction éditable sur le formulaire budget (libellé OrgUnit)
+- [x] Aucun UUID / CUID affiché comme libellé principal
+- [x] Accents FR ; tokens DS ; pas de cadre-dans-cadre ; `PageHeader` standard
+- [x] Mobile dès 320 px ; cibles ≥ 44 px (Prévisionnel forcé en densité `condense` sous `md`)
+- [x] (Lot F) Facture liée à commande ne double plus engagé + consommé
+- [ ] Reste ouvert : audit log de l’export (nécessite l’endpoint serveur §5.4) et normalisation des `code` budget existants (§5.3, hors V1)
 
 ---
 
@@ -409,7 +444,7 @@ Cette RFC **ne reconstruit pas** le noyau financier : elle **réorganise l’UI*
 # 11. Points de vigilance
 
 1. **Scénarios** — ne pas réintroduire de chiffres inventés ; ouvrir une RFC dédiée si besoin métier confirmé (bas/central/haut).
-2. **Engagé ≠ commande** — clarifier dans l’UI (tooltip) : la commande *génère* l’engagement ; la saisie manuelle est un engagement sans PO.
+2. **Engagé ≠ commande** — natures de saisie : **Engagement / commande** (`COMMITMENT_REGISTERED` manuel) et **Consommé / Facture** (`CONSUMPTION_REGISTERED` manuel) ; une commande fournisseur continue de générer l’engagement côté procurement.
 3. **Forecast ≠ atterrissage intelligent** — le prévisionnel reste un plan ; ne pas promettre de recalage auto sur le réalisé sans RFC forecast.
 4. **Codes legacy** — masquer en UI sans migration peut masquer des codes encore utiles ; préférer détection CUID stricte.
 5. **Permissions** — ne pas affaiblir ACL pour « simplifier » la barre d’actions.

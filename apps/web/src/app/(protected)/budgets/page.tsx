@@ -26,13 +26,32 @@ import { BudgetsPortfolioCards } from '@/features/budgets/components/budgets-por
 import { formatBudgetExerciseOptionLabel } from '@/features/budgets/lib/budget-exercise-option-label';
 import { downloadBudgetsPortfolioCsv } from '@/features/budgets/lib/budget-portfolio-export';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useActiveClient } from '@/hooks/use-active-client';
+import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
+
+/**
+ * L'API `GET exercises/:id/summary` renvoie tantôt un `BudgetSummaryKpi` plat,
+ * tantôt un wrapper `{ kpi }` selon la version du contrôleur. On normalise ici.
+ */
+function extractKpi(
+  raw: BudgetSummaryKpi | { kpi: BudgetSummaryKpi } | undefined,
+): BudgetSummaryKpi | undefined {
+  if (!raw) return undefined;
+  if ('kpi' in raw && raw.kpi) return raw.kpi;
+  return raw as BudgetSummaryKpi;
+}
 
 export default function BudgetsListPage() {
   const { filters, setFilters, reset } = useBudgetsListFilters();
+  const { activeClient } = useActiveClient();
   const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
   const canReadBudgets = permsSuccess && has('budgets.read');
-  const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery({
-    enabled: canReadBudgets,
+  const {
+    data: exerciseOptions = [],
+    isLoading: exerciseOptionsLoading,
+    isFetched: exerciseOptionsFetched,
+  } = useBudgetExerciseOptionsQuery({
+    enabled: !!activeClient?.id,
   });
   const viewMode = filters.view ?? 'cards';
   const setViewMode = (mode: 'cards' | 'table') => setFilters({ view: mode });
@@ -43,10 +62,12 @@ export default function BudgetsListPage() {
     return active?.id ?? exerciseOptions[0]?.id;
   }, [exerciseOptions, filters.exerciseId]);
 
+  /** Exercice effectif pour les requêtes — ne pas attendre la synchro URL (évite un tour de rendu + spinner). */
+  const effectiveExerciseId = selectedExerciseId;
+
   useEffect(() => {
-    if (!filters.exerciseId && selectedExerciseId) {
-      setFilters({ exerciseId: selectedExerciseId, page: 1 });
-    }
+    if (filters.exerciseId || !selectedExerciseId) return;
+    setFilters({ exerciseId: selectedExerciseId, page: 1 });
   }, [filters.exerciseId, selectedExerciseId, setFilters]);
 
   const reportingQueryParams = useMemo(
@@ -59,15 +80,19 @@ export default function BudgetsListPage() {
     [filters.limit, filters.page, filters.search, filters.status],
   );
 
-  const summaryQuery = useExerciseReportingSummaryQuery(selectedExerciseId, {
-    enabled: canReadBudgets,
+  const summaryQuery = useExerciseReportingSummaryQuery(effectiveExerciseId, {
+    enabled: canReadBudgets && !!effectiveExerciseId,
   });
-  const budgetsQuery = useExerciseBudgetsReportingQuery(selectedExerciseId, reportingQueryParams, {
-    enabled: !!selectedExerciseId && canReadBudgets,
+  const budgetsQuery = useExerciseBudgetsReportingQuery(effectiveExerciseId, reportingQueryParams, {
+    enabled: !!effectiveExerciseId && canReadBudgets,
   });
 
   const data = budgetsQuery.data;
-  const isLoading = budgetsQuery.isLoading || (!filters.exerciseId && exerciseOptions.length > 0);
+  const isResolvingExercise =
+    canReadBudgets && !effectiveExerciseId && (exerciseOptionsLoading || !exerciseOptionsFetched);
+  const isBudgetsPending =
+    !!effectiveExerciseId && canReadBudgets && budgetsQuery.isLoading && !budgetsQuery.data;
+  const isLoading = isBudgetsPending || isResolvingExercise;
   const error = budgetsQuery.error ?? summaryQuery.error;
 
   const limit = filters.limit ?? DEFAULT_LIMIT;
@@ -76,7 +101,7 @@ export default function BudgetsListPage() {
   const currentPage = Math.min(filters.page ?? 1, totalPages);
   const offset = data?.offset ?? 0;
 
-  const selectedExercise = exerciseOptions.find((option) => option.id === selectedExerciseId);
+  const selectedExercise = exerciseOptions.find((option) => option.id === effectiveExerciseId);
 
   const exportVisibleRows = () => {
     if (!data?.items.length) return;
@@ -118,8 +143,8 @@ export default function BudgetsListPage() {
         />
 
         {permsLoading && (
-          <div data-testid="budgets-permissions-loading" aria-live="polite">
-            <LoadingState rows={3} />
+          <div data-testid="budgets-permissions-loading" aria-live="polite" className="space-y-4">
+            <LoadingState rows={1} />
           </div>
         )}
 
@@ -134,12 +159,16 @@ export default function BudgetsListPage() {
 
         {canReadBudgets && (
           <>
-        <BudgetsToolbar viewMode={viewMode} onViewModeChange={setViewMode} />
+        <BudgetsToolbar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          resolvedExerciseId={effectiveExerciseId}
+        />
 
-        {selectedExerciseId && (
+        {effectiveExerciseId && (
           <BudgetsPortfolioKpi
-            kpi={summaryQuery.data?.kpi}
-            isLoading={summaryQuery.isLoading || (!summaryQuery.data && isLoading)}
+            kpi={extractKpi(summaryQuery.data)}
+            isLoading={summaryQuery.isLoading && !summaryQuery.data}
             totalBudgets={data?.total ?? data?.items.length ?? 0}
           />
         )}
@@ -162,14 +191,14 @@ export default function BudgetsListPage() {
           </Alert>
         )}
 
-        {!isLoading && !error && !selectedExerciseId && (
+        {!isLoading && !error && !effectiveExerciseId && exerciseOptionsFetched && (
           <BudgetEmptyState
             title="Aucun exercice disponible"
             description="Créez ou activez un exercice budgétaire pour afficher le portefeuille."
           />
         )}
 
-        {!isLoading && !error && selectedExerciseId && data && data.items.length === 0 && (
+        {!isLoading && !error && effectiveExerciseId && data && data.items.length === 0 && (
           <BudgetEmptyState
             title="Aucun budget à afficher"
             description="Aucun budget ne correspond aux filtres pour cet exercice."
@@ -200,7 +229,7 @@ export default function BudgetsListPage() {
             {viewMode === 'cards' ? (
               <BudgetsPortfolioCards items={data.items} />
             ) : (
-              <BudgetsTable data={data.items} exerciseId={selectedExerciseId} />
+              <BudgetsTable data={data.items} exerciseId={effectiveExerciseId} />
             )}
             <div className="mt-3 flex items-center justify-between">
               <PaginationSummary offset={offset} limit={data.limit} total={data.total} />

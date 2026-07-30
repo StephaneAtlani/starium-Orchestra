@@ -213,7 +213,7 @@ export function SvgGroupedBarChart({
         const xL = gx;
         const xR = gx + barW + gap * 0.35;
         return (
-          <g key={row.label}>
+          <g key={`${i}-${row.label}`}>
             <rect
               className="chart-svg-bar"
               x={xL}

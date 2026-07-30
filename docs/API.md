@@ -2413,11 +2413,13 @@ KPI consolidés de l’exercice (toutes les lignes des budgets de l’exercice).
 
 Liste paginée des budgets de l’exercice avec KPI synthétiques par budget.
 
+**Périmètre versioning (RFC-019)** : une seule carte par budget logique — budgets **non versionnés** (hors source legacy d’un version set) + version **`ACTIVE`** de chaque set. Les révisions `DRAFT` / `SUPERSEDED` / `ARCHIVED` sont exclues (accessibles via l’historique de versions sur la fiche). Même filtre sur `GET …/exercises/:id/summary` pour éviter le double-comptage des montants.
+
 **Query (optionnels)** : `offset`, `limit` (max 100), `search` (name/code), `status` (BudgetStatus).
 
 **Réponse 200** : `{ items, total, limit, offset }`. Chaque item : budget (id, name, code, currency, status, …) + `kpi` (BudgetSummaryKpi).
 
-**Frontend** : page **`/budgets`** (RFC-FE-BUD-031 Lot A) — grille cartes ou tableau portefeuille, export CSV des lignes visibles ; consommation via `listBudgetsForExercise` + `GET /api/budget-reporting/exercises/:id/summary` pour le bandeau KPI consolidation. Permission **`budgets.read`** requise (garde UI + API).
+**Frontend** : page **`/budgets`** (RFC-FE-BUD-031 Lot A) — grille cartes ou tableau portefeuille, export CSV des lignes visibles ; consommation via `listBudgetsForExercise` + `GET /api/budget-reporting/exercises/:id/summary` pour le bandeau KPI consolidation (agrégats **HT** ; champs `*Ttc` laissés nuls sur ces deux endpoints portefeuille pour limiter le coût). Permission **`budgets.read`** requise (garde UI + API).
 
 **Erreurs :** 401, 403, 404 (exercice), 400 (multi-devise dans un budget).
 
@@ -3553,6 +3555,8 @@ Routes **client-scopées** : **JWT** + **`X-Client-Id`** + module procurement.
 | `GET` | `/api/invoices/:id` | `procurement.read` | Détail d’une facture (fournisseur, montants, TVA, lien commande / ligne budget si présents). |
 
 Les listes paginées restent sur `GET /api/purchase-orders` et `GET /api/invoices` (query params selon DTO backend).
+
+**Impact budgétaire d’une facture liée à une commande** (RFC-FE-BUD-032 Lot F) : la création émet `CONSUMPTION_REGISTERED` **et** un `COMMITMENT_REGISTERED` de montant négatif (`sourceType: INVOICE`, `sourceId` = id facture) qui dénoue l’engagement de la commande, plafonné à `engagement de la commande − déjà facturé` sur les factures non annulées. Sans commande rattachée, aucun dénouement. L’annulation de la facture crée l’événement opposé et rétablit l’engagement. Objectif : `remainingAmount` ne décompte plus deux fois l’engagé et le consommé du même achat.
 
 ---
 

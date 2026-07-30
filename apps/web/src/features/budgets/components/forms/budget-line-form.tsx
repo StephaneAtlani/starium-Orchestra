@@ -19,6 +19,7 @@ import type { ApiFormError } from '../../api/types';
 import type { GeneralLedgerAccountOption } from '../../api/general-ledger-accounts.api';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 import { BUDGET_LINE_STATUS_EDIT_OPTIONS } from '../../constants/budget-line-status-options';
 import { useBudgetExercisesQuery } from '../../hooks/use-budget-exercises-query';
 import { formatBudgetExerciseOptionLabel } from '../../lib/budget-exercise-option-label';
@@ -204,7 +205,7 @@ export function BudgetLineForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Budget : {budgetLabel ?? budgetId}
+              Budget : {displayLabel(budgetLabel, 'Budget en cours')}
             </p>
             <input type="hidden" {...register('budgetId')} value={budgetId} />
 

@@ -62,7 +62,6 @@ features/budgets/
 │   └── budget-reporting-forecast-page.tsx
 ├── components/
 │   ├── budget-page-header.tsx
-│   ├── budget-kpi-cards.tsx
 │   ├── budget-toolbar.tsx
 │   ├── budget-exercises-toolbar.tsx    # Recherche, status, limit, reset (RFC-FE-003)
 │   ├── budgets-toolbar.tsx             # Filtres + toggle Cartes/Tableau (RFC-FE-003 / RFC-FE-BUD-031)
@@ -78,6 +77,16 @@ features/budgets/
 │   ├── budget-empty-state.tsx
 │   ├── budget-error-state.tsx
 │   ├── pagination-summary.tsx          # "1–20 sur N résultats" (RFC-FE-003)
+│   ├── budget-detail/                 # Fiche cockpit (RFC-FE-BUD-032) — barrel index.ts
+│   │   ├── budget-detail-header.tsx        # PageHeader + barre d’outils secondaire
+│   │   ├── budget-detail-kpi-strip.tsx     # Bande 6 KPI + Tout/CAPEX/OPEX + HT/TTC
+│   │   ├── budget-detail-alerts-banner.tsx # Alertes API (aria-live)
+│   │   ├── budget-detail-tabs.tsx          # 6 onglets (role="tablist")
+│   │   ├── budget-detail-workspace.tsx     # Switch contenu + toolbar contextuelle
+│   │   ├── budget-reallocations-panel.tsx  # Journal + CTA création (partagé avec /reallocations)
+│   │   ├── budget-comparisons-panel.tsx    # Versions figées + comparaison embarquée
+│   │   └── budget-historique-panel.tsx     # Frise des décisions + import
+│   ├── budget-detail-modals/          # Saisie de dépense (formulaire unique, RFC-FE-BUD-032)
 │   ├── forms/                         # Formulaires create/edit (RFC-FE-015)
 │   │   ├── budget-exercise-form.tsx
 │   │   ├── budget-form.tsx
@@ -102,6 +111,7 @@ features/budgets/
 │   ├── budget-management.types.ts
 │   ├── budget-list.types.ts            # ListResult, Summary, Params listes (RFC-FE-003)
 │   ├── budget-explorer.types.ts        # ExplorerNode, BudgetExplorerFilters, BudgetExplorerData (RFC-FE-004)
+│   ├── budget-detail-tabs.types.ts     # BudgetDetailTabId, BUDGET_DETAIL_TABS, budgetDetailTabToExplorerMode (RFC-FE-BUD-032)
 │   ├── budget-reporting.types.ts
 │   ├── budget-dashboard.types.ts
 │   ├── budget-forecast.types.ts
@@ -112,6 +122,9 @@ features/budgets/
 │   ├── budget-query-keys.ts   # + exerciseSummary, exerciseBudgetsWithKpi (RFC-FE-BUD-031), budgetExercisesList, budgetsList, …
 │   ├── budget-portfolio-format.ts   # format montant/taux, libellé statut, alerte carte (RFC-FE-BUD-031)
 │   ├── budget-portfolio-export.ts   # export CSV portefeuille (RFC-FE-BUD-031)
+│   ├── budget-display-labels.ts     # libellés financiers uniques + masquage des codes techniques (RFC-FE-BUD-032)
+│   ├── budget-detail-export.ts      # export CSV de la fiche, côté client (RFC-FE-BUD-032)
+│   ├── build-realized-vs-planned-chart.ts  # 12 mois Prévu / Réalisé (Vue d’ensemble)
 │   ├── budget-formatters.ts   # + formatCurrency (DAF, RFC-FE-BUD-030)
 │   ├── fetch-budget-explorer-data.ts   # fetchAllEnvelopesForBudget, fetchAllLinesForBudget (RFC-FE-004)
 │   ├── build-budget-tree.ts            # Arbre enveloppes/lignes, orphelins (RFC-FE-004)
@@ -216,7 +229,6 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | Composant | Rôle |
 |-----------|------|
 | `BudgetPageHeader` | Wrapper PageHeader (titre, description, actions) |
-| `BudgetKpiCards` | Grille de cartes KPI (`items: { label, value, trend? }[]`) |
 | `BudgetToolbar` | Barre filtres/recherche/actions (TableToolbar) |
 | `BudgetExercisesToolbar` | Recherche (debounce), status, limit, reset — sync URL (RFC-FE-003) |
 | `BudgetsToolbar` | Recherche, exercice (obligatoire), statut, toggle Cartes/Tableau, reset — sync URL (RFC-FE-003 / RFC-FE-BUD-031) |
@@ -229,6 +241,16 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetExplorerTable` | Tableau hiérarchique enveloppes/lignes, expand/collapse (RFC-FE-004) |
 | `BudgetExplorerRow` | Ligne enveloppe ou ligne budgétaire ; **Statut** (étroit : badge ligne ou « — » enveloppe) puis **Libellé** (indentation, chevron, aria) ; **lecture seule** sur les montants — clic sur le **libellé** (nom) → drawer intelligence ([RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)) ; pas d’édition inline ni d’UI planning dans la ligne |
 | `BudgetPilotageSection` / `BudgetTable` | Onglet **Pilotage** sur `/budgets/[budgetId]` : planning mensuel / atterrissage / forecast ([RFC-024](../RFC/RFC-024%20%E2%80%94%20Budget%20UI.md), [RFC-023](../RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md)) |
+| **Fiche cockpit (RFC-FE-BUD-032)** — `components/budget-detail/` | |
+| `BudgetDetailHeader` | `PageHeader` DS : identité + statut + méta ; Select budget + Accès + **Saisir une dépense** ; barre d’outils (Exporter, Version figée, Comparaisons, Prévisionnel, Réaffectations) |
+| `BudgetDetailKpiStrip` | Bande **6 KPI** persistante (Budget, Engagé, Consommé, Restant, Dépassement, Taux d’exécution) + filtre Tout/CAPEX/OPEX + toggle HT/TTC |
+| `BudgetDetailAlertsBanner` | Alertes API `ALERT_LIST` (composant disponible) |
+| `BudgetDetailTabs` | 6 onglets (`role="tablist"`, navigation flèches, scroll horizontal contrôlé) — remplace `BudgetViewTabs` (7 modes) ; masqués sur la Vue d’ensemble (accès via la barre d’outils) |
+| `BudgetDetailWorkspace` | Switch de contenu + toolbar contextuelle (`BudgetExplorerToolbar` sur Prévisionnel/Suivi, `BudgetDensityToggle` sur Prévisionnel, forcé en `condense` sous `md`) |
+| `BudgetReallocationsPanel` | Journal des réaffectations + CTA création — partagé avec `/budgets/[budgetId]/reallocations` |
+| `BudgetComparisonsPanel` | Versions figées récentes + `BudgetReportingForecastPage variant="embedded"` + liens `/snapshots` et `/versions` |
+| `BudgetHistoriquePanel` | `BudgetDecisionTimeline` + accès à l’assistant d’import |
+| `BudgetExpenseEntryModal` | `budget-detail-modals/` — formulaire unique : **Engagement / commande** ou **Consommé / Facture** |
 | `BudgetLineIntelligenceDrawer` | Drawer bas (onglets ligne) — [RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md) |
 | `PaginationSummary` | "1–20 sur N résultats" (RFC-FE-003) |
 | `BudgetStatusBadge` | Badge de statut budget (`BudgetStatus` : DRAFT, SUBMITTED, REVISED, VALIDATED, LOCKED, ARCHIVED) — distinct des statuts exercice (`BudgetExerciseStatus`) |
@@ -252,7 +274,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 
 | Route | Contenu |
 |-------|---------|
-| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 Lot A) : `PageHeader`, garde `budgets.read`, bandeau KPI consolidation (5 cellules), toggle **Cartes / Tableau** (`?view=cards\|table`), filtres URL (`exerciseId`, `search`, `status`, `page`, `limit`), source **`GET /api/budget-reporting/exercises/:id/summary`** + **`GET /api/budget-reporting/exercises/:id/budgets`** ; export CSV lignes visibles (`downloadBudgetsPortfolioCsv`) ; kit partagé `components/portfolio` |
+| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 Lot A) : `PageHeader`, garde `budgets.read`, bandeau KPI consolidation (5 cellules), toggle **Cartes / Tableau** (`?view=cards\|table`), filtres URL (`exerciseId`, `search`, `status`, `page`, `limit`), source **`GET /api/budget-reporting/exercises/:id/summary`** + **`GET /api/budget-reporting/exercises/:id/budgets`** (montants HT agrégés, sans TTC côté portefeuille) ; fetch exercice effectif dès résolution (pas d’attente stricte de la synchro URL) ; export CSV lignes visibles (`downloadBudgetsPortfolioCsv`) ; kit partagé `components/portfolio` |
 | `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
 | `/budgets/exercises/new` | **Création exercice** (RFC-FE-015) |
@@ -263,13 +285,13 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budget-envelopes/[envelopeId]/edit` | **Édition enveloppe** (RFC-FE-015) |
 | `/budgets/[budgetId]/lines/new` | **Création ligne budgétaire** (RFC-FE-015) |
 | `/budget-lines/[lineId]/edit` | **Édition ligne budgétaire** (RFC-FE-015) |
-| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004)** : KPI, tableau hiérarchique, vues pilotage (synthèse, prévisionnel, forecast, **comparaison**, décisions, dashboard). **Comparaison** : `BudgetReportingForecastPage` embarqué (`variant="embedded"`) → `ForecastComparisonPanel` + graphiques SVG. En-tête : **Versions figées**, **Accès rapides** |
+| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032)** : `PageHeader` + bande 6 KPI + Vue d’ensemble (graphique **Réalisé vs prévu** 12 mois, lignes critiques API, tableau enveloppes/lignes). Navigation métier via barre d’outils / onglets (`?onglet=`). Export CSV **client** (`downloadBudgetDetailCsv`). Modale unique **Saisir une dépense** (Engagement / commande · Consommé / Facture) |
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, panneau comparaison (baseline / **version figée**, paires et multi versions figées), table + **vue graphique SVG** |
 | `/budgets/[budgetId]/snapshots` | **Versions figées** (RFC-033) : liste (y compris captures **automatiques** aux statuts Soumis / Validé), colonnes **Figée au…** / **Date** (exécution), tri et filtres ; création manuelle ; détail `/budgets/[budgetId]/snapshots/[snapshotId]` avec bande KPI (`BudgetSnapshotKpiStrip`) |
 | `/budgets/[budgetId]/versions` | Squelette |
-| `/budgets/[budgetId]/reallocations` | Squelette |
+| `/budgets/[budgetId]/reallocations` | **Journal des réaffectations** — `BudgetReallocationsPanel` (même panneau que l’onglet Réaffectations de la fiche) |
 | `/budgets/imports` | Squelette |
 | `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types de version figée** → `/budgets/snapshot-occasion-types` (RFC-033) |
 | `/admin/snapshot-occasion-types` | CRUD types de version figée **globaux** (`PLATFORM_ADMIN`, RFC-033) |
@@ -320,6 +342,7 @@ Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` �
 - [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md) — listes paginées, filtres, sync URL
 - [RFC-FE-003 — Conformité](../RFC/RFC-FE-003-conformite.md)
 - [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) — `/budgets` portefeuille reporting, export CSV, kit `components/portfolio`
+- [RFC-FE-BUD-032 — Fiche budget cockpit](../RFC/RFC-FE-BUD-032%20%E2%80%94%20Fiche%20budget%20cockpit%20(refonte%20pr%C3%A9sentation%20%26%20fonctionnalit%C3%A9s).md) — `/budgets/[budgetId]` 3 zones + 6 onglets, `components/budget-detail/`, export CSV client, dénouement de l’engagement à la facturation
 - [Module Budget MVP (backend)](budget-mvp.md)
 - [API.md](../API.md) §15 (Budget Management), §16 (Financial Core), §18 (Budget Reporting), §18.1 (Budget Dashboard)
 - [FRONTEND_ARCHITECTURE.md](../FRONTEND_ARCHITECTURE.md) (architecture frontend globale)

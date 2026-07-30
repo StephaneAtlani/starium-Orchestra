@@ -94,10 +94,6 @@ export default function RbacTestPage() {
                   <span className="font-mono text-xs">{activeClient.slug}</span>
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Id : </span>
-                  <span className="break-all font-mono text-[11px]">{activeClient.id}</span>
-                </p>
-                <p>
                   <span className="text-muted-foreground">Rôle : </span>
                   <Badge variant="outline">{activeClient.role}</Badge>
                 </p>

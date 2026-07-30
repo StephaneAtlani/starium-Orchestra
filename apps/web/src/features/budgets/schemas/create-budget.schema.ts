@@ -18,6 +18,8 @@ export const createBudgetSchema = z.object({
     .optional(),
   /** Utilisateur membre du client actif (API valide le rattachement). */
   ownerUserId: z.string().min(1, 'Sélectionnez un membre comme responsable du budget'),
+  /** Direction / unité d’organisation propriétaire (RFC-ORG-003) — optionnelle. */
+  ownerOrgUnitId: z.string().nullable().optional(),
   taxMode: z.enum(['HT', 'TTC']).optional(),
   defaultTaxRate: z
     .string()

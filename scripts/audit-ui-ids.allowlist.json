@@ -1,0 +1,7 @@
+{
+  "$comment": "Exceptions à la règle « valeur, jamais l'ID » (scripts/audit-ui-ids.mjs). Chaque entrée doit porter une justification métier explicite. Toute nouvelle entrée est une dette : préférer displayLabel().",
+  "files": {
+    "apps/web/src/features/access-diagnostics/components/access-diagnostics-page.tsx": "Outil de diagnostic technique réservé aux administrateurs plateforme : l'identifiant est la donnée saisie, pas une référence métier affichée.",
+    "apps/web/src/features/projects/committee-presentation/lib/codir-minimal-pdf.ts": "Générateur PDF bas niveau : les identifiants sont des numéros d'objets du format PDF, pas des références métier."
+  }
+}

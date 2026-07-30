@@ -95,6 +95,33 @@ function printRecapTable(globalExitCode) {
   console.log(lines.join('\n'));
 }
 
+/** Audits statiques bloquants, joués avec la suite de tests. */
+const CONFORMITY_AUDITS = [
+  { name: 'Modales (StariumModal)', script: 'audit-modals.mjs' },
+  { name: 'Valeur, jamais l’ID', script: 'audit-ui-ids.mjs' },
+];
+
+function runConformityAudits() {
+  const results = [];
+  for (const audit of CONFORMITY_AUDITS) {
+    const run = spawnSync('node', [path.join(__dirname, audit.script)], {
+      cwd: root,
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
+    results.push({ name: audit.name, ok: run.status === 0 });
+  }
+  console.log('');
+  console.log('## Audits de conformité');
+  console.log('');
+  console.log('| Audit | Statut |');
+  console.log('| :---- | :----- |');
+  for (const result of results) {
+    console.log(`| ${result.name} | ${result.ok ? 'OK' : 'ERREUR'} |`);
+  }
+  return results.every((result) => result.ok);
+}
+
 fs.mkdirSync(recapDir, { recursive: true });
 
 const run = spawnSync('pnpm', ['-r', 'run', 'test'], {
@@ -103,6 +130,7 @@ const run = spawnSync('pnpm', ['-r', 'run', 'test'], {
   env: { ...process.env },
 });
 
-const exitCode = run.status === 0 ? 0 : run.status ?? 1;
-printRecapTable(exitCode);
-process.exit(exitCode);
+const testsExitCode = run.status === 0 ? 0 : run.status ?? 1;
+printRecapTable(testsExitCode);
+const auditsOk = runConformityAudits();
+process.exit(testsExitCode !== 0 || !auditsOk ? 1 : 0);

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BudgetVersionStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
@@ -22,6 +22,53 @@ import type { ListEnvelopeLinesQueryDto } from './dto/list-envelope-lines.query.
 
 const MULTI_CURRENCY_MESSAGE =
   'Le reporting ne supporte pas plusieurs devises dans le même périmètre. Toutes les lignes doivent être libellées dans la même devise.';
+
+/** Champs minimaux pour agrégats KPI (évite de charger toute la ligne Prisma). */
+const PILOTAGE_LINE_AMOUNTS_SELECT = {
+  budgetId: true,
+  currency: true,
+  initialAmount: true,
+  forecastAmount: true,
+  committedAmount: true,
+  consumedAmount: true,
+  remainingAmount: true,
+} as const satisfies Prisma.BudgetLineSelect;
+
+const EMPTY_TTC_TOTALS = {
+  totalInitialAmountTtc: null,
+  totalForecastAmountTtc: null,
+  totalCommittedAmountTtc: null,
+  totalConsumedAmountTtc: null,
+  totalRemainingAmountTtc: null,
+} as const;
+
+/**
+ * Budgets visibles dans le portefeuille / consolidation exercice :
+ * - budgets non versionnés qui ne sont pas la source legacy d’un version set
+ * - version ACTIVE de chaque set (exclut DRAFT / SUPERSEDED / ARCHIVED)
+ */
+function portfolioBudgetsWhere(
+  clientId: string,
+  exerciseId: string,
+  baselinedSourceCodes: string[],
+): Prisma.BudgetWhereInput {
+  return {
+    clientId,
+    exerciseId,
+    OR: [
+      {
+        isVersioned: false,
+        ...(baselinedSourceCodes.length > 0
+          ? { code: { notIn: baselinedSourceCodes } }
+          : {}),
+      },
+      {
+        isVersioned: true,
+        versionStatus: BudgetVersionStatus.ACTIVE,
+      },
+    ],
+  };
+}
 
 /** Totaux de pilotage : exclut DRAFT, REJECTED, DEFERRED, ARCHIVED. */
 function whereLinesForPilotageTotals(
@@ -194,18 +241,38 @@ export interface EnvelopeWithKpi {
 export class BudgetReportingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Codes des version sets = codes des budgets source legacy post-baseline. */
+  private async getBaselinedSourceCodes(
+    clientId: string,
+    exerciseId: string,
+  ): Promise<string[]> {
+    const sets = await this.prisma.budgetVersionSet.findMany({
+      where: { clientId, exerciseId },
+      select: { code: true },
+    });
+    return sets.map((s) => s.code);
+  }
+
   async getExerciseSummary(
     clientId: string,
     exerciseId: string,
   ): Promise<BudgetSummaryKpi> {
     const exercise = await this.prisma.budgetExercise.findFirst({
       where: { id: exerciseId, clientId },
-      include: { budgets: { select: { id: true } } },
+      select: { id: true },
     });
     if (!exercise) {
       throw new NotFoundException('Budget exercise not found');
     }
-    const budgetIds = exercise.budgets.map((b) => b.id);
+    const baselinedSourceCodes = await this.getBaselinedSourceCodes(
+      clientId,
+      exerciseId,
+    );
+    const portfolioBudgets = await this.prisma.budget.findMany({
+      where: portfolioBudgetsWhere(clientId, exerciseId, baselinedSourceCodes),
+      select: { id: true },
+    });
+    const budgetIds = portfolioBudgets.map((b) => b.id);
     if (budgetIds.length === 0) {
       return aggregateLinesToKpi([], null, {
         budgetCount: 0,
@@ -214,6 +281,7 @@ export class BudgetReportingService {
     }
     const lines = await this.prisma.budgetLine.findMany({
       where: whereLinesForPilotageTotals({ clientId, budgetId: { in: budgetIds } }),
+      select: PILOTAGE_LINE_AMOUNTS_SELECT,
     });
     const envelopeCount = await this.prisma.budgetEnvelope.count({
       where: { clientId, budgetId: { in: budgetIds } },
@@ -224,21 +292,6 @@ export class BudgetReportingService {
         envelopeCount,
       });
     }
-    const [clientTax, budgetsDefaults] = await Promise.all([
-      this.prisma.client.findUnique({
-        where: { id: clientId },
-        select: { defaultTaxRate: true },
-      }),
-      this.prisma.budget.findMany({
-        where: { clientId, id: { in: budgetIds } },
-        select: { id: true, defaultTaxRate: true },
-      }),
-    ]);
-
-    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
-    const budgetDefaultTaxRateByBudgetId = new Map(
-      budgetsDefaults.map((b) => [b.id, b.defaultTaxRate]),
-    );
 
     const currencies = lines.map((l) => l.currency);
     assertSingleCurrency(currencies);
@@ -248,23 +301,7 @@ export class BudgetReportingService {
       envelopeCount,
     });
 
-    const linesForTtc: BudgetLineForTtc[] = lines.map((l) => ({
-      budgetId: l.budgetId,
-      taxRate: l.taxRate,
-      initialAmount: l.initialAmount,
-      forecastAmount: l.forecastAmount,
-      committedAmount: l.committedAmount,
-      consumedAmount: l.consumedAmount,
-      remainingAmount: l.remainingAmount,
-    }));
-
-    const ttcTotals = computeTtcTotalsOrNull({
-      lines: linesForTtc,
-      clientDefaultTaxRate,
-      budgetDefaultTaxRateByBudgetId,
-    });
-
-    return { ...kpi, ...ttcTotals };
+    return { ...kpi, ...EMPTY_TTC_TOTALS };
   }
 
   async getBudgetSummary(
@@ -401,18 +438,26 @@ export class BudgetReportingService {
     }
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
-    const where: import('@prisma/client').Prisma.BudgetWhereInput = {
+    const baselinedSourceCodes = await this.getBaselinedSourceCodes(
       clientId,
       exerciseId,
-      ...(query.status && { status: query.status }),
-    };
+    );
+    const andFilters: Prisma.BudgetWhereInput[] = [
+      portfolioBudgetsWhere(clientId, exerciseId, baselinedSourceCodes),
+    ];
+    if (query.status) {
+      andFilters.push({ status: query.status });
+    }
     if (query.search?.trim()) {
       const term = query.search.trim();
-      where.OR = [
-        { name: { contains: term, mode: 'insensitive' } },
-        { code: { contains: term, mode: 'insensitive' } },
-      ];
+      andFilters.push({
+        OR: [
+          { name: { contains: term, mode: 'insensitive' } },
+          { code: { contains: term, mode: 'insensitive' } },
+        ],
+      });
     }
+    const where: Prisma.BudgetWhereInput = { AND: andFilters };
     const [budgets, total] = await Promise.all([
       this.prisma.budget.findMany({
         where,
@@ -431,20 +476,13 @@ export class BudgetReportingService {
         offset,
       };
     }
-    const clientTax = await this.prisma.client.findUnique({
-      where: { id: clientId },
-      select: { defaultTaxRate: true },
-    });
-    const clientDefaultTaxRate = clientTax?.defaultTaxRate ?? null;
-    const budgetDefaultTaxRateByBudgetId = new Map(
-      budgets.map((b) => [b.id, b.defaultTaxRate]),
-    );
     const [allLines, allEnvelopes] = await Promise.all([
       this.prisma.budgetLine.findMany({
         where: whereLinesForPilotageTotals({
           clientId,
           budgetId: { in: budgetIds },
         }),
+        select: PILOTAGE_LINE_AMOUNTS_SELECT,
       }),
       this.prisma.budgetEnvelope.findMany({
         where: { clientId, budgetId: { in: budgetIds } },
@@ -478,29 +516,6 @@ export class BudgetReportingService {
       const envelopeCount = envelopeCountByBudget.get(budget.id) ?? 0;
       const kpi = aggregateLinesToKpi(amounts, currency, { envelopeCount });
 
-      const ttcTotals =
-        lines.length === 0
-          ? {
-              totalInitialAmountTtc: null,
-              totalForecastAmountTtc: null,
-              totalCommittedAmountTtc: null,
-              totalConsumedAmountTtc: null,
-              totalRemainingAmountTtc: null,
-            }
-          : computeTtcTotalsOrNull({
-              lines: lines.map((l) => ({
-                budgetId: l.budgetId,
-                taxRate: l.taxRate,
-                initialAmount: l.initialAmount,
-                forecastAmount: l.forecastAmount,
-                committedAmount: l.committedAmount,
-                consumedAmount: l.consumedAmount,
-                remainingAmount: l.remainingAmount,
-              })),
-              clientDefaultTaxRate,
-              budgetDefaultTaxRateByBudgetId,
-            });
-
       return {
         id: budget.id,
         clientId: budget.clientId,
@@ -510,7 +525,7 @@ export class BudgetReportingService {
         description: budget.description,
         currency: budget.currency,
         status: budget.status,
-        kpi: { ...kpi, ...ttcTotals },
+        kpi: { ...kpi, ...EMPTY_TTC_TOTALS },
       };
     });
     return { items, total, limit, offset };

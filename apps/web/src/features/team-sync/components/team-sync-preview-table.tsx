@@ -36,7 +36,6 @@ export function TeamSyncPreviewTable({ preview }: Props) {
         <Table className="min-w-[920px] text-sm">
           <TableHeader className="bg-muted/40">
             <TableRow>
-              <TableHead>Id</TableHead>
               <TableHead>Nom</TableHead>
               <TableHead>Prenom</TableHead>
               <TableHead>Email</TableHead>
@@ -49,7 +48,6 @@ export function TeamSyncPreviewTable({ preview }: Props) {
           <TableBody>
             {preview.items.map((item) => (
               <TableRow key={item.externalDirectoryId}>
-                <TableCell>{item.externalDirectoryId}</TableCell>
                 <TableCell>{item.lastName ?? '-'}</TableCell>
                 <TableCell>{item.firstName ?? '-'}</TableCell>
                 <TableCell className="text-muted-foreground">{item.email ?? '-'}</TableCell>
@@ -73,7 +71,7 @@ export function TeamSyncPreviewTable({ preview }: Props) {
             ))}
             {preview.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Aucun objet a synchroniser.
                 </TableCell>
               </TableRow>

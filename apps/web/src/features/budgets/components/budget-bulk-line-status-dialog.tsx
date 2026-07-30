@@ -85,7 +85,10 @@ export function BudgetBulkLineStatusDialog({
         toast.success(`${nOk} ligne(s) mise(s) à jour.`);
       } else {
         toast.message(`Partiel : ${nOk} réussite(s), ${nFail} échec(s).`, {
-          description: result.failed.slice(0, 3).map((f) => `${f.id}: ${f.error}`).join('\n'),
+          description: result.failed
+            .slice(0, 3)
+            .map((f) => f.error)
+            .join('\n'),
         });
       }
       if (clientId) {

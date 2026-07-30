@@ -8,6 +8,7 @@ import { formatFinancialEventType } from '../../lib/financial-event-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useInlineUpdateBudgetLine } from '../../hooks/use-inline-update-budget-line';
 import { usePatchBudgetOwner } from '../../hooks/use-patch-budget-owner';
@@ -496,7 +497,7 @@ export function BudgetLineOverviewTab({
                 {budgetOwnerUserId &&
                   !members.some((u) => u.id === budgetOwnerUserId) && (
                     <option value={budgetOwnerUserId}>
-                      {budgetOwnerName?.trim() || budgetOwnerUserId}
+                      {displayLabel(budgetOwnerName, 'Responsable actuel')}
                     </option>
                   )}
                 {members.map((u) => (

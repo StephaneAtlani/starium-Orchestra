@@ -265,6 +265,8 @@ export interface CreateBudgetPayload {
   ownerUserId?: string;
   taxMode?: 'HT' | 'TTC';
   defaultTaxRate?: string;
+  /** RFC-ORG-003 */
+  ownerOrgUnitId?: string | null;
 }
 
 export interface UpdateBudgetPayload {

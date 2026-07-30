@@ -2,7 +2,7 @@
 
 Document genere a partir des composants React trouves dans `apps/web/src` (`.tsx`, hors routes `app/` et hors tests).
 
-Total inventorie : **292 composants**.
+Total inventorie : **298 composants**.
 
 ## Lecture rapide
 
@@ -130,12 +130,13 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `platform-usage-charts` - `features/admin-studio/components/platform-usage-charts.tsx` - affiche des graphiques pour plateforme usage.
 - `reset-user-mfa-dialog` - `features/admin-studio/components/reset-user-mfa-dialog.tsx` - ouvre un dialogue pour reinitialisation user mfa.
 
-## Budgets (37)
+## Budgets (34)
 
 - `budget-bulk-line-status-dialog` - `features/budgets/components/budget-bulk-line-status-dialog.tsx` - ouvre un dialogue pour budget bulk ligne statut.
 - `budget-decision-timeline` - `features/budgets/components/budget-decision-timeline.tsx` - gere l'interface de budget decision timeline.
 - `budget-density-toggle` - `features/budgets/components/budget-density-toggle.tsx` - permet d'activer ou basculer budget densite.
-- `budget-detail-dashboard` - `features/budgets/components/budget-detail-dashboard.tsx` - gere l'interface de budget detail dashboard.
+- `budget-detail-dashboard` - `features/budgets/components/budget-detail-dashboard.tsx` - vue d'ensemble fiche budget (graphique Realise vs prevu, lignes critiques, tableau enveloppes).
+- `budget-expense-entry-modal` - `features/budgets/components/budget-detail-modals/budget-expense-entry-modal.tsx` - saisie Engagement / commande ou Consomme / Facture.
 - `budget-empty-state` - `features/budgets/components/budget-empty-state.tsx` - affiche l'etat vide pour budget vide.
 - `budget-envelope-context-card` - `features/budgets/components/budget-envelope-context-card.tsx` - expose le contexte React pour budget enveloppe.
 - `budget-envelope-header` - `features/budgets/components/budget-envelope-header.tsx` - affiche l'en-tete pour budget enveloppe.
@@ -151,7 +152,6 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `budget-explorer-row` - `features/budgets/components/budget-explorer-row.tsx` - gere l'interface de budget explorateur row.
 - `budget-explorer-table` - `features/budgets/components/budget-explorer-table.tsx` - affiche un tableau pour budget explorateur.
 - `budget-explorer-toolbar` - `features/budgets/components/budget-explorer-toolbar.tsx` - centralise les actions et filtres pour budget explorateur.
-- `budget-kpi-cards` - `features/budgets/components/budget-kpi-cards.tsx` - gere l'interface de budget kpi cards.
 - `budget-line-status-badge` - `features/budgets/components/budget-line-status-badge.tsx` - affiche un badge ou un etat pour budget ligne statut.
 - `budget-line-workflow-block` - `features/budgets/components/budget-line-workflow-block.tsx` - gere l'interface de budget ligne workflow block.
 - `budget-lines-progress` - `features/budgets/components/budget-lines-progress.tsx` - gere l'interface de budget lignes progression.
@@ -159,11 +159,9 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `budget-page-header` - `features/budgets/components/budget-page-header.tsx` - compose la page pour budget.
 - `budget-planning-month-cell` - `features/budgets/components/budget-planning-month-cell.tsx` - gere l'interface de budget planning mois cell.
 - `budget-planning-quick-calculator-dialog` - `features/budgets/components/budget-planning-quick-calculator-dialog.tsx` - ouvre un dialogue pour budget planning rapide calculateur.
-- `budget-scenario-select` - `features/budgets/components/budget-scenario-select.tsx` - gere l'interface de budget scenario select.
 - `budget-snapshot-kpi-strip` - `features/budgets/components/budget-snapshot-kpi-strip.tsx` - gere l'interface de budget snapshot kpi strip.
 - `budget-status-badge` - `features/budgets/components/budget-status-badge.tsx` - affiche un badge ou un etat pour budget statut.
 - `budget-toolbar` - `features/budgets/components/budget-toolbar.tsx` - centralise les actions et filtres pour budget.
-- `budget-view-tabs` - `features/budgets/components/budget-view-tabs.tsx` - organise les onglets pour budget.
 - `budgets-table` - `features/budgets/components/budgets-table.tsx` - tableau portefeuille budgets (tons, barres exécution, RFC-FE-BUD-031).
 - `budgets-toolbar` - `features/budgets/components/budgets-toolbar.tsx` - filtres portefeuille + toggle Cartes/Tableau (RFC-FE-BUD-031).
 - `budgets-portfolio-kpi` - `features/budgets/components/budgets-portfolio-kpi.tsx` - bandeau KPI consolidation exercice (5 cellules, RFC-FE-BUD-031).
@@ -171,6 +169,19 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `create-budget-snapshot-dialog` - `features/budgets/components/create-budget-snapshot-dialog.tsx` - ouvre un dialogue pour creation budget snapshot.
 - `new-budget-line-dialog` - `features/budgets/components/new-budget-line-dialog.tsx` - ouvre un dialogue pour creation budget ligne.
 - `pagination-summary` - `features/budgets/components/pagination-summary.tsx` - gere l'interface de pagination synthese.
+
+## Budgets / Budget Detail (8)
+
+Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budgets/components/budget-detail/index.ts`.
+
+- `budget-detail-header` - `features/budgets/components/budget-detail/budget-detail-header.tsx` - PageHeader fiche budget (identite, Select, Acces, Saisir) + barre d'outils secondaire.
+- `budget-detail-kpi-strip` - `features/budgets/components/budget-detail/budget-detail-kpi-strip.tsx` - bande 6 KPI persistants (Budget, Engage, Consomme, Restant, Depassement, Execution) + filtre nature + HT/TTC.
+- `budget-detail-alerts-banner` - `features/budgets/components/budget-detail/budget-detail-alerts-banner.tsx` - annonce les alertes API du budget (`aria-live`).
+- `budget-detail-tabs` - `features/budgets/components/budget-detail/budget-detail-tabs.tsx` - organise les 6 onglets de la fiche budget.
+- `budget-detail-workspace` - `features/budgets/components/budget-detail/budget-detail-workspace.tsx` - aiguille le contenu et la barre d'outils selon l'onglet actif.
+- `budget-reallocations-panel` - `features/budgets/components/budget-detail/budget-reallocations-panel.tsx` - affiche le journal des reaffectations et l'action de creation.
+- `budget-comparisons-panel` - `features/budgets/components/budget-detail/budget-comparisons-panel.tsx` - affiche les versions figees et la comparaison embarquee.
+- `budget-historique-panel` - `features/budgets/components/budget-detail/budget-historique-panel.tsx` - affiche la frise des decisions budgetaires.
 
 ## Budgets / Budget Envelope Drawer (1)
 

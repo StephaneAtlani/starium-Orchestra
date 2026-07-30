@@ -6,6 +6,7 @@ import type { CreateProjectMilestonePayload } from '../api/projects.api';
 import { CalendarRange, Flag, Tag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 
 function isoToDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -235,24 +236,30 @@ export function MilestoneFormDialogFields({
           <div className="starium-form-grid">
             {selectedLabelIds.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {selectedLabelIds.map((id) => (
-                  <span
-                    key={id}
-                    className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <span className="truncate" title={labelById.get(id) ?? id}>
-                      {labelById.get(id) ?? id}
-                    </span>
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={`Retirer l’étiquette ${labelById.get(id) ?? id}`}
-                      onClick={() => removeLabel(id)}
+                {selectedLabelIds.map((id) => {
+                  const name = displayLabel(
+                    labelById.get(id),
+                    'Étiquette supprimée',
+                  );
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs text-foreground"
                     >
-                      <X className="size-3.5" aria-hidden />
-                    </button>
-                  </span>
-                ))}
+                      <span className="truncate" title={name}>
+                        {name}
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label={`Retirer l’étiquette ${name}`}
+                        onClick={() => removeLabel(id)}
+                      >
+                        <X className="size-3.5" aria-hidden />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <p className="starium-form-hint">Aucune étiquette sélectionnée.</p>

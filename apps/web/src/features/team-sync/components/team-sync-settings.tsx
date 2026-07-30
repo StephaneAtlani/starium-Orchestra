@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
+import { displayLabel } from '@/lib/display-label';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -116,7 +117,7 @@ export function TeamSyncSettings() {
       await addGroupScopeMutation.mutateAsync({
         connectionId,
         groupId: selectedProviderGroupId,
-        groupName: source?.name ?? selectedProviderGroupId,
+        groupName: displayLabel(source?.name, 'Groupe Microsoft sans nom'),
       });
       setSelectedProviderGroupId('');
       toast.success('Groupe cible ajouté.');
@@ -171,11 +172,8 @@ export function TeamSyncSettings() {
             connectionsQuery.data.length === 0 && (
               <div className="rounded-md border border-border p-3 text-sm">
                 <p className="text-muted-foreground">
-                  Connexion Microsoft détectée (tenant{' '}
-                  <span className="font-mono text-xs">
-                    {microsoftConnectionQuery.data.connection.tenantId}
-                  </span>
-                  ). Initialise maintenant la configuration de synchronisation annuaire.
+                  Connexion Microsoft détectée. Initialise maintenant la configuration de
+                  synchronisation annuaire.
                 </p>
                 <Button
                   type="button"
@@ -272,7 +270,7 @@ export function TeamSyncSettings() {
                 key={g.id}
                 className="flex items-center justify-between rounded-md border border-border p-2 text-sm"
               >
-                <span>{g.groupName || g.groupId}</span>
+                <span>{displayLabel(g.groupName, 'Groupe Microsoft sans nom')}</span>
                 <Button
                   variant="ghost"
                   type="button"

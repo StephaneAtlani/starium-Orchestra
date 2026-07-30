@@ -18,6 +18,7 @@ import { useCreateBudgetLine } from '../../hooks/use-create-budget-line';
 import { useUpdateBudgetLine } from '../../hooks/use-update-budget-line';
 import { lineApiToForm } from '../../mappers/budget-form.mappers';
 import { budgetDetail } from '../../constants/budget-routes';
+import { displayLabel } from '@/lib/display-label';
 import type { BudgetLineFormValues } from '../../schemas/budget-line-form.schema';
 import type { BudgetLineFormSubmitMeta } from '../forms/budget-line-form';
 import type { CreateBudgetLineMutationInput } from '../../hooks/use-create-budget-line';
@@ -157,7 +158,7 @@ export function BudgetLineFormPage({
   };
 
   const cancelHref = budgetDetail(resolvedBudgetId);
-  const budgetLabel = budget?.name ?? resolvedBudgetId;
+  const budgetLabel = displayLabel(budget?.name, 'Budget');
 
   return (
     <>

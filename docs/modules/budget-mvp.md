@@ -51,7 +51,7 @@ Détail : [docs/API.md](../API.md) §15 (Structure budgétaire), [docs/modules/a
   - `GET /api/financial-allocations`, `POST /api/financial-allocations`
   - `GET /api/financial-events`, `POST /api/financial-events`
   - `GET /api/budget-lines/:id/allocations`, `GET /api/budget-lines/:id/events`
-- **Recalcul** : à chaque création d’allocation ou d’événement (types COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED, ou après une réallocation avec REALLOCATION_DONE), les champs `forecastAmount`, `committedAmount`, `consumedAmount`, `remainingAmount` de la `BudgetLine` sont recalculés. Base budgétaire effective = revisedAmount + somme des événements REALLOCATION_DONE ; remaining = base effective − committed − consumed.
+- **Recalcul** : à chaque création d’allocation ou d’événement (types COMMITMENT_REGISTERED / CONSUMPTION_REGISTERED, ou après une réallocation avec REALLOCATION_DONE), les champs `forecastAmount`, `committedAmount`, `consumedAmount`, `remainingAmount` de la `BudgetLine` sont recalculés. Base budgétaire effective = revisedAmount + somme des événements REALLOCATION_DONE ; remaining = base effective − committed − consumed. La formule est inchangée depuis RFC-FE-BUD-032 : c’est la **facturation** qui émet un `COMMITMENT_REGISTERED` négatif pour dénouer l’engagement de la commande, de sorte qu’un même achat ne pèse pas à la fois en engagé et en consommé.
 - **Audit** : création d’allocation et d’événement tracées en audit log.
 
 Détail : [docs/API.md](../API.md) §16 (Noyau financier).

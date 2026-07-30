@@ -549,7 +549,10 @@ export function InstanceDecisionPanel({
                 return (
                   <li key={d.id} className="flex flex-wrap items-center gap-2">
                     <span className="truncate">
-                      {item ? getGovernanceCycleItemDisplayLabel(item) : d.itemId} :{' '}
+                      {item
+                        ? getGovernanceCycleItemDisplayLabel(item)
+                        : 'Point d’ordre du jour retiré'}
+                      :{' '}
                       {getDecisionLabel(d.decisionStatus as GovernanceCycleItemDecisionStatus)}
                     </span>
                   </li>

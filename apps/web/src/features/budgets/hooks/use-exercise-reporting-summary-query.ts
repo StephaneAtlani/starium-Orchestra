@@ -21,6 +21,7 @@ export function useExerciseReportingSummaryQuery(
     queryKey: budgetQueryKeys.exerciseSummary(clientId, exerciseId ?? ''),
     queryFn: () => getExerciseSummary(authFetch, exerciseId!),
     enabled: !!clientId && !!exerciseId && enabled,
+    placeholderData: (previousData) => previousData,
     staleTime: STALE_TIME_MS,
   });
 }

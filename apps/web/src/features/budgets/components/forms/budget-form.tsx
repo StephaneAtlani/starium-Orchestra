@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { createBudgetSchema, type CreateBudgetInput } from '../../schemas/create
 import { BudgetFormActions } from './budget-form-actions';
 import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
 import { useClientMembers } from '@/features/client-rbac/hooks/use-client-members';
+import { OwnerOrgUnitSelect } from '@/features/organization/components/owner-org-unit-select';
 import type { ClientMember } from '@/features/client-rbac/api/user-roles';
 import type { ApiFormError } from '../../api/types';
 import {
@@ -72,6 +73,7 @@ export function BudgetForm({
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     watch,
@@ -83,6 +85,7 @@ export function BudgetForm({
       status: 'DRAFT',
       taxMode: 'HT',
       ownerUserId: '',
+      ownerOrgUnitId: null,
       ...defaultValues,
     },
   });
@@ -192,6 +195,26 @@ export function BudgetForm({
             )}
             <p className="text-xs text-muted-foreground">
               Le responsable doit être un utilisateur rattaché au client actif (liste des membres).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ownerOrgUnitId">Direction</Label>
+            <Controller
+              name="ownerOrgUnitId"
+              control={control}
+              render={({ field }) => (
+                <OwnerOrgUnitSelect
+                  id="ownerOrgUnitId"
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  triggerClassName="h-8 w-full text-sm"
+                  placeholder="Aucune direction"
+                />
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Direction propriétaire du budget : elle sert de rattachement par défaut aux lignes
+              budgétaires et de filtre dans le portefeuille.
             </p>
           </div>
         </CardContent>

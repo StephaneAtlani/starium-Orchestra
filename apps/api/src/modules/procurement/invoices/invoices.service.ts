@@ -197,6 +197,15 @@ export class InvoicesService {
           },
           context,
         );
+
+        if (po) {
+          await this.unwindPurchaseOrderCommitment(tx, clientId, {
+            invoice: created,
+            budgetLine,
+            purchaseOrder: po,
+            context,
+          });
+        }
       }
 
       await this.auditLogs.create({
@@ -325,6 +334,12 @@ export class InvoicesService {
             },
             context,
           );
+
+          await this.restorePurchaseOrderCommitment(tx, clientId, {
+            invoice: updated,
+            budgetLine,
+            context,
+          });
         }
       }
 
@@ -347,11 +362,134 @@ export class InvoicesService {
     return toInvoiceResponse(result);
   }
 
+  /**
+   * Une commande crée un engagement (`COMMITMENT_REGISTERED`) ; la facture qui la solde crée une
+   * consommation. Sans dénouement, la ligne budgétaire porterait les deux et `remainingAmount`
+   * serait doublement amputé (RFC-FE-BUD-032 §5.2).
+   *
+   * Le dénouement est plafonné à l'engagement encore ouvert de la commande, et porté par
+   * `sourceType: INVOICE / sourceId: invoice.id` pour que l'annulation de la facture soit
+   * exactement réversible.
+   */
+  private async unwindPurchaseOrderCommitment(
+    tx: any,
+    clientId: string,
+    params: {
+      invoice: { id: string; amountHt: Prisma.Decimal; taxRate: Prisma.Decimal | null };
+      budgetLine: { id: string; currency: string };
+      purchaseOrder: { id: string; reference: string };
+      context?: ProcurementAuditContext;
+    },
+  ): Promise<void> {
+    const { invoice, budgetLine, purchaseOrder, context } = params;
+
+    const commitmentAgg = await tx.financialEvent.aggregate({
+      where: {
+        clientId,
+        budgetLineId: budgetLine.id,
+        eventType: FinancialEventType.COMMITMENT_REGISTERED,
+        sourceType: FinancialSourceType.PURCHASE_ORDER,
+        sourceId: purchaseOrder.id,
+      },
+      _sum: { amountHt: true },
+    });
+    const openCommitment: Prisma.Decimal =
+      commitmentAgg._sum.amountHt ?? new Prisma.Decimal(0);
+    if (openCommitment.lessThanOrEqualTo(0)) return;
+
+    const invoicedAgg = await tx.invoice.aggregate({
+      where: {
+        clientId,
+        purchaseOrderId: purchaseOrder.id,
+        status: { not: 'CANCELLED' },
+        id: { not: invoice.id },
+      },
+      _sum: { amountHt: true },
+    });
+    const alreadyInvoiced: Prisma.Decimal =
+      invoicedAgg._sum.amountHt ?? new Prisma.Decimal(0);
+
+    const remainingCommitment = openCommitment.minus(alreadyInvoiced);
+    if (remainingCommitment.lessThanOrEqualTo(0)) return;
+
+    const unwind = remainingCommitment.lessThan(invoice.amountHt)
+      ? remainingCommitment
+      : invoice.amountHt;
+    if (unwind.lessThanOrEqualTo(0)) return;
+
+    await this.events.create(
+      clientId,
+      {
+        budgetLineId: budgetLine.id,
+        sourceType: FinancialSourceType.INVOICE,
+        sourceId: invoice.id,
+        eventType: FinancialEventType.COMMITMENT_REGISTERED,
+        amountHt: unwind.neg().toFixed(2),
+        ...(invoice.taxRate
+          ? { taxRate: invoice.taxRate.toFixed(2) }
+          : { useDefaultTaxRate: true }),
+        currency: budgetLine.currency,
+        eventDate: new Date(),
+        label: `Dénouement engagement commande ${purchaseOrder.reference}`,
+      },
+      context,
+    );
+  }
+
+  /** Annulation de facture : rétablit l'engagement dénoué par cette facture, à l'euro près. */
+  private async restorePurchaseOrderCommitment(
+    tx: any,
+    clientId: string,
+    params: {
+      invoice: { id: string; invoiceNumber: string; taxRate: Prisma.Decimal | null };
+      budgetLine: { id: string; currency: string };
+      context?: ProcurementAuditContext;
+    },
+  ): Promise<void> {
+    const { invoice, budgetLine, context } = params;
+
+    const unwoundAgg = await tx.financialEvent.aggregate({
+      where: {
+        clientId,
+        budgetLineId: budgetLine.id,
+        eventType: FinancialEventType.COMMITMENT_REGISTERED,
+        sourceType: FinancialSourceType.INVOICE,
+        sourceId: invoice.id,
+      },
+      _sum: { amountHt: true },
+    });
+    const unwound: Prisma.Decimal = unwoundAgg._sum.amountHt ?? new Prisma.Decimal(0);
+    if (unwound.isZero()) return;
+
+    await this.events.create(
+      clientId,
+      {
+        budgetLineId: budgetLine.id,
+        sourceType: FinancialSourceType.INVOICE,
+        sourceId: invoice.id,
+        eventType: FinancialEventType.COMMITMENT_REGISTERED,
+        amountHt: unwound.neg().toFixed(2),
+        ...(invoice.taxRate
+          ? { taxRate: invoice.taxRate.toFixed(2) }
+          : { useDefaultTaxRate: true }),
+        currency: budgetLine.currency,
+        eventDate: new Date(),
+        label: `Rétablissement engagement — annulation ${invoice.invoiceNumber}`,
+      },
+      context,
+    );
+  }
+
   private async resolvePurchaseOrder(clientId: string, id?: string) {
     if (!id) return null;
-      const po = await (this.prisma as any).purchaseOrder.findFirst({
+    const po = await (this.prisma as any).purchaseOrder.findFirst({
       where: { id, clientId },
-      select: { id: true, supplierId: true, budgetLineId: true },
+      select: {
+        id: true,
+        supplierId: true,
+        budgetLineId: true,
+        reference: true,
+      },
     });
     if (!po) {
       throw new BadRequestException('Purchase order not found in active client');

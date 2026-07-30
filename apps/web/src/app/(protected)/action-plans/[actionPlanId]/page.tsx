@@ -44,6 +44,7 @@ import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
 import type { ActionPlanApi, ActionPlanTaskApi } from '@/features/projects/types/project.types';
 import { useTablePan } from '@/hooks/use-table-pan';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 import { AlertCircle, ChevronLeft, Download, Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -80,7 +81,7 @@ function fmtExportDateTime(date: Date): string {
 
 function taskOwnerLabel(task: ActionPlanTaskApi, ownerLabelById: Map<string, string>): string {
   if (task.ownerUserId) {
-    return ownerLabelById.get(task.ownerUserId) ?? task.ownerUserId;
+    return displayLabel(ownerLabelById.get(task.ownerUserId), 'Responsable inconnu');
   }
   return 'Non assigne';
 }

@@ -25,13 +25,17 @@ const DEBOUNCE_MS = 300;
 export function BudgetsToolbar({
   viewMode,
   onViewModeChange,
+  resolvedExerciseId,
 }: {
   viewMode?: 'cards' | 'table';
   onViewModeChange?: (mode: 'cards' | 'table') => void;
+  /** Exercice résolu côté page (URL ou défaut actif) — évite un select vide pendant la synchro URL. */
+  resolvedExerciseId?: string | null;
 } = {}) {
   const { filters, setFilters, reset } = useBudgetsListFilters();
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
   const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery();
+  const exerciseSelectValue = filters.exerciseId ?? resolvedExerciseId ?? '';
 
   useEffect(() => {
     setSearchInput(filters.search ?? '');
@@ -80,7 +84,7 @@ export function BudgetsToolbar({
         <FilterBarField id="budgets-exercise" label="Exercice">
           {({ controlId, labelId }) => (
             <Select
-              value={filters.exerciseId ?? ''}
+              value={exerciseSelectValue}
               onValueChange={handleExerciseChange}
             >
               <SelectTrigger

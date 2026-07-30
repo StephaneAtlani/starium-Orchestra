@@ -10,13 +10,14 @@ import { BudgetEnvelopeDetail } from '../types/budget-envelope-detail.types';
 import { BudgetEnvelopeStatusBadge } from './budget-envelope-status-badge';
 import { BudgetPageHeader } from './budget-page-header';
 import { budgetDetail, budgetEnvelopeEdit } from '../constants/budget-routes';
+import { displayLabel } from '@/lib/display-label';
 
 interface BudgetEnvelopeHeaderProps {
   envelope: BudgetEnvelopeDetail;
 }
 
 export function BudgetEnvelopeHeader({ envelope }: BudgetEnvelopeHeaderProps) {
-  const budgetLabel = envelope.budgetName || envelope.budgetId;
+  const budgetLabel = displayLabel(envelope.budgetName, 'Budget');
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const canEditEnvelope = !isPermissionsLoading && has('budgets.update');
 

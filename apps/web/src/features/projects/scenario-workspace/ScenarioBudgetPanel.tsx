@@ -20,6 +20,7 @@ import { formatBudgetExerciseOptionLabel } from '@/features/budgets/lib/budget-e
 import type { BudgetExerciseSummary } from '@/features/budgets/types/budget-list.types';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Wallet } from 'lucide-react';
@@ -612,7 +613,10 @@ export function ScenarioBudgetPanel({ scenario, canMutate }: Props) {
                     {groupedLinks.map(([envelopeId, links]) => (
                       <SelectGroup key={envelopeId}>
                         <SelectLabel>
-                          {envelopeNameById.get(envelopeId) ?? `Enveloppe ${envelopeId}`}
+                          {displayLabel(
+                            envelopeNameById.get(envelopeId),
+                            'Enveloppe sans nom',
+                          )}
                         </SelectLabel>
                         {links.map((link) => (
                           <SelectItem key={link.id} value={link.id}>
@@ -857,7 +861,9 @@ function ScenarioBudgetLineRow({
     <TableRow>
       <TableCell className="font-medium">{lineDisplayLabel(line)}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
-        {envelopeId ? envelopeNameById.get(envelopeId) ?? envelopeId : '—'}
+        {envelopeId
+          ? displayLabel(envelopeNameById.get(envelopeId), 'Enveloppe sans nom')
+          : '—'}
       </TableCell>
       <TableCell className="max-w-[220px] text-xs">{rule}</TableCell>
       <TableCell className="text-right tabular-nums text-xs">{formatMoney(engaged)}</TableCell>

@@ -280,6 +280,7 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
   );
 
   const rootIndexByRootId = useMemo(() => {
+    // audit-ui-ids:ignore — clé de regroupement interne pour la palette, jamais affichée
     const ordered = orderedRootIdsFromRows(treeRowsForPalette, (id) => taskRootIdMap.get(id) ?? id);
     const m = new Map<string, number>();
     ordered.forEach((rid, i) => {
@@ -1303,10 +1304,10 @@ export function ProjectGanttPanel({ projectId }: { projectId: string }) {
                           onPointerDownBar={(mode, ev) => beginTaskDrag(row, mode, ev)}
                           onLinkOutPointerDown={(ev) => beginLinkOut(row.id, ev)}
                           tone={resolveGanttBarTone(barColorMode, row, {
-                            rootId: taskRootIdMap.get(row.id) ?? row.id,
+                            rootId: taskRootIdMap.get(row.id) ?? row.id, // audit-ui-ids:ignore — clé de palette, jamais affichée
                             rootIndex:
                               rootIndexByRootId.get(
-                                taskRootIdMap.get(row.id) ?? row.id,
+                                taskRootIdMap.get(row.id) ?? row.id, // audit-ui-ids:ignore — clé de palette, jamais affichée
                               ) ?? 0,
                           })}
                           tooltipContent={

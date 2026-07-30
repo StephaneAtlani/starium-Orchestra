@@ -930,7 +930,6 @@ features/budgets/
 │   └── use-budget-dashboard.ts
 ├── components/
 │   ├── budget-page-header.tsx
-│   ├── budget-kpi-cards.tsx
 │   ├── budget-toolbar.tsx
 │   ├── budget-exercises-toolbar.tsx, budgets-toolbar.tsx   # RFC-FE-003
 │   ├── budget-exercises-table.tsx, budgets-table.tsx       # RFC-FE-003
@@ -939,6 +938,7 @@ features/budgets/
 │   ├── pagination-summary.tsx      # RFC-FE-003
 │   ├── budget-empty-state.tsx
 │   ├── budget-error-state.tsx
+│   ├── budget-detail/             # Fiche cockpit : header, bande KPI, alertes, onglets, workspace, panneaux (RFC-FE-BUD-032)
 │   └── forms/
 ├── schemas/
 │   ├── create-budget.schema.ts
@@ -948,11 +948,13 @@ features/budgets/
 ├── types/
 │   ├── budget-management.types.ts
 │   ├── budget-list.types.ts         # RFC-FE-003
+│   ├── budget-detail-tabs.types.ts  # Onglets de la fiche + mapping mode explorateur (RFC-FE-BUD-032)
 │   ├── budget-reporting.types.ts
 │   ├── budget-dashboard.types.ts
 │   └── placeholders
 ├── lib/
 │   ├── budget-query-keys.ts   # + budgetExercisesList, budgetsList, budgetExerciseOptions (RFC-FE-003)
+│   ├── budget-display-labels.ts, budget-detail-export.ts, build-realized-vs-planned-chart.ts   # RFC-FE-BUD-032
 │   └── budget-formatters.ts
 └── constants/
     ├── budget-routes.ts       # + budgetList(), budgetListWithExercise()

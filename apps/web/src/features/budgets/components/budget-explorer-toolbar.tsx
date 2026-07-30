@@ -22,12 +22,6 @@ const ENVELOPE_TYPE_LABEL: Record<string, string> = {
   TRANSVERSE: 'TRANSVERSE',
 };
 
-const EXPENSE_TYPE_LABEL: Record<string, string> = {
-  __all__: 'Tous',
-  OPEX: 'OPEX',
-  CAPEX: 'CAPEX',
-};
-
 export interface BudgetExplorerToolbarProps {
   filters: BudgetExplorerFilters;
   setFilters: React.Dispatch<React.SetStateAction<BudgetExplorerFilters>>;
@@ -45,14 +39,13 @@ export function BudgetExplorerToolbar({
   isTaxLoading,
 }: BudgetExplorerToolbarProps) {
   const envelopeKey = filters.envelopeType ?? '__all__';
-  const expenseKey = filters.expenseType ?? '__all__';
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
       <FilterBar
         aria-label="Filtres explorateur budget"
         className="flex-1"
-        desktopColumns={3}
+        desktopColumns={2}
       >
         <FilterBarField id="explorer-search" label="Recherche">
           {({ controlId }) => (
@@ -94,35 +87,6 @@ export function BudgetExplorerToolbar({
                 <SelectItem value="RUN">RUN</SelectItem>
                 <SelectItem value="BUILD">BUILD</SelectItem>
                 <SelectItem value="TRANSVERSE">TRANSVERSE</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-        </FilterBarField>
-        <FilterBarField id="explorer-expense-type" label="OPEX / CAPEX">
-          {({ controlId, labelId }) => (
-            <Select
-              value={expenseKey}
-              onValueChange={(v) =>
-                setFilters((f) => ({
-                  ...f,
-                  expenseType: v === '__all__' || !v ? undefined : v,
-                }))
-              }
-            >
-              <SelectTrigger
-                id={controlId}
-                aria-labelledby={labelId}
-                className="w-full"
-                data-testid="explorer-expense-type"
-              >
-                <SelectValue>
-                  {EXPENSE_TYPE_LABEL[expenseKey] ?? expenseKey}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">Tous</SelectItem>
-                <SelectItem value="OPEX">OPEX</SelectItem>
-                <SelectItem value="CAPEX">CAPEX</SelectItem>
               </SelectContent>
             </Select>
           )}

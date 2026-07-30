@@ -13,6 +13,7 @@ import { usePlatformAuditLogsQuery } from '../../../../features/admin-studio/hoo
 import { useClientsQuery } from '../../../../features/admin-studio/hooks/use-clients-query';
 import { usePlatformUsersQuery } from '../../../../features/admin-studio/hooks/use-platform-users-query';
 import type { AdminPlatformAuditLogRow } from '../../../../features/admin-studio/types/admin-studio.types';
+import { displayLabel } from '@/lib/display-label';
 
 const DEFAULT_LIMIT = 50;
 
@@ -57,7 +58,7 @@ export default function AdminAuditPage() {
       header: 'Client',
       cell: (row) => {
         if (!row.clientId) return '—';
-        return clientNameById.get(row.clientId) ?? row.clientId;
+        return displayLabel(clientNameById.get(row.clientId), 'Client supprimé');
       },
     },
     {
@@ -65,16 +66,11 @@ export default function AdminAuditPage() {
       header: 'Utilisateur',
       cell: (row) => {
         if (!row.userId) return '—';
-        return userLabelById.get(row.userId) ?? row.userId;
+        return displayLabel(userLabelById.get(row.userId), 'Compte supprimé');
       },
     },
     { key: 'action', header: 'Action' },
     { key: 'resourceType', header: 'Ressource' },
-    {
-      key: 'resourceId',
-      header: 'ID ressource',
-      cell: (row) => row.resourceId ?? '—',
-    },
   ];
 
   return (

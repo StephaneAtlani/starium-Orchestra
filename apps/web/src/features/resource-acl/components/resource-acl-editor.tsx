@@ -416,7 +416,7 @@ export function ResourceAclEditor({
 
       if (result.failedAt) {
         toast.error('Suppression partielle', {
-          description: `${result.deletedEntryIds.length} sur ${idsToDelete.length} supprimées. La suppression de l’entrée « ${result.failedAt.entryId} » a échoué : ${result.failedAt.error.message}`,
+          description: `${result.deletedEntryIds.length} sur ${idsToDelete.length} supprimées. La suppression d’une permission a échoué : ${result.failedAt.error.message}`,
         });
       } else {
         toast.success('Mode public restauré', {

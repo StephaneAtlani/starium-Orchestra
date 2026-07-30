@@ -30,19 +30,32 @@ type BudgetPortfolioKpiDef = {
   ) => string | null;
 };
 
-function formatCompactAmount(value: number | null | undefined, currency = 'EUR'): string {
-  if (value == null || !Number.isFinite(value)) return '—';
+function coerceFiniteNumber(value: number | string | null | undefined): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function formatCompactAmount(value: number | string | null | undefined, currency = 'EUR'): string {
+  const normalizedValue = coerceFiniteNumber(value);
+  if (normalizedValue == null) return '—';
   return new Intl.NumberFormat('fr-FR', {
     notation: 'compact',
     maximumFractionDigits: 1,
     style: 'currency',
     currency,
-  }).format(value);
+  }).format(normalizedValue);
 }
 
-function formatPercent(rate: number | undefined): string | null {
-  if (rate == null || !Number.isFinite(rate)) return null;
-  return `${Math.round(rate * 100)} % du budget`;
+function formatPercent(rate: number | string | undefined): string | null {
+  const normalizedRate = coerceFiniteNumber(rate);
+  if (normalizedRate == null) return null;
+  return `${Math.round(normalizedRate * 100)} % du budget`;
 }
 
 const KPI_CARDS: BudgetPortfolioKpiDef[] = [
@@ -107,8 +120,8 @@ const KPI_CARDS: BudgetPortfolioKpiDef[] = [
     },
     footer: (kpi) => {
       if (!kpi) return null;
-      const gap = kpi.forecastGapAmount;
-      if (gap != null && Number.isFinite(gap) && gap > 0) {
+      const gap = coerceFiniteNumber(kpi.forecastGapAmount);
+      if (gap != null && gap > 0) {
         return `Écart +${formatCompactAmount(gap, kpi.currency ?? 'EUR')}`;
       }
       return 'Prévision dans le budget';

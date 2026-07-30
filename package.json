@@ -7,6 +7,7 @@
     "build": "pnpm -r run build",
     "test": "node scripts/run-tests-with-recap.mjs",
     "audit:modals": "node scripts/audit-modals.mjs",
+    "audit:ui-ids": "node scripts/audit-ui-ids.mjs",
     "predeploy:api": "pnpm --filter @starium-orchestra/api run predeploy"
   },
   "engines": {

@@ -45,18 +45,18 @@ reporting --> decisions
 
 ### Ce que tu y fais
 
-- lire KPI;
-- filtrer périmètre;
-- créer/éditer lignes et enveloppes;
-- ajouter commentaires;
-- analyser détail d'une ligne.
+- lire les 6 KPI (Budget, Engagé, Consommé, Restant, Dépassement, Taux d’exécution) et basculer HT/TTC ;
+- consulter le graphique **Réalisé vs prévu** (12 mois) et les lignes critiques ;
+- naviguer via la barre d’outils : Exporter, Version figée, Comparaisons, Prévisionnel, Réaffectations, Accès ;
+- saisir une dépense (**Engagement / commande** ou **Consommé / Facture**) ;
+- ouvrir le détail d’une ligne (drawer).
 
 ### Routine hebdo recommandée
 
-1. Vérifier KPI globaux.
-2. Filtrer les postes en dérive.
-3. Corriger les lignes concernées.
-4. Documenter les décisions en commentaire.
+1. Vérifier KPI globaux et le graphique mensuel.
+2. Traiter les lignes critiques / en dérive.
+3. Enregistrer engagements ou consommations manquants.
+4. Figée une version avant arbitrage CODIR si besoin.
 
 ---
 

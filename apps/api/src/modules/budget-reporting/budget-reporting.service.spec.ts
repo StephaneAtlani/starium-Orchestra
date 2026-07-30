@@ -22,6 +22,7 @@ describe('BudgetReportingService', () => {
     prisma = {
       budgetExercise: { findFirst: jest.fn() },
       budget: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+      budgetVersionSet: { findMany: jest.fn().mockResolvedValue([]) },
       budgetEnvelope: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -41,16 +42,15 @@ describe('BudgetReportingService', () => {
       ).rejects.toThrow(NotFoundException);
       expect(prisma.budgetExercise.findFirst).toHaveBeenCalledWith({
         where: { id: 'absent', clientId },
-        include: { budgets: { select: { id: true } } },
+        select: { id: true },
       });
     });
 
     it('retourne currency null si aucune ligne (exercice)', async () => {
       prisma.budgetExercise.findFirst.mockResolvedValue({
         id: 'ex-1',
-        clientId,
-        budgets: [{ id: 'b1' }],
       });
+      prisma.budget.findMany.mockResolvedValue([{ id: 'b1' }]);
       prisma.budgetLine.findMany.mockResolvedValue([]);
       prisma.budgetEnvelope.count.mockResolvedValue(3);
       const result = await service.getExerciseSummary(clientId, 'ex-1');
@@ -63,22 +63,51 @@ describe('BudgetReportingService', () => {
     it('retourne 400 si plusieurs devises dans les lignes', async () => {
       prisma.budgetExercise.findFirst.mockResolvedValue({
         id: 'ex-1',
-        clientId,
-        budgets: [{ id: 'b1' }],
       });
+      prisma.budget.findMany.mockResolvedValue([{ id: 'b1' }]);
       prisma.budgetLine.findMany.mockResolvedValue([
         { currency: 'EUR', initialAmount: 0, revisedAmount: 100, forecastAmount: 0, committedAmount: 0, consumedAmount: 0, remainingAmount: 100 },
         { currency: 'USD', initialAmount: 0, revisedAmount: 50, forecastAmount: 0, committedAmount: 0, consumedAmount: 0, remainingAmount: 50 },
       ]);
       prisma.budgetEnvelope.count.mockResolvedValue(1);
       prisma.client.findUnique.mockResolvedValue({ defaultTaxRate: null });
-      prisma.budget.findMany.mockResolvedValue([{ id: 'b1', defaultTaxRate: null }]);
       await expect(
         service.getExerciseSummary(clientId, 'ex-1'),
       ).rejects.toThrow(BadRequestException);
       await expect(
         service.getExerciseSummary(clientId, 'ex-1'),
       ).rejects.toThrow(/plusieurs devises/);
+    });
+
+    it('ne consolide que les budgets portefeuille (actifs / non versionnés)', async () => {
+      prisma.budgetExercise.findFirst.mockResolvedValue({ id: 'ex-1' });
+      prisma.budgetVersionSet.findMany.mockResolvedValue([
+        { code: 'BUD-IT' },
+      ]);
+      prisma.budget.findMany.mockResolvedValue([{ id: 'b-active' }]);
+      prisma.budgetLine.findMany.mockResolvedValue([]);
+      prisma.budgetEnvelope.count.mockResolvedValue(0);
+
+      await service.getExerciseSummary(clientId, 'ex-1');
+
+      expect(prisma.budget.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clientId,
+            exerciseId: 'ex-1',
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                isVersioned: false,
+                code: { notIn: ['BUD-IT'] },
+              }),
+              expect.objectContaining({
+                isVersioned: true,
+                versionStatus: 'ACTIVE',
+              }),
+            ]),
+          }),
+        }),
+      );
     });
   });
 
@@ -119,6 +148,36 @@ describe('BudgetReportingService', () => {
       await expect(
         service.listBudgetsForExercise(clientId, 'absent', {}),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('filtre les versions non actives et les sources baseline', async () => {
+      prisma.budgetExercise.findFirst.mockResolvedValue({ id: 'ex-1' });
+      prisma.budgetVersionSet.findMany.mockResolvedValue([{ code: 'BUD-IT' }]);
+      prisma.budget.findMany.mockResolvedValue([]);
+      prisma.budget.count.mockResolvedValue(0);
+
+      await service.listBudgetsForExercise(clientId, 'ex-1', {});
+
+      expect(prisma.budget.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            AND: [
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  expect.objectContaining({
+                    isVersioned: false,
+                    code: { notIn: ['BUD-IT'] },
+                  }),
+                  expect.objectContaining({
+                    isVersioned: true,
+                    versionStatus: 'ACTIVE',
+                  }),
+                ]),
+              }),
+            ],
+          },
+        }),
+      );
     });
   });
 

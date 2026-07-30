@@ -277,7 +277,7 @@ BudgetLine
 Avec la logique suivante :
 
 * `PurchaseOrder` génère un `FinancialEvent` de type `COMMITMENT_REGISTERED`
-* `Invoice` génère un `FinancialEvent` de type `CONSUMPTION_REGISTERED`
+* `Invoice` génère un `FinancialEvent` de type `CONSUMPTION_REGISTERED` ; si elle est rattachée à une `PurchaseOrder`, elle **dénoue** l’engagement correspondant via un `COMMITMENT_REGISTERED` négatif (`sourceType: INVOICE`), plafonné à l’engagement restant de la commande, pour éviter de compter deux fois engagé + consommé. L’annulation de la facture crée l’événement opposé et rétablit l’engagement (RFC-FE-BUD-032 Lot F).
 * `FinancialAllocation` porte les mouvements budgétaires internes
 * `BudgetLine` est recalculée à partir des événements et allocations
 

@@ -44,7 +44,7 @@ function formatControls(
 ): { id: string; label: string; status: string; detail: string; foot?: string }[] {
   return rows.map((c) => ({
     id: c.id,
-    label: CONTROL_LABEL_FR[c.id] ?? c.id,
+    label: CONTROL_LABEL_FR[c.id] ?? 'Contrôle non documenté',
     status: controlStatusLabel(c),
     detail: c.message,
     foot:

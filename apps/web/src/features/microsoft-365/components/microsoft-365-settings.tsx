@@ -344,10 +344,6 @@ export function Microsoft365Settings() {
                 <span className="text-muted-foreground">Statut :</span>{' '}
                 <span className="font-medium">{connection.status}</span>
               </p>
-              <p>
-                <span className="text-muted-foreground">Tenant Microsoft :</span>{' '}
-                <span className="font-mono text-xs">{connection.tenantId}</span>
-              </p>
               {connection.tokenExpiresAt && (
                 <p className="text-muted-foreground">
                   Jeton valide jusqu’au{' '}
