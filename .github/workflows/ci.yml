@@ -12,9 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # version dérivée de package.json → packageManager (pnpm@9.14.2)
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -53,8 +52,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
