@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import { cn } from '@/lib/utils';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { saveBudgetCockpitSelection } from '@/features/budgets/lib/budget-cockpit-selection-storage';
@@ -41,8 +42,6 @@ import {
 import {
   budgetExpenseMixLabel,
   budgetExecutionTone,
-  budgetPortfolioIcon,
-  budgetPortfolioIconPresentation,
   budgetPortfolioSubtitle,
 } from '../lib/budget-portfolio-display';
 import { BudgetsPortfolioCards } from './budgets-portfolio-cards';
@@ -128,15 +127,11 @@ function BudgetNameCell({
   exerciseId: string;
 }) {
   const { activeClient } = useActiveClient();
-  const Icon = budgetPortfolioIcon(row);
-  const iconPresentation = budgetPortfolioIconPresentation(row);
   const subtitle = budgetPortfolioSubtitle(row);
 
   return (
     <div className="flex items-start gap-3">
-      <div {...iconPresentation} aria-hidden>
-        <Icon className="size-4" strokeWidth={1.75} />
-      </div>
+      <EntityVisualMark visual={row.budget.visual} label={subtitle} />
       <div className="min-w-0">
         <Link
           href={budgetDetail(row.budget.id)}

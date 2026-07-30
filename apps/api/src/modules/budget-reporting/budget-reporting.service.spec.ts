@@ -7,6 +7,7 @@ describe('BudgetReportingService', () => {
   let prisma: {
     budgetExercise: { findFirst: jest.Mock };
     budget: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+    budgetVersionSet: { findMany: jest.Mock };
     budgetEnvelope: {
       findFirst: jest.Mock;
       findMany: jest.Mock;

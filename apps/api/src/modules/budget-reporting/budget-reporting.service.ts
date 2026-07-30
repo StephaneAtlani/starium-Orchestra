@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BudgetVersionStatus, Prisma } from '@prisma/client';
+import type { EntityVisual } from '@starium-orchestra/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveBudgetVisual } from '../../common/visual-library/visual-resolution';
 import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { aggregateLinesToKpi, lineToReportItem, groupLinesByEnvelopeType } from './mappers/kpi.mapper';
@@ -19,6 +21,7 @@ import type {
 import type { ListExerciseBudgetsQueryDto } from './dto/list-exercise-budgets.query.dto';
 import type { ListBudgetEnvelopesReportQueryDto } from './dto/list-budget-envelopes-report.query.dto';
 import type { ListEnvelopeLinesQueryDto } from './dto/list-envelope-lines.query.dto';
+import { toOwnerOrgUnitSummary } from '../organization/org-unit-ownership.helpers';
 
 const MULTI_CURRENCY_MESSAGE =
   'Le reporting ne supporte pas plusieurs devises dans le même périmètre. Toutes les lignes doivent être libellées dans la même devise.';
@@ -247,6 +250,7 @@ export interface BudgetWithKpi {
     type: string;
     code: string | null;
   } | null;
+  visual: EntityVisual;
   /** Nature dominante des lignes pilotage — null si aucune ligne typée. */
   expenseMix: BudgetExpenseMix | null;
   kpi: BudgetSummaryKpi;
@@ -494,7 +498,15 @@ export class BudgetReportingService {
         take: limit,
         include: {
           ownerOrgUnit: {
-            select: { id: true, name: true, type: true, code: true },
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              code: true,
+              iconKey: true,
+              accentToken: true,
+              surfaceToken: true,
+            },
           },
         },
       }),
@@ -549,6 +561,17 @@ export class BudgetReportingService {
       const envelopeCount = envelopeCountByBudget.get(budget.id) ?? 0;
       const kpi = aggregateLinesToKpi(amounts, currency, { envelopeCount });
       const owner = budget.ownerOrgUnit;
+      const expenseMix = computeExpenseMix(lines.map((l) => l.expenseType));
+      const ownerSummary = toOwnerOrgUnitSummary(owner);
+      const visual = resolveBudgetVisual({
+        ownerOrgUnitVisual: ownerSummary?.visual ?? null,
+        expenseMix,
+        name: budget.name,
+        code: budget.code,
+        description: budget.description,
+        ownerOrgUnitName: owner?.name ?? null,
+        ownerOrgUnitCode: owner?.code ?? null,
+      });
 
       return {
         id: budget.id,
@@ -560,15 +583,9 @@ export class BudgetReportingService {
         currency: budget.currency,
         status: budget.status,
         ownerOrgUnitId: budget.ownerOrgUnitId ?? null,
-        ownerOrgUnitSummary: owner
-          ? {
-              id: owner.id,
-              name: owner.name,
-              type: owner.type,
-              code: owner.code ?? null,
-            }
-          : null,
-        expenseMix: computeExpenseMix(lines.map((l) => l.expenseType)),
+        ownerOrgUnitSummary: ownerSummary,
+        visual,
+        expenseMix,
         kpi: { ...kpi, ...EMPTY_TTC_TOTALS },
       };
     });

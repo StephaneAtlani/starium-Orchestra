@@ -1,4 +1,5 @@
 import { stariumApiPath } from '@/lib/starium-api-base';
+import type { EntityVisual, VisualAccentToken, VisualIconKey, VisualSurfaceToken } from '@starium-orchestra/types';
 
 export type OrgUnitTreeNode = {
   id: string;
@@ -7,6 +8,10 @@ export type OrgUnitTreeNode = {
   code: string | null;
   name: string;
   description: string | null;
+  iconKey: VisualIconKey | null;
+  accentToken: VisualAccentToken | null;
+  surfaceToken: VisualSurfaceToken | null;
+  visual?: EntityVisual | null;
   type: string;
   status: string;
   sortOrder: number;

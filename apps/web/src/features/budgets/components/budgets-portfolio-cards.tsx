@@ -10,13 +10,13 @@ import {
   toneBadgeClass,
   type StatusTone,
 } from '@/components/portfolio';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import { BudgetStatusBadge } from './budget-status-badge';
 import { budgetDetail } from '../constants/budget-routes';
 import type { BudgetListItemWithKpi } from '../types/budget-reporting.types';
 import { formatBudgetAmount, isBudgetRowAlert } from '../lib/budget-portfolio-format';
 import {
   budgetExecutionTone,
-  budgetPortfolioIcon,
   budgetPortfolioSubtitle,
 } from '../lib/budget-portfolio-display';
 
@@ -58,15 +58,13 @@ export function BudgetsPortfolioCards({
         const execPercent = rateToPercent(row.kpi.consumptionRate);
         const remainingTone: StatusTone =
           row.kpi.totalRemainingAmount < 0 ? 'danger' : 'ok';
-        const Icon = budgetPortfolioIcon(row);
-
         return (
           <PortfolioEntityCard
             key={row.budget.id}
             href={budgetDetail(row.budget.id)}
             ariaLabel={`Ouvrir le budget ${row.budget.name}`}
             tone={tone}
-            icon={<Icon className="size-5" aria-hidden />}
+            icon={<EntityVisualMark visual={row.budget.visual} size="lg" label={budgetPortfolioSubtitle(row)} />}
             title={<span className="line-clamp-2">{row.budget.name}</span>}
             badges={
               <>

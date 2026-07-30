@@ -14,6 +14,7 @@ import {
   OrgUnitType,
   Prisma,
 } from '@prisma/client';
+import type { EntityVisual } from '@starium-orchestra/types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -60,6 +61,7 @@ import {
 import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
 import { isBudgetActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
 import { resolveStewardResourceIdForWrite } from '../../organization/organization-steward.integration';
+import { resolveBudgetVisual } from '../../../common/visual-library/visual-resolution';
 
 @Injectable()
 export class BudgetsService {
@@ -228,7 +230,17 @@ export class BudgetsService {
             include: {
               exercise: { select: { name: true, code: true } },
               owner: { select: { firstName: true, lastName: true, email: true } },
-              ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+              ownerOrgUnit: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  code: true,
+                  iconKey: true,
+                  accentToken: true,
+                  surfaceToken: true,
+                },
+              },
             },
           });
     const byId = new Map(items.map((item) => [item.id, item]));
@@ -258,7 +270,17 @@ export class BudgetsService {
       include: {
         exercise: { select: { name: true, code: true } },
         owner: { select: { firstName: true, lastName: true, email: true } },
-        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+        ownerOrgUnit: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            code: true,
+            iconKey: true,
+            accentToken: true,
+            surfaceToken: true,
+          },
+        },
       },
     });
     if (!budget) {
@@ -272,6 +294,7 @@ export class BudgetsService {
       pendingValidationEnvelopeCount,
       draftLineCount,
       pendingValidationLineCount,
+      expenseTypeRows,
     ] = await Promise.all([
       this.prisma.budgetEnvelope.count({
         where: { budgetId: id, clientId, status: BudgetEnvelopeStatus.DRAFT },
@@ -293,9 +316,24 @@ export class BudgetsService {
           status: BudgetLineStatus.PENDING_VALIDATION,
         },
       }),
+      this.prisma.budgetLine.findMany({
+        where: { budgetId: id, clientId },
+        select: { expenseType: true },
+      }),
     ]);
+    const base = toResponse(budget);
+    const expenseMix = computeBudgetExpenseMix(expenseTypeRows.map((row) => row.expenseType));
     return {
-      ...toResponse(budget),
+      ...base,
+      visual: resolveBudgetVisual({
+        ownerOrgUnitVisual: base.ownerOrgUnitSummary?.visual ?? null,
+        expenseMix,
+        name: budget.name,
+        code: budget.code,
+        description: budget.description,
+        ownerOrgUnitName: budget.ownerOrgUnit?.name ?? null,
+        ownerOrgUnitCode: budget.ownerOrgUnit?.code ?? null,
+      }),
       childWorkflowCascadeCounts: {
         draftEnvelopeCount,
         pendingValidationEnvelopeCount,
@@ -1054,6 +1092,7 @@ type BudgetWithNumbers = Omit<
   /** Libellé affichable (prénom + nom ou email) — dérivé de `owner` en base. */
   ownerUserName: string | null;
   ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
+  visual: EntityVisual;
   /** Présent sur le détail budget (compteurs pour modale cascade workflow). */
   childWorkflowCascadeCounts?: {
     draftEnvelopeCount: number;
@@ -1071,6 +1110,15 @@ function formatOwnerDisplayName(
   return name || owner.email;
 }
 
+function computeBudgetExpenseMix(
+  expenseTypes: readonly string[],
+): 'CAPEX' | 'OPEX' | 'MIXTE' | null {
+  const set = new Set(expenseTypes.filter((value) => value === 'CAPEX' || value === 'OPEX'));
+  if (set.size === 0) return null;
+  if (set.size === 1) return set.has('CAPEX') ? 'CAPEX' : 'OPEX';
+  return 'MIXTE';
+}
+
 function toResponse(
   row: NonNullable<BudgetRow> & {
     exercise?: { name: string; code: string } | null;
@@ -1080,15 +1128,27 @@ function toResponse(
       name: string;
       type: OrgUnitType;
       code: string | null;
+      iconKey?: string | null;
+      accentToken?: string | null;
+      surfaceToken?: string | null;
     } | null;
   },
 ): BudgetWithNumbers {
   const { exercise, defaultTaxRate, owner, ownerOrgUnit, ...rest } = row;
+  const ownerOrgUnitSummary = toOwnerOrgUnitSummary(ownerOrgUnit);
   return {
     ...rest,
     defaultTaxRate: defaultTaxRate ? Number(defaultTaxRate) : null,
     ownerUserName: formatOwnerDisplayName(owner),
-    ownerOrgUnitSummary: toOwnerOrgUnitSummary(ownerOrgUnit),
+    ownerOrgUnitSummary,
+    visual: resolveBudgetVisual({
+      ownerOrgUnitVisual: ownerOrgUnitSummary?.visual ?? null,
+      name: row.name,
+      code: row.code,
+      description: row.description,
+      ownerOrgUnitName: ownerOrgUnit?.name ?? null,
+      ownerOrgUnitCode: ownerOrgUnit?.code ?? null,
+    }),
     ...(exercise && {
       exerciseName: exercise.name,
       exerciseCode: exercise.code,

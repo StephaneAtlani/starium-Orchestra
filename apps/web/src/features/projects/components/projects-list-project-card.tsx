@@ -15,6 +15,7 @@ import {
   PortfolioProgressBar,
   type StatusTone,
 } from '@/components/portfolio';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import { projectDetail } from '../constants/project-routes';
 import { PROJECT_STATUS_LABEL } from '../constants/project-enum-labels';
 import {
@@ -22,7 +23,7 @@ import {
   projectListProgressPercent,
   projectOwnerInitials,
   projectOwnerShortLabel,
-  projectPortfolioCategoryIcon,
+  projectPortfolioCategoryLabel,
 } from '../lib/projects-list-display';
 import { ProjectsListRowActionsMenu } from './projects-list-row-actions-menu';
 import { ProjectsListBudgetSummary } from './projects-list-budget-summary';
@@ -103,7 +104,6 @@ export function ProjectsListProjectCard({
   badgeMerged: MergedUiBadges;
 }) {
   const status = statusPresentation(p, badgeMerged);
-  const CategoryIcon = projectPortfolioCategoryIcon(p);
   const percent = projectListProgressPercent(p);
 
   return (
@@ -111,7 +111,7 @@ export function ProjectsListProjectCard({
       as="li"
       density="compact"
       tone={status.tone}
-      icon={<CategoryIcon className="size-5" strokeWidth={1.75} />}
+      icon={<EntityVisualMark visual={p.visual} size="lg" label={projectPortfolioCategoryLabel(p) ?? p.name} />}
       title={
         <Link href={projectDetail(p.id)} className="line-clamp-2 hover:underline">
           {p.name}

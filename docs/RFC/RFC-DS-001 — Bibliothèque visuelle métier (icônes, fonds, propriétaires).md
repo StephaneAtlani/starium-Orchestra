@@ -26,6 +26,14 @@ Le besoin vise en priorité :
 - les cas où le **propriétaire**, la **direction propriétaire** ou le **créateur** doivent porter une
   identité visuelle lisible et cohérente.
 
+Décision produit complémentaire :
+
+- la solution doit s’appliquer **à tous les modules où une icône métier existe déjà ou doit exister** ;
+- le rendu doit passer par un **composant unique partagé**, pas par des implémentations locales ;
+- il n’y a **pas de permission spécifique** du type `visual_library.*` ;
+- l’édition des champs visuels se fait **dans les formulaires métier existants**, donc sous les
+  permissions déjà requises pour créer / modifier l’objet.
+
 ---
 
 # 1. Analyse de l’existant
@@ -161,6 +169,7 @@ Sans RFC transverse, on risque :
   - `apps/web/src/features/projects/lib/project-portfolio-category-icons.ts`
   - `apps/web/src/features/budgets/lib/budget-portfolio-display.ts`
   - listes / cartes budgets et projets
+  - tous les autres modules portant déjà des icônes ou des marqueurs métier
 
 ---
 
@@ -234,6 +243,165 @@ Elle permet :
 - de préparer les futurs modules ;
 - de garder une gouvernance admin claire.
 
+## 4.2 bis V2 — arbitrage d’architecture
+
+### Décision V2
+
+Pour la V2, la recommandation n’est plus « transverse complet tout de suite ».
+
+La décision proposée est :
+
+**démarrer par un modèle hybride, plus simple à livrer, puis ouvrir vers le transverse complet
+uniquement si le besoin dépasse budgets/projets.**
+
+Concrètement :
+
+#### V2.A — lot recommandé
+
+1. **Conserver et formaliser** `icon` + `color` sur `ProjectPortfolioCategory`
+2. **Étendre `OrgUnit`** avec des champs visuels contrôlés
+3. **Étendre `Budget`** avec un rattachement visuel explicite ou une résolution fondée sur `ownerOrgUnit`
+4. **Créer un registre partagé frontend/backend** des icônes et tokens autorisés
+5. **Créer un composant unique** de rendu visuel pour budgets/projets et tous les autres modules concernés
+
+#### V2.B — lot reporté
+
+Reporter la table générique `VisualAssignmentRule` tant qu’on n’a pas de besoin fort sur :
+
+- contrats ;
+- fournisseurs ;
+- objectifs stratégiques ;
+- ressources ;
+- exceptions complexes par entité.
+
+### Pourquoi cette décision
+
+Le modèle 100 % transverse est propre, mais il introduit très tôt :
+
+- deux nouvelles tables génériques ;
+- un moteur de résolution plus abstrait ;
+- une UI admin plus lourde ;
+- plus de dette cognitive pour un besoin encore concentré sur **budgets + projets + owner org**.
+
+À l’inverse, le modèle hybride :
+
+- réutilise le réel existant (`ProjectPortfolioCategory.icon/color`) ;
+- colle au modèle ownership déjà en place (`ownerOrgUnitId`) ;
+- livre plus vite une valeur visible ;
+- garde une trajectoire de migration claire vers le transverse complet.
+
+### Modèle V2 retenu
+
+#### A. `ProjectPortfolioCategory`
+
+On conserve :
+
+- `icon`
+- `color`
+
+mais on les requalifie comme **champs visuels officiels du référentiel**.
+
+Évolution recommandée :
+
+- validation plus stricte des valeurs ;
+- documentation DS explicite ;
+- preview admin ;
+- mapping backend/frontend centralisé.
+
+#### B. `OrgUnit`
+
+Ajouter des champs visuels contrôlés :
+
+- `iconKey`
+- `accentToken`
+- `surfaceToken` (optionnel)
+
+Usage :
+
+- direction propriétaire d’un budget ;
+- direction propriétaire d’un projet ;
+- futur affichage ownership ailleurs.
+
+#### C. `Budget`
+
+Deux options V2 pour budget :
+
+##### Option V2 recommandée
+
+Pas de champs visuels propres sur `Budget` en V1.1.
+
+Le budget hérite visuellement de :
+
+1. sa `ownerOrgUnit`
+2. sinon un fallback `expenseMix`
+3. sinon un fallback heuristique
+
+##### Option V2.1 si besoin métier fort
+
+Ajouter sur `Budget` :
+
+- `iconKey`
+- `accentToken`
+
+uniquement si un budget doit pouvoir **déroger** à sa direction propriétaire.
+
+Par défaut, cette RFC recommande de **ne pas** ajouter ces champs tout de suite.
+
+#### D. `Project`
+
+Le projet hérite visuellement de :
+
+1. sa `portfolioCategory`
+2. sinon sa `ownerOrgUnit`
+3. sinon son `kind`
+4. sinon un preset neutre
+
+Là aussi, pas de champ visuel direct sur `Project` en V2 initiale, sauf besoin de dérogation
+explicite.
+
+### Conséquence produit
+
+La V2 devient :
+
+- **simple pour Projets** : catégorie = visuel principal ;
+- **simple pour Budgets** : owner org = visuel principal ;
+- **cohérente avec l’organisation client** : une direction peut porter une identité visuelle stable ;
+- **lisible pour l’admin** : pas de moteur de règles génériques à configurer au début ;
+- **réutilisable partout** : un seul composant visuel branchable dans tous les modules.
+
+### Règle fonctionnelle V2
+
+#### Projet
+
+Le visuel d’un projet représente en priorité **son domaine portefeuille**.
+
+#### Budget
+
+Le visuel d’un budget représente en priorité **sa direction propriétaire**.
+
+#### Créateur
+
+Le créateur ne pilote **jamais** le visuel principal de la carte/ligne portefeuille en V2.
+
+Le créateur peut être rendu séparément sous forme de :
+
+- chip secondaire ;
+- avatar ;
+- tooltip ;
+- colonne dédiée en vue admin.
+
+### Critère de passage vers V3 transverse complète
+
+On ne bascule vers `VisualPreset` + `VisualAssignmentRule` génériques que si au moins l’un de ces
+cas arrive :
+
+1. besoin de visuels explicites sur **3 modules métier ou plus** au-delà de budgets/projets ;
+2. besoin de dérogations fréquentes par entité individuelle ;
+3. besoin de règles pilotées sans modifier le schéma des entités ;
+4. besoin d’un studio admin transverse multi-objets.
+
+En dessous de ce seuil, la V2 hybride reste la meilleure option coût / valeur.
+
 ## 4.3 Contrat de résolution
 
 Le moteur de résolution doit suivre un ordre explicite.
@@ -292,6 +460,28 @@ Le frontend mappe la clé vers `lucide-react` dans un registre partagé, par exe
 
 - `apps/web/src/lib/visual-library/visual-icon-registry.ts`
 
+### V2 — catalogue autorisé
+
+La V2 impose un registre unique partagé, consommé par :
+
+- `ProjectPortfolioCategory`
+- `OrgUnit`
+- futurs budgets explicites si dérogation
+
+Le catalogue doit vivre dans un **package ou module partagé de constante**, pas dans chaque feature.
+
+Le rendu doit ensuite obligatoirement passer par un composant commun, par exemple :
+
+- `apps/web/src/components/ui/entity-visual-marker.tsx`
+
+Ce composant devient la porte d’entrée standard pour :
+
+- budgets ;
+- projets ;
+- catégories ;
+- directions propriétaires ;
+- autres modules affichant un marqueur icône + fond.
+
 ## 4.5 Fonds / accents
 
 V1 : pas de couleurs libres non contrôlées.
@@ -320,9 +510,59 @@ Cela garantit :
 - mode sombre supportable ;
 - pas de dérive hex côté feature.
 
+### V2 — contrainte renforcée
+
+Les champs persistés ne stockent **pas** un hex libre mais une **clé de token autorisée**.
+
+Exemple :
+
+- `accentToken = 'state-info'`
+- `surfaceToken = 'state-info-soft'`
+
+Le frontend résout ensuite cette clé vers les classes/tokens réels.
+
+Cela évite :
+
+- les valeurs invalides ;
+- les contrastes cassés ;
+- les migrations lourdes si la palette évolue.
+
 ## 4.6 API
 
-### Nouveaux endpoints proposés
+### V2 — orientation préférée
+
+La V2 évite d’ouvrir immédiatement des endpoints génériques `visual-presets`.
+
+On privilégie :
+
+- l’enrichissement des endpoints **OrgUnit** ;
+- l’existant **ProjectPortfolioCategory** ;
+- l’enrichissement des réponses budgets/projets avec un bloc `visual`.
+
+Il n’y a pas d’endpoint ni de droit spécifique pour une « bibliothèque visuelle » en V2.
+
+#### Endpoints à ajuster
+
+```http
+GET    /api/organization/units
+GET    /api/organization/units/:id
+PATCH  /api/organization/units/:id
+GET    /api/projects/portfolio-categories
+PATCH  /api/projects/portfolio-categories/:id
+GET    /api/projects
+GET    /api/projects/:id
+GET    /api/budget-reporting/exercises/:exerciseId/budgets
+GET    /api/budgets/:id
+```
+
+#### DTOs à enrichir
+
+- `CreateProjectPortfolioCategoryDto`
+- `UpdateProjectPortfolioCategoryDto`
+- DTO org units create/update
+- éventuellement `UpdateBudgetDto` plus tard si dérogation visuelle budget
+
+### Nouveaux endpoints proposés (V3 seulement)
 
 ```http
 GET    /api/visual-presets
@@ -334,7 +574,7 @@ PATCH  /api/visual-assignment-rules/:id
 POST   /api/visual-assignment-rules/recompute-preview
 ```
 
-Optionnel V1.1 :
+Optionnel V3 :
 
 ```http
 GET /api/visual-library/catalog
@@ -367,6 +607,19 @@ Priorité V1 :
 - `GET /api/budget-reporting/exercises/:id/budgets`
 - `GET /api/budgets/:id` si utile sur fiche
 
+### Bloc standard `visual` recommandé
+
+```ts
+visual?: {
+  iconKey: string | null;
+  accentToken: string | null;
+  surfaceToken: string | null;
+  source: 'portfolioCategory' | 'ownerOrgUnit' | 'budgetOverride' | 'kindFallback' | 'heuristicFallback' | null;
+}
+```
+
+Ce bloc doit être **calculé backend** pour éviter des écarts de rendu entre écrans.
+
 ## 4.7 Administration
 
 Une UI d’administration est nécessaire pour :
@@ -377,12 +630,39 @@ Une UI d’administration est nécessaire pour :
 - créer des règles d’affectation ;
 - tester la résolution sur un budget / projet / owner réel.
 
-L’écran doit proposer :
+L’édition ne passe pas par un écran générique dédié en V2.
 
+### V2 — principe d’édition
+
+Les champs visuels sont édités **dans les formulaires métier existants** :
+
+1. formulaire de **catégorie portefeuille projet**
+2. formulaire de **direction / unité organisationnelle**
+3. formulaire de **budget** si une dérogation visuelle locale est finalement retenue
+
+Chaque formulaire doit proposer :
+
+- un sélecteur d’icône ;
+- un sélecteur de fond / accent basé sur les tokens autorisés ;
 - un **preview live** ;
 - des libellés métier uniquement ;
-- des filtres par type de cible ;
 - des validations empêchant les combinaisons invalides.
+
+### V2 — permissions
+
+Il n’y a **pas de permission spécifique** pour gérer les icônes.
+
+Les droits sont ceux du formulaire métier hôte :
+
+- modifier une catégorie projet = permissions déjà requises sur cette configuration ;
+- modifier une direction = permissions déjà requises sur l’organisation ;
+- modifier un budget = permissions déjà requises sur le budget.
+
+Autrement dit :
+
+- pas de `visual_library.read`
+- pas de `visual_library.update`
+- pas de studio séparé protégé par un RBAC dédié
 
 ## 4.8 Frontend partagé
 
@@ -401,38 +681,105 @@ But :
 - plus de duplication budgets/projets ;
 - migration progressive des heuristiques existantes.
 
+### V2 — composants minimum
+
+- `visual-icon-registry.ts`
+- `visual-token-registry.ts`
+- `resolve-entity-visual.ts`
+- `EntityVisualMark.tsx`
+- `EntityOwnerAvatar.tsx` si besoin secondaire
+
+Le but n’est pas de créer une micro-design-system parallèle, mais un **pont stable** entre les
+données et les primitives UI existantes.
+
+### Composant obligatoire
+
+Tous les modules qui affichent déjà une icône ou devront afficher une icône métier doivent converger
+vers ce composant partagé.
+
+Règle de produit :
+
+- **pas de nouveau rendu local ad hoc** `icon + badge + fond` dans une feature ;
+- toute nouvelle UI passe par le composant commun ;
+- les implémentations existantes sont migrées progressivement.
+
 ## 4.9 Plan de migration
 
-### Phase 1 — Socle
+### Phase 1 — Registre et contrats partagés
 
-- introduire le catalogue d’icônes et tokens
-- créer `VisualPreset`
-- créer un composant frontend commun
-- brancher Projets sans casser le système existant
+- extraire le registre d’icônes projets vers un module partagé ;
+- définir la whitelist des tokens autorisés ;
+- créer le type `visual` commun côté API / FE.
 
-### Phase 2 — Budgets
+### Phase 2 — Composant transverse
 
-- remplacer les heuristiques budgets par la résolution standard
-- brancher `ownerOrgUnit`
-- garder un fallback heuristique documenté
+- créer le composant partagé de rendu ;
+- migrer les usages existants projets ;
+- brancher budgets sur le même composant.
 
-### Phase 3 — Admin
+### Phase 3 — Projets
 
-- écran d’administration des presets
-- écran d’affectation / preview
+- formaliser `ProjectPortfolioCategory.icon/color` ;
+- ajouter preview + validation admin ;
+- faire consommer le même composant de rendu partout sur `/projects`.
 
-### Phase 4 — Extension transverse
+### Phase 4 — Organisation
 
-- contrats
-- fournisseurs
-- objectifs stratégiques
-- ressources / équipes si besoin
+- ajouter les champs visuels sur `OrgUnit` ;
+- exposer ces champs dans l’API organisation ;
+- intégrer l’édition dans l’administration structure.
+
+### Phase 5 — Budgets
+
+- résoudre le visuel budget depuis `ownerOrgUnit` ;
+- garder `expenseMix` / heuristique comme fallback secondaire ;
+- appliquer le composant partagé sur portefeuille + fiche ;
+- si retenu, afficher les champs visuels dans le formulaire création / édition budget, sous les
+  droits métier déjà existants.
+
+### Phase 6 — Extension transverse
+
+- migrer tous les modules avec icônes existantes vers le composant partagé ;
+- mesurer les besoins de dérogations entité par entité ;
+- décider si la V3 `VisualPreset` / `VisualAssignmentRule` devient nécessaire.
 
 ---
 
 # 5. Modifications Prisma si nécessaire
 
-## 5.1 Nouvelles tables proposées
+## 5.1 V2 — modifications recommandées
+
+### `ProjectPortfolioCategory`
+
+Pas de nouveau modèle : on capitalise sur les champs existants.
+
+Actions attendues :
+
+- resserrer la validation de `icon`
+- remplacer progressivement `color` libre par une clé de token autorisée si nécessaire
+
+### `OrgUnit`
+
+Ajout recommandé :
+
+```prisma
+iconKey      String?
+accentToken  String?
+surfaceToken String?
+```
+
+avec index simple par `clientId` si besoin d’admin liste, sans sur-optimisation initiale.
+
+### `Budget`
+
+Aucun champ visuel obligatoire en V2 initiale.
+
+Le budget lit d’abord son visuel depuis `ownerOrgUnit`.
+
+Si le formulaire budget doit porter une dérogation locale, les champs apparaissent dans le
+formulaire création / modification existant, sans nouveau workflow de droit.
+
+## 5.2 V3 — nouvelles tables proposées seulement si nécessaire
 
 ```prisma
 model VisualPreset {
@@ -489,7 +836,18 @@ enum VisualTargetType {
 }
 ```
 
-## 5.3 Pourquoi ne pas enrichir chaque table métier directement
+## 5.3 Pourquoi la V2 enrichit certaines tables métier
+
+Dans ce cas précis, enrichir **`OrgUnit`** et réutiliser **`ProjectPortfolioCategory`** est
+acceptable parce que :
+
+- ces deux référentiels portent déjà une sémantique transverse et stable ;
+- ils sont administrés explicitement ;
+- ils correspondent exactement au besoin visuel prioritaire du produit.
+
+Ce n’est donc pas un anti-pattern ici ; c’est une simplification utile.
+
+## 5.4 Pourquoi ne pas enrichir toutes les tables métier directement
 
 Ajouter `iconKey`, `accentToken`, `surfaceToken` dans `Budget`, `Project`, `OrgUnit`, etc. :
 
@@ -526,6 +884,7 @@ Cette option ne doit être retenue qu’en **optimisation locale**, pas en modè
 - tests feature :
   - budgets affichent le visuel résolu
   - projets gardent un rendu cohérent avec l’ancien fallback
+  - les autres modules avec icônes consomment le même composant
   - jamais d’ID visible en admin ni dans les selects
 
 ## Tests critiques
@@ -596,11 +955,12 @@ Décisions clés :
 
 ## Sécurité
 
-- authz lecture/écriture sur la bibliothèque visuelle ;
-- validation DTO stricte (`iconKey`, tokens, targetType`) ;
+- pas de permission spécifique dédiée à la bibliothèque visuelle ;
+- authz héritée du formulaire métier qui porte les champs ;
+- validation DTO stricte (`iconKey`, tokens autorisés) ;
 - isolation client sur toutes les lectures et écritures ;
 - pas de SVG/html libre en V1 ;
-- audit des changements de presets/règles recommandé (`visual_preset.*`, `visual_rule.*`).
+- audit des changements via les audits métier existants quand un objet est modifié.
 
 ## Interface mobile
 

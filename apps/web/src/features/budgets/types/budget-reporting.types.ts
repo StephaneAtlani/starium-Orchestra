@@ -2,6 +2,8 @@
  * Types alignés sur les réponses API budget-reporting (summary, listes, KPI).
  */
 
+import type { EntityVisual } from '@starium-orchestra/types';
+
 export interface BudgetSummaryKpi {
   totalInitialAmount: number;
   totalForecastAmount: number;
@@ -51,7 +53,9 @@ export interface BudgetListItemWithKpi {
       name: string;
       type: string;
       code: string | null;
+      visual?: EntityVisual | null;
     } | null;
+    visual?: EntityVisual;
     /** Nature dominante des lignes — CAPEX / OPEX / Mixte. */
     expenseMix?: 'CAPEX' | 'OPEX' | 'MIXTE' | null;
   };

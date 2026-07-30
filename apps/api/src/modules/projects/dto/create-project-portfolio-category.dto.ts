@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsBoolean,
   IsInt,
   IsOptional,
@@ -8,6 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS } from '@starium-orchestra/types';
 
 export class CreateProjectPortfolioCategoryDto {
   @IsString()
@@ -27,12 +29,12 @@ export class CreateProjectPortfolioCategoryDto {
   slug?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsIn(VISUAL_ACCENT_TOKENS)
   @MaxLength(32)
   color?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsIn(VISUAL_ICON_KEYS)
   @MaxLength(64)
   icon?: string | null;
 

@@ -69,6 +69,7 @@ import {
   toOwnerOrgUnitSummary,
 } from '../organization/org-unit-ownership.helpers';
 import type { OwnerOrgUnitSummaryDto } from '../organization/org-unit-ownership.types';
+import type { EntityVisual } from '@starium-orchestra/types';
 import {
   RESOURCE_OWNERSHIP_AUDIT,
   RESOURCE_OWNERSHIP_AUDIT_RESOURCE_TYPES,
@@ -103,6 +104,7 @@ import {
   loadLatestCommitteeMoodForProject,
 } from './project-reviews/project-review-committee-mood.helpers';
 import { ProjectMicrosoftTeamsProvisioningService } from '../microsoft/project-microsoft-teams-provisioning.service';
+import { resolveProjectVisual } from '../../common/visual-library/visual-resolution';
 
 const stewardSelect = { select: STEWARD_RESOURCE_SELECT };
 
@@ -140,7 +142,17 @@ const projectIncludeList = {
     select: { id: true, name: true, code: true, status: true, kind: true },
   },
   _count: { select: { children: true } },
-  ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+  ownerOrgUnit: {
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      code: true,
+      iconKey: true,
+      accentToken: true,
+      surfaceToken: true,
+    },
+  },
   steward: stewardSelect,
 } as const;
 
@@ -183,6 +195,7 @@ export type ProjectListItemDto = {
     color: string | null;
     icon: string | null;
   } | null;
+  visual: EntityVisual;
   ownerOrgUnitId: string | null;
   ownerOrgUnitSummary: OwnerOrgUnitSummaryDto;
   stewardResourceId: string | null;
@@ -849,6 +862,9 @@ export class ProjectsService {
         name: string;
         type: OrgUnitType;
         code: string | null;
+        iconKey: string | null;
+        accentToken: string | null;
+        surfaceToken: string | null;
       } | null;
       steward: {
         id: string;
@@ -886,6 +902,11 @@ export class ProjectsService {
       hasNoOwner: ownerDisplayName == null,
     };
     const warnings = this.pilotage.buildWarnings(normalizedSignals);
+    const visual = resolveProjectVisual({
+      projectKind: project.kind,
+      portfolioCategory: project.portfolioCategory,
+      ownerOrgUnitVisual: toOwnerOrgUnitSummary(project.ownerOrgUnit)?.visual ?? null,
+    });
     return {
       id: project.id,
       code: project.code,
@@ -929,6 +950,7 @@ export class ProjectsService {
               null,
           }
         : null,
+      visual,
       ownerOrgUnitId: project.ownerOrgUnitId ?? null,
       ownerOrgUnitSummary: toOwnerOrgUnitSummary(project.ownerOrgUnit),
       stewardResourceId: project.stewardResourceId ?? null,

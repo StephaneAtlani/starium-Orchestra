@@ -1,5 +1,6 @@
 /** Réponse GET /api/projects/assignable-users */
 import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
+import type { EntityVisual } from '@starium-orchestra/types';
 
 export type ProjectAssignableUser = {
   id: string;
@@ -61,6 +62,7 @@ export type ProjectListItem = {
   warnings: string[];
   tags: ProjectTag[];
   portfolioCategory: ProjectPortfolioCategoryAssignment | null;
+  visual?: EntityVisual;
   /** Budget cible (fiche projet). */
   targetBudgetAmount?: string | null;
   /** Consommé agrégé des lignes budgétaires liées (FIXED). */
@@ -163,6 +165,7 @@ export type ProjectPortfolioCategoryNode = {
   slug: string | null;
   color: string | null;
   icon: string | null;
+  visual?: EntityVisual;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

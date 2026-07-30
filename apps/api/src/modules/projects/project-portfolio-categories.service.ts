@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ProjectPortfolioCategory } from '@prisma/client';
+import type { EntityVisual } from '@starium-orchestra/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveProjectVisual } from '../../common/visual-library/visual-resolution';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import {
@@ -24,6 +26,7 @@ export type CategoryNodeDto = {
   slug: string | null;
   color: string | null;
   icon: string | null;
+  visual: EntityVisual;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -57,6 +60,10 @@ export class ProjectPortfolioCategoriesService {
       slug: item.slug,
       color: item.color,
       icon: item.icon,
+      visual: resolveProjectVisual({
+        projectKind: 'PROJECT',
+        portfolioCategory: item,
+      }),
       sortOrder: item.sortOrder,
       isActive: item.isActive,
       createdAt: item.createdAt.toISOString(),

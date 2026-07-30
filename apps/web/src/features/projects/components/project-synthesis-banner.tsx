@@ -6,7 +6,6 @@ import {
   Calendar,
   DollarSign,
   Flag,
-  Folder,
   Pencil,
   Share2,
   Tag,
@@ -19,6 +18,7 @@ import {
   projectKindBadgeClass,
 } from '@/lib/ui/badge-registry';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import {
   PROJECT_KIND_LABEL,
   PROJECT_PRIORITY_LABEL,
@@ -29,8 +29,6 @@ import {
   formatProjectBudget,
   formatProjectDateLong,
   projectListProgressPercent,
-  projectPortfolioCategoryIcon,
-  projectPortfolioCategoryIconPresentation,
   projectPortfolioCategoryLabel,
 } from '../lib/projects-list-display';
 import { projectTagBadgeStyle } from '../lib/project-tag-badge-style';
@@ -114,8 +112,6 @@ export function ProjectSynthesisBanner({
     PROJECT_KIND_LABEL[project.kind] ??
     project.kind;
   const categoryLabel = projectPortfolioCategoryLabel(project);
-  const CategoryIcon = projectPortfolioCategoryIcon(project);
-  const categoryIconPresentation = projectPortfolioCategoryIconPresentation(project);
   const tags = project.tags ?? [];
   const progress = projectListProgressPercent(project);
   const budgetLabel = formatProjectBudget(project.targetBudgetAmount) ?? '—';
@@ -136,14 +132,9 @@ export function ProjectSynthesisBanner({
       <div className="starium-proj-head__top">
         <div
           className="starium-proj-head__folder"
-          style={categoryLabel ? categoryIconPresentation.style : undefined}
           aria-hidden
         >
-          {categoryLabel ? (
-            <CategoryIcon className="size-[26px]" strokeWidth={1.75} />
-          ) : (
-            <Folder className="size-[26px]" strokeWidth={1.75} />
-          )}
+          <EntityVisualMark visual={project.visual} size="lg" className="size-[52px] rounded-2xl border-0" />
         </div>
 
         <div className="starium-proj-head__titlewrap">
@@ -183,7 +174,7 @@ export function ProjectSynthesisBanner({
             <div className="starium-proj-head__context">
               {categoryLabel ? (
                 <span className="starium-proj-head__category-chip">
-                  <CategoryIcon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                  <EntityVisualMark visual={project.visual} size="sm" className="size-6 rounded-md border-0" />
                   <span className="truncate">{categoryLabel}</span>
                 </span>
               ) : null}

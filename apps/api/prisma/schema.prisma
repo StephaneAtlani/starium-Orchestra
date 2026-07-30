@@ -1215,6 +1215,9 @@ model OrgUnit {
   code        String?
   name        String
   description String?
+  iconKey     String?
+  accentToken String?
+  surfaceToken String?
   type        OrgUnitType
   status      OrgUnitStatus @default(ACTIVE)
   sortOrder   Int           @default(0)

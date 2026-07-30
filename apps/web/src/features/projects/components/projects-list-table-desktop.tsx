@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import {
   Tooltip,
   TooltipContent,
@@ -73,8 +74,6 @@ import {
   projectListProgressPercent,
   projectOwnerInitials,
   projectOwnerShortLabel,
-  projectPortfolioCategoryIcon,
-  projectPortfolioCategoryIconPresentation,
   projectPortfolioCategoryLabel,
 } from '../lib/projects-list-display';
 import { ProjectsListRowActionsMenu } from './projects-list-row-actions-menu';
@@ -208,15 +207,11 @@ function FilterDash() {
 }
 
 function BasicProjectCell({ project }: { project: ProjectListItem }) {
-  const CategoryIcon = projectPortfolioCategoryIcon(project);
   const categoryLabel = projectPortfolioCategoryLabel(project);
-  const iconPresentation = projectPortfolioCategoryIconPresentation(project);
 
   return (
     <div className="flex items-start gap-3">
-      <div {...iconPresentation} aria-hidden>
-        <CategoryIcon className="size-4" strokeWidth={1.75} />
-      </div>
+      <EntityVisualMark visual={project.visual} label={categoryLabel ?? project.name} />
       <div className="min-w-0">
         <Link href={`/projects/${project.id}`} className="starium-proj-name block truncate">
           {project.name}

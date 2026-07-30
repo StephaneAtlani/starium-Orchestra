@@ -11,6 +11,7 @@ import {
   SupplierStatus,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
+import { resolveOrgUnitVisual } from '../../common/visual-library/visual-resolution';
 import type { OwnerOrgUnitSummaryDto, OwnerOrgUnitSource } from './org-unit-ownership.types';
 
 const PROJECT_TERMINAL: ProjectStatus[] = [ProjectStatus.ARCHIVED, ProjectStatus.CANCELLED];
@@ -24,10 +25,28 @@ export async function assertOrgUnitInClient(
   prisma: PrismaService,
   clientId: string,
   orgUnitId: string,
-): Promise<{ id: string; name: string; type: OrgUnitType; code: string | null }> {
+): Promise<{
+  id: string;
+  name: string;
+  type: OrgUnitType;
+  code: string | null;
+  iconKey: string | null;
+  accentToken: string | null;
+  surfaceToken: string | null;
+}> {
   const u = await prisma.orgUnit.findFirst({
     where: { id: orgUnitId, clientId },
-    select: { id: true, name: true, type: true, code: true, status: true, clientId: true },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      code: true,
+      iconKey: true,
+      accentToken: true,
+      surfaceToken: true,
+      status: true,
+      clientId: true,
+    },
   });
   if (!u) {
     throw new NotFoundException('Unité organisationnelle introuvable pour ce client');
@@ -58,10 +77,27 @@ export function resolveOwnerOrgUnitSource(
 }
 
 export function toOwnerOrgUnitSummary(
-  row: { id: string; name: string; type: OrgUnitType; code: string | null } | null | undefined,
+  row:
+    | {
+        id: string;
+        name: string;
+        type: OrgUnitType;
+        code: string | null;
+        iconKey?: string | null;
+        accentToken?: string | null;
+        surfaceToken?: string | null;
+      }
+    | null
+    | undefined,
 ): OwnerOrgUnitSummaryDto {
   if (!row) return null;
-  return { id: row.id, name: row.name, type: row.type, code: row.code };
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    code: row.code,
+    visual: resolveOrgUnitVisual(row),
+  };
 }
 
 /**

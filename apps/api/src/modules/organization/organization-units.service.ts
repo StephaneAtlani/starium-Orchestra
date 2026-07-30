@@ -9,6 +9,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveOrgUnitVisual } from '../../common/visual-library/visual-resolution';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import type { AuditContext } from '../budget-management/types/audit-context';
 import { AddOrgUnitMemberDto } from './dto/add-org-unit-member.dto';
@@ -39,6 +40,14 @@ export class OrganizationUnitsService {
     return buildOrgUnitTree(units);
   }
 
+  async getById(clientId: string, id: string) {
+    const unit = await this.prisma.orgUnit.findFirst({
+      where: { id, clientId },
+    });
+    if (!unit) throw new NotFoundException('Unité introuvable');
+    return { ...unit, visual: resolveOrgUnitVisual(unit) };
+  }
+
   async create(clientId: string, dto: CreateOrgUnitDto, ctx: AuditContext) {
     if (dto.parentId) {
       const parent = await this.prisma.orgUnit.findFirst({
@@ -57,6 +66,9 @@ export class OrganizationUnitsService {
           name: dto.name.trim(),
           code: dto.code?.trim() || null,
           description: dto.description?.trim() || null,
+          iconKey: dto.iconKey ?? null,
+          accentToken: dto.accentToken ?? null,
+          surfaceToken: dto.surfaceToken ?? null,
           type: dto.type,
           parentId: dto.parentId ?? null,
           sortOrder: dto.sortOrder ?? 0,
@@ -69,12 +81,21 @@ export class OrganizationUnitsService {
         action: ORGANIZATION_AUDIT.UNIT_CREATED,
         resourceType: ORG_AUDIT_RESOURCE_TYPES.ORG_UNIT,
         resourceId: row.id,
-        newValue: { id: row.id, name: row.name, code: row.code, type: row.type, parentId: row.parentId },
+        newValue: {
+          id: row.id,
+          name: row.name,
+          code: row.code,
+          type: row.type,
+          parentId: row.parentId,
+          iconKey: row.iconKey,
+          accentToken: row.accentToken,
+          surfaceToken: row.surfaceToken,
+        },
         ipAddress: ctx.meta?.ipAddress,
         userAgent: ctx.meta?.userAgent,
         requestId: ctx.meta?.requestId,
       });
-      return row;
+      return { ...row, visual: resolveOrgUnitVisual(row) };
     } catch (e) {
       if (isPrismaUniqueViolation(e)) {
         throw new ConflictException('Ce code est déjà utilisé pour une autre unité de ce client');
@@ -115,6 +136,9 @@ export class OrganizationUnitsService {
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.code !== undefined) data.code = dto.code?.trim() || null;
     if (dto.description !== undefined) data.description = dto.description?.trim() || null;
+    if (dto.iconKey !== undefined) data.iconKey = dto.iconKey;
+    if (dto.accentToken !== undefined) data.accentToken = dto.accentToken;
+    if (dto.surfaceToken !== undefined) data.surfaceToken = dto.surfaceToken;
     if (dto.type !== undefined) data.type = dto.type;
     if (dto.parentId !== undefined) {
       data.parent =
@@ -144,6 +168,9 @@ export class OrganizationUnitsService {
           type: existing.type,
           parentId: existing.parentId,
           status: existing.status,
+          iconKey: existing.iconKey,
+          accentToken: existing.accentToken,
+          surfaceToken: existing.surfaceToken,
         },
         newValue: {
           name: row.name,
@@ -151,12 +178,15 @@ export class OrganizationUnitsService {
           type: row.type,
           parentId: row.parentId,
           status: row.status,
+          iconKey: row.iconKey,
+          accentToken: row.accentToken,
+          surfaceToken: row.surfaceToken,
         },
         ipAddress: ctx.meta?.ipAddress,
         userAgent: ctx.meta?.userAgent,
         requestId: ctx.meta?.requestId,
       });
-      return row;
+      return { ...row, visual: resolveOrgUnitVisual(row) };
     } catch (e) {
       if (isPrismaUniqueViolation(e)) {
         throw new ConflictException('Ce code est déjà utilisé pour une autre unité de ce client');

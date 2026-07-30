@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS, type EntityVisual } from '@starium-orchestra/types';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -11,7 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { projectsList } from '@/features/projects/constants/project-routes';
@@ -43,18 +52,68 @@ const DEFAULT_TAG_COLORS = [
   '#EF4444',
 ];
 
+const ACCENT_LABELS: Record<(typeof VISUAL_ACCENT_TOKENS)[number], string> = {
+  'brand-gold': 'Or Starium',
+  'state-info': 'Information',
+  'state-success': 'Succès',
+  'state-warning': 'Attention',
+  'state-danger': 'Alerte',
+  neutral: 'Neutre',
+};
+
+function surfaceTokenForAccent(
+  accentToken: (typeof VISUAL_ACCENT_TOKENS)[number],
+): NonNullable<EntityVisual['surfaceToken']> {
+  switch (accentToken) {
+    case 'brand-gold':
+      return 'brand-gold-soft';
+    case 'state-info':
+      return 'state-info-soft';
+    case 'state-success':
+      return 'state-success-soft';
+    case 'state-warning':
+      return 'state-warning-soft';
+    case 'state-danger':
+      return 'state-danger-soft';
+    default:
+      return 'neutral-soft';
+  }
+}
+
+function buildVisualPreview(iconKey: string, accentToken: string): EntityVisual {
+  const safeIconKey = (VISUAL_ICON_KEYS.includes(iconKey as (typeof VISUAL_ICON_KEYS)[number])
+    ? iconKey
+    : 'folder') as EntityVisual['iconKey'];
+  const safeAccent = (VISUAL_ACCENT_TOKENS.includes(accentToken as (typeof VISUAL_ACCENT_TOKENS)[number])
+    ? accentToken
+    : 'neutral') as (typeof VISUAL_ACCENT_TOKENS)[number];
+
+  return {
+    iconKey: safeIconKey,
+    accentToken: safeAccent,
+    surfaceToken: surfaceTokenForAccent(safeAccent),
+    source: 'portfolioCategory',
+  };
+}
+
 export default function ProjectsOptionsPage() {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const [newRootName, setNewRootName] = useState('');
+  const [newRootIcon, setNewRootIcon] = useState<string>('folder');
+  const [newRootColor, setNewRootColor] = useState<string>('neutral');
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState<string>(DEFAULT_TAG_COLORS[0]);
   const [newTagColorModalOpen, setNewTagColorModalOpen] = useState(false);
   const [newChildByRoot, setNewChildByRoot] = useState<Record<string, string>>({});
+  const [newChildIconByRoot, setNewChildIconByRoot] = useState<Record<string, string>>({});
+  const [newChildColorByRoot, setNewChildColorByRoot] = useState<Record<string, string>>({});
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editIcon, setEditIcon] = useState<string>('folder');
+  const [editColor, setEditColor] = useState<string>('neutral');
   const [editTagId, setEditTagId] = useState<string | null>(null);
   const [editTagName, setEditTagName] = useState('');
   const [editTagColor, setEditTagColor] = useState<string>(DEFAULT_TAG_COLORS[0]);
@@ -93,12 +152,21 @@ export default function ProjectsOptionsPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (payload: { name: string; parentId?: string | null }) =>
+    mutationFn: (payload: {
+      name: string;
+      parentId?: string | null;
+      color?: string | null;
+      icon?: string | null;
+    }) =>
       createProjectPortfolioCategory(authFetch, payload),
     onSuccess: async () => {
       setFormError(null);
       setNewRootName('');
+      setNewRootIcon('folder');
+      setNewRootColor('neutral');
       setNewChildByRoot({});
+      setNewChildIconByRoot({});
+      setNewChildColorByRoot({});
       await invalidateCategories();
     },
     onError: (error: unknown) => {
@@ -138,12 +206,20 @@ export default function ProjectsOptionsPage() {
       payload,
     }: {
       id: string;
-      payload: { name?: string; isActive?: boolean };
+      payload: {
+        name?: string;
+        parentId?: string | null;
+        isActive?: boolean;
+        icon?: string | null;
+        color?: string | null;
+      };
     }) => updateProjectPortfolioCategory(authFetch, id, payload),
     onSuccess: async () => {
       setFormError(null);
       setEditId(null);
       setEditName('');
+      setEditIcon('folder');
+      setEditColor('neutral');
       await invalidateCategories();
     },
     onError: (error: unknown) => {
@@ -420,13 +496,13 @@ export default function ProjectsOptionsPage() {
           {!isCategoriesCollapsed ? (
             <CardContent className="space-y-4">
             <form
-              className="flex items-center gap-2"
+              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_11rem_11rem_auto_auto]"
               onSubmit={(e) => {
                 e.preventDefault();
                 setFormError(null);
                 const value = newRootName.trim();
                 if (!value) return;
-                createMutation.mutate({ name: value });
+                createMutation.mutate({ name: value, icon: newRootIcon, color: newRootColor });
               }}
             >
               <Input
@@ -434,6 +510,33 @@ export default function ProjectsOptionsPage() {
                 onChange={(e) => setNewRootName(e.target.value)}
                 placeholder="Nouvelle categorie racine"
               />
+              <Select value={newRootIcon} onValueChange={(value) => setNewRootIcon(value ?? 'folder')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Icône">{newRootIcon}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {VISUAL_ICON_KEYS.map((iconKey) => (
+                    <SelectItem key={iconKey} value={iconKey}>
+                      {iconKey}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={newRootColor} onValueChange={(value) => setNewRootColor(value ?? 'neutral')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Accent">{ACCENT_LABELS[newRootColor as keyof typeof ACCENT_LABELS]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {VISUAL_ACCENT_TOKENS.map((accent) => (
+                    <SelectItem key={accent} value={accent}>
+                      {ACCENT_LABELS[accent]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex min-h-11 items-center">
+                <EntityVisualMark visual={buildVisualPreview(newRootIcon, newRootColor)} label={newRootName || 'Prévisualisation'} />
+              </div>
               <Button type="submit" disabled={createMutation.isPending}>
                 Ajouter
               </Button>
@@ -452,21 +555,54 @@ export default function ProjectsOptionsPage() {
                   <div key={root.id} className="rounded-md border border-border p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
+                        <EntityVisualMark visual={root.visual} label={root.name} />
                         <Badge variant="secondary">Racine</Badge>
                         {editId === root.id ? (
                           <form
-                            className="flex items-center gap-2"
+                            className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
                             onSubmit={(e) => {
                               e.preventDefault();
                               const value = editName.trim();
                               if (!value) return;
-                              updateMutation.mutate({ id: root.id, payload: { name: value } });
+                              updateMutation.mutate({
+                                id: root.id,
+                                payload: { name: value, icon: editIcon, color: editColor },
+                              });
                             }}
                           >
                             <Input
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="h-8 w-52"
+                              className="h-8"
+                            />
+                            <Select value={editIcon} onValueChange={(value) => setEditIcon(value ?? 'folder')}>
+                              <SelectTrigger size="sm">
+                                <SelectValue>{editIcon}</SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {VISUAL_ICON_KEYS.map((iconKey) => (
+                                  <SelectItem key={iconKey} value={iconKey}>
+                                    {iconKey}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select value={editColor} onValueChange={(value) => setEditColor(value ?? 'neutral')}>
+                              <SelectTrigger size="sm">
+                                <SelectValue>{ACCENT_LABELS[editColor as keyof typeof ACCENT_LABELS]}</SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {VISUAL_ACCENT_TOKENS.map((accent) => (
+                                  <SelectItem key={accent} value={accent}>
+                                    {ACCENT_LABELS[accent]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <EntityVisualMark
+                              visual={buildVisualPreview(editIcon, editColor)}
+                              size="sm"
+                              label={editName || root.name}
                             />
                             <Button type="submit" size="sm">
                               OK
@@ -501,6 +637,8 @@ export default function ProjectsOptionsPage() {
                           onClick={() => {
                             setEditId(root.id);
                             setEditName(root.name);
+                            setEditIcon(root.icon ?? 'folder');
+                            setEditColor(root.color ?? 'neutral');
                           }}
                         >
                           <Pencil className="size-4" />
@@ -536,21 +674,54 @@ export default function ProjectsOptionsPage() {
                           className="flex items-center justify-between rounded border border-border p-2"
                         >
                           <div className="flex items-center gap-2">
+                            <EntityVisualMark visual={child.visual} size="sm" label={child.name} />
                             <Badge variant="outline">Sous-categorie</Badge>
                             {editId === child.id ? (
                               <form
-                                className="flex items-center gap-2"
+                                className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
                                 onSubmit={(e) => {
                                   e.preventDefault();
                                   const value = editName.trim();
                                   if (!value) return;
-                                  updateMutation.mutate({ id: child.id, payload: { name: value } });
+                                  updateMutation.mutate({
+                                    id: child.id,
+                                    payload: { name: value, icon: editIcon, color: editColor },
+                                  });
                                 }}
                               >
                                 <Input
                                   value={editName}
                                   onChange={(e) => setEditName(e.target.value)}
-                                  className="h-8 w-52"
+                                  className="h-8"
+                                />
+                                <Select value={editIcon} onValueChange={(value) => setEditIcon(value ?? 'folder')}>
+                                  <SelectTrigger size="sm">
+                                    <SelectValue>{editIcon}</SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {VISUAL_ICON_KEYS.map((iconKey) => (
+                                      <SelectItem key={iconKey} value={iconKey}>
+                                        {iconKey}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Select value={editColor} onValueChange={(value) => setEditColor(value ?? 'neutral')}>
+                                  <SelectTrigger size="sm">
+                                    <SelectValue>{ACCENT_LABELS[editColor as keyof typeof ACCENT_LABELS]}</SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {VISUAL_ACCENT_TOKENS.map((accent) => (
+                                      <SelectItem key={accent} value={accent}>
+                                        {ACCENT_LABELS[accent]}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <EntityVisualMark
+                                  visual={buildVisualPreview(editIcon, editColor)}
+                                  size="sm"
+                                  label={editName || child.name}
                                 />
                                 <Button type="submit" size="sm">
                                   OK
@@ -585,6 +756,8 @@ export default function ProjectsOptionsPage() {
                               onClick={() => {
                                 setEditId(child.id);
                                 setEditName(child.name);
+                                setEditIcon(child.icon ?? 'folder');
+                                setEditColor(child.color ?? 'neutral');
                               }}
                             >
                               <Pencil className="size-4" />
@@ -614,12 +787,17 @@ export default function ProjectsOptionsPage() {
                         </div>
                       ))}
                       <form
-                        className="flex items-center gap-2"
+                        className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
                         onSubmit={(e) => {
                           e.preventDefault();
                           const value = (newChildByRoot[root.id] ?? '').trim();
                           if (!value) return;
-                          createMutation.mutate({ name: value, parentId: root.id });
+                          createMutation.mutate({
+                            name: value,
+                            parentId: root.id,
+                            icon: newChildIconByRoot[root.id] ?? 'folder',
+                            color: newChildColorByRoot[root.id] ?? 'neutral',
+                          });
                         }}
                       >
                         <Input
@@ -628,6 +806,50 @@ export default function ProjectsOptionsPage() {
                             setNewChildByRoot((prev) => ({ ...prev, [root.id]: e.target.value }))
                           }
                           placeholder="Ajouter une sous-categorie"
+                        />
+                        <Select
+                          value={newChildIconByRoot[root.id] ?? 'folder'}
+                          onValueChange={(value) =>
+                            setNewChildIconByRoot((prev) => ({ ...prev, [root.id]: value ?? 'folder' }))
+                          }
+                        >
+                          <SelectTrigger size="sm">
+                            <SelectValue>{newChildIconByRoot[root.id] ?? 'folder'}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VISUAL_ICON_KEYS.map((iconKey) => (
+                              <SelectItem key={iconKey} value={iconKey}>
+                                {iconKey}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={newChildColorByRoot[root.id] ?? 'neutral'}
+                          onValueChange={(value) =>
+                            setNewChildColorByRoot((prev) => ({ ...prev, [root.id]: value ?? 'neutral' }))
+                          }
+                        >
+                          <SelectTrigger size="sm">
+                            <SelectValue>
+                              {ACCENT_LABELS[(newChildColorByRoot[root.id] ?? 'neutral') as keyof typeof ACCENT_LABELS]}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VISUAL_ACCENT_TOKENS.map((accent) => (
+                              <SelectItem key={accent} value={accent}>
+                                {ACCENT_LABELS[accent]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <EntityVisualMark
+                          visual={buildVisualPreview(
+                            newChildIconByRoot[root.id] ?? 'folder',
+                            newChildColorByRoot[root.id] ?? 'neutral',
+                          )}
+                          size="sm"
+                          label={newChildByRoot[root.id] ?? 'Sous-catégorie'}
                         />
                         <Button type="submit" variant="outline" size="sm">
                           <Plus className="mr-1 size-3" />

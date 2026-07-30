@@ -33,6 +33,12 @@ export class OrganizationUnitsController {
     return this.units.listTree(clientId!);
   }
 
+  @Get(':id')
+  @RequirePermissions('organization.read')
+  getById(@ActiveClientId() clientId: string | undefined, @Param('id') id: string) {
+    return this.units.getById(clientId!, id);
+  }
+
   @Post()
   @RequirePermissions('organization.update')
   create(

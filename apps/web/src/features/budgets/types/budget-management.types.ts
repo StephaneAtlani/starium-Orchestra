@@ -2,6 +2,7 @@
  * Types alignés sur les réponses API budget-management (exercices, budgets, enveloppes, lignes).
  */
 
+import type { EntityVisual } from '@starium-orchestra/types';
 import type { OwnerOrgUnitSummary } from '@/features/organization/types/owner-org-unit-summary';
 
 export interface BudgetExercise {
@@ -55,6 +56,7 @@ export interface Budget {
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+  visual?: EntityVisual;
 }
 
 export interface BudgetEnvelope {

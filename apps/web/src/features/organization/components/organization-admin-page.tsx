@@ -2,10 +2,12 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS } from '@starium-orchestra/types';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -26,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
 import {
@@ -37,6 +40,7 @@ import {
   fetchOrgUnitsTree,
   fetchUnitMembers,
   postJson,
+  patchJson,
   type OrgGroupRow,
   type OrgMembershipRow,
   type OrgUnitTreeNode,
@@ -45,6 +49,53 @@ import {
 import { resourcePickerLabel } from '../lib/resource-label';
 import { OrganizationOwnershipPolicyCard } from './organization-ownership-policy-card';
 import { OwnershipTransferWizard } from './ownership-transfer-wizard';
+
+const ACCENT_LABELS = {
+  'brand-gold': 'Or Starium',
+  'state-info': 'Information',
+  'state-success': 'Succès',
+  'state-warning': 'Attention',
+  'state-danger': 'Alerte',
+  neutral: 'Neutre',
+} as const;
+
+function unitPreview(
+  iconKey: string,
+  accentToken: string,
+): {
+  iconKey: (typeof VISUAL_ICON_KEYS)[number] | null;
+  accentToken: (typeof VISUAL_ACCENT_TOKENS)[number] | null;
+  surfaceToken:
+    | 'brand-gold-soft'
+    | 'state-info-soft'
+    | 'state-success-soft'
+    | 'state-warning-soft'
+    | 'state-danger-soft'
+    | 'neutral-soft';
+  source: 'ownerOrgUnit';
+} {
+  return {
+    iconKey: (VISUAL_ICON_KEYS.includes(iconKey as (typeof VISUAL_ICON_KEYS)[number]) ? iconKey : 'folder') as
+      | (typeof VISUAL_ICON_KEYS)[number]
+      | null,
+    accentToken: (VISUAL_ACCENT_TOKENS.includes(accentToken as (typeof VISUAL_ACCENT_TOKENS)[number])
+      ? accentToken
+      : 'neutral') as (typeof VISUAL_ACCENT_TOKENS)[number] | null,
+    surfaceToken:
+      accentToken === 'brand-gold'
+        ? 'brand-gold-soft'
+        : accentToken === 'state-info'
+          ? 'state-info-soft'
+          : accentToken === 'state-success'
+            ? 'state-success-soft'
+            : accentToken === 'state-warning'
+              ? 'state-warning-soft'
+              : accentToken === 'state-danger'
+                ? 'state-danger-soft'
+                : 'neutral-soft',
+    source: 'ownerOrgUnit' as const,
+  };
+}
 
 function flattenOrgUnits(nodes: OrgUnitTreeNode[], depth = 0): { id: string; label: string; status: string }[] {
   const out: { id: string; label: string; status: string }[] = [];
@@ -63,11 +114,13 @@ function OrgUnitTreeRows({
   depth,
   canUpdate,
   onArchive,
+  onEdit,
 }: {
   nodes: OrgUnitTreeNode[];
   depth: number;
   canUpdate: boolean;
   onArchive: (id: string) => void;
+  onEdit: (unit: OrgUnitTreeNode) => void;
 }) {
   return (
     <>
@@ -75,21 +128,41 @@ function OrgUnitTreeRows({
         <React.Fragment key={n.id}>
           <TableRow>
             <TableCell style={{ paddingLeft: 8 + depth * 16 }}>
-              <span className="font-medium">{n.name}</span>
+              <span className="inline-flex items-center gap-2">
+                <EntityVisualMark
+                  visual={n.visual ?? unitPreview(n.iconKey ?? 'folder', n.accentToken ?? 'neutral')}
+                  size="sm"
+                  label={n.name}
+                />
+                <span className="font-medium">{n.name}</span>
+              </span>
               {n.code ? <span className="text-muted-foreground text-sm ml-2">{n.code}</span> : null}
             </TableCell>
             <TableCell className="text-muted-foreground text-sm">{n.type}</TableCell>
             <TableCell className="text-sm">{n.status}</TableCell>
             <TableCell>
-              {canUpdate && n.status === 'ACTIVE' ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => onArchive(n.id)}>
-                  Archiver
-                </Button>
+              {canUpdate ? (
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => onEdit(n)}>
+                    Modifier
+                  </Button>
+                  {n.status === 'ACTIVE' ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => onArchive(n.id)}>
+                      Archiver
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </TableCell>
           </TableRow>
           {n.children?.length ? (
-            <OrgUnitTreeRows nodes={n.children} depth={depth + 1} canUpdate={canUpdate} onArchive={onArchive} />
+            <OrgUnitTreeRows
+              nodes={n.children}
+              depth={depth + 1}
+              canUpdate={canUpdate}
+              onArchive={onArchive}
+              onEdit={onEdit}
+            />
           ) : null}
         </React.Fragment>
       ))}
@@ -99,8 +172,10 @@ function OrgUnitTreeRows({
 
 export function OrganizationAdminPage() {
   const authFetch = useAuthenticatedFetch();
+  const { activeClient } = useActiveClient();
   const { has, isLoading: permsLoading } = usePermissions();
   const qc = useQueryClient();
+  const clientId = activeClient?.id ?? '';
 
   const canRead = has('organization.read');
   const canUpdate = has('organization.update');
@@ -108,50 +183,51 @@ export function OrganizationAdminPage() {
   const canAudit = has('audit_logs.read');
   const canTransfer = has('organization.ownership.transfer');
   const [transferOpen, setTransferOpen] = useState(false);
+  const organizationScopeKey = useMemo(() => ['organization', clientId], [clientId]);
 
   const unitsQ = useQuery({
-    queryKey: ['organization-units-tree'],
+    queryKey: [...organizationScopeKey, 'units-tree'],
     queryFn: () => fetchOrgUnitsTree(authFetch),
-    enabled: canRead && !permsLoading,
+    enabled: Boolean(clientId) && canRead && !permsLoading,
   });
 
   const groupsQ = useQuery({
-    queryKey: ['organization-groups'],
+    queryKey: [...organizationScopeKey, 'groups'],
     queryFn: () => fetchOrgGroups(authFetch),
-    enabled: canRead && !permsLoading,
+    enabled: Boolean(clientId) && canRead && !permsLoading,
   });
 
   const flatUnits = useMemo(() => flattenOrgUnits(unitsQ.data ?? []), [unitsQ.data]);
 
   const [unitForMembers, setUnitForMembers] = useState<string>('');
   const membersQ = useQuery({
-    queryKey: ['organization-unit-members', unitForMembers],
+    queryKey: [...organizationScopeKey, 'unit-members', unitForMembers],
     queryFn: () => fetchUnitMembers(authFetch, unitForMembers),
-    enabled: canRead && !!unitForMembers,
+    enabled: Boolean(clientId) && canRead && !!unitForMembers,
   });
 
   const [groupForMembers, setGroupForMembers] = useState<string>('');
   const groupMembersQ = useQuery({
-    queryKey: ['organization-group-members', groupForMembers],
+    queryKey: [...organizationScopeKey, 'group-members', groupForMembers],
     queryFn: () => fetchGroupMembers(authFetch, groupForMembers),
-    enabled: canRead && !!groupForMembers,
+    enabled: Boolean(clientId) && canRead && !!groupForMembers,
   });
 
   const resourcesQ = useQuery({
-    queryKey: ['organization-human-resources'],
+    queryKey: [...organizationScopeKey, 'human-resources'],
     queryFn: () => fetchHumanResources(authFetch),
-    enabled: canRead && !permsLoading,
+    enabled: Boolean(clientId) && canRead && !permsLoading,
   });
 
   const auditQ = useQuery({
-    queryKey: ['organization-audit-logs'],
+    queryKey: [...organizationScopeKey, 'audit-logs'],
     queryFn: () => fetchOrganizationAudit(authFetch),
-    enabled: canAudit && !permsLoading,
+    enabled: Boolean(clientId) && canAudit && !permsLoading,
   });
 
   const invalidateUnits = useCallback(() => {
-    void qc.invalidateQueries({ queryKey: ['organization-units-tree'] });
-  }, [qc]);
+    void qc.invalidateQueries({ queryKey: [...organizationScopeKey, 'units-tree'] });
+  }, [qc, organizationScopeKey]);
 
   const archiveUnitMut = useMutation({
     mutationFn: (id: string) =>
@@ -168,30 +244,45 @@ export function OrganizationAdminPage() {
       postJson(authFetch, `/api/organization/groups/${encodeURIComponent(id)}/archive`, {}),
     onSuccess: () => {
       toast.success('Groupe archivé');
-      void qc.invalidateQueries({ queryKey: ['organization-groups'] });
+      void qc.invalidateQueries({ queryKey: [...organizationScopeKey, 'groups'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const [createUnitOpen, setCreateUnitOpen] = useState(false);
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [newUnitName, setNewUnitName] = useState('');
   const [newUnitCode, setNewUnitCode] = useState('');
   const [newUnitType, setNewUnitType] = useState('DEPARTMENT');
   const [newUnitParent, setNewUnitParent] = useState<string>('__root__');
+  const [newUnitIconKey, setNewUnitIconKey] = useState<string>('building');
+  const [newUnitAccentToken, setNewUnitAccentToken] = useState<string>('neutral');
+  const [newUnitSurfaceToken, setNewUnitSurfaceToken] = useState<string>('neutral-soft');
 
-  const createUnitMut = useMutation({
-    mutationFn: () =>
-      postJson(authFetch, '/api/organization/units', {
+  const saveUnitMut = useMutation({
+    mutationFn: () => {
+      const payload = {
         name: newUnitName.trim(),
         code: newUnitCode.trim() || undefined,
         type: newUnitType,
         parentId: newUnitParent === '__root__' ? null : newUnitParent,
-      }),
+        iconKey: newUnitIconKey,
+        accentToken: newUnitAccentToken,
+        surfaceToken: newUnitSurfaceToken,
+      };
+      return editingUnitId
+        ? patchJson(authFetch, `/api/organization/units/${encodeURIComponent(editingUnitId)}`, payload)
+        : postJson(authFetch, '/api/organization/units', payload);
+    },
     onSuccess: () => {
-      toast.success('Unité créée');
+      toast.success(editingUnitId ? 'Unité mise à jour' : 'Unité créée');
       setCreateUnitOpen(false);
+      setEditingUnitId(null);
       setNewUnitName('');
       setNewUnitCode('');
+      setNewUnitIconKey('building');
+      setNewUnitAccentToken('neutral');
+      setNewUnitSurfaceToken('neutral-soft');
       invalidateUnits();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -214,7 +305,7 @@ export function OrganizationAdminPage() {
       setCreateGroupOpen(false);
       setNewGroupName('');
       setNewGroupCode('');
-      void qc.invalidateQueries({ queryKey: ['organization-groups'] });
+      void qc.invalidateQueries({ queryKey: [...organizationScopeKey, 'groups'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -228,7 +319,9 @@ export function OrganizationAdminPage() {
     onSuccess: () => {
       toast.success('Membre ajouté');
       setAddMemberResource('');
-      void qc.invalidateQueries({ queryKey: ['organization-unit-members', unitForMembers] });
+      void qc.invalidateQueries({
+        queryKey: [...organizationScopeKey, 'unit-members', unitForMembers],
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -241,7 +334,9 @@ export function OrganizationAdminPage() {
     onSuccess: () => {
       toast.success('Membre ajouté au groupe');
       setAddMemberResource('');
-      void qc.invalidateQueries({ queryKey: ['organization-group-members', groupForMembers] });
+      void qc.invalidateQueries({
+        queryKey: [...organizationScopeKey, 'group-members', groupForMembers],
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -250,8 +345,10 @@ export function OrganizationAdminPage() {
     mutationFn: (membershipId: string) => deleteMember(authFetch, 'units', unitForMembers, membershipId),
     onSuccess: () => {
       toast.success('Membre retiré');
-      void qc.invalidateQueries({ queryKey: ['organization-unit-members', unitForMembers] });
-      void qc.invalidateQueries({ queryKey: ['organization-audit-logs'] });
+      void qc.invalidateQueries({
+        queryKey: [...organizationScopeKey, 'unit-members', unitForMembers],
+      });
+      void qc.invalidateQueries({ queryKey: [...organizationScopeKey, 'audit-logs'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -260,8 +357,10 @@ export function OrganizationAdminPage() {
     mutationFn: (membershipId: string) => deleteMember(authFetch, 'groups', groupForMembers, membershipId),
     onSuccess: () => {
       toast.success('Membre retiré du groupe');
-      void qc.invalidateQueries({ queryKey: ['organization-group-members', groupForMembers] });
-      void qc.invalidateQueries({ queryKey: ['organization-audit-logs'] });
+      void qc.invalidateQueries({
+        queryKey: [...organizationScopeKey, 'group-members', groupForMembers],
+      });
+      void qc.invalidateQueries({ queryKey: [...organizationScopeKey, 'audit-logs'] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -294,7 +393,20 @@ export function OrganizationAdminPage() {
           {canUpdate ? <OrganizationOwnershipPolicyCard /> : null}
           <div className="flex flex-wrap gap-2">
             {canUpdate ? (
-              <Button type="button" onClick={() => setCreateUnitOpen(true)}>
+              <Button
+                type="button"
+                onClick={() => {
+                  setEditingUnitId(null);
+                  setNewUnitName('');
+                  setNewUnitCode('');
+                  setNewUnitType('DEPARTMENT');
+                  setNewUnitParent('__root__');
+                  setNewUnitIconKey('building');
+                  setNewUnitAccentToken('neutral');
+                  setNewUnitSurfaceToken('neutral-soft');
+                  setCreateUnitOpen(true);
+                }}
+              >
                 Nouvelle unité
               </Button>
             ) : null}
@@ -327,6 +439,17 @@ export function OrganizationAdminPage() {
                       depth={0}
                       canUpdate={canUpdate}
                       onArchive={(id) => archiveUnitMut.mutate(id)}
+                      onEdit={(unit) => {
+                        setEditingUnitId(unit.id);
+                        setNewUnitName(unit.name);
+                        setNewUnitCode(unit.code ?? '');
+                        setNewUnitType(unit.type);
+                        setNewUnitParent(unit.parentId ?? '__root__');
+                        setNewUnitIconKey(unit.iconKey ?? 'building');
+                        setNewUnitAccentToken(unit.accentToken ?? 'neutral');
+                        setNewUnitSurfaceToken(unit.surfaceToken ?? 'neutral-soft');
+                        setCreateUnitOpen(true);
+                      }}
                     />
                   </TableBody>
                 </Table>
@@ -599,7 +722,7 @@ export function OrganizationAdminPage() {
       <StariumModal
         open={createUnitOpen}
         onOpenChange={setCreateUnitOpen}
-        title="Nouvelle unité"
+        title={editingUnitId ? 'Modifier l’unité' : 'Nouvelle unité'}
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setCreateUnitOpen(false)}>
@@ -607,10 +730,10 @@ export function OrganizationAdminPage() {
             </Button>
             <Button
               type="button"
-              disabled={!newUnitName.trim() || createUnitMut.isPending}
-              onClick={() => createUnitMut.mutate()}
+              disabled={!newUnitName.trim() || saveUnitMut.isPending}
+              onClick={() => saveUnitMut.mutate()}
             >
-              Créer
+              {editingUnitId ? 'Enregistrer' : 'Créer'}
             </Button>
           </>
         }
@@ -656,6 +779,51 @@ export function OrganizationAdminPage() {
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <div>
+                <Label>Icône</Label>
+                <Select value={newUnitIconKey} onValueChange={(v) => setNewUnitIconKey(v ?? 'building')}>
+                  <SelectTrigger>
+                    <SelectValue>{newUnitIconKey}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VISUAL_ICON_KEYS.map((iconKey) => (
+                      <SelectItem key={iconKey} value={iconKey}>
+                        {iconKey}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Accent</Label>
+                <Select
+                  value={newUnitAccentToken}
+                  onValueChange={(v) => {
+                    const next = v ?? 'neutral';
+                    setNewUnitAccentToken(next);
+                    setNewUnitSurfaceToken(unitPreview(newUnitIconKey, next).surfaceToken);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue>{ACCENT_LABELS[newUnitAccentToken as keyof typeof ACCENT_LABELS]}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VISUAL_ACCENT_TOKENS.map((accent) => (
+                      <SelectItem key={accent} value={accent}>
+                        {ACCENT_LABELS[accent]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <EntityVisualMark
+                  visual={unitPreview(newUnitIconKey, newUnitAccentToken)}
+                  label={newUnitName || 'Prévisualisation'}
+                />
+              </div>
             </div>
           </div>
       </StariumModal>
