@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button-variants';
+import { cn } from '@/lib/utils';
 
 interface BudgetFormActionsProps {
   cancelHref?: string;
@@ -26,36 +27,42 @@ export function BudgetFormActions({
   disableSubmit = false,
 }: BudgetFormActionsProps) {
   const submitDisabled = isSubmitting || disableSubmit;
+  const cancelClass = cn(
+    buttonVariants({ variant: 'outline', size: 'sm' }),
+    'min-h-11 sm:min-h-9',
+  );
+
   return (
-    <div className="flex items-center gap-2 pt-4">
+    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-4">
       {onCancel ? (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-11 sm:min-h-9"
           onClick={onCancel}
-          className={cn(
-            'inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-50',
-          )}
+          disabled={isSubmitting}
+        >
+          Annuler
+        </Button>
+      ) : cancelHref ? (
+        <Link
+          href={cancelHref}
+          className={cn(cancelClass, isSubmitting && 'pointer-events-none opacity-50')}
           aria-disabled={isSubmitting}
         >
           Annuler
-        </button>
-      ) : (
-        cancelHref && (
-          <Link
-            href={cancelHref}
-            className={cn(
-              'inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-50',
-            )}
-            aria-disabled={isSubmitting}
-          >
-            Annuler
-          </Link>
-        )
-      )}
-      <Button type="submit" disabled={submitDisabled}>
+        </Link>
+      ) : null}
+      <Button
+        type="submit"
+        size="sm"
+        className="min-h-11 sm:min-h-9"
+        disabled={submitDisabled}
+      >
         {isSubmitting ? (
           <>
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden />
             Enregistrement…
           </>
         ) : (

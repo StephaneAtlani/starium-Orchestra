@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { BudgetPageHeader } from '../budget-page-header';
-import { BudgetEmptyState } from '../budget-empty-state';
+import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
+import { ErrorState } from '@/components/feedback/error-state';
 import { BudgetForm } from '../forms/budget-form';
 import { BudgetStatusChangeDialog } from '../forms/budget-status-change-dialog';
 import { useBudgetDetail } from '../../hooks/use-budgets';
@@ -43,12 +43,18 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
     (createMutation.error as ApiFormError) ?? (updateMutation.error as ApiFormError) ?? null;
 
   const exerciseOptions = exerciseOptionsData ?? [];
+  const cancelHref = isEdit && budgetId ? budgetDetail(budgetId) : budgetList();
 
   if (isEdit && isLoading) {
     return (
       <>
-        <BudgetPageHeader title="Modifier le budget" description="Chargement…" />
-        <LoadingState rows={3} />
+        <PageHeader
+          backHref={budgetList()}
+          eyebrow="Pilotage › Budgets"
+          title="Modifier le budget"
+          description="Chargement du budget…"
+        />
+        <LoadingState rows={4} />
       </>
     );
   }
@@ -56,15 +62,20 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
   if (isEdit && (error || (!isLoading && !budget))) {
     return (
       <>
-        <BudgetPageHeader title="Modifier le budget" />
-        <BudgetEmptyState title="Aucun budget à afficher" description="" />
+        <PageHeader
+          backHref={budgetList()}
+          eyebrow="Pilotage › Budgets"
+          title="Modifier le budget"
+        />
+        <ErrorState message="Ce budget n’existe pas ou vous n’avez pas les droits pour le consulter." />
       </>
     );
   }
 
-  const defaultValues: Partial<CreateBudgetInput> = isEdit && budget
-    ? budgetApiToForm(budget)
-    : { currency: 'EUR', status: 'DRAFT', ownerUserId: '' };
+  const defaultValues: Partial<CreateBudgetInput> =
+    isEdit && budget
+      ? budgetApiToForm(budget)
+      : { currency: 'EUR', status: 'DRAFT', ownerUserId: '' };
 
   const handleSubmit = (values: CreateBudgetInput) => {
     if (!isEdit) {
@@ -94,13 +105,17 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
     });
   };
 
-  const cancelHref = isEdit && budgetId ? budgetDetail(budgetId) : budgetList();
-
   return (
     <>
-      <BudgetPageHeader
+      <PageHeader
+        backHref={cancelHref}
+        eyebrow="Pilotage › Budgets"
         title={isEdit ? 'Modifier le budget' : 'Nouveau budget'}
-        description={isEdit && budget ? budget.name : 'Créez un nouveau budget.'}
+        description={
+          isEdit && budget
+            ? budget.name
+            : 'Renseignez l’identité, le rattachement et le pilotage du budget.'
+        }
       />
       <BudgetForm
         defaultValues={defaultValues}
@@ -116,7 +131,7 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
             : null
         }
       />
-      {isEdit && budget && pendingSubmit && (
+      {isEdit && budget && pendingSubmit ? (
         <BudgetStatusChangeDialog
           open={statusDialogOpen}
           onOpenChange={(open) => {
@@ -129,7 +144,7 @@ export function BudgetFormPage({ mode, budgetId }: BudgetFormPageProps) {
           isSubmitting={updateMutation.isPending}
           onConfirm={confirmStatusChange}
         />
-      )}
+      ) : null}
     </>
   );
 }

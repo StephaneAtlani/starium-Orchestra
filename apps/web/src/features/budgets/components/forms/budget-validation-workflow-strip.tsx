@@ -38,7 +38,7 @@ export function BudgetValidationWorkflowStrip({ currentStatus }: Props) {
               <span
                 className={
                   isCurrent
-                    ? 'rounded-md bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary ring-1 ring-primary/25'
+                    ? 'rounded-md bg-[color:var(--brand-gold-050)] px-2.5 py-1 text-xs font-medium text-[color:var(--brand-gold-700)] ring-1 ring-[color:var(--brand-gold)]/30'
                     : 'rounded-md px-2.5 py-1 text-xs text-muted-foreground'
                 }
               >
