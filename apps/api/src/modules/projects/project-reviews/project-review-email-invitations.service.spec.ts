@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { ProjectReviewMeetingMode } from '@prisma/client';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { EmailService } from '../../email/email.service';

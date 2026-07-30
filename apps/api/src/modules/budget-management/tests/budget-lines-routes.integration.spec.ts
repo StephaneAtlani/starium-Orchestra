@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ResourceAccessDecisionGuard } from '../../access-decision/resource-access-decision.guard';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { AuditLogsModule } from '../../audit-logs/audit-logs.module';
 import { BudgetLinesController as BudgetManagementLinesController } from '../budget-lines/budget-lines.controller';
@@ -69,6 +70,8 @@ describe('Budget lines routes integration', () => {
       .overrideGuard(ModuleAccessGuard)
       .useValue(passGuard)
       .overrideGuard(PermissionsGuard)
+      .useValue(passGuard)
+      .overrideGuard(ResourceAccessDecisionGuard)
       .useValue(passGuard)
       .compile();
 

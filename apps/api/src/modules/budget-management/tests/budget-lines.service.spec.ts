@@ -37,6 +37,10 @@ describe('BudgetLinesService', () => {
     generalLedgerAccount: { id: generalLedgerAccountId, code: '606000', name: 'Compte' },
     analyticalLedgerAccount: null,
     costCenterSplits: [],
+    ownerOrgUnitId: null,
+    ownerOrgUnit: null,
+    budget: { id: budgetId, ownerOrgUnitId: null, ownerOrgUnit: null },
+    deferredToExercise: null,
     ...overrides,
   });
 
@@ -77,6 +81,7 @@ describe('BudgetLinesService', () => {
         id: budgetId,
         clientId,
         status: BudgetStatus.DRAFT,
+        ownerOrgUnitId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -139,6 +144,7 @@ describe('BudgetLinesService', () => {
         id: budgetId,
         clientId,
         status: BudgetStatus.DRAFT,
+        ownerOrgUnitId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -175,6 +181,7 @@ describe('BudgetLinesService', () => {
         id: budgetId,
         clientId,
         status: BudgetStatus.DRAFT,
+        ownerOrgUnitId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -212,6 +219,7 @@ describe('BudgetLinesService', () => {
         id: budgetId,
         clientId,
         status: BudgetStatus.LOCKED,
+        ownerOrgUnitId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -264,7 +272,7 @@ describe('BudgetLinesService', () => {
           consumedAmount: 100,
           remainingAmount: 700,
         }),
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       };
       prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
@@ -306,7 +314,7 @@ describe('BudgetLinesService', () => {
     it('permet de laisser generalLedgerAccountId inchangé quand le champ est absent', async () => {
       const existingWithBudget = {
         ...lineWithInclude(),
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       };
       prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
@@ -340,7 +348,7 @@ describe('BudgetLinesService', () => {
       prisma.client.findUnique.mockResolvedValue({ id: clientId, budgetAccountingEnabled: true });
       const existingWithBudget = {
         ...lineWithInclude(),
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       };
       prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
@@ -360,7 +368,7 @@ describe('BudgetLinesService', () => {
       prisma.client.findUnique.mockResolvedValue({ id: clientId, budgetAccountingEnabled: false });
       const existingWithBudget = {
         ...lineWithInclude(),
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       };
       prisma.budgetLine.findFirst.mockResolvedValue(existingWithBudget);
@@ -398,7 +406,7 @@ describe('BudgetLinesService', () => {
       prisma.budgetLine.findFirst.mockResolvedValue({
         ...lineWithInclude(),
         status: BudgetLineStatus.ARCHIVED,
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       });
 
@@ -421,7 +429,7 @@ describe('BudgetLinesService', () => {
         ...lineWithInclude(),
         status: BudgetLineStatus.ACTIVE,
         deferredToExerciseId: null,
-        budget: { status: BudgetStatus.DRAFT },
+        budget: { status: BudgetStatus.DRAFT, ownerOrgUnitId: null, ownerOrgUnit: null },
         costCenterSplits: [],
       });
       prisma.budgetExercise.findFirst.mockResolvedValue(null);

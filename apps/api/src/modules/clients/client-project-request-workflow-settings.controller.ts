@@ -4,7 +4,6 @@ import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { ClientAdminOrPlatformAdminGuard } from '../../common/guards/client-admin-or-platform-admin.guard';
-import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequireAnyPermissions } from '../../common/decorators/require-any-permissions.decorator';
 import { ActiveClientId } from '../../common/decorators/active-client.decorator';
 import {

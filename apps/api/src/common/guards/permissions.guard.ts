@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { satisfiesAnyPermission, satisfiesPermission } from '@starium-orchestra/rbac-permissions';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import {
   ACCESS_DECISION_V2_SERVICE_ENFORCED_MODULES,
 } from '../../modules/access-decision/access-intent.registry';

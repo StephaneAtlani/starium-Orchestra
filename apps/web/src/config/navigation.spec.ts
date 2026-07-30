@@ -50,7 +50,7 @@ describe('platform navigation', () => {
     expect(contractsKindTypes?.requiredPermissions).toEqual(['contracts.kind_types.manage']);
   });
 
-  it('expose une entrée Équipes (dropdown) avec any(skills.read, teams.read, resources.read)', () => {
+  it('expose une entrée Équipes (dropdown) avec any(skills.read, teams.read, resources.read, capacity.read)', () => {
     const moyensSection = navigation.find((section) => section.section === 'MOYENS');
     expect(moyensSection).toBeDefined();
 
@@ -62,6 +62,7 @@ describe('platform navigation', () => {
       'skills.read',
       'teams.read',
       'resources.read',
+      'capacity.read',
     ]);
     expect(teamsItem?.requiredPermissionsMatch).toBe('any');
     expect(teamsItem?.scope).toBe('client');
@@ -112,13 +113,15 @@ describe('platform navigation', () => {
     expect(cyclesItem?.scope).toBe('client');
   });
 
-  it("réserve Modèle d'accès aux administrateurs plateforme", () => {
+  it("expose Administration client (hub) en clientAdminOnly — pas d'entrée nav directe Modèle d'accès", () => {
     const adminSection = navigation.find((section) => section.section === 'ADMINISTRATION');
-    const accessModelItem = adminSection?.items.find(
-      (item) => item.href === '/client/administration/access-model',
-    );
-    expect(accessModelItem?.platformOnly).toBe(true);
-    expect(accessModelItem?.clientAdminOnly).toBeUndefined();
-    expect(accessModelItem?.requiredPermissions).toBeUndefined();
+    const adminHub = adminSection?.items.find((item) => item.href === '/client/administration');
+    expect(adminHub?.clientAdminOnly).toBe(true);
+    expect(adminHub?.platformOnly).toBeUndefined();
+
+    const accessModelDirect = navigation
+      .flatMap((s) => s.items)
+      .find((item) => item.href === '/client/administration/access-model');
+    expect(accessModelDirect).toBeUndefined();
   });
 });

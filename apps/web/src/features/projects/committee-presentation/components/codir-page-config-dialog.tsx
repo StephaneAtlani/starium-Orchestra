@@ -3,13 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Moon, Settings2, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Label } from '@/components/ui/label';
 import type { ProjectListItem } from '../../types/project.types';
 import {
@@ -119,15 +113,25 @@ export function CodirPageConfigDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(90dvh,760px)] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Configuration CODIR</DialogTitle>
-          <DialogDescription>
-            Personnalisez la page de préparation et le diaporama plein écran.
-          </DialogDescription>
-        </DialogHeader>
-
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Configuration CODIR"
+      description="Personnalisez la page de préparation et le diaporama plein écran."
+      icon={Settings2}
+      size="xl"
+      contentClassName="max-h-[min(90dvh,760px)]"
+      footer={
+        <>
+          <Button type="button" variant="outline" className="min-h-11 sm:min-h-9" onClick={handleReset}>
+            Réinitialiser
+          </Button>
+          <Button type="button" className="min-h-11 sm:min-h-9" onClick={handleSave}>
+            Enregistrer
+          </Button>
+        </>
+      }
+    >
         <section className="space-y-3">
           <h3 className="starium-overline">Page de préparation</h3>
           <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
@@ -332,17 +336,7 @@ export function CodirPageConfigDialog({
             <p className="text-sm text-muted-foreground">Aucun projet à configurer.</p>
           )}
         </section>
-
-        <div className="flex flex-wrap justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={handleReset}>
-            Réinitialiser
-          </Button>
-          <Button type="button" onClick={handleSave}>
-            Enregistrer
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </StariumModal>
   );
 }
 

@@ -50,7 +50,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
@@ -2308,29 +2307,28 @@ export function ProjectReviewEditorDialog({
 
   const conductSidebarMobileSheet =
     isPage && !isConductWideLayout && d && !isPostMortemReview ? (
-      <Dialog open={conductSidebarOpen} onOpenChange={setConductSidebarOpen}>
-        <DialogContent
-          sidePanel
-          layout="starium"
-          showCloseButton
-          className="gap-0 p-0"
-          aria-describedby={undefined}
-        >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Contexte séance
-              </p>
-              <time dateTime={d.reviewDate ?? undefined} className="mt-0.5 block truncate text-sm text-foreground">
-                {formatReviewDateTime(d.reviewDate)}
-              </time>
-            </div>
+      <StariumModal
+        open={conductSidebarOpen}
+        onOpenChange={setConductSidebarOpen}
+        title="Contexte séance"
+        sidePanel
+        showCloseButton
+        contentClassName="gap-0 p-0"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Contexte séance
+            </p>
+            <time dateTime={d.reviewDate ?? undefined} className="mt-0.5 block truncate text-sm text-foreground">
+              {formatReviewDateTime(d.reviewDate)}
+            </time>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            {conductSidebarScrollContent}
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {conductSidebarScrollContent}
+        </div>
+      </StariumModal>
     ) : null;
 
   const renderEditorPanels = () =>

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { ResourceAccessDecisionGuard } from '../../access-decision/resource-access-decision.guard';
 import { BudgetsController } from '../budgets/budgets.controller';
 import { BudgetsService } from '../budgets/budgets.service';
 import { BudgetDecisionHistoryService } from '../budget-decision-history.service';
@@ -50,6 +51,8 @@ describe('Budget decision-history route integration', () => {
       .overrideGuard(ModuleAccessGuard)
       .useValue(passGuard)
       .overrideGuard(PermissionsGuard)
+      .useValue(passGuard)
+      .overrideGuard(ResourceAccessDecisionGuard)
       .useValue(passGuard)
       .compile();
 

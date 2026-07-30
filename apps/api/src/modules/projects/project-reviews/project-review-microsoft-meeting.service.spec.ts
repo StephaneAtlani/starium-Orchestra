@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import {
   MicrosoftConnectionStatus,
   ProjectReviewMeetingMode,

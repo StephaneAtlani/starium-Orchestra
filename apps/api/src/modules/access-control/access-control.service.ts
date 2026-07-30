@@ -45,12 +45,6 @@ const PERM_RANK: Record<ResourceAclPermission, number> = {
   [ResourceAclPermission.ADMIN]: 3,
 };
 
-const MIN_PERMISSION_BY_OPERATION: Record<'read' | 'write' | 'admin', ResourceAclPermission> = {
-  read: ResourceAclPermission.READ,
-  write: ResourceAclPermission.WRITE,
-  admin: ResourceAclPermission.ADMIN,
-};
-
 export type ResourceAclEntryRow = {
   id: string;
   subjectType: ResourceAclSubjectType;

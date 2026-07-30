@@ -5,10 +5,12 @@ import { PATH_METADATA, METHOD_METADATA } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 import { REQUIRE_ANY_PERMISSIONS_KEY } from '../../common/decorators/require-any-permissions.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../../common/decorators/require-permissions.decorator';
+import { REQUIRE_ACCESS_INTENT_KEY } from '../../common/decorators/require-access-intent.decorator';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ResourceAccessDecisionGuard } from '../access-decision/resource-access-decision.guard';
 import { StrategicVisionController } from './strategic-vision.controller';
 import { StrategicVisionService } from './strategic-vision.service';
 
@@ -59,6 +61,8 @@ describe('StrategicVisionController', () => {
       .useValue(passGuard)
       .overrideGuard(PermissionsGuard)
       .useValue(passGuard)
+      .overrideGuard(ResourceAccessDecisionGuard)
+      .useValue(passGuard)
       .compile();
     jest.clearAllMocks();
   });
@@ -72,10 +76,10 @@ describe('StrategicVisionController', () => {
     ).toEqual(['strategic_vision.read']);
     expect(
       Reflect.getMetadata(
-        REQUIRE_PERMISSIONS_KEY,
+        REQUIRE_ACCESS_INTENT_KEY,
         StrategicVisionController.prototype.listObjectives,
       ),
-    ).toEqual(['strategic_vision.read']);
+    ).toEqual({ module: 'strategic_vision', intent: 'read' });
     expect(
       Reflect.getMetadata(REQUIRE_PERMISSIONS_KEY, StrategicVisionController.prototype.getKpis),
     ).toEqual(['strategic_vision.read']);
@@ -172,6 +176,7 @@ describe('StrategicVisionController', () => {
       ActiveClientGuard,
       ModuleAccessGuard,
       PermissionsGuard,
+      ResourceAccessDecisionGuard,
     ]);
   });
 

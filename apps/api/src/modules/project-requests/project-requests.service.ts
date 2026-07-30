@@ -20,7 +20,6 @@ import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AuditLogsService,
-  CreateAuditLogInput,
 } from '../audit-logs/audit-logs.service';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';
 import { EffectivePermissionsService } from '../../common/services/effective-permissions.service';
@@ -440,7 +439,7 @@ export class ProjectRequestsService {
     dto: CreateProjectRequestDto,
     context?: AuditContext,
   ) {
-    const membership = await this.assertWriteLicense(clientId, actorUserId);
+    await this.assertWriteLicense(clientId, actorUserId);
     const { stored: settings } = await this.workflowSettings.getActive(clientId);
 
     if (dto.validatorUserId) {

@@ -29,10 +29,8 @@ describe('StrategicDirectionStrategyController', () => {
     validatorOptions: jest.fn(),
   };
 
-  let controller: StrategicDirectionStrategyController;
-
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
+    await Test.createTestingModule({
       controllers: [StrategicDirectionStrategyController],
       providers: [{ provide: StrategicDirectionStrategyService, useValue: service }],
     })
@@ -46,7 +44,6 @@ describe('StrategicDirectionStrategyController', () => {
       .useValue(passGuard)
       .compile();
 
-    controller = module.get(StrategicDirectionStrategyController);
     jest.clearAllMocks();
   });
 

@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { BudgetLineStatus, BudgetStatus, ProjectStatus } from '@prisma/client';
+import { BudgetLineStatus, ProjectStatus } from '@prisma/client';
 import { OwnershipTransferService } from './ownership-transfer.service';
 
 describe('OwnershipTransferService', () => {

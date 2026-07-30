@@ -144,7 +144,10 @@ export function getLicenseExpirationStatus(
  * Badge métier complet d'un membre — combine libellé licence + expiration.
  * Ex. `Évaluation 30 jours — expire dans 5 jours`.
  */
-export function formatLicenseBadge(member: LicenseSubject): string {
+export function formatLicenseBadge(
+  member: LicenseSubject,
+  now: Date = new Date(),
+): string {
   const base = getLicenseDisplayLabel(
     member.licenseType,
     member.licenseBillingMode,
@@ -153,6 +156,7 @@ export function formatLicenseBadge(member: LicenseSubject): string {
   const status = getLicenseExpirationStatus(
     member.licenseEndsAt,
     member.licenseBillingMode,
+    now,
   );
   if (status.kind === 'none') return base;
   return `${base} — ${status.humanLabel}`;

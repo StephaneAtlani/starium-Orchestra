@@ -119,6 +119,9 @@ describe('ProjectsService — audit RFC-PROJ-009', () => {
       projectBudgetLink: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      projectReview: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn(async (callback) => callback(prisma)),
       clientUser: { findFirst: jest.fn(), findMany: jest.fn() },
       user: { findMany: jest.fn().mockResolvedValue([]) },

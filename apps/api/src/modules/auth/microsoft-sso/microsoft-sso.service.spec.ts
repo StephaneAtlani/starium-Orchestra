@@ -56,11 +56,15 @@ describe('MicrosoftSsoService', () => {
             },
             user: {
               findMany: jest.fn(),
-              findUnique: jest.fn().mockResolvedValue({ platformRole: null }),
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'u-default',
+                platformRole: null,
+                clientUsers: [],
+              }),
               update: jest.fn().mockResolvedValue({}),
             },
             userEmailIdentity: {
-              findMany: jest.fn(),
+              findMany: jest.fn().mockResolvedValue([]),
               count: jest.fn().mockResolvedValue(0),
             },
             refreshToken: {
@@ -175,8 +179,9 @@ describe('MicrosoftSsoService', () => {
       id_token: unsignedTestIdToken('sso@example.com'),
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
-    (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);
-    (prisma.userEmailIdentity.count as jest.Mock).mockResolvedValue(1);
+    (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([
+      { userId: 'u-unverified', isVerified: false, isActive: true },
+    ]);
 
     const result = await service.handleCallback(
       { code: 'c', state: 's' },
@@ -190,10 +195,13 @@ describe('MicrosoftSsoService', () => {
       access_token: 'access-token',
       id_token: unsignedTestIdToken('primary@example.com'),
     });
-    (prisma.user.findMany as jest.Mock).mockResolvedValue([
-      { id: 'u1', platformRole: null, clientUsers: [{ id: 'cu1' }] },
-    ]);
+    (prisma.user.findMany as jest.Mock).mockResolvedValue([{ id: 'u1' }]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'u1',
+      platformRole: null,
+      clientUsers: [{ id: 'cu1' }],
+    });
 
     const result = await service.handleCallback(
       { code: 'c', state: 's' },
@@ -209,7 +217,7 @@ describe('MicrosoftSsoService', () => {
     });
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'u1' },
-      select: { platformRole: true },
+      select: { id: true, platformRole: true, clientUsers: expect.any(Object) },
     });
   });
 
@@ -220,10 +228,13 @@ describe('MicrosoftSsoService', () => {
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([
-      {
-        user: { id: 'u2', platformRole: null, clientUsers: [{ id: 'cu2' }] },
-      },
+      { userId: 'u2', isVerified: true, isActive: true },
     ]);
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 'u2',
+      platformRole: null,
+      clientUsers: [{ id: 'cu2' }],
+    });
 
     const result = await service.handleCallback(
       { code: 'c', state: 's' },
@@ -236,7 +247,7 @@ describe('MicrosoftSsoService', () => {
     });
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'u2' },
-      select: { platformRole: true },
+      select: { id: true, platformRole: true, clientUsers: expect.any(Object) },
     });
   });
 
@@ -245,10 +256,7 @@ describe('MicrosoftSsoService', () => {
       access_token: 'access-token',
       id_token: unsignedTestIdToken('duplicate@example.com'),
     });
-    (prisma.user.findMany as jest.Mock).mockResolvedValue([
-      { id: 'u1', platformRole: null, clientUsers: [{ id: 'cu1' }] },
-      { id: 'u2', platformRole: null, clientUsers: [{ id: 'cu2' }] },
-    ]);
+    (prisma.user.findMany as jest.Mock).mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await service.handleCallback(
@@ -265,7 +273,6 @@ describe('MicrosoftSsoService', () => {
     });
     (prisma.user.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.userEmailIdentity.findMany as jest.Mock).mockResolvedValue([]);
-    (prisma.userEmailIdentity.count as jest.Mock).mockResolvedValue(0);
 
     const result = await service.handleCallback(
       { code: 'c', state: 's' },

@@ -7,7 +7,6 @@ import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import {
   PROJECT_AUDIT_ACTION,
-  PROJECT_AUDIT_RESOURCE_TYPE,
 } from '../project-audit.constants';
 import { ProjectReviewEmailInvitationsService } from './project-review-email-invitations.service';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';

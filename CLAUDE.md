@@ -272,6 +272,7 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 | `starium-design-system` | Tout travail UI dans `apps/web` |
 | `starium-modales` | Création / refonte de modale ou dialog |
 | `starium-conformite` | Revue avant commit / PR, contrôle multi-client & sécurité |
+| `starium-release-gate` | Passage préprod/prod — checklist go/no-go (lint, build, env, Prisma, smoke) |
 | `starium-rfc` | Rédaction ou implémentation d'une RFC |
 | `starium-documentation` | Mise à jour / synchronisation de `docs/` |
 

@@ -291,7 +291,7 @@ export class CapacityAllocationService {
     let sourceRestricted = false;
     let sourceRef: { id: string; label: string } | null = null;
     let sourceId: string | null = row.sourceId;
-    let sourceType = row.sourceType;
+    const sourceType = row.sourceType;
 
     if (row.sourceType !== CapacityAllocationSourceType.MANUAL) {
       const canRead = await this.sourceAccess.canReadSource({

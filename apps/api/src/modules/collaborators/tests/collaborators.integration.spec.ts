@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { CollaboratorSource, CollaboratorStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
+import { EmailReservationService } from '../../../common/auth/email-reservation.service';
+import { SensitiveOperationPolicyService } from '../../../common/auth/sensitive-operation-policy.service';
 import { CollaboratorsService } from '../collaborators.service';
 
 describe('Collaborators integration (module-scoped)', () => {
@@ -27,6 +29,19 @@ describe('Collaborators integration (module-scoped)', () => {
           },
         },
         { provide: AuditLogsService, useValue: { create: jest.fn() } },
+        {
+          provide: EmailReservationService,
+          useValue: {
+            assertEmailAvailable: jest.fn().mockResolvedValue(undefined),
+            assertEmailsAvailable: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: SensitiveOperationPolicyService,
+          useValue: {
+            assertSensitiveAdminOperation: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
     service = module.get(CollaboratorsService);

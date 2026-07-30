@@ -14,7 +14,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { RequireAccessIntent } from '../../common/decorators/require-access-intent.decorator';
 import { AccessDecision } from '../../common/decorators/access-decision.decorator';
 import { ResourceAccessDecisionGuard } from '../access-decision/resource-access-decision.guard';

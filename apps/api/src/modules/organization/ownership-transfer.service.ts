@@ -153,8 +153,6 @@ export class OwnershipTransferService {
     skip: number,
     take: number,
   ): Promise<PreviewItem[]> {
-    const selectLabel = { id: true, name: true, title: true, code: true, reference: true };
-
     switch (type) {
       case 'PROJECT': {
         const rows = await this.prisma.project.findMany({

@@ -14,7 +14,7 @@ import {
   type RequireAccessIntentMetadata,
 } from '../decorators/require-access-intent.decorator';
 import { REQUIRE_PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
-import { satisfiesAnyPermission, satisfiesPermission } from '@starium-orchestra/rbac-permissions';
+import { satisfiesPermission } from '@starium-orchestra/rbac-permissions';
 import { EffectivePermissionsService } from '../services/effective-permissions.service';
 import { RequestWithClient } from '../types/request-with-client';
 

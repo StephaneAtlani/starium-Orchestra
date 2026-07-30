@@ -3,7 +3,6 @@ import {
   ProjectRequest,
   ProjectRequestRoutingStatus,
   ProjectRequestRoutingTarget,
-  ProjectRequestStatus,
   ProjectRequestWorkflowSettings,
 } from '@prisma/client';
 import { RequestMeta } from '../../common/decorators/request-meta.decorator';

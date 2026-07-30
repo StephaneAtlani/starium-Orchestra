@@ -96,11 +96,14 @@ describe('license-status helpers — RFC-ACL-010', () => {
 
   describe('formatLicenseBadge', () => {
     it('combines display label and expiration suffix for EVALUATION', () => {
-      const badge = formatLicenseBadge({
-        licenseType: 'READ_WRITE',
-        licenseBillingMode: 'EVALUATION',
-        licenseEndsAt: '2026-05-15T00:00:00.000Z',
-      });
+      const badge = formatLicenseBadge(
+        {
+          licenseType: 'READ_WRITE',
+          licenseBillingMode: 'EVALUATION',
+          licenseEndsAt: '2026-05-15T00:00:00.000Z',
+        },
+        NOW,
+      );
       expect(badge).toMatch(/Évaluation 30 jours/);
       expect(badge).toMatch(/expire dans/);
     });

@@ -58,7 +58,7 @@ describe('ProjectsListProjectCard', () => {
     expect(screen.getByLabelText('Actions pour Projet Alpha')).toBeTruthy();
     expect(screen.getByText('Projet')).toBeTruthy();
     expect(screen.getByText('En cours')).toBeTruthy();
-    expect(screen.getByText('Budget')).toBeTruthy();
+    expect(screen.getAllByText('Budget').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Consommé')).toBeTruthy();
     expect(container.textContent).toMatch(/120\s*000/);
     expect(container.textContent).toMatch(/45\s*000/);

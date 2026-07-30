@@ -17,7 +17,6 @@ jest.mock('../../common/auth/platform-user-email-resolver', () => ({
 
 describe('TeamDirectoryService', () => {
   let service: TeamDirectoryService;
-  let prisma: PrismaService;
   let graphProvider: MicrosoftGraphDirectoryProvider;
 
   const clientId = 'client-1';
@@ -77,7 +76,6 @@ describe('TeamDirectoryService', () => {
     }).compile();
 
     service = module.get(TeamDirectoryService);
-    prisma = module.get(PrismaService);
     graphProvider = module.get(MicrosoftGraphDirectoryProvider);
     jest.clearAllMocks();
   });

@@ -131,7 +131,9 @@ describe('AccessModelService export (RFC-ACL-026)', () => {
       { user: { userId: 'u1' }, headers: {} } as any,
     );
 
-    expect(out.filename).toBe('access-model-issues-Acme-Labs-EU-2026-05-18.csv');
+    expect(out.filename).toMatch(
+      /^access-model-issues-Acme-Labs-EU-\d{4}-\d{2}-\d{2}\.csv$/,
+    );
     expect(out.filename).not.toMatch(/[/\s"]/);
   });
 

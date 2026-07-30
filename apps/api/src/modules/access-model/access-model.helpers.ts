@@ -4,7 +4,6 @@ import {
   ClientUserStatus,
   ProjectStatus,
   ResourceAclPermission,
-  ResourceAclSubjectType,
   RoleScope,
   StrategicObjectiveLifecycleStatus,
   SupplierContractStatus,

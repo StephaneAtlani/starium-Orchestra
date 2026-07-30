@@ -42,7 +42,12 @@ type PrismaMock = {
   strategicObjective: { findFirst: jest.Mock };
   projectRisk: { findFirst: jest.Mock };
   governanceCycleInstanceDecision: { findMany: jest.Mock };
-  governanceCycleInstanceAgendaItem: { findFirst: jest.Mock };
+  governanceCycleInstanceAgendaItem: {
+    findFirst: jest.Mock;
+    deleteMany: jest.Mock;
+    createMany: jest.Mock;
+    findMany: jest.Mock;
+  };
   budgetGovernanceDecision?: { create: jest.Mock };
   auditLog: { findFirst: jest.Mock };
 };
@@ -142,6 +147,9 @@ describe('GovernanceCyclesService', () => {
       },
       governanceCycleInstanceAgendaItem: {
         findFirst: jest.fn().mockResolvedValue(null),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       budgetGovernanceDecision: { create: jest.fn() },
       auditLog: { findFirst: jest.fn().mockResolvedValue(null) },

@@ -20,6 +20,7 @@ describe('Budget reporting integration', () => {
     budget: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     budgetEnvelope: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     budgetLine: { findMany: jest.Mock; count: jest.Mock };
+    budgetVersionSet: { findMany: jest.Mock };
     client: { findUnique: jest.Mock };
   };
 
@@ -38,6 +39,7 @@ describe('Budget reporting integration', () => {
         count: jest.fn(),
       },
       budgetLine: { findMany: jest.fn(), count: jest.fn() },
+      budgetVersionSet: { findMany: jest.fn().mockResolvedValue([]) },
       client: { findUnique: jest.fn() },
     };
 
@@ -74,19 +76,13 @@ describe('Budget reporting integration', () => {
 
   describe('isolation client (obligatoire)', () => {
     it('requête avec client B sur une ressource de client A → 404', async () => {
+      prisma.budget.findMany.mockResolvedValue([{ id: 'b1' }]);
       prisma.budgetLine.findMany.mockResolvedValue([]);
       prisma.budgetEnvelope.count.mockResolvedValue(0);
-      // Ressource (exercice) appartient à client A : findFirst avec clientId A retourne l’exercice
       prisma.budgetExercise.findFirst.mockImplementation(
         (args: { where: { id: string; clientId: string } }) => {
           if (args.where.clientId === clientA && args.where.id === exerciseId) {
-            return Promise.resolve({
-              id: exerciseId,
-              clientId: clientA,
-              name: 'Ex A',
-              code: 'EX-A',
-              budgets: [{ id: 'b1' }],
-            });
+            return Promise.resolve({ id: exerciseId });
           }
           return Promise.resolve(null);
         },
@@ -96,7 +92,7 @@ describe('Budget reporting integration', () => {
       expect(resultA).toBeDefined();
       expect(prisma.budgetExercise.findFirst).toHaveBeenCalledWith({
         where: { id: exerciseId, clientId: clientA },
-        include: { budgets: { select: { id: true } } },
+        select: { id: true },
       });
 
       await expect(
@@ -105,7 +101,7 @@ describe('Budget reporting integration', () => {
 
       expect(prisma.budgetExercise.findFirst).toHaveBeenCalledWith({
         where: { id: exerciseId, clientId: clientB },
-        include: { budgets: { select: { id: true } } },
+        select: { id: true },
       });
     });
   });

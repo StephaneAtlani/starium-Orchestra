@@ -2,6 +2,8 @@
 
 Procédure d’exploitation pour déployer une **release applicative** Starium Orchestra (API NestJS + Web Next.js standalone + worker e-mails) sur un environnement **self-hosted** (Docker Compose, Dokploy ou équivalent).
 
+**Gate agent (préprod / prod)** : skill `.claude/skills/starium-release-gate/SKILL.md` — checklist go/no-go exécutable (phases A–E). À invoquer avant tout passage préprod ou prod.
+
 **Hors périmètre** : activation progressive des flags org/ACL par client → [migration-org-scope-access.md](./migration-org-scope-access.md) et [_Plan de déploiement Org & licences](../RFC/_Plan%20de%20d%C3%A9ploement%20Orgnisation%20et%20licences.md).
 
 ---

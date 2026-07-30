@@ -71,6 +71,11 @@ describe('ProjectTasksService — audit RFC-PROJ-009', () => {
       projectTaskLabel: {
         findMany: jest.fn(),
       },
+      projectTaskAssignee: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn(),
+      },
       $transaction: jest.fn(),
       projectTaskChecklistItem: {
         findMany: jest.fn(),

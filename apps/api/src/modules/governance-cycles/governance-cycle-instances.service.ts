@@ -31,7 +31,6 @@ import {
 } from './lib/governance-cycle-config.schema';
 import { buildGeneratedInstancePeriodLabel } from './lib/governance-cycle-instance-labels.util';
 import {
-  INSTANCE_FINAL_DECISION_STATUSES,
   isItemUndecidedForInstanceClose,
   isValidInstanceFinalDecision,
   normalizeItemDecisionStatusForRead,
@@ -446,7 +445,7 @@ export class GovernanceCycleInstancesService {
     clientId: string,
     cycleId: string,
     instanceId: string,
-    context?: InstanceAuditContext,
+    _context?: InstanceAuditContext,
   ): Promise<GovernanceCycleInstanceResponseDto> {
     const existing = await this.findInstance(clientId, cycleId, instanceId);
     if (existing.status !== GovernanceCycleInstanceStatus.CLOSED) {
@@ -548,7 +547,6 @@ export class GovernanceCycleInstancesService {
       }
     }
 
-    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       for (const d of dto.decisions) {
         await tx.governanceCycleInstanceDecision.upsert({
@@ -630,7 +628,6 @@ export class GovernanceCycleInstancesService {
           throw new BadRequestException('Cannot close an instance with an empty agenda');
         }
 
-        const agendaItemIds = instance.agendaItems.map((a) => a.itemId);
         const decisionByItem = new Map(
           instance.decisions.map((d) => [d.itemId, d]),
         );
