@@ -1,12 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import { AlertTriangle, ArrowRight, BriefcaseBusiness, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   PortfolioEntityCard,
   PortfolioProgressBar,
-  consumptionTone,
   rateToPercent,
   toneAmountClass,
   toneBadgeClass,
@@ -15,18 +13,16 @@ import {
 import { BudgetStatusBadge } from './budget-status-badge';
 import { budgetDetail } from '../constants/budget-routes';
 import type { BudgetListItemWithKpi } from '../types/budget-reporting.types';
-
-function formatAmount(value: number, currency: string): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+import { formatBudgetAmount, isBudgetRowAlert } from '../lib/budget-portfolio-format';
+import {
+  budgetExecutionTone,
+  budgetPortfolioIcon,
+  budgetPortfolioSubtitle,
+} from '../lib/budget-portfolio-display';
 
 function getAlertLabel(row: BudgetListItemWithKpi): string | null {
   if (row.kpi.forecastGapAmount != null && row.kpi.forecastGapAmount > 0) {
-    return `Dépassement +${formatAmount(row.kpi.forecastGapAmount, row.kpi.currency ?? row.budget.currency)}`;
+    return `Dépassement +${formatBudgetAmount(row.kpi.forecastGapAmount, row.kpi.currency ?? row.budget.currency)}`;
   }
   if ((row.kpi.overConsumedLineCount ?? 0) > 0) {
     return 'Lignes en sur-consommation';
@@ -35,15 +31,14 @@ function getAlertLabel(row: BudgetListItemWithKpi): string | null {
     return 'Lignes en sur-engagement';
   }
   if (row.kpi.totalRemainingAmount < 0) {
-    return `Dépassement +${formatAmount(Math.abs(row.kpi.totalRemainingAmount), row.kpi.currency ?? row.budget.currency)}`;
+    return `Dépassement +${formatBudgetAmount(Math.abs(row.kpi.totalRemainingAmount), row.kpi.currency ?? row.budget.currency)}`;
   }
   return null;
 }
 
 function budgetCardTone(row: BudgetListItemWithKpi): StatusTone {
-  const alert = getAlertLabel(row);
-  if (alert) return 'danger';
-  return consumptionTone(row.kpi.consumptionRate);
+  if (isBudgetRowAlert(row) || getAlertLabel(row)) return 'danger';
+  return budgetExecutionTone(row.kpi.consumptionRate);
 }
 
 export function BudgetsPortfolioCards({
@@ -63,6 +58,7 @@ export function BudgetsPortfolioCards({
         const execPercent = rateToPercent(row.kpi.consumptionRate);
         const remainingTone: StatusTone =
           row.kpi.totalRemainingAmount < 0 ? 'danger' : 'ok';
+        const Icon = budgetPortfolioIcon(row);
 
         return (
           <PortfolioEntityCard
@@ -70,7 +66,7 @@ export function BudgetsPortfolioCards({
             href={budgetDetail(row.budget.id)}
             ariaLabel={`Ouvrir le budget ${row.budget.name}`}
             tone={tone}
-            icon={<BriefcaseBusiness className="size-5" aria-hidden />}
+            icon={<Icon className="size-5" aria-hidden />}
             title={<span className="line-clamp-2">{row.budget.name}</span>}
             badges={
               <>
@@ -85,7 +81,7 @@ export function BudgetsPortfolioCards({
             }
             subtitle={
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>{row.budget.code ?? 'Sans code'}</span>
+                <span>{budgetPortfolioSubtitle(row)}</span>
                 <span aria-hidden>·</span>
                 <span>{currency}</span>
               </span>
@@ -96,19 +92,19 @@ export function BudgetsPortfolioCards({
                   Budget alloué
                 </div>
                 <div className="mt-1 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-                  {formatAmount(row.kpi.totalInitialAmount, currency)}
+                  {formatBudgetAmount(row.kpi.totalInitialAmount, currency)}
                 </div>
                 <div className="mt-3">
                   <PortfolioProgressBar
                     value={execPercent}
-                    variant="consumption"
+                    tone={budgetExecutionTone(row.kpi.consumptionRate)}
                     showPercent
                     label={`Exécution ${row.budget.name}`}
                   />
                   <div className="mt-2 flex items-center justify-between text-xs font-medium">
                     <span className="text-muted-foreground">Consommé</span>
                     <span className={cn('tabular-nums', toneAmountClass('info'))}>
-                      {formatAmount(row.kpi.totalConsumedAmount, currency)}
+                      {formatBudgetAmount(row.kpi.totalConsumedAmount, currency)}
                     </span>
                   </div>
                 </div>
@@ -116,7 +112,7 @@ export function BudgetsPortfolioCards({
                   <div>
                     <div className="text-xs text-muted-foreground">Engagé</div>
                     <div className={cn('mt-1 text-sm font-semibold tabular-nums', toneAmountClass('brand'))}>
-                      {formatAmount(row.kpi.totalCommittedAmount, currency)}
+                      {formatBudgetAmount(row.kpi.totalCommittedAmount, currency)}
                     </div>
                   </div>
                   <div>
@@ -127,7 +123,7 @@ export function BudgetsPortfolioCards({
                         toneAmountClass(remainingTone),
                       )}
                     >
-                      {formatAmount(row.kpi.totalRemainingAmount, currency)}
+                      {formatBudgetAmount(row.kpi.totalRemainingAmount, currency)}
                     </div>
                   </div>
                 </div>
@@ -148,7 +144,7 @@ export function BudgetsPortfolioCards({
                         aria-hidden
                       />
                       <span className={cn('truncate', toneAmountClass('ok'))}>
-                        Reste {formatAmount(row.kpi.totalRemainingAmount, currency)}
+                        Reste {formatBudgetAmount(row.kpi.totalRemainingAmount, currency)}
                       </span>
                     </>
                   )}

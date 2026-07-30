@@ -274,7 +274,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 
 | Route | Contenu |
 |-------|---------|
-| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 Lot A) : `PageHeader`, garde `budgets.read`, bandeau KPI consolidation (5 cellules), toggle **Cartes / Tableau** (`?view=cards\|table`), filtres URL (`exerciseId`, `search`, `status`, `page`, `limit`), source **`GET /api/budget-reporting/exercises/:id/summary`** + **`GET /api/budget-reporting/exercises/:id/budgets`** (montants HT agrégés, sans TTC côté portefeuille) ; fetch exercice effectif dès résolution (pas d’attente stricte de la synchro URL) ; export CSV lignes visibles (`downloadBudgetsPortfolioCsv`) ; kit partagé `components/portfolio` |
+| `/budgets` | **Portefeuille budgets** (RFC-FE-BUD-031 Lot A) : `PageHeader`, garde `budgets.read`, bandeau KPI consolidation (5 cellules), toggle **Cartes / Tableau** (`?view=cards\|table`, **défaut tableau**), table pattern `/projects` (icônes, tri colonnes, filtre État inline, total consolidé, `starium-projects-table` + pan), filtres URL (`exerciseId`, `search`, `status`, `page`, `limit`), source **`GET /api/budget-reporting/exercises/:id/summary`** + **`GET /api/budget-reporting/exercises/:id/budgets`** (montants HT + `expenseMix` / direction) ; export CSV ; kit `components/portfolio` |
 | `/budgets/exercises` | **Liste des exercices budgétaires** (RFC-FE-003) : table paginée, filtres, sync URL |
 | `/budgets/exercises/[id]` | Détail exercice + liens vers budgets |
 | `/budgets/exercises/new` | **Création exercice** (RFC-FE-015) |

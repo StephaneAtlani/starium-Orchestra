@@ -34,6 +34,25 @@ const PILOTAGE_LINE_AMOUNTS_SELECT = {
   remainingAmount: true,
 } as const satisfies Prisma.BudgetLineSelect;
 
+/** Même select + nature de dépense pour dériver CAPEX / OPEX / Mixte (portefeuille). */
+const PILOTAGE_LINE_AMOUNTS_WITH_TYPE_SELECT = {
+  ...PILOTAGE_LINE_AMOUNTS_SELECT,
+  expenseType: true,
+} as const satisfies Prisma.BudgetLineSelect;
+
+export type BudgetExpenseMix = 'CAPEX' | 'OPEX' | 'MIXTE';
+
+function computeExpenseMix(
+  expenseTypes: readonly string[],
+): BudgetExpenseMix | null {
+  const set = new Set(
+    expenseTypes.filter((t) => t === 'CAPEX' || t === 'OPEX'),
+  );
+  if (set.size === 0) return null;
+  if (set.size === 1) return set.has('CAPEX') ? 'CAPEX' : 'OPEX';
+  return 'MIXTE';
+}
+
 const EMPTY_TTC_TOTALS = {
   totalInitialAmountTtc: null,
   totalForecastAmountTtc: null,
@@ -221,6 +240,15 @@ export interface BudgetWithKpi {
   description: string | null;
   currency: string;
   status: string;
+  ownerOrgUnitId: string | null;
+  ownerOrgUnitSummary: {
+    id: string;
+    name: string;
+    type: string;
+    code: string | null;
+  } | null;
+  /** Nature dominante des lignes pilotage — null si aucune ligne typée. */
+  expenseMix: BudgetExpenseMix | null;
   kpi: BudgetSummaryKpi;
 }
 
@@ -464,6 +492,11 @@ export class BudgetReportingService {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
+        include: {
+          ownerOrgUnit: {
+            select: { id: true, name: true, type: true, code: true },
+          },
+        },
       }),
       this.prisma.budget.count({ where }),
     ]);
@@ -482,7 +515,7 @@ export class BudgetReportingService {
           clientId,
           budgetId: { in: budgetIds },
         }),
-        select: PILOTAGE_LINE_AMOUNTS_SELECT,
+        select: PILOTAGE_LINE_AMOUNTS_WITH_TYPE_SELECT,
       }),
       this.prisma.budgetEnvelope.findMany({
         where: { clientId, budgetId: { in: budgetIds } },
@@ -515,6 +548,7 @@ export class BudgetReportingService {
       const amounts = lines.map((l) => toLineAmounts(l));
       const envelopeCount = envelopeCountByBudget.get(budget.id) ?? 0;
       const kpi = aggregateLinesToKpi(amounts, currency, { envelopeCount });
+      const owner = budget.ownerOrgUnit;
 
       return {
         id: budget.id,
@@ -525,6 +559,16 @@ export class BudgetReportingService {
         description: budget.description,
         currency: budget.currency,
         status: budget.status,
+        ownerOrgUnitId: budget.ownerOrgUnitId ?? null,
+        ownerOrgUnitSummary: owner
+          ? {
+              id: owner.id,
+              name: owner.name,
+              type: owner.type,
+              code: owner.code ?? null,
+            }
+          : null,
+        expenseMix: computeExpenseMix(lines.map((l) => l.expenseType)),
         kpi: { ...kpi, ...EMPTY_TTC_TOTALS },
       };
     });

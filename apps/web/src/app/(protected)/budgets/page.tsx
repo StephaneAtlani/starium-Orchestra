@@ -1,17 +1,25 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { BudgetsToolbar } from '@/features/budgets/components/budgets-toolbar';
-import { BudgetsTable } from '@/features/budgets/components/budgets-table';
+import {
+  BudgetsTable,
+  type BudgetsTableSortKey,
+} from '@/features/budgets/components/budgets-table';
 import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-state';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
 import { useBudgetsListFilters } from '@/features/budgets/hooks/use-budget-list-filters';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
@@ -27,6 +35,7 @@ import { formatBudgetExerciseOptionLabel } from '@/features/budgets/lib/budget-e
 import { downloadBudgetsPortfolioCsv } from '@/features/budgets/lib/budget-portfolio-export';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { useTablePan } from '@/hooks/use-table-pan';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
 
 /**
@@ -44,8 +53,11 @@ function extractKpi(
 export default function BudgetsListPage() {
   const { filters, setFilters, reset } = useBudgetsListFilters();
   const { activeClient } = useActiveClient();
+  const tablePan = useTablePan();
   const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
   const canReadBudgets = permsSuccess && has('budgets.read');
+  const [sortKey, setSortKey] = useState<BudgetsTableSortKey>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const {
     data: exerciseOptions = [],
     isLoading: exerciseOptionsLoading,
@@ -53,7 +65,7 @@ export default function BudgetsListPage() {
   } = useBudgetExerciseOptionsQuery({
     enabled: !!activeClient?.id,
   });
-  const viewMode = filters.view ?? 'cards';
+  const viewMode = filters.view ?? 'table';
   const setViewMode = (mode: 'cards' | 'table') => setFilters({ view: mode });
 
   const selectedExerciseId = useMemo(() => {
@@ -88,6 +100,7 @@ export default function BudgetsListPage() {
   });
 
   const data = budgetsQuery.data;
+  const consolidationKpi = extractKpi(summaryQuery.data);
   const isResolvingExercise =
     canReadBudgets && !effectiveExerciseId && (exerciseOptionsLoading || !exerciseOptionsFetched);
   const isBudgetsPending =
@@ -159,105 +172,161 @@ export default function BudgetsListPage() {
 
         {canReadBudgets && (
           <>
-        <BudgetsToolbar
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          resolvedExerciseId={effectiveExerciseId}
-        />
-
-        {effectiveExerciseId && (
-          <BudgetsPortfolioKpi
-            kpi={extractKpi(summaryQuery.data)}
-            isLoading={summaryQuery.isLoading && !summaryQuery.data}
-            totalBudgets={data?.total ?? data?.items.length ?? 0}
-          />
-        )}
-
-        {isLoading && !data && (
-          <div data-testid="budgets-loading" aria-live="polite">
-            <LoadingState rows={5} />
-          </div>
-        )}
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Impossible de charger le portefeuille budgets</AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{error instanceof Error ? error.message : 'Une erreur est survenue.'}</p>
-              <Button type="button" variant="outline" onClick={() => budgetsQuery.refetch()}>
-                Réessayer
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {!isLoading && !error && !effectiveExerciseId && exerciseOptionsFetched && (
-          <BudgetEmptyState
-            title="Aucun exercice disponible"
-            description="Créez ou activez un exercice budgétaire pour afficher le portefeuille."
-          />
-        )}
-
-        {!isLoading && !error && effectiveExerciseId && data && data.items.length === 0 && (
-          <BudgetEmptyState
-            title="Aucun budget à afficher"
-            description="Aucun budget ne correspond aux filtres pour cet exercice."
-            action={
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={reset}>
-                  Réinitialiser les filtres
-                </Button>
-                <PermissionGate permission="budgets.create">
-                  <Link href={budgetNew()} className={buttonVariants({ variant: 'default', size: 'sm' })}>
-                    Créer un budget
-                  </Link>
-                </PermissionGate>
-              </div>
-            }
-          />
-        )}
-
-        {!isLoading && !error && data && data.items.length > 0 && (
-          <>
-            <div className="flex items-center justify-between gap-3">
-              <p className="starium-overline">Choisir un budget à consulter</p>
-              <Button type="button" variant="outline" size="sm" onClick={exportVisibleRows}>
-                <Download className="size-4" aria-hidden />
-                Exporter
-              </Button>
-            </div>
-            {viewMode === 'cards' ? (
-              <BudgetsPortfolioCards items={data.items} />
-            ) : (
-              <BudgetsTable data={data.items} exerciseId={effectiveExerciseId} />
+            {effectiveExerciseId && (
+              <BudgetsPortfolioKpi
+                kpi={consolidationKpi}
+                isLoading={summaryQuery.isLoading && !summaryQuery.data}
+                totalBudgets={data?.total ?? data?.items.length ?? 0}
+              />
             )}
-            <div className="mt-3 flex items-center justify-between">
-              <PaginationSummary offset={offset} limit={data.limit} total={data.total} />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => setFilters({ page: currentPage - 1 })}
-                  data-testid="pagination-prev"
-                >
-                  <ChevronLeft className="size-4" />
-                  Précédent
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setFilters({ page: currentPage + 1 })}
-                  data-testid="pagination-next"
-                >
-                  Suivant
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
+
+            <div className="starium-projects-toolbar-shell w-full min-w-0 overflow-hidden">
+              <BudgetsToolbar
+                filters={filters}
+                setFilters={setFilters}
+                reset={reset}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                resolvedExerciseId={effectiveExerciseId}
+              />
             </div>
-          </>
-        )}
+
+            {isLoading && !data && (
+              <div data-testid="budgets-loading" aria-live="polite">
+                <LoadingState rows={5} />
+              </div>
+            )}
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>Impossible de charger le portefeuille budgets</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <p>{error instanceof Error ? error.message : 'Une erreur est survenue.'}</p>
+                  <Button type="button" variant="outline" onClick={() => budgetsQuery.refetch()}>
+                    Réessayer
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!isLoading && !error && !effectiveExerciseId && exerciseOptionsFetched && (
+              <BudgetEmptyState
+                title="Aucun exercice disponible"
+                description="Créez ou activez un exercice budgétaire pour afficher le portefeuille."
+              />
+            )}
+
+            {!error && effectiveExerciseId && (
+              <Card
+                size="sm"
+                className="starium-panel max-md:max-h-none max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden md:max-h-[min(75vh,800px)]"
+              >
+                {data && data.items.length > 0 ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-3 py-2.5 sm:px-4">
+                      <p className="starium-overline">Choisir un budget à consulter</p>
+                      <Button type="button" variant="outline" size="sm" onClick={exportVisibleRows}>
+                        <Download className="size-4" aria-hidden />
+                        Exporter
+                      </Button>
+                    </div>
+                    <CardContent
+                      className={cn(
+                        'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        viewMode === 'table' &&
+                          (tablePan.isPanning
+                            ? 'cursor-grabbing select-none touch-none'
+                            : 'cursor-grab'),
+                      )}
+                      ref={viewMode === 'table' ? tablePan.scrollRef : undefined}
+                      onPointerDown={viewMode === 'table' ? tablePan.onPointerDown : undefined}
+                    >
+                      {viewMode === 'cards' ? (
+                        <div className="p-3 sm:p-4">
+                          <BudgetsPortfolioCards items={data.items} />
+                        </div>
+                      ) : (
+                        <BudgetsTable
+                          data={data.items}
+                          exerciseId={effectiveExerciseId}
+                          filters={filters}
+                          setFilters={setFilters}
+                          consolidation={consolidationKpi}
+                          sortKey={sortKey}
+                          sortOrder={sortOrder}
+                          onSortChange={(key, order) => {
+                            setSortKey(key);
+                            setSortOrder(order);
+                          }}
+                        />
+                      )}
+                    </CardContent>
+                    <CardFooter className="starium-table-footer p-0">
+                      <PaginationSummary
+                        offset={offset}
+                        limit={data.limit}
+                        total={data.total}
+                        className="text-xs text-muted-foreground"
+                      />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
+                          disabled={currentPage <= 1}
+                          onClick={() => setFilters({ page: currentPage - 1 })}
+                          data-testid="pagination-prev"
+                        >
+                          <ChevronLeft className="size-3.5" aria-hidden />
+                          Précédent
+                        </button>
+                        <span className="starium-filter-chip starium-filter-chip--active px-2.5 py-1 text-[11.5px]">
+                          {currentPage}
+                        </span>
+                        {totalPages > 1 ? (
+                          <span className="px-1 text-xs text-muted-foreground">/ {totalPages}</span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="starium-filter-chip px-2.5 py-1 text-[11.5px] disabled:opacity-40"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setFilters({ page: currentPage + 1 })}
+                          data-testid="pagination-next"
+                        >
+                          Suivant
+                          <ChevronRight className="size-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    </CardFooter>
+                  </>
+                ) : isLoading ? (
+                  <CardContent className="py-8">
+                    <LoadingState rows={4} />
+                  </CardContent>
+                ) : data && data.items.length === 0 ? (
+                  <CardContent className="py-6">
+                    <BudgetEmptyState
+                      title="Aucun budget à afficher"
+                      description="Aucun budget ne correspond aux filtres pour cet exercice."
+                      action={
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="outline" onClick={reset}>
+                            Réinitialiser les filtres
+                          </Button>
+                          <PermissionGate permission="budgets.create">
+                            <Link
+                              href={budgetNew()}
+                              className={buttonVariants({ variant: 'default', size: 'sm' })}
+                            >
+                              Créer un budget
+                            </Link>
+                          </PermissionGate>
+                        </div>
+                      }
+                    />
+                  </CardContent>
+                ) : null}
+              </Card>
+            )}
           </>
         )}
       </PageContainer>

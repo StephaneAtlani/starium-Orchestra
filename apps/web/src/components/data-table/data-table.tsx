@@ -94,7 +94,11 @@ export function DataTable<T>({
       <TableHeader>
         <TableRow>
           {columns.map((col) => (
-            <TableHead key={col.key} className={col.className}>
+            <TableHead
+              key={col.key}
+              className={col.headerClassName ?? col.className}
+              aria-sort={col.ariaSort}
+            >
               {col.header}
             </TableHead>
           ))}

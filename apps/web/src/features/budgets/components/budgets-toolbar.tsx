@@ -13,26 +13,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useBudgetsListFilters } from '../hooks/use-budget-list-filters';
-import { useBudgetExerciseOptionsQuery } from '../hooks/use-budget-exercise-options-query';
 import { BUDGET_STATUS_OPTIONS } from '../constants/budget-filters';
 import type { BudgetsListParams } from '../types/budget-list.types';
 import { RotateCcw } from 'lucide-react';
 import { PortfolioViewToggle } from '@/components/portfolio';
+import { useBudgetExerciseOptionsQuery } from '../hooks/use-budget-exercise-options-query';
 
 const DEBOUNCE_MS = 300;
 
 export function BudgetsToolbar({
+  filters,
+  setFilters,
+  reset,
   viewMode,
   onViewModeChange,
   resolvedExerciseId,
 }: {
+  filters: BudgetsListParams;
+  setFilters: (updates: Partial<BudgetsListParams>) => void;
+  reset: () => void;
   viewMode?: 'cards' | 'table';
   onViewModeChange?: (mode: 'cards' | 'table') => void;
   /** Exercice résolu côté page (URL ou défaut actif) — évite un select vide pendant la synchro URL. */
   resolvedExerciseId?: string | null;
-} = {}) {
-  const { filters, setFilters, reset } = useBudgetsListFilters();
+}) {
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
   const { data: exerciseOptions = [] } = useBudgetExerciseOptionsQuery();
   const exerciseSelectValue = filters.exerciseId ?? resolvedExerciseId ?? '';

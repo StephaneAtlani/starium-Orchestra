@@ -25,6 +25,10 @@ interface BudgetWithKpiApiRow {
   code: string | null;
   currency: string;
   status: string;
+  description?: string | null;
+  ownerOrgUnitId?: string | null;
+  ownerOrgUnitSummary?: BudgetListItemWithKpi['budget']['ownerOrgUnitSummary'];
+  expenseMix?: BudgetListItemWithKpi['budget']['expenseMix'];
   kpi: BudgetSummaryKpi;
 }
 
@@ -47,6 +51,10 @@ function normalizeBudgetListItem(
       code: item.code,
       currency: item.currency,
       status: item.status,
+      description: item.description ?? null,
+      ownerOrgUnitId: item.ownerOrgUnitId ?? null,
+      ownerOrgUnitSummary: item.ownerOrgUnitSummary ?? null,
+      expenseMix: item.expenseMix ?? null,
     },
     kpi: item.kpi,
   };

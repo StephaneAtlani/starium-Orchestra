@@ -44,6 +44,16 @@ export interface BudgetListItemWithKpi {
     code: string | null;
     currency: string;
     status: string;
+    description?: string | null;
+    ownerOrgUnitId?: string | null;
+    ownerOrgUnitSummary?: {
+      id: string;
+      name: string;
+      type: string;
+      code: string | null;
+    } | null;
+    /** Nature dominante des lignes — CAPEX / OPEX / Mixte. */
+    expenseMix?: 'CAPEX' | 'OPEX' | 'MIXTE' | null;
   };
   kpi: BudgetSummaryKpi;
 }

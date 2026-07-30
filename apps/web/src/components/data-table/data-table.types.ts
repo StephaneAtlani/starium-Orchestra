@@ -8,10 +8,14 @@ export type DataTableColumnPriority =
 
 export type DataTableColumn<T> = {
   key: string;
-  header: string;
+  header: React.ReactNode;
   cell?: (row: T) => React.ReactNode;
   className?: string;
-  /** Libellé affiché devant la valeur en vue carte (défaut : header) */
+  /** Classes appliquées uniquement sur `<th>` (ex. `text-right`). */
+  headerClassName?: string;
+  /** `aria-sort` pour colonnes triables (RGAA). */
+  ariaSort?: React.AriaAttributes['aria-sort'];
+  /** Libellé affiché devant la valeur en vue carte (défaut : header stringifié) */
   mobileLabel?: string;
   /** Priorité d'affichage mobile. Défaut : inféré via resolveMobilePriority */
   mobilePriority?: DataTableColumnPriority;

@@ -41,6 +41,14 @@
 
 ---
 
+## Design System — bibliothèque visuelle
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-DS-001** | Bibliothèque visuelle métier (icônes, fonds, propriétaires) | 📝 Draft | Référentiel transverse de presets visuels + règles d’affectation pour budgets, projets et owners ; catalogue fermé d’icônes Lucide, tokens DS uniquement, résolution backend, composants frontend partagés ; voir [RFC](./RFC-DS-001%20%E2%80%94%20Biblioth%C3%A8que%20visuelle%20m%C3%A9tier%20(ic%C3%B4nes%2C%20fonds%2C%20propri%C3%A9taires).md) |
+
+---
+
 ## Procurement — fournisseurs
 
 | RFC | Nom | État | Commentaire |

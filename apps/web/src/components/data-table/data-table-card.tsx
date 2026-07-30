@@ -44,7 +44,8 @@ export function DataTableCard<T>({ row, columns }: DataTableCardProps<T>) {
             {secondaryCols.map(({ col }) => (
               <div key={col.key} className="grid grid-cols-[minmax(0,40%)_1fr] gap-x-3 gap-y-0.5">
                 <dt className="text-muted-foreground">
-                  {col.mobileLabel ?? col.header}
+                  {col.mobileLabel ??
+                    (typeof col.header === 'string' ? col.header : col.key)}
                 </dt>
                 <dd className="whitespace-normal break-words text-foreground">
                   {renderCellContent(col, row)}
