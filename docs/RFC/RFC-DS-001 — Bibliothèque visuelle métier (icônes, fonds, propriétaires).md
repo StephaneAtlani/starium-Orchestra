@@ -2,7 +2,29 @@
 
 ## Statut
 
-📝 Draft
+✅ Implémentée (V2 bornée)
+
+### Périmètre effectivement livré
+
+Cette RFC est **implémentée sur le périmètre V2 borné validé**, pas sur la V3 transverse complète.
+
+Lot livré :
+
+- registre partagé frontend/backend des icônes et tokens autorisés ;
+- contrat commun `visual` / `EntityVisual` ;
+- formalisation de `ProjectPortfolioCategory.icon` / `color` comme source visuelle projet ;
+- ajout de champs visuels contrôlés sur `OrgUnit` (`iconKey`, `accentToken`, `surfaceToken`) ;
+- résolution backend du bloc `visual` pour projets et budgets ;
+- composant frontend partagé de rendu visuel ;
+- édition visuelle dans les formulaires métier existants pour catégories projet et unités organisationnelles.
+
+Hors périmètre livré :
+
+- table générique `VisualPreset` ;
+- table générique `VisualAssignmentRule` ;
+- endpoint dédié `/api/visual-presets*` ou `/api/visual-assignment-rules*` ;
+- overrides visuels directs sur `Budget` ou `Project` ;
+- studio admin transverse multi-objets.
 
 ## Titre
 
@@ -264,6 +286,8 @@ Concrètement :
 4. **Créer un registre partagé frontend/backend** des icônes et tokens autorisés
 5. **Créer un composant unique** de rendu visuel pour budgets/projets et tous les autres modules concernés
 
+> **Statut d’implémentation** : ce lot V2.A est livré dans le repo.
+
 #### V2.B — lot reporté
 
 Reporter la table générique `VisualAssignmentRule` tant qu’on n’a pas de besoin fort sur :
@@ -416,11 +440,10 @@ Le moteur de résolution doit suivre un ordre explicite.
 
 ### Budgets
 
-1. règle explicite sur le budget
-2. règle sur `ownerOrgUnit`
-3. règle dérivée du `expenseMix`
-4. fallback heuristique nom / code
-5. preset système neutre
+1. règle sur `ownerOrgUnit`
+2. règle dérivée du `expenseMix`
+3. fallback heuristique nom / code / description
+4. preset système neutre
 
 ### Affichage du créateur
 
@@ -472,7 +495,7 @@ Le catalogue doit vivre dans un **package ou module partagé de constante**, pas
 
 Le rendu doit ensuite obligatoirement passer par un composant commun, par exemple :
 
-- `apps/web/src/components/ui/entity-visual-marker.tsx`
+- `apps/web/src/components/ui/entity-visual-mark.tsx`
 
 Ce composant devient la porte d’entrée standard pour :
 
@@ -546,8 +569,10 @@ Il n’y a pas d’endpoint ni de droit spécifique pour une « bibliothèque vi
 ```http
 GET    /api/organization/units
 GET    /api/organization/units/:id
+POST   /api/organization/units
 PATCH  /api/organization/units/:id
 GET    /api/projects/portfolio-categories
+POST   /api/projects/portfolio-categories
 PATCH  /api/projects/portfolio-categories/:id
 GET    /api/projects
 GET    /api/projects/:id
@@ -588,15 +613,21 @@ pour exposer :
 
 ### Endpoints enrichis
 
-Les réponses métier importantes peuvent embarquer un bloc standard :
+Les réponses métier importantes embarquent un bloc standard :
 
 ```ts
 visual?: {
-  presetKey: string | null;
   iconKey: string | null;
   accentToken: string | null;
   surfaceToken: string | null;
-  source: 'direct' | 'category' | 'ownerOrgUnit' | 'fallback' | null;
+  source:
+    | 'portfolioCategory'
+    | 'ownerOrgUnit'
+    | 'expenseMix'
+    | 'kindFallback'
+    | 'heuristicFallback'
+    | 'neutralFallback'
+    | null;
 }
 ```
 
@@ -614,7 +645,14 @@ visual?: {
   iconKey: string | null;
   accentToken: string | null;
   surfaceToken: string | null;
-  source: 'portfolioCategory' | 'ownerOrgUnit' | 'budgetOverride' | 'kindFallback' | 'heuristicFallback' | null;
+  source:
+    | 'portfolioCategory'
+    | 'ownerOrgUnit'
+    | 'expenseMix'
+    | 'kindFallback'
+    | 'heuristicFallback'
+    | 'neutralFallback'
+    | null;
 }
 ```
 
@@ -622,15 +660,12 @@ Ce bloc doit être **calculé backend** pour éviter des écarts de rendu entre 
 
 ## 4.7 Administration
 
-Une UI d’administration est nécessaire pour :
+En V2 livrée, l’administration ne passe pas par un studio transverse dédié.
 
-- lister les presets ;
-- créer / modifier un preset ;
-- voir un aperçu pastille / carte / ligne ;
-- créer des règles d’affectation ;
-- tester la résolution sur un budget / projet / owner réel.
+L’édition se fait dans les formulaires métier existants avec preview, sans nouvel écran générique :
 
-L’édition ne passe pas par un écran générique dédié en V2.
+- catégories portefeuille projet ;
+- unités organisationnelles (`OrgUnit`).
 
 ### V2 — principe d’édition
 
@@ -670,10 +705,7 @@ Créer un mini-kit transverse, par exemple :
 
 - `apps/web/src/lib/visual-library/visual-icon-registry.ts`
 - `apps/web/src/lib/visual-library/visual-token-registry.ts`
-- `apps/web/src/lib/visual-library/visual-presentation.ts`
-- `apps/web/src/components/ui/visual-badge.tsx`
-- `apps/web/src/components/ui/visual-avatar.tsx`
-- `apps/web/src/components/ui/visual-entity-marker.tsx`
+- `apps/web/src/components/ui/entity-visual-mark.tsx`
 
 But :
 
@@ -685,9 +717,7 @@ But :
 
 - `visual-icon-registry.ts`
 - `visual-token-registry.ts`
-- `resolve-entity-visual.ts`
 - `EntityVisualMark.tsx`
-- `EntityOwnerAvatar.tsx` si besoin secondaire
 
 Le but n’est pas de créer une micro-design-system parallèle, mais un **pont stable** entre les
 données et les primitives UI existantes.
@@ -711,11 +741,15 @@ Règle de produit :
 - définir la whitelist des tokens autorisés ;
 - créer le type `visual` commun côté API / FE.
 
+**Statut** : livré.
+
 ### Phase 2 — Composant transverse
 
 - créer le composant partagé de rendu ;
 - migrer les usages existants projets ;
 - brancher budgets sur le même composant.
+
+**Statut** : livré.
 
 ### Phase 3 — Projets
 
@@ -723,11 +757,15 @@ Règle de produit :
 - ajouter preview + validation admin ;
 - faire consommer le même composant de rendu partout sur `/projects`.
 
+**Statut** : livré sur le périmètre catégories portefeuille + écrans projets ciblés.
+
 ### Phase 4 — Organisation
 
 - ajouter les champs visuels sur `OrgUnit` ;
 - exposer ces champs dans l’API organisation ;
 - intégrer l’édition dans l’administration structure.
+
+**Statut** : livré.
 
 ### Phase 5 — Budgets
 
@@ -737,11 +775,16 @@ Règle de produit :
 - si retenu, afficher les champs visuels dans le formulaire création / édition budget, sous les
   droits métier déjà existants.
 
+**Statut** : livré sans champs visuels directs sur `Budget` ; résolution via `ownerOrgUnit` puis
+`expenseMix` puis fallback.
+
 ### Phase 6 — Extension transverse
 
 - migrer tous les modules avec icônes existantes vers le composant partagé ;
 - mesurer les besoins de dérogations entité par entité ;
 - décider si la V3 `VisualPreset` / `VisualAssignmentRule` devient nécessaire.
+
+**Statut** : hors scope du lot implémenté.
 
 ---
 
@@ -865,15 +908,12 @@ Cette option ne doit être retenue qu’en **optimisation locale**, pas en modè
 ## Backend
 
 - service de résolution visuelle :
-  - priorité direct > catégorie > ownerOrgUnit > fallback
-  - scoping client strict
-  - refus si preset d’un autre client
-  - refus si rule pointe un ownerOrgUnit d’un autre client
+  - priorité `portfolioCategory` > `ownerOrgUnit` > `kindFallback` / `heuristicFallback` pour les projets
+  - priorité `ownerOrgUnit` > `expenseMix` > `heuristicFallback` pour les budgets
+  - scoping client strict sur `OrgUnit`
 - tests controller :
   - authz lecture / écriture
   - validation DTO
-- tests d’intégration :
-  - projet A / budget A ne récupère jamais un preset client B
 
 ## Frontend
 
@@ -884,7 +924,7 @@ Cette option ne doit être retenue qu’en **optimisation locale**, pas en modè
 - tests feature :
   - budgets affichent le visuel résolu
   - projets gardent un rendu cohérent avec l’ancien fallback
-  - les autres modules avec icônes consomment le même composant
+  - budgets et projets consomment le même composant partagé
   - jamais d’ID visible en admin ni dans les selects
 
 ## Tests critiques
@@ -909,7 +949,8 @@ Décisions clés :
 - **moteur de résolution backend** avec priorités explicites ;
 - **ownerOrgUnit** prioritaire sur le **creator** pour les vues portefeuille ;
 - **composants frontend partagés** pour le rendu ;
-- **UI admin dédiée** pour gouverner les presets et les règles.
+- **édition dans les formulaires métier existants** en V2 ;
+- **V3 transverse générique reportée** tant que le besoin ne dépasse pas budgets/projets/ownership.
 
 ---
 
