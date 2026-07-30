@@ -1,17 +1,15 @@
 -- =============================================================================
 -- Starium Orchestra — Anonymisation des DCP après restauration d'un dump PROD
--- en PRÉPROD (RGPD : la préprod n'est pas un environnement de production).
+-- en PRÉPROD (OPT-IN via --anonymize — incompatible avec l'UAT clients).
 --
--- Usage : appelé par scripts/preprod-db-refresh.sh (ne pas exécuter à la main
--- sur une base de production). Variables psql attendues :
---   :keep_emails    liste d'e-mails (séparés par des virgules) NON anonymisés
---                   (comptes de test / admin plateforme). Peut être vide.
+-- Usage : appelé par scripts/preprod-db-refresh.sh --anonymize uniquement.
+-- Ne pas exécuter à la main sur une base de production. Variables psql :
+--   :keep_emails    liste d'e-mails (séparés par des virgules) NON anonymisés.
 --   :password_hash  hash bcrypt appliqué aux comptes anonymisés, ou
 --                   '!login-disabled-preprod' pour rendre le login impossible.
 --
--- Principe : les identifiants techniques (id) sont conservés — seules les
--- données personnelles sont remplacées par des valeurs dérivées stables
--- (md5(id)), ce qui garde la cohérence des jointures et des unicités.
+-- Principe : les id techniques sont conservés — seules les DCP sont remplacées
+-- par des valeurs dérivées stables (md5(id)).
 -- =============================================================================
 
 \set ON_ERROR_STOP on

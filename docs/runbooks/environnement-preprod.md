@@ -1,6 +1,6 @@
 # Mode opératoire — Environnement de préproduction
 
-La **préprod** est l'environnement de validation d'une release **avant** production : même code, même schéma, **données issues de la production** (anonymisées). C'est le dernier filet avant `main`.
+La **préprod** est l'environnement de validation d'une release **avant** production : même code, même schéma, **données issues de la production** (DCP conservées). Des **clients peuvent s'y connecter** pour tester (UAT) avec leurs identifiants habituels. C'est le dernier filet avant `main`.
 
 **Branche Git** : `preprod`
 **Passage en prod** : [passage-en-production.md](./passage-en-production.md)
@@ -21,7 +21,7 @@ La **préprod** est l'environnement de validation d'une release **avant** produc
 ### Flux nominal
 
 ```text
-feature/xxx ──PR──▶ preprod ──(validation préprod)──▶ PR ──▶ main ──▶ production
+feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ PR ──▶ main ──▶ production
 ```
 
 - Un hotfix urgent part de `main`, est mergé sur `main`, puis **rebasé/mergé dans `preprod`** pour éviter la divergence.
@@ -31,31 +31,36 @@ feature/xxx ──PR──▶ preprod ──(validation préprod)──▶ PR �
 
 ## 2. Environnement d'exécution
 
-Même stack que la prod (`docker-compose.yml`, profil `standard`) mais **secrets et services distincts** :
+Même stack que la prod (`docker-compose.yml`, profil `standard`) mais **instance et secrets distincts** :
 
 | Variable | Exigence préprod |
 |---|---|
 | `DATABASE_URL` | Base préprod dédiée — **jamais** l'instance de prod |
 | `JWT_SECRET` | Valeur **différente** de la prod (un token prod ne doit pas être valide en préprod) |
-| `MFA_ENCRYPTION_KEY` | Clé propre à la préprod (les secrets TOTP de prod sont purgés au refresh) |
-| `SMTP_*` | **Sandbox / capture** (Mailpit, Brevo sandbox…) — jamais le relais de prod |
+| `MFA_ENCRYPTION_KEY` | **Identique** à la prod si les clients ont le MFA activé (sinon TOTP inutilisable) |
+| `SMTP_*` | **Sandbox / capture obligatoire** (Mailpit, Brevo sandbox…) — **jamais** le relais de prod |
 | `APP_PUBLIC_URL`, `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` | URLs préprod (figées au `docker build` pour le web) |
 | `NODE_ENV` | `production` (comportement identique à la prod : fail-fast SMTP, logs) |
 | `EMAIL_DELIVERIES_INLINE` | Vide → file BullMQ, comme en prod |
 
-**Garde-fou e-mails** : le refresh vide `EmailDelivery` et remplace les adresses par `@preprod.invalid` (domaine réservé, non routable). Un envoi accidentel ne peut donc pas atteindre un vrai destinataire — à condition de ne pas utiliser `--keep-personal-data`.
+**Garde-fou e-mails (critique)** : les adresses sont réelles. Le refresh purge `EmailDelivery` pour ne pas rejouer la file de prod, mais tout envoi *nouveau* (invitation, reset MDP, notification) partira vers de vrais destinataires si le SMTP n'est pas en sandbox. Vérifier avant le 1er démarrage API/worker :
+
+```bash
+docker compose exec api sh -lc 'env | grep ^SMTP_'
+# SMTP_HOST doit pointer vers le sandbox, pas Brevo/prod
+```
+
+**Connexion clients** : e-mail + mot de passe (et MFA) = ceux de la production. Après un refresh, les sessions sont invalidées → reconnexion obligatoire.
 
 ---
 
 ## 3. Rafraîchissement de la base depuis la production
 
-Script : [`scripts/preprod-db-refresh.sh`](../../scripts/preprod-db-refresh.sh) · anonymisation : [`scripts/preprod-anonymize.sql`](../../scripts/preprod-anonymize.sql)
+Script : [`scripts/preprod-db-refresh.sh`](../../scripts/preprod-db-refresh.sh)
 
 ```bash
 export PROD_DATABASE_URL="postgresql://…@prod-host:5432/starium"      # compte en lecture
 export PREPROD_DATABASE_URL="postgresql://…@preprod-host:5432/starium" # SERA ÉCRASÉE
-export PREPROD_KEEP_EMAILS="admin@starium.xyz"                        # comptes de test conservés
-export PREPROD_PASSWORD_HASH="$(node -e "console.log(require('bcryptjs').hashSync(process.argv[1],10))" 'MotDePassePreprod!')"
 
 ./scripts/preprod-db-refresh.sh
 ```
@@ -64,41 +69,45 @@ export PREPROD_PASSWORD_HASH="$(node -e "console.log(require('bcryptjs').hashSyn
 
 1. `pg_dump` de la prod (format custom, sans owner/ACL).
 2. `DROP SCHEMA public` + `pg_restore` sur la préprod.
-3. `prisma migrate deploy` **sur les données de prod** — c'est ici qu'on détecte les migrations lentes ou destructives avant la vraie fenêtre de prod. Puis `migrate status`.
-4. Anonymisation des DCP (transaction unique, contrôle final bloquant s'il reste une adresse réelle).
+3. `prisma migrate deploy` **sur les données de prod** — détecte migrations lentes / destructives avant la fenêtre de prod. Puis `migrate status`.
+4. Durcissement léger ([`preprod-harden.sql`](../../scripts/preprod-harden.sql)) : purge `EmailDelivery`, `RefreshToken`, tokens de vérif e-mail, défis MFA en cours.
+5. **Pas d'anonymisation** (défaut) — comptes et DCP inchangés pour l'UAT.
 
-Options : `--yes` (non interactif, pour un job planifié), `--dump-file <f>` (rejouer un dump déjà pris), `--keep-personal-data` (**exceptionnel**, voir §4).
+Options : `--yes` (non interactif), `--dump-file <f>` (rejouer un dump), `--anonymize` (opt-in, cas exceptionnel sans UAT clients).
 
 Après le refresh :
 
-- supprimer le dump (`.tmp/preprod-refresh/`, gitignoré, contient des données de prod en clair) ;
-- redéployer les images préprod puis dérouler le smoke test §5 ;
-- se reconnecter : tous les `RefreshToken`, MFA et appareils de confiance sont purgés.
+- supprimer le dump (`.tmp/preprod-refresh/`, gitignoré) ;
+- redéployer les images préprod ;
+- prévenir les clients UAT de se reconnecter ;
+- dérouler le smoke test §5.
 
-### Ce que l'anonymisation modifie
+### Anonymisation (opt-in, sans UAT)
 
-| Domaine | Traitement |
-|---|---|
-| `User` | e-mail → `user.<hash>@preprod.invalid`, nom/prénom neutralisés, champs profil vidés, `passwordHash` remplacé |
-| `UserEmailIdentity`, `EmailAddressRegistry`, `DirectoryEmailIdentityLink` | adresses dérivées de façon **cohérente** (jointures et unicités préservées) |
-| `UserMfa`, `MfaChallenge`, `TrustedDevice`, `RefreshToken`, `EmailIdentityVerificationToken` | purgés (chiffrés avec les clés de prod → inutilisables) |
-| `MicrosoftConnection` | jetons OAuth chiffrés mis à `NULL` (reconnexion nécessaire en préprod) |
-| `EmailDelivery` | purgée |
-| `Collaborator`, `Resource`, `Supplier`, `SupplierContact` | identité, e-mail et téléphone neutralisés |
-| `AuditLog`, `AuditLogArchive`, `PlatformAuditLog`, `SecurityLog` | `ipAddress`, `userAgent`, `email` mis à `NULL` |
+Uniquement si aucun client ne doit se connecter :
 
-**Conservé volontairement** : `clientId`, volumétrie, budgets, projets, contrats, structure des droits — indispensables pour tester le comportement réel et l'isolation multi-client.
+```bash
+./scripts/preprod-db-refresh.sh --anonymize
+```
+
+Voir [`scripts/preprod-anonymize.sql`](../../scripts/preprod-anonymize.sql). Incompatible avec l'UAT clients (mots de passe et e-mails détruits).
 
 ---
 
-## 4. Cadre RGPD
+## 4. Cadre RGPD & accès
 
-Le rafraîchissement est un **transfert de données de production vers un environnement de test** : la finalité (valider une release) ne justifie pas de conserver des données identifiantes.
+La préprod contient des **données personnelles de production**. Cadre minimal :
 
-- **Par défaut, anonymiser.** `--keep-personal-data` n'est acceptable que pour reproduire un incident précis, avec : accord explicite, accès préprod restreint aux personnes déjà habilitées en prod, SMTP sandbox vérifié, et **purge de la base sous 72 h**.
-- Dumps intermédiaires : chiffrés ou supprimés immédiatement après usage, jamais dans le repo (`.gitignore` couvre `.tmp/` et `*.dump`).
-- Aucune DCP dans les logs préprod, même règle qu'en prod.
-- La préprod n'est **pas** un environnement de démonstration client : pour une démo, utiliser les seeds (`apps/api/prisma/seed*.ts`).
+| Règle | Détail |
+|---|---|
+| Finalité | Validation de release + UAT clients uniquement |
+| Accès | Restreint aux opérateurs + clients explicitement invités ; pas d'accès public large |
+| SMTP | Sandbox uniquement — aucun envoi vers des boîtes réelles |
+| Dumps | Supprimés après usage, jamais dans le repo (`.gitignore` : `.tmp/`, `*.dump`) |
+| Logs | Aucune DCP en clair (même règle qu'en prod) |
+| Anonymisation | Disponible via `--anonymize` si un refresh sans UAT est nécessaire |
+
+La préprod n'est **pas** un environnement de démonstration grand public : pour une démo hors UAT, utiliser les seeds (`apps/api/prisma/seed*.ts`).
 
 ---
 
@@ -109,10 +118,10 @@ Le rafraîchissement est un **transfert de données de production vers un enviro
 | CI sur `preprod` | Verte (lint, typecheck, build, migrate deploy) |
 | `prisma migrate status` | « Database schema is up to date » après refresh |
 | Durée des migrations | Mesurée sur volume prod, compatible avec la fenêtre de prod |
-| Login + client actif | Connexion OK, sélection du client (`X-Client-Id`) OK |
+| Login client UAT | Connexion OK (e-mail/MDP ± MFA), sélection du client (`X-Client-Id`) OK |
 | Isolation multi-client | Une ressource d'un autre client reste inaccessible (403) |
-| Parcours métier de la release | Dérouler le scénario visé par les changements |
-| Worker e-mails | Logs `[EMAIL worker]` sans erreur, envoi capté par le SMTP sandbox |
+| Parcours métier de la release | Dérouler le scénario visé (opérateur + client UAT) |
+| Worker e-mails | Logs `[EMAIL worker]` OK ; **aucun** envoi hors sandbox |
 | Régression UI | Écrans touchés vérifiés dès 320px, états loading/empty/error |
 
 Puis PR `preprod` → `main` et [passage-en-production.md](./passage-en-production.md).

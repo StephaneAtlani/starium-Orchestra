@@ -6,43 +6,52 @@
 #   2. reset du schéma PRÉPROD + pg_restore
 #   3. prisma migrate deploy (valide les migrations de la branche `preprod`
 #      sur un jeu de données réel — c'est l'objectif principal de la préprod)
-#   4. anonymisation des DCP (RGPD) — activée par défaut
+#   4. durcissement léger (file e-mails + sessions) — toujours
+#   5. anonymisation des DCP — OPT-IN uniquement (--anonymize)
+#
+# Par défaut : données personnelles CONSERVÉES (UAT clients sur la préprod).
+# Les comptes prod restent utilisables (même e-mail / mot de passe / MFA si
+# MFA_ENCRYPTION_KEY est identique à la prod).
 #
 # Variables requises :
 #   PROD_DATABASE_URL      URL Postgres source (compte en lecture suffit)
 #   PREPROD_DATABASE_URL   URL Postgres cible (SERA ÉCRASÉE)
 #
-# Variables optionnelles :
+# Variables optionnelles (uniquement avec --anonymize) :
 #   PREPROD_KEEP_EMAILS    e-mails non anonymisés, séparés par des virgules
-#                          (comptes de test / admin plateforme)
 #   PREPROD_PASSWORD_HASH  hash bcrypt appliqué aux comptes anonymisés
-#                          (défaut : login désactivé)
 #   DUMP_DIR               répertoire des dumps (défaut : ./.tmp/preprod-refresh)
 #
-# Options : --yes (pas de confirmation)  --keep-personal-data (saute l'anonymisation)
+# Options : --yes (pas de confirmation)
+#           --anonymize (anonymise les DCP — désactive les comptes clients réels)
 #           --dump-file <fichier> (réutilise un dump existant, saute l'étape 1)
 #
-# Exemple :
+# Exemple (UAT clients — défaut) :
 #   PROD_DATABASE_URL=... PREPROD_DATABASE_URL=... \
-#   PREPROD_KEEP_EMAILS=admin@starium.xyz \
 #   ./scripts/preprod-db-refresh.sh
 # =============================================================================
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANONYMIZE_SQL="$ROOT_DIR/scripts/preprod-anonymize.sql"
+HARDEN_SQL="$ROOT_DIR/scripts/preprod-harden.sql"
 DUMP_DIR="${DUMP_DIR:-$ROOT_DIR/.tmp/preprod-refresh}"
 
 ASSUME_YES=0
-ANONYMIZE=1
+ANONYMIZE=0
 DUMP_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --yes|-y) ASSUME_YES=1; shift ;;
-    --keep-personal-data) ANONYMIZE=0; shift ;;
+    --anonymize) ANONYMIZE=1; shift ;;
+    --keep-personal-data)
+      # Compat : ancien flag = comportement par défaut désormais.
+      ANONYMIZE=0
+      shift
+      ;;
     --dump-file) DUMP_FILE="${2:?--dump-file requiert un chemin}"; shift 2 ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
     *) echo "Option inconnue : $1" >&2; exit 2 ;;
   esac
 done
@@ -67,6 +76,12 @@ target_label="$(printf '%s' "$PREPROD_DATABASE_URL" | sed -E 's#^[^/]*//[^@]*@#/
 if [[ "$ASSUME_YES" -ne 1 ]]; then
   echo "⚠️  Le schéma public de la base cible va être SUPPRIMÉ puis rechargé :"
   echo "    $target_label"
+  if [[ "$ANONYMIZE" -eq 0 ]]; then
+    echo "    Les DCP de production seront CONSERVÉES (connexion clients possible)."
+    echo "    SMTP sandbox obligatoire — voir docs/runbooks/environnement-preprod.md"
+  else
+    echo "    Anonymisation activée (--anonymize) : les comptes clients ne pourront plus se connecter."
+  fi
   read -r -p "    Confirmer en tapant PREPROD : " confirm
   [[ "$confirm" == "PREPROD" ]] || die "Confirmation invalide — abandon"
 fi
@@ -92,7 +107,7 @@ psql --set=ON_ERROR_STOP=on "$PREPROD_DATABASE_URL" \
 
 step "Restauration du dump sur la préprod"
 pg_restore --no-owner --no-privileges --no-acl --exit-on-error \
-  --dbname "$PREPROD_DATABASE_URL" "$DUMP_FILE"
+  --dbname="$PREPROD_DATABASE_URL" "$DUMP_FILE"
 
 # --- 3. Migrations de la branche preprod -------------------------------------
 step "prisma migrate deploy (schéma de la branche courante)"
@@ -101,18 +116,24 @@ DATABASE_URL="$PREPROD_DATABASE_URL" \
 DATABASE_URL="$PREPROD_DATABASE_URL" \
   pnpm --dir "$ROOT_DIR" --filter @starium-orchestra/api exec prisma migrate status
 
-# --- 4. Anonymisation RGPD ----------------------------------------------------
+# --- 4. Durcissement léger (toujours) ----------------------------------------
+# Empêche le flush d'e-mails prod en attente et force une reconnexion
+# (JWT_SECRET préprod ≠ prod → les refresh tokens prod sont de toute façon invalides).
+step "Durcissement préprod (file e-mails + sessions)"
+psql --set=ON_ERROR_STOP=on "$PREPROD_DATABASE_URL" -f "$HARDEN_SQL"
+
+# --- 5. Anonymisation RGPD (opt-in) ------------------------------------------
 if [[ "$ANONYMIZE" -eq 1 ]]; then
-  step "Anonymisation des données personnelles"
+  step "Anonymisation des données personnelles (--anonymize)"
   psql --set=ON_ERROR_STOP=on "$PREPROD_DATABASE_URL" \
     -v keep_emails="${PREPROD_KEEP_EMAILS:-}" \
     -v password_hash="${PREPROD_PASSWORD_HASH:-!login-disabled-preprod}" \
     -f "$ANONYMIZE_SQL"
 else
   echo
-  echo "⚠️  Anonymisation DÉSACTIVÉE (--keep-personal-data)."
-  echo "    La préprod contient des données personnelles réelles : accès restreint,"
-  echo "    SMTP neutralisé et durée de conservation limitée obligatoires (RGPD)."
+  echo "ℹ️  DCP conservées (défaut UAT). Les clients se connectent avec leurs identifiants prod."
+  echo "    Prérequis : MFA_ENCRYPTION_KEY identique à la prod si MFA activé ;"
+  echo "    SMTP_* en sandbox ; accès préprod restreint."
 fi
 
 step "Terminé — préprod rechargée depuis la production"
