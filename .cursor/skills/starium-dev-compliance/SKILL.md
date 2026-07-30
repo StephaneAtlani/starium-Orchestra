@@ -1,6 +1,6 @@
 ---
 name: conformite
-description: Vérifie qu’un changement de code respecte les règles Starium Orchestra (multi-client, API, NestJS, Next.js, tests, audit). À utiliser après implémentation, avant commit/PR, ou quand l’utilisateur demande une revue de conformité, une checklist qualité, ou l’alignement avec ARCHITECTURE.md ou .cursorrules.
+description:  Après chaque developpement depuis, Vérifie qu’un changement de code respecte les règles Starium Orchestra (multi-client, API, NestJS, Next.js, tests, audit). À utiliser après implémentation, avant commit/PR, ou quand l’utilisateur demande une revue de conformité, une checklist qualité, ou l’alignement avec ARCHITECTURE.md ou .cursorrules.
 ---
 
 # Conformité développement — Starium Orchestra

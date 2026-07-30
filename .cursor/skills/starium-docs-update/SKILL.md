@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Assure la cohérence de la documentation sous docs/ (RFC, _RFC Liste, ARCHITECTURE, vision) avec le code et les conventions Starium Orchestra. À utiliser lors d’une demande de mise à jour doc, de synchronisation RFC après implémentation, d’actualisation de l’index RFC ou d’architecture, ou pour finaliser la doc d’une feature.
+description: Après chaque developpement depuis, Assure la cohérence de la documentation sous docs/ (RFC, _RFC Liste, ARCHITECTURE, vision) avec le code et les conventions Starium Orchestra. À utiliser lors d’une demande de mise à jour doc, de synchronisation RFC après implémentation, d’actualisation de l’index RFC ou d’architecture, ou pour finaliser la doc d’une feature.
 ---
 
 # Mise à jour documentation — `docs/`
