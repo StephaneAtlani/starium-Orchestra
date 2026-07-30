@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
-import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS, type EntityVisual } from '@starium-orchestra/types';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
@@ -21,8 +20,10 @@ import {
 } from '@/components/ui/select';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
+import { EntityVisualPicker } from '@/components/ui/entity-visual-picker';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
+import { buildEntityVisualPreview } from '@/lib/visual-library/visual-token-registry';
 import { projectsList } from '@/features/projects/constants/project-routes';
 import {
   createProjectTag,
@@ -52,48 +53,8 @@ const DEFAULT_TAG_COLORS = [
   '#EF4444',
 ];
 
-const ACCENT_LABELS: Record<(typeof VISUAL_ACCENT_TOKENS)[number], string> = {
-  'brand-gold': 'Or Starium',
-  'state-info': 'Information',
-  'state-success': 'Succès',
-  'state-warning': 'Attention',
-  'state-danger': 'Alerte',
-  neutral: 'Neutre',
-};
-
-function surfaceTokenForAccent(
-  accentToken: (typeof VISUAL_ACCENT_TOKENS)[number],
-): NonNullable<EntityVisual['surfaceToken']> {
-  switch (accentToken) {
-    case 'brand-gold':
-      return 'brand-gold-soft';
-    case 'state-info':
-      return 'state-info-soft';
-    case 'state-success':
-      return 'state-success-soft';
-    case 'state-warning':
-      return 'state-warning-soft';
-    case 'state-danger':
-      return 'state-danger-soft';
-    default:
-      return 'neutral-soft';
-  }
-}
-
-function buildVisualPreview(iconKey: string, accentToken: string): EntityVisual {
-  const safeIconKey = (VISUAL_ICON_KEYS.includes(iconKey as (typeof VISUAL_ICON_KEYS)[number])
-    ? iconKey
-    : 'folder') as EntityVisual['iconKey'];
-  const safeAccent = (VISUAL_ACCENT_TOKENS.includes(accentToken as (typeof VISUAL_ACCENT_TOKENS)[number])
-    ? accentToken
-    : 'neutral') as (typeof VISUAL_ACCENT_TOKENS)[number];
-
-  return {
-    iconKey: safeIconKey,
-    accentToken: safeAccent,
-    surfaceToken: surfaceTokenForAccent(safeAccent),
-    source: 'portfolioCategory',
-  };
+function buildVisualPreview(iconKey: string, accentToken: string) {
+  return buildEntityVisualPreview(iconKey, accentToken, 'portfolioCategory');
 }
 
 export default function ProjectsOptionsPage() {
@@ -496,7 +457,7 @@ export default function ProjectsOptionsPage() {
           {!isCategoriesCollapsed ? (
             <CardContent className="space-y-4">
             <form
-              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_11rem_11rem_auto_auto]"
+              className="flex flex-col gap-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 setFormError(null);
@@ -505,41 +466,27 @@ export default function ProjectsOptionsPage() {
                 createMutation.mutate({ name: value, icon: newRootIcon, color: newRootColor });
               }}
             >
-              <Input
-                value={newRootName}
-                onChange={(e) => setNewRootName(e.target.value)}
-                placeholder="Nouvelle categorie racine"
-              />
-              <Select value={newRootIcon} onValueChange={(value) => setNewRootIcon(value ?? 'folder')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Icône">{newRootIcon}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {VISUAL_ICON_KEYS.map((iconKey) => (
-                    <SelectItem key={iconKey} value={iconKey}>
-                      {iconKey}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={newRootColor} onValueChange={(value) => setNewRootColor(value ?? 'neutral')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Accent">{ACCENT_LABELS[newRootColor as keyof typeof ACCENT_LABELS]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {VISUAL_ACCENT_TOKENS.map((accent) => (
-                    <SelectItem key={accent} value={accent}>
-                      {ACCENT_LABELS[accent]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex min-h-11 items-center">
-                <EntityVisualMark visual={buildVisualPreview(newRootIcon, newRootColor)} label={newRootName || 'Prévisualisation'} />
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={newRootName}
+                  onChange={(e) => setNewRootName(e.target.value)}
+                  placeholder="Nouvelle categorie racine"
+                  className="min-w-[12rem] flex-1"
+                />
+                <Button type="submit" disabled={createMutation.isPending}>
+                  Ajouter
+                </Button>
               </div>
-              <Button type="submit" disabled={createMutation.isPending}>
-                Ajouter
-              </Button>
+              <EntityVisualPicker
+                id="new-root-visual"
+                label="Visuel"
+                iconKey={newRootIcon}
+                accentToken={newRootColor}
+                onChange={({ iconKey, accentToken }) => {
+                  setNewRootIcon(iconKey);
+                  setNewRootColor(accentToken);
+                }}
+              />
             </form>
             {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
@@ -559,7 +506,7 @@ export default function ProjectsOptionsPage() {
                         <Badge variant="secondary">Racine</Badge>
                         {editId === root.id ? (
                           <form
-                            className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
+                            className="flex min-w-0 flex-1 flex-col gap-2"
                             onSubmit={(e) => {
                               e.preventDefault();
                               const value = editName.trim();
@@ -570,43 +517,26 @@ export default function ProjectsOptionsPage() {
                               });
                             }}
                           >
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="h-8"
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="h-8 min-w-[12rem] flex-1"
+                              />
+                              <Button type="submit" size="sm">
+                                OK
+                              </Button>
+                            </div>
+                            <EntityVisualPicker
+                              id={`edit-root-visual-${root.id}`}
+                              label="Visuel"
+                              iconKey={editIcon}
+                              accentToken={editColor}
+                              onChange={({ iconKey, accentToken }) => {
+                                setEditIcon(iconKey);
+                                setEditColor(accentToken);
+                              }}
                             />
-                            <Select value={editIcon} onValueChange={(value) => setEditIcon(value ?? 'folder')}>
-                              <SelectTrigger size="sm">
-                                <SelectValue>{editIcon}</SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {VISUAL_ICON_KEYS.map((iconKey) => (
-                                  <SelectItem key={iconKey} value={iconKey}>
-                                    {iconKey}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Select value={editColor} onValueChange={(value) => setEditColor(value ?? 'neutral')}>
-                              <SelectTrigger size="sm">
-                                <SelectValue>{ACCENT_LABELS[editColor as keyof typeof ACCENT_LABELS]}</SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {VISUAL_ACCENT_TOKENS.map((accent) => (
-                                  <SelectItem key={accent} value={accent}>
-                                    {ACCENT_LABELS[accent]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <EntityVisualMark
-                              visual={buildVisualPreview(editIcon, editColor)}
-                              size="sm"
-                              label={editName || root.name}
-                            />
-                            <Button type="submit" size="sm">
-                              OK
-                            </Button>
                           </form>
                         ) : (
                           <span className="font-medium">{root.name}</span>
@@ -678,7 +608,7 @@ export default function ProjectsOptionsPage() {
                             <Badge variant="outline">Sous-categorie</Badge>
                             {editId === child.id ? (
                               <form
-                                className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
+                                className="flex min-w-0 flex-1 flex-col gap-2"
                                 onSubmit={(e) => {
                                   e.preventDefault();
                                   const value = editName.trim();
@@ -689,43 +619,26 @@ export default function ProjectsOptionsPage() {
                                   });
                                 }}
                               >
-                                <Input
-                                  value={editName}
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  className="h-8"
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="h-8 min-w-[12rem] flex-1"
+                                  />
+                                  <Button type="submit" size="sm">
+                                    OK
+                                  </Button>
+                                </div>
+                                <EntityVisualPicker
+                                  id={`edit-child-visual-${child.id}`}
+                                  label="Visuel"
+                                  iconKey={editIcon}
+                                  accentToken={editColor}
+                                  onChange={({ iconKey, accentToken }) => {
+                                    setEditIcon(iconKey);
+                                    setEditColor(accentToken);
+                                  }}
                                 />
-                                <Select value={editIcon} onValueChange={(value) => setEditIcon(value ?? 'folder')}>
-                                  <SelectTrigger size="sm">
-                                    <SelectValue>{editIcon}</SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {VISUAL_ICON_KEYS.map((iconKey) => (
-                                      <SelectItem key={iconKey} value={iconKey}>
-                                        {iconKey}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Select value={editColor} onValueChange={(value) => setEditColor(value ?? 'neutral')}>
-                                  <SelectTrigger size="sm">
-                                    <SelectValue>{ACCENT_LABELS[editColor as keyof typeof ACCENT_LABELS]}</SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {VISUAL_ACCENT_TOKENS.map((accent) => (
-                                      <SelectItem key={accent} value={accent}>
-                                        {ACCENT_LABELS[accent]}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <EntityVisualMark
-                                  visual={buildVisualPreview(editIcon, editColor)}
-                                  size="sm"
-                                  label={editName || child.name}
-                                />
-                                <Button type="submit" size="sm">
-                                  OK
-                                </Button>
                               </form>
                             ) : (
                               <span>{child.name}</span>
@@ -787,7 +700,7 @@ export default function ProjectsOptionsPage() {
                         </div>
                       ))}
                       <form
-                        className="grid gap-2 md:grid-cols-[minmax(0,1fr)_10rem_10rem_auto_auto]"
+                        className="flex flex-col gap-2"
                         onSubmit={(e) => {
                           e.preventDefault();
                           const value = (newChildByRoot[root.id] ?? '').trim();
@@ -800,61 +713,30 @@ export default function ProjectsOptionsPage() {
                           });
                         }}
                       >
-                        <Input
-                          value={newChildByRoot[root.id] ?? ''}
-                          onChange={(e) =>
-                            setNewChildByRoot((prev) => ({ ...prev, [root.id]: e.target.value }))
-                          }
-                          placeholder="Ajouter une sous-categorie"
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            value={newChildByRoot[root.id] ?? ''}
+                            onChange={(e) =>
+                              setNewChildByRoot((prev) => ({ ...prev, [root.id]: e.target.value }))
+                            }
+                            placeholder="Ajouter une sous-categorie"
+                            className="min-w-[12rem] flex-1"
+                          />
+                          <Button type="submit" variant="outline" size="sm">
+                            <Plus className="mr-1 size-3" />
+                            Ajouter
+                          </Button>
+                        </div>
+                        <EntityVisualPicker
+                          id={`new-child-visual-${root.id}`}
+                          label="Visuel"
+                          iconKey={newChildIconByRoot[root.id] ?? 'folder'}
+                          accentToken={newChildColorByRoot[root.id] ?? 'neutral'}
+                          onChange={({ iconKey, accentToken }) => {
+                            setNewChildIconByRoot((prev) => ({ ...prev, [root.id]: iconKey }));
+                            setNewChildColorByRoot((prev) => ({ ...prev, [root.id]: accentToken }));
+                          }}
                         />
-                        <Select
-                          value={newChildIconByRoot[root.id] ?? 'folder'}
-                          onValueChange={(value) =>
-                            setNewChildIconByRoot((prev) => ({ ...prev, [root.id]: value ?? 'folder' }))
-                          }
-                        >
-                          <SelectTrigger size="sm">
-                            <SelectValue>{newChildIconByRoot[root.id] ?? 'folder'}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {VISUAL_ICON_KEYS.map((iconKey) => (
-                              <SelectItem key={iconKey} value={iconKey}>
-                                {iconKey}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={newChildColorByRoot[root.id] ?? 'neutral'}
-                          onValueChange={(value) =>
-                            setNewChildColorByRoot((prev) => ({ ...prev, [root.id]: value ?? 'neutral' }))
-                          }
-                        >
-                          <SelectTrigger size="sm">
-                            <SelectValue>
-                              {ACCENT_LABELS[(newChildColorByRoot[root.id] ?? 'neutral') as keyof typeof ACCENT_LABELS]}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {VISUAL_ACCENT_TOKENS.map((accent) => (
-                              <SelectItem key={accent} value={accent}>
-                                {ACCENT_LABELS[accent]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <EntityVisualMark
-                          visual={buildVisualPreview(
-                            newChildIconByRoot[root.id] ?? 'folder',
-                            newChildColorByRoot[root.id] ?? 'neutral',
-                          )}
-                          size="sm"
-                          label={newChildByRoot[root.id] ?? 'Sous-catégorie'}
-                        />
-                        <Button type="submit" variant="outline" size="sm">
-                          <Plus className="mr-1 size-3" />
-                          Ajouter
-                        </Button>
                       </form>
                     </div>
                   </div>

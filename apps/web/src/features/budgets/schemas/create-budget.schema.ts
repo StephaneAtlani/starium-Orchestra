@@ -27,6 +27,9 @@ export const createBudgetSchema = z.object({
     .optional(),
   /** En édition : commentaire optionnel lors d’un changement de statut (historique). */
   statusChangeComment: z.string().max(2000).optional(),
+  /** RFC-DS-001 — dérogation visuelle (null = hériter de la direction). */
+  iconKey: z.string().nullable().optional(),
+  accentToken: z.string().nullable().optional(),
 });
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;

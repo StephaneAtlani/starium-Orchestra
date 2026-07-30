@@ -123,12 +123,52 @@ export function resolveOrgUnitVisual(input: {
   };
 }
 
+function resolveBudgetConfiguredVisual(input: {
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
+} | null | undefined): EntityVisual | null {
+  if (!input) return null;
+  const iconKey = sanitizeToken(input.iconKey, Object.keys(ICON_DEFAULTS) as VisualIconKey[]);
+  const accentToken = sanitizeToken(input.accentToken, Object.keys(ACCENT_TO_SURFACE) as VisualAccentToken[]);
+  const surfaceToken = sanitizeToken(input.surfaceToken, Object.values(ACCENT_TO_SURFACE) as VisualSurfaceToken[]);
+  if (!iconKey && !accentToken && !surfaceToken) return null;
+  const base = buildVisual(iconKey ?? DEFAULT_NEUTRAL_VISUAL.iconKey, accentToken, 'budgetOverride');
+  return {
+    ...base,
+    surfaceToken: surfaceToken ?? base.surfaceToken,
+  };
+}
+
+export function normalizeBudgetVisualPersistence(input: {
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
+}): {
+  iconKey: VisualIconKey | null;
+  accentToken: VisualAccentToken | null;
+  surfaceToken: VisualSurfaceToken | null;
+} | null {
+  const iconKey = sanitizeToken(input.iconKey, Object.keys(ICON_DEFAULTS) as VisualIconKey[]);
+  const accentToken = sanitizeToken(input.accentToken, Object.keys(ACCENT_TO_SURFACE) as VisualAccentToken[]);
+  const surfaceToken = sanitizeToken(input.surfaceToken, Object.values(ACCENT_TO_SURFACE) as VisualSurfaceToken[]);
+  if (!iconKey && !accentToken && !surfaceToken) return null;
+  const accent = accentToken ?? DEFAULT_NEUTRAL_VISUAL.accentToken;
+  return {
+    iconKey: iconKey ?? DEFAULT_NEUTRAL_VISUAL.iconKey,
+    accentToken: accent,
+    surfaceToken: surfaceToken ?? ACCENT_TO_SURFACE[accent],
+  };
+}
+
 function resolveLegacyProjectConfiguredVisual(input: {
   icon?: string | null;
   color?: string | null;
 }): EntityVisual | null {
   const iconKey = sanitizeToken(input.icon, Object.keys(ICON_DEFAULTS) as VisualIconKey[]);
-  const accentToken = input.color ? LEGACY_PROJECT_COLOR_TO_ACCENT[input.color] ?? null : null;
+  const accentToken =
+    sanitizeToken(input.color, Object.keys(ACCENT_TO_SURFACE) as VisualAccentToken[]) ??
+    (input.color ? LEGACY_PROJECT_COLOR_TO_ACCENT[input.color] ?? null : null);
   if (!iconKey && !accentToken) return null;
   return buildVisual(iconKey ?? DEFAULT_NEUTRAL_VISUAL.iconKey, accentToken, 'portfolioCategory');
 }
@@ -180,6 +220,11 @@ export function resolveProjectVisual(input: {
 }
 
 export function resolveBudgetVisual(input: {
+  budgetVisual?: {
+    iconKey?: string | null;
+    accentToken?: string | null;
+    surfaceToken?: string | null;
+  } | null;
   ownerOrgUnitVisual?: EntityVisual | null;
   expenseMix?: 'CAPEX' | 'OPEX' | 'MIXTE' | null;
   name?: string | null;
@@ -188,6 +233,9 @@ export function resolveBudgetVisual(input: {
   ownerOrgUnitName?: string | null;
   ownerOrgUnitCode?: string | null;
 }): EntityVisual {
+  const budgetConfigured = resolveBudgetConfiguredVisual(input.budgetVisual);
+  if (budgetConfigured) return budgetConfigured;
+
   if (input.ownerOrgUnitVisual) {
     return { ...input.ownerOrgUnitVisual, source: 'ownerOrgUnit' };
   }

@@ -61,7 +61,7 @@ import {
 import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
 import { isBudgetActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
 import { resolveStewardResourceIdForWrite } from '../../organization/organization-steward.integration';
-import { resolveBudgetVisual } from '../../../common/visual-library/visual-resolution';
+import { resolveBudgetVisual, normalizeBudgetVisualPersistence } from '../../../common/visual-library/visual-resolution';
 
 @Injectable()
 export class BudgetsService {
@@ -326,6 +326,11 @@ export class BudgetsService {
     return {
       ...base,
       visual: resolveBudgetVisual({
+        budgetVisual: {
+          iconKey: budget.iconKey,
+          accentToken: budget.accentToken,
+          surfaceToken: budget.surfaceToken,
+        },
         ownerOrgUnitVisual: base.ownerOrgUnitSummary?.visual ?? null,
         expenseMix,
         name: budget.name,
@@ -409,6 +414,8 @@ export class BudgetsService {
       }
     }
 
+    const visualPersistence = resolveBudgetVisualPersistenceFromDto(dto);
+
     const created = await this.prisma.budget.create({
       data: {
         clientId,
@@ -425,6 +432,7 @@ export class BudgetsService {
         status: dto.status ?? BudgetStatus.DRAFT,
         ownerUserId: dto.ownerUserId ?? null,
         ownerOrgUnitId,
+        ...(visualPersistence ?? {}),
         ...(stewardResourceId !== undefined && { stewardResourceId }),
         ...(dto.taxMode !== undefined ? { taxMode: dto.taxMode } : {}),
         ...(dto.defaultTaxRate !== undefined
@@ -434,7 +442,7 @@ export class BudgetsService {
       include: {
         exercise: { select: { name: true, code: true } },
         owner: { select: { firstName: true, lastName: true, email: true } },
-        ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+        ownerOrgUnit: { select: BUDGET_OWNER_ORG_UNIT_SELECT },
       },
     });
 
@@ -623,6 +631,7 @@ export class BudgetsService {
       description:
         dto.description !== undefined ? dto.description : existing.description,
     });
+    const visualPersistence = resolveBudgetVisualPersistenceFromDto(dto);
 
     if (useCascadeTransaction && dto.status != null) {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -681,12 +690,13 @@ export class BudgetsService {
             ...(dto.defaultTaxRate !== undefined
               ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
               : {}),
+            ...(visualPersistence ?? {}),
             searchText: budgetSearchTextMerged,
           },
           include: {
             exercise: { select: { name: true, code: true } },
             owner: { select: { firstName: true, lastName: true, email: true } },
-            ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+            ownerOrgUnit: { select: BUDGET_OWNER_ORG_UNIT_SELECT },
           },
         });
         return { row, audits };
@@ -736,12 +746,13 @@ export class BudgetsService {
           ...(dto.defaultTaxRate !== undefined
             ? { defaultTaxRate: new Prisma.Decimal(dto.defaultTaxRate) }
             : {}),
+          ...(visualPersistence ?? {}),
           searchText: budgetSearchTextMerged,
         },
         include: {
           exercise: { select: { name: true, code: true } },
           owner: { select: { firstName: true, lastName: true, email: true } },
-          ownerOrgUnit: { select: { id: true, name: true, type: true, code: true } },
+          ownerOrgUnit: { select: BUDGET_OWNER_ORG_UNIT_SELECT },
         },
       });
     }
@@ -1119,6 +1130,43 @@ function computeBudgetExpenseMix(
   return 'MIXTE';
 }
 
+const BUDGET_OWNER_ORG_UNIT_SELECT = {
+  id: true,
+  name: true,
+  type: true,
+  code: true,
+  iconKey: true,
+  accentToken: true,
+  surfaceToken: true,
+} as const;
+
+function resolveBudgetVisualPersistenceFromDto(dto: {
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
+}): {
+  iconKey: string | null;
+  accentToken: string | null;
+  surfaceToken: string | null;
+} | undefined {
+  if (
+    dto.iconKey === undefined &&
+    dto.accentToken === undefined &&
+    dto.surfaceToken === undefined
+  ) {
+    return undefined;
+  }
+  const normalized = normalizeBudgetVisualPersistence({
+    iconKey: dto.iconKey ?? null,
+    accentToken: dto.accentToken ?? null,
+    surfaceToken: dto.surfaceToken ?? null,
+  });
+  if (!normalized) {
+    return { iconKey: null, accentToken: null, surfaceToken: null };
+  }
+  return normalized;
+}
+
 function toResponse(
   row: NonNullable<BudgetRow> & {
     exercise?: { name: string; code: string } | null;
@@ -1142,6 +1190,11 @@ function toResponse(
     ownerUserName: formatOwnerDisplayName(owner),
     ownerOrgUnitSummary,
     visual: resolveBudgetVisual({
+      budgetVisual: {
+        iconKey: row.iconKey,
+        accentToken: row.accentToken,
+        surfaceToken: row.surfaceToken,
+      },
       ownerOrgUnitVisual: ownerOrgUnitSummary?.visual ?? null,
       name: row.name,
       code: row.code,

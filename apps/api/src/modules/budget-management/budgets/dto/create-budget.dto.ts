@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsNotEmpty,
@@ -7,6 +8,14 @@ import {
   IsNumberString,
 } from 'class-validator';
 import { BudgetStatus, BudgetTaxMode } from '@prisma/client';
+import {
+  VISUAL_ACCENT_TOKENS,
+  VISUAL_ICON_KEYS,
+  VISUAL_SURFACE_TOKENS,
+  type VisualAccentToken,
+  type VisualIconKey,
+  type VisualSurfaceToken,
+} from '@starium-orchestra/types';
 
 export class CreateBudgetDto {
   @IsString()
@@ -56,4 +65,17 @@ export class CreateBudgetDto {
   @IsOptional()
   @IsNumberString()
   defaultTaxRate?: string;
+
+  /** RFC-DS-001 — dérogation visuelle locale (prioritaire sur ownerOrgUnit). */
+  @IsOptional()
+  @IsIn(VISUAL_ICON_KEYS)
+  iconKey?: VisualIconKey | null;
+
+  @IsOptional()
+  @IsIn(VISUAL_ACCENT_TOKENS)
+  accentToken?: VisualAccentToken | null;
+
+  @IsOptional()
+  @IsIn(VISUAL_SURFACE_TOKENS)
+  surfaceToken?: VisualSurfaceToken | null;
 }

@@ -56,6 +56,10 @@ export interface Budget {
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
   ownerOrgUnitSummary?: OwnerOrgUnitSummary;
+  /** RFC-DS-001 — dérogation visuelle locale */
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
   visual?: EntityVisual;
 }
 

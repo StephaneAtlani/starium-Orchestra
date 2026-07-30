@@ -564,6 +564,11 @@ export class BudgetReportingService {
       const expenseMix = computeExpenseMix(lines.map((l) => l.expenseType));
       const ownerSummary = toOwnerOrgUnitSummary(owner);
       const visual = resolveBudgetVisual({
+        budgetVisual: {
+          iconKey: budget.iconKey,
+          accentToken: budget.accentToken,
+          surfaceToken: budget.surfaceToken,
+        },
         ownerOrgUnitVisual: ownerSummary?.visual ?? null,
         expenseMix,
         name: budget.name,

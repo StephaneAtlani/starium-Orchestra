@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EntityVisualPicker } from '@/components/ui/entity-visual-picker';
 import { createBudgetSchema, type CreateBudgetInput } from '../../schemas/create-budget.schema';
 import { BudgetFormActions } from './budget-form-actions';
 import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
@@ -76,6 +77,7 @@ export function BudgetForm({
     control,
     handleSubmit,
     setError,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<CreateBudgetInput>({
@@ -87,6 +89,8 @@ export function BudgetForm({
       ownerUserId: '',
       ownerOrgUnitId: null,
       ...defaultValues,
+      iconKey: defaultValues.iconKey ?? 'wallet',
+      accentToken: defaultValues.accentToken ?? 'brand-gold',
     },
   });
 
@@ -104,6 +108,8 @@ export function BudgetForm({
   };
 
   const watchedStatus = watch('status');
+  const watchedIconKey = watch('iconKey');
+  const watchedAccentToken = watch('accentToken');
   const statusOptions =
     editStatusFrom != null
       ? budgetStatusSelectOptionsForEdit((watchedStatus ?? editStatusFrom) as BudgetWorkflowStatus)
@@ -216,6 +222,19 @@ export function BudgetForm({
               Direction propriétaire du budget : elle sert de rattachement par défaut aux lignes
               budgétaires et de filtre dans le portefeuille.
             </p>
+          </div>
+          <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+            <EntityVisualPicker
+              id="budget-visual"
+              iconKey={watchedIconKey}
+              accentToken={watchedAccentToken}
+              defaultIconKey="wallet"
+              defaultAccentToken="brand-gold"
+              onChange={({ iconKey, accentToken }) => {
+                setValue('iconKey', iconKey, { shouldDirty: true });
+                setValue('accentToken', accentToken, { shouldDirty: true });
+              }}
+            />
           </div>
         </CardContent>
       </Card>

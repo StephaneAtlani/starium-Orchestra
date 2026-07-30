@@ -3744,6 +3744,10 @@ model Budget {
   ownerUserId               String?
   /// RFC-ORG-003
   ownerOrgUnitId            String?
+  /// RFC-DS-001 — dérogation visuelle locale (prioritaire sur ownerOrgUnit)
+  iconKey                   String?
+  accentToken               String?
+  surfaceToken              String?
   /// RFC-ORG-004
   stewardResourceId         String?
   versionSetId              String?

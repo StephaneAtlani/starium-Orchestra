@@ -267,6 +267,10 @@ export interface CreateBudgetPayload {
   defaultTaxRate?: string;
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
+  /** RFC-DS-001 */
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
 }
 
 export interface UpdateBudgetPayload {
@@ -284,6 +288,10 @@ export interface UpdateBudgetPayload {
   cascadeChildWorkflowStatuses?: boolean;
   /** RFC-ORG-003 */
   ownerOrgUnitId?: string | null;
+  /** RFC-DS-001 */
+  iconKey?: string | null;
+  accentToken?: string | null;
+  surfaceToken?: string | null;
 }
 
 export async function createBudget(

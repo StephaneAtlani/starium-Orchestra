@@ -55,6 +55,7 @@ export type VisualSurfaceToken = (typeof VISUAL_SURFACE_TOKENS)[number];
 export type VisualSource =
   | 'portfolioCategory'
   | 'ownerOrgUnit'
+  | 'budgetOverride'
   | 'expenseMix'
   | 'kindFallback'
   | 'heuristicFallback'

@@ -2,12 +2,12 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS } from '@starium-orchestra/types';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EntityVisualMark } from '@/components/ui/entity-visual-mark';
+import { EntityVisualPicker } from '@/components/ui/entity-visual-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/table';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
+import { buildEntityVisualPreview } from '@/lib/visual-library/visual-token-registry';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
@@ -50,51 +51,8 @@ import { resourcePickerLabel } from '../lib/resource-label';
 import { OrganizationOwnershipPolicyCard } from './organization-ownership-policy-card';
 import { OwnershipTransferWizard } from './ownership-transfer-wizard';
 
-const ACCENT_LABELS = {
-  'brand-gold': 'Or Starium',
-  'state-info': 'Information',
-  'state-success': 'Succès',
-  'state-warning': 'Attention',
-  'state-danger': 'Alerte',
-  neutral: 'Neutre',
-} as const;
-
-function unitPreview(
-  iconKey: string,
-  accentToken: string,
-): {
-  iconKey: (typeof VISUAL_ICON_KEYS)[number] | null;
-  accentToken: (typeof VISUAL_ACCENT_TOKENS)[number] | null;
-  surfaceToken:
-    | 'brand-gold-soft'
-    | 'state-info-soft'
-    | 'state-success-soft'
-    | 'state-warning-soft'
-    | 'state-danger-soft'
-    | 'neutral-soft';
-  source: 'ownerOrgUnit';
-} {
-  return {
-    iconKey: (VISUAL_ICON_KEYS.includes(iconKey as (typeof VISUAL_ICON_KEYS)[number]) ? iconKey : 'folder') as
-      | (typeof VISUAL_ICON_KEYS)[number]
-      | null,
-    accentToken: (VISUAL_ACCENT_TOKENS.includes(accentToken as (typeof VISUAL_ACCENT_TOKENS)[number])
-      ? accentToken
-      : 'neutral') as (typeof VISUAL_ACCENT_TOKENS)[number] | null,
-    surfaceToken:
-      accentToken === 'brand-gold'
-        ? 'brand-gold-soft'
-        : accentToken === 'state-info'
-          ? 'state-info-soft'
-          : accentToken === 'state-success'
-            ? 'state-success-soft'
-            : accentToken === 'state-warning'
-              ? 'state-warning-soft'
-              : accentToken === 'state-danger'
-                ? 'state-danger-soft'
-                : 'neutral-soft',
-    source: 'ownerOrgUnit' as const,
-  };
+function unitPreview(iconKey: string, accentToken: string) {
+  return buildEntityVisualPreview(iconKey, accentToken, 'ownerOrgUnit');
 }
 
 function flattenOrgUnits(nodes: OrgUnitTreeNode[], depth = 0): { id: string; label: string; status: string }[] {
@@ -257,7 +215,6 @@ export function OrganizationAdminPage() {
   const [newUnitParent, setNewUnitParent] = useState<string>('__root__');
   const [newUnitIconKey, setNewUnitIconKey] = useState<string>('building');
   const [newUnitAccentToken, setNewUnitAccentToken] = useState<string>('neutral');
-  const [newUnitSurfaceToken, setNewUnitSurfaceToken] = useState<string>('neutral-soft');
 
   const saveUnitMut = useMutation({
     mutationFn: () => {
@@ -268,7 +225,7 @@ export function OrganizationAdminPage() {
         parentId: newUnitParent === '__root__' ? null : newUnitParent,
         iconKey: newUnitIconKey,
         accentToken: newUnitAccentToken,
-        surfaceToken: newUnitSurfaceToken,
+        surfaceToken: unitPreview(newUnitIconKey, newUnitAccentToken).surfaceToken,
       };
       return editingUnitId
         ? patchJson(authFetch, `/api/organization/units/${encodeURIComponent(editingUnitId)}`, payload)
@@ -282,7 +239,6 @@ export function OrganizationAdminPage() {
       setNewUnitCode('');
       setNewUnitIconKey('building');
       setNewUnitAccentToken('neutral');
-      setNewUnitSurfaceToken('neutral-soft');
       invalidateUnits();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -403,7 +359,6 @@ export function OrganizationAdminPage() {
                   setNewUnitParent('__root__');
                   setNewUnitIconKey('building');
                   setNewUnitAccentToken('neutral');
-                  setNewUnitSurfaceToken('neutral-soft');
                   setCreateUnitOpen(true);
                 }}
               >
@@ -447,7 +402,6 @@ export function OrganizationAdminPage() {
                         setNewUnitParent(unit.parentId ?? '__root__');
                         setNewUnitIconKey(unit.iconKey ?? 'building');
                         setNewUnitAccentToken(unit.accentToken ?? 'neutral');
-                        setNewUnitSurfaceToken(unit.surfaceToken ?? 'neutral-soft');
                         setCreateUnitOpen(true);
                       }}
                     />
@@ -780,51 +734,17 @@ export function OrganizationAdminPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <div>
-                <Label>Icône</Label>
-                <Select value={newUnitIconKey} onValueChange={(v) => setNewUnitIconKey(v ?? 'building')}>
-                  <SelectTrigger>
-                    <SelectValue>{newUnitIconKey}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VISUAL_ICON_KEYS.map((iconKey) => (
-                      <SelectItem key={iconKey} value={iconKey}>
-                        {iconKey}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Accent</Label>
-                <Select
-                  value={newUnitAccentToken}
-                  onValueChange={(v) => {
-                    const next = v ?? 'neutral';
-                    setNewUnitAccentToken(next);
-                    setNewUnitSurfaceToken(unitPreview(newUnitIconKey, next).surfaceToken);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue>{ACCENT_LABELS[newUnitAccentToken as keyof typeof ACCENT_LABELS]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VISUAL_ACCENT_TOKENS.map((accent) => (
-                      <SelectItem key={accent} value={accent}>
-                        {ACCENT_LABELS[accent]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <EntityVisualMark
-                  visual={unitPreview(newUnitIconKey, newUnitAccentToken)}
-                  label={newUnitName || 'Prévisualisation'}
-                />
-              </div>
-            </div>
+            <EntityVisualPicker
+              id="org-unit-visual"
+              iconKey={newUnitIconKey}
+              accentToken={newUnitAccentToken}
+              defaultIconKey="building"
+              defaultAccentToken="neutral"
+              onChange={({ iconKey, accentToken }) => {
+                setNewUnitIconKey(iconKey);
+                setNewUnitAccentToken(accentToken);
+              }}
+            />
           </div>
       </StariumModal>
 

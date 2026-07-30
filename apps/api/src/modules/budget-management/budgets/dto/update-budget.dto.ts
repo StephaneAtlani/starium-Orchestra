@@ -1,12 +1,21 @@
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
   IsNumberString,
 } from 'class-validator';
 import { BudgetStatus, BudgetTaxMode } from '@prisma/client';
+import {
+  VISUAL_ACCENT_TOKENS,
+  VISUAL_ICON_KEYS,
+  VISUAL_SURFACE_TOKENS,
+  type VisualAccentToken,
+  type VisualIconKey,
+  type VisualSurfaceToken,
+} from '@starium-orchestra/types';
 
 export class UpdateBudgetDto {
   @IsOptional()
@@ -62,4 +71,17 @@ export class UpdateBudgetDto {
   @IsOptional()
   @IsBoolean()
   cascadeChildWorkflowStatuses?: boolean;
+
+  /** RFC-DS-001 — dérogation visuelle locale (prioritaire sur ownerOrgUnit). */
+  @IsOptional()
+  @IsIn(VISUAL_ICON_KEYS)
+  iconKey?: VisualIconKey | null;
+
+  @IsOptional()
+  @IsIn(VISUAL_ACCENT_TOKENS)
+  accentToken?: VisualAccentToken | null;
+
+  @IsOptional()
+  @IsIn(VISUAL_SURFACE_TOKENS)
+  surfaceToken?: VisualSurfaceToken | null;
 }

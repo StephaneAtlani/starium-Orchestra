@@ -1,8 +1,10 @@
 import type {
   EntityVisual,
   VisualAccentToken,
+  VisualIconKey,
   VisualSurfaceToken,
 } from '@starium-orchestra/types';
+import { VISUAL_ACCENT_TOKENS, VISUAL_ICON_KEYS } from '@starium-orchestra/types';
 
 export const VISUAL_ACCENT_CSS_VARS: Record<VisualAccentToken, string> = {
   'brand-gold': 'var(--brand-gold)',
@@ -33,4 +35,52 @@ export function colorsForVisual(visual: EntityVisual | null | undefined): {
     ? VISUAL_SURFACE_CSS_VARS[visual.surfaceToken]
     : 'var(--neutral-100)';
   return { accentColor, surfaceColor };
+}
+
+export const VISUAL_ACCENT_LABELS: Record<VisualAccentToken, string> = {
+  'brand-gold': 'Or Starium',
+  'state-info': 'Information',
+  'state-success': 'Succès',
+  'state-warning': 'Attention',
+  'state-danger': 'Alerte',
+  neutral: 'Neutre',
+};
+
+export function surfaceTokenForAccent(
+  accentToken: VisualAccentToken,
+): VisualSurfaceToken {
+  switch (accentToken) {
+    case 'brand-gold':
+      return 'brand-gold-soft';
+    case 'state-info':
+      return 'state-info-soft';
+    case 'state-success':
+      return 'state-success-soft';
+    case 'state-warning':
+      return 'state-warning-soft';
+    case 'state-danger':
+      return 'state-danger-soft';
+    default:
+      return 'neutral-soft';
+  }
+}
+
+export function buildEntityVisualPreview(
+  iconKey: string | null | undefined,
+  accentToken: string | null | undefined,
+  source: EntityVisual['source'] = 'budgetOverride',
+): EntityVisual {
+  const safeIconKey = (VISUAL_ICON_KEYS.includes(iconKey as VisualIconKey)
+    ? iconKey
+    : 'folder') as VisualIconKey;
+  const safeAccent = (VISUAL_ACCENT_TOKENS.includes(accentToken as VisualAccentToken)
+    ? accentToken
+    : 'neutral') as VisualAccentToken;
+
+  return {
+    iconKey: safeIconKey,
+    accentToken: safeAccent,
+    surfaceToken: surfaceTokenForAccent(safeAccent),
+    source,
+  };
 }
