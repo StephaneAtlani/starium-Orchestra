@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -205,8 +206,23 @@ export function BudgetForm({
         <CardHeader>
           <CardTitle className="starium-section-title text-base">Identité</CardTitle>
           <CardDescription className="starium-section-subtitle">
-            Libellés, responsable, direction et identité visuelle.
+            Libellés, responsable et direction.
           </CardDescription>
+          <CardAction>
+            <EntityVisualPicker
+              id="budget-visual"
+              label=""
+              className="space-y-0"
+              iconKey={watchedIconKey}
+              accentToken={watchedAccentToken}
+              defaultIconKey="wallet"
+              defaultAccentToken="brand-gold"
+              onChange={({ iconKey, accentToken }) => {
+                setValue('iconKey', iconKey, { shouldDirty: true });
+                setValue('accentToken', accentToken, { shouldDirty: true });
+              }}
+            />
+          </CardAction>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -333,20 +349,6 @@ export function BudgetForm({
             <p className="text-xs text-muted-foreground">
               Direction propriétaire : rattachement par défaut des lignes et filtre du portefeuille.
             </p>
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
-            <EntityVisualPicker
-              id="budget-visual"
-              iconKey={watchedIconKey}
-              accentToken={watchedAccentToken}
-              defaultIconKey="wallet"
-              defaultAccentToken="brand-gold"
-              onChange={({ iconKey, accentToken }) => {
-                setValue('iconKey', iconKey, { shouldDirty: true });
-                setValue('accentToken', accentToken, { shouldDirty: true });
-              }}
-            />
           </div>
         </CardContent>
       </Card>

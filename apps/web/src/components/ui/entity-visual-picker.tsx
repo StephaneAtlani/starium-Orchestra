@@ -108,10 +108,17 @@ export function EntityVisualPicker({
   };
 
   return (
-    <div className={cn('space-y-2', className)} role="group" aria-labelledby={`${baseId}-label`}>
-      <p id={`${baseId}-label`} className="text-sm font-medium text-foreground">
-        {label}
-      </p>
+    <div
+      className={cn('space-y-2', className)}
+      role="group"
+      aria-labelledby={label ? `${baseId}-label` : undefined}
+      aria-label={label ? undefined : 'Identité visuelle'}
+    >
+      {label ? (
+        <p id={`${baseId}-label`} className="text-sm font-medium text-foreground">
+          {label}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-1.5">
           <Label htmlFor={`${baseId}-icon`} className="text-xs text-muted-foreground">

@@ -36,8 +36,11 @@ export function Checkbox({
       }}
       className={cn(
         'inline-flex size-4 shrink-0 items-center justify-center rounded border border-border bg-background shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-        checked && 'border-primary bg-primary text-primary-foreground',
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-primary/80',
+        checked &&
+          'border-[color:var(--control-active-bg)] bg-[color:var(--control-active-bg)] text-[color:var(--control-active-fg)]',
+        disabled
+          ? 'cursor-not-allowed opacity-50'
+          : 'cursor-pointer hover:border-[color:var(--neutral-400)]',
         className,
       )}
     >

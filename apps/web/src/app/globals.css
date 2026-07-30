@@ -3772,10 +3772,10 @@ table.starium-dt {
 .starium-project-gantt-segmented {
   display: inline-flex;
   overflow: hidden;
-  border-radius: calc(var(--radius-md, 0.375rem) - 1px);
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  background: var(--background);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent);
+  border-radius: var(--control-radius, 999px);
+  border: 1.5px solid var(--control-border, var(--border));
+  background: var(--control-bg, var(--card));
+  box-shadow: none;
 }
 .starium-project-gantt-segmented__btn {
   min-height: 2.75rem;
@@ -3791,16 +3791,16 @@ table.starium-dt {
   }
 }
 .starium-project-gantt-segmented__btn:hover {
-  background: color-mix(in srgb, var(--muted) 65%, transparent);
-  color: var(--foreground);
+  background: var(--control-hover-bg, var(--muted));
+  color: var(--control-fg, var(--foreground));
 }
 .starium-project-gantt-segmented__btn--active {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--control-active-bg, var(--foreground));
+  color: var(--control-active-fg, var(--card));
 }
 .starium-project-gantt-segmented__btn--active:hover {
-  background: color-mix(in srgb, var(--primary) 92%, var(--foreground));
-  color: var(--primary-foreground);
+  background: var(--control-active-hover-bg, var(--foreground));
+  color: var(--control-active-fg, var(--card));
 }
 .starium-project-gantt-zoom {
   display: inline-flex;
@@ -6366,23 +6366,23 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    padding: 3px;
-    border-radius: var(--radius-md, 10px);
-    background-color: color-mix(in srgb, var(--muted-foreground) 8%, var(--muted));
-    border: none;
+    padding: 4px;
+    border-radius: var(--control-radius, 999px);
+    background-color: var(--control-bg, var(--card));
+    border: 1.5px solid var(--control-border, var(--border));
     box-shadow: none;
   }
   .starium-tab-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 13px;
+    padding: 7px 14px;
     border: none;
-    border-radius: 7px;
+    border-radius: var(--control-radius, 999px);
     background: transparent;
     font-size: 12.5px;
-    font-weight: 600;
-    color: var(--muted-foreground);
+    font-weight: 700;
+    color: var(--control-muted-fg, var(--muted-foreground));
     cursor: pointer;
     transition: background 120ms, color 120ms, box-shadow 120ms;
     white-space: nowrap;
@@ -6393,26 +6393,26 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     flex-shrink: 0;
   }
   .starium-tab-btn:hover:not(.starium-tab-btn--active) {
-    background: color-mix(in srgb, var(--card) 60%, transparent);
-    color: var(--foreground);
+    background: var(--control-hover-bg, var(--muted));
+    color: var(--control-fg, var(--foreground));
   }
   .starium-tab-btn--active {
-    background: var(--card);
-    color: var(--foreground);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent);
+    background: var(--control-active-bg, var(--foreground));
+    color: var(--control-active-fg, var(--card));
+    box-shadow: none;
   }
   .starium-filter-chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-height: 43px;
-    padding: 10px 12px;
-    border: 1.5px solid var(--brand-gold-100);
-    border-radius: var(--radius-md, 10px);
-    background: var(--neutral-0, var(--card));
+    padding: 10px 14px;
+    border: 1.5px solid var(--control-border, var(--border));
+    border-radius: var(--control-radius, 999px);
+    background: var(--control-bg, var(--card));
     font-size: 13px;
     font-weight: 700;
-    color: var(--brand-gold-700);
+    color: var(--control-fg, var(--foreground));
     cursor: pointer;
     transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
     white-space: nowrap;
@@ -6420,46 +6420,55 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     outline: none;
   }
   .starium-filter-chip:focus-visible {
-    border-color: var(--brand-gold-100);
+    border-color: var(--control-border, var(--border));
     outline: none;
     box-shadow: 0 0 0 2px var(--ring);
   }
-  .starium-filter-chip:hover {
-    background: var(--brand-gold-050);
-    border-color: var(--brand-gold-100);
-    color: var(--brand-gold-700);
+  .starium-filter-chip:hover:not(.starium-filter-chip--active) {
+    background: var(--control-hover-bg, var(--muted));
+    border-color: var(--control-border, var(--border));
+    color: var(--control-fg, var(--foreground));
+  }
+  .starium-filter-chip--active:hover {
+    background: var(--control-active-hover-bg, var(--foreground));
+    border-color: var(--control-active-hover-bg, var(--foreground));
+    color: var(--control-active-fg, var(--card));
   }
   .starium-filter-chip--active {
-    background: var(--brand-gold-050);
-    border-color: var(--brand-gold-100);
-    color: var(--brand-gold-700);
+    background: var(--control-active-bg, var(--foreground));
+    border-color: var(--control-active-bg, var(--foreground));
+    color: var(--control-active-fg, var(--card));
     box-shadow: none;
   }
+  .starium-filter-chip--active .starium-filter-chip-badge {
+    background: var(--control-active-fg, var(--card));
+    color: var(--control-active-bg, var(--foreground));
+  }
   .starium-filter-chip--danger {
-    color: var(--brand-gold-700);
-    border-color: var(--brand-gold-100);
+    color: var(--control-fg, var(--foreground));
+    border-color: var(--control-border, var(--border));
   }
   .starium-filter-chip--danger svg {
     color: var(--destructive);
   }
   .starium-filter-chip--danger.starium-filter-chip--active {
-    background: color-mix(in srgb, var(--destructive) 8%, var(--neutral-0, var(--card)));
-    border-color: color-mix(in srgb, var(--destructive) 35%, var(--brand-gold-100));
-    color: var(--brand-gold-700);
+    background: color-mix(in srgb, var(--destructive) 8%, var(--control-bg, var(--card)));
+    border-color: color-mix(in srgb, var(--destructive) 35%, var(--control-border, var(--border)));
+    color: var(--control-fg, var(--foreground));
     box-shadow: none;
   }
   .starium-filter-chip--danger.starium-filter-chip--active svg {
     color: var(--destructive);
   }
   .starium-filter-chip--reset {
-    color: var(--brand-gold-700);
-    border-color: var(--brand-gold-100);
-    background: var(--neutral-0, var(--card));
+    color: var(--control-muted-fg, var(--muted-foreground));
+    border-color: var(--control-border, var(--border));
+    background: var(--control-bg, var(--card));
     opacity: 0.85;
   }
   .starium-filter-chip--reset:hover {
-    color: var(--brand-gold-700);
-    background: var(--brand-gold-050);
+    color: var(--control-fg, var(--foreground));
+    background: var(--control-hover-bg, var(--muted));
     opacity: 1;
   }
   .starium-filter-chip-chevron {

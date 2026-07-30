@@ -109,8 +109,9 @@ font: var(--text-overline);      /* 600 11px — UPPERCASE, tracking 0.08em */
 ```
 
 - **Cards** → `--radius-lg` (14px) ← valeur signature
-- **Boutons / inputs** → `--radius-md` (10px)
-- **Badges / chips / avatars** → `--radius-pill`
+- **Boutons / chips / segmented controls** → `--control-radius` (= `--radius-pill`, forme pilule)
+- **Inputs** → `--radius-md` (10px)
+- **Badges / avatars** → `--radius-pill`
 - **Modals** → `--radius-xl` (20px)
 
 ### Ombres / Élévation
@@ -162,31 +163,40 @@ font: var(--text-overline);      /* 600 11px — UPPERCASE, tracking 0.08em */
 - Recherche universelle ⌘K (fond `--neutral-100`, radius `--radius-md`)
 - Sélecteur organisation, cloche notifications (dot or si non lu), avatar
 
-### Boutons
+### Boutons et contrôles (charte « pilule »)
+
+Tous les contrôles interactifs (boutons, chips de filtre, segmented controls, switch,
+onglets `Tabs variant="default"`) partagent les tokens `--control-*` de `tokens.css` :
+forme **pilule** (`--control-radius`), état actif / CTA primaire **encre** (`--control-active-bg`
+= `--brand-ink`, texte blanc), secondaires **blancs bordés** (`--control-border`).
 
 ```css
-/* Primaire (CTA) */
-background: var(--brand-gold);
-color: var(--brand-ink);
+/* Primaire (CTA) — variant="default" */
+background: var(--control-active-bg);   /* encre */
+color: var(--control-active-fg);        /* blanc */
 font-weight: 700;
-border-radius: var(--radius-md);
-padding: 10px 18px;
-/* hover: --brand-gold-600 | active: --brand-gold-700 */
+border-radius: var(--control-radius);   /* pilule */
+/* hover: --control-active-hover-bg */
 
-/* Secondaire */
-background: transparent;
-border: 1.5px solid var(--neutral-200);
-color: var(--fg-1);
-/* hover: background --neutral-100 */
+/* Secondaire / outline */
+background: var(--control-bg);          /* blanc */
+border: 1.5px solid var(--control-border);
+color: var(--control-fg);
+/* hover: background --control-hover-bg */
 
 /* Ghost */
 background: transparent;
-color: var(--fg-2);
-/* hover: background --neutral-100 */
+color: var(--control-fg);
+/* hover: background --control-hover-bg */
 
-/* Danger */
-background: var(--state-danger);
-color: #fff;
+/* Danger (outline) */
+border: 1.5px solid color-mix(in srgb, var(--destructive) 35%, transparent);
+color: var(--destructive);
+
+/* Segmented control (.starium-tab-group / .starium-tab-btn) */
+/* conteneur : pilule blanche bordée --control-border, padding 4px */
+/* segment actif : fond --control-active-bg, texte --control-active-fg */
+/* segment inactif : texte --control-muted-fg */
 ```
 
 ### KPI Cards

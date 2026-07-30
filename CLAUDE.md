@@ -171,8 +171,11 @@ Langue **française**, sentence case, vouvoiement, **aucun emoji dans l'UI**.
 - **Pas de cadre dans cadre** : une grille de KPI ne va **jamais** dans une `Card` /
   `.starium-section`. Pattern : `.starium-module` (titre + actions, fond app visible) + N ×
   `KpiCard` / `.starium-kpi-card`.
-- **Rayons** : cards `--radius-lg` (14px) · boutons/inputs `--radius-md` (10px) · badges/chips
-  `--radius-pill` · modales `--radius-xl` (20px).
+- **Rayons** : cards `--radius-lg` (14px) · boutons/chips/segmented `--control-radius` (pilule) ·
+ inputs `--radius-md` (10px) · badges `--radius-pill` · modales `--radius-xl` (20px).
+- **Contrôles interactifs** : charte « pilule » via tokens `--control-*` (`tokens.css`) — CTA
+ primaire / état actif = encre (`--control-active-bg`) texte blanc, secondaires blancs bordés
+ (`--control-border`). Ne pas restyler un bouton/chip/segmented à la main dans une feature.
 - **Tableaux** : bordures **horizontales uniquement**, max 8 colonnes (au-delà → drawer de détail),
   `tabular-nums` sur les numériques, troncature + tooltip.
 - **Animations** : fade + translate 4–8px ; jamais de scale 0→1 ; durées `--duration-*`.

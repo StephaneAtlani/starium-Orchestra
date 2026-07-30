@@ -38,15 +38,17 @@ export function Switch({
         onCheckedChange(!checked);
       }}
       className={cn(
-        'relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors',
-        checked ? 'bg-primary' : 'bg-muted',
+        'relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        checked
+          ? 'bg-[color:var(--control-active-bg)]'
+          : 'border border-[color:var(--control-border)] bg-muted',
         disabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90',
         className,
       )}
     >
       <span
         className={cn(
-          'inline-block h-4 w-4 transform rounded-full bg-background shadow-sm transition-transform',
+          'inline-block h-4 w-4 transform rounded-full bg-card shadow-sm transition-transform',
           checked ? 'translate-x-4' : 'translate-x-1',
         )}
       />

@@ -126,6 +126,22 @@
   --teal: #0e7462;
   --teal-bg: #e2f5f1;
 
+  /* ----------------------------------------------------------------------
+   * Contrôles interactifs (boutons, chips, segmented controls, switch).
+   * Charte « pilule » : forme pill, état actif / CTA primaire encre,
+   * secondaires blancs bordés. Modifier ici = changer tous les contrôles.
+   * -------------------------------------------------------------------- */
+  --control-radius: var(--radius-pill);
+  --control-border: var(--neutral-200);
+  --control-bg: var(--neutral-0);
+  --control-fg: var(--brand-ink);
+  --control-hover-bg: var(--neutral-100);
+  /** Libellé inactif d'un segmented / chip — contraste ≥ 4.5:1 sur blanc. */
+  --control-muted-fg: var(--neutral-600);
+  --control-active-bg: var(--brand-ink);
+  --control-active-fg: var(--neutral-0);
+  --control-active-hover-bg: var(--neutral-800);
+
   /* ---------- Rayons ---------- */
   --radius-xs: 4px;
   --radius-sm: 6px;

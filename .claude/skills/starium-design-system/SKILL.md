@@ -70,8 +70,10 @@ Famille unique **Manrope** (`--font-sans`), mono `JetBrains Mono`.
 ### Espacement, rayons, ombres, motion
 
 - Espacement base 4px (`--space-1..24`)
-- Rayons : **cards `--radius-lg` (14px)** · boutons/inputs `--radius-md` (10px) · badges/chips
-  `--radius-pill` · **modales `--radius-xl` (20px)**
+- Rayons : **cards `--radius-lg` (14px)** · **boutons/chips/segmented `--control-radius` (pilule)** ·
+  inputs `--radius-md` (10px) · badges `--radius-pill` · **modales `--radius-xl` (20px)**
+- Contrôles interactifs (boutons, chips, segmented, switch, tabs default) : tokens `--control-*`
+  (`tokens.css`) — actif/CTA = encre (`--control-active-bg`) texte blanc, secondaires blancs bordés
 - Ombres : `--shadow-1` (KPI) · `-2` (cards posées) · `-3` (popovers) · `-4` (modales) ·
   `--shadow-focus` (ring doré `0 0 0 3px rgba(232,163,23,0.32)`)
 - Motion : `--duration-fast|base|slow` (120/200/320ms), `--ease-standard` (Apple-like),
@@ -93,8 +95,8 @@ Tailwind répétées dans chaque feature.
 | `.starium-panel` | Panneau données (liste + toolbar) sur une `Card` | Oui (un niveau) |
 | `.starium-stack` | Empilement vertical de blocs (`--ds-stack-gap` 2rem) | — |
 | `.starium-section-title` / `-subtitle` | `CardTitle` / `CardDescription` | — |
-| `.starium-filter-bar` / `.starium-filter-chip` | Barre « Filtrer et trier » + chips (`--active` or, `--muted` reset) | — |
-| `.starium-tab-group` / `.starium-tab-btn` | Segmented control (actif = or) | — |
+| `.starium-filter-bar` / `.starium-filter-chip` | Barre « Filtrer et trier » + chips pilule (`--active` encre, `--reset` atténué) | — |
+| `.starium-tab-group` / `.starium-tab-btn` | Segmented control pilule (actif = encre) | — |
 | `.starium-projects-table` (+ `-label-row`, `-filter-row`) | Tableau portefeuille dense | — |
 | `.starium-table-footer` | Pied pagination de panneau liste | — |
 | `.starium-overline` | Libellé uppercase 11px | — |
