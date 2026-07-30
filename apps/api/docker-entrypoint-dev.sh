@@ -65,6 +65,7 @@ setTimeout(()=>process.exit(1),800);
 wait_for_redis
 
 RBAC_PKG="/app/packages/rbac-permissions"
+TYPES_PKG="/app/packages/types"
 SCHEMA="/app/apps/api/prisma/schema.prisma"
 
 assert_rbac_package_present() {
@@ -81,6 +82,11 @@ assert_rbac_package_present() {
 build_rbac_permissions() {
   echo "[api-dev] build @starium-orchestra/rbac-permissions (prisma/seed + API)..."
   (cd "$RBAC_PKG" && pnpm run build)
+}
+
+build_shared_types() {
+  echo "[api-dev] build @starium-orchestra/types (exports partagés API/Web)..."
+  (cd "$TYPES_PKG" && pnpm run build)
 }
 
 api_prisma_generate() {
@@ -139,6 +145,7 @@ pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 _ws_count="$(find /app/apps /app/packages -maxdepth 2 -name package.json 2>/dev/null | wc -l | tr -d ' ')"
 echo "[api-dev] manifests workspace détectés: ${_ws_count} (attendu 6, dont rbac-permissions)"
 assert_schema_has_bucket_fields
+build_shared_types
 echo "[api-dev] prisma migrate deploy..."
 pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
 api_prisma_generate

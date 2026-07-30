@@ -58,7 +58,7 @@ x-api-dev-mounts: &api-dev-mounts
   - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml:ro
   - ./apps/api/package.json:/app/apps/api/package.json:ro
   - ./apps/web/package.json:/app/apps/web/package.json:ro
-  - ./packages/types/package.json:/app/packages/types/package.json:ro
+  - ./packages/types:/app/packages/types
   - ./packages/config/package.json:/app/packages/config/package.json:ro
   - ./packages/budget-exercise-calendar:/app/packages/budget-exercise-calendar
   - ./packages/rbac-permissions/package.json:/app/packages/rbac-permissions/package.json:ro

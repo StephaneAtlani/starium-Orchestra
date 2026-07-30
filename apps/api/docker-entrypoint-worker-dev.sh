@@ -34,6 +34,12 @@ echo "[api-worker-dev] pnpm install (sync workspace)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 SCHEMA="/app/apps/api/prisma/schema.prisma"
+TYPES_PKG="/app/packages/types"
+
+build_shared_types() {
+  echo "[api-worker-dev] build @starium-orchestra/types (exports partagés API/Web)..."
+  (cd "$TYPES_PKG" && pnpm run build)
+}
 
 assert_generated_client_has_email_body_html() {
   found=0
@@ -52,6 +58,7 @@ assert_generated_client_has_email_body_html() {
 
 echo "[api-worker-dev] prisma migrate deploy..."
 pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEMA"
+build_shared_types
 echo "[api-worker-dev] prisma generate..."
 pnpm --filter @starium-orchestra/api exec prisma generate --schema="$SCHEMA"
 assert_generated_client_has_email_body_html

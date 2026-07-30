@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   ArrowRightLeft,
   Bookmark,
@@ -12,17 +13,10 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { PageHeader } from '@/components/layout/page-header';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { cn } from '@/lib/utils';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { budgetList } from '@/features/budgets/constants/budget-routes';
-import { formatBudgetSelectLabel } from '@/features/budgets/lib/budget-display-labels';
+import { budgetEdit, budgetList } from '@/features/budgets/constants/budget-routes';
 import type { Budget } from '@/features/budgets/types/budget-management.types';
 import type { BudgetDetailTabId } from '@/features/budgets/types/budget-detail-tabs.types';
 
@@ -110,37 +104,14 @@ export function BudgetDetailHeader({
         description={description}
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            {budgetOptions.length > 1 ? (
-              <div className="min-w-0 flex-1 sm:w-[14rem] sm:flex-none">
-                <label htmlFor="budget-detail-switch" className="sr-only">
-                  Budget affiché
-                </label>
-                <Select
-                  value={budget.id}
-                  onValueChange={(nextBudgetId) => {
-                    if (nextBudgetId && nextBudgetId !== budget.id) {
-                      onBudgetChange(nextBudgetId);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="budget-detail-switch"
-                    className="min-h-11 w-full sm:min-h-9"
-                  >
-                    <SelectValue placeholder="Choisir un budget">
-                      {formatBudgetSelectLabel(budget.name, budget.code)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {budgetOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {formatBudgetSelectLabel(option.name, option.code)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
+            <PermissionGate permission="budgets.update">
+              <Link
+                href={budgetEdit(budget.id)}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11 sm:min-h-9')}
+              >
+                Modifier
+              </Link>
+            </PermissionGate>
             <ResourceAclTriggerButton
               resourceType="BUDGET"
               resourceId={budget.id}
