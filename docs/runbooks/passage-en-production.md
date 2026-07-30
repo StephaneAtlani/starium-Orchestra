@@ -12,7 +12,7 @@ Procédure d’exploitation pour déployer une **release applicative** Starium O
 
 | Élément | Exigence |
 |--------|----------|
-| Branche | Merge sur `main` (ou branche de release validée) après **CI verte** (lint, typecheck, build, `prisma migrate deploy` sur Postgres CI) |
+| Branche | Merge sur `main` après validation en **préprod** ([environnement-preprod.md](./environnement-preprod.md)) et **CI verte** (lint, typecheck, build, `prisma migrate deploy` sur Postgres CI) |
 | Accès | Snapshot / sauvegarde PostgreSQL **avant** toute migration |
 | Fenêtre | Communication si migration destructive ou changement de droits visible |
 | Node / pnpm | Même génération qu’en image : **Node 20**, **pnpm 9** (voir Dockerfiles) |
@@ -240,6 +240,7 @@ Renseigner dans le ticket / changelog déploiement :
 | [README.md](../../README.md) | Install, Compose, Dokploy, worker |
 | [ARCHITECTURE.md](../ARCHITECTURE.md) | Structure repo, multi-client |
 | [INCIDENT-2026-05-06-PRISMA-MIGRATIONS.md](../INCIDENT-2026-05-06-PRISMA-MIGRATIONS.md) | Recovery migrations |
+| [environnement-preprod.md](./environnement-preprod.md) | Branche `preprod`, refresh DB depuis la prod, anonymisation |
 | [migration-org-scope-access.md](./migration-org-scope-access.md) | Rollout flags org/ACL |
 | [pnpm-audit-remediation.md](../security/pnpm-audit-remediation.md) | Overrides sécurité dépendances |
 | [.github/workflows/ci.yml](../../.github/workflows/ci.yml) | Pipeline CI |

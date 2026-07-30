@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, preprod, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, preprod, develop]
 
 jobs:
   lint-typecheck-build:

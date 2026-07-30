@@ -45,3 +45,7 @@ apps/api/uploads/
 
 # Rapports backfill / artefacts CLI (RFC-ACL-023)
 apps/api/tmp/
+
+# Dumps de rafraîchissement préprod (contiennent des données de production)
+.tmp/
+*.dump
