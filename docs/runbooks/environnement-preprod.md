@@ -36,16 +36,9 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 | Réseau | Origine | Rôle |
 |---|---|---|
 | `starium-preprod-network` | Notre compose | Isolation interne préprod |
-| `dokploy-network` | **Injecté par Dokploy** (domaines UI) | Traefik / reverse-proxy |
+| `dokploy-network` | Injecté par Dokploy (domaines UI) | Traefik |
 
-Le `dokploy-network` que tu vois dans le preview Dokploy **n’est pas** dans le repo — Dokploy l’ajoute au deploy. S’il manque sur le VPS :
-
-```bash
-docker network create dokploy-network
-docker network connect dokploy-network $(docker ps -qf name=traefik)
-```
-
-Alternative : **Advanced → Isolated Deployments = ON** (Dokploy crée un réseau par app, sans dépendre du `dokploy-network` partagé).
+Le service `ensure-dokploy-network` crée `dokploy-network` au deploy s’il manque (via docker.sock). Alternative UI : **Advanced → Isolated Deployments = ON**.
 
 Stack **prod-like + MailHog** — fichier autonome [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) (Dokploy ne passe qu’un seul `-f`) :
 

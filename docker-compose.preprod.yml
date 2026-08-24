@@ -13,17 +13,8 @@
 # Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
 #
 # Réseau dédié préprod : `starium-preprod-network` (créé par Compose).
-#
-# ⚠️ Dokploy injecte AUSSI `dokploy-network` (external) + labels Traefik quand
-# des domaines sont configurés dans l’UI — ce n’est PAS dans ce fichier.
-# Sans ce réseau sur l’hôte → « dokploy-network not found ».
-#
-# Sur le VPS (une fois) :
-#   docker network create dokploy-network
-#   docker network connect dokploy-network $(docker ps -qf name=traefik)
-#
-# Alternative Dokploy UI : Advanced → Isolated Deployments = ON
-# (Dokploy crée un réseau par app au lieu d’injecter dokploy-network).
+# Dokploy injecte `dokploy-network` (external) dès qu’un domaine est dans l’UI.
+# Le service `ensure-dokploy-network` le crée au deploy si absent.
 # =============================================================================
 
 networks:
@@ -78,6 +69,18 @@ services:
       - "1025"
       - "8025"
 
+  # Dokploy attache api/web à `dokploy-network` (external). S’il manque,
+  # ce one-shot le crée AVANT le start de l’API (docker.sock hôte).
+  ensure-dokploy-network:
+    image: docker:27-cli
+    restart: "no"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - sh
+      - -c
+      - docker network inspect dokploy-network >/dev/null 2>&1 || docker network create --driver bridge --attachable dokploy-network; docker ps -aqf name=traefik | xargs -n1 -I{} docker network connect dokploy-network {}
+
   api:
     image: starium-orchestra-api:preprod
     build:
@@ -126,6 +129,8 @@ services:
     volumes:
       - procurement_blobs:/data/procurement-blobs
     depends_on:
+      ensure-dokploy-network:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
