@@ -87,6 +87,13 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    # Débloque P3009 si une migration a échoué sur un boot précédent, puis migrate + start.
+    command:
+      - sh
+      - -c
+      - |
+        pnpm --filter @starium-orchestra/api exec prisma migrate resolve --rolled-back 20260330120000_budget_dashboard_widget_overrides 2>/dev/null || true
+        pnpm --filter @starium-orchestra/api prisma:migrate && node apps/api/dist/main.js
     networks:
       - default
       - starium-preprod-network
@@ -147,8 +154,8 @@ services:
         ]
       interval: 10s
       timeout: 3s
-      retries: 30
-      start_period: 180s
+      retries: 60
+      start_period: 600s
 
   # Même tag + même Dockerfile que `api` → Compose ne rebuild qu’une fois.
   api-worker:

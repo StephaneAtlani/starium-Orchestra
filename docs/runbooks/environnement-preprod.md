@@ -31,7 +31,9 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
-**Réseau** :
+**Migrations Prisma (P3009)** : si `20260330120000_budget_dashboard_widget_overrides` est en échec, le boot préprod exécute `migrate resolve --rolled-back` puis `migrate deploy`. Sur une base **vierge**, un wipe du volume postgres suffit aussi (`docker compose down -v` puis redeploy).
+
+Ne pas laisser `MFA_ENCRYPTION_KEY` vide en env Dokploy (crash boot prod).
 
 | Réseau | Origine | Rôle |
 |---|---|---|

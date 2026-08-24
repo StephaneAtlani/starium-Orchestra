@@ -55,3 +55,13 @@ CREATE INDEX "BudgetDashboardWidget_clientId_idx" ON "BudgetDashboardWidget"("cl
 CREATE INDEX "BudgetDashboardWidget_clientId_configId_idx" ON "BudgetDashboardWidget"("clientId", "configId");
 
 CREATE UNIQUE INDEX "BudgetDashboardConfig_one_default_per_client" ON "BudgetDashboardConfig"("clientId") WHERE "isDefault" = true;
+
+-- FK overrides → widgets (reportée depuis 20260330120000 : la table widget n’existait pas encore).
+DO $$ BEGIN
+  ALTER TABLE "BudgetDashboardWidgetOverride"
+    ADD CONSTRAINT "BudgetDashboardWidgetOverride_widgetId_fkey"
+    FOREIGN KEY ("widgetId") REFERENCES "BudgetDashboardWidget"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_table THEN NULL; -- override absente (baseline atypique)
+END $$;
