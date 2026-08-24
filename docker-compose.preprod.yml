@@ -79,7 +79,7 @@ services:
     command:
       - sh
       - -c
-      - docker network inspect dokploy-network >/dev/null 2>&1 || docker network create --driver bridge --attachable dokploy-network; docker ps -aqf name=traefik | xargs -n1 -I{} docker network connect dokploy-network {}
+      - docker network inspect dokploy-network >/dev/null 2>&1 || docker network create --driver bridge --attachable dokploy-network; docker ps -aqf name=traefik | xargs -n1 -I{} docker network connect dokploy-network {} || true
 
   api:
     image: starium-orchestra-api:preprod
