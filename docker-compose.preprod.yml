@@ -2,63 +2,16 @@
 # Starium Orchestra — Docker Compose PRÉPROD (fichier autonome Dokploy)
 # =============================================================================
 #
-# Stack prod-like + MailHog. Fichier UNIQUE — Dokploy lance uniquement :
+# Dokploy : Compose file = docker-compose.preprod.yml
 #   docker compose -f ./docker-compose.preprod.yml up -d --build
 #
-# Les DCP / e-mails clients sont réels (UAT) — SMTP forcé vers MailHog,
-# aucun envoi Internet.
+# SMTP forcé MailHog (UAT clients, DCP réelles — aucun envoi Internet).
+# UI MailHog : domaine Dokploy → service mailhog, port 8025.
 #
-# Local (équivalent) :
-#   docker compose -f docker-compose.preprod.yml up -d --build
-#
-# UI MailHog : exposer le service `mailhog` (port 8025) via Traefik/Dokploy
-# SMTP interne : mailhog:1025 (forcé sur api + api-worker)
-#
-# Secrets Dokploy (env UI) : JWT_SECRET, MFA_ENCRYPTION_KEY (= prod si MFA),
-# APP_PUBLIC_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL — pas de SMTP Brevo.
+# Env Dokploy obligatoires : JWT_SECRET, MFA_ENCRYPTION_KEY (= prod si MFA),
+# APP_PUBLIC_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL.
+# Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
 # =============================================================================
-
-x-postgres-healthcheck: &postgres-healthcheck
-  test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
-  interval: 2s
-  timeout: 5s
-  retries: 5
-
-x-redis-healthcheck: &redis-healthcheck
-  test: ["CMD", "redis-cli", "ping"]
-  interval: 2s
-  timeout: 3s
-  retries: 10
-
-# SMTP MailHog en dur — ne pas interpoler SMTP_HOST depuis l’env Dokploy
-# (évite qu’un SMTP Brevo résiduel écrase le sandbox).
-x-api-base-env: &api-base-env
-  DATABASE_URL: "postgresql://starium:starium@postgres:5432/starium"
-  PORT: "3001"
-  NODE_ENV: production
-  JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
-  MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
-  MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
-  REDIS_HOST: redis
-  REDIS_PORT: "6379"
-  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
-  MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
-  SMTP_HOST: mailhog
-  SMTP_PORT: "1025"
-  SMTP_SECURE: "false"
-  SMTP_USER: ""
-  SMTP_PASS: ""
-  SMTP_FROM: ${SMTP_FROM:-noreply@preprod.starium.local}
-  SMTP_REQUIRE_TLS: "false"
-  SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
-  EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
-  EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
-  EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
-  EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
-  STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN: ${STARIUM_SKIP_EMAIL_IDENTITY_RESEND_COOLDOWN:-}
-  EMAIL_DELIVERIES_INLINE: ""
-  APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://preprod.starium.xyz}
-  WEB_ORIGIN: ${WEB_ORIGIN:-https://preprod.starium.xyz}
 
 services:
   postgres:
@@ -72,31 +25,62 @@ services:
       - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck: *postgres-healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U starium -d starium"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     expose:
       - "6379"
-    healthcheck: *redis-healthcheck
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
 
   mailhog:
     image: mailhog/mailhog:latest
     restart: unless-stopped
-    # 8025 = UI (brancher un domaine Dokploy / Traefik pour les opérateurs)
-    # 1025 = SMTP (réseau Docker uniquement, consommé par api / api-worker)
+    # 8025 = UI (domaine Dokploy) · 1025 = SMTP (api / api-worker)
     expose:
       - "1025"
       - "8025"
 
   api:
+    image: starium-orchestra-api:preprod
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     environment:
-      <<: *api-base-env
+      DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
+      PORT: "3001"
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
+      MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
+      # MailHog — littéraux (pas d’interpolation env Dokploy)
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM: ${SMTP_FROM:-noreply@preprod.starium.local}
+      SMTP_REQUIRE_TLS: "false"
+      SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
+      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
+      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
+      EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
+      EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
+      EMAIL_DELIVERIES_INLINE: "false"
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://preprod.starium.xyz}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://preprod.starium.xyz}
       MICROSOFT_M365_SYNC_REDIRECT_URI: ${MICROSOFT_M365_SYNC_REDIRECT_URI:-}
       PROCUREMENT_LOCAL_ROOT: /data/procurement-blobs
       PROCUREMENT_S3_ENDPOINT: ${PROCUREMENT_S3_ENDPOINT:-}
@@ -130,20 +114,46 @@ services:
       retries: 30
       start_period: 180s
 
+  # Même tag + même Dockerfile que `api` → Compose ne rebuild qu’une fois.
   api-worker:
+    image: starium-orchestra-api:preprod
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     command: ["node", "apps/api/dist/worker/main.js"]
     environment:
-      <<: *api-base-env
+      DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
+      PORT: "3001"
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
+      MFA_KEY_VERSION: ${MFA_KEY_VERSION:-1}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      MICROSOFT_OAUTH_STATE_STORE: ${MICROSOFT_OAUTH_STATE_STORE:-db}
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_FROM: ${SMTP_FROM:-noreply@preprod.starium.local}
+      SMTP_REQUIRE_TLS: "false"
+      SMTP_TIMEOUT_MS: ${SMTP_TIMEOUT_MS:-10000}
+      EMAIL_IDENTITY_VERIFY_SUCCESS_URL: ${EMAIL_IDENTITY_VERIFY_SUCCESS_URL:-}
+      EMAIL_IDENTITY_VERIFY_ERROR_URL: ${EMAIL_IDENTITY_VERIFY_ERROR_URL:-}
+      EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS: ${EMAIL_IDENTITY_VERIFY_TOKEN_TTL_HOURS:-24}
+      EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES: ${EMAIL_IDENTITY_VERIFY_RESEND_COOLDOWN_MINUTES:-15}
+      EMAIL_DELIVERIES_INLINE: "false"
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://preprod.starium.xyz}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://preprod.starium.xyz}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       mailhog:
+        condition: service_started
+      api:
         condition: service_started
 
   web:
