@@ -2,9 +2,14 @@
 /**
  * Préprod — marque rolled-back toutes les migrations Prisma en échec (P3009),
  * puis `migrate deploy` + start API.
+ *
+ * @prisma/client vit dans le workspace api (pnpm) — resolution via createRequire.
  */
 const { spawnSync } = require('node:child_process');
-const { PrismaClient } = require('@prisma/client');
+const { createRequire } = require('node:module');
+
+const requireFromApi = createRequire('/app/apps/api/package.json');
+const { PrismaClient } = requireFromApi('@prisma/client');
 
 async function listFailed() {
   const prisma = new PrismaClient();
