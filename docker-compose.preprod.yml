@@ -11,12 +11,26 @@
 # Env Dokploy obligatoires : JWT_SECRET, MFA_ENCRYPTION_KEY (= prod si MFA),
 # APP_PUBLIC_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL.
 # Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
+#
+# Réseau Dokploy / Traefik : nommé `dokploy-network` (créé par Compose s’il
+# n’existe pas). Si Traefik ne route pas après le 1er deploy :
+#   docker network connect dokploy-network $(docker ps -qf name=traefik)
 # =============================================================================
+
+networks:
+  # Nom fixe attendu par Dokploy. Pas `external` : Compose le crée s’il manque
+  # (évite l’erreur « network dokploy-network not found »).
+  dokploy-network:
+    name: dokploy-network
+    driver: bridge
 
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     environment:
       POSTGRES_USER: starium
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starium}
@@ -34,6 +48,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     expose:
       - "6379"
     healthcheck:
@@ -45,6 +62,9 @@ services:
   mailhog:
     image: mailhog/mailhog:latest
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     # 8025 = UI (domaine Dokploy) · 1025 = SMTP (api / api-worker)
     expose:
       - "1025"
@@ -56,6 +76,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
       PORT: "3001"
@@ -121,6 +144,9 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     command: ["node", "apps/api/dist/worker/main.js"]
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
@@ -164,6 +190,9 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}
         INTERNAL_API_URL: http://api:3001
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     environment:
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}

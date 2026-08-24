@@ -31,6 +31,12 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
+**Réseau Dokploy** : le compose crée / utilise `dokploy-network`. Si Traefik ne voit pas les services après le 1er deploy :
+
+```bash
+docker network connect dokploy-network $(docker ps -qf name=traefik)
+```
+
 Stack **prod-like + MailHog** — fichier autonome [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) (Dokploy ne passe qu’un seul `-f`) :
 
 ```bash
