@@ -17,7 +17,8 @@ BEGIN
       'DRAFT',
       'SUBMITTED',
       'APPROVED',
-      'REJECTED'
+      'REJECTED',
+      'ARCHIVED'
     );
   END IF;
 END $$;
@@ -40,18 +41,43 @@ CREATE TABLE IF NOT EXISTS "StrategicDirectionStrategy" (
   "clientId" TEXT NOT NULL,
   "directionId" TEXT NOT NULL,
   "alignedVisionId" TEXT NOT NULL,
+  "title" TEXT,
+  "ambition" TEXT,
+  "context" TEXT,
   "statement" TEXT NOT NULL,
+  "strategicPriorities" JSONB,
+  "expectedOutcomes" JSONB,
+  "kpis" JSONB,
+  "majorInitiatives" JSONB,
+  "risks" JSONB,
   "horizonLabel" TEXT NOT NULL,
+  "ownerLabel" TEXT,
   "status" "StrategicDirectionStrategyStatus" NOT NULL DEFAULT 'DRAFT',
   "submittedAt" TIMESTAMP(3),
   "submittedByUserId" TEXT,
   "approvedAt" TIMESTAMP(3),
   "approvedByUserId" TEXT,
   "rejectionReason" TEXT,
+  "archivedReason" TEXT,
+  "archivedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "StrategicDirectionStrategy_pkey" PRIMARY KEY ("id")
 );
+
+-- Colonnes V1 / archive si la table existait déjà sans elles (drift)
+ALTER TABLE "StrategicDirectionStrategy"
+  ADD COLUMN IF NOT EXISTS "title" TEXT,
+  ADD COLUMN IF NOT EXISTS "ambition" TEXT,
+  ADD COLUMN IF NOT EXISTS "context" TEXT,
+  ADD COLUMN IF NOT EXISTS "strategicPriorities" JSONB,
+  ADD COLUMN IF NOT EXISTS "expectedOutcomes" JSONB,
+  ADD COLUMN IF NOT EXISTS "kpis" JSONB,
+  ADD COLUMN IF NOT EXISTS "majorInitiatives" JSONB,
+  ADD COLUMN IF NOT EXISTS "risks" JSONB,
+  ADD COLUMN IF NOT EXISTS "ownerLabel" TEXT,
+  ADD COLUMN IF NOT EXISTS "archivedReason" TEXT,
+  ADD COLUMN IF NOT EXISTS "archivedAt" TIMESTAMP(3);
 
 ALTER TABLE "StrategicObjective"
   ADD COLUMN IF NOT EXISTS "directionId" TEXT;
@@ -165,3 +191,25 @@ CREATE INDEX IF NOT EXISTS "StrategicDirectionStrategy_clientId_status_idx"
 
 CREATE INDEX IF NOT EXISTS "StrategicObjective_clientId_directionId_idx"
   ON "StrategicObjective"("clientId", "directionId");
+
+-- FK link tables → strategy (06220000 peut avoir tourné avant la CREATE TABLE)
+DO $$ BEGIN
+  ALTER TABLE "StrategicDirectionStrategyAxisLink"
+    ADD CONSTRAINT "StrategicDirectionStrategyAxisLink_strategyId_fkey"
+    FOREIGN KEY ("strategyId") REFERENCES "StrategicDirectionStrategy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "StrategicDirectionStrategyObjectiveLink"
+    ADD CONSTRAINT "StrategicDirectionStrategyObjectiveLink_strategyId_fkey"
+    FOREIGN KEY ("strategyId") REFERENCES "StrategicDirectionStrategy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "StrategicDirectionStrategy"
+  DROP CONSTRAINT IF EXISTS "StrategicDirectionStrategy_clientId_directionId_alignedVisionId_key";
+
+CREATE UNIQUE INDEX IF NOT EXISTS "StrategicDirectionStrategy_active_direction_vision_key"
+  ON "StrategicDirectionStrategy" ("clientId", "directionId", "alignedVisionId")
+  WHERE ("archivedAt" IS NULL);
