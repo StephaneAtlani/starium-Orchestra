@@ -31,11 +31,13 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
-Stack **prod-like + MailHog** via le double fichier Compose (projet isolé `starium-preprod`) :
+Stack **prod-like + MailHog** — fichier autonome [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) (Dokploy ne passe qu’un seul `-f`) :
 
 ```bash
-# Secrets hors SMTP dans `.env` racine (JWT_SECRET, MFA_ENCRYPTION_KEY, …)
-docker compose -f docker-compose.yml -f docker-compose.preprod.yml up -d --build
+# Local
+docker compose -f docker-compose.preprod.yml up -d --build
+
+# Dokploy : Compose file = docker-compose.preprod.yml (déjà le cas)
 ```
 
 | Variable | Exigence préprod |
@@ -59,7 +61,7 @@ docker compose -f docker-compose.yml -f docker-compose.preprod.yml up -d --build
 Vérification au démarrage :
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.preprod.yml exec api sh -lc 'env | grep ^SMTP_'
+docker compose -f docker-compose.preprod.yml exec api sh -lc 'env | grep ^SMTP_'
 # Attendu : SMTP_HOST=mailhog  SMTP_PORT=1025  (jamais Brevo)
 ```
 
