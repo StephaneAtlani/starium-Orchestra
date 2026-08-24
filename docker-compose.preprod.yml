@@ -90,7 +90,7 @@ services:
     # Débloque P3009 (toutes migrations failed) puis migrate + start.
     command:
       - node
-      - scripts/preprod-api-entrypoint.mjs
+      - scripts/preprod-api-entrypoint.cjs
     networks:
       - default
       - starium-preprod-network

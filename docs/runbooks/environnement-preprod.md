@@ -31,7 +31,7 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
-**Migrations Prisma (P3009)** : le boot API préprod (`scripts/preprod-api-entrypoint.mjs`) marque **toutes** les migrations `failed` en `--rolled-back`, puis relance `migrate deploy`. Sur une base trop abîmée : wipe du volume postgres Dokploy puis redeploy.
+**Migrations Prisma (P3009)** : le boot API préprod (`scripts/preprod-api-entrypoint.cjs`) marque **toutes** les migrations `failed` en `--rolled-back`, puis relance `migrate deploy`. Sur une base trop abîmée : wipe du volume postgres Dokploy puis redeploy.
 
 Ne pas laisser `MFA_ENCRYPTION_KEY` vide en env Dokploy (crash boot).
 
