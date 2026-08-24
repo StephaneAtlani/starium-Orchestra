@@ -1,0 +1,11 @@
+---
+description: Interdit commit et push Git sans demande explicite de l'utilisateur
+alwaysApply: true
+---
+
+# Git — pas de commit / push automatiques
+
+- **Ne jamais** créer de commit (`git commit`) sauf si l'utilisateur le demande explicitement dans le message (ex. « commit », « commit ça », « fais un commit »).
+- **Ne jamais** pousser vers le remote (`git push`, `git push -u`, etc.) sauf demande explicite (ex. « push », « pousse », « push origin »).
+- Après une correction de code : **arrêter** ; proposer commit/push seulement si l'utilisateur le demande.
+- Ne pas enchaîner correction → commit → push de sa propre initiative, même sur une branche de feature / préprod.
