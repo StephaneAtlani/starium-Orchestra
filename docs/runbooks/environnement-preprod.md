@@ -31,11 +31,21 @@ feature/xxx ──PR──▶ preprod ──(UAT clients + validation)──▶ 
 
 ## 2. Environnement d'exécution
 
-**Réseau Dokploy** : le compose crée / utilise `starium-preprod-network`. Si Traefik ne voit pas les services après le 1er deploy :
+**Réseau** :
+
+| Réseau | Origine | Rôle |
+|---|---|---|
+| `starium-preprod-network` | Notre compose | Isolation interne préprod |
+| `dokploy-network` | **Injecté par Dokploy** (domaines UI) | Traefik / reverse-proxy |
+
+Le `dokploy-network` que tu vois dans le preview Dokploy **n’est pas** dans le repo — Dokploy l’ajoute au deploy. S’il manque sur le VPS :
 
 ```bash
-docker network connect starium-preprod-network $(docker ps -qf name=traefik)
+docker network create dokploy-network
+docker network connect dokploy-network $(docker ps -qf name=traefik)
 ```
+
+Alternative : **Advanced → Isolated Deployments = ON** (Dokploy crée un réseau par app, sans dépendre du `dokploy-network` partagé).
 
 Stack **prod-like + MailHog** — fichier autonome [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) (Dokploy ne passe qu’un seul `-f`) :
 

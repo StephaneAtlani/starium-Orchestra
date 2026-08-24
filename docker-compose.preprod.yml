@@ -13,8 +13,17 @@
 # Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
 #
 # Réseau dédié préprod : `starium-preprod-network` (créé par Compose).
-# Pour le reverse-proxy Dokploy / Traefik :
-#   docker network connect starium-preprod-network $(docker ps -qf name=traefik)
+#
+# ⚠️ Dokploy injecte AUSSI `dokploy-network` (external) + labels Traefik quand
+# des domaines sont configurés dans l’UI — ce n’est PAS dans ce fichier.
+# Sans ce réseau sur l’hôte → « dokploy-network not found ».
+#
+# Sur le VPS (une fois) :
+#   docker network create dokploy-network
+#   docker network connect dokploy-network $(docker ps -qf name=traefik)
+#
+# Alternative Dokploy UI : Advanced → Isolated Deployments = ON
+# (Dokploy crée un réseau par app au lieu d’injecter dokploy-network).
 # =============================================================================
 
 networks:
