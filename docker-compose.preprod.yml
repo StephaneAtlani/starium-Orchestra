@@ -12,16 +12,15 @@
 # APP_PUBLIC_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL.
 # Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
 #
-# Réseau Dokploy / Traefik : nommé `dokploy-network` (créé par Compose s’il
-# n’existe pas). Si Traefik ne route pas après le 1er deploy :
-#   docker network connect dokploy-network $(docker ps -qf name=traefik)
+# Réseau dédié préprod : `starium-preprod-network` (créé par Compose).
+# Pour le reverse-proxy Dokploy / Traefik :
+#   docker network connect starium-preprod-network $(docker ps -qf name=traefik)
 # =============================================================================
 
 networks:
-  # Nom fixe attendu par Dokploy. Pas `external` : Compose le crée s’il manque
-  # (évite l’erreur « network dokploy-network not found »).
-  dokploy-network:
-    name: dokploy-network
+  # Réseau isolé préprod (pas le dokploy-network de la prod).
+  starium-preprod-network:
+    name: starium-preprod-network
     driver: bridge
 
 services:
@@ -30,7 +29,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     environment:
       POSTGRES_USER: starium
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starium}
@@ -50,7 +49,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     expose:
       - "6379"
     healthcheck:
@@ -64,7 +63,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     # 8025 = UI (domaine Dokploy) · 1025 = SMTP (api / api-worker)
     expose:
       - "1025"
@@ -78,7 +77,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
       PORT: "3001"
@@ -146,7 +145,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     command: ["node", "apps/api/dist/worker/main.js"]
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
@@ -192,7 +191,7 @@ services:
     restart: unless-stopped
     networks:
       - default
-      - dokploy-network
+      - starium-preprod-network
     environment:
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}
