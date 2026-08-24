@@ -87,13 +87,10 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
-    # Débloque P3009 si une migration a échoué sur un boot précédent, puis migrate + start.
+    # Débloque P3009 (toutes migrations failed) puis migrate + start.
     command:
-      - sh
-      - -c
-      - |
-        pnpm --filter @starium-orchestra/api exec prisma migrate resolve --rolled-back 20260330120000_budget_dashboard_widget_overrides 2>/dev/null || true
-        pnpm --filter @starium-orchestra/api prisma:migrate && node apps/api/dist/main.js
+      - node
+      - scripts/preprod-api-entrypoint.mjs
     networks:
       - default
       - starium-preprod-network
