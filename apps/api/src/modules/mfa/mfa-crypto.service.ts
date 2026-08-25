@@ -24,7 +24,10 @@ export class MfaCryptoService {
   private readonly logger = new Logger(MfaCryptoService.name);
   private readonly currentVersion: number;
   private readonly keys = new Map<number, Buffer>();
-  private readonly jwtFallbackV1Key?: Buffer;
+  private jwtFallbackV1Key?: Buffer;
+  /** Clé v1 additionnelle (`MFA_ENCRYPTION_KEY_V1`) si la courante est déjà v1. */
+  private extraV1DecryptKey?: Buffer;
+  private jwtFallbackWarned = false;
 
   constructor(private readonly config: ConfigService) {
     const envKey = this.config.get<string>('MFA_ENCRYPTION_KEY')?.trim();
@@ -65,12 +68,20 @@ export class MfaCryptoService {
 
   private loadLegacyKeys(): void {
     for (let v = 1; v <= 10; v++) {
-      if (this.keys.has(v)) continue;
       const raw = this.config.get<string>(`MFA_ENCRYPTION_KEY_V${v}`)?.trim();
-      if (raw) {
-        this.keys.set(v, this.deriveKey(raw));
-        this.logger.log(`Loaded legacy MFA encryption key V${v}`);
+      if (!raw) continue;
+      const derived = this.deriveKey(raw);
+      if (this.keys.has(v)) {
+        if (v === 1 && !this.keys.get(1)!.equals(derived)) {
+          this.extraV1DecryptKey = derived;
+          this.logger.log(
+            'Loaded MFA_ENCRYPTION_KEY_V1 as additional v1 decrypt key',
+          );
+        }
+        continue;
       }
+      this.keys.set(v, derived);
+      this.logger.log(`Loaded legacy MFA encryption key V${v}`);
     }
   }
 
@@ -115,15 +126,25 @@ export class MfaCryptoService {
     try {
       return this.decryptWithKey(key, iv, tag, data);
     } catch (primaryError) {
+      if (version === 1 && this.extraV1DecryptKey) {
+        try {
+          return this.decryptWithKey(this.extraV1DecryptKey, iv, tag, data);
+        } catch {
+          // essayer le fallback JWT ci-dessous
+        }
+      }
       const canUseJwtFallback =
         version === 1 &&
         this.jwtFallbackV1Key &&
         !this.jwtFallbackV1Key.equals(key);
       if (canUseJwtFallback) {
         try {
-          this.logger.warn(
-            'Decrypt using legacy JWT-derived MFA key fallback (v1). Configure MFA_ENCRYPTION_KEY_V1 to make this explicit.',
-          );
+          if (!this.jwtFallbackWarned) {
+            this.jwtFallbackWarned = true;
+            this.logger.warn(
+              'Decrypt using legacy JWT-derived MFA key fallback (v1). Set MFA_ENCRYPTION_KEY_V1 to the historical key material (often the production JWT_SECRET) to silence this.',
+            );
+          }
           return this.decryptWithKey(this.jwtFallbackV1Key, iv, tag, data);
         } catch {
           // noop: on relance l'erreur d'origine pour garder un signal clair.

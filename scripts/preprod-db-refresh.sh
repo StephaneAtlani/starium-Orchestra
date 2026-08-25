@@ -118,7 +118,8 @@ DATABASE_URL="$PREPROD_DATABASE_URL" \
 
 # --- 4. Durcissement léger (toujours) ----------------------------------------
 # Empêche le flush d'e-mails prod en attente et force une reconnexion
-# (JWT_SECRET préprod ≠ prod → les refresh tokens prod sont de toute façon invalides).
+# (purge RefreshToken : JWT_SECRET est le même qu'en prod, donc les sessions
+# dumpées seraient sinon réutilisables en préprod).
 step "Durcissement préprod (file e-mails + sessions)"
 psql --set=ON_ERROR_STOP=on "$PREPROD_DATABASE_URL" -f "$HARDEN_SQL"
 

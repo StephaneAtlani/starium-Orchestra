@@ -54,8 +54,9 @@ docker compose -f docker-compose.preprod.yml up -d --build
 | Variable | Exigence préprod |
 |---|---|
 | `DATABASE_URL` | Base préprod dédiée — **jamais** l'instance de prod |
-| `JWT_SECRET` | Valeur **différente** de la prod (un token prod ne doit pas être valide en préprod) |
+| `JWT_SECRET` | **Identique** à la prod (MFA TOTP historique dérivé du JWT + UAT avec les mêmes sessions/secrets) |
 | `MFA_ENCRYPTION_KEY` | **Identique** à la prod si les clients ont le MFA activé (sinon TOTP inutilisable) |
+| `MFA_ENCRYPTION_KEY_V1` | Optionnel : si warn fallback JWT, poser `MFA_ENCRYPTION_KEY_V1` = `JWT_SECRET` (même valeur prod) |
 | `SMTP_*` | **Forcés vers MailHog** par `docker-compose.preprod.yml` (écrase Brevo / `.env`) |
 | `APP_PUBLIC_URL`, `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` | URLs préprod (figées au `docker build` pour le web) |
 | `NODE_ENV` | **Dokploy Environment** : `preproduction` (service `web` uniquement — panneau login orange). API/worker : laisser `production` dans le compose (fail-fast SMTP). **Ne pas** poser `NODE_ENV=production` au build web avant `pnpm install`. |

@@ -147,4 +147,33 @@ describe('MfaCryptoService', () => {
     const migratedCrypto = migratedModuleRef.get(MfaCryptoService);
     expect(migratedCrypto.decrypt(encryptedWithJwtDerivedKey)).toBe(plain);
   });
+
+  it('décrypte un payload v1 via MFA_ENCRYPTION_KEY_V1 quand la clé courante est déjà v1', async () => {
+    const plain = 'HISTORICAL_V1';
+    const oldModuleRef = await Test.createTestingModule({
+      providers: [
+        MfaCryptoService,
+        {
+          provide: ConfigService,
+          useValue: buildConfigValue({ MFA_ENCRYPTION_KEY: HEX_KEY_V1 }),
+        },
+      ],
+    }).compile();
+    const encrypted = oldModuleRef.get(MfaCryptoService).encrypt(plain);
+
+    const newModuleRef = await Test.createTestingModule({
+      providers: [
+        MfaCryptoService,
+        {
+          provide: ConfigService,
+          useValue: buildConfJigValue({
+            MFA_ENCRYPTION_KEY: HEX_KEY_V2,
+            MFA_KEY_VERSION: '1',
+            MFA_ENCRYPTION_KEY_V1: HEX_KEY_V1,
+          }),
+        },
+      ],
+    }).compile();
+    expect(newModuleRef.get(MfaCryptoService).decrypt(encrypted)).toBe(plain);
+  });
 });

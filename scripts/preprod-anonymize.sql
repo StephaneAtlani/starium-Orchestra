@@ -78,8 +78,8 @@ WHERE uei.id = l."userEmailIdentityId"
   AND uei."userId" IN (SELECT id FROM preprod_anon_users);
 
 -- ---------------------------------------------------------------------------
--- 3. Secrets et sessions : inutilisables hors prod (clés de chiffrement et
---    JWT_SECRET différents) → purge systématique.
+-- 3. Secrets et sessions : comptes anonymisés → MFA / refresh / challenges
+--    inutilisables. Purge systématique.
 -- ---------------------------------------------------------------------------
 DELETE FROM "UserMfa";
 DELETE FROM "MfaChallenge";

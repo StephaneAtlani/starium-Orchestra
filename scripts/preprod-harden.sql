@@ -4,7 +4,8 @@
 --
 -- Objectifs :
 --   1. Ne jamais rejouer la file d'envois e-mail de production (adresses réelles).
---   2. Invalider les sessions refresh (JWT_SECRET préprod ≠ prod de toute façon).
+--   2. Invalider les sessions refresh (JWT_SECRET identique à la prod :
+--      sans purge, les tokens dumpés resteraient valides en préprod).
 --
 -- Ne touche PAS aux comptes, mots de passe, MFA, e-mails ni données métier.
 -- =============================================================================

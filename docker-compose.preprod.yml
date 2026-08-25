@@ -8,7 +8,7 @@
 # SMTP forcé MailHog (UAT clients, DCP réelles — aucun envoi Internet).
 # UI MailHog : domaine Dokploy → service mailhog, port 8025.
 #
-# Env Dokploy obligatoires : JWT_SECRET, MFA_ENCRYPTION_KEY (= prod si MFA),
+# Env Dokploy obligatoires : JWT_SECRET (= prod), MFA_ENCRYPTION_KEY (= prod si MFA),
 # APP_PUBLIC_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL.
 # Ne pas définir SMTP_HOST / SMTP_USER / SMTP_PASS (Brevo) sur cet environnement.
 #

@@ -87,7 +87,7 @@ Vérifier **sur l’environnement cible** (PaaS / `.env` serveur), **sans coller
 | Variable | Préprod | Prod |
 |----------|---------|------|
 | `DATABASE_URL` | Oui | Oui |
-| `JWT_SECRET` (fort, ≠ exemple) | Oui | Oui |
+| `JWT_SECRET` (fort, ≠ exemple ; **préprod = prod**) | Oui | Oui |
 | `MFA_ENCRYPTION_KEY` (64 hex) | Oui | **Oui fail-fast** |
 | `NODE_ENV=production` | Oui | Oui |
 | `SMTP_HOST/PORT/FROM` (+ USER/PASS) | Oui | **Oui fail-fast** |
