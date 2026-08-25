@@ -34,8 +34,8 @@ import {
   MFA_TOTP_ISSUER,
 } from './mfa.constants';
 
-/** Fenêtre TOTP : ±1 pas de 30s (aligné Google Authenticator). */
-const MFA_TOTP_WINDOW_STEPS = 1;
+/** Fenêtre TOTP : ±2 pas de 30s (tolérance horloge conteneur / téléphone). */
+const MFA_TOTP_WINDOW_STEPS = 2;
 
 @Injectable()
 export class MfaService {
@@ -139,17 +139,37 @@ export class MfaService {
     let ok = false;
     let decryptFailed = false;
     let usedRecovery = false;
+    let secret: string | undefined;
 
     try {
-      const secret = this.crypto.decrypt(mfa.totpSecretEncrypted);
-      ok = speakeasy.totp.verify({
-        secret,
-        encoding: 'base32',
-        token: normalized,
-        window: MFA_TOTP_WINDOW_STEPS,
-      });
-    } catch {
+      secret = this.crypto.decrypt(mfa.totpSecretEncrypted);
+    } catch (err) {
       decryptFailed = true;
+      this.logger.warn(
+        `[MFA] TOTP decrypt failed for userId=${ch.userId}: ${
+          err instanceof Error ? err.message : 'unknown'
+        }`,
+      );
+    }
+
+    if (secret) {
+      try {
+        ok = Boolean(
+          speakeasy.totp.verify({
+            secret,
+            encoding: 'base32',
+            token: normalized,
+            window: MFA_TOTP_WINDOW_STEPS,
+          }),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[MFA] speakeasy.verify threw for userId=${ch.userId}: ${
+            err instanceof Error ? err.message : 'unknown'
+          }`,
+        );
+        ok = false;
+      }
     }
 
     if (!ok && mfa.backupCodesHashes) {
