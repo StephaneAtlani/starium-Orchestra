@@ -30,8 +30,8 @@ describe('app-env', () => {
     expect(isPreproductionEnv()).toBe(false);
   });
 
-  it('détecte preproduction via STARIUM_NODE_ENV (next dev)', () => {
-    vi.stubEnv('NODE_ENV', 'development');
+  it('STARIUM_NODE_ENV prime sur NODE_ENV (Next le force à production au boot)', () => {
+    vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('STARIUM_NODE_ENV', 'preproduction');
     expect(isPreproductionEnv()).toBe(true);
   });

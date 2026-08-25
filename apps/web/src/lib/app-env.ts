@@ -66,11 +66,13 @@ function readNodeEnvFromDotenvFile(): string | null {
 }
 
 function readRawDeployEnv(): string {
+  const key = nodeEnvKey();
+  // web-dev : `.env` monté, relit NODE_ENV à chaque requête /login.
   if (!isVitestRuntime()) {
     const fromFile = readNodeEnvFromDotenvFile();
     if (fromFile) return fromFile;
   }
-  const key = nodeEnvKey();
+  // Préprod Docker : entrypoint a snapshot NODE_ENV Dokploy ici (Next overwrite ensuite).
   const starium = nodeEnvMap.STARIUM_NODE_ENV;
   if (typeof starium === 'string' && starium.trim() !== '') {
     return starium;

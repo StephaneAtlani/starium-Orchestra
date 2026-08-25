@@ -8,10 +8,12 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 # Rewrites serveur → API (bridge Docker : http://api:3001). Build-time : doit être défini avant `next build`.
 ARG INTERNAL_API_URL=http://api:3001
 ENV INTERNAL_API_URL=${INTERNAL_API_URL}
-# `next build` exige un NODE_ENV standard (production) — ne pas mettre preproduction ici.
-ENV NODE_ENV=production
 COPY . .
+# Ne PAS poser NODE_ENV=production ici : pnpm skipperait les devDependencies
+# (prisma) et le postinstall `apps/api` (`prisma generate`) échouerait.
 RUN pnpm install --frozen-lockfile || pnpm install
+# `next build` exige un NODE_ENV standard (production) — pas `preproduction`.
+ENV NODE_ENV=production
 # prebuild web : types + rbac-permissions + budget-exercise-calendar (workspace dist/)
 RUN pnpm --filter @starium-orchestra/web build
 # Standalone n’embarque pas automatiquement `public` + `.next/static` (doc Next.js).
@@ -21,15 +23,16 @@ RUN mkdir -p apps/web/.next/standalone/apps/web/.next \
   && cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
 
 FROM base AS runner
-# Préprod : passer `--build-arg NODE_ENV=preproduction` + `environment: NODE_ENV=preproduction`.
-ARG NODE_ENV=production
-ENV NODE_ENV=${NODE_ENV}
+# Runtime : Dokploy `NODE_ENV=preproduction` (compose environment).
+# Ne pas figer NODE_ENV ici via ARG — Next standalone le force à production au boot.
+# L’entrypoint copie NODE_ENV → STARIUM_NODE_ENV avant `server.js`.
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
 
 COPY --from=builder /app /app
+COPY apps/web/docker-entrypoint.sh /app/apps/web/docker-entrypoint.sh
+RUN chmod +x /app/apps/web/docker-entrypoint.sh
 
 EXPOSE 3000
-# Next 15 + monorepo : le point d’entrée standalone n’est pas à la racine de `.next/standalone`
-CMD ["node", "apps/web/.next/standalone/apps/web/server.js"]
+CMD ["sh", "/app/apps/web/docker-entrypoint.sh"]

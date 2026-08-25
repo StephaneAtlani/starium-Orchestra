@@ -190,7 +190,6 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}
-        NODE_ENV: preproduction
         INTERNAL_API_URL: http://api:3001
     restart: unless-stopped
     networks:
@@ -199,8 +198,9 @@ services:
     environment:
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}
-      NODE_ENV: preproduction
-      STARIUM_NODE_ENV: preproduction
+      # Source de vérité Dokploy (Environment UI). Next overwrite NODE_ENV au boot
+      # → l’entrypoint web copie vers STARIUM_NODE_ENV (panneau login orange).
+      NODE_ENV: ${NODE_ENV:-preproduction}
     expose:
       - "3000"
     depends_on:

@@ -58,7 +58,7 @@ docker compose -f docker-compose.preprod.yml up -d --build
 | `MFA_ENCRYPTION_KEY` | **Identique** à la prod si les clients ont le MFA activé (sinon TOTP inutilisable) |
 | `SMTP_*` | **Forcés vers MailHog** par `docker-compose.preprod.yml` (écrase Brevo / `.env`) |
 | `APP_PUBLIC_URL`, `WEB_ORIGIN`, `NEXT_PUBLIC_API_URL` | URLs préprod (figées au `docker build` pour le web) |
-| `NODE_ENV` | Web : `preproduction` (panneau login ambre). API/worker : `production` (comportement fail-fast SMTP/logs). Build web : toujours `production` pendant `next build`. |
+| `NODE_ENV` | **Dokploy Environment** : `preproduction` (service `web` uniquement — panneau login orange). API/worker : laisser `production` dans le compose (fail-fast SMTP). **Ne pas** poser `NODE_ENV=production` au build web avant `pnpm install`. |
 | `EMAIL_DELIVERIES_INLINE` | Vide → file BullMQ + `api-worker`, comme en prod |
 
 **MailHog (sandbox SMTP obligatoire)** — fichier [`docker-compose.preprod.yml`](../../docker-compose.preprod.yml) :
