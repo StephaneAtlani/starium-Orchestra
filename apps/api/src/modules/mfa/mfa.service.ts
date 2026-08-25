@@ -188,6 +188,17 @@ export class MfaService {
         userAgent: meta.userAgent,
         requestId: meta.requestId,
       });
+      if (decryptFailed) {
+        this.logger.warn(
+          `[MFA] TOTP decrypt failed for userId=${ch.userId} (serverTime=${new Date().toISOString()}). Check JWT_SECRET + MFA_ENCRYPTION_KEY match production.`,
+        );
+        throw new UnauthorizedException(
+          'Secret MFA illisible (clés de chiffrement incohérentes avec la production). Vérifiez JWT_SECRET et MFA_ENCRYPTION_KEY.',
+        );
+      }
+      this.logger.warn(
+        `[MFA] invalid TOTP for userId=${ch.userId} (serverTime=${new Date().toISOString()}, window=±${MFA_TOTP_WINDOW_STEPS * 30}s)`,
+      );
       throw new UnauthorizedException('Code MFA invalide');
     }
 
