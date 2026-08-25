@@ -133,10 +133,11 @@ export class MfaCryptoService {
           // essayer le fallback JWT ci-dessous
         }
       }
+      const jwtFallbackKey = this.jwtFallbackV1Key;
       const canUseJwtFallback =
         version === 1 &&
-        this.jwtFallbackV1Key &&
-        !this.jwtFallbackV1Key.equals(key);
+        jwtFallbackKey != null &&
+        !jwtFallbackKey.equals(key);
       if (canUseJwtFallback) {
         try {
           if (!this.jwtFallbackWarned) {
@@ -145,7 +146,7 @@ export class MfaCryptoService {
               'Decrypt using legacy JWT-derived MFA key fallback (v1). Set MFA_ENCRYPTION_KEY_V1 to the historical key material (often the production JWT_SECRET) to silence this.',
             );
           }
-          return this.decryptWithKey(this.jwtFallbackV1Key, iv, tag, data);
+          return this.decryptWithKey(jwtFallbackKey, iv, tag, data);
         } catch {
           // noop: on relance l'erreur d'origine pour garder un signal clair.
         }

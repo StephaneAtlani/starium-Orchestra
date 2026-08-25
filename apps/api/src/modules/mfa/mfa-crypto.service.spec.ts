@@ -166,7 +166,7 @@ describe('MfaCryptoService', () => {
         MfaCryptoService,
         {
           provide: ConfigService,
-          useValue: buildConfJigValue({
+          useValue: buildConfigValue({
             MFA_ENCRYPTION_KEY: HEX_KEY_V2,
             MFA_KEY_VERSION: '1',
             MFA_ENCRYPTION_KEY_V1: HEX_KEY_V1,
