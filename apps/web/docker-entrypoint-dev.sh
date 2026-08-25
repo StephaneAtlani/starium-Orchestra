@@ -22,5 +22,9 @@ pnpm --filter @starium-orchestra/rbac-permissions run build
 pnpm --filter @starium-orchestra/budget-exercise-calendar run build
 
 cd /app/apps/web
+# `next dev` impose NODE_ENV=development — on fige l’intention deploy avant.
+# Source de vérité compose/`.env` : NODE_ENV (ex. preproduction).
+export STARIUM_NODE_ENV="${STARIUM_NODE_ENV:-${NODE_ENV:-development}}"
+echo "[web-dev] STARIUM_NODE_ENV=${STARIUM_NODE_ENV} (NODE_ENV sera development sous next dev)"
 echo "[web-dev] next dev sur :3000 (proxy API → \${INTERNAL_API_URL:-http://api-dev:3001})"
 exec pnpm exec next dev -p 3000

@@ -42,6 +42,18 @@
   --state-danger-bg: #fbe8e6;
   --state-info: #2a6fdb;
   --state-info-bg: #e3eefb;
+  /** Panneau login (LoginBrandPanel) en préproduction — orange brûlé, distinct du noir prod. */
+  --login-brand-preprod: color-mix(
+    in srgb,
+    var(--brand-gold-700) 72%,
+    var(--state-warning)
+  );
+  /** Panneau login (LoginBrandPanel) en développement — bleu profond. */
+  --login-brand-dev: color-mix(
+    in srgb,
+    var(--brand-ink) 48%,
+    var(--state-info)
+  );
   /** Bordures des encarts d'état (alerte budget, encart de confirmation). */
   --state-success-border: #c5e6d4;
   --state-warning-border: #f2d9a8;
