@@ -30,8 +30,15 @@ export class MfaCryptoService {
   private jwtFallbackWarned = false;
 
   constructor(private readonly config: ConfigService) {
-    const envKey = this.config.get<string>('MFA_ENCRYPTION_KEY')?.trim();
-    const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    // process.env en premier (Dokploy) — évite un apps/api/.env baké dans l’image.
+    const envKey = (
+      process.env.MFA_ENCRYPTION_KEY ??
+      this.config.get<string>('MFA_ENCRYPTION_KEY') ??
+      ''
+    ).trim();
+    const isProd =
+      this.config.get<string>('NODE_ENV') === 'production' ||
+      process.env.NODE_ENV === 'production';
 
     if (!envKey && isProd) {
       throw new Error(
@@ -40,24 +47,38 @@ export class MfaCryptoService {
     }
 
     this.currentVersion = Number(
-      this.config.get<string>('MFA_KEY_VERSION') ?? '1',
+      process.env.MFA_KEY_VERSION ??
+        this.config.get<string>('MFA_KEY_VERSION') ??
+        '1',
     );
 
     if (envKey) {
       this.keys.set(this.currentVersion, this.deriveKey(envKey));
       try {
         // Compat prod: secrets historiques chiffrés avec JWT secret (avant MFA_ENCRYPTION_KEY).
-        const jwtSecret = resolveJwtSecret(this.config);
+        const jwtSecret = this.resolveJwtSecretFromEnv();
         this.jwtFallbackV1Key = scryptSync(jwtSecret, SALT, KEY_LENGTH);
       } catch {
         // Pas de JWT secret lisible: on reste uniquement sur les clés MFA explicites.
       }
     } else {
-      const jwtSecret = resolveJwtSecret(this.config);
+      const jwtSecret = this.resolveJwtSecretFromEnv();
       this.keys.set(this.currentVersion, scryptSync(jwtSecret, SALT, KEY_LENGTH));
     }
 
     this.loadLegacyKeys();
+    this.logger.log(
+      `MFA keys ready version=${this.currentVersion} hasJwtFallback=${Boolean(this.jwtFallbackV1Key)} hasExtraV1=${Boolean(this.extraV1DecryptKey)}`,
+    );
+  }
+
+  /** Dokploy / Docker : lire process.env avant ConfigService (.env image). */
+  private resolveJwtSecretFromEnv(): string {
+    for (const key of ['JWT_SECRET', 'AUTH_JWT_SECRET', 'NEST_JWT_SECRET'] as const) {
+      const value = (process.env[key] ?? this.config.get<string>(key) ?? '').trim();
+      if (value) return value;
+    }
+    return resolveJwtSecret(this.config);
   }
 
   private deriveKey(raw: string): Buffer {
@@ -68,7 +89,11 @@ export class MfaCryptoService {
 
   private loadLegacyKeys(): void {
     for (let v = 1; v <= 10; v++) {
-      const raw = this.config.get<string>(`MFA_ENCRYPTION_KEY_V${v}`)?.trim();
+      const raw = (
+        process.env[`MFA_ENCRYPTION_KEY_V${v}`] ??
+        this.config.get<string>(`MFA_ENCRYPTION_KEY_V${v}`) ??
+        ''
+      ).trim();
       if (!raw) continue;
       const derived = this.deriveKey(raw);
       if (this.keys.has(v)) {
@@ -115,7 +140,8 @@ export class MfaCryptoService {
     const key = this.keys.get(version);
     if (!key) throw new Error(`No MFA key for version ${version}`);
 
-    const [ivHex, tagHex, dataHex] = rest.split(':');
+    const [ivHex, tagHex, ...dataParts] = rest.split(':');
+    const dataHex = dataParts.join(':');
     if (!ivHex || !tagHex || !dataHex) {
       throw new Error('Invalid encrypted payload');
     }

@@ -20,6 +20,9 @@ dist
 *.log
 .env
 .env.*
+**/.env
+**/.env.*
+!**/.env.example
 !.env.example
 coverage
 **/coverage
