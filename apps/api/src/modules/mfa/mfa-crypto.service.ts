@@ -15,6 +15,7 @@ const VERSION_PREFIX_RE = /^v(\d+):(.+)$/;
  *  - MFA_ENCRYPTION_KEY          → clé courante (obligatoire en prod)
  *  - MFA_ENCRYPTION_KEY_V{n}     → anciennes clés pour décryptage rétro-compatible
  *  - MFA_KEY_VERSION (défaut: 1) → version courante utilisée pour encrypt
+ *  - JWT_SECRET (fallback v1)    → secrets enrollés avant MFA_ENCRYPTION_KEY
  *
  * Format encrypt (versionné) : `vN:iv:tag:data`
  * Format legacy (pré-versioning) : `iv:tag:data` → déchiffré avec la clé version 1
@@ -24,9 +25,8 @@ export class MfaCryptoService {
   private readonly logger = new Logger(MfaCryptoService.name);
   private readonly currentVersion: number;
   private readonly keys = new Map<number, Buffer>();
-  private jwtFallbackV1Key?: Buffer;
-  /** Clé v1 additionnelle (`MFA_ENCRYPTION_KEY_V1`) si la courante est déjà v1. */
-  private extraV1DecryptKey?: Buffer;
+  /** Candidats de déchiffrement v1 additionnels (ordre = priorité après la clé de version). */
+  private readonly v1DecryptCandidates: { label: string; key: Buffer }[] = [];
   private jwtFallbackWarned = false;
 
   constructor(private readonly config: ConfigService) {
@@ -54,21 +54,18 @@ export class MfaCryptoService {
 
     if (envKey) {
       this.keys.set(this.currentVersion, this.deriveKey(envKey));
-      try {
-        // Compat prod: secrets historiques chiffrés avec JWT secret (avant MFA_ENCRYPTION_KEY).
-        const jwtSecret = this.resolveJwtSecretFromEnv();
-        this.jwtFallbackV1Key = scryptSync(jwtSecret, SALT, KEY_LENGTH);
-      } catch {
-        // Pas de JWT secret lisible: on reste uniquement sur les clés MFA explicites.
-      }
+      // Variante scrypt du même material (si un jour encrypt a dérivé autrement).
+      this.addV1Candidate('MFA_ENCRYPTION_KEY/scrypt', scryptSync(envKey, SALT, KEY_LENGTH));
     } else {
       const jwtSecret = this.resolveJwtSecretFromEnv();
       this.keys.set(this.currentVersion, scryptSync(jwtSecret, SALT, KEY_LENGTH));
     }
 
     this.loadLegacyKeys();
+    this.loadJwtFallbackCandidate();
+
     this.logger.log(
-      `MFA keys ready version=${this.currentVersion} hasJwtFallback=${Boolean(this.jwtFallbackV1Key)} hasExtraV1=${Boolean(this.extraV1DecryptKey)}`,
+      `MFA keys ready version=${this.currentVersion} v1Candidates=${this.v1DecryptCandidates.map((c) => c.label).join(',') || 'none'}`,
     );
   }
 
@@ -87,6 +84,13 @@ export class MfaCryptoService {
       : scryptSync(raw, SALT, KEY_LENGTH);
   }
 
+  private addV1Candidate(label: string, key: Buffer): void {
+    const primary = this.keys.get(1) ?? this.keys.get(this.currentVersion);
+    if (primary && primary.equals(key)) return;
+    if (this.v1DecryptCandidates.some((c) => c.key.equals(key))) return;
+    this.v1DecryptCandidates.push({ label, key });
+  }
+
   private loadLegacyKeys(): void {
     for (let v = 1; v <= 10; v++) {
       const raw = (
@@ -97,16 +101,23 @@ export class MfaCryptoService {
       if (!raw) continue;
       const derived = this.deriveKey(raw);
       if (this.keys.has(v)) {
-        if (v === 1 && !this.keys.get(1)!.equals(derived)) {
-          this.extraV1DecryptKey = derived;
-          this.logger.log(
-            'Loaded MFA_ENCRYPTION_KEY_V1 as additional v1 decrypt key',
-          );
+        if (v === 1) {
+          this.addV1Candidate(`MFA_ENCRYPTION_KEY_V1`, derived);
+          this.addV1Candidate(`MFA_ENCRYPTION_KEY_V1/scrypt`, scryptSync(raw, SALT, KEY_LENGTH));
         }
         continue;
       }
       this.keys.set(v, derived);
       this.logger.log(`Loaded legacy MFA encryption key V${v}`);
+    }
+  }
+
+  private loadJwtFallbackCandidate(): void {
+    try {
+      const jwtSecret = this.resolveJwtSecretFromEnv();
+      this.addV1Candidate('JWT_SECRET/scrypt', scryptSync(jwtSecret, SALT, KEY_LENGTH));
+    } catch {
+      // pas de JWT
     }
   }
 
@@ -152,29 +163,22 @@ export class MfaCryptoService {
     try {
       return this.decryptWithKey(key, iv, tag, data);
     } catch (primaryError) {
-      if (version === 1 && this.extraV1DecryptKey) {
-        try {
-          return this.decryptWithKey(this.extraV1DecryptKey, iv, tag, data);
-        } catch {
-          // essayer le fallback JWT ci-dessous
-        }
-      }
-      const jwtFallbackKey = this.jwtFallbackV1Key;
-      const canUseJwtFallback =
-        version === 1 &&
-        jwtFallbackKey != null &&
-        !jwtFallbackKey.equals(key);
-      if (canUseJwtFallback) {
-        try {
-          if (!this.jwtFallbackWarned) {
-            this.jwtFallbackWarned = true;
-            this.logger.warn(
-              'Decrypt using legacy JWT-derived MFA key fallback (v1). Set MFA_ENCRYPTION_KEY_V1 to the historical key material (often the production JWT_SECRET) to silence this.',
-            );
+      if (version === 1) {
+        for (const candidate of this.v1DecryptCandidates) {
+          try {
+            const plain = this.decryptWithKey(candidate.key, iv, tag, data);
+            if (candidate.label.startsWith('JWT_SECRET') && !this.jwtFallbackWarned) {
+              this.jwtFallbackWarned = true;
+              this.logger.warn(
+                `Decrypt OK via ${candidate.label}. Set MFA_ENCRYPTION_KEY_V1 to the historical key to make this explicit.`,
+              );
+            } else {
+              this.logger.log(`Decrypt OK via fallback ${candidate.label}`);
+            }
+            return plain;
+          } catch {
+            // essayer le suivant
           }
-          return this.decryptWithKey(jwtFallbackKey, iv, tag, data);
-        } catch {
-          // noop: on relance l'erreur d'origine pour garder un signal clair.
         }
       }
       throw primaryError;
