@@ -81,43 +81,136 @@ docker compose -f docker-compose.preprod.yml exec api sh -lc 'env | grep ^SMTP_'
 
 ---
 
-## 3. Rafraîchissement de la base depuis la production
+## 3. Rafraîchir la préprod depuis la prod (Dokploy — procédure nominale)
+
+**Objectif** : même data que la prod (y compris MFA TOTP) + mêmes secrets de chiffrement → le **même** code Authenticator marche en préprod.
+
+### Inventaire Dokploy (VM actuelle)
+
+| | Prod | Préprod |
+|---|---|---|
+| **Conteneur Postgres** | `starium-orchestra-starium-orchestra-2j3ybl-postgres-1` | `starium-orchestra-preproduction-prproduction-starium-uixs2l-postgres-1` |
+| **Volume data** | `starium-orchestra-starium-orchestra-2j3ybl_postgres_data` | `starium-orchestra-preproduction-prproduction-starium-uixs2l_postgres_data` |
+| **Compose (code)** | `/etc/dokploy/compose/starium-orchestra-starium-orchestra-2j3ybl/code` | `/etc/dokploy/compose/starium-orchestra-preproduction-prproduction-starium-uixs2l/code` |
+| **API (repère)** | `…2j3ybl-api-1` | `…uixs2l-api-1` |
+
+Vérifier le volume monté :
+
+```bash
+docker inspect starium-orchestra-starium-orchestra-2j3ybl-postgres-1 \
+  --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{"\n"}}{{end}}'
+
+docker inspect starium-orchestra-preproduction-prproduction-starium-uixs2l-postgres-1 \
+  --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{"\n"}}{{end}}'
+```
+
+### 3.1 Secrets Dokploy (avant / après — sans ça le MFA casse)
+
+Dans l’UI Environment **préprod**, coller **exactement** les valeurs **prod** (copier-coller, ne pas retaper) :
+
+| Variable | Préprod = prod ? |
+|---|---|
+| `JWT_SECRET` | **Oui** |
+| `MFA_ENCRYPTION_KEY` | **Oui** |
+| `MFA_KEY_VERSION` | **Oui** (souvent `1`) |
+| `AUTH_JWT_SECRET` / `NEST_JWT_SECRET` | Si SET en prod → **mêmes valeurs** ; sinon laisser **vides** des deux côtés |
+
+Puis **recreate** `api` + `api-worker` préprod après tout changement d’env.
+
+### 3.2 Restore du volume Postgres (Dokploy)
+
+1. **Backup prod** à jour dans Dokploy (volume prod / Postgres-Prod).
+2. Sur le serveur, **libérer** le volume préprod (sinon Dokploy abort *volume is in use*) :
+
+```bash
+cd /etc/dokploy/compose/starium-orchestra-preproduction-prproduction-starium-uixs2l/code
+
+docker compose -f docker-compose.preprod.yml down
+
+docker ps -a --filter volume=starium-orchestra-preproduction-prproduction-starium-uixs2l_postgres_data
+# si un conteneur reste : docker rm -f <nom>
+
+docker volume rm starium-orchestra-preproduction-prproduction-starium-uixs2l_postgres_data
+```
+
+3. **Dokploy** → restore volume :
+   - **Backup** = fichier tar du volume **prod** (ex. `…2j3ybl_postgres_data-….tar`)
+   - **Volume name (cible)** = `starium-orchestra-preproduction-prproduction-starium-uixs2l_postgres_data`  
+     (pas le nom du volume prod)
+4. Remonter la stack :
+
+```bash
+docker compose -f docker-compose.preprod.yml up -d
+```
+
+5. **Durcissement** (sessions / file mail — **ne touche pas** au MFA) :
+
+```bash
+docker exec -i starium-orchestra-preproduction-prproduction-starium-uixs2l-postgres-1 \
+  psql -U starium -d starium < scripts/preprod-harden.sql
+```
+
+`preprod-harden.sql` purge seulement : `EmailDelivery`, `RefreshToken`, `EmailIdentityVerificationToken`, `MfaChallenge`.  
+**Pas** de reset MFA. Le secret TOTP en base reste celui de la prod.
+
+### 3.3 Contrôle « même MFA que la prod »
+
+```bash
+# Prod
+docker exec -i starium-orchestra-starium-orchestra-2j3ybl-postgres-1 \
+  psql -U starium -d starium <<'SQL'
+SELECT md5(m."totpSecretEncrypted") AS enc_md5, m."totpEnabledAt",
+       left(m."totpSecretEncrypted", 24) AS head
+FROM "UserMfa" m
+JOIN "User" u ON u.id = m."userId"
+WHERE u.email = 'admin@starium.fr';
+SQL
+
+# Préprod
+docker exec -i starium-orchestra-preproduction-prproduction-starium-uixs2l-postgres-1 \
+  psql -U starium -d starium <<'SQL'
+SELECT md5(m."totpSecretEncrypted") AS enc_md5, m."totpEnabledAt",
+       left(m."totpSecretEncrypted", 24) AS head
+FROM "UserMfa" m
+JOIN "User" u ON u.id = m."userId"
+WHERE u.email = 'admin@starium.fr';
+SELECT count(*) AS refresh FROM "RefreshToken";
+SELECT count(*) AS mail FROM "EmailDelivery";
+SQL
+```
+
+| Attendu | |
+|---|---|
+| `enc_md5` / `totpEnabledAt` | **Identiques** prod ↔ préprod |
+| `RefreshToken` / `EmailDelivery` préprod | **0** après harden |
+
+Login [https://preprod.starium.fr/login](https://preprod.starium.fr/login) avec le **même** code Authenticator qu’en prod.
+
+Si message *Secret MFA illisible* → les clés §3.1 ne matchent pas la matière qui a chiffré le blob (revoir coller JWT/MFA depuis prod + recreate api). **Ne pas** reset MFA si tu veux garder le même Authenticator.
+
+### 3.4 Alternative sans Dokploy volume : script `pg_dump`
 
 Script : [`scripts/preprod-db-refresh.sh`](../../scripts/preprod-db-refresh.sh)
 
 ```bash
-export PROD_DATABASE_URL="postgresql://…@prod-host:5432/starium"      # compte en lecture
-export PREPROD_DATABASE_URL="postgresql://…@preprod-host:5432/starium" # SERA ÉCRASÉE
+export PROD_DATABASE_URL="postgresql://…@prod-host:5432/starium"      # lecture
+export PREPROD_DATABASE_URL="postgresql://…@preprod-host:5432/starium" # ÉCRASÉE
 
 ./scripts/preprod-db-refresh.sh
 ```
 
-Étapes exécutées :
+Étapes : dump → restore → `prisma migrate deploy` → `preprod-harden.sql`.  
+Mêmes exigences secrets §3.1. Options : `--yes`, `--dump-file`, `--anonymize` (casse l’UAT clients).
 
-1. `pg_dump` de la prod (format custom, sans owner/ACL).
-2. `DROP SCHEMA public` + `pg_restore` sur la préprod.
-3. `prisma migrate deploy` **sur les données de prod** — détecte migrations lentes / destructives avant la fenêtre de prod. Puis `migrate status`.
-4. Durcissement léger ([`preprod-harden.sql`](../../scripts/preprod-harden.sql)) : purge `EmailDelivery`, `RefreshToken`, tokens de vérif e-mail, défis MFA en cours.
-5. **Pas d'anonymisation** (défaut) — comptes et DCP inchangés pour l'UAT.
-
-Options : `--yes` (non interactif), `--dump-file <f>` (rejouer un dump), `--anonymize` (opt-in, cas exceptionnel sans UAT clients).
-
-Après le refresh :
-
-- supprimer le dump (`.tmp/preprod-refresh/`, gitignoré) ;
-- redéployer les images préprod ;
-- prévenir les clients UAT de se reconnecter ;
-- dérouler le smoke test §5.
+Après refresh : prévenir les UAT de se reconnecter ; smoke §5.
 
 ### Anonymisation (opt-in, sans UAT)
-
-Uniquement si aucun client ne doit se connecter :
 
 ```bash
 ./scripts/preprod-db-refresh.sh --anonymize
 ```
 
-Voir [`scripts/preprod-anonymize.sql`](../../scripts/preprod-anonymize.sql). Incompatible avec l'UAT clients (mots de passe et e-mails détruits).
+Voir [`scripts/preprod-anonymize.sql`](../../scripts/preprod-anonymize.sql). Incompatible avec l’UAT (mots de passe / e-mails détruits).
 
 ---
 
