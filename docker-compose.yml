@@ -30,6 +30,8 @@ x-postgres-healthcheck: &postgres-healthcheck
 x-api-base-env: &api-base-env
   DATABASE_URL: "postgresql://starium:starium@postgres:5432/starium"
   PORT: "3001"
+  # Fuseau pour logs Nest / Intl (TOTP reste en Unix UTC — horloge NTP host prioritaire).
+  TZ: ${TZ:-Europe/Paris}
   # Image API : NODE_ENV=production dans Dockerfile ; ici pour visibilité `compose config`.
   NODE_ENV: production
   JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
@@ -178,6 +180,7 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Europe/Paris}
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: http://localhost:3001
     expose:

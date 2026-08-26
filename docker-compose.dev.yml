@@ -50,6 +50,7 @@ x-redis-healthcheck: &redis-healthcheck
 x-api-base-env: &api-base-env
   DATABASE_URL: postgresql://starium:starium@postgres:5432/starium
   PORT: "3001"
+  TZ: ${TZ:-Europe/Paris}
 
 # Montages partagés api-dev / api-worker-dev (hot reload sources + manifests pnpm).
 x-api-dev-mounts: &api-dev-mounts
@@ -227,6 +228,7 @@ services:
     restart: unless-stopped
     command: ["sh", "/app/apps/web/docker-entrypoint-dev.sh"]
     environment:
+      TZ: ${TZ:-Europe/Paris}
       # Ligne de requête OAuth (code=…) peut dépassir 16 Ko (défaut Node) → « invalid response ».
       NODE_OPTIONS: "--max-http-header-size=262144"
       # Intention d’environnement (ex. preproduction dans `.env` racine).

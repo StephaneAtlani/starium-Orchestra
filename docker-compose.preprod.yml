@@ -84,6 +84,7 @@ services:
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
       PORT: "3001"
+      TZ: ${TZ:-Europe/Paris}
       NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
@@ -153,6 +154,7 @@ services:
     environment:
       DATABASE_URL: postgresql://starium:${POSTGRES_PASSWORD:-starium}@postgres:5432/starium
       PORT: "3001"
+      TZ: ${TZ:-Europe/Paris}
       NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY}
@@ -196,6 +198,7 @@ services:
       - default
       - starium-preprod-network
     environment:
+      TZ: ${TZ:-Europe/Paris}
       INTERNAL_API_URL: http://api:3001
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-preprod.starium.xyz}
       # Source de vérité Dokploy (Environment UI). Next overwrite NODE_ENV au boot
