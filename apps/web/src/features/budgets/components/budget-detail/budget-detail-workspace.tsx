@@ -57,6 +57,7 @@ export interface BudgetDetailWorkspaceOverview {
   envelopes: BudgetEnvelope[];
   lines: BudgetLine[];
   exerciseStartDateIso?: string | null;
+  exerciseEndDateIso?: string | null;
   plannedAmounts12?: readonly number[] | null;
   isLoading: boolean;
   isError: boolean;
@@ -159,7 +160,9 @@ export function BudgetDetailWorkspace({
       envelopes={overview.envelopes}
       lines={overviewLines}
       exerciseStartDateIso={overview.exerciseStartDateIso}
+      exerciseEndDateIso={overview.exerciseEndDateIso}
       plannedAmounts12={overview.plannedAmounts12}
+      budgetId={budgetId}
       onBudgetLineClick={onBudgetLineClick}
     />
   ) : (

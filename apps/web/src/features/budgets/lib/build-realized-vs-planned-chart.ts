@@ -1,6 +1,6 @@
 import {
   FRENCH_MONTH_LABELS_SHORT,
-  getExerciseMonthCalendarYearMonth,
+  listExerciseCalendarMonths,
 } from '@starium-orchestra/budget-exercise-calendar';
 
 export type MonthlyTrendPoint = {
@@ -25,38 +25,47 @@ export type RealizedVsPlannedMonthRow = {
 };
 
 /**
- * Construit les 12 colonnes « Réalisé vs prévu » du mockup fiche budget :
- * - Prévu = planning mensuel si fourni, sinon répartition égale de la prévision annuelle
+ * Construit les colonnes « Réalisé vs prévu » sur la **durée réelle** de l’exercice
+ * (`startDate` → `endDate`, mois civils UTC inclusifs).
+ * - Prévu = planning mensuel indexé 1..12 si fourni, sinon répartition égale sur N mois
  * - Réalisé = consommations du mois (événements CONSUMPTION_REGISTERED)
- * Toujours 12 mois d’exercice, même à zéro.
+ * Sans `endDate` → 12 mois depuis `startDate` (comportement historique).
  */
 export function buildRealizedVsPlannedChartRows(params: {
   exerciseStartDateIso: string | null | undefined;
+  exerciseEndDateIso?: string | null | undefined;
   totalForecastAmount: number;
   monthlyTrend: MonthlyTrendPoint[];
-  /** Somme planning par index 0..11 (mois d’exercice) — optionnel. */
+  /**
+   * Somme planning par index 0..11 (mois d’exercice 1..12, RFC-023).
+   * Au-delà du 12ᵉ mois d’un exercice long : repli sur la répartition égale.
+   */
   plannedAmounts12?: readonly number[] | null;
 }): RealizedVsPlannedMonthRow[] {
-  const start = parseExerciseStart(params.exerciseStartDateIso);
+  const start = parseExerciseDate(params.exerciseStartDateIso) ?? defaultStart();
+  const end = parseExerciseDate(params.exerciseEndDateIso);
+  const months = listExerciseCalendarMonths(start, end);
   const plannedByMonth = new Map(
     params.monthlyTrend.map((row) => [row.month, row]),
   );
-  const fallbackPlanned = Math.max(0, params.totalForecastAmount) / 12;
+  const monthCount = Math.max(1, months.length);
+  const fallbackPlanned = Math.max(0, params.totalForecastAmount) / monthCount;
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const monthIndex = index + 1;
-    const ym = getExerciseMonthCalendarYearMonth(start, monthIndex);
-    const monthKey = `${ym.year}-${String(ym.monthIndex0 + 1).padStart(2, '0')}`;
-    const monthLabel = FRENCH_MONTH_LABELS_SHORT[ym.monthIndex0] ?? 'Mois';
-    const label = monthLetterLabel(ym.monthIndex0);
-    const plannedFromGrid = params.plannedAmounts12?.[index];
+  return months.map((month, index) => {
+    const monthLabel = FRENCH_MONTH_LABELS_SHORT[month.monthIndex0] ?? 'Mois';
+    const label = monthLetterLabel(month.monthIndex0);
+    const plannedFromGrid =
+      index < 12 ? params.plannedAmounts12?.[index] : undefined;
     const planned =
       plannedFromGrid != null && Number.isFinite(plannedFromGrid)
         ? Math.max(0, plannedFromGrid)
         : fallbackPlanned;
-    const realized = Math.max(0, plannedByMonth.get(monthKey)?.consumed ?? 0);
+    const realized = Math.max(
+      0,
+      plannedByMonth.get(month.monthKey)?.consumed ?? 0,
+    );
     return {
-      monthKey,
+      monthKey: month.monthKey,
       label,
       monthLabel,
       planned,
@@ -67,11 +76,13 @@ export function buildRealizedVsPlannedChartRows(params: {
   });
 }
 
-function parseExerciseStart(iso: string | null | undefined): Date {
-  if (iso) {
-    const date = new Date(iso);
-    if (!Number.isNaN(date.getTime())) return date;
-  }
+function parseExerciseDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function defaultStart(): Date {
   return new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
 }
 

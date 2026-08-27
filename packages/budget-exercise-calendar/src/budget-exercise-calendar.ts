@@ -167,6 +167,104 @@ export function getExerciseMonthColumnLabels(exerciseStartDate: Date): string[] 
   );
 }
 
+/** Plafond UI / API pour un exercice très long (évite 100+ barres). */
+export const MAX_EXERCISE_CALENDAR_MONTHS = 36;
+
+export type ExerciseCalendarMonth = {
+  /** Rang 1-based depuis le mois de startDate (1 = premier mois). */
+  monthIndex: number;
+  year: number;
+  monthIndex0: number;
+  /** Clé `YYYY-MM` (calendrier UTC). */
+  monthKey: string;
+};
+
+function utcYearMonth(date: Date): { year: number; monthIndex0: number } {
+  return {
+    year: date.getUTCFullYear(),
+    monthIndex0: date.getUTCMonth(),
+  };
+}
+
+function compareYearMonth(
+  a: { year: number; monthIndex0: number },
+  b: { year: number; monthIndex0: number },
+): number {
+  return a.year * 12 + a.monthIndex0 - (b.year * 12 + b.monthIndex0);
+}
+
+/**
+ * Fin d’exercice effective pour le calendrier mensuel.
+ * Sans `endDate` valide → 12 mois civils depuis `startDate` (comportement historique).
+ */
+export function resolveExerciseCalendarEndDate(
+  exerciseStartDate: Date,
+  exerciseEndDate?: Date | null,
+): Date {
+  if (exerciseEndDate != null && !Number.isNaN(exerciseEndDate.getTime())) {
+    return exerciseEndDate;
+  }
+  const { year, monthIndex0 } = addCalendarMonthsUtc(
+    exerciseStartDate.getUTCFullYear(),
+    exerciseStartDate.getUTCMonth(),
+    11,
+  );
+  return new Date(Date.UTC(year, monthIndex0, 1));
+}
+
+/**
+ * Mois civils inclusifs de `startDate` → `endDate` (UTC year/month).
+ * Si `end` < `start` (mois), un seul mois = start.
+ */
+export function listExerciseCalendarMonths(
+  exerciseStartDate: Date,
+  exerciseEndDate?: Date | null,
+  options?: { maxMonths?: number },
+): ExerciseCalendarMonth[] {
+  const maxMonths = options?.maxMonths ?? MAX_EXERCISE_CALENDAR_MONTHS;
+  const start = utcYearMonth(exerciseStartDate);
+  const endResolved = resolveExerciseCalendarEndDate(
+    exerciseStartDate,
+    exerciseEndDate,
+  );
+  let end = utcYearMonth(endResolved);
+  if (compareYearMonth(end, start) < 0) {
+    end = start;
+  }
+
+  const months: ExerciseCalendarMonth[] = [];
+  let y = start.year;
+  let m0 = start.monthIndex0;
+  let index = 1;
+  while (compareYearMonth({ year: y, monthIndex0: m0 }, end) <= 0) {
+    if (months.length >= maxMonths) break;
+    months.push({
+      monthIndex: index,
+      year: y,
+      monthIndex0: m0,
+      monthKey: `${y}-${String(m0 + 1).padStart(2, '0')}`,
+    });
+    index += 1;
+    const next = addCalendarMonthsUtc(y, m0, 1);
+    y = next.year;
+    m0 = next.monthIndex0;
+  }
+  return months;
+}
+
+/** Index 1-based du mois dans [start, end], ou null hors période. */
+export function resolveExerciseMonthIndexInRange(
+  exerciseStartDate: Date,
+  monthKey: string,
+  exerciseEndDate?: Date | null,
+): number | null {
+  const months = listExerciseCalendarMonths(
+    exerciseStartDate,
+    exerciseEndDate,
+  );
+  return months.find((m) => m.monthKey === monthKey)?.monthIndex ?? null;
+}
+
 /**
  * Date de référence par défaut : minuit UTC du jour courant (pas Date.now() épars hors d'ici).
  */

@@ -1,11 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AllocationType, BudgetStatus, FinancialEventType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import {
+  listExerciseCalendarMonths,
+  resolveExerciseMonthIndexInRange,
+} from '@starium-orchestra/budget-exercise-calendar';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
 import type { DashboardQueryDto } from './dto/dashboard.query.dto';
+import type { MonthlyBreakdownQueryDto } from './dto/monthly-breakdown.query.dto';
 import type { PatchBudgetDashboardUserOverridesDto } from './dto/budget-dashboard-user-overrides.dto';
 import type {
   BudgetCockpitEnvelopeRow,
@@ -14,12 +19,14 @@ import type {
   BudgetCockpitWidgetPayload,
   BudgetDashboardLineRow,
   BudgetDashboardThresholdsConfig,
+  BudgetMonthlyBreakdownResponse,
 } from './types/budget-dashboard.types';
 import { BudgetDashboardConfigService } from './budget-dashboard-config.service';
 
 type DecimalLike = Prisma.Decimal | null | undefined;
 
 const TOP_LIMIT_DEFAULT = 10;
+const MONTHLY_BREAKDOWN_LINE_LIMIT = 8;
 
 type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -668,6 +675,222 @@ export class BudgetDashboardService {
     });
 
     return this.listUserWidgetOverrides(clientId, userId);
+  }
+
+  /**
+   * Drill-down d’un mois calendaire : prévu (planning ligne) / réalisé / engagé
+   * agrégés par enveloppe et top lignes.
+   */
+  async getMonthlyBreakdown(
+    clientId: string,
+    query: MonthlyBreakdownQueryDto,
+  ): Promise<BudgetMonthlyBreakdownResponse> {
+    const { budget, exercise } = await this.resolveBudgetAndExercise(
+      clientId,
+      query.budgetId,
+    );
+
+    const exerciseDates = await this.prisma.budgetExercise.findFirst({
+      where: { id: exercise.id, clientId },
+      select: { startDate: true, endDate: true },
+    });
+    if (!exerciseDates?.startDate) {
+      throw new NotFoundException('Budget exercise not found');
+    }
+
+    const monthIndex = resolveExerciseMonthIndexInRange(
+      exerciseDates.startDate,
+      query.month,
+      exerciseDates.endDate,
+    );
+    if (monthIndex == null) {
+      throw new BadRequestException(
+        'month is outside the exercise period (startDate–endDate)',
+      );
+    }
+
+    const exerciseMonthCount = Math.max(
+      1,
+      listExerciseCalendarMonths(
+        exerciseDates.startDate,
+        exerciseDates.endDate,
+      ).length,
+    );
+
+    const lines = await this.prisma.budgetLine.findMany({
+      where: {
+        clientId,
+        budgetId: budget.id,
+        status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        envelopeId: true,
+        forecastAmount: true,
+        envelope: {
+          select: { id: true, code: true, name: true, type: true },
+        },
+      },
+    });
+
+    const lineIds = lines.map((l) => l.id);
+    const empty: BudgetMonthlyBreakdownResponse = {
+      month: query.month,
+      monthIndex,
+      currency: budget.currency,
+      total: { planned: 0, realized: 0, committed: 0 },
+      envelopes: [],
+      lines: [],
+    };
+    if (lineIds.length === 0) return empty;
+
+    const [yStr, mStr] = query.month.split('-');
+    const year = Number(yStr);
+    const monthNum = Number(mStr);
+    const rangeStart = new Date(year, monthNum - 2, 1);
+    const rangeEnd = new Date(year, monthNum + 1, 1);
+
+    // Planning RFC-023 : monthIndex 1–12 uniquement. Mois 13+ d’un exercice long → repli forecast/N.
+    const [planningRows, events] = await Promise.all([
+      monthIndex <= 12
+        ? this.prisma.budgetLinePlanningMonth.findMany({
+            where: {
+              clientId,
+              budgetLineId: { in: lineIds },
+              monthIndex,
+            },
+            select: { budgetLineId: true, amount: true },
+          })
+        : Promise.resolve(
+            [] as Array<{ budgetLineId: string; amount: Prisma.Decimal | null }>,
+          ),
+      this.prisma.financialEvent.findMany({
+        where: {
+          clientId,
+          budgetLineId: { in: lineIds },
+          eventType: {
+            in: [
+              FinancialEventType.COMMITMENT_REGISTERED,
+              FinancialEventType.CONSUMPTION_REGISTERED,
+            ],
+          },
+          eventDate: { gte: rangeStart, lt: rangeEnd },
+        },
+        select: {
+          budgetLineId: true,
+          eventType: true,
+          amountHt: true,
+          eventDate: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const plannedByLine = new Map<string, number>();
+    for (const row of planningRows) {
+      plannedByLine.set(row.budgetLineId, fromDecimal(row.amount));
+    }
+
+    const hasAnyPlanning = planningRows.length > 0;
+    const realizedByLine = new Map<string, number>();
+    const committedByLine = new Map<string, number>();
+
+    for (const e of events) {
+      const date = e.eventDate ?? e.createdAt;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (key !== query.month) continue;
+      const amount = fromDecimal(e.amountHt as DecimalLike);
+      if (e.eventType === FinancialEventType.CONSUMPTION_REGISTERED) {
+        realizedByLine.set(
+          e.budgetLineId,
+          (realizedByLine.get(e.budgetLineId) ?? 0) + amount,
+        );
+      } else if (e.eventType === FinancialEventType.COMMITMENT_REGISTERED) {
+        committedByLine.set(
+          e.budgetLineId,
+          (committedByLine.get(e.budgetLineId) ?? 0) + amount,
+        );
+      }
+    }
+
+    type Acc = {
+      envelopeId: string;
+      code: string | null;
+      name: string;
+      type: string;
+      planned: number;
+      realized: number;
+      committed: number;
+    };
+    const byEnvelope = new Map<string, Acc>();
+    const lineRows: BudgetMonthlyBreakdownResponse['lines'] = [];
+
+    for (const line of lines) {
+      const planned = hasAnyPlanning
+        ? (plannedByLine.get(line.id) ?? 0)
+        : Math.max(0, fromDecimal(line.forecastAmount)) / exerciseMonthCount;
+      const realized = realizedByLine.get(line.id) ?? 0;
+      const committed = committedByLine.get(line.id) ?? 0;
+
+      if (planned === 0 && realized === 0 && committed === 0) continue;
+
+      const env = line.envelope;
+      const envelopeName = env?.name?.trim() ? env.name : 'Enveloppe supprimée';
+      let acc = byEnvelope.get(line.envelopeId);
+      if (!acc) {
+        acc = {
+          envelopeId: line.envelopeId,
+          code: env?.code ?? null,
+          name: envelopeName,
+          type: env?.type ?? 'UNKNOWN',
+          planned: 0,
+          realized: 0,
+          committed: 0,
+        };
+        byEnvelope.set(line.envelopeId, acc);
+      }
+      acc.planned += planned;
+      acc.realized += realized;
+      acc.committed += committed;
+
+      lineRows.push({
+        lineId: line.id,
+        code: line.code,
+        name: line.name?.trim() ? line.name : 'Ligne budgétaire',
+        envelopeId: line.envelopeId,
+        envelopeName,
+        planned,
+        realized,
+        committed,
+      });
+    }
+
+    const envelopes = [...byEnvelope.values()].sort(
+      (a, b) => b.realized + b.planned - (a.realized + a.planned),
+    );
+    lineRows.sort(
+      (a, b) => b.realized + b.planned - (a.realized + a.planned),
+    );
+
+    const total = envelopes.reduce(
+      (s, e) => ({
+        planned: s.planned + e.planned,
+        realized: s.realized + e.realized,
+        committed: s.committed + e.committed,
+      }),
+      { planned: 0, realized: 0, committed: 0 },
+    );
+
+    return {
+      month: query.month,
+      monthIndex,
+      currency: budget.currency,
+      total,
+      envelopes,
+      lines: lineRows.slice(0, MONTHLY_BREAKDOWN_LINE_LIMIT),
+    };
   }
 
   private async resolveBudgetAndExercise(

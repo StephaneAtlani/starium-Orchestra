@@ -21,6 +21,7 @@ import { BudgetDashboardConfigService } from './budget-dashboard-config.service'
 import { BudgetDashboardService } from './budget-dashboard.service';
 import { CreateBudgetDashboardConfigDto } from './dto/create-budget-dashboard-config.dto';
 import { DashboardQueryDto } from './dto/dashboard.query.dto';
+import { MonthlyBreakdownQueryDto } from './dto/monthly-breakdown.query.dto';
 import { PatchBudgetDashboardUserOverridesDto } from './dto/budget-dashboard-user-overrides.dto';
 import { UpdateBudgetDashboardConfigDto } from './dto/update-budget-dashboard-config.dto';
 
@@ -40,6 +41,16 @@ export class BudgetDashboardController {
     @Query() query: DashboardQueryDto,
   ) {
     return this.service.getDashboard(clientId!, query, actorUserId);
+  }
+
+  /** Drill-down mois : prévu / réalisé / engagé par enveloppe (et top lignes). */
+  @Get('monthly-breakdown')
+  @RequirePermissions('budgets.read')
+  getMonthlyBreakdown(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: MonthlyBreakdownQueryDto,
+  ) {
+    return this.service.getMonthlyBreakdown(clientId!, query);
   }
 
   /**

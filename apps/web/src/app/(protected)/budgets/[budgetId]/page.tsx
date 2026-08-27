@@ -554,6 +554,7 @@ export default function BudgetDetailPage() {
               envelopes: (envelopes as BudgetEnvelope[]) ?? [],
               lines: (lines as BudgetLine[]) ?? [],
               exerciseStartDateIso: exercise?.startDate ?? null,
+              exerciseEndDateIso: exercise?.endDate ?? null,
               isLoading: summaryLoading || dashboardQuery.isLoading,
               isError: summaryError || dashboardQuery.isError,
             }}

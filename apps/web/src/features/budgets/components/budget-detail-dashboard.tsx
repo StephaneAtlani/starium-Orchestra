@@ -170,7 +170,9 @@ export function BudgetDetailDashboard({
   envelopes,
   lines,
   exerciseStartDateIso,
+  exerciseEndDateIso,
   plannedAmounts12,
+  budgetId,
   onBudgetLineClick,
 }: {
   kpi: BudgetSummaryKpi;
@@ -180,10 +182,12 @@ export function BudgetDetailDashboard({
   defaultTaxRate: number | null;
   envelopes: BudgetEnvelope[];
   lines: BudgetLine[];
-  /** Début d’exercice ISO — aligne les 12 colonnes du graphique. */
+  /** Début / fin d’exercice ISO — colonnes = mois civils inclusifs de la période. */
   exerciseStartDateIso?: string | null;
-  /** Planning mensuel agrégé (somme des lignes) — optionnel. */
+  exerciseEndDateIso?: string | null;
+  /** Planning mensuel agrégé (somme des lignes, index 1..12) — optionnel. */
   plannedAmounts12?: readonly number[] | null;
+  budgetId: string;
   onBudgetLineClick?: (lineId: string) => void;
 }) {
   const [expandedEnvelopeIds, setExpandedEnvelopeIds] = useState<Set<string>>(
@@ -252,11 +256,18 @@ export function BudgetDetailDashboard({
     () =>
       buildRealizedVsPlannedChartRows({
         exerciseStartDateIso,
+        exerciseEndDateIso,
         totalForecastAmount: kpi.totalForecastAmount,
         monthlyTrend,
         plannedAmounts12,
       }),
-    [exerciseStartDateIso, kpi.totalForecastAmount, monthlyTrend, plannedAmounts12],
+    [
+      exerciseStartDateIso,
+      exerciseEndDateIso,
+      kpi.totalForecastAmount,
+      monthlyTrend,
+      plannedAmounts12,
+    ],
   );
 
   const hasChartSignal = monthlyChartRows.some(
@@ -313,6 +324,8 @@ export function BudgetDetailDashboard({
             ) : (
               <RealizedVsPlannedBarChart
                 rows={monthlyChartRows}
+                budgetId={budgetId}
+                onBudgetLineClick={onBudgetLineClick}
                 formatAmount={(value) =>
                   formatDashboardAmount({
                     ht: value,

@@ -6,6 +6,7 @@ import type {
   BudgetCockpitResponse,
   BudgetDashboardConfigDto,
   BudgetDashboardQueryParams,
+  BudgetMonthlyBreakdownResponse,
 } from '../types/budget-dashboard.types';
 
 export type AuthFetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
@@ -48,6 +49,26 @@ export async function getDashboard(
     throw new Error('Erreur lors du chargement du dashboard budget');
   }
   return res.json() as Promise<BudgetCockpitResponse>;
+}
+
+export async function getBudgetMonthlyBreakdown(
+  authFetch: AuthFetch,
+  params: { budgetId: string; month: string },
+): Promise<BudgetMonthlyBreakdownResponse> {
+  const search = new URLSearchParams();
+  search.set('budgetId', params.budgetId);
+  search.set('month', params.month);
+  const res = await authFetch(`/api/budget-dashboard/monthly-breakdown?${search}`);
+  if (!res.ok) {
+    if (res.status === 400) {
+      throw new Error('Mois hors calendrier d’exercice');
+    }
+    if (res.status === 404) {
+      throw new Error('Budget ou exercice introuvable');
+    }
+    throw new Error('Erreur lors du chargement du détail mensuel');
+  }
+  return res.json() as Promise<BudgetMonthlyBreakdownResponse>;
 }
 
 export async function listBudgetDashboardConfigs(

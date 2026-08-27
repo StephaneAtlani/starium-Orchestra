@@ -79,6 +79,9 @@ export const budgetQueryKeys = {
   /** Préfixe : toutes les requêtes cockpit (params variables). */
   dashboardAll: (clientId: string) => ['budgets', clientId, 'dashboard'] as const,
 
+  monthlyBreakdown: (clientId: string, budgetId: string, month: string) =>
+    ['budgets', clientId, 'monthly-breakdown', budgetId, month] as const,
+
   /** Préfixe : listes lignes par enveloppe (`budgetLines` avec filtres / pagination). */
   budgetEnvelopeLinesAll: (clientId: string) =>
     ['budgets', clientId, 'budget-lines'] as const,

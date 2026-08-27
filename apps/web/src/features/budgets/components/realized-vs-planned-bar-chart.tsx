@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -11,16 +11,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RealizedVsPlannedMonthRow } from '@/features/budgets/lib/build-realized-vs-planned-chart';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
+import { MonthEnvelopeDrilldown } from '@/features/budgets/components/month-envelope-drilldown';
 import { Button } from '@/components/ui/button';
 
 const PLANNED_FILL = 'var(--neutral-300)';
 const REALIZED_FILL = 'var(--state-danger)';
 const GRID_STROKE = 'var(--border)';
 const TICK_FILL = 'var(--color-text-muted)';
+
+/** Nombre de mois visibles à l’écran (flèches pour le reste de l’exercice). */
+const CHART_WINDOW_SIZE = 12;
 
 type ChartDatum = RealizedVsPlannedMonthRow & {
   écart: number;
@@ -30,6 +34,8 @@ type ChartDatum = RealizedVsPlannedMonthRow & {
 type Props = {
   rows: RealizedVsPlannedMonthRow[];
   formatAmount: (value: number) => string;
+  budgetId: string;
+  onBudgetLineClick?: (lineId: string) => void;
   className?: string;
 };
 
@@ -86,13 +92,26 @@ function MonthTooltip({
           <span className="text-muted-foreground"> · {formatPercent(row.taux)}</span>
         ) : null}
       </p>
+      <p className="mt-1 text-[10px] text-muted-foreground">Cliquez pour le détail par enveloppe</p>
     </div>
   );
 }
 
-export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Props) {
+function clampWindowStart(start: number, total: number, windowSize: number): number {
+  const maxStart = Math.max(0, total - windowSize);
+  return Math.min(Math.max(0, start), maxStart);
+}
+
+export function RealizedVsPlannedBarChart({
+  rows,
+  formatAmount,
+  budgetId,
+  onBudgetLineClick,
+  className,
+}: Props) {
   const chartId = useId();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [windowStart, setWindowStart] = useState(0);
 
   const data = useMemo<ChartDatum[]>(
     () =>
@@ -104,24 +123,111 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
     [rows],
   );
 
+  const windowSize = Math.min(CHART_WINDOW_SIZE, Math.max(1, data.length));
+  const canNavigate = data.length > windowSize;
+  const maxWindowStart = Math.max(0, data.length - windowSize);
+
+  useEffect(() => {
+    setWindowStart(0);
+    setSelectedKey(null);
+  }, [rows]);
+
+  useEffect(() => {
+    setWindowStart((prev) => clampWindowStart(prev, data.length, windowSize));
+  }, [data.length, windowSize]);
+
+  const visibleData = useMemo(
+    () => data.slice(windowStart, windowStart + windowSize),
+    [data, windowStart, windowSize],
+  );
+
   const selected = useMemo(
     () => data.find((row) => row.monthKey === selectedKey) ?? null,
     [data, selectedKey],
   );
 
+  const windowRangeLabel = useMemo(() => {
+    if (visibleData.length === 0) return 'Aucun mois';
+    const first = visibleData[0];
+    const last = visibleData[visibleData.length - 1];
+    if (first.monthKey === last.monthKey) {
+      return first.monthLabel;
+    }
+    return `${first.monthLabel} → ${last.monthLabel}`;
+  }, [visibleData]);
+
   const selectMonth = (monthKey: string) => {
     setSelectedKey((prev) => (prev === monthKey ? null : monthKey));
+    const index = data.findIndex((row) => row.monthKey === monthKey);
+    if (index < 0) return;
+    if (index < windowStart) {
+      setWindowStart(clampWindowStart(index, data.length, windowSize));
+    } else if (index >= windowStart + windowSize) {
+      setWindowStart(
+        clampWindowStart(index - windowSize + 1, data.length, windowSize),
+      );
+    }
   };
+
+  const goPrev = () => {
+    setWindowStart((prev) => clampWindowStart(prev - 1, data.length, windowSize));
+  };
+
+  const goNext = () => {
+    setWindowStart((prev) => clampWindowStart(prev + 1, data.length, windowSize));
+  };
+
+  const pageLabel = canNavigate
+    ? `${windowStart + 1}–${windowStart + visibleData.length} / ${data.length}`
+    : `${data.length} mois`;
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="h-64 w-full min-w-0 sm:h-72" role="img" aria-labelledby={`${chartId}-title`}>
+      {canNavigate ? (
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Afficher le mois précédent"
+            disabled={windowStart <= 0}
+            onClick={goPrev}
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+          </Button>
+          <div className="min-w-0 flex-1 text-center" aria-live="polite">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {windowRangeLabel}
+            </p>
+            <p className="text-xs tabular-nums text-muted-foreground">{pageLabel}</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Afficher le mois suivant"
+            disabled={windowStart >= maxWindowStart}
+            onClick={goNext}
+          >
+            <ChevronRight className="size-4" aria-hidden />
+          </Button>
+        </div>
+      ) : null}
+
+      <div
+        className="h-64 w-full min-w-0 sm:h-72 [&_svg]:outline-none [&_svg_*]:outline-none"
+        role="img"
+        aria-labelledby={`${chartId}-title`}
+      >
         <p id={`${chartId}-title`} className="sr-only">
-          Histogramme Réalisé versus prévu sur 12 mois. Cliquez une barre pour sélectionner un mois.
+          Histogramme Réalisé versus prévu sur la durée de l’exercice ({pageLabel}). Fenêtre
+          affichée : {windowRangeLabel}. Cliquez une barre pour ouvrir le détail par enveloppe.
         </p>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={data}
+            data={visibleData}
             margin={{ top: 8, right: 8, left: 4, bottom: 4 }}
             barGap={2}
             barCategoryGap="18%"
@@ -164,6 +270,7 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
               maxBarSize={28}
               isAnimationActive
               animationDuration={550}
+              activeBar={false}
               onClick={(item) => {
                 const payload = item?.payload as ChartDatum | undefined;
                 if (payload?.monthKey) selectMonth(payload.monthKey);
@@ -171,17 +278,13 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
               style={{ cursor: 'pointer' }}
               aria-label="Prévu"
             >
-              {data.map((row) => (
+              {visibleData.map((row) => (
                 <Cell
                   key={`planned-${row.monthKey}`}
                   fill={PLANNED_FILL}
                   fillOpacity={
                     selectedKey == null || selectedKey === row.monthKey ? 1 : 0.35
                   }
-                  stroke={
-                    selectedKey === row.monthKey ? 'var(--brand-ink)' : undefined
-                  }
-                  strokeWidth={selectedKey === row.monthKey ? 1.5 : 0}
                 />
               ))}
             </Bar>
@@ -193,6 +296,7 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
               maxBarSize={28}
               isAnimationActive
               animationDuration={550}
+              activeBar={false}
               onClick={(item) => {
                 const payload = item?.payload as ChartDatum | undefined;
                 if (payload?.monthKey) selectMonth(payload.monthKey);
@@ -200,17 +304,13 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
               style={{ cursor: 'pointer' }}
               aria-label="Réalisé"
             >
-              {data.map((row) => (
+              {visibleData.map((row) => (
                 <Cell
                   key={`realized-${row.monthKey}`}
                   fill={REALIZED_FILL}
                   fillOpacity={
                     selectedKey == null || selectedKey === row.monthKey ? 1 : 0.35
                   }
-                  stroke={
-                    selectedKey === row.monthKey ? 'var(--brand-ink)' : undefined
-                  }
-                  strokeWidth={selectedKey === row.monthKey ? 1.5 : 0}
                 />
               ))}
             </Bar>
@@ -218,8 +318,12 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
         </ResponsiveContainer>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-1.5" role="listbox" aria-label="Mois de l’exercice">
-        {data.map((row) => {
+      <div
+        className="flex flex-wrap justify-center gap-1.5"
+        role="listbox"
+        aria-label="Mois visibles de l’exercice"
+      >
+        {visibleData.map((row) => {
           const active = selectedKey === row.monthKey;
           return (
             <button
@@ -245,11 +349,25 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
       <div aria-live="polite">
         {selected ? (
           <div className="rounded-[var(--radius-md)] border border-border/70 bg-muted/30 p-3 sm:p-4">
-            <div className="flex items-start justify-between gap-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
               <div>
                 <p className="starium-overline text-muted-foreground">Mois sélectionné</p>
                 <p className="mt-1 text-sm font-semibold text-foreground">
                   {selected.monthLabel}
+                </p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                  Prévu {formatAmount(selected.planned)} · Réalisé{' '}
+                  {formatAmount(selected.realized)}
+                  {selected.écart !== 0 ? (
+                    <>
+                      {' '}
+                      · Écart {selected.écart >= 0 ? '+' : ''}
+                      {formatAmount(selected.écart)}
+                      {selected.taux != null
+                        ? ` (${formatPercent(selected.taux)})`
+                        : ''}
+                    </>
+                  ) : null}
                 </p>
               </div>
               <Button
@@ -257,43 +375,26 @@ export function RealizedVsPlannedBarChart({ rows, formatAmount, className }: Pro
                 variant="ghost"
                 size="icon"
                 className="size-11 shrink-0"
-                aria-label="Désélectionner le mois"
+                aria-label="Fermer le détail du mois"
                 onClick={() => setSelectedKey(null)}
               >
                 <X className="size-4" aria-hidden />
               </Button>
             </div>
-            <dl className="mt-3 grid gap-3 sm:grid-cols-3">
-              <div>
-                <dt className="text-xs text-muted-foreground">Prévu</dt>
-                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {formatAmount(selected.planned)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Réalisé</dt>
-                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {formatAmount(selected.realized)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Écart</dt>
-                <dd className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                  {selected.écart >= 0 ? '+' : ''}
-                  {formatAmount(selected.écart)}
-                  {selected.taux != null ? (
-                    <span className="ml-1.5 text-xs font-medium text-muted-foreground">
-                      ({formatPercent(selected.taux)})
-                    </span>
-                  ) : null}
-                </dd>
-              </div>
-            </dl>
+            <MonthEnvelopeDrilldown
+              budgetId={budgetId}
+              monthKey={selected.monthKey}
+              monthLabel={selected.monthLabel}
+              formatAmount={formatAmount}
+              onLineClick={onBudgetLineClick}
+            />
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Survolez une barre pour le détail · cliquez une barre ou un mois pour le
-            figer.
+            Cliquez une barre ou un mois pour le drill-down par enveloppe.
+            {canNavigate
+              ? ' Utilisez les flèches pour parcourir toute la durée de l’exercice.'
+              : null}
           </p>
         )}
       </div>

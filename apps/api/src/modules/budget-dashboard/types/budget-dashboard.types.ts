@@ -183,3 +183,38 @@ export type BudgetCockpitResponse = {
 
 /** @deprecated Utiliser BudgetCockpitResponse (RFC-022). */
 export type BudgetDashboardResponse = BudgetCockpitResponse;
+
+/** Drill-down mois — Réalisé vs prévu par enveloppe / ligne. */
+export type BudgetMonthlyBreakdownEnvelopeRow = {
+  envelopeId: string;
+  code: string | null;
+  name: string;
+  type: string;
+  planned: number;
+  realized: number;
+  committed: number;
+};
+
+export type BudgetMonthlyBreakdownLineRow = {
+  lineId: string;
+  code: string | null;
+  name: string;
+  envelopeId: string;
+  envelopeName: string;
+  planned: number;
+  realized: number;
+  committed: number;
+};
+
+export type BudgetMonthlyBreakdownResponse = {
+  month: string;
+  monthIndex: number;
+  currency: string;
+  total: {
+    planned: number;
+    realized: number;
+    committed: number;
+  };
+  envelopes: BudgetMonthlyBreakdownEnvelopeRow[];
+  lines: BudgetMonthlyBreakdownLineRow[];
+};

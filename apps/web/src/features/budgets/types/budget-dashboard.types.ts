@@ -212,6 +212,41 @@ export interface BudgetDashboardQueryParams {
   aggregateBudgetsForExercise?: boolean;
 }
 
+/** Drill-down mois Vue d’ensemble — prévu / réalisé / engagé. */
+export type BudgetMonthlyBreakdownEnvelopeRow = {
+  envelopeId: string;
+  code: string | null;
+  name: string;
+  type: string;
+  planned: number;
+  realized: number;
+  committed: number;
+};
+
+export type BudgetMonthlyBreakdownLineRow = {
+  lineId: string;
+  code: string | null;
+  name: string;
+  envelopeId: string;
+  envelopeName: string;
+  planned: number;
+  realized: number;
+  committed: number;
+};
+
+export type BudgetMonthlyBreakdownResponse = {
+  month: string;
+  monthIndex: number;
+  currency: string;
+  total: {
+    planned: number;
+    realized: number;
+    committed: number;
+  };
+  envelopes: BudgetMonthlyBreakdownEnvelopeRow[];
+  lines: BudgetMonthlyBreakdownLineRow[];
+};
+
 /** Config cockpit (liste / édition). */
 export type BudgetDashboardConfigDto = {
   id: string;

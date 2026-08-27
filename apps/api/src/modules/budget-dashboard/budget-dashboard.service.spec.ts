@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BudgetDashboardWidgetType } from '@prisma/client';
 import { BudgetDashboardConfigService } from './budget-dashboard-config.service';
 import { BudgetDashboardService } from './budget-dashboard.service';
@@ -162,6 +162,7 @@ describe('BudgetDashboardService', () => {
     budgetExercise: { findFirst: jest.Mock };
     budgetVersionSet: { findFirst: jest.Mock };
     budgetLine: { findMany: jest.Mock };
+    budgetLinePlanningMonth: { findMany: jest.Mock };
     financialAllocation: { findMany: jest.Mock };
     financialEvent: { findMany: jest.Mock };
     client: { findUnique: jest.Mock };
@@ -176,6 +177,7 @@ describe('BudgetDashboardService', () => {
       budgetExercise: { findFirst: jest.fn() },
       budgetVersionSet: { findFirst: jest.fn() },
       budgetLine: { findMany: jest.fn() },
+      budgetLinePlanningMonth: { findMany: jest.fn() },
       financialAllocation: { findMany: jest.fn() },
       financialEvent: { findMany: jest.fn() },
       client: { findUnique: jest.fn().mockResolvedValue({ defaultTaxRate: null }) },
@@ -550,6 +552,112 @@ describe('BudgetDashboardService', () => {
       expect(crit.some((l) => l.lineId === 'ok')).toBe(false);
       expect(crit.some((l) => l.lineId === 'crit')).toBe(true);
       expect(crit[0].lineRiskLevel).toBe('CRITICAL');
+    });
+  });
+
+  describe('getMonthlyBreakdown', () => {
+    const exerciseWithStart = {
+      ...mockExercise,
+      startDate: new Date('2026-01-01T00:00:00.000Z'),
+      endDate: new Date('2026-12-31T00:00:00.000Z'),
+    };
+
+    it('agrège prévu / réalisé / engagé par enveloppe pour le mois', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(exerciseWithStart);
+      prisma.budgetLine.findMany.mockResolvedValue([
+        mockLine({
+          id: 'line-1',
+          envelopeId: 'env-1',
+          forecastAmount: 1200,
+          envelope: { id: 'env-1', code: 'E1', name: 'Run IT', type: 'RUN' },
+        }),
+        mockLine({
+          id: 'line-2',
+          envelopeId: 'env-2',
+          code: 'L2',
+          name: 'Ligne 2',
+          forecastAmount: 2400,
+          envelope: { id: 'env-2', code: 'E2', name: 'Build', type: 'BUILD' },
+        }),
+      ]);
+      prisma.budgetLinePlanningMonth.findMany.mockResolvedValue([
+        { budgetLineId: 'line-1', amount: 100 },
+        { budgetLineId: 'line-2', amount: 200 },
+      ]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        {
+          budgetLineId: 'line-1',
+          eventType: 'CONSUMPTION_REGISTERED',
+          amountHt: 40,
+          eventDate: new Date(2026, 3, 10),
+          createdAt: new Date(2026, 3, 10),
+        },
+        {
+          budgetLineId: 'line-2',
+          eventType: 'COMMITMENT_REGISTERED',
+          amountHt: 80,
+          eventDate: new Date(2026, 3, 12),
+          createdAt: new Date(2026, 3, 12),
+        },
+      ]);
+
+      const result = await service.getMonthlyBreakdown(clientId, {
+        budgetId,
+        month: '2026-04',
+      });
+
+      expect(result.month).toBe('2026-04');
+      expect(result.monthIndex).toBe(4);
+      expect(result.total.planned).toBe(300);
+      expect(result.total.realized).toBe(40);
+      expect(result.total.committed).toBe(80);
+      expect(result.envelopes).toHaveLength(2);
+      const run = result.envelopes.find((e) => e.envelopeId === 'env-1');
+      expect(run?.name).toBe('Run IT');
+      expect(run?.planned).toBe(100);
+      expect(run?.realized).toBe(40);
+      expect(result.lines.some((l) => l.lineId === 'line-1')).toBe(true);
+    });
+
+    it('refuse un mois hors période startDate–endDate', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(exerciseWithStart);
+
+      await expect(
+        service.getMonthlyBreakdown(clientId, {
+          budgetId,
+          month: '2025-06',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('accepte un mois au-delà de 12 si endDate le couvre (exercice long)', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue({
+        ...mockExercise,
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        endDate: new Date('2027-06-30T00:00:00.000Z'),
+      });
+      prisma.budgetLine.findMany.mockResolvedValue([
+        mockLine({
+          id: 'line-1',
+          envelopeId: 'env-1',
+          forecastAmount: 1800,
+          envelope: { id: 'env-1', code: 'E1', name: 'Run IT', type: 'RUN' },
+        }),
+      ]);
+      prisma.financialEvent.findMany.mockResolvedValue([]);
+
+      const result = await service.getMonthlyBreakdown(clientId, {
+        budgetId,
+        month: '2027-03',
+      });
+
+      expect(result.monthIndex).toBe(15);
+      expect(prisma.budgetLinePlanningMonth.findMany).not.toHaveBeenCalled();
+      // 1800 / 18 mois
+      expect(result.total.planned).toBe(100);
     });
   });
 });
