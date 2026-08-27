@@ -11,7 +11,7 @@ import type {
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
-import { SvgGroupedBarChart } from '@/features/budgets/forecast/components/comparison-charts-svg';
+import { RealizedVsPlannedBarChart } from '@/features/budgets/components/realized-vs-planned-bar-chart';
 import { buildRealizedVsPlannedChartRows } from '@/features/budgets/lib/build-realized-vs-planned-chart';
 import type {
   BudgetEnvelope,
@@ -260,7 +260,7 @@ export function BudgetDetailDashboard({
   );
 
   const hasChartSignal = monthlyChartRows.some(
-    (row) => row.left > 0 || row.right > 0,
+    (row) => row.planned > 0 || row.realized > 0,
   );
 
   const monthlyTaxHint =
@@ -311,13 +311,9 @@ export function BudgetDetailDashboard({
                 Aucune prévision ni consommation à afficher sur l’exercice.
               </p>
             ) : (
-              <SvgGroupedBarChart
+              <RealizedVsPlannedBarChart
                 rows={monthlyChartRows}
-                leftName="Prévu"
-                rightName="Réalisé"
-                leftColor="var(--neutral-300)"
-                rightColor="var(--state-danger)"
-                formatY={(value) =>
+                formatAmount={(value) =>
                   formatDashboardAmount({
                     ht: value,
                     currency,
@@ -325,7 +321,6 @@ export function BudgetDetailDashboard({
                     defaultTaxRate,
                   })
                 }
-                className="h-64 w-full"
               />
             )}
             <p className="text-xs text-muted-foreground">{monthlyTaxHint}</p>

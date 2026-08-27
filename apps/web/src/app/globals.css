@@ -7346,7 +7346,9 @@ body {
 
 /* Comparaison budget — graphiques SVG (transitions + tracé courbes) */
 .chart-svg-bar {
+  transform-box: fill-box;
   transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
     y 0.55s cubic-bezier(0.22, 1, 0.36, 1),
     height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
     width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
@@ -7377,6 +7379,7 @@ body {
   .chart-svg-bar,
   .chart-svg-dot {
     transition: none !important;
+    transform: none !important;
   }
 
   .chart-donut-slice {

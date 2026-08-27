@@ -5,11 +5,19 @@ import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
 
 const GRID = 'var(--border)';
 
+const CHART_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 /** Animation de tracé (stroke-dashoffset) pour les courbes — relancée quand `animateKey` ou les paths changent. */
 function useLinePathsDraw(svgRef: React.RefObject<SVGSVGElement | null>, pathSignature: string, animateKey: string) {
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    if (prefersReducedMotion()) return;
     const paths = [...svg.querySelectorAll<SVGPathElement>('.chart-svg-path-draw')];
     const timeouts: ReturnType<typeof setTimeout>[] = [];
     paths.forEach((el) => {
@@ -25,7 +33,7 @@ function useLinePathsDraw(svgRef: React.RefObject<SVGSVGElement | null>, pathSig
         if (!Number.isFinite(len) || len < 0.5) return;
         timeouts.push(
           setTimeout(() => {
-            el.style.transition = 'stroke-dashoffset 0.88s cubic-bezier(0.22, 1, 0.36, 1)';
+            el.style.transition = `stroke-dashoffset 0.88s ${CHART_EASE}`;
             el.style.strokeDashoffset = '0';
           }, 45 + idx * 95),
         );
@@ -36,6 +44,54 @@ function useLinePathsDraw(svgRef: React.RefObject<SVGSVGElement | null>, pathSig
       timeouts.forEach(clearTimeout);
     };
   }, [animateKey, pathSignature, svgRef]);
+}
+
+/**
+ * Croissance des barres au mount / changement de données (scale depuis la base).
+ * Les transitions CSS sur y/height SVG sont peu fiables au mount — transform l’est.
+ */
+function useBarsGrow(
+  svgRef: React.RefObject<SVGSVGElement | null>,
+  signature: string,
+  animateKey: string,
+  axis: 'vertical' | 'horizontal' = 'vertical',
+) {
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    if (prefersReducedMotion()) return;
+    const bars = [...svg.querySelectorAll<SVGRectElement>('.chart-svg-bar')];
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+    bars.forEach((el) => {
+      const growFromRight = el.dataset.chartGrowFromRight != null;
+      el.style.transition = 'none';
+      el.style.transformBox = 'fill-box';
+      el.style.transformOrigin =
+        axis === 'vertical'
+          ? 'center bottom'
+          : growFromRight
+            ? 'right center'
+            : 'left center';
+      el.style.transform = axis === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+    });
+
+    const raf = requestAnimationFrame(() => {
+      bars.forEach((el, idx) => {
+        timeouts.push(
+          setTimeout(() => {
+            el.style.transition = `transform 0.55s ${CHART_EASE}`;
+            el.style.transform = 'scale(1)';
+          }, 35 + idx * 28),
+        );
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      timeouts.forEach(clearTimeout);
+    };
+  }, [animateKey, signature, svgRef, axis]);
 }
 
 /** Point sur le cercle : angle 0° = midi, sens horaire. */
@@ -150,7 +206,7 @@ export function SvgGroupedBarChart({
   rightColor,
   formatY,
   className,
-  animateKey: _animateKey = '',
+  animateKey = '',
 }: {
   rows: GroupedBarRow[];
   leftName: string;
@@ -173,13 +229,23 @@ export function SvgGroupedBarChart({
     1,
     ...rows.flatMap((r) => [Math.abs(r.left), Math.abs(r.right)]),
   );
-  const n = rows.length;
+  const n = Math.max(1, rows.length);
   const groupW = innerW / n;
   const barW = (groupW * 0.28) / 1;
   const gap = groupW * 0.12;
+  const barSig = rows.map((r) => `${r.label}:${r.left}:${r.right}`).join('|');
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  useBarsGrow(svgRef, barSig, animateKey, 'vertical');
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={className} role="img" aria-label="Histogramme comparé">
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${w} ${h}`}
+      className={className}
+      role="img"
+      aria-label="Histogramme comparé"
+    >
       <text x={padL} y={14} className="fill-muted-foreground text-[10px]">
         ■ {leftName}
       </text>
@@ -373,7 +439,7 @@ export function SvgHorizontalDiffBars({
   posColor,
   negColor,
   className,
-  animateKey: _animateKey = '',
+  animateKey = '',
 }: {
   rows: HBarRow[];
   formatX: (n: number) => string;
@@ -391,9 +457,14 @@ export function SvgHorizontalDiffBars({
   const mid = padL + (w - padL - padR) / 2;
   const half = (w - padL - padR) / 2 - 4;
   const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.value)));
+  const barSig = rows.map((r) => `${r.name}:${r.value}`).join('|');
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  useBarsGrow(svgRef, barSig, animateKey, 'horizontal');
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${w} ${h}`}
       className={className}
       role="img"
@@ -430,6 +501,7 @@ export function SvgHorizontalDiffBars({
               height={18}
               rx={3}
               fill={pos ? posColor : negColor}
+              {...(!pos ? { 'data-chart-grow-from-right': '1' } : {})}
             >
               <title>
                 {row.name}: {formatX(row.value)} (droite − gauche)

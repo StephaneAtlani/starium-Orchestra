@@ -13,10 +13,30 @@ describe('buildRealizedVsPlannedChartRows', () => {
     });
 
     expect(rows).toHaveLength(12);
-    expect(rows[0]).toEqual({ label: 'J', left: 100, right: 0 });
-    expect(rows[3]).toEqual({ label: 'A', left: 100, right: 400 });
-    expect(rows[4]).toEqual({ label: 'M', left: 100, right: 200 });
-    expect(rows.every((row) => row.left === 100)).toBe(true);
+    expect(rows[0]).toMatchObject({
+      label: 'J',
+      monthLabel: 'Jan',
+      monthKey: '2026-01',
+      planned: 100,
+      realized: 0,
+      left: 100,
+      right: 0,
+    });
+    expect(rows[3]).toMatchObject({
+      label: 'A',
+      monthLabel: 'Avr',
+      monthKey: '2026-04',
+      planned: 100,
+      realized: 400,
+    });
+    expect(rows[4]).toMatchObject({
+      label: 'M',
+      monthLabel: 'Mai',
+      monthKey: '2026-05',
+      planned: 100,
+      realized: 200,
+    });
+    expect(rows.every((row) => row.planned === 100)).toBe(true);
   });
 
   it('préfère le planning mensuel fourni à la répartition égale', () => {
@@ -27,7 +47,7 @@ describe('buildRealizedVsPlannedChartRows', () => {
       plannedAmounts12: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
     });
 
-    expect(rows[0].left).toBe(10);
-    expect(rows[11].left).toBe(120);
+    expect(rows[0].planned).toBe(10);
+    expect(rows[11].planned).toBe(120);
   });
 });

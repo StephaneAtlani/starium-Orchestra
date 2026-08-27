@@ -2,12 +2,26 @@ import {
   FRENCH_MONTH_LABELS_SHORT,
   getExerciseMonthCalendarYearMonth,
 } from '@starium-orchestra/budget-exercise-calendar';
-import type { GroupedBarRow } from '@/features/budgets/forecast/components/comparison-charts-svg';
 
 export type MonthlyTrendPoint = {
   month: string;
   committed: number;
   consumed: number;
+};
+
+/** Ligne mensuelle pour le graphique Réalisé vs prévu (Vue d’ensemble). */
+export type RealizedVsPlannedMonthRow = {
+  monthKey: string;
+  /** Initiale axe X (J F M …). */
+  label: string;
+  /** Libellé métier court (Jan, Fév…). */
+  monthLabel: string;
+  planned: number;
+  realized: number;
+  /** Alias GroupedBarRow — Prévu. */
+  left: number;
+  /** Alias GroupedBarRow — Réalisé. */
+  right: number;
 };
 
 /**
@@ -22,7 +36,7 @@ export function buildRealizedVsPlannedChartRows(params: {
   monthlyTrend: MonthlyTrendPoint[];
   /** Somme planning par index 0..11 (mois d’exercice) — optionnel. */
   plannedAmounts12?: readonly number[] | null;
-}): GroupedBarRow[] {
+}): RealizedVsPlannedMonthRow[] {
   const start = parseExerciseStart(params.exerciseStartDateIso);
   const plannedByMonth = new Map(
     params.monthlyTrend.map((row) => [row.month, row]),
@@ -33,6 +47,7 @@ export function buildRealizedVsPlannedChartRows(params: {
     const monthIndex = index + 1;
     const ym = getExerciseMonthCalendarYearMonth(start, monthIndex);
     const monthKey = `${ym.year}-${String(ym.monthIndex0 + 1).padStart(2, '0')}`;
+    const monthLabel = FRENCH_MONTH_LABELS_SHORT[ym.monthIndex0] ?? 'Mois';
     const label = monthLetterLabel(ym.monthIndex0);
     const plannedFromGrid = params.plannedAmounts12?.[index];
     const planned =
@@ -41,7 +56,11 @@ export function buildRealizedVsPlannedChartRows(params: {
         : fallbackPlanned;
     const realized = Math.max(0, plannedByMonth.get(monthKey)?.consumed ?? 0);
     return {
+      monthKey,
       label,
+      monthLabel,
+      planned,
+      realized,
       left: planned,
       right: realized,
     };
