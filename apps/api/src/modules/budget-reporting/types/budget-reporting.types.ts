@@ -6,6 +6,8 @@
 export interface BudgetSummaryKpi {
   totalInitialAmount: number;
   totalForecastAmount: number;
+  /** RFC-BUD-040 — alias canonique de totalForecastAmount (atterrissage). */
+  totalLandingAmount: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
   totalRemainingAmount: number;
@@ -13,6 +15,7 @@ export interface BudgetSummaryKpi {
   // Si au moins une ligne ne permet pas d'établir un taux effectif, alors ces valeurs sont à `null`.
   totalInitialAmountTtc?: number | null;
   totalForecastAmountTtc?: number | null;
+  totalLandingAmountTtc?: number | null;
   totalCommittedAmountTtc?: number | null;
   totalConsumedAmountTtc?: number | null;
   totalRemainingAmountTtc?: number | null;
@@ -21,6 +24,7 @@ export interface BudgetSummaryKpi {
   forecastRate: number;
   varianceAmount: number;
   forecastGapAmount: number;
+  landingGapAmount: number;
   budgetCount?: number;
   envelopeCount?: number;
   lineCount: number;
@@ -36,6 +40,7 @@ export interface BudgetSummaryKpi {
 export interface BudgetLineAmounts {
   initialAmount: number;
   forecastAmount: number;
+  landingAmount: number;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
@@ -47,6 +52,7 @@ export interface BudgetLineAmounts {
 export interface LineAmountsInput {
   initialAmount: number;
   forecastAmount: number;
+  landingAmount?: number;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
@@ -65,6 +71,7 @@ export interface EnvelopeLineReportItem {
   currency: string;
   initialAmount: number;
   forecastAmount: number;
+  landingAmount: number;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;

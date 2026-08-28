@@ -8,6 +8,7 @@ import type {
   BudgetListItemWithKpi,
   BudgetSummaryKpi,
   EnvelopeListItemWithKpi,
+  EnvelopeSummaryResponse,
   ExerciseSummaryResponse,
   LineListItemWithRates,
   ListBudgetsForExerciseQuery,
@@ -128,7 +129,7 @@ export async function getEnvelopeSummary(
   authFetch: AuthFetch,
   envelopeId: string,
   params?: { includeChildren?: boolean },
-): Promise<{ envelopeId: string; kpi: unknown }> {
+): Promise<EnvelopeSummaryResponse> {
   const qs = buildQueryString(params as Record<string, string | number | boolean | undefined>);
   const res = await authFetch(`${BASE}/envelopes/${envelopeId}/summary${qs}`);
   return handleResponse(res);

@@ -104,35 +104,6 @@ async function upsertDemoSupplier(prisma: PrismaClient, clientId: string) {
   });
 }
 
-async function upsertForecastAllocation(
-  prisma: PrismaClient,
-  clientId: string,
-  budgetLineId: string,
-  forecastTotal: number,
-): Promise<void> {
-  await prisma.financialAllocation.deleteMany({
-    where: {
-      budgetLineId,
-      clientId,
-      allocationType: AllocationType.FORECAST,
-    },
-  });
-  if (forecastTotal <= 0) return;
-  await prisma.financialAllocation.create({
-    data: {
-      clientId,
-      budgetLineId,
-      sourceType: FinancialSourceType.MANUAL,
-      sourceId: budgetLineId,
-      allocationType: AllocationType.FORECAST,
-      allocatedAmount: new Prisma.Decimal(forecastTotal),
-      currency: "EUR",
-      effectiveDate: y(DEMO_YEAR, 1, 1),
-      notes: "Seed cockpit — prévisionnel agrégé (aligné snapshot / calculateur)",
-    },
-  });
-}
-
 async function upsertProcurementForLine(
   prisma: PrismaClient,
   input: {
@@ -613,7 +584,6 @@ export async function ensureBudgetCockpitCompleteDemo(
     });
 
     await upsertPlanningTimeline(prisma, client.id, line.id, story.forecast);
-    await upsertForecastAllocation(prisma, client.id, line.id, story.forecast);
 
     const { orderDate, invoiceDate } = procurementDatesForLine(story.code);
     await upsertProcurementForLine(prisma, {

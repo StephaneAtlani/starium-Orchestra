@@ -52,6 +52,7 @@ export function aggregateLinesToKpi(
   return {
     totalInitialAmount,
     totalForecastAmount,
+    totalLandingAmount: totalForecastAmount,
     totalCommittedAmount,
     totalConsumedAmount,
     totalRemainingAmount,
@@ -60,6 +61,7 @@ export function aggregateLinesToKpi(
     forecastRate,
     varianceAmount,
     forecastGapAmount,
+    landingGapAmount: forecastGapAmount,
     ...(options?.budgetCount !== undefined && {
       budgetCount: options.budgetCount,
     }),
@@ -88,16 +90,20 @@ export function lineToReportItem(line: {
   currency: string;
   initialAmount: number;
   forecastAmount: number;
+  landingAmount?: number;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
 }): EnvelopeLineReportItem {
   const budget = line.initialAmount;
+  const forecast = line.forecastAmount;
+  const landing = line.landingAmount ?? line.forecastAmount;
   const consumptionRate = budget === 0 ? 0 : line.consumedAmount / budget;
   const commitmentRate = budget === 0 ? 0 : line.committedAmount / budget;
-  const forecastRate = budget === 0 ? 0 : line.forecastAmount / budget;
+  const forecastRate = budget === 0 ? 0 : forecast / budget;
   return {
     ...line,
+    landingAmount: landing,
     consumptionRate,
     commitmentRate,
     forecastRate,

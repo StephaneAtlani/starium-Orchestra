@@ -59,7 +59,7 @@ describe('buildBudgetDetailCsvContent', () => {
     const csv = buildBudgetDetailCsvContent({ envelopes: [], lines: [] });
     const headers = csv.split('\n')[0];
     expect(headers).toContain('Budget HT');
-    expect(headers).toContain('Prévision HT');
+    expect(headers).toContain('Atterrissage HT');
     expect(headers).toContain('Engagé HT');
     expect(headers).toContain('Consommé HT');
     expect(headers).toContain('Restant HT');

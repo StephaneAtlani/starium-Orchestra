@@ -1,27 +1,17 @@
 'use client';
 
 import React, { useEffect, useId, useMemo, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RealizedVsPlannedMonthRow } from '@/features/budgets/lib/build-realized-vs-planned-chart';
+import { resolveInitialRealizedVsPlannedMonthKey } from '@/features/budgets/lib/build-realized-vs-planned-chart';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
+import { SvgGroupedBarChart } from '@/features/budgets/forecast/components/comparison-charts-svg';
 import { MonthEnvelopeDrilldown } from '@/features/budgets/components/month-envelope-drilldown';
 import { Button } from '@/components/ui/button';
 
 const PLANNED_FILL = 'var(--neutral-300)';
 const REALIZED_FILL = 'var(--state-danger)';
-const GRID_STROKE = 'var(--border)';
-const TICK_FILL = 'var(--color-text-muted)';
 
 /** Nombre de mois visibles à l’écran (flèches pour le reste de l’exercice). */
 const CHART_WINDOW_SIZE = 12;
@@ -38,64 +28,6 @@ type Props = {
   onBudgetLineClick?: (lineId: string) => void;
   className?: string;
 };
-
-function formatAxisTick(value: number): string {
-  if (!Number.isFinite(value)) return '';
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) {
-    return `${new Intl.NumberFormat('fr-FR', {
-      maximumFractionDigits: 1,
-    }).format(value / 1_000_000)}\u00a0M`;
-  }
-  if (abs >= 1_000) {
-    return `${new Intl.NumberFormat('fr-FR', {
-      maximumFractionDigits: 0,
-    }).format(value / 1_000)}\u00a0k`;
-  }
-  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value);
-}
-
-function MonthTooltip({
-  active,
-  payload,
-  formatAmount,
-}: {
-  active?: boolean;
-  payload?: ReadonlyArray<{ payload?: ChartDatum }>;
-  formatAmount: (value: number) => string;
-}) {
-  if (!active || !payload?.length) return null;
-  const row = payload[0]?.payload;
-  if (!row) return null;
-
-  return (
-    <div
-      className="rounded-[var(--radius-md)] border border-border bg-card px-3 py-2 shadow-[var(--shadow-3)]"
-      role="status"
-    >
-      <p className="text-sm font-semibold text-foreground">{row.monthLabel}</p>
-      <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-        Prévu :{' '}
-        <span className="font-medium text-foreground">{formatAmount(row.planned)}</span>
-      </p>
-      <p className="text-xs tabular-nums text-muted-foreground">
-        Réalisé :{' '}
-        <span className="font-medium text-foreground">{formatAmount(row.realized)}</span>
-      </p>
-      <p className="text-xs tabular-nums text-muted-foreground">
-        Écart :{' '}
-        <span className="font-medium text-foreground">
-          {row.écart >= 0 ? '+' : ''}
-          {formatAmount(row.écart)}
-        </span>
-        {row.taux != null ? (
-          <span className="text-muted-foreground"> · {formatPercent(row.taux)}</span>
-        ) : null}
-      </p>
-      <p className="mt-1 text-[10px] text-muted-foreground">Cliquez pour le détail par enveloppe</p>
-    </div>
-  );
-}
 
 function clampWindowStart(start: number, total: number, windowSize: number): number {
   const maxStart = Math.max(0, total - windowSize);
@@ -128,8 +60,19 @@ export function RealizedVsPlannedBarChart({
   const maxWindowStart = Math.max(0, data.length - windowSize);
 
   useEffect(() => {
-    setWindowStart(0);
+    const focusKey = resolveInitialRealizedVsPlannedMonthKey(rows);
+    const nextWindowSize = Math.min(CHART_WINDOW_SIZE, Math.max(1, rows.length));
     setSelectedKey(null);
+    if (focusKey) {
+      const index = rows.findIndex((row) => row.monthKey === focusKey);
+      setWindowStart(
+        index >= 0
+          ? clampWindowStart(index, rows.length, nextWindowSize)
+          : 0,
+      );
+    } else {
+      setWindowStart(0);
+    }
   }, [rows]);
 
   useEffect(() => {
@@ -145,6 +88,56 @@ export function RealizedVsPlannedBarChart({
     () => data.find((row) => row.monthKey === selectedKey) ?? null,
     [data, selectedKey],
   );
+
+  const chartRows = useMemo(() => {
+    if (selected) {
+      return [
+        {
+          label: selected.label,
+          title: selected.monthLabel,
+          left: selected.planned,
+          right: selected.realized,
+        },
+      ];
+    }
+    return visibleData.map((row) => ({
+      label: row.label,
+      title: row.monthLabel,
+      left: row.planned,
+      right: row.realized,
+    }));
+  }, [selected, visibleData]);
+
+  const chartMaxValue = useMemo(() => {
+    const peak = selected
+      ? Math.max(selected.planned, selected.realized, 1)
+      : Math.max(
+          1,
+          ...chartRows.flatMap((row) => [Math.abs(row.left), Math.abs(row.right)]),
+        );
+    return peak * 1.1;
+  }, [selected, chartRows]);
+
+  const selectedVisibleIndex = useMemo(() => {
+    if (!selected) return null;
+    return 0;
+  }, [selected]);
+
+  const formatAxisTick = (value: number): string => {
+    if (!Number.isFinite(value)) return '';
+    const abs = Math.abs(value);
+    if (abs >= 1_000_000) {
+      return `${new Intl.NumberFormat('fr-FR', {
+        maximumFractionDigits: 1,
+      }).format(value / 1_000_000)}M`;
+    }
+    if (abs >= 1_000) {
+      return `${new Intl.NumberFormat('fr-FR', {
+        maximumFractionDigits: 0,
+      }).format(value / 1_000)}k`;
+    }
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value);
+  };
 
   const windowRangeLabel = useMemo(() => {
     if (visibleData.length === 0) return 'Aucun mois';
@@ -222,100 +215,37 @@ export function RealizedVsPlannedBarChart({
         aria-labelledby={`${chartId}-title`}
       >
         <p id={`${chartId}-title`} className="sr-only">
-          Histogramme Réalisé versus prévu sur la durée de l’exercice ({pageLabel}). Fenêtre
-          affichée : {windowRangeLabel}. Cliquez une barre pour ouvrir le détail par enveloppe.
+          {selected
+            ? `Histogramme ${selected.monthLabel} : prévu versus réalisé sur ce mois.`
+            : `Histogramme Réalisé versus prévu sur la durée de l’exercice (${pageLabel}). Fenêtre affichée : ${windowRangeLabel}.`}
         </p>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={visibleData}
-            margin={{ top: 8, right: 8, left: 4, bottom: 4 }}
-            barGap={2}
-            barCategoryGap="18%"
-          >
-            <CartesianGrid
-              strokeDasharray="4 4"
-              stroke={GRID_STROKE}
-              vertical={false}
-              strokeOpacity={0.85}
-            />
-            <XAxis
-              dataKey="label"
-              tick={{ fill: TICK_FILL, fontSize: 11 }}
-              tickLine={false}
-              axisLine={{ stroke: GRID_STROKE }}
-              interval={0}
-            />
-            <YAxis
-              tick={{ fill: TICK_FILL, fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              width={48}
-              tickFormatter={formatAxisTick}
-            />
-            <Tooltip
-              cursor={{ fill: 'var(--muted)', fillOpacity: 0.35 }}
-              content={({ active, payload }) => (
-                <MonthTooltip
-                  active={active}
-                  payload={payload as ReadonlyArray<{ payload?: ChartDatum }> | undefined}
-                  formatAmount={formatAmount}
-                />
-              )}
-            />
-            <Bar
-              dataKey="planned"
-              name="Prévu"
-              fill={PLANNED_FILL}
-              radius={[4, 4, 0, 0]}
-              maxBarSize={28}
-              isAnimationActive
-              animationDuration={550}
-              activeBar={false}
-              onClick={(item) => {
-                const payload = item?.payload as ChartDatum | undefined;
-                if (payload?.monthKey) selectMonth(payload.monthKey);
-              }}
-              style={{ cursor: 'pointer' }}
-              aria-label="Prévu"
-            >
-              {visibleData.map((row) => (
-                <Cell
-                  key={`planned-${row.monthKey}`}
-                  fill={PLANNED_FILL}
-                  fillOpacity={
-                    selectedKey == null || selectedKey === row.monthKey ? 1 : 0.35
-                  }
-                />
-              ))}
-            </Bar>
-            <Bar
-              dataKey="realized"
-              name="Réalisé"
-              fill={REALIZED_FILL}
-              radius={[4, 4, 0, 0]}
-              maxBarSize={28}
-              isAnimationActive
-              animationDuration={550}
-              activeBar={false}
-              onClick={(item) => {
-                const payload = item?.payload as ChartDatum | undefined;
-                if (payload?.monthKey) selectMonth(payload.monthKey);
-              }}
-              style={{ cursor: 'pointer' }}
-              aria-label="Réalisé"
-            >
-              {visibleData.map((row) => (
-                <Cell
-                  key={`realized-${row.monthKey}`}
-                  fill={REALIZED_FILL}
-                  fillOpacity={
-                    selectedKey == null || selectedKey === row.monthKey ? 1 : 0.35
-                  }
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {selected ? (
+          <p className="mb-2 text-center text-sm font-semibold text-foreground" aria-hidden>
+            {selected.monthLabel} — zoom mensuel
+          </p>
+        ) : null}
+        <SvgGroupedBarChart
+          rows={chartRows}
+          leftName="Prévu"
+          rightName="Réalisé"
+          leftColor={PLANNED_FILL}
+          rightColor={REALIZED_FILL}
+          formatY={formatAxisTick}
+          formatTooltip={formatAmount}
+          className="h-full w-full"
+          animate={false}
+          maxValue={chartMaxValue}
+          showBarValueLabels={Boolean(selected)}
+          selectedRowIndex={selectedVisibleIndex}
+          onRowClick={
+            selected
+              ? undefined
+              : (index) => {
+                  const row = visibleData[index];
+                  if (row) selectMonth(row.monthKey);
+                }
+          }
+        />
       </div>
 
       <div
@@ -369,6 +299,13 @@ export function RealizedVsPlannedBarChart({
                     </>
                   ) : null}
                 </p>
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-medium text-foreground underline-offset-2 hover:underline"
+                  onClick={() => setSelectedKey(null)}
+                >
+                  Voir les 12 mois de l’exercice
+                </button>
               </div>
               <Button
                 type="button"
@@ -391,7 +328,7 @@ export function RealizedVsPlannedBarChart({
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Cliquez une barre ou un mois pour le drill-down par enveloppe.
+            Survolez une barre pour le détail du mois, ou cliquez pour le drill-down par enveloppe.
             {canNavigate
               ? ' Utilisez les flèches pour parcourir toute la durée de l’exercice.'
               : null}

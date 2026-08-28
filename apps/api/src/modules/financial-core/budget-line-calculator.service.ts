@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { assertBudgetLineExistsForClient } from './helpers/budget-line.helper';
 import { aggregateBudgetLineAmounts } from './budget-line-amounts.aggregate';
+import { BudgetLandingService } from '../budget-landing/budget-landing.service';
 
 type TxClient = Omit<
   Prisma.TransactionClient,
@@ -11,12 +12,14 @@ type TxClient = Omit<
 
 @Injectable()
 export class BudgetLineCalculatorService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly landingService: BudgetLandingService,
+  ) {}
 
   /**
-   * Recalcule forecastAmount, committedAmount, consumedAmount, remainingAmount
-   * pour une ligne budgétaire. Utilise tx si fourni (dans une transaction).
-   * Base effective = initialAmount (montant budgétaire) + delta des REALLOCATION_DONE (non comptés dans forecast/committed/consumed).
+   * Recalcule committedAmount, consumedAmount, remainingAmount pour une ligne,
+   * puis l'atterrissage (RFC-BUD-040) via BudgetLandingService.
    */
   async recalculateForBudgetLine(
     budgetLineId: string,
@@ -50,11 +53,17 @@ export class BudgetLineCalculatorService {
     await client.budgetLine.update({
       where: { id: budgetLineId },
       data: {
-        forecastAmount: aggregated.forecastAmount.toDecimalPlaces(2),
         committedAmount: aggregated.committedAmount.toDecimalPlaces(2),
         consumedAmount: aggregated.consumedAmount.toDecimalPlaces(2),
         remainingAmount: aggregated.remainingAmount.toDecimalPlaces(2),
       },
     });
+
+    await this.landingService.recalculateAndPersist(
+      clientId,
+      budgetLineId,
+      undefined,
+      tx,
+    );
   }
 }

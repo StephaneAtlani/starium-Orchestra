@@ -18,7 +18,12 @@ function mockBudget(overrides: Record<string, unknown> = {}) {
     code: 'BUD-2026',
     currency: 'EUR',
     status: BudgetStatus.VALIDATED,
-    exercise: { clientId, id: exerciseId },
+    exercise: {
+      clientId,
+      id: exerciseId,
+      startDate: new Date('2026-01-01T00:00:00.000Z'),
+      endDate: new Date('2026-12-31T00:00:00.000Z'),
+    },
     ...overrides,
   };
 }
@@ -180,7 +185,10 @@ describe('BudgetSnapshotsService', () => {
             in: mergeBudgetWorkflowConfig(null).snapshotIncludedBudgetLineStatuses,
           },
         },
-        include: { envelope: true },
+        include: {
+          envelope: true,
+          planningMonths: { select: { monthIndex: true, amount: true } },
+        },
       });
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(auditLogs.create).toHaveBeenCalledWith(

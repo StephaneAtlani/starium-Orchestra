@@ -13,6 +13,7 @@ import {
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardLineRow } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { cn } from '@/lib/utils';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { LineSeverityLabel } from './budget-cockpit-status-labels';
@@ -57,7 +58,7 @@ export function BudgetTopBudgetLinesCard({
     >
       <CockpitSurfaceCard
         title="Top lignes"
-        description="Consommation, forecast, restant et niveau de risque ligne."
+        description={`Consommation, ${BUDGET_LABELS.landing.toLowerCase()}, restant et niveau de risque ligne.`}
         icon={ListOrdered}
         accent="primary"
         contentPad={false}
@@ -91,7 +92,7 @@ export function BudgetTopBudgetLinesCard({
                 Consommé
               </TableHead>
               <TableHead className={cn(cockpitThNum, 'whitespace-nowrap')}>
-                Forecast
+                {BUDGET_LABELS.landing}
               </TableHead>
               <TableHead className={cn(cockpitThNumLast, 'whitespace-nowrap')}>
                 Restant

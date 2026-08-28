@@ -1,4 +1,4 @@
-# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003), portefeuille (RFC-FE-BUD-031), explorateur (RFC-FE-004), cockpit (RFC-FE-002), formulaires (RFC-FE-015) et forecast / comparaison (RFC-FE-BUD-030)
+# Module Budget Frontend — Fondation (RFC-FE-001), listes (RFC-FE-003), portefeuille (RFC-FE-BUD-031), explorateur (RFC-FE-004), cockpit (RFC-FE-002), formulaires (RFC-FE-015), atterrissage (RFC-BUD-040) et comparaison (RFC-FE-BUD-030)
 
 Ce document décrit la **fondation frontend** du module Budget dans Starium Orchestra : structure, conventions, et utilisation. Références : [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md), [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md), [RFC-FE-BUD-031 — Portefeuille budgets UI (refonte mockup)](../RFC/RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md), [RFC-FE-004 — Budget Envelopes & Lines Explorer UI](../RFC/RFC-FE-004%20—%20Budget%20Envelopes%20%26%20Lines%20Explorer%20UI.md), [RFC-FE-015 — Budget Forms UX](../RFC/RFC-FE-015%20—%20Budget%20Forms%20UX.md), [RFC-FE-BUD-030 — Forecast & Comparaison budgétaire UI](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md). **Vue cockpit** (`/budgets/dashboard`) : voir [Budget Cockpit — UI & intégration](budget-cockpit.md).
 
@@ -31,8 +31,9 @@ features/budgets/
 │   ├── get-budgets.ts             # Liste budgets (page→offset, RFC-FE-003)
 │   ├── get-budget-exercise-options.ts  # Options pour filtre exercice (RFC-FE-003)
 │   ├── budget-reporting.api.ts
+│   ├── budget-landing.api.ts       # RFC-BUD-040 — atterrissage (canonique)
 │   ├── budget-dashboard.api.ts
-│   ├── budget-forecast.api.ts
+│   ├── budget-forecast.api.ts        # RFC-BUD-040 — wrapper déprécié → landing
 │   ├── budget-comparison.api.ts
 │   ├── budget-snapshots.api.ts   # listBudgetSnapshots, détail (RFC-033 / RFC-FE-BUD-030)
 │   ├── budget-snapshot-occasion-types.api.ts
@@ -50,6 +51,10 @@ features/budgets/
 │   ├── use-exercise-reporting-summary-query.ts   # KPI consolidation exercice (RFC-FE-BUD-031)
 │   ├── use-exercise-budgets-reporting-query.ts   # Liste budgets + KPI par exercice (RFC-FE-BUD-031)
 │   ├── use-budget-summary.ts
+│   ├── use-envelope-summary.ts        # RFC-BUD-040 — KPI enveloppe (reporting)
+│   ├── use-budget-landing.ts          # RFC-BUD-040
+│   ├── use-envelope-landing.ts
+│   ├── use-envelope-landing-lines.ts
 │   ├── use-budget-dashboard.ts
 │   ├── use-budget-envelopes.ts         # Toutes enveloppes d’un budget (RFC-FE-004, aussi utilisé par le formulaire de ligne)
 │   ├── use-budget-lines.ts             # Toutes lignes d’un budget (RFC-FE-004)
@@ -178,8 +183,9 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | budget-management | CRUD structure (exercices, budgets, enveloppes, lignes) | GET + POST/PATCH (RFC-FE-015) ; `parseApiFormError` + `ApiFormError` pour erreurs formulaires |
 | general-ledger-accounts | Options comptes comptables (formulaire ligne) | GET `/api/general-ledger-accounts` (RFC-FE-015) |
 | budget-reporting | KPI et listes reporting | GET `/api/budget-reporting/*` (summary, listBudgetsForExercise, listEnvelopesForBudget, getEnvelopeSummary, listLinesForEnvelope) |
+| budget-landing | Atterrissage (RFC-BUD-040) | GET `/api/budget-landing/*`, `GET /api/budget-lines/:id/landing` |
 | budget-dashboard | Vue cockpit | GET `/api/budget-dashboard` |
-| budget-forecast / budget-comparison | Forecast & comparaison budgétaire | GET `/api/budget-forecast/*`, `/api/budget-comparisons/*` ([RFC-FE-BUD-030](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)) |
+| budget-forecast / budget-comparison | Forecast **déprécié** (proxy landing) & comparaison | GET `/api/budget-forecast/*` (`Deprecation: true`), `/api/budget-comparisons/*` — [RFC-BUD-040](../RFC/RFC-BUD-040%20%E2%80%94%20Unification%20atterrissage%2C%20pr%C3%A9vision%20et%20forecast.md), [RFC-FE-BUD-030](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md) |
 | budget-snapshots | Liste snapshots (sélecteur comparaison) | GET `/api/budget-snapshots?budgetId=` — RFC-FE-BUD-030 |
 | budget-versioning | Historique de versions | GET `/api/budgets/:id/version-history` — RFC-FE-BUD-030 |
 | budget-reallocations, -imports | Stubs / partiels | RFC dédiées |
@@ -206,8 +212,12 @@ Tous les modules API reçoivent une fonction **authFetch** (retour de `useAuthen
 | `useBudgetLinesByBudget(budgetId)` | use-budget-lines | Toutes lignes du budget, sans filtres API (RFC-FE-004) |
 | `useBudgetExplorer(budgetId)` | use-budget-explorer | Agrégat budget + enveloppes + lignes, états (RFC-FE-004) |
 | `useBudgetExplorerTree(budget, envelopes, lines, filters)` | use-budget-explorer-tree | tree + filteredTree mémoïsés (RFC-FE-004) |
-| **RFC-FE-BUD-030 (forecast)** | | |
-| `useBudgetForecast` / `useEnvelopeForecast` / `useEnvelopeForecastLines` | forecast/hooks | Données KPI + lignes forecast (pagination avec `keepPreviousData`) |
+| **RFC-BUD-040 (atterrissage)** | | |
+| `useBudgetLanding` | use-budget-landing | Agrégat atterrissage budget |
+| `useEnvelopeLanding` / `useEnvelopeLandingLines` | use-envelope-landing* | Agrégat + lignes enveloppe |
+| `useEnvelopeSummary` | use-envelope-summary | KPI enveloppe via reporting (bandeau synthèse) |
+| `useBudgetForecast` / `useEnvelopeForecast` / `useEnvelopeForecastLines` | forecast/hooks | **Alias dépréciés** → hooks landing ci-dessus |
+| **RFC-FE-BUD-030 (comparaison)** | | |
 | `useBudgetComparison` | forecast/hooks | Comparaison `compareBudget` — `compareTo` UI : `baseline` \| `snapshot` ; `enabled` si `snapshot` sans `targetId` → false |
 | `useBudgetSnapshotsForSelect` | forecast/hooks | Liste versions figées libellées pour sélecteurs et mode multi-colonnes |
 | `useSnapshotPairComparison` / `useMultiSnapshotVsLiveComparison` | forecast/hooks | Onglets « deux versions figées » et « plusieurs versions figées » |
@@ -288,7 +298,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032)** : `PageHeader` + bande 6 KPI + Vue d’ensemble (graphique **Réalisé vs prévu** 12 mois, lignes critiques API, tableau enveloppes/lignes). Navigation métier via barre d’outils / onglets (`?onglet=`). Export CSV **client** (`downloadBudgetDetailCsv`). Modale unique **Saisir une dépense** (Engagement / commande · Consommé / Facture) |
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
-| `/budgets/[budgetId]/reporting` | **Forecast & comparaison** (RFC-FE-BUD-030) : KPI budget, panneau comparaison (baseline / **version figée**, paires et multi versions figées), table + **vue graphique SVG** |
+| `/budgets/[budgetId]/reporting` | **Redirect** (RFC-BUD-040 D2) vers `/budgets/[budgetId]?onglet=comparaisons` — contenu forecast/comparaison embarqué dans la fiche (RFC-FE-BUD-030) |
 | `/budgets/[budgetId]/snapshots` | **Versions figées** (RFC-033) : liste (y compris captures **automatiques** aux statuts Soumis / Validé), colonnes **Figée au…** / **Date** (exécution), tri et filtres ; création manuelle ; détail `/budgets/[budgetId]/snapshots/[snapshotId]` avec bande KPI (`BudgetSnapshotKpiStrip`) |
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | **Journal des réaffectations** — `BudgetReallocationsPanel` (même panneau que l’onglet Réaffectations de la fiche) |
@@ -300,7 +310,7 @@ Chaque page de données gère **loading**, **error**, **empty**, **success**. Le
 
 **Kit portefeuille partagé** : `apps/web/src/components/portfolio/` (`PortfolioEntityCard`, `PortfolioKpiRow`, `PortfolioViewToggle`, `PortfolioProgressBar`, tons table) — référence UX : [FRONTEND_UI-UX.md](../FRONTEND_UI-UX.md) §6.2.
 
-**Enveloppe** (`/budget-envelopes/[envelopeId]`) : bloc forecast KPI + table lignes forecast paginée + lien vers le reporting budget (RFC-FE-BUD-030).
+**Enveloppe** (`/budget-envelopes/[envelopeId]`) : synthèse KPI via **reporting** (`useEnvelopeSummary`) + bloc atterrissage (`useEnvelopeLanding`, table lignes) ; lien vers comparaisons budget (RFC-BUD-040).
 
 ---
 
@@ -336,7 +346,8 @@ Exemples : `budgetList()` → `/budgets`, `budgetListWithExercise(exerciseId)` �
 
 ## 11. Références
 
-- [RFC-FE-BUD-030 — Forecast & Comparaison budgétaire UI](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md) — `/budgets/[budgetId]/reporting`, composants `features/budgets/forecast/`
+- [RFC-BUD-040 — Unification atterrissage, prévision et forecast](../RFC/RFC-BUD-040%20%E2%80%94%20Unification%20atterrissage%2C%20pr%C3%A9vision%20et%20forecast.md) — moteur landing, vocabulaire **Atterrissage**, redirect `/reporting`
+- [RFC-FE-BUD-030 — Forecast & Comparaison budgétaire UI](../RFC/RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md) — onglet Comparaisons sur la fiche budget, composants `features/budgets/forecast/`
 - [Budget Cockpit — UI & intégration](budget-cockpit.md) — `/budgets/dashboard`, HT/TTC, tableaux (dont drill-down ligne via `BudgetLineIntelligenceDrawer`), fichiers `features/budgets/dashboard/`
 - [RFC-FE-001 — Budget Frontend Foundation](../RFC/RFC-FE-001%20—%20Budget%20Frontend%20Foundation.md)
 - [RFC-FE-003 — Budget Exercises & Budgets List UI](../RFC/RFC-FE-003%20—%20Budget%20Exercises%20%26%20Budgets%20List%20UI.md) — listes paginées, filtres, sync URL

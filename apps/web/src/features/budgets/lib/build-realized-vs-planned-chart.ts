@@ -1,5 +1,6 @@
 import {
   FRENCH_MONTH_LABELS_SHORT,
+  defaultReferenceDateUtc,
   listExerciseCalendarMonths,
 } from '@starium-orchestra/budget-exercise-calendar';
 
@@ -74,6 +75,18 @@ export function buildRealizedVsPlannedChartRows(params: {
       right: realized,
     };
   });
+}
+
+/** Mois à mettre en fenêtre (exercices longs) : mois courant UTC, sinon dernier mois avec du réalisé. */
+export function resolveInitialRealizedVsPlannedMonthKey(
+  rows: readonly RealizedVsPlannedMonthRow[],
+  referenceDate: Date = defaultReferenceDateUtc(),
+): string | null {
+  if (rows.length === 0) return null;
+  const currentKey = `${referenceDate.getUTCFullYear()}-${String(referenceDate.getUTCMonth() + 1).padStart(2, '0')}`;
+  if (rows.some((row) => row.monthKey === currentKey)) return currentKey;
+  const latestWithRealized = [...rows].reverse().find((row) => row.realized > 0);
+  return latestWithRealized?.monthKey ?? rows[0]?.monthKey ?? null;
 }
 
 function parseExerciseDate(iso: string | null | undefined): Date | null {

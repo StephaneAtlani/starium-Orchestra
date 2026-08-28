@@ -1,26 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import {
   BUDGET_LABELS,
+  BUDGET_LABEL_HINTS,
   formatBudgetSelectLabel,
   isHumanBudgetCode,
 } from './budget-display-labels';
 
 describe('BUDGET_LABELS', () => {
-  it('expose un libellé unique par concept financier', () => {
+  it('expose un libellé unique par concept financier (RFC-BUD-040)', () => {
     expect(BUDGET_LABELS.budget).toBe('Budget');
-    expect(BUDGET_LABELS.forecast).toBe('Prévision');
+    expect(BUDGET_LABELS.planningTab).toBe('Prévisionnel');
+    expect(BUDGET_LABELS.planningTotal).toBe('Total prévisionnel');
+    expect(BUDGET_LABELS.remainingPlanning).toBe('Prévision restante');
+    expect(BUDGET_LABELS.landing).toBe('Atterrissage');
+    expect(BUDGET_LABELS.landingGap).toBe("Écart d'atterrissage");
     expect(BUDGET_LABELS.committed).toBe('Engagé');
     expect(BUDGET_LABELS.consumed).toBe('Consommé');
     expect(BUDGET_LABELS.remaining).toBe('Restant');
-    expect(BUDGET_LABELS.forecastGap).toBe('Écart prévision');
     expect(BUDGET_LABELS.snapshot).toBe('Version figée');
+  });
+
+  it('mappe les alias dépréciés vers atterrissage', () => {
+    expect(BUDGET_LABELS.forecast).toBe('Atterrissage');
+    expect(BUDGET_LABELS.forecastGap).toBe("Écart d'atterrissage");
   });
 
   it('n\'utilise aucun synonyme interdit', () => {
     const values = Object.values(BUDGET_LABELS);
     expect(values).not.toContain('Total planifié');
     expect(values).not.toContain('Forecast');
-    expect(new Set(values).size).toBe(values.length);
+    expect(BUDGET_LABELS.forecast).toBe(BUDGET_LABELS.landing);
+    expect(BUDGET_LABELS.forecastGap).toBe(BUDGET_LABELS.landingGap);
+  });
+});
+
+describe('BUDGET_LABEL_HINTS', () => {
+  it('documente l\'atterrissage sans ambiguïté', () => {
+    expect(BUDGET_LABEL_HINTS.landing).toContain('consommé');
+    expect(BUDGET_LABEL_HINTS.landing).toContain('engagé');
   });
 });
 

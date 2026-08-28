@@ -32,6 +32,7 @@ const PILOTAGE_LINE_AMOUNTS_SELECT = {
   currency: true,
   initialAmount: true,
   forecastAmount: true,
+  landingAmount: true,
   committedAmount: true,
   consumedAmount: true,
   remainingAmount: true,
@@ -105,13 +106,19 @@ function whereLinesForPilotageTotals(
 function toLineAmounts(row: {
   initialAmount: unknown;
   forecastAmount: unknown;
+  landingAmount?: unknown;
   committedAmount: unknown;
   consumedAmount: unknown;
   remainingAmount: unknown;
 }): LineAmountsInput {
+  const landing =
+    row.landingAmount != null
+      ? fromDecimal(row.landingAmount as Parameters<typeof fromDecimal>[0])
+      : fromDecimal(row.forecastAmount as Parameters<typeof fromDecimal>[0]);
   return {
     initialAmount: fromDecimal(row.initialAmount as Parameters<typeof fromDecimal>[0]),
-    forecastAmount: fromDecimal(row.forecastAmount as Parameters<typeof fromDecimal>[0]),
+    forecastAmount: landing,
+    landingAmount: landing,
     committedAmount: fromDecimal(row.committedAmount as Parameters<typeof fromDecimal>[0]),
     consumedAmount: fromDecimal(row.consumedAmount as Parameters<typeof fromDecimal>[0]),
     remainingAmount: fromDecimal(row.remainingAmount as Parameters<typeof fromDecimal>[0]),

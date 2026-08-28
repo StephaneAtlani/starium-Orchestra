@@ -20,6 +20,7 @@ import {
   aggregateBudgetLineAmounts,
   snapshotAsOfInclusiveEndUtc,
 } from '../financial-core/budget-line-amounts.aggregate';
+import { calculateLanding } from '../budget-landing/budget-landing.calculator';
 
 const SNAP_CODE_SUFFIX_BYTES = 3; // 6 hex chars
 const MAX_CODE_RETRIES = 5;
@@ -239,7 +240,10 @@ export class BudgetSnapshotsService {
         clientId,
         status: { in: includedStatuses },
       },
-      include: { envelope: true },
+      include: {
+        envelope: true,
+        planningMonths: { select: { monthIndex: true, amount: true } },
+      },
     });
 
     const snapshotDate = dto.snapshotDate
@@ -298,12 +302,21 @@ export class BudgetSnapshotsService {
           allocatedAmount: a.allocatedAmount,
         })) ?? [];
       const agg = aggregateBudgetLineAmounts(line.initialAmount, evs, allocs);
-      return { line, agg };
+      const landingResult = calculateLanding({
+        effectiveBudgetBase: agg.effectiveBudgetBase,
+        consumedAmount: agg.consumedAmount,
+        committedAmount: agg.committedAmount,
+        exerciseStart: budget.exercise.startDate,
+        exerciseEnd: budget.exercise.endDate,
+        referenceDate: snapshotDate,
+        planningMonths: line.planningMonths ?? [],
+      });
+      return { line, agg, landingResult };
     });
 
     const totalInitial = lines.reduce((s, l) => s + toNum(l.initialAmount), 0);
     const totalForecast = lineSnapshots.reduce(
-      (s, { agg }) => s + toNum(agg.forecastAmount),
+      (s, { landingResult }) => s + toNum(landingResult.landingAmount),
       0,
     );
     const totalCommitted = lineSnapshots.reduce(
@@ -348,7 +361,7 @@ export class BudgetSnapshotsService {
             },
           });
           await tx.budgetSnapshotLine.createMany({
-            data: lineSnapshots.map(({ line, agg }) => ({
+            data: lineSnapshots.map(({ line, agg, landingResult }) => ({
               snapshotId: snap.id,
               clientId,
               budgetLineId: line.id,
@@ -363,7 +376,8 @@ export class BudgetSnapshotsService {
               currency: line.currency,
               lineStatus: line.status,
               initialAmount: line.initialAmount,
-              forecastAmount: agg.forecastAmount,
+              forecastAmount: landingResult.landingAmount,
+              landingAmount: landingResult.landingAmount,
               committedAmount: agg.committedAmount,
               consumedAmount: agg.consumedAmount,
               remainingAmount: agg.remainingAmount,

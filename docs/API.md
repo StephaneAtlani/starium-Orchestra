@@ -571,6 +571,8 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/financial-allocations, /api/financial-events, /api/budget-lines/:id/allocations, /api/budget-lines/:id/events | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create`) |
 | /api/budget-reallocations | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-reporting/* | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
+| /api/budget-landing/*, `GET /api/budget-lines/:id/landing` | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
+| /api/budget-forecast/* (**déprécié**, proxy landing + `Deprecation: true`) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budget-dashboard | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budget-imports/* (analyze, preview, execute) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
@@ -2158,6 +2160,12 @@ Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `
 
 **Planning prévisionnel ([RFC-023 — Budget Prévisionnel](RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md))** — sous `/api/budget-lines/:id/planning` : `GET` (query optionnelle `referenceDate`), `PUT` (saisie manuelle des 12 mois), `POST .../planning/apply-mode` (corps discriminant par `mode`), routes `POST .../planning/apply-*` (**legacy**, mêmes comportements), `POST .../planning/calculate`, `POST .../planning/apply-calculation`. **Permissions** : `budgets.read` / `budgets.update`. Réponse : montants d’atterrissage et écarts calculés côté serveur ; champs canoniques `planningDelta`, `landingVariance` (alias de transition documentés dans [CHANGELOG.md](../CHANGELOG.md)).
 
+**Atterrissage (RFC-BUD-040)** — `GET /api/budget-lines/:id/landing` (query optionnelle `referenceDate` ISO 8601). **Permission** : `budgets.read`. Réponse : `landingAmount`, `landingVariance`, `planningTotalAmount`, `remainingPlanning`, `effectiveBudgetBase` ; alias de transition `forecastAmount` = `landingAmount`. Audit : `budget.landing.viewed` (sans montants en payload).
+
+**Agrégats atterrissage** — sous `/api/budget-landing/` : `GET budgets/:id`, `GET envelopes/:id`, `GET envelopes/:id/lines` (query `search`, `status`, pagination). **Permission** : `budgets.read`. Champs canoniques `totalLandingAmount` / `landingAmount` ; alias `totalForecastAmount`, `forecastAmount`. Les routes `/api/budget-forecast/*` restent disponibles avec en-tête HTTP `Deprecation: true` (proxy vers le moteur landing).
+
+**Noyau financier** : `POST /api/financial-allocations` avec `allocationType = FORECAST` est **refusé** (`400 forecast_allocation_deprecated`) depuis RFC-BUD-040 ; l’atterrissage est recalculé par le moteur landing après planning, mouvements ou réallocations.
+
 ---
 
 ### PATCH /api/budget-lines/bulk-status
@@ -2396,7 +2404,7 @@ Référence : **RFC-016** (Budget Reporting API). Module **budget-reporting** : 
 
 ### Format des réponses
 
-- **Summary** (exercice, budget, enveloppe) : objet KPI avec `totalInitialAmount`, `totalRevisedAmount`, `totalForecastAmount`, `totalCommittedAmount`, `totalConsumedAmount`, `totalRemainingAmount`, `consumptionRate`, `commitmentRate`, `forecastRate`, `varianceAmount`, `forecastGapAmount`, `budgetCount` / `envelopeCount` / `lineCount` (selon niveau), `overConsumedLineCount`, `overCommittedLineCount`, `negativeRemainingLineCount`, `currency` (string ou `null` si périmètre sans ligne).
+- **Summary** (exercice, budget, enveloppe) : objet KPI avec `totalInitialAmount`, `totalRevisedAmount`, `totalLandingAmount` (canonique RFC-BUD-040), `totalForecastAmount` (alias), `totalCommittedAmount`, `totalConsumedAmount`, `totalRemainingAmount`, `consumptionRate`, `commitmentRate`, `landingRate`, `forecastRate` (alias), `varianceAmount`, `landingGapAmount`, `forecastGapAmount` (alias), `budgetCount` / `envelopeCount` / `lineCount` (selon niveau), `overConsumedLineCount`, `overCommittedLineCount`, `negativeRemainingLineCount`, `currency` (string ou `null` si périmètre sans ligne).
 - **Listes** : `{ "items": [...], "total": number, "limit": number, "offset": number }`. `limit` max **100** (query).
 - **Ratios** : 0 si `revisedAmount` = 0 ; jamais `null`.
 - **Search** : appliqué uniquement à `name` et `code` (budgets, enveloppes, lignes).

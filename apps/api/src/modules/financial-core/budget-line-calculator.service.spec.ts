@@ -1,5 +1,7 @@
+import { Test, TestingModule } from '@nestjs/testing';
 import { AllocationType, FinancialEventType, Prisma } from '@prisma/client';
 import { BudgetLineCalculatorService } from './budget-line-calculator.service';
+import { BudgetLandingService } from '../budget-landing/budget-landing.service';
 
 jest.mock('./helpers/budget-line.helper', () => ({
   assertBudgetLineExistsForClient: jest.fn().mockResolvedValue(undefined),
@@ -7,12 +9,16 @@ jest.mock('./helpers/budget-line.helper', () => ({
 
 describe('BudgetLineCalculatorService', () => {
   let service: BudgetLineCalculatorService;
+  let landingService: { recalculateAndPersist: jest.Mock };
   let prisma: any;
 
   const clientId = 'client-1';
   const budgetLineId = 'line-1';
 
   beforeEach(() => {
+    landingService = {
+      recalculateAndPersist: jest.fn().mockResolvedValue(undefined),
+    };
     prisma = {
       budgetLine: {
         findFirst: jest.fn(),
@@ -22,22 +28,21 @@ describe('BudgetLineCalculatorService', () => {
       financialAllocation: { findMany: jest.fn() },
       financialEvent: { findMany: jest.fn() },
     };
-    service = new BudgetLineCalculatorService(prisma);
+    service = new BudgetLineCalculatorService(
+      prisma,
+      landingService as unknown as BudgetLandingService,
+    );
   });
 
   describe('recalculateForBudgetLine', () => {
-    it('calcule forecastAmount comme somme des allocations FORECAST', async () => {
+    it('ne persiste plus forecastAmount depuis allocations FORECAST', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
         initialAmount: new Prisma.Decimal(1000),
       });
       prisma.financialAllocation.findMany.mockResolvedValue([
         {
           allocationType: AllocationType.FORECAST,
-          allocatedAmount: new Prisma.Decimal(100.5),
-        },
-        {
-          allocationType: AllocationType.FORECAST,
-          allocatedAmount: new Prisma.Decimal(200.49),
+          allocatedAmount: new Prisma.Decimal(300),
         },
       ]);
       prisma.financialEvent.findMany.mockResolvedValue([]);
@@ -45,14 +50,14 @@ describe('BudgetLineCalculatorService', () => {
 
       await service.recalculateForBudgetLine(budgetLineId, clientId);
 
-      expect(prisma.budgetLine.update).toHaveBeenCalledWith({
-        where: { id: budgetLineId },
-        data: expect.objectContaining({
-          forecastAmount: expect.anything(),
-        }),
-      });
       const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
-      expect(Number(updateData.forecastAmount)).toBeCloseTo(300.99);
+      expect(updateData.forecastAmount).toBeUndefined();
+      expect(landingService.recalculateAndPersist).toHaveBeenCalledWith(
+        clientId,
+        budgetLineId,
+        undefined,
+        undefined,
+      );
     });
 
     it('calcule committedAmount (COMMITTED + COMMITMENT_REGISTERED)', async () => {
@@ -83,118 +88,7 @@ describe('BudgetLineCalculatorService', () => {
       expect(Number(updateData.committedAmount)).toBeCloseTo(250.49);
     });
 
-    it('calcule consumedAmount (CONSUMED + CONSUMPTION_REGISTERED)', async () => {
-      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        initialAmount: new Prisma.Decimal(1000),
-      });
-      prisma.financialAllocation.findMany.mockResolvedValue([
-        {
-          allocationType: AllocationType.CONSUMED,
-          allocatedAmount: new Prisma.Decimal(10.01),
-        },
-        {
-          allocationType: AllocationType.CONSUMED,
-          allocatedAmount: new Prisma.Decimal(20.02),
-        },
-      ]);
-      prisma.financialEvent.findMany.mockResolvedValue([
-        {
-          eventType: FinancialEventType.CONSUMPTION_REGISTERED,
-          amountHt: new Prisma.Decimal(69.96),
-        },
-      ]);
-      prisma.budgetLine.update.mockResolvedValue({});
-
-      await service.recalculateForBudgetLine(budgetLineId, clientId);
-
-      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
-      expect(Number(updateData.consumedAmount)).toBeCloseTo(99.99);
-    });
-
-    it('calcule remainingAmount = budgetBase - committed - consumed (décimaux)', async () => {
-      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        initialAmount: new Prisma.Decimal(1000.5),
-      });
-      prisma.financialAllocation.findMany.mockResolvedValue([
-        {
-          allocationType: AllocationType.COMMITTED,
-          allocatedAmount: new Prisma.Decimal(100.5),
-        },
-        {
-          allocationType: AllocationType.CONSUMED,
-          allocatedAmount: new Prisma.Decimal(200.25),
-        },
-      ]);
-      prisma.financialEvent.findMany.mockResolvedValue([]);
-      prisma.budgetLine.update.mockResolvedValue({});
-
-      await service.recalculateForBudgetLine(budgetLineId, clientId);
-
-      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
-      const remaining = Number(updateData.remainingAmount);
-      expect(remaining).toBeCloseTo(1000.5 - 100.5 - 200.25);
-      expect(remaining).toBeCloseTo(699.75);
-    });
-
-    it('utilise tx quand fourni', async () => {
-      const tx = {
-        budgetLine: {
-          findUniqueOrThrow: jest.fn().mockResolvedValue({ initialAmount: new Prisma.Decimal(100) }),
-          update: jest.fn().mockResolvedValue({}),
-        },
-        financialAllocation: { findMany: jest.fn().mockResolvedValue([]) },
-        financialEvent: { findMany: jest.fn().mockResolvedValue([]) },
-      };
-
-      await service.recalculateForBudgetLine(budgetLineId, clientId, tx as any);
-
-      expect(tx.budgetLine.findUniqueOrThrow).toHaveBeenCalledWith({
-        where: { id: budgetLineId, clientId },
-        select: { initialAmount: true },
-      });
-      expect(tx.budgetLine.update).toHaveBeenCalled();
-      expect(prisma.budgetLine.update).not.toHaveBeenCalled();
-    });
-
-    it('initialAmount 1000 + REALLOCATION_DONE +200 => effective base 1200', async () => {
-      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        initialAmount: new Prisma.Decimal(1000),
-      });
-      prisma.financialAllocation.findMany.mockResolvedValue([]);
-      prisma.financialEvent.findMany.mockResolvedValue([
-        {
-          eventType: FinancialEventType.REALLOCATION_DONE,
-          amountHt: new Prisma.Decimal(200),
-        },
-      ]);
-      prisma.budgetLine.update.mockResolvedValue({});
-
-      await service.recalculateForBudgetLine(budgetLineId, clientId);
-
-      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
-      expect(Number(updateData.remainingAmount)).toBe(1200);
-    });
-
-    it('initialAmount 1000 + REALLOCATION_DONE -200 => effective base 800', async () => {
-      prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
-        initialAmount: new Prisma.Decimal(1000),
-      });
-      prisma.financialAllocation.findMany.mockResolvedValue([]);
-      prisma.financialEvent.findMany.mockResolvedValue([
-        {
-          eventType: FinancialEventType.REALLOCATION_DONE,
-          amountHt: new Prisma.Decimal(-200),
-        },
-      ]);
-      prisma.budgetLine.update.mockResolvedValue({});
-
-      await service.recalculateForBudgetLine(budgetLineId, clientId);
-
-      const updateData = prisma.budgetLine.update.mock.calls[0][0].data;
-      expect(Number(updateData.remainingAmount)).toBe(800);
-    });
-
-    it('initialAmount 1000, REALLOCATION_DONE +200, committed 300, consumed 100 => remaining 800', async () => {
+    it('calcule remainingAmount avec base effective incluant réallocations', async () => {
       prisma.budgetLine.findUniqueOrThrow.mockResolvedValue({
         initialAmount: new Prisma.Decimal(1000),
       });

@@ -24,6 +24,7 @@ import { AccessControlModule } from '../access-control/access-control.module';
 import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 import { OrganizationModule } from '../organization/organization.module';
+import { BudgetLandingModule } from '../budget-landing/budget-landing.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { OrganizationModule } from '../organization/organization.module';
     AccessDecisionModule,
     FeatureFlagsModule,
     OrganizationModule,
+    BudgetLandingModule,
   ],
   controllers: [
     BudgetExercisesController,

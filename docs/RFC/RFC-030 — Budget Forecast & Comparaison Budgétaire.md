@@ -2,7 +2,7 @@
 
 ## Statut
 
-Draft
+Draft — **amendé par [RFC-BUD-040](./RFC-BUD-040%20%E2%80%94%20Unification%20atterrissage%2C%20pr%C3%A9vision%20et%20forecast.md)** (2026-08-28) : le « forecast » métier = **atterrissage** (`landingAmount`) ; routes `/api/budget-forecast/*` dépréciées au profit de `/api/budget-landing/*` ; comparaisons conservées sous `/api/budget-comparisons/*`.
 
 ## Priorité
 

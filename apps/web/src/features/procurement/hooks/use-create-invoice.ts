@@ -17,6 +17,14 @@ export function useCreateInvoice(budgetId: string | null, budgetLineId: string |
     mutationFn: async (payload: CreateInvoicePayload) =>
       createInvoice(authFetch, payload),
     onSuccess: () => {
+      if (clientId) {
+        queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.dashboardAll(clientId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.monthlyBreakdownAll(clientId),
+        });
+      }
       if (budgetId) {
         queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),

@@ -20,7 +20,7 @@ import { BudgetDashboardHeader } from './components/budget-dashboard-header';
 import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
-import { budgetReporting } from '@/features/budgets/constants/budget-routes';
+import { budgetComparisons } from '@/features/budgets/constants/budget-routes';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
 import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
 import { explorerSortPresetToState } from '@/features/budgets/types/budget-explorer.types';
@@ -55,8 +55,8 @@ export function BudgetDashboardPage() {
   } = useBudgetDashboardPage();
 
   const isAggregatedBudgetMode = budgetId === '__ALL__';
-  const forecastReportingHref =
-    budgetId && !isAggregatedBudgetMode ? budgetReporting(budgetId) : undefined;
+  const comparisonsHref =
+    budgetId && !isAggregatedBudgetMode ? budgetComparisons(budgetId) : undefined;
 
   const {
     taxDisplayMode,
@@ -181,7 +181,7 @@ export function BudgetDashboardPage() {
                 if (!useUserOverrides) onUserOverridesModeChange(true);
                 setSettingsOpen(true);
               }}
-              forecastReportingHref={forecastReportingHref}
+              comparisonsHref={comparisonsHref}
             />
 
             <CockpitSurfaceCard

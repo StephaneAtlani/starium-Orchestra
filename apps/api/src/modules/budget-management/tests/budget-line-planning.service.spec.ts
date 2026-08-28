@@ -67,6 +67,9 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
       budgetLinePlanningScenario: {
         create: jest.fn().mockResolvedValue({}),
       },
+      financialEvent: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn(async (cb: (tx: any) => Promise<any>) => {
         const tx = {
           budgetLine: prisma.budgetLine,
@@ -81,7 +84,15 @@ describe('BudgetLinePlanningService (audit & core behavior)', () => {
       create: jest.fn().mockResolvedValue(undefined),
     };
 
-    service = new BudgetLinePlanningService(prisma, auditLogs);
+    const landingService = {
+      recalculateAndPersist: jest.fn().mockResolvedValue(undefined),
+    };
+
+    service = new BudgetLinePlanningService(
+      prisma,
+      auditLogs,
+      landingService as any,
+    );
   });
 
   describe('replaceManualPlanning', () => {

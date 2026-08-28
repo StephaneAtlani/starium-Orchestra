@@ -33,6 +33,7 @@ import type { MappingConfig } from './types/mapping.types';
 import { ExecuteImportDto } from './dto/execute-import.dto';
 import { PreviewImportDto } from './dto/preview-import.dto';
 import { AnalyzeSheetDto } from './dto/analyze-sheet.dto';
+import { BudgetLandingService } from '../budget-landing/budget-landing.service';
 
 const ALLOWED_EXTENSIONS = /\.(csv|xlsx)$/i;
 
@@ -94,6 +95,7 @@ export class BudgetImportService {
     private readonly parser: BudgetImportParserService,
     private readonly matching: BudgetImportMatchingService,
     private readonly platformUpload: PlatformUploadSettingsService,
+    private readonly landingService: BudgetLandingService,
   ) {}
 
   async analyze(
@@ -312,6 +314,7 @@ export class BudgetImportService {
           },
         });
         jobId = job.id;
+        const touchedLineIds: string[] = [];
         for (const r of resolved) {
           if (r.action === 'CREATE') {
             const envelopeId = r.envelopeId ?? options.defaultEnvelopeId;
@@ -344,6 +347,7 @@ export class BudgetImportService {
                 remainingAmount: new Prisma.Decimal(am.remaining),
               },
             });
+            touchedLineIds.push(line.id);
             const existingByKey = await this.findRowLinkByKeyInTx(tx, clientId, dto.budgetId, r.normalizedRow.externalId, r.normalizedRow.compositeHash);
             if (!existingByKey) {
               await tx.budgetImportRowLink.create({
@@ -372,12 +376,21 @@ export class BudgetImportService {
                 currency,
               },
             });
+            touchedLineIds.push(r.existingTargetEntityId);
             updatedRows++;
           } else if (r.action === 'SKIP') {
             skippedRows++;
           } else {
             errorRows++;
           }
+        }
+        for (const lineId of touchedLineIds) {
+          await this.landingService.recalculateAndPersist(
+            clientId,
+            lineId,
+            undefined,
+            tx,
+          );
         }
         await tx.budgetImportJob.update({
           where: { id: job.id },

@@ -195,6 +195,12 @@ export function BudgetExpenseEntryModal({
       );
       await Promise.all([
         queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.dashboardAll(clientId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.monthlyBreakdownAll(clientId),
+        }),
+        queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),
         }),
         queryClient.invalidateQueries({

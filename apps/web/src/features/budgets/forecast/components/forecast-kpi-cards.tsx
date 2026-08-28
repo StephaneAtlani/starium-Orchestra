@@ -8,6 +8,7 @@ import {
   formatCurrency,
   formatPercent,
 } from '@/features/budgets/lib/budget-formatters';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import type {
   BudgetForecastResponse,
   EnvelopeForecastResponse,
@@ -43,7 +44,7 @@ export function ForecastKpiCards({
   if (error) {
     return (
       <Alert variant="destructive" data-testid="forecast-kpi-error">
-        <AlertTitle>Forecast indisponible</AlertTitle>
+        <AlertTitle>{BUDGET_LABELS.landing} indisponible</AlertTitle>
         <AlertDescription>{error.message}</AlertDescription>
       </Alert>
     );
@@ -61,28 +62,33 @@ export function ForecastKpiCards({
   }
 
   const cur = data.currency;
+  const landing = data.totalLanding ?? data.totalForecast;
+  const landingVariance = data.varianceLanding ?? data.varianceForecast;
+  const landingRate = data.landingRate ?? data.forecastRate;
+  const overLanding = data.alerts.overLanding ?? data.alerts.overForecast;
+
   const items: { label: string; value: string; sub?: string; valueClass?: string }[] = [
     {
       label: 'Budget total',
       value: formatCurrency(data.totalBudget, cur),
     },
     {
-      label: 'Consommé',
+      label: BUDGET_LABELS.consumed,
       value: formatCurrency(data.totalConsumed, cur),
     },
     {
-      label: 'Forecast',
-      value: formatCurrency(data.totalForecast, cur),
+      label: BUDGET_LABELS.landing,
+      value: formatCurrency(landing, cur),
     },
     {
-      label: 'Restant',
+      label: BUDGET_LABELS.remaining,
       value: formatCurrency(data.totalRemaining, cur),
     },
     {
-      label: 'Variance forecast',
-      value: formatCurrency(data.varianceForecast, cur),
-      valueClass: varianceTone(data.varianceForecast),
-      sub: `Taux consommation ${formatPercent(data.consumptionRate)} · Taux forecast ${formatPercent(data.forecastRate)}`,
+      label: BUDGET_LABELS.landingGap,
+      value: formatCurrency(landingVariance, cur),
+      valueClass: varianceTone(landingVariance),
+      sub: `Taux consommation ${formatPercent(data.consumptionRate)} · Taux ${BUDGET_LABELS.landing.toLowerCase()} ${formatPercent(landingRate)}`,
     },
   ];
 
@@ -108,13 +114,13 @@ export function ForecastKpiCards({
           ) : null}
         </div>
       ))}
-      {(data.alerts.overForecast > 0 || data.alerts.overConsumed > 0) && (
+      {(overLanding > 0 || data.alerts.overConsumed > 0) && (
         <Card className="border-dashed sm:col-span-2 lg:col-span-3 xl:col-span-5">
           <CardHeader className="pb-1">
             <span className="text-sm font-medium">Alertes</span>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Lignes au-dessus du forecast : {data.alerts.overForecast} · au-dessus du
+            Lignes au-dessus de l&apos;{BUDGET_LABELS.landing.toLowerCase()} : {overLanding} · au-dessus du
             consommé vs budget : {data.alerts.overConsumed}
           </CardContent>
         </Card>

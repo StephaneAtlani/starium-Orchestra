@@ -919,6 +919,8 @@ features/budgets/
 │   ├── budget-management.api.ts
 │   ├── get-budget-exercises.ts, get-budgets.ts, get-budget-exercise-options.ts  # RFC-FE-003
 │   ├── budget-reporting.api.ts   # summary + listBudgetsForExercise (RFC-FE-BUD-031)
+│   ├── budget-landing.api.ts     # RFC-BUD-040 — atterrissage (canonique)
+│   ├── budget-forecast.api.ts      # RFC-BUD-040 — wrapper déprécié → landing
 │   ├── budget-dashboard.api.ts
 │   └── stubs (snapshots, reallocations, imports, versioning)
 ├── hooks/
@@ -926,7 +928,8 @@ features/budgets/
 │   ├── use-budget-exercises-query.ts, use-budgets-query.ts, use-budget-exercise-options-query.ts  # RFC-FE-003
 │   ├── use-budget-list-filters.ts   # RFC-FE-003 + view (RFC-FE-BUD-031)
 │   ├── use-exercise-reporting-summary-query.ts, use-exercise-budgets-reporting-query.ts  # RFC-FE-BUD-031
-│   ├── use-budget-summary.ts
+│   ├── use-budget-summary.ts, use-envelope-summary.ts
+│   ├── use-budget-landing.ts, use-envelope-landing.ts, use-envelope-landing-lines.ts  # RFC-BUD-040
 │   └── use-budget-dashboard.ts
 ├── components/
 │   ├── budget-page-header.tsx

@@ -86,8 +86,8 @@ export function formatKpiAmountParts(params: {
   return { amount: formatFrInt(ht), currency: sym, taxTag: 'HT', approx: false };
 }
 
-/** Écart forecast − budget : différence des TTC API si les deux agrégats sont connus. */
-export function formatForecastGapAmount(
+/** Écart atterrissage − budget : différence des TTC API si les deux agrégats sont connus. */
+export function formatLandingGapAmount(
   kpis: {
     totalBudget: number;
     forecast: number;
@@ -112,7 +112,7 @@ export function formatForecastGapAmount(
   });
 }
 
-export function formatForecastGapParts(
+export function formatLandingGapParts(
   kpis: {
     totalBudget: number;
     forecast: number;
@@ -136,3 +136,9 @@ export function formatForecastGapParts(
     defaultTaxRate,
   });
 }
+
+/** @deprecated RFC-BUD-040 — alias de formatLandingGapAmount */
+export const formatForecastGapAmount = formatLandingGapAmount;
+
+/** @deprecated RFC-BUD-040 — alias de formatLandingGapParts */
+export const formatForecastGapParts = formatLandingGapParts;

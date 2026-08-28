@@ -14,40 +14,44 @@ export type AllocationSlice = {
   allocatedAmount: Prisma.Decimal;
 };
 
+export function computeEffectiveBudgetBase(
+  initialAmount: Prisma.Decimal | number | string,
+  events: EventSlice[],
+): Prisma.Decimal {
+  const zero = new Prisma.Decimal(0);
+  const budgetAmount = new Prisma.Decimal(initialAmount as Prisma.Decimal.Value);
+  const reallocationDelta = events
+    .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
+    .reduce((sum, e) => sum.plus(e.amountHt), zero);
+  return budgetAmount.plus(reallocationDelta);
+}
+
 /**
  * Même logique que `BudgetLineCalculatorService.recalculateForBudgetLine` :
- * prévision / engagements / consommation / restant à partir des mouvements fournis.
+ * engagements / consommation / restant à partir des mouvements fournis.
  * Utilisé pour les versions figées « à date » (filtrage des mouvements en amont).
+ * RFC-BUD-040 : le forecast/atterrissage n'est plus dérivé des allocations FORECAST.
  */
 export function aggregateBudgetLineAmounts(
   initialAmount: Prisma.Decimal | number | string,
   events: EventSlice[],
   allocations: AllocationSlice[],
 ): {
-  forecastAmount: Prisma.Decimal;
   committedAmount: Prisma.Decimal;
   consumedAmount: Prisma.Decimal;
   remainingAmount: Prisma.Decimal;
+  effectiveBudgetBase: Prisma.Decimal;
 } {
   const zero = new Prisma.Decimal(0);
-  const budgetAmount = new Prisma.Decimal(initialAmount as any);
+  const effectiveBudgetBase = computeEffectiveBudgetBase(initialAmount, events);
   const evs = events.map((e) => ({
     eventType: e.eventType,
-    amountHt: new Prisma.Decimal(e.amountHt as any),
+    amountHt: new Prisma.Decimal(e.amountHt as Prisma.Decimal.Value),
   }));
   const allocs = allocations.map((a) => ({
     allocationType: a.allocationType,
-    allocatedAmount: new Prisma.Decimal(a.allocatedAmount as any),
+    allocatedAmount: new Prisma.Decimal(a.allocatedAmount as Prisma.Decimal.Value),
   }));
-
-  const reallocationDelta = evs
-    .filter((e) => e.eventType === FinancialEventType.REALLOCATION_DONE)
-    .reduce((sum, e) => sum.plus(e.amountHt), zero);
-  const effectiveBudgetBase = budgetAmount.plus(reallocationDelta);
-
-  const forecastAmount = allocs
-    .filter((a) => a.allocationType === AllocationType.FORECAST)
-    .reduce((sum, a) => sum.plus(a.allocatedAmount), zero);
 
   const committedAlloc = allocs
     .filter((a) => a.allocationType === AllocationType.COMMITTED)
@@ -70,10 +74,10 @@ export function aggregateBudgetLineAmounts(
     .minus(consumedAmount);
 
   return {
-    forecastAmount,
     committedAmount,
     consumedAmount,
     remainingAmount,
+    effectiveBudgetBase,
   };
 }
 

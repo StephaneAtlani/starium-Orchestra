@@ -18,7 +18,7 @@ export const BUDGET_DETAIL_CSV_HEADERS = [
   'Code',
   'Nature',
   `${BUDGET_LABELS.budget} HT`,
-  `${BUDGET_LABELS.forecast} HT`,
+  `${BUDGET_LABELS.landing} HT`,
   `${BUDGET_LABELS.committed} HT`,
   `${BUDGET_LABELS.consumed} HT`,
   `${BUDGET_LABELS.remaining} HT`,

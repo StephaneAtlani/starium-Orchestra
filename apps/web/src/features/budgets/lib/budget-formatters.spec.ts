@@ -37,13 +37,29 @@ describe('budgetKpiAmountForTaxMode', () => {
   const base: BudgetSummaryKpi = {
     totalInitialAmount: 200,
     totalForecastAmount: 150,
+    totalLandingAmount: 160,
     totalCommittedAmount: 0,
     totalConsumedAmount: 0,
     totalRemainingAmount: 200,
     totalInitialAmountTtc: 240,
     totalForecastAmountTtc: 180,
+    totalLandingAmountTtc: 192,
     currency: 'EUR',
   };
+
+  it('utilise le TTC landing quand le mode est TTC', () => {
+    expect(budgetKpiAmountForTaxMode(base, 'TTC', 'landing')).toBe(192);
+    expect(budgetKpiAmountForTaxMode(base, 'TTC', 'forecast')).toBe(180);
+    expect(budgetKpiAmountForTaxMode(base, 'TTC', 'initial')).toBe(240);
+  });
+
+  it('retombe sur forecast si landing TTC absent', () => {
+    const k: BudgetSummaryKpi = {
+      ...base,
+      totalLandingAmountTtc: null,
+    };
+    expect(budgetKpiAmountForTaxMode(k, 'TTC', 'landing')).toBe(180);
+  });
 
   it('utilise le TTC quand le mode est TTC et les TTC sont présents', () => {
     expect(budgetKpiAmountForTaxMode(base, 'TTC', 'forecast')).toBe(180);
@@ -54,7 +70,9 @@ describe('budgetKpiAmountForTaxMode', () => {
     const k: BudgetSummaryKpi = {
       ...base,
       totalForecastAmountTtc: null,
+      totalLandingAmountTtc: null,
     };
     expect(budgetKpiAmountForTaxMode(k, 'TTC', 'forecast')).toBe(150);
+    expect(budgetKpiAmountForTaxMode(k, 'TTC', 'landing')).toBe(160);
   });
 });

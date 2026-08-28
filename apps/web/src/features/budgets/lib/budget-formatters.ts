@@ -62,6 +62,7 @@ export function formatSignedDeltaPercent(a: number, b: number): string | null {
 export type BudgetKpiAmountField =
   | 'initial'
   | 'forecast'
+  | 'landing'
   | 'committed'
   | 'consumed'
   | 'remaining';
@@ -69,6 +70,7 @@ export type BudgetKpiAmountField =
 type BudgetKpiHtField =
   | 'totalInitialAmount'
   | 'totalForecastAmount'
+  | 'totalLandingAmount'
   | 'totalCommittedAmount'
   | 'totalConsumedAmount'
   | 'totalRemainingAmount';
@@ -76,6 +78,7 @@ type BudgetKpiHtField =
 type BudgetKpiTtcField =
   | 'totalInitialAmountTtc'
   | 'totalForecastAmountTtc'
+  | 'totalLandingAmountTtc'
   | 'totalCommittedAmountTtc'
   | 'totalConsumedAmountTtc'
   | 'totalRemainingAmountTtc';
@@ -83,6 +86,7 @@ type BudgetKpiTtcField =
 const HT_FIELD_BY_KPI_FIELD: Record<BudgetKpiAmountField, BudgetKpiHtField> = {
   initial: 'totalInitialAmount',
   forecast: 'totalForecastAmount',
+  landing: 'totalLandingAmount',
   committed: 'totalCommittedAmount',
   consumed: 'totalConsumedAmount',
   remaining: 'totalRemainingAmount',
@@ -91,10 +95,40 @@ const HT_FIELD_BY_KPI_FIELD: Record<BudgetKpiAmountField, BudgetKpiHtField> = {
 const TTC_FIELD_BY_KPI_FIELD: Record<BudgetKpiAmountField, BudgetKpiTtcField> = {
   initial: 'totalInitialAmountTtc',
   forecast: 'totalForecastAmountTtc',
+  landing: 'totalLandingAmountTtc',
   committed: 'totalCommittedAmountTtc',
   consumed: 'totalConsumedAmountTtc',
   remaining: 'totalRemainingAmountTtc',
 };
+
+function resolveKpiHtAmount(kpi: BudgetSummaryKpi, field: BudgetKpiAmountField): number {
+  const key = HT_FIELD_BY_KPI_FIELD[field];
+  const value = kpi[key];
+  if (field === 'landing' || field === 'forecast') {
+    if (value != null && Number.isFinite(value)) return value;
+    if (field === 'landing') {
+      return kpi.totalForecastAmount;
+    }
+    return kpi.totalLandingAmount ?? kpi.totalForecastAmount;
+  }
+  return value ?? 0;
+}
+
+function resolveKpiTtcAmount(
+  kpi: BudgetSummaryKpi,
+  field: BudgetKpiAmountField,
+): number | null | undefined {
+  const key = TTC_FIELD_BY_KPI_FIELD[field];
+  const value = kpi[key];
+  if (field === 'landing' || field === 'forecast') {
+    if (value != null && Number.isFinite(value)) return value;
+    if (field === 'landing') {
+      return kpi.totalForecastAmountTtc;
+    }
+    return kpi.totalLandingAmountTtc ?? kpi.totalForecastAmountTtc;
+  }
+  return value;
+}
 
 /**
  * Montant agrégé (HT ou TTC) aligné sur l’affichage cockpit — pour ratios cohérents avec les cartes KPI.
@@ -105,10 +139,10 @@ export function budgetKpiAmountForTaxMode(
   field: BudgetKpiAmountField,
 ): number {
   if (mode === 'TTC') {
-    const ttc = kpi[TTC_FIELD_BY_KPI_FIELD[field]];
+    const ttc = resolveKpiTtcAmount(kpi, field);
     if (ttc != null && Number.isFinite(ttc)) return ttc;
   }
-  return kpi[HT_FIELD_BY_KPI_FIELD[field]];
+  return resolveKpiHtAmount(kpi, field);
 }
 
 export function formatDate(value: string | Date): string {

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TableToolbar } from '@/components/layout/table-toolbar';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { formatAmount } from '../lib/budget-formatters';
 import { budgetLineEdit } from '../constants/budget-routes';
 import {
@@ -213,7 +214,7 @@ export function BudgetEnvelopeLinesTable({
                 </TableHead>
                 <TableHead className={cockpitThEndLeft}>Statut</TableHead>
                 <TableHead className={cockpitThNum}>Budget</TableHead>
-                <TableHead className={cockpitThNum}>Forecast</TableHead>
+                <TableHead className={cockpitThNum}>{BUDGET_LABELS.landing}</TableHead>
                 <TableHead className={cockpitThNum}>Engagé</TableHead>
                 <TableHead className={cockpitThNum}>Consommé</TableHead>
                 <TableHead className={cockpitThNum}>Restant</TableHead>

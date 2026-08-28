@@ -35,6 +35,11 @@ import {
 } from './dto/calculate-planning.dto';
 import { ApplyCalculationPlanningDto } from './dto/apply-calculation-planning.dto';
 import { ApplyBudgetLinePlanningModeDto } from './dto/apply-budget-line-planning-mode.dto';
+import { BudgetLandingService } from '../../budget-landing/budget-landing.service';
+import {
+  computeEffectiveBudgetBase,
+  type EventSlice,
+} from '../../financial-core/budget-line-amounts.aggregate';
 
 type LineWithExerciseAndPlanning = Prisma.BudgetLineGetPayload<{
   include: {
@@ -56,6 +61,7 @@ export class BudgetLinePlanningService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    private readonly landingService: BudgetLandingService,
   ) {}
 
   async getPlanning(
@@ -83,7 +89,7 @@ export class BudgetLinePlanningService {
       throw new NotFoundException('Budget line not found');
     }
 
-    return this.buildPlanningResponseFromLine(line, referenceDate);
+    return await this.buildPlanningResponseFromLine(line, referenceDate);
   }
 
   async replaceManualPlanning(
@@ -558,10 +564,10 @@ export class BudgetLinePlanningService {
     await this.auditLogs.create(input);
   }
 
-  private buildPlanningResponseFromLine(
-    line: LineWithExerciseAndPlanning,
+  private async buildPlanningResponseFromLine(
+    line: LineWithExerciseAndPlanning & { landingAmount?: Prisma.Decimal | null },
     referenceDate: Date,
-  ): GetBudgetLinePlanningResponseDto {
+  ): Promise<GetBudgetLinePlanningResponseDto> {
     const monthsByIndex = new Map<number, Prisma.Decimal>();
     for (const m of line.planningMonths) {
       monthsByIndex.set(m.monthIndex, m.amount);
@@ -575,7 +581,27 @@ export class BudgetLinePlanningService {
       planningTotalAmount += num;
     }
 
-    return this.composePlanningDto(line, outMonths, planningTotalAmount, referenceDate);
+    const events = await this.prisma.financialEvent.findMany({
+      where: { budgetLineId: line.id, clientId: line.clientId },
+      select: { eventType: true, amountHt: true },
+    });
+    const effectiveBudgetBase = computeEffectiveBudgetBase(
+      line.initialAmount,
+      events as EventSlice[],
+    ).toNumber();
+    const landingFromDb =
+      line.landingAmount != null
+        ? (line.landingAmount as Prisma.Decimal).toNumber()
+        : undefined;
+
+    return this.composePlanningDto(
+      line,
+      outMonths,
+      planningTotalAmount,
+      referenceDate,
+      effectiveBudgetBase,
+      landingFromDb,
+    );
   }
 
   private composePlanningDto(
@@ -583,21 +609,29 @@ export class BudgetLinePlanningService {
     outMonths: { monthIndex: number; amount: number }[],
     planningTotalAmount: number,
     referenceDate: Date,
+    effectiveBudgetBase?: number,
+    landingAmount?: number,
+    remainingPlanning?: number,
   ): GetBudgetLinePlanningResponseDto {
     const exerciseStart = line.budget.exercise.startDate;
     const exerciseEnd = line.budget.exercise.endDate;
     const amounts12 = outMonths.map((m) => m.amount);
     const monthColumnLabels = getExerciseMonthColumnLabels(exerciseStart);
-    const remainingPlanning = computeRemainingPlanningAmount(
-      exerciseStart,
-      exerciseEnd,
-      referenceDate,
-      amounts12,
-    );
+    const resolvedRemainingPlanning =
+      remainingPlanning ??
+      computeRemainingPlanningAmount(
+        exerciseStart,
+        exerciseEnd,
+        referenceDate,
+        amounts12,
+      );
     const consumed = (line.consumedAmount as Prisma.Decimal).toNumber();
     const committed = (line.committedAmount as Prisma.Decimal).toNumber();
-    const budget = (line.initialAmount as Prisma.Decimal).toNumber();
-    const landing = consumed + committed + remainingPlanning;
+    const budget =
+      effectiveBudgetBase ??
+      (line.initialAmount as Prisma.Decimal).toNumber();
+    const landing =
+      landingAmount ?? consumed + committed + resolvedRemainingPlanning;
     const planningDelta = planningTotalAmount - budget;
     const landingVariance = landing - budget;
 
@@ -625,7 +659,7 @@ export class BudgetLinePlanningService {
       variance: landingVariance,
       consumedAmount: consumed,
       committedAmount: committed,
-      remainingPlanning,
+      remainingPlanning: resolvedRemainingPlanning,
       landing,
       exerciseStartDate: exerciseStart,
       exerciseEndDate: exerciseEnd,
@@ -787,9 +821,15 @@ export class BudgetLinePlanningService {
         data: {
           planningMode: mode,
           planningTotalAmount: new Prisma.Decimal(total),
-          forecastAmount: new Prisma.Decimal(total),
         },
       });
+
+      await this.landingService.recalculateAndPersist(
+        clientId,
+        lineId,
+        referenceDate,
+        tx,
+      );
 
       if (scenarioInput != null && mode !== BudgetLinePlanningMode.MANUAL) {
         await tx.budgetLinePlanningScenario.create({
@@ -832,7 +872,7 @@ export class BudgetLinePlanningService {
         planningTotalAmount += num;
       }
 
-      return this.composePlanningDto(line, outMonths, planningTotalAmount, referenceDate);
+      return await this.buildPlanningResponseFromLine(line, referenceDate);
     });
 
     return result;

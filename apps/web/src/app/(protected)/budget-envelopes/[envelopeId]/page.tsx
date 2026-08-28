@@ -16,20 +16,22 @@ import { BudgetEnvelopeHeader } from '@/features/budgets/components/budget-envel
 import { BudgetEnvelopeIdentityCard } from '@/features/budgets/components/budget-envelope-identity-card';
 import { BudgetEnvelopeContextCard } from '@/features/budgets/components/budget-envelope-context-card';
 import { BudgetEnvelopeSummaryCards } from '@/features/budgets/components/budget-envelope-summary-cards';
+import { useEnvelopeSummary } from '@/features/budgets/hooks/use-envelope-summary';
 import { BudgetEnvelopeLinesTable } from '@/features/budgets/components/budget-envelope-lines-table';
 import { CockpitSurfaceCard } from '@/features/budgets/dashboard/components/budget-cockpit-primitives';
-import { useEnvelopeForecast } from '@/features/budgets/forecast/hooks/use-envelope-forecast';
-import { useEnvelopeForecastLines } from '@/features/budgets/forecast/hooks/use-envelope-forecast-lines';
+import { useEnvelopeLanding } from '@/features/budgets/hooks/use-envelope-landing';
+import { useEnvelopeLandingLines } from '@/features/budgets/hooks/use-envelope-landing-lines';
 import { ForecastKpiCards } from '@/features/budgets/forecast/components/forecast-kpi-cards';
 import { ForecastTable } from '@/features/budgets/forecast/components/forecast-table';
-import { budgetReporting } from '@/features/budgets/constants/budget-routes';
+import { budgetComparisons } from '@/features/budgets/constants/budget-routes';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
 import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
 import { explorerSortPresetToState } from '@/features/budgets/types/budget-explorer.types';
 import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
 
 const DEFAULT_LIMIT = 20;
-const FORECAST_LINES_LIMIT = 20;
+const LANDING_LINES_LIMIT = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
 export default function BudgetEnvelopeDetailPage() {
@@ -37,7 +39,7 @@ export default function BudgetEnvelopeDetailPage() {
   const envelopeId = typeof p.envelopeId === 'string' ? p.envelopeId : null;
 
   const [offset, setOffset] = React.useState(0);
-  const [forecastOffset, setForecastOffset] = React.useState(0);
+  const [landingOffset, setLandingOffset] = React.useState(0);
   const [searchInput, setSearchInput] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('ALL');
@@ -66,10 +68,11 @@ export default function BudgetEnvelopeDetailPage() {
   const envelopeQuery = useBudgetEnvelope(envelopeId);
   const linesQuery = useBudgetEnvelopeLines(envelopeId, linesQueryParams);
 
-  const envelopeForecastQuery = useEnvelopeForecast(envelopeId);
-  const forecastLinesQuery = useEnvelopeForecastLines(
+  const envelopeLandingQuery = useEnvelopeLanding(envelopeId);
+  const envelopeSummaryQuery = useEnvelopeSummary(envelopeId);
+  const landingLinesQuery = useEnvelopeLandingLines(
     envelopeId,
-    { limit: FORECAST_LINES_LIMIT, offset: forecastOffset },
+    { limit: LANDING_LINES_LIMIT, offset: landingOffset },
     { enabled: !!envelopeId },
   );
 
@@ -180,10 +183,15 @@ export default function BudgetEnvelopeDetailPage() {
               <BudgetEnvelopeContextCard envelope={envelope} />
             </div>
 
-            <BudgetEnvelopeSummaryCards envelope={envelope} />
+            <BudgetEnvelopeSummaryCards
+              envelope={envelope}
+              kpi={envelopeSummaryQuery.data?.kpi}
+              isLoading={envelopeSummaryQuery.isLoading}
+              isError={envelopeSummaryQuery.isError}
+            />
 
             <CockpitSurfaceCard
-              title="Forecast enveloppe"
+              title={`${BUDGET_LABELS.landing} enveloppe`}
               description="Projection et écarts par ligne — données agrégées côté serveur."
               icon={BarChart3}
               accent="sky"
@@ -191,27 +199,27 @@ export default function BudgetEnvelopeDetailPage() {
             >
               <div className="space-y-6 p-4 sm:p-6">
                 <ForecastKpiCards
-                  data={envelopeForecastQuery.data}
-                  isLoading={envelopeForecastQuery.isLoading}
-                  error={envelopeForecastQuery.error as Error | null}
+                  data={envelopeLandingQuery.data}
+                  isLoading={envelopeLandingQuery.isLoading}
+                  error={envelopeLandingQuery.error as Error | null}
                 />
                 <p className="text-sm text-muted-foreground">
                   <Link
-                    href={budgetReporting(envelope.budgetId)}
+                    href={budgetComparisons(envelope.budgetId)}
                     className="font-medium text-primary hover:underline"
                   >
-                    Forecast & comparaison au niveau budget
+                    Comparaisons au niveau budget
                   </Link>
                 </p>
                 <ForecastTable
-                  lines={forecastLinesQuery.data?.lines ?? []}
-                  total={forecastLinesQuery.data?.total ?? 0}
-                  offset={forecastOffset}
-                  limit={FORECAST_LINES_LIMIT}
-                  onPageChange={setForecastOffset}
-                  currency={forecastLinesQuery.data?.currency ?? envelope.currency}
-                  isLoading={forecastLinesQuery.isLoading}
-                  error={forecastLinesQuery.error as Error | null}
+                  lines={landingLinesQuery.data?.lines ?? []}
+                  total={landingLinesQuery.data?.total ?? 0}
+                  offset={landingOffset}
+                  limit={LANDING_LINES_LIMIT}
+                  onPageChange={setLandingOffset}
+                  currency={landingLinesQuery.data?.currency ?? envelope.currency}
+                  isLoading={landingLinesQuery.isLoading}
+                  error={landingLinesQuery.error as Error | null}
                 />
               </div>
             </CockpitSurfaceCard>

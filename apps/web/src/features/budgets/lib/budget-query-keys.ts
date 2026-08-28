@@ -47,6 +47,9 @@ export const budgetQueryKeys = {
   budgetSummary: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-summary', budgetId] as const,
 
+  envelopeSummary: (clientId: string, envelopeId: string, includeChildren?: boolean) =>
+    ['budgets', clientId, 'envelope-summary', envelopeId, includeChildren ?? false] as const,
+
   // Drawer ligne budgétaire (RFC-FE-ADD-006)
   budgetLineDetail: (clientId: string, budgetLineId: string) =>
     ['budgets', clientId, 'budget-line-detail', budgetLineId] as const,
@@ -78,6 +81,10 @@ export const budgetQueryKeys = {
 
   /** Préfixe : toutes les requêtes cockpit (params variables). */
   dashboardAll: (clientId: string) => ['budgets', clientId, 'dashboard'] as const,
+
+  /** Préfixe : drill-down mensuel (params variables). */
+  monthlyBreakdownAll: (clientId: string) =>
+    ['budgets', clientId, 'monthly-breakdown'] as const,
 
   monthlyBreakdown: (clientId: string, budgetId: string, month: string) =>
     ['budgets', clientId, 'monthly-breakdown', budgetId, month] as const,
@@ -114,20 +121,35 @@ export const budgetQueryKeys = {
   generalLedgerAccountOptions: (clientId: string) =>
     ['general-ledger-account-options', clientId] as const,
 
-  /** RFC-FE-BUD-030 — forecast budget */
+  /** RFC-BUD-040 — atterrissage budget */
+  budgetLanding: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-landing', budgetId] as const,
+
+  /** RFC-BUD-040 — atterrissage enveloppe */
+  envelopeLanding: (clientId: string, envelopeId: string) =>
+    ['budgets', clientId, 'envelope-landing', envelopeId] as const,
+
+  /** RFC-BUD-040 — lignes atterrissage (pagination dans la clé) */
+  envelopeLandingLines: (
+    clientId: string,
+    envelopeId: string,
+    params: { limit: number; offset: number },
+  ) => ['budgets', clientId, 'envelope-landing-lines', envelopeId, params] as const,
+
+  /** @deprecated RFC-BUD-040 — alias de budgetLanding */
   budgetForecast: (clientId: string, budgetId: string) =>
-    ['budgets', clientId, 'budget-forecast', budgetId] as const,
+    budgetQueryKeys.budgetLanding(clientId, budgetId),
 
-  /** RFC-FE-BUD-030 — forecast enveloppe */
+  /** @deprecated RFC-BUD-040 — alias de envelopeLanding */
   envelopeForecast: (clientId: string, envelopeId: string) =>
-    ['budgets', clientId, 'envelope-forecast', envelopeId] as const,
+    budgetQueryKeys.envelopeLanding(clientId, envelopeId),
 
-  /** RFC-FE-BUD-030 — lignes forecast (pagination dans la clé) */
+  /** @deprecated RFC-BUD-040 — alias de envelopeLandingLines */
   envelopeForecastLines: (
     clientId: string,
     envelopeId: string,
     params: { limit: number; offset: number },
-  ) => ['budgets', clientId, 'envelope-forecast-lines', envelopeId, params] as const,
+  ) => budgetQueryKeys.envelopeLandingLines(clientId, envelopeId, params),
 
   /** RFC-FE-BUD-030 — comparaison (targetId dans la clé) */
   budgetComparison: (

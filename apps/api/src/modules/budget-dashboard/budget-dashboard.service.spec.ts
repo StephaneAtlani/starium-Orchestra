@@ -368,6 +368,37 @@ describe('BudgetDashboardService', () => {
     });
   });
 
+  describe('monthlyTrend (CONSUMPTION_TREND)', () => {
+    it('agrège les consommations par mois civil UTC (aligné exercice)', async () => {
+      prisma.budget.findFirst.mockResolvedValue(mockBudget);
+      prisma.budgetExercise.findFirst.mockResolvedValue(mockExercise);
+      prisma.budgetLine.findMany.mockResolvedValue([mockLine()]);
+      prisma.financialAllocation.findMany.mockResolvedValue([]);
+      prisma.financialEvent.findMany.mockResolvedValue([
+        {
+          eventType: 'CONSUMPTION_REGISTERED',
+          amountHt: 1_000_000,
+          eventDate: new Date('2026-08-15T00:00:00.000Z'),
+          createdAt: new Date('2026-08-15T00:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.getDashboard(clientId, {
+        budgetId,
+      } as DashboardQueryDto);
+
+      const trendWidget = result.widgets.find(
+        (x) => x.type === 'CHART' && x.data?.chartType === 'CONSUMPTION_TREND',
+      );
+      expect(trendWidget?.type).toBe('CHART');
+      if (trendWidget?.type !== 'CHART' || trendWidget.data?.chartType !== 'CONSUMPTION_TREND') {
+        throw new Error('widget CONSUMPTION_TREND manquant');
+      }
+      const august = trendWidget.data.series.find((row) => row.month === '2026-08');
+      expect(august?.consumed).toBe(1_000_000);
+    });
+  });
+
   describe('includeLines false', () => {
     it('vide les lignes dans LINE_LIST et ALERT_LIST', async () => {
       prisma.budget.findFirst.mockResolvedValue(mockBudget);

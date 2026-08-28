@@ -9,6 +9,8 @@ export interface BudgetEnvelopeDetail {
   currency: string;
   initialAmount: number;
   forecastAmount: number;
+  /** RFC-BUD-040 — atterrissage persisté. */
+  landingAmount?: number | null;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;
@@ -24,6 +26,8 @@ export interface BudgetEnvelopeLineItem {
   status: string;
   initialAmount: number;
   forecastAmount: number;
+  /** RFC-BUD-040 — atterrissage persisté. */
+  landingAmount?: number | null;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;

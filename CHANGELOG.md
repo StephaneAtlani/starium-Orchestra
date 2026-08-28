@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Budgets — RFC-BUD-040 (atterrissage unifié)
+
+- Moteur **`BudgetLandingService`** : `landingAmount = consommé + engagé + prévision restante` ; `forecastAmount` synchronisé (alias de transition).
+- API **`/api/budget-landing/*`** + `GET /api/budget-lines/:id/landing` ; routes `/api/budget-forecast/*` dépréciées (`Deprecation: true`).
+- UI : vocabulaire **Atterrissage** ; fusion `/budgets/[id]/reporting` → fiche budget onglet Comparaisons.
+- Frontend : `budget-landing.api.ts`, hooks `use-budget-landing` / `use-envelope-landing` ; wrappers `budget-forecast.api.ts` dépréciés.
+- POST allocation `FORECAST` → `400 forecast_allocation_deprecated`.
+- Migration `20260828140000_rfc_bud_040_landing_amount` ; script backfill : `apps/api/prisma/backfill-landing-amounts.ts` (one-shot post-migrate par environnement).
+
 ## [0.97] - 2026-04-26
 
 ### Vision stratégique

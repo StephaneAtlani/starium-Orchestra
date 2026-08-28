@@ -34,6 +34,14 @@ export function computeVarianceForecast(
   return budget - forecast;
 }
 
+/** RFC-BUD-040 — écart d'atterrissage vs base effective. */
+export function computeVarianceLanding(
+  effectiveBudgetBase: number,
+  landing: number,
+): number {
+  return effectiveBudgetBase - landing;
+}
+
 export function normalizeLineCode(code: string): string {
   return code.trim().toUpperCase();
 }

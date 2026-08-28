@@ -81,6 +81,26 @@ describe('FinancialAllocationsService', () => {
       expect(result).toEqual(created);
     });
 
+    it('rejette les allocations FORECAST (RFC-BUD-040)', async () => {
+      jest
+        .spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient')
+        .mockResolvedValue({} as any);
+
+      const dto: CreateFinancialAllocationDto = {
+        budgetLineId: 'line-1',
+        sourceType: FinancialSourceType.MANUAL,
+        sourceId: '',
+        allocationType: 'FORECAST' as any,
+        allocatedAmount: 50,
+        currency: 'EUR',
+      };
+
+      await expect(service.create(clientId, dto)).rejects.toMatchObject({
+        response: { code: 'forecast_allocation_deprecated' },
+      });
+      expect(calculator.recalculateForBudgetLine).not.toHaveBeenCalled();
+    });
+
     it('isolation client : budgetLine d\'un autre client → NotFoundException', async () => {
       jest
         .spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient')
@@ -90,7 +110,7 @@ describe('FinancialAllocationsService', () => {
         budgetLineId: 'line-other-client',
         sourceType: FinancialSourceType.MANUAL,
         sourceId: '',
-        allocationType: 'FORECAST' as any,
+        allocationType: 'COMMITTED' as any,
         allocatedAmount: 50,
         currency: 'EUR',
       };

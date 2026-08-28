@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cockpitCardClass } from './budget-dashboard-shell';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 
 export function BudgetAlertsPanel({
   alertsSummary,
@@ -43,9 +44,9 @@ export function BudgetAlertsPanel({
       count: alertsSummary.overConsumed,
     },
     {
-      key: 'forecast',
+      key: 'landing',
       icon: AlertTriangle,
-      label: 'Forecast > budget (ligne)',
+      label: `${BUDGET_LABELS.landing} > budget (ligne)`,
       count: alertsSummary.forecastOverBudget,
     },
   ];

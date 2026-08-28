@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -15,6 +15,7 @@ export class BudgetForecastController {
   constructor(private readonly service: BudgetForecastService) {}
 
   @Get('budgets/:id')
+  @Header('Deprecation', 'true')
   @RequirePermissions('budgets.read')
   getBudgetForecast(
     @ActiveClientId() clientId: string | undefined,
@@ -25,6 +26,7 @@ export class BudgetForecastController {
   }
 
   @Get('envelopes/:id')
+  @Header('Deprecation', 'true')
   @RequirePermissions('budgets.read')
   getEnvelopeForecast(
     @ActiveClientId() clientId: string | undefined,
@@ -35,6 +37,7 @@ export class BudgetForecastController {
   }
 
   @Get('envelopes/:id/lines')
+  @Header('Deprecation', 'true')
   @RequirePermissions('budgets.read')
   listEnvelopeForecastLines(
     @ActiveClientId() clientId: string | undefined,

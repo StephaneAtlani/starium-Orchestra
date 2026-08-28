@@ -413,6 +413,7 @@ export class BudgetComparisonService {
       name: string;
       initialAmount: unknown;
       forecastAmount: unknown;
+      landingAmount?: unknown;
       committedAmount?: unknown;
       consumedAmount: unknown;
     }>,
@@ -425,7 +426,9 @@ export class BudgetComparisonService {
         line.initialAmount as Parameters<typeof fromDecimal>[0],
       ),
       forecastAmount: fromDecimal(
-        line.forecastAmount as Parameters<typeof fromDecimal>[0],
+        (line.landingAmount ?? line.forecastAmount) as Parameters<
+          typeof fromDecimal
+        >[0],
       ),
       committedAmount: fromDecimal(
         line.committedAmount as Parameters<typeof fromDecimal>[0],

@@ -109,6 +109,8 @@ export interface BudgetLine {
   costCenterSplits?: BudgetLineCostCenterSplit[];
   initialAmount: number;
   forecastAmount: number;
+  /** RFC-BUD-040 — atterrissage persisté (alias sync de forecastAmount). */
+  landingAmount?: number | null;
   committedAmount: number;
   consumedAmount: number;
   remainingAmount: number;

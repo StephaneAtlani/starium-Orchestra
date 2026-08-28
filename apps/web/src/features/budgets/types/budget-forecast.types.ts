@@ -1,4 +1,5 @@
 /** Modes pour GET /budget-comparisons/budgets/:id (référence unique). */
+/** Types atterrissage canoniques : voir budget-landing.types.ts (RFC-BUD-040). */
 export type BudgetComparisonMode = 'baseline' | 'snapshot';
 export type ForecastLineStatus = 'OK' | 'WARNING' | 'CRITICAL';
 
@@ -7,14 +8,22 @@ export interface BudgetForecastResponse {
   currency: string | null;
   totalBudget: number;
   totalConsumed: number;
+  /** @deprecated Alias de totalLanding */
   totalForecast: number;
+  totalLanding?: number;
   totalRemaining: number;
   varianceConsumed: number;
+  /** @deprecated Alias de varianceLanding */
   varianceForecast: number;
+  varianceLanding?: number;
   consumptionRate: number;
+  /** @deprecated Alias de landingRate */
   forecastRate: number;
+  landingRate?: number;
   alerts: {
+    /** @deprecated Alias de overLanding */
     overForecast: number;
+    overLanding?: number;
     overConsumed: number;
   };
 }
@@ -24,14 +33,22 @@ export interface EnvelopeForecastResponse {
   currency: string | null;
   totalBudget: number;
   totalConsumed: number;
+  /** @deprecated Alias de totalLanding */
   totalForecast: number;
+  totalLanding?: number;
   totalRemaining: number;
   varianceConsumed: number;
+  /** @deprecated Alias de varianceLanding */
   varianceForecast: number;
+  varianceLanding?: number;
   consumptionRate: number;
+  /** @deprecated Alias de landingRate */
   forecastRate: number;
+  landingRate?: number;
   alerts: {
+    /** @deprecated Alias de overLanding */
     overForecast: number;
+    overLanding?: number;
     overConsumed: number;
   };
 }
@@ -42,12 +59,18 @@ export interface EnvelopeForecastLineItem {
   name: string;
   budget: number;
   consumed: number;
+  /** @deprecated Alias de landing */
   forecast: number;
+  landing?: number;
   remaining: number;
   varianceConsumed: number;
+  /** @deprecated Alias de varianceLanding */
   varianceForecast: number;
+  varianceLanding?: number;
   consumptionRate: number;
+  /** @deprecated Alias de landingRate */
   forecastRate: number;
+  landingRate?: number;
   status: ForecastLineStatus;
 }
 

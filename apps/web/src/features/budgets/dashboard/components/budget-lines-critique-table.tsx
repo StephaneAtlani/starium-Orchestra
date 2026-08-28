@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetDashboardLineRow } from '@/features/budgets/types/budget-dashboard.types';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
 import { budgetDetail, budgetLineEdit } from '@/features/budgets/constants/budget-routes';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
@@ -107,7 +108,7 @@ export function BudgetLinesCritiqueTable({
                 <TableHead className={cockpitThNum}>Budget</TableHead>
                 <TableHead className={cockpitThNum}>Engagé</TableHead>
                 <TableHead className={cockpitThNum}>Consommé</TableHead>
-                <TableHead className={cockpitThNum}>Forecast</TableHead>
+                <TableHead className={cockpitThNum}>{BUDGET_LABELS.landing}</TableHead>
                 <TableHead className={cockpitThEndLeft}>Gravité</TableHead>
                 <TableHead className={cockpitThEndRight}>Action</TableHead>
               </TableRow>

@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '@/lib/utils';
+import { useFullscreenPortalContainer } from '@/hooks/use-fullscreen-portal-container';
 import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
 
 const GRID = 'var(--border)';
@@ -55,8 +58,10 @@ function useBarsGrow(
   signature: string,
   animateKey: string,
   axis: 'vertical' | 'horizontal' = 'vertical',
+  animate = true,
 ) {
   useEffect(() => {
+    if (!animate) return;
     const svg = svgRef.current;
     if (!svg) return;
     if (prefersReducedMotion()) return;
@@ -91,7 +96,7 @@ function useBarsGrow(
       cancelAnimationFrame(raf);
       timeouts.forEach(clearTimeout);
     };
-  }, [animateKey, signature, svgRef, axis]);
+  }, [animateKey, signature, svgRef, axis, animate]);
 }
 
 /** Point sur le cercle : angle 0° = midi, sens horaire. */
@@ -196,7 +201,16 @@ export function SvgDonutChart({
   );
 }
 
-export type GroupedBarRow = { label: string; left: number; right: number };
+export type GroupedBarRow = { label: string; left: number; right: number; title?: string };
+
+type GroupedBarHover = {
+  rowIndex: number;
+  side: 'left' | 'right';
+  clientX: number;
+  clientY: number;
+};
+
+const MIN_BAR_HIT_PX = 10;
 
 export function SvgGroupedBarChart({
   rows,
@@ -205,8 +219,15 @@ export function SvgGroupedBarChart({
   leftColor,
   rightColor,
   formatY,
+  formatTooltip,
   className,
   animateKey = '',
+  animate = true,
+  selectedRowIndex = null,
+  onRowClick,
+  maxValue,
+  showBarValueLabels = false,
+  showTooltips = true,
 }: {
   rows: GroupedBarRow[];
   leftName: string;
@@ -214,43 +235,118 @@ export function SvgGroupedBarChart({
   leftColor: string;
   rightColor: string;
   formatY: (n: number) => string;
+  /** Libellé complet dans l’infobulle (ex. montant HT lisible). */
+  formatTooltip?: (n: number) => string;
   className?: string;
   animateKey?: string;
+  /** Désactive l’animation d’entrée (cockpit temps réel). */
+  animate?: boolean;
+  selectedRowIndex?: number | null;
+  onRowClick?: (rowIndex: number) => void;
+  /** Plafond axe Y explicite (ex. zoom sur le mois sélectionné). */
+  maxValue?: number;
+  /** Affiche le montant au-dessus des barres non nulles. */
+  showBarValueLabels?: boolean;
+  /** Infobulles au survol / focus clavier (défaut : activé). */
+  showTooltips?: boolean;
 }) {
   const w = 400;
   const h = 220;
   const padL = 56;
   const padR = 12;
-  const padT = 16;
+  const padT = showBarValueLabels ? 28 : 16;
   const padB = 52;
   const innerW = w - padL - padR;
   const innerH = h - padT - padB;
-  const maxV = Math.max(
+  const dataMax = Math.max(
     1,
     ...rows.flatMap((r) => [Math.abs(r.left), Math.abs(r.right)]),
   );
+  const maxV = Math.max(1, maxValue ?? dataMax * 1.1);
   const n = Math.max(1, rows.length);
   const groupW = innerW / n;
   const barW = (groupW * 0.28) / 1;
   const gap = groupW * 0.12;
   const barSig = rows.map((r) => `${r.label}:${r.left}:${r.right}`).join('|');
+  const fmtTip = formatTooltip ?? formatY;
 
   const svgRef = useRef<SVGSVGElement>(null);
-  useBarsGrow(svgRef, barSig, animateKey, 'vertical');
+  const [hover, setHover] = useState<GroupedBarHover | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
+  const portalContainer = useFullscreenPortalContainer();
+  useBarsGrow(svgRef, barSig, animateKey, 'vertical', animate);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  const hoveredRow = hover != null ? rows[hover.rowIndex] : null;
+  const hoveredLabel = hoveredRow?.title ?? hoveredRow?.label ?? '';
+  const hoveredSideName = hover?.side === 'left' ? leftName : rightName;
+  const hoveredValue =
+    hover?.side === 'left' ? (hoveredRow?.left ?? 0) : (hoveredRow?.right ?? 0);
+  const hoveredColor = hover?.side === 'left' ? leftColor : rightColor;
+
+  const setBarHover = (
+    rowIndex: number,
+    side: 'left' | 'right',
+    event: React.MouseEvent<SVGRectElement>,
+  ) => {
+    if (!showTooltips) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHover({
+      rowIndex,
+      side,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top,
+    });
+  };
+
+  const clearBarHover = () => setHover(null);
+
+  const tooltipNode =
+    showTooltips && hover && hoveredRow && portalReady ? (
+      <div
+        role="tooltip"
+        className="pointer-events-none fixed z-[80] max-w-[14rem] -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-md bg-foreground px-3 py-2 text-xs text-background shadow-md motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95"
+        style={{
+          left: hover.clientX,
+          top: hover.clientY,
+        }}
+      >
+        <p className="font-semibold leading-tight">{hoveredLabel}</p>
+        <p className="mt-1 flex items-center gap-1.5 tabular-nums">
+          <span
+            className="size-2 shrink-0 rounded-sm"
+            style={{ backgroundColor: hoveredColor }}
+            aria-hidden
+          />
+          <span>
+            {hoveredSideName} : {fmtTip(hoveredValue)}
+          </span>
+        </p>
+      </div>
+    ) : null;
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${w} ${h}`}
-      className={className}
-      role="img"
-      aria-label="Histogramme comparé"
-    >
-      <text x={padL} y={14} className="fill-muted-foreground text-[10px]">
-        ■ {leftName}
+    <div className={cn('relative h-full w-full', className)}>
+      {tooltipNode && portalReady
+        ? createPortal(tooltipNode, portalContainer ?? document.body)
+        : null}
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${w} ${h}`}
+        className="h-full w-full"
+        role="img"
+        aria-label="Histogramme comparé"
+      >
+      <rect x={padL} y={6} width={8} height={8} rx={1.5} fill={leftColor} />
+      <text x={padL + 12} y={14} className="fill-muted-foreground text-[10px]">
+        {leftName}
       </text>
-      <text x={padL + 140} y={14} className="fill-muted-foreground text-[10px]">
-        ■ {rightName}
+      <rect x={padL + 88} y={6} width={8} height={8} rx={1.5} fill={rightColor} />
+      <text x={padL + 100} y={14} className="fill-muted-foreground text-[10px]">
+        {rightName}
       </text>
       {[0, 0.25, 0.5, 0.75, 1].map((t) => {
         const y = padT + innerH * (1 - t);
@@ -278,19 +374,47 @@ export function SvgGroupedBarChart({
         const y0 = padT + innerH;
         const xL = gx;
         const xR = gx + barW + gap * 0.35;
+        const hitHL = Math.max(hL, MIN_BAR_HIT_PX);
+        const hitHR = Math.max(hR, MIN_BAR_HIT_PX);
+        const opacity =
+          selectedRowIndex == null || selectedRowIndex === i ? 1 : 0.72;
+        const interactive = onRowClick != null;
         return (
-          <g key={`${i}-${row.label}`}>
+          <g
+            key={`${i}-${row.label}`}
+            opacity={opacity}
+            className={interactive ? 'cursor-pointer' : undefined}
+            role={interactive ? 'button' : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={
+              interactive
+                ? `${row.title ?? row.label} — ${leftName} ${fmtTip(row.left)}, ${rightName} ${fmtTip(row.right)}`
+                : undefined
+            }
+            onClick={interactive ? () => onRowClick(i) : undefined}
+            onKeyDown={
+              interactive
+                ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onRowClick(i);
+                    }
+                  }
+                : undefined
+            }
+          >
             <rect
               className="chart-svg-bar"
               x={xL}
               y={y0 - hL}
               width={barW}
-              height={hL}
+              height={Math.max(hL, 0)}
               rx={3}
               fill={leftColor}
+              pointerEvents="none"
             >
               <title>
-                {row.label} — {leftName}: {formatY(row.left)}
+                {row.title ?? row.label} — {leftName}: {fmtTip(row.left)}
               </title>
             </rect>
             <rect
@@ -298,14 +422,59 @@ export function SvgGroupedBarChart({
               x={xR}
               y={y0 - hR}
               width={barW}
-              height={hR}
+              height={Math.max(hR, 0)}
               rx={3}
               fill={rightColor}
+              pointerEvents="none"
             >
               <title>
-                {row.label} — {rightName}: {formatY(row.right)}
+                {row.title ?? row.label} — {rightName}: {fmtTip(row.right)}
               </title>
             </rect>
+            {showTooltips ? (
+              <>
+                <rect
+                  x={xL}
+                  y={y0 - hitHL}
+                  width={barW}
+                  height={hitHL}
+                  fill="transparent"
+                  className={cn(interactive && 'cursor-pointer')}
+                  onMouseEnter={(event) => setBarHover(i, 'left', event)}
+                  onMouseLeave={clearBarHover}
+                />
+                <rect
+                  x={xR}
+                  y={y0 - hitHR}
+                  width={barW}
+                  height={hitHR}
+                  fill="transparent"
+                  className={cn(interactive && 'cursor-pointer')}
+                  onMouseEnter={(event) => setBarHover(i, 'right', event)}
+                  onMouseLeave={clearBarHover}
+                />
+              </>
+            ) : null}
+            {showBarValueLabels && row.left > 0 ? (
+              <text
+                x={xL + barW / 2}
+                y={Math.max(padT + 2, y0 - hL - 4)}
+                textAnchor="middle"
+                className="fill-muted-foreground text-[8px] font-medium tabular-nums"
+              >
+                {formatY(row.left)}
+              </text>
+            ) : null}
+            {showBarValueLabels && row.right > 0 ? (
+              <text
+                x={xR + barW / 2}
+                y={Math.max(padT + 2, y0 - hR - 4)}
+                textAnchor="middle"
+                className="fill-foreground text-[8px] font-semibold tabular-nums"
+              >
+                {formatY(row.right)}
+              </text>
+            ) : null}
             <text
               x={gx + groupW / 2 - gap}
               y={h - 8}
@@ -317,7 +486,8 @@ export function SvgGroupedBarChart({
           </g>
         );
       })}
-    </svg>
+      </svg>
+    </div>
   );
 }
 

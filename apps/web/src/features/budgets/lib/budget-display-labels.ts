@@ -1,42 +1,55 @@
 /**
- * Vocabulaire financier unique de la fiche budget (RFC-FE-BUD-032 §1.2).
+ * Vocabulaire financier unique de la fiche budget (RFC-FE-BUD-032 §1.2, RFC-BUD-040).
  *
  * Un seul libellé par concept partout : KPI, colonnes, alertes, exports.
- * Interdit d'introduire « Total planifié » / « Forecast » pour le même champ que « Prévision ».
+ * Interdit d'introduire « Total planifié » / « Forecast » pour l'atterrissage.
  */
 export const BUDGET_LABELS = {
   /** Plafond voté : montant initial + réaffectations. */
   budget: 'Budget',
-  /** Plan de dépense : allocations FORECAST / planning 12 mois. */
-  forecast: 'Prévision',
+  /** Onglet fiche — grille 12 mois (RFC-BUD-040 D1). */
+  planningTab: 'Prévisionnel',
+  /** Somme des 12 mois — répartition, pas l'atterrissage. */
+  planningTotal: 'Total prévisionnel',
+  /** Somme des mois strictement après la date de référence. */
+  remainingPlanning: 'Prévision restante',
+  /** Projection fin d'exercice : consommé + engagé + prévision restante. */
+  landing: 'Atterrissage',
+  /** landingAmount − base effective. */
+  landingGap: "Écart d'atterrissage",
   /** Promesse non encore facturée (commande ou engagement manuel). */
   committed: 'Engagé',
   /** Facturé / imputé. */
   consumed: 'Consommé',
   /** Budget − engagé − consommé. */
   remaining: 'Restant',
-  /** Prévision − budget. */
-  forecastGap: 'Écart prévision',
   /** Snapshot immuable (RFC-031 / RFC-033). */
   snapshot: 'Version figée',
   /** Version éditable du budget (RFC-019). */
   revision: 'Révision',
+  /** @deprecated Utiliser `landing` */
+  forecast: 'Atterrissage',
+  /** @deprecated Utiliser `landingGap` */
+  forecastGap: "Écart d'atterrissage",
 } as const;
 
 export type BudgetLabelKey = keyof typeof BUDGET_LABELS;
 
 /**
  * Précisions métier courtes affichées sous les KPI — lève l'ambiguïté « engagé ≠ commande »
- * (RFC-FE-BUD-032 §11.2).
+ * (RFC-FE-BUD-032 §11.2, RFC-BUD-040 §7.4).
  */
 export const BUDGET_LABEL_HINTS: Record<
-  'budget' | 'committed' | 'consumed' | 'forecast',
+  'budget' | 'committed' | 'consumed' | 'landing' | 'planningTotal' | 'remainingPlanning',
   string
 > = {
   budget: 'Plafond voté, réaffectations incluses',
   committed: 'Commandes et engagements manuels',
   consumed: 'Facturé ou imputé',
-  forecast: 'Plan de dépense saisi',
+  landing:
+    'Estimation de fin d\'exercice : consommé + engagé + prévision restante sur les mois à venir.',
+  planningTotal: 'Somme des 12 mois saisis — répartition temporelle',
+  remainingPlanning: 'Somme des mois à venir après la date de référence',
 };
 
 /** Segment de 8 caractères ou plus mêlant lettres et chiffres — signature d'un CUID / UUID tronqué. */

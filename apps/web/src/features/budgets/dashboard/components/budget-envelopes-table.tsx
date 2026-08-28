@@ -17,6 +17,7 @@ import {
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetCockpitRiskEnvelopeRow } from '@/features/budgets/types/budget-dashboard.types';
 import { formatDashboardAmount } from '@/features/budgets/lib/budget-dashboard-format';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { CockpitSection, CockpitSurfaceCard } from './budget-cockpit-primitives';
 import { EnvelopeRiskLabel } from './budget-cockpit-status-labels';
 import {
@@ -50,11 +51,11 @@ export function BudgetEnvelopesTable({
     <CockpitSection
       id="budget-risk-envelopes-heading"
       title="Pression sur les enveloppes"
-      description="Enveloppes où la prévision dépasse ou approche le budget agrégé."
+      description="Enveloppes où l'atterrissage dépasse ou approche le budget agrégé."
     >
       <CockpitSurfaceCard
         title="Enveloppes à risque"
-        description="Prévision vs budget (agrégé enveloppe)"
+        description={`${BUDGET_LABELS.landing} vs budget (agrégé enveloppe)`}
         icon={Flame}
         accent="amber"
         contentPad={false}
@@ -67,7 +68,7 @@ export function BudgetEnvelopesTable({
                 <span className="sr-only">Actions</span>
               </TableHead>
               <TableHead className={cockpitThFirstAfterAction}>Enveloppe</TableHead>
-              <TableHead className={cockpitThNum}>Prévision</TableHead>
+              <TableHead className={cockpitThNum}>{BUDGET_LABELS.landing}</TableHead>
               <TableHead className={cockpitThNum}>Budget</TableHead>
               <TableHead className={cockpitThEndLeft}>Niveau</TableHead>
             </TableRow>

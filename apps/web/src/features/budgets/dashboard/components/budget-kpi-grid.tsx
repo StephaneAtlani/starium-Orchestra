@@ -12,11 +12,12 @@ import {
 import type { TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import type { BudgetCockpitKpiBlock } from '@/features/budgets/types/budget-dashboard.types';
 import {
-  formatForecastGapParts,
+  formatLandingGapParts,
   formatKpiAmountParts,
   kpiDisplayAmountNumeric,
 } from '@/features/budgets/lib/budget-dashboard-format';
 import { formatPercent } from '@/features/budgets/lib/budget-formatters';
+import { BUDGET_LABELS, BUDGET_LABEL_HINTS } from '@/features/budgets/lib/budget-display-labels';
 import { BudgetKpiCard, type BudgetKpiAmountTone } from './budget-kpi-card';
 import { CockpitSection } from './budget-cockpit-primitives';
 
@@ -36,22 +37,33 @@ export function BudgetKpiGrid({
 }) {
   const c = currency;
 
-  const ecartForecast = kpis.forecast - kpis.totalBudget;
+  const landing = kpis.forecast;
+  const ecartLanding = landing - kpis.totalBudget;
   const ecartTtcFromApi =
     kpis.forecastTtc != null && kpis.totalBudgetTtc != null
       ? kpis.forecastTtc - kpis.totalBudgetTtc
       : undefined;
-  const gapParts = formatForecastGapParts(kpis, c, taxDisplayMode, defaultTaxRate);
+  const gapParts = formatLandingGapParts(
+    {
+      totalBudget: kpis.totalBudget,
+      forecast: landing,
+      totalBudgetTtc: kpis.totalBudgetTtc,
+      forecastTtc: kpis.forecastTtc,
+    },
+    c,
+    taxDisplayMode,
+    defaultTaxRate,
+  );
   const ecartSub =
-    ecartForecast >= 0
-      ? 'Le forecast dépasse le budget sur cette base.'
-      : 'Le forecast reste sous le plafond budgétaire.';
+    ecartLanding >= 0
+      ? `${BUDGET_LABELS.landing} dépasse le budget sur cette base.`
+      : `${BUDGET_LABELS.landing} reste sous le plafond budgétaire.`;
 
   const remainingTone: BudgetKpiAmountTone =
     kpis.remaining < 0 ? 'danger' : kpis.remaining > 0 ? 'success' : 'default';
 
   const gapTone: BudgetKpiAmountTone =
-    ecartForecast > 0 ? 'warning' : ecartForecast < 0 ? 'success' : 'default';
+    ecartLanding > 0 ? 'warning' : ecartLanding < 0 ? 'success' : 'default';
 
   const fmt = (p: Parameters<typeof formatKpiAmountParts>[0]) =>
     formatKpiAmountParts(p);
@@ -152,32 +164,32 @@ export function BudgetKpiGrid({
 
         <BudgetKpiCard
           variant="forecast"
-          label="Forecast"
-          description="Projection à date"
+          label={BUDGET_LABELS.landing}
+          description={BUDGET_LABEL_HINTS.landing}
           parts={fmt({
-            ht: kpis.forecast,
+            ht: landing,
             ttcFromApi: kpis.forecastTtc,
             currency: c,
             mode: taxDisplayMode,
             defaultTaxRate,
           })}
-          amountDisplayValue={num(kpis.forecast, kpis.forecastTtc)}
+          amountDisplayValue={num(landing, kpis.forecastTtc)}
           animateAmount={animateAmounts}
           icon={Scale}
-          dataTestId="kpi-forecast"
+          dataTestId="kpi-landing"
         />
 
         <BudgetKpiCard
           variant="variance"
-          label="Écart forecast"
-          description="Forecast − budget"
+          label={BUDGET_LABELS.landingGap}
+          description={`${BUDGET_LABELS.landing} − budget`}
           parts={gapParts}
           subtext={ecartSub}
-          amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}
+          amountDisplayValue={num(ecartLanding, ecartTtcFromApi)}
           animateAmount={animateAmounts}
           icon={TrendingDown}
           amountTone={gapTone}
-          dataTestId="kpi-forecast-gap"
+          dataTestId="kpi-landing-gap"
         />
       </div>
     </CockpitSection>

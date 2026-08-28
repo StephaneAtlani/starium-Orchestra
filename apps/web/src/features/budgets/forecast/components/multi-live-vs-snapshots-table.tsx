@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import { ForecastStatusBadge } from '@/features/budgets/forecast/components/forecast-status-badge';
 import { cn } from '@/lib/utils';
 import { comparisonDiffClass } from '@/features/budgets/forecast/lib/comparison-diff';
@@ -128,10 +129,10 @@ export function MultiLiveVsSnapshotsTable({ merged }: MultiLiveVsSnapshotsTableP
                 autres.
               </p>
               <p className="mt-1">
-                Forecast (1ʳᵉ cible) : {formatCurrency(pr.totals.forecast, cur)} · Engagé :{' '}
+                {BUDGET_LABELS.landing} (1ʳᵉ cible) : {formatCurrency(pr.totals.forecast, cur)} · Engagé :{' '}
                 {formatCurrency(pr.totals.committed, cur)} · Consommé :{' '}
                 {formatCurrency(pr.totals.consumed, cur)} · Variance consommation :{' '}
-                {formatCurrency(pr.variance.consumed, cur)} · Diff. forecast :{' '}
+                {formatCurrency(pr.variance.consumed, cur)} · Diff. {BUDGET_LABELS.landing.toLowerCase()} :{' '}
                 {formatCurrency(pr.diff.forecastAmount, cur)} · Diff. engagé :{' '}
                 {formatCurrency(pr.diff.committedAmount, cur)} · Diff. consommé :{' '}
                 {formatCurrency(pr.diff.consumedAmount, cur)}

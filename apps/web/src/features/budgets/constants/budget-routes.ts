@@ -68,8 +68,18 @@ export function budgetLines(budgetId: string): string {
   return `${BUDGETS_ROOT}/${budgetId}/lines`;
 }
 
+function budgetComparisonsHref(budgetId: string): string {
+  return `${BUDGETS_ROOT}/${budgetId}?onglet=comparaisons`;
+}
+
+/** Onglet Comparaisons sur la fiche budget (RFC-BUD-040). */
+export function budgetComparisons(budgetId: string): string {
+  return budgetComparisonsHref(budgetId);
+}
+
+/** @deprecated RFC-BUD-040 — alias de budgetComparisons (redirect ex-/reporting). */
 export function budgetReporting(budgetId: string): string {
-  return `${BUDGETS_ROOT}/${budgetId}/reporting`;
+  return budgetComparisonsHref(budgetId);
 }
 
 export function budgetSnapshots(budgetId: string): string {

@@ -252,34 +252,30 @@ export function BudgetDetailDashboard({
     return [];
   }, [dashboard]);
 
-  const monthlyChartRows = useMemo(
-    () =>
-      buildRealizedVsPlannedChartRows({
-        exerciseStartDateIso,
-        exerciseEndDateIso,
-        totalForecastAmount: kpi.totalForecastAmount,
-        monthlyTrend,
-        plannedAmounts12,
-      }),
-    [
+  const monthlyChartRows = useMemo(() => {
+    const totalPlannedFallback =
+      plannedAmounts12?.reduce((sum, amount) => sum + (amount ?? 0), 0) ??
+      kpi.totalLandingAmount ??
+      kpi.totalForecastAmount;
+    return buildRealizedVsPlannedChartRows({
       exerciseStartDateIso,
       exerciseEndDateIso,
-      kpi.totalForecastAmount,
+      totalForecastAmount: totalPlannedFallback,
       monthlyTrend,
       plannedAmounts12,
-    ],
-  );
+    });
+  }, [
+    exerciseStartDateIso,
+    exerciseEndDateIso,
+    kpi.totalLandingAmount,
+    kpi.totalForecastAmount,
+    monthlyTrend,
+    plannedAmounts12,
+  ]);
 
   const hasChartSignal = monthlyChartRows.some(
     (row) => row.planned > 0 || row.realized > 0,
   );
-
-  const monthlyTaxHint =
-    taxDisplayMode === 'HT'
-      ? 'Prévu = plan de dépense · Réalisé = facturé / consommé par mois.'
-      : defaultTaxRate != null
-        ? 'TTC approximatif : TVA client par défaut appliquée aux montants HT.'
-        : 'Sans TVA par défaut, affichage en HT.';
 
   const criticalLines = useMemo<BudgetDashboardLineRow[]>(() => {
     const alertWidget = dashboard?.widgets.find((widget) => widget.type === 'ALERT_LIST');
@@ -336,7 +332,6 @@ export function BudgetDetailDashboard({
                 }
               />
             )}
-            <p className="text-xs text-muted-foreground">{monthlyTaxHint}</p>
           </CardContent>
         </Card>
 
@@ -406,7 +401,7 @@ export function BudgetDetailDashboard({
                   <TableHead>{BUDGET_LABELS.budget}</TableHead>
                   <TableHead>{BUDGET_LABELS.committed}</TableHead>
                   <TableHead>{BUDGET_LABELS.consumed}</TableHead>
-                  <TableHead>{BUDGET_LABELS.forecast}</TableHead>
+                  <TableHead>{BUDGET_LABELS.landing}</TableHead>
                   <TableHead>Dépassement</TableHead>
                   <TableHead>Exécution</TableHead>
                 </TableRow>

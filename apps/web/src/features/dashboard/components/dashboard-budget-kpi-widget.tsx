@@ -29,6 +29,7 @@ import {
   formatKpiAmountParts,
   kpiDisplayAmountNumeric,
 } from '@/features/budgets/lib/budget-dashboard-format';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import {
   budgetDashboard,
   budgetDashboardForBudget,
@@ -125,7 +126,7 @@ function BudgetKpiCardsByKeys({
       defaultTaxRate,
     });
 
-  const ecartForecast = kpis.forecast - kpis.totalBudget;
+  const ecartLanding = kpis.forecast - kpis.totalBudget;
   const ecartTtcFromApi =
     kpis.forecastTtc != null && kpis.totalBudgetTtc != null
       ? kpis.forecastTtc - kpis.totalBudgetTtc
@@ -142,15 +143,15 @@ function BudgetKpiCardsByKeys({
     defaultTaxRate,
   );
   const ecartSub =
-    ecartForecast >= 0
-      ? 'Le forecast dépasse le budget sur cette base.'
-      : 'Le forecast reste sous le plafond budgétaire.';
+    ecartLanding >= 0
+      ? "L'atterrissage dépasse le budget sur cette base."
+      : "L'atterrissage reste sous le plafond budgétaire.";
 
   const remainingTone: BudgetKpiAmountTone =
     kpis.remaining < 0 ? 'danger' : kpis.remaining > 0 ? 'success' : 'default';
 
   const gapTone: BudgetKpiAmountTone =
-    ecartForecast > 0 ? 'warning' : ecartForecast < 0 ? 'success' : 'default';
+    ecartLanding > 0 ? 'warning' : ecartLanding < 0 ? 'success' : 'default';
 
   const kpiHref = (key: DashboardBudgetKpiKey) =>
     dashboardBudgetKpiHref(key, exerciseId, budgetId);
@@ -236,8 +237,8 @@ function BudgetKpiCardsByKeys({
     forecast: (
       <BudgetKpiCard
         variant="forecast"
-        label="Forecast"
-        description="Projection à date"
+        label={BUDGET_LABELS.landing}
+        description="Estimation de fin d'exercice"
         parts={fmt({
           ht: kpis.forecast,
           ttcFromApi: kpis.forecastTtc,
@@ -255,11 +256,11 @@ function BudgetKpiCardsByKeys({
     forecastGap: (
       <BudgetKpiCard
         variant="variance"
-        label="Écart forecast"
-        description="Forecast − budget"
+        label={BUDGET_LABELS.landingGap}
+        description="Atterrissage − budget"
         parts={gapParts}
         subtext={ecartSub}
-        amountDisplayValue={num(ecartForecast, ecartTtcFromApi)}
+        amountDisplayValue={num(ecartLanding, ecartTtcFromApi)}
         animateAmount={animateKpiNumbers}
         icon={TrendingDown}
         amountTone={gapTone}

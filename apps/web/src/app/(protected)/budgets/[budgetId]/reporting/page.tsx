@@ -1,21 +1,11 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import React from 'react';
-import { useParams } from 'next/navigation';
-import { RequireActiveClient } from '@/components/RequireActiveClient';
-import { BudgetReportingForecastPage } from '@/features/budgets/forecast/budget-reporting-forecast-page';
+type PageProps = {
+  params: Promise<{ budgetId: string }>;
+};
 
-export default function BudgetReportingPage() {
-  const params = useParams();
-  const budgetId = typeof params.budgetId === 'string' ? params.budgetId : '';
-
-  return (
-    <RequireActiveClient>
-      {budgetId ? (
-        <BudgetReportingForecastPage budgetId={budgetId} />
-      ) : (
-        <div className="p-6 text-sm text-muted-foreground">Budget introuvable.</div>
-      )}
-    </RequireActiveClient>
-  );
+/** RFC-BUD-040 D2 — fusion reporting dans l'onglet Comparaisons de la fiche budget. */
+export default async function BudgetReportingPage({ params }: PageProps) {
+  const { budgetId } = await params;
+  redirect(`/budgets/${budgetId}?onglet=comparaisons`);
 }

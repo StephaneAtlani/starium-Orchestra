@@ -18,6 +18,7 @@ import { BudgetEnvelopeWorkflowCard } from '../budget-envelope-workflow-card';
 import { BudgetBulkLineStatusDialog } from '../budget-bulk-line-status-dialog';
 import { CockpitSurfaceCard } from '../../dashboard/components/budget-cockpit-primitives';
 import { budgetEnvelopeDetail } from '../../constants/budget-routes';
+import { useEnvelopeSummary } from '../../hooks/use-envelope-summary';
 import { usePermissions } from '@/hooks/use-permissions';
 
 const DEFAULT_LIMIT = 20;
@@ -84,6 +85,9 @@ export function BudgetEnvelopeIntelligenceDrawer({
 
   const envelopeQuery = useBudgetEnvelope(effectiveId);
   const linesQuery = useBudgetEnvelopeLines(effectiveId, linesQueryParams);
+  const envelopeSummaryQuery = useEnvelopeSummary(effectiveId, {
+    enabled: !!effectiveId,
+  });
 
   const envelope = envelopeQuery.data ?? null;
   const hasActiveFilters =
@@ -239,7 +243,12 @@ export function BudgetEnvelopeIntelligenceDrawer({
                   <BudgetEnvelopeContextCard envelope={envelope} />
                 </div>
 
-                <BudgetEnvelopeSummaryCards envelope={envelope} />
+                <BudgetEnvelopeSummaryCards
+                  envelope={envelope}
+                  kpi={envelopeSummaryQuery.data?.kpi}
+                  isLoading={envelopeSummaryQuery.isLoading}
+                  isError={envelopeSummaryQuery.isError}
+                />
 
                 <div className="pb-2 pt-2">
                   <BudgetEnvelopeWorkflowCard envelope={envelope} />

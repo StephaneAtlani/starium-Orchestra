@@ -9,6 +9,7 @@ import {
   createInvoice,
   createPurchaseOrder,
 } from '../api/procurement.api';
+import { budgetQueryKeys } from '@/features/budgets/lib/budget-query-keys';
 import { procurementEntityKeys } from '../lib/procurement-query-keys';
 import type { CreateInvoicePayload } from '../types/invoice.types';
 import type { CreatePurchaseOrderPayload } from '../types/purchase-order.types';
@@ -64,6 +65,17 @@ export function useCreateInvoiceStandalone() {
     mutationFn: (payload: CreateInvoicePayload) => createInvoice(authFetch, payload),
     onSuccess: () => {
       invalidateInvoiceQueries(queryClient, clientId);
+      if (clientId) {
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.dashboardAll(clientId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.monthlyBreakdownAll(clientId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.budgetEnvelopeLinesAll(clientId),
+        });
+      }
     },
   });
 }
@@ -96,6 +108,17 @@ export function useCancelInvoiceMutation() {
     mutationFn: (invoiceId: string) => cancelInvoice(authFetch, invoiceId),
     onSuccess: (_data, invoiceId) => {
       invalidateInvoiceQueries(queryClient, clientId);
+      if (clientId) {
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.dashboardAll(clientId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.monthlyBreakdownAll(clientId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.budgetEnvelopeLinesAll(clientId),
+        });
+      }
       void queryClient.invalidateQueries({
         queryKey: procurementEntityKeys.invoiceDetail(clientId, invoiceId),
       });

@@ -15,6 +15,7 @@ import {
   formatCurrency,
   formatSignedDeltaPercent,
 } from '@/features/budgets/lib/budget-formatters';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import type {
   BudgetComparisonResponse,
   ForecastLineStatus,
@@ -79,9 +80,9 @@ function statusExplanation(
     return `CRITICAL : consommé > budget sur la colonne pilotage « ${pilotLabel} ».`;
   }
   if (status === 'WARNING') {
-    return `WARNING : prévisionnel > budget (consommé ≤ budget) — colonne « ${pilotLabel} ».`;
+    return `WARNING : ${BUDGET_LABELS.landing.toLowerCase()} > budget (consommé ≤ budget) — colonne « ${pilotLabel} ».`;
   }
-  return `OK : consommé et prévisionnel cohérents avec le budget — « ${pilotLabel} ».`;
+  return `OK : consommé et ${BUDGET_LABELS.landing.toLowerCase()} cohérents avec le budget — « ${pilotLabel} ».`;
 }
 
 function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
@@ -107,7 +108,7 @@ function ComparisonContextBanner({ data }: { data: BudgetComparisonResponse }) {
       <p className="mt-1 text-xs text-muted-foreground">
         <span className="text-foreground">Statut ligne (OK / WARNING / CRITICAL) :</span> calculé sur la
         colonne <strong>{pilotCol === 'left' ? 'gauche' : 'droite'}</strong> (« {pilotName} ») — budget,
-        consommé et prévisionnel de ce côté.         Les montants engagé, consommé et prévisionnel sont affichés{' '}
+        consommé et {BUDGET_LABELS.landing.toLowerCase()} de ce côté.         Les montants engagé, consommé et {BUDGET_LABELS.landing.toLowerCase()} sont affichés{' '}
         <strong>gauche et droite</strong> pour comparer les deux budgets ligne à ligne.
       </p>
     </div>
@@ -246,7 +247,7 @@ function ComparisonColumnToggles({
     {
       key: 'pilotage',
       label: 'Pilotage',
-      hint: 'Engagé, consommé et prévisionnel — chacun : gauche, droite, écart, Δ %',
+      hint: 'Engagé, consommé et atterrissage — chacun : gauche, droite, écart, Δ %',
     },
     {
       key: 'statut',
@@ -504,16 +505,16 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                     'max-w-[11rem] text-right align-bottom',
                   )}
                 >
-                  <AmountColumnHeader title={leftColTitle} subtitle="Prévisionnel" />
+                  <AmountColumnHeader title={leftColTitle} subtitle={BUDGET_LABELS.landing} />
                 </TableHead>
                 <TableHead className={cn(STICKY_HEAD, 'max-w-[11rem] text-right align-bottom')}>
-                  <AmountColumnHeader title={rightColTitle} subtitle="Prévisionnel" />
+                  <AmountColumnHeader title={rightColTitle} subtitle={BUDGET_LABELS.landing} />
                 </TableHead>
                 <TableHead className={cn(STICKY_HEAD, 'min-w-[6.5rem] text-right align-bottom')}>
                   <span className="flex flex-col items-end gap-0.5">
                     <span className="font-medium">Écart</span>
                     <span className="text-[0.65rem] font-normal text-muted-foreground">
-                      prévi. (D − G)
+                      atterr. (D − G)
                     </span>
                   </span>
                 </TableHead>
@@ -521,7 +522,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
                   <span className="flex flex-col items-end gap-0.5">
                     <span className="font-medium">Δ %</span>
                     <span className="text-[0.65rem] font-normal text-muted-foreground">
-                      prévi.
+                      atterr.
                     </span>
                   </span>
                 </TableHead>
@@ -721,10 +722,10 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
             <TableCell colSpan={visibleColCount}>
               <span className="font-medium text-foreground">Totaux et écarts (colonne droite = « {rightColTitle} »)</span>
               {' — '}
-              Forecast (droite) : {formatCurrency(data.totals.forecast, cur)} · Engagé (droite) :{' '}
+              {BUDGET_LABELS.landing} (droite) : {formatCurrency(data.totals.forecast, cur)} · Engagé (droite) :{' '}
               {formatCurrency(data.totals.committed, cur)} · Consommé (droite) :{' '}
               {formatCurrency(data.totals.consumed, cur)} · Variance consommation :{' '}
-              {formatCurrency(data.variance.consumed, cur)} · Diff. forecast :{' '}
+              {formatCurrency(data.variance.consumed, cur)} · Diff. {BUDGET_LABELS.landing.toLowerCase()} :{' '}
               {formatCurrency(data.diff.forecastAmount, cur)} · Diff. engagé :{' '}
               {formatCurrency(data.diff.committedAmount, cur)} · Diff. consommé :{' '}
               {formatCurrency(data.diff.consumedAmount, cur)}

@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import type { EnvelopeForecastLineItem } from '@/features/budgets/types/budget-forecast.types';
 import { ForecastStatusBadge } from './forecast-status-badge';
 import { PaginationSummary } from '@/features/budgets/components/pagination-summary';
@@ -58,7 +59,7 @@ export function ForecastTable({
   if (error) {
     return (
       <Alert variant="destructive" data-testid="forecast-table-error">
-        <AlertTitle>Lignes forecast indisponibles</AlertTitle>
+        <AlertTitle>Lignes {BUDGET_LABELS.landing.toLowerCase()} indisponibles</AlertTitle>
         <AlertDescription>{error.message}</AlertDescription>
       </Alert>
     );
@@ -85,13 +86,16 @@ export function ForecastTable({
               <TableHead>Nom</TableHead>
               <TableHead className="text-right">Budget</TableHead>
               <TableHead className="text-right">Consommé</TableHead>
-              <TableHead className="text-right">Forecast</TableHead>
-              <TableHead className="text-right">Variance forecast</TableHead>
+              <TableHead className="text-right">{BUDGET_LABELS.landing}</TableHead>
+              <TableHead className="text-right">{BUDGET_LABELS.landingGap}</TableHead>
               <TableHead>Statut</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lines.map((row) => (
+            {lines.map((row) => {
+              const landing = row.landing ?? row.forecast;
+              const varianceLanding = row.varianceLanding ?? row.varianceForecast;
+              return (
               <TableRow
                 key={row.lineId}
                 className={cn(
@@ -109,22 +113,23 @@ export function ForecastTable({
                   {formatCurrency(row.consumed, currency)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(row.forecast, currency)}
+                  {formatCurrency(landing, currency)}
                 </TableCell>
                 <TableCell
                   className={cn(
                     'text-right tabular-nums',
-                    row.varianceForecast > 0 && 'text-emerald-600 dark:text-emerald-400',
-                    row.varianceForecast < 0 && 'text-red-600 dark:text-red-400',
+                    varianceLanding > 0 && 'text-emerald-600 dark:text-emerald-400',
+                    varianceLanding < 0 && 'text-red-600 dark:text-red-400',
                   )}
                 >
-                  {formatCurrency(row.varianceForecast, currency)}
+                  {formatCurrency(varianceLanding, currency)}
                 </TableCell>
                 <TableCell>
                   <ForecastStatusBadge status={row.status} />
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </div>

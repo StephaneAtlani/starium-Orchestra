@@ -12,6 +12,7 @@ import { PortfolioKpiRow, type PortfolioKpiItem } from '@/components/portfolio';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { BudgetSummaryKpi } from '../types/budget-reporting.types';
 import type { KpiCardFooterTone } from '@/components/ui/kpi-card';
+import { BUDGET_LABELS } from '../lib/budget-display-labels';
 
 type BudgetPortfolioKpiDef = {
   id: string;
@@ -109,22 +110,23 @@ const KPI_CARDS: BudgetPortfolioKpiDef[] = [
     },
   },
   {
-    id: 'forecast',
-    label: 'Prévision',
+    id: 'landing',
+    label: BUDGET_LABELS.landing,
     Icon: TrendingUp,
     iconWrapperClassName: 'bg-[color:var(--state-warning)]/12 text-[color:var(--state-warning)]',
     footerTone: 'warning',
     value: (kpi, isLoading) => {
       if (isLoading) return '—';
-      return formatCompactAmount(kpi?.totalForecastAmount, kpi?.currency ?? 'EUR');
+      const amount = kpi?.totalLandingAmount ?? kpi?.totalForecastAmount;
+      return formatCompactAmount(amount, kpi?.currency ?? 'EUR');
     },
     footer: (kpi) => {
       if (!kpi) return null;
-      const gap = coerceFiniteNumber(kpi.forecastGapAmount);
+      const gap = coerceFiniteNumber(kpi.landingGapAmount ?? kpi.forecastGapAmount);
       if (gap != null && gap > 0) {
         return `Écart +${formatCompactAmount(gap, kpi.currency ?? 'EUR')}`;
       }
-      return 'Prévision dans le budget';
+      return `${BUDGET_LABELS.landing} dans le budget`;
     },
   },
 ];
@@ -174,12 +176,20 @@ export function BudgetsPortfolioKpi({
     footer: card.footer(kpi, meta) ?? undefined,
     footerTone: card.footerTone === 'success' && kpi && kpi.totalRemainingAmount < 0
       ? 'danger' as KpiCardFooterTone
-      : card.footerTone === 'warning' && kpi?.forecastGapAmount != null && kpi.forecastGapAmount > 0
+      : card.footerTone === 'warning' &&
+          kpi?.landingGapAmount != null &&
+          kpi.landingGapAmount > 0
+        ? ('danger' as KpiCardFooterTone)
+        : card.footerTone === 'warning' &&
+            kpi?.forecastGapAmount != null &&
+            kpi.forecastGapAmount > 0
         ? 'danger' as KpiCardFooterTone
         : card.footerTone,
     iconWrapperClassName: card.id === 'remaining' && kpi && kpi.totalRemainingAmount < 0
       ? 'bg-destructive/12 text-destructive'
-      : card.id === 'forecast' && kpi?.forecastGapAmount != null && kpi.forecastGapAmount > 0
+      : card.id === 'landing' &&
+          ((kpi?.landingGapAmount != null && kpi.landingGapAmount > 0) ||
+            (kpi?.forecastGapAmount != null && kpi.forecastGapAmount > 0))
         ? 'bg-destructive/12 text-destructive'
         : card.iconWrapperClassName,
     icon: <card.Icon aria-hidden />,

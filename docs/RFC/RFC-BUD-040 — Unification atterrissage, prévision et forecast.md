@@ -2,7 +2,9 @@
 
 ## Statut
 
-📝 Draft — **décisions produit validées** (2026-08-28) ; implémentation à lancer
+✅ **Implémenté** (2026-08-28) — lots A à E livrés sur branche feature ; migration `20260828140000_rfc_bud_040_landing_amount` + backfill lignes live (`apps/api/prisma/backfill-landing-amounts.ts`). Snapshots historiques : `landingAmount` reste `null` (D4).
+
+**Déploiement distant** : après `prisma migrate deploy`, exécuter le backfill one-shot sur chaque environnement avec des `BudgetLine` existantes (voir §16).
 
 ## Priorité
 
@@ -527,10 +529,54 @@ pnpm typecheck
 
 ---
 
+# 16. Implémentation livrée (2026-08-28)
+
+## Backend
+
+| Élément | Emplacement |
+|---------|-------------|
+| Module NestJS | `apps/api/src/modules/budget-landing/` |
+| Migration Prisma | `apps/api/prisma/migrations/20260828140000_rfc_bud_040_landing_amount/` — `BudgetLine.landingAmount`, `landingComputedAt` ; `BudgetSnapshotLine.landingAmount` |
+| Backfill lignes live | `apps/api/prisma/backfill-landing-amounts.ts` (one-shot post-migrate) |
+| Chaîne recalcul | `BudgetLineCalculatorService` → `BudgetLandingService.recalculateAndPersist` ; planning / import en fin de transaction |
+| Blocage FORECAST | `financial-allocations.service.ts` → `400 forecast_allocation_deprecated` |
+| API canonique | `GET /api/budget-landing/*`, `GET /api/budget-lines/:id/landing` |
+| API dépréciée | `/api/budget-forecast/*` — header `Deprecation: true`, délégation landing |
+| Reporting / dashboard | `totalLandingAmount`, `landingGapAmount` ; coalesce `landingAmount ?? forecastAmount` |
+
+## Frontend
+
+| Élément | Emplacement |
+|---------|-------------|
+| Glossaire | `budget-display-labels.ts` — **Atterrissage**, **Écart d'atterrissage** ; onglet **Prévisionnel** conservé (D1) |
+| Client API | `api/budget-landing.api.ts` ; `budget-forecast.api.ts` = wrapper déprécié |
+| Hooks canoniques | `use-budget-landing`, `use-envelope-landing`, `use-envelope-landing-lines`, `use-envelope-summary` |
+| KPI fiche | `budget-detail-kpi-strip.tsx` — reporting `totalLandingAmount` |
+| KPI drawer / snapshot | `budget-line-kpi-strip.tsx`, `budget-snapshot-kpi-strip.tsx` — 6 cellules + hints |
+| KPI enveloppe | `budget-envelope-summary-cards.tsx` — `useEnvelopeSummary` (reporting) |
+| Redirect D2 | `/budgets/[budgetId]/reporting` → `?onglet=comparaisons` |
+
+## Déploiement
+
+1. `pnpm --filter @starium-orchestra/api prisma:migrate`
+2. `pnpm --filter @starium-orchestra/api exec tsx prisma/backfill-landing-amounts.ts` (si lignes live existantes)
+3. Smoke : bandeau Atterrissage fiche budget, redirect reporting, POST `FORECAST` → 400
+
+## Dette résiduelle (non bloquante)
+
+* `budget-landing.service.spec.ts` (isolation client) à compléter avant gate PR stricte.
+* `aggregateLinesToKpi` : `totalLandingAmount` encore alias de la somme `forecastAmount` après coalesce ligne — à expliciter dans le mapper.
+* Catalogue audit : action `budget.landing.viewed` documentée dans `docs/API.md`.
+* Amendements cross-RFC (RFC-030, RFC-FE-BUD-030) : renvoi RFC-BUD-040 ajouté ; détail dans §13.
+
 # 15. Références code actuelles
 
-* `apps/api/src/modules/financial-core/budget-line-amounts.aggregate.ts`
-* `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.service.ts` (l.590–629, 785–791)
-* `apps/api/src/modules/budget-forecast/budget-forecast.service.ts`
+* `apps/api/src/modules/budget-landing/` — moteur canonique (`BudgetLandingService`, `BudgetLandingReadService`, controllers)
+* `apps/api/src/modules/financial-core/budget-line-amounts.aggregate.ts` — `computeEffectiveBudgetBase` ; plus de `forecastAmount` depuis allocations `FORECAST`
+* `apps/api/src/modules/budget-management/budget-lines/budget-line-planning.service.ts`
+* `apps/api/src/modules/budget-forecast/budget-forecast.service.ts` — proxy déprécié vers landing
+* `apps/web/src/features/budgets/api/budget-landing.api.ts`
+* `apps/web/src/features/budgets/hooks/use-budget-landing.ts`, `use-envelope-landing.ts`, `use-envelope-summary.ts`
 * `apps/web/src/features/budgets/lib/budget-display-labels.ts`
+* `docs/API.md` §15–16 (routes landing, rejet `FORECAST`)
 * `docs/RFC/RFC-023 — Budget Prévisionnel (Planning & Atterrissage.md` §6.2

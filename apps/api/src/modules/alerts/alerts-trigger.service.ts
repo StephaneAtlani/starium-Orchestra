@@ -70,6 +70,7 @@ export class AlertsTriggerService {
         name: true,
         code: true,
         forecastAmount: true,
+        landingAmount: true,
         consumedAmount: true,
         committedAmount: true,
       },
@@ -80,11 +81,13 @@ export class AlertsTriggerService {
     const activeNear: string[] = [];
 
     for (const line of lines) {
-      const forecast = Number(line.forecastAmount ?? 0);
+      const landing = Number(
+        line.landingAmount ?? line.forecastAmount ?? 0,
+      );
       const engaged =
         Number(line.consumedAmount ?? 0) + Number(line.committedAmount ?? 0);
-      if (forecast <= 0) continue;
-      const ratio = engaged / forecast;
+      if (landing <= 0) continue;
+      const ratio = engaged / landing;
 
       if (ratio >= 1) {
         activeOverrun.push(line.id);
@@ -94,13 +97,13 @@ export class AlertsTriggerService {
           type: AlertType.BUDGET,
           severity: AlertSeverity.CRITICAL,
           title: `Dépassement budgétaire — ${line.name}`,
-          message: `La ligne « ${line.name} » (${line.code}) est engagée à ${pct} % du prévisionnel.`,
+          message: `La ligne « ${line.name} » (${line.code}) est engagée à ${pct} % de l'atterrissage.`,
           entityType: 'budget_line',
           entityId: line.id,
           entityLabel: line.name,
           actionUrl: `/budgets`,
           ruleCode: RULE_OVERRUN,
-          metadata: { ratio, forecast, engaged },
+          metadata: { ratio, landing, engaged },
         });
         evaluated += 1;
       } else if (ratio >= nearRatio) {
@@ -111,13 +114,13 @@ export class AlertsTriggerService {
           type: AlertType.BUDGET,
           severity: AlertSeverity.WARNING,
           title: `Budget proche du plafond — ${line.name}`,
-          message: `La ligne « ${line.name} » (${line.code}) atteint ${pct} % du prévisionnel.`,
+          message: `La ligne « ${line.name} » (${line.code}) atteint ${pct} % de l'atterrissage.`,
           entityType: 'budget_line',
           entityId: line.id,
           entityLabel: line.name,
           actionUrl: `/budgets`,
           ruleCode: RULE_NEAR,
-          metadata: { ratio, forecast, engaged },
+          metadata: { ratio, landing, engaged },
         });
         evaluated += 1;
       }

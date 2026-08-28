@@ -31,6 +31,7 @@ import { TeamDirectoryModule } from './modules/team-directory/team-directory.mod
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { RiskTaxonomyModule } from './modules/risk-taxonomy/risk-taxonomy.module';
 import { BudgetForecastModule } from './modules/budget-forecast/budget-forecast.module';
+import { BudgetLandingModule } from './modules/budget-landing/budget-landing.module';
 import { PlatformUsageModule } from './modules/platform-usage/platform-usage.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { WorkTeamsModule } from './modules/work-teams/work-teams.module';
@@ -98,6 +99,7 @@ import { PlatformLoginNewsModule } from './modules/platform-login-news/platform-
     ComplianceModule,
     RiskTaxonomyModule,
     BudgetForecastModule,
+    BudgetLandingModule,
     PlatformUsageModule,
     SkillsModule,
     WorkTeamsModule,

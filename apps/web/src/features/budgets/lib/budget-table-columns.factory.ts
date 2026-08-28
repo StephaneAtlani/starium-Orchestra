@@ -22,7 +22,7 @@ const ATTER_COLS: BudgetPilotageColumnHeader[] = [
 
 const FORECAST_BASELINE_COLS: BudgetPilotageColumnHeader[] = [
   { id: 'budget', label: 'Budget', align: 'right' },
-  { id: 'forecastBaseline', label: 'Forecast (baseline)', align: 'right' },
+  { id: 'forecastBaseline', label: 'Baseline (réf.)', align: 'right' },
   { id: 'landing', label: 'Atterrissage', align: 'right' },
   { id: 'landingVariance', label: 'Écart', align: 'right' },
 ];

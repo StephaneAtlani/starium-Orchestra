@@ -3887,6 +3887,8 @@ async function seedProcurementAndEvents(
       committedAmount,
       consumedAmount,
       forecastAmount,
+      landingAmount: forecastAmount,
+      landingComputedAt: new Date(),
       remainingAmount,
     },
   });

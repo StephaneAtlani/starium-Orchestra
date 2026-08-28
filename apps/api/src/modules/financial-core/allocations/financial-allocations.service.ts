@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { AllocationType, FinancialSourceType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -8,7 +9,6 @@ import { BudgetLineCalculatorService } from '../budget-line-calculator.service';
 import { assertBudgetLineExistsForClient } from '../helpers/budget-line.helper';
 import { CreateFinancialAllocationDto } from './dto/create-financial-allocation.dto';
 import { ListFinancialAllocationsQueryDto } from './dto/list-financial-allocations.query.dto';
-import { FinancialSourceType } from '@prisma/client';
 
 export interface ListAllocationsResult {
   items: Awaited<
@@ -42,6 +42,14 @@ export class FinancialAllocationsService {
       dto.budgetLineId,
       clientId,
     );
+
+    if (dto.allocationType === AllocationType.FORECAST) {
+      throw new BadRequestException({
+        code: 'forecast_allocation_deprecated',
+        message:
+          'Les allocations FORECAST manuelles ne sont plus supportées. Utilisez le planning mensuel.',
+      });
+    }
 
     const sourceId =
       dto.sourceType === FinancialSourceType.MANUAL

@@ -6,12 +6,17 @@ import type { EntityVisual } from '@starium-orchestra/types';
 
 export interface BudgetSummaryKpi {
   totalInitialAmount: number;
+  /** @deprecated Alias de totalLandingAmount — atterrissage (RFC-BUD-040). */
   totalForecastAmount: number;
+  /** RFC-BUD-040 — atterrissage agrégé (canonique). */
+  totalLandingAmount?: number;
   totalCommittedAmount: number;
   totalConsumedAmount: number;
   totalRemainingAmount: number;
   totalInitialAmountTtc?: number | null;
+  /** @deprecated Alias de totalLandingAmountTtc. */
   totalForecastAmountTtc?: number | null;
+  totalLandingAmountTtc?: number | null;
   totalCommittedAmountTtc?: number | null;
   totalConsumedAmountTtc?: number | null;
   totalRemainingAmountTtc?: number | null;
@@ -19,7 +24,10 @@ export interface BudgetSummaryKpi {
   consumptionRate?: number;
   commitmentRate?: number;
   forecastRate?: number;
+  landingRate?: number;
+  /** @deprecated Alias de landingGapAmount. */
   forecastGapAmount?: number;
+  landingGapAmount?: number;
   lineCount?: number;
   overConsumedLineCount?: number;
   overCommittedLineCount?: number;
@@ -36,6 +44,11 @@ export interface ExerciseSummaryResponse {
 export interface BudgetSummaryResponse {
   budgetId: string;
   budget: { id: string; name: string; code: string | null; currency: string; status: string };
+  kpi: BudgetSummaryKpi;
+}
+
+export interface EnvelopeSummaryResponse {
+  envelopeId: string;
   kpi: BudgetSummaryKpi;
 }
 

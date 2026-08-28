@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRealizedVsPlannedChartRows } from './build-realized-vs-planned-chart';
+import { buildRealizedVsPlannedChartRows, resolveInitialRealizedVsPlannedMonthKey } from './build-realized-vs-planned-chart';
 
 describe('buildRealizedVsPlannedChartRows', () => {
   it('sans endDate : 12 mois depuis start (répartition égale)', () => {
@@ -85,5 +85,19 @@ describe('buildRealizedVsPlannedChartRows', () => {
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.monthKey)).toEqual(['2026-01', '2026-02']);
     expect(rows.every((r) => r.planned === 100)).toBe(true);
+  });
+
+  it('resolveInitialRealizedVsPlannedMonthKey : mois courant UTC si présent', () => {
+    const rows = buildRealizedVsPlannedChartRows({
+      exerciseStartDateIso: '2026-01-01T00:00:00.000Z',
+      totalForecastAmount: 1200,
+      monthlyTrend: [{ month: '2026-08', committed: 0, consumed: 1_000_000 }],
+    });
+    expect(
+      resolveInitialRealizedVsPlannedMonthKey(
+        rows,
+        new Date('2026-08-28T12:00:00.000Z'),
+      ),
+    ).toBe('2026-08');
   });
 });

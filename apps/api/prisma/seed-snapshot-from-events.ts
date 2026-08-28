@@ -16,6 +16,7 @@ import {
   aggregateBudgetLineAmounts,
   snapshotAsOfInclusiveEndUtc,
 } from "../src/modules/financial-core/budget-line-amounts.aggregate";
+import { calculateLanding } from "../src/modules/budget-landing/budget-landing.calculator";
 
 const SNAP_CODE_SUFFIX_BYTES = 3;
 const MAX_CODE_RETRIES = 8;
@@ -48,18 +49,26 @@ function groupByLineId<T extends { budgetLineId: string }>(rows: T[]): Map<strin
 }
 
 /**
- * Recalcule forecast / engagé / consommé / restant à partir des mouvements en base (comme le calculateur métier).
+ * Recalcule engagé / consommé / restant / atterrissage à partir des mouvements et du planning (RFC-BUD-040).
  */
 export async function syncBudgetLineAggregatedAmounts(
   prisma: PrismaClient,
   budgetLineId: string,
   clientId: string,
 ): Promise<void> {
-  const [line, allocations, events] = await Promise.all([
-    prisma.budgetLine.findUniqueOrThrow({
-      where: { id: budgetLineId, clientId },
-      select: { initialAmount: true },
-    }),
+  const line = await prisma.budgetLine.findUniqueOrThrow({
+    where: { id: budgetLineId, clientId },
+    select: {
+      initialAmount: true,
+      budget: {
+        select: {
+          exercise: { select: { startDate: true, endDate: true } },
+        },
+      },
+      planningMonths: { select: { monthIndex: true, amount: true } },
+    },
+  });
+  const [allocations, events] = await Promise.all([
     prisma.financialAllocation.findMany({
       where: { budgetLineId, clientId },
       select: { allocationType: true, allocatedAmount: true },
@@ -82,13 +91,26 @@ export async function syncBudgetLineAggregatedAmounts(
     })),
   );
 
+  const landingResult = calculateLanding({
+    effectiveBudgetBase: aggregated.effectiveBudgetBase,
+    consumedAmount: aggregated.consumedAmount,
+    committedAmount: aggregated.committedAmount,
+    exerciseStart: line.budget.exercise.startDate,
+    exerciseEnd: line.budget.exercise.endDate,
+    referenceDate: new Date(),
+    planningMonths: line.planningMonths,
+  });
+
   await prisma.budgetLine.update({
     where: { id: budgetLineId },
     data: {
-      forecastAmount: aggregated.forecastAmount.toDecimalPlaces(2),
       committedAmount: aggregated.committedAmount.toDecimalPlaces(2),
       consumedAmount: aggregated.consumedAmount.toDecimalPlaces(2),
       remainingAmount: aggregated.remainingAmount.toDecimalPlaces(2),
+      planningTotalAmount: landingResult.planningTotalAmount,
+      forecastAmount: landingResult.landingAmount,
+      landingAmount: landingResult.landingAmount,
+      landingComputedAt: new Date(),
     },
   });
 }
@@ -118,7 +140,10 @@ export async function createBudgetSnapshotFromEvents(
       clientId,
       status: BudgetLineStatus.ACTIVE,
     },
-    include: { envelope: true },
+    include: {
+      envelope: true,
+      planningMonths: { select: { monthIndex: true, amount: true } },
+    },
   });
 
   const asOfEnd = snapshotAsOfInclusiveEndUtc(snapshotDate);
@@ -173,12 +198,21 @@ export async function createBudgetSnapshotFromEvents(
         allocatedAmount: a.allocatedAmount,
       })) ?? [];
     const agg = aggregateBudgetLineAmounts(line.initialAmount, evs, allocs);
-    return { line, agg };
+    const landingResult = calculateLanding({
+      effectiveBudgetBase: agg.effectiveBudgetBase,
+      consumedAmount: agg.consumedAmount,
+      committedAmount: agg.committedAmount,
+      exerciseStart: budget.exercise.startDate,
+      exerciseEnd: budget.exercise.endDate,
+      referenceDate: snapshotDate,
+      planningMonths: line.planningMonths,
+    });
+    return { line, agg, landingResult };
   });
 
   const totalInitial = lines.reduce((s, l) => s + toNum(l.initialAmount), 0);
   const totalForecast = lineSnapshots.reduce(
-    (s, { agg }) => s + toNum(agg.forecastAmount),
+    (s, { landingResult }) => s + toNum(landingResult.landingAmount),
     0,
   );
   const totalCommitted = lineSnapshots.reduce(
@@ -224,7 +258,7 @@ export async function createBudgetSnapshotFromEvents(
         });
         if (lineSnapshots.length > 0) {
           await tx.budgetSnapshotLine.createMany({
-            data: lineSnapshots.map(({ line, agg }) => ({
+            data: lineSnapshots.map(({ line, agg, landingResult }) => ({
               snapshotId: snap.id,
               clientId,
               budgetLineId: line.id,
@@ -239,7 +273,8 @@ export async function createBudgetSnapshotFromEvents(
               currency: line.currency,
               lineStatus: line.status,
               initialAmount: line.initialAmount,
-              forecastAmount: agg.forecastAmount,
+              forecastAmount: landingResult.landingAmount,
+              landingAmount: landingResult.landingAmount,
               committedAmount: agg.committedAmount,
               consumedAmount: agg.consumedAmount,
               remainingAmount: agg.remainingAmount,

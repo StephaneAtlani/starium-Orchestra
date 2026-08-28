@@ -3987,6 +3987,9 @@ model BudgetLine {
   taxRate                       Decimal?                       @db.Decimal(5, 2)
   initialAmount                 Decimal                        @default(0) @db.Decimal(18, 2)
   forecastAmount                Decimal                        @default(0) @db.Decimal(18, 2)
+  /// RFC-BUD-040 — atterrissage canonique (consommé + engagé + prévision restante)
+  landingAmount                 Decimal?                       @db.Decimal(18, 2)
+  landingComputedAt             DateTime?
   committedAmount               Decimal                        @default(0) @db.Decimal(18, 2)
   consumedAmount                Decimal                        @default(0) @db.Decimal(18, 2)
   remainingAmount               Decimal                        @default(0) @db.Decimal(18, 2)
@@ -4169,6 +4172,8 @@ model BudgetSnapshotLine {
 
   initialAmount   Decimal @db.Decimal(18, 2)
   forecastAmount  Decimal @db.Decimal(18, 2)
+  /// RFC-BUD-040 — atterrissage figé à la capture (null = snapshot historique pré-migration)
+  landingAmount   Decimal? @db.Decimal(18, 2)
   committedAmount Decimal @db.Decimal(18, 2)
   consumedAmount  Decimal @db.Decimal(18, 2)
   remainingAmount Decimal @db.Decimal(18, 2)

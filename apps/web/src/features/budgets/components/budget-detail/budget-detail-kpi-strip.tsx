@@ -13,7 +13,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { formatTaxAwareAmount, type TaxDisplayMode } from '@/lib/format-tax-aware-amount';
 import { budgetKpiAmountForTaxMode, formatPercent } from '@/features/budgets/lib/budget-formatters';
-import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
+import {
+  BUDGET_LABELS,
+  BUDGET_LABEL_HINTS,
+} from '@/features/budgets/lib/budget-display-labels';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
 
 export interface BudgetDetailKpiStripProps {
@@ -48,9 +51,8 @@ type KpiCell = {
 };
 
 /**
- * Zone 2 du cockpit (RFC-FE-BUD-032 §3.A) : bande de 6 indicateurs persistante sur tous les
- * onglets, alignée sur le mockup `#budgets-detail` (libellé, valeur, précision, barre).
- * Montants issus de l'API reporting (`*Ttc` inclus) — aucun agrégat recalculé côté client.
+ * Zone 2 du cockpit (RFC-FE-BUD-032 §3.A, RFC-BUD-040) : bande de 6 indicateurs persistante.
+ * Ordre : Budget → Atterrissage → Engagé → Consommé → Restant → Écart d'atterrissage.
  */
 export function BudgetDetailKpiStrip({
   kpi,
@@ -77,22 +79,35 @@ export function BudgetDetailKpiStrip({
       });
 
     const budgetBase = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'initial');
-    const forecast = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'forecast');
+    const landing = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'landing');
     const committed = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'committed');
     const consumed = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'consumed');
     const remaining = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'remaining');
-    const overrun = Math.max(0, forecast - budgetBase);
+    const landingGap =
+      kpi.landingGapAmount ??
+      kpi.forecastGapAmount ??
+      landing - budgetBase;
     const share = (value: number) => (budgetBase > 0 ? (value / budgetBase) * 100 : 0);
-    const executionRate = budgetBase > 0 ? consumed / budgetBase : 0;
 
     return [
       {
         id: 'budget',
         label: BUDGET_LABELS.budget,
         value: amount(kpi.totalInitialAmount, kpi.totalInitialAmountTtc),
-        hint: 'Plafond voté, réaffectations incluses',
+        hint: BUDGET_LABEL_HINTS.budget,
         tone: 'brand',
         progress: 100,
+      },
+      {
+        id: 'landing',
+        label: BUDGET_LABELS.landing,
+        value: amount(
+          kpi.totalLandingAmount ?? kpi.totalForecastAmount,
+          kpi.totalLandingAmountTtc ?? kpi.totalForecastAmountTtc,
+        ),
+        hint: BUDGET_LABEL_HINTS.landing,
+        tone: landing > budgetBase ? 'danger' : 'ok',
+        progress: share(landing),
       },
       {
         id: 'committed',
@@ -114,28 +129,28 @@ export function BudgetDetailKpiStrip({
         id: 'remaining',
         label: BUDGET_LABELS.remaining,
         value: amount(kpi.totalRemainingAmount, kpi.totalRemainingAmountTtc),
-        hint: remaining < 0 ? 'Budget dépassé' : `${formatPercent(share(remaining) / 100)} disponible`,
+        hint:
+          remaining < 0
+            ? 'Budget dépassé'
+            : `${formatPercent(share(remaining) / 100)} disponible`,
         tone: remaining < 0 ? 'danger' : 'ok',
         progress: Math.max(0, share(remaining)),
       },
       {
-        id: 'overrun',
-        label: 'Dépassement',
-        value: overrun > 0 ? amount(overrun, null) : '—',
+        id: 'landing-gap',
+        label: BUDGET_LABELS.landingGap,
+        value:
+          landingGap !== 0
+            ? amount(landingGap, null)
+            : '—',
         hint:
-          overrun > 0
-            ? `${BUDGET_LABELS.forecast} au-delà du budget`
-            : `${BUDGET_LABELS.forecast} ${amount(kpi.totalForecastAmount, kpi.totalForecastAmountTtc)}`,
-        tone: overrun > 0 ? 'danger' : 'ok',
-        progress: share(overrun),
-      },
-      {
-        id: 'execution',
-        label: "Taux d'exécution",
-        value: formatPercent(executionRate),
-        hint: `${BUDGET_LABELS.consumed} sur budget`,
-        tone: consumptionTone(executionRate),
-        progress: executionRate * 100,
+          landingGap > 0
+            ? `${BUDGET_LABELS.landing} au-delà du budget`
+            : landingGap < 0
+              ? `${BUDGET_LABELS.landing} sous le plafond`
+              : `${BUDGET_LABELS.landing} aligné sur le budget`,
+        tone: landingGap > 0 ? 'danger' : landingGap < 0 ? 'ok' : 'brand',
+        progress: share(Math.max(0, landingGap)),
       },
     ];
   }, [kpi, currency, taxDisplayMode, isTtcProjection]);
@@ -205,7 +220,7 @@ export function BudgetDetailKpiStrip({
               <div
                 className={cn(
                   'starium-kpi-value starium-kpi-value--dense starium-kpi-value--portfolio tabular-nums',
-                  cell.id === 'overrun' || cell.id === 'remaining'
+                  cell.id === 'landing-gap' || cell.id === 'remaining'
                     ? toneAmountClass(cell.tone)
                     : 'text-foreground',
                 )}

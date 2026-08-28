@@ -21,6 +21,14 @@ export function useCreateFinancialEvent(budgetId: string | null, budgetLineId: s
       return createFinancialEvent(authFetch, payload);
     },
     onSuccess: () => {
+      if (clientId) {
+        queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.dashboardAll(clientId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: budgetQueryKeys.monthlyBreakdownAll(clientId),
+        });
+      }
       if (budgetId) {
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId) });
         queryClient.invalidateQueries({ queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, budgetId) });

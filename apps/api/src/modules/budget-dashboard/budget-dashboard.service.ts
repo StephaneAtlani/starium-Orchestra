@@ -25,6 +25,13 @@ import { BudgetDashboardConfigService } from './budget-dashboard-config.service'
 
 type DecimalLike = Prisma.Decimal | null | undefined;
 
+function resolveLineLandingAmount(line: {
+  landingAmount?: DecimalLike;
+  forecastAmount: DecimalLike;
+}): number {
+  return fromDecimal(line.landingAmount ?? line.forecastAmount);
+}
+
 const TOP_LIMIT_DEFAULT = 10;
 const MONTHLY_BREAKDOWN_LINE_LIMIT = 8;
 
@@ -180,6 +187,7 @@ export class BudgetDashboardService {
           remainingAmount: true,
           consumedAmount: true,
           forecastAmount: true,
+          landingAmount: true,
           expenseType: true,
           code: true,
           name: true,
@@ -225,7 +233,7 @@ export class BudgetDashboardService {
       0,
     );
     const forecast = linesForAggregation.reduce(
-      (s, l) => s + fromDecimal(l.forecastAmount),
+      (s, l) => s + resolveLineLandingAmount(l),
       0,
     );
     const consumptionRate =
@@ -289,7 +297,7 @@ export class BudgetDashboardService {
               );
               forecastTtc += fromDecimal(
                 TaxCalculator.fromHtAndTaxRate({
-                  amountHt: l.forecastAmount,
+                  amountHt: l.landingAmount ?? l.forecastAmount,
                   taxRate: effectiveTaxRate,
                 }).amountTtc,
               );
@@ -729,6 +737,7 @@ export class BudgetDashboardService {
         name: true,
         envelopeId: true,
         forecastAmount: true,
+        landingAmount: true,
         envelope: {
           select: { id: true, code: true, name: true, type: true },
         },
@@ -799,7 +808,7 @@ export class BudgetDashboardService {
 
     for (const e of events) {
       const date = e.eventDate ?? e.createdAt;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const key = this.monthKeyFromEventDate(date);
       if (key !== query.month) continue;
       const amount = fromDecimal(e.amountHt as DecimalLike);
       if (e.eventType === FinancialEventType.CONSUMPTION_REGISTERED) {
@@ -830,7 +839,7 @@ export class BudgetDashboardService {
     for (const line of lines) {
       const planned = hasAnyPlanning
         ? (plannedByLine.get(line.id) ?? 0)
-        : Math.max(0, fromDecimal(line.forecastAmount)) / exerciseMonthCount;
+        : Math.max(0, resolveLineLandingAmount(line)) / exerciseMonthCount;
       const realized = realizedByLine.get(line.id) ?? 0;
       const committed = committedByLine.get(line.id) ?? 0;
 
@@ -1088,6 +1097,11 @@ export class BudgetDashboardService {
     return { committed, consumed, forecast };
   }
 
+  /** Clé `YYYY-MM` alignée sur `listExerciseCalendarMonths` (UTC). */
+  private monthKeyFromEventDate(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
   private buildMonthlyTrend(
     events: {
       eventType: string;
@@ -1102,8 +1116,7 @@ export class BudgetDashboardService {
     >();
     for (const e of events) {
       const date = e.eventDate ?? e.createdAt;
-      const month =
-        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const month = this.monthKeyFromEventDate(date);
       const amount = fromDecimal(e.amountHt as DecimalLike);
       let entry = byMonth.get(month);
       if (!entry) {
@@ -1175,7 +1188,7 @@ export class BudgetDashboardService {
       const revised = fromDecimal(l.initialAmount);
       const committed = fromDecimal(l.committedAmount);
       const consumed = fromDecimal(l.consumedAmount);
-      const forecast = fromDecimal(l.forecastAmount);
+      const forecast = resolveLineLandingAmount(l);
       const remaining = fromDecimal(l.remainingAmount);
       if (remaining < 0) negativeRemaining += 1;
       if (committed > revised) overCommitted += 1;
@@ -1306,7 +1319,7 @@ export class BudgetDashboardService {
         };
         byEnvelope.set(id, row);
       }
-      row.forecast += fromDecimal(l.forecastAmount);
+      row.forecast += resolveLineLandingAmount(l);
       row.budgetAmount += fromDecimal(l.initialAmount);
     }
     return [...byEnvelope.values()].map((row) => {
