@@ -104,12 +104,9 @@ export function MonthEnvelopeDrilldown({
 
   return (
     <div className="space-y-4" aria-live="polite">
-      <div>
-        <p className="starium-overline text-muted-foreground">Drill-down</p>
-        <h3 className="mt-1 text-sm font-semibold text-foreground">
-          {monthLabel} — détail par enveloppe
-        </h3>
-      </div>
+      <h3 className="text-sm font-semibold text-foreground">
+        {monthLabel} — détail par enveloppe
+      </h3>
 
       <dl className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-[var(--radius-md)] border border-border/70 bg-card p-3">
