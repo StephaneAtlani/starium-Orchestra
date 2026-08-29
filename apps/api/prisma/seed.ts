@@ -1980,6 +1980,10 @@ async function ensureBudgetsProjectsProcurementModuleAndPermissions(): Promise<v
       code: "budgets.snapshot_occasion_types.manage",
       label: "Budgets — types d’occasion des versions figées",
     },
+    {
+      code: "budgets.landing_forecast.apply",
+      label: "Budgets — activer une prévision d’atterrissage",
+    },
   ];
   for (const p of budgetDefs) {
     await prisma.permission.upsert({
@@ -2238,6 +2242,27 @@ async function ensureGlobalBudgetSnapshotOccasionTypes(): Promise<void> {
     },
     { code: "AUDIT", label: "Audit / contrôle", sortOrder: 40 },
     { code: "OTHER", label: "Autre", sortOrder: 99 },
+    {
+      code: "PA_BASELINE",
+      label: "PA — avant",
+      sortOrder: 50,
+      description:
+        "Version figée de référence avant une prévision d’atterrissage (RFC-BUD-041).",
+    },
+    {
+      code: "PA_ARBITRATED",
+      label: "PA — scénario arbitré",
+      sortOrder: 51,
+      description:
+        "Scénario de prévision d’atterrissage figé avant validation CODIR (RFC-BUD-041).",
+    },
+    {
+      code: "PA_ACTIVATED",
+      label: "PA — activée",
+      sortOrder: 52,
+      description:
+        "Photo du live après activation de la prévision d’atterrissage (RFC-BUD-041).",
+    },
   ];
   for (const d of defs) {
     const existing = await prisma.budgetSnapshotOccasionType.findFirst({

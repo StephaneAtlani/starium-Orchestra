@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { FinancialEventType, Prisma } from '@prisma/client';
+import { BudgetLineStatus, BudgetStatus, FinancialEventType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   AuditLogsService,
@@ -43,11 +43,24 @@ export class FinancialEventsService {
     dto: CreateFinancialEventDto,
     context?: CreateEventContext,
   ) {
-    await assertBudgetLineExistsForClient(
+    const line = await assertBudgetLineExistsForClient(
       this.prisma,
       dto.budgetLineId,
       clientId,
     );
+    if (line.status !== BudgetLineStatus.ACTIVE) {
+      const budget = await this.prisma.budget.findFirst({
+        where: { id: line.budgetId, clientId },
+        select: { status: true },
+      });
+      if (budget?.status === BudgetStatus.VALIDATED) {
+        throw new BadRequestException({
+          code: 'budget_line_not_active',
+          message:
+            'Une dépense ne peut être saisie que sur une ligne active d’un budget validé.',
+        });
+      }
+    }
 
     const shouldRecalc = RECALC_EVENT_TYPES.includes(dto.eventType);
 

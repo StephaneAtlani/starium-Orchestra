@@ -7,12 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { createEnvelopeSchema, type CreateEnvelopeInput } from '../../schemas/create-envelope.schema';
+import {
+  buildCreateEnvelopeSchema,
+  type CreateEnvelopeInput,
+} from '../../schemas/create-envelope.schema';
 import { BudgetFormActions } from './budget-form-actions';
 import { BudgetValidationWorkflowStrip } from './budget-validation-workflow-strip';
 import { useBudgetDetail } from '../../hooks/use-budgets';
 import type { BudgetWorkflowStatus } from '../../constants/budget-workflow-status';
 import type { ApiFormError } from '../../api/types';
+import { BUDGET_ENVELOPE_STATUS_EDIT_OPTIONS } from '../../constants/budget-envelope-status-options';
+import { displayLabel } from '@/lib/display-label';
 
 const TYPE_OPTIONS = [
   { value: 'RUN', label: 'RUN' },
@@ -29,6 +34,7 @@ interface BudgetEnvelopeFormProps {
   submitError?: ApiFormError | null;
   /** budgetId en création : affiché en lecture seule */
   budgetId?: string;
+  isEdit?: boolean;
 }
 
 export function BudgetEnvelopeForm({
@@ -39,10 +45,15 @@ export function BudgetEnvelopeForm({
   cancelHref,
   submitError,
   budgetId,
+  isEdit = false,
 }: BudgetEnvelopeFormProps) {
   const { data: budgetContext, isLoading: budgetContextLoading } = useBudgetDetail(
     budgetId ?? null,
   );
+  const isMidYearValidated = !isEdit && budgetContext?.status === 'VALIDATED';
+  const envelopeSchema = buildCreateEnvelopeSchema({
+    requireJustification: isMidYearValidated,
+  });
 
   const {
     register,
@@ -51,7 +62,7 @@ export function BudgetEnvelopeForm({
     setValue,
     formState: { errors },
   } = useForm<CreateEnvelopeInput>({
-    resolver: zodResolver(createEnvelopeSchema),
+    resolver: zodResolver(envelopeSchema),
     defaultValues: {
       ...defaultValues,
     },
@@ -74,6 +85,10 @@ export function BudgetEnvelopeForm({
     if (first) document.getElementById(String(first))?.focus();
   };
 
+  if (budgetId && budgetContextLoading) {
+    return <p className="text-sm text-muted-foreground">Chargement du contexte…</p>;
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
       {submitError && (
@@ -81,6 +96,14 @@ export function BudgetEnvelopeForm({
           <AlertDescription>{submitError.message}</AlertDescription>
         </Alert>
       )}
+      {isMidYearValidated ? (
+        <Alert>
+          <AlertDescription>
+            Ajout structurel en cours d’exercice : une justification (PA / CODIR) est
+            obligatoire. L’enveloppe sera créée en attente de validation, pas active.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {budgetId && (
         <Card>
@@ -88,7 +111,9 @@ export function BudgetEnvelopeForm({
             <CardTitle className="text-base">Contexte</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Budget : {budgetId}</p>
+            <p className="text-sm text-muted-foreground">
+              Budget : {displayLabel(budgetContext?.name, 'Budget')}
+            </p>
             <input type="hidden" {...register('budgetId')} value={budgetId} />
           </CardContent>
         </Card>
@@ -110,8 +135,16 @@ export function BudgetEnvelopeForm({
             {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input id="description" {...register('description')} aria-invalid={!!errors.description} />
+            <Label htmlFor="description">
+              {isMidYearValidated ? 'Justification (PA / CODIR) *' : 'Description'}
+            </Label>
+            <Input
+              id="description"
+              {...register('description')}
+              aria-invalid={!!errors.description}
+              required={isMidYearValidated}
+              maxLength={500}
+            />
             {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
           </div>
           <div className="space-y-2">
@@ -130,21 +163,30 @@ export function BudgetEnvelopeForm({
             </select>
             {errors.type && <p className="text-sm text-destructive">{errors.type.message}</p>}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">État *</Label>
-            <select
-              id="status"
-              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              {...register('status')}
-              aria-invalid={!!errors.status}
-            >
-              <option value="DRAFT">Brouillon</option>
-              <option value="ACTIVE">Actif</option>
-              <option value="CLOSED">Clôturé</option>
-              <option value="ARCHIVED">Archivé</option>
-            </select>
-            {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
-          </div>
+          {isMidYearValidated ? (
+            <p className="text-sm text-muted-foreground">
+              Statut imposé : en attente de validation.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="status">État *</Label>
+              <select
+                id="status"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                {...register('status')}
+                aria-invalid={!!errors.status}
+              >
+                {BUDGET_ENVELOPE_STATUS_EDIT_OPTIONS.filter((opt) =>
+                  ['DRAFT', 'ACTIVE', 'CLOSED', 'ARCHIVED'].includes(opt.value),
+                ).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+            </div>
+          )}
         </CardContent>
       </Card>
 

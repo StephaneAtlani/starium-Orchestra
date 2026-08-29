@@ -4178,6 +4178,11 @@ model BudgetSnapshotLine {
   consumedAmount  Decimal @db.Decimal(18, 2)
   remainingAmount Decimal @db.Decimal(18, 2)
 
+  /// RFC-BUD-041 — planning 12 mois figé (null = snapshot historique pré-migration)
+  planningMode        BudgetLinePlanningMode?
+  planningTotalAmount Decimal?                @db.Decimal(18, 2)
+  planningMonths      Json?
+
   createdAt DateTime @default(now())
 
   snapshot BudgetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)

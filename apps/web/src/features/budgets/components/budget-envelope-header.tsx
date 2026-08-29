@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/use-permissions';
 import { BudgetEnvelopeDetail } from '../types/budget-envelope-detail.types';
@@ -11,6 +11,10 @@ import { BudgetEnvelopeStatusBadge } from './budget-envelope-status-badge';
 import { BudgetPageHeader } from './budget-page-header';
 import { budgetDetail, budgetEnvelopeEdit } from '../constants/budget-routes';
 import { displayLabel } from '@/lib/display-label';
+import {
+  useActivateBudgetEnvelope,
+  useSubmitBudgetEnvelope,
+} from '../hooks/use-budget-structural-lifecycle';
 
 interface BudgetEnvelopeHeaderProps {
   envelope: BudgetEnvelopeDetail;
@@ -20,6 +24,9 @@ export function BudgetEnvelopeHeader({ envelope }: BudgetEnvelopeHeaderProps) {
   const budgetLabel = displayLabel(envelope.budgetName, 'Budget');
   const { has, isLoading: isPermissionsLoading } = usePermissions();
   const canEditEnvelope = !isPermissionsLoading && has('budgets.update');
+  const submitMutation = useSubmitBudgetEnvelope();
+  const activateMutation = useActivateBudgetEnvelope();
+  const lifecyclePending = submitMutation.isPending || activateMutation.isPending;
 
   return (
     <div className="space-y-2">
@@ -45,16 +52,39 @@ export function BudgetEnvelopeHeader({ envelope }: BudgetEnvelopeHeaderProps) {
             }
             actions={
               canEditEnvelope ? (
-                <Link
-                  href={budgetEnvelopeEdit(envelope.id)}
-                  className={cn(
-                    buttonVariants({ variant: 'ghost', size: 'icon' }),
-                    'size-9 shrink-0 text-muted-foreground hover:text-foreground',
-                  )}
-                  aria-label={`Modifier l’enveloppe ${envelope.name}`}
-                >
-                  <Pencil className="size-4" />
-                </Link>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {envelope.status === 'DRAFT' ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 sm:min-h-9"
+                      disabled={lifecyclePending}
+                      onClick={() => submitMutation.mutate(envelope.id)}
+                    >
+                      Soumettre
+                    </Button>
+                  ) : null}
+                  {envelope.status === 'PENDING_VALIDATION' ? (
+                    <Button
+                      type="button"
+                      className="min-h-11 sm:min-h-9"
+                      disabled={lifecyclePending}
+                      onClick={() => activateMutation.mutate(envelope.id)}
+                    >
+                      Activer l’enveloppe
+                    </Button>
+                  ) : null}
+                  <Link
+                    href={budgetEnvelopeEdit(envelope.id)}
+                    className={cn(
+                      buttonVariants({ variant: 'ghost', size: 'icon' }),
+                      'size-11 sm:size-9 shrink-0 text-muted-foreground hover:text-foreground',
+                    )}
+                    aria-label={`Modifier l’enveloppe ${envelope.name}`}
+                  >
+                    <Pencil className="size-4" />
+                  </Link>
+                </div>
               ) : undefined
             }
           />

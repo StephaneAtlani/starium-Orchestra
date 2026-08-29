@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BudgetStatus, FinancialEventType, Prisma } from '@prisma/client';
+import { BudgetLineStatus, BudgetStatus, FinancialEventType, Prisma } from '@prisma/client';
 import { BudgetSnapshotsService } from './budget-snapshots.service';
 import type { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 import { mergeBudgetWorkflowConfig } from '../clients/budget-workflow-config.merge';
@@ -91,6 +91,7 @@ describe('BudgetSnapshotsService', () => {
     prisma = {
       budget: { findFirst: jest.fn() },
       budgetLine: { findMany: jest.fn() },
+      budgetSnapshotOccasionType: { findFirst: jest.fn() },
       financialEvent: { findMany: jest.fn().mockResolvedValue([]) },
       financialAllocation: { findMany: jest.fn().mockResolvedValue([]) },
       budgetSnapshot: {
@@ -359,6 +360,109 @@ describe('BudgetSnapshotsService', () => {
         service.create(clientId, { budgetId, name: 'Snap' }),
       ).rejects.toThrow(BadRequestException);
 
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('C7 — capture PA_ARBITRATED unionne DRAFT et PENDING même si whitelist = ACTIVE', async () => {
+      workflowSettings.getResolvedForClient.mockResolvedValue(
+        mergeBudgetWorkflowConfig({
+          snapshotIncludedBudgetLineStatuses: [BudgetLineStatus.ACTIVE],
+        }),
+      );
+      prisma.budget.findFirst.mockResolvedValue(mockBudget());
+      prisma.budgetSnapshotOccasionType.findFirst.mockResolvedValue({
+        code: 'PA_ARBITRATED',
+      });
+      prisma.budgetLine.findMany
+        .mockResolvedValueOnce([
+          {
+            id: 'line-active',
+            budgetId,
+            envelopeId: 'env-1',
+            envelope: { name: 'Env', code: 'E1', type: 'RUN' },
+            code: 'BL-A',
+            name: 'Active',
+            expenseType: 'OPEX',
+            currency: 'EUR',
+            status: 'ACTIVE',
+            initialAmount: 10000,
+            forecastAmount: 0,
+            committedAmount: 0,
+            consumedAmount: 0,
+            remainingAmount: 10000,
+            planningMonths: [],
+          },
+          {
+            id: 'line-pending',
+            budgetId,
+            envelopeId: 'env-1',
+            envelope: { name: 'Env', code: 'E1', type: 'RUN' },
+            code: 'BL-P',
+            name: 'Pending',
+            expenseType: 'OPEX',
+            currency: 'EUR',
+            status: 'PENDING_VALIDATION',
+            initialAmount: 5000,
+            forecastAmount: 0,
+            committedAmount: 0,
+            consumedAmount: 0,
+            remainingAmount: 5000,
+            planningMonths: [],
+          },
+        ])
+        .mockResolvedValueOnce([{ id: 'line-pending' }]);
+      prisma.$transaction.mockImplementation(async (fn: (tx: any) => Promise<unknown>) => {
+        const tx = {
+          budgetSnapshot: {
+            create: jest.fn().mockResolvedValue(mockSnapshot({ id: 'snap-pa' })),
+          },
+          budgetSnapshotLine: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
+        };
+        return fn(tx);
+      });
+      prisma.budgetSnapshot.findFirst.mockResolvedValue(mockSnapshot({ id: 'snap-pa' }));
+
+      await service.create(clientId, {
+        budgetId,
+        name: 'PA scénario',
+        occasionTypeId: 'occ-pa-arb',
+      });
+
+      const firstLineQuery = prisma.budgetLine.findMany.mock.calls[0][0];
+      expect(firstLineQuery.where.status.in).toEqual(
+        expect.arrayContaining([
+          BudgetLineStatus.ACTIVE,
+          BudgetLineStatus.DRAFT,
+          BudgetLineStatus.PENDING_VALIDATION,
+        ]),
+      );
+    });
+
+    it('C7 — 409 si une ligne PENDING live est absente du set capturé', async () => {
+      workflowSettings.getResolvedForClient.mockResolvedValue(
+        mergeBudgetWorkflowConfig({
+          snapshotIncludedBudgetLineStatuses: [BudgetLineStatus.ACTIVE],
+        }),
+      );
+      prisma.budget.findFirst.mockResolvedValue(mockBudget());
+      prisma.budgetSnapshotOccasionType.findFirst.mockResolvedValue({
+        code: 'PA_BASELINE',
+      });
+      prisma.budgetLine.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'pending-missing' }]);
+
+      await expect(
+        service.create(clientId, {
+          budgetId,
+          name: 'PA avant',
+          occasionTypeId: 'occ-pa-base',
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'pa_structural_lines_excluded',
+        }),
+      });
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });

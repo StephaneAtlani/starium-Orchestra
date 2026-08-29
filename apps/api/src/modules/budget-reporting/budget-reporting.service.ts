@@ -3,11 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetVersionStatus, Prisma } from '@prisma/client';
+import { BudgetStatus, BudgetVersionStatus, Prisma } from '@prisma/client';
 import type { EntityVisual } from '@starium-orchestra/types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { resolveBudgetVisual } from '../../common/visual-library/visual-resolution';
-import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
+import {
+  PILOTAGE_INCLUDED_LINE_STATUSES,
+  pilotageLineStatusesForBudgetStatus,
+} from '../budget-management/constants/budget-aggregate-statuses';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
 import { aggregateLinesToKpi, lineToReportItem, groupLinesByEnvelopeType } from './mappers/kpi.mapper';
 import { TaxCalculator } from '../financial-core/helpers/tax-calculator';
@@ -100,6 +103,17 @@ function whereLinesForPilotageTotals(
   return {
     ...base,
     status: { in: [...PILOTAGE_INCLUDED_LINE_STATUSES] },
+  };
+}
+
+/** RFC-BUD-041 C6 — totaux officiels d’une fiche (VALIDATED/LOCKED/ARCHIVED sans PENDING). */
+function whereLinesForBudgetFicheTotals(
+  base: Prisma.BudgetLineWhereInput,
+  budgetStatus: BudgetStatus,
+): Prisma.BudgetLineWhereInput {
+  return {
+    ...base,
+    status: { in: [...pilotageLineStatusesForBudgetStatus(budgetStatus)] },
   };
 }
 
@@ -354,7 +368,7 @@ export class BudgetReportingService {
       throw new NotFoundException('Budget not found');
     }
     const lines = await this.prisma.budgetLine.findMany({
-      where: whereLinesForPilotageTotals({ clientId, budgetId }),
+      where: whereLinesForBudgetFicheTotals({ clientId, budgetId }, budget.status),
     });
     const envelopeCount = await this.prisma.budgetEnvelope.count({
       where: { clientId, budgetId },
@@ -407,7 +421,7 @@ export class BudgetReportingService {
   ): Promise<BudgetSummaryKpi> {
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id: envelopeId, clientId },
-      include: { budget: { select: { currency: true, defaultTaxRate: true } } },
+      include: { budget: { select: { currency: true, defaultTaxRate: true, status: true } } },
     });
     if (!envelope) {
       throw new NotFoundException('Budget envelope not found');
@@ -422,10 +436,13 @@ export class BudgetReportingService {
       envelopeIds = [envelopeId, ...descendantIds];
     }
     const lines = await this.prisma.budgetLine.findMany({
-      where: whereLinesForPilotageTotals({
-        clientId,
-        envelopeId: { in: envelopeIds },
-      }),
+      where: whereLinesForBudgetFicheTotals(
+        {
+          clientId,
+          envelopeId: { in: envelopeIds },
+        },
+        envelope.budget.status,
+      ),
     });
     const parentCurrency = envelope.budget?.currency ?? null;
     if (lines.length === 0) {
@@ -780,7 +797,7 @@ export class BudgetReportingService {
       throw new NotFoundException('Budget not found');
     }
     const lines = await this.prisma.budgetLine.findMany({
-      where: whereLinesForPilotageTotals({ clientId, budgetId }),
+      where: whereLinesForBudgetFicheTotals({ clientId, budgetId }, budget.status),
       include: { envelope: { select: { type: true } } },
     });
     if (lines.length === 0) {
@@ -822,11 +839,14 @@ export class BudgetReportingService {
       throw new NotFoundException('Budget not found');
     }
     const lines = await this.prisma.budgetLine.findMany({
-      where: whereLinesForPilotageTotals({
-        clientId,
-        budgetId,
-        allocationScope: 'ANALYTICAL',
-      }),
+      where: whereLinesForBudgetFicheTotals(
+        {
+          clientId,
+          budgetId,
+          allocationScope: 'ANALYTICAL',
+        },
+        budget.status,
+      ),
       include: { costCenterSplits: { include: { costCenter: true } } },
     });
     const currency = budget.currency;
@@ -887,7 +907,7 @@ export class BudgetReportingService {
       throw new NotFoundException('Budget not found');
     }
     const lines = await this.prisma.budgetLine.findMany({
-      where: whereLinesForPilotageTotals({ clientId, budgetId }),
+      where: whereLinesForBudgetFicheTotals({ clientId, budgetId }, budget.status),
       include: { generalLedgerAccount: true },
     });
     const currency = budget.currency;

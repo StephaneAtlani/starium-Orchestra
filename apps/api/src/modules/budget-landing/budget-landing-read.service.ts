@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BudgetReportingService } from '../budget-reporting/budget-reporting.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { fromDecimal } from '../budget-management/helpers/decimal.helper';
+import { pilotageLineStatusesForBudgetStatus } from '../budget-management/constants/budget-aggregate-statuses';
 import {
   computeLandingLineStatus,
   landingRate,
@@ -45,7 +46,7 @@ export class BudgetLandingReadService {
   ): Promise<BudgetForecastResponse & { totalLanding: number; landingRate: number }> {
     const budget = await this.prisma.budget.findFirst({
       where: { id: budgetId, clientId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!budget) {
       throw new NotFoundException('Budget not found');
@@ -54,7 +55,13 @@ export class BudgetLandingReadService {
     const [summary, lines] = await Promise.all([
       this.reportingService.getBudgetSummary(clientId, budgetId),
       this.prisma.budgetLine.findMany({
-        where: { clientId, budgetId },
+        where: {
+          clientId,
+          budgetId,
+          status: {
+            in: [...pilotageLineStatusesForBudgetStatus(budget.status)],
+          },
+        },
         select: {
           id: true,
           initialAmount: true,
@@ -119,7 +126,7 @@ export class BudgetLandingReadService {
   ): Promise<EnvelopeForecastResponse & { totalLanding: number; landingRate: number }> {
     const envelope = await this.prisma.budgetEnvelope.findFirst({
       where: { id: envelopeId, clientId },
-      select: { id: true },
+      select: { id: true, budget: { select: { status: true } } },
     });
     if (!envelope) {
       throw new NotFoundException('Budget envelope not found');
@@ -128,7 +135,13 @@ export class BudgetLandingReadService {
     const [summary, lines] = await Promise.all([
       this.reportingService.getEnvelopeSummary(clientId, envelopeId, false),
       this.prisma.budgetLine.findMany({
-        where: { clientId, envelopeId },
+        where: {
+          clientId,
+          envelopeId,
+          status: {
+            in: [...pilotageLineStatusesForBudgetStatus(envelope.budget.status)],
+          },
+        },
         select: {
           initialAmount: true,
           consumedAmount: true,

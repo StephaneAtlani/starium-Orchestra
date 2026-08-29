@@ -206,6 +206,10 @@ export const budgetQueryKeys = {
   budgetVersionHistory: (clientId: string, budgetId: string) =>
     ['budgets', clientId, 'budget-version-history', budgetId] as const,
 
+  /** RFC-BUD-041 — rituel Prévision d'atterrissage */
+  landingForecast: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'landing-forecast', budgetId] as const,
+
   /** RFC-032 — historique décisionnel (timeline audit) */
   budgetDecisionHistory: (
     clientId: string,

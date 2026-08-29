@@ -40,3 +40,8 @@ export {
   BudgetHistoriquePanel,
   type BudgetHistoriquePanelProps,
 } from './budget-historique-panel';
+
+export {
+  BudgetLandingForecastPanel,
+  type BudgetLandingForecastPanelProps,
+} from './budget-landing-forecast-panel';

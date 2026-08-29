@@ -16,6 +16,7 @@ import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer'
 import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
 import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
 import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-exercises';
+import { useExerciseBudgetsReportingQuery } from '@/features/budgets/hooks/use-exercise-budgets-reporting-query';
 import { useBudgetLinesPlanningQueries } from '@/features/budgets/hooks/use-budget-lines-planning-queries';
 import { useUpdateBudgetLinePlanningManualForBudgetMutation } from '@/features/budgets/hooks/use-budget-line-planning';
 import { useBudgetPlanningQuickCalculator } from '@/features/budgets/hooks/use-budget-planning-quick-calculator';
@@ -59,11 +60,13 @@ import type { BudgetPilotageDensity } from '@/features/budgets/types/budget-pilo
 import {
   budgetDetailTabToExplorerMode,
   isBudgetDetailTabId,
+  isBudgetDetailWorkspaceId,
   DEFAULT_BUDGET_DETAIL_TAB,
   type BudgetDetailTabId,
+  type BudgetDetailWorkspaceId,
   type BudgetSuiviView,
 } from '@/features/budgets/types/budget-detail-tabs.types';
-import { useExerciseBudgetsReportingQuery } from '@/features/budgets/hooks/use-exercise-budgets-reporting-query';
+import { useBudgetWorkflowSettings } from '@/features/budgets/hooks/use-budget-workflow-settings';
 import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
 import {
   BudgetExpenseEntryModal,
@@ -80,6 +83,9 @@ export default function BudgetDetailPage() {
   const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
   const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
+  const workflowQuery = useBudgetWorkflowSettings();
+  const landingForecastEnabled =
+    workflowQuery.data?.resolved.landingForecastEnabled ?? true;
 
   useWorkspaceBreadcrumbOverride(
     budget?.name && budgetId
@@ -96,8 +102,11 @@ export default function BudgetDetailPage() {
 
   /** Onglet actif persisté en query string : les liens profonds vers un onglet restent partageables. */
   const tabParam = searchParams.get(TAB_QUERY_PARAM);
-  const tab: BudgetDetailTabId = isBudgetDetailTabId(tabParam)
+  const workspace: BudgetDetailWorkspaceId = isBudgetDetailWorkspaceId(tabParam)
     ? tabParam
+    : DEFAULT_BUDGET_DETAIL_TAB;
+  const tab: BudgetDetailTabId = isBudgetDetailTabId(workspace)
+    ? workspace
     : DEFAULT_BUDGET_DETAIL_TAB;
 
   const onTabChange = useCallback(
@@ -111,11 +120,20 @@ export default function BudgetDetailPage() {
     [pathname, router, searchParams],
   );
 
+  const onOpenLandingForecast = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set(TAB_QUERY_PARAM, 'pa');
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   const [suiviView, setSuiviView] = useState<BudgetSuiviView>('synthese');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedBudgetLineId, setSelectedBudgetLineId] = useState<string | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<BudgetLineDrawerTab>('overview');
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [snapshotSuggestedOccasion, setSnapshotSuggestedOccasion] = useState<
+    string | undefined
+  >();
   const [openModal, setOpenModal] = useState<BudgetDetailModal>(null);
   const [reallocationCreateOpen, setReallocationCreateOpen] = useState(false);
   /** Ligne dont la calculette planning est ouverte (prévisionnel). */
@@ -468,10 +486,16 @@ export default function BudgetDetailPage() {
           activeTab={tab}
           onBudgetChange={(nextBudgetId) => router.push(budgetDetail(nextBudgetId))}
           onExport={onExport}
-          onCreateSnapshot={() => setSnapshotDialogOpen(true)}
+          onCreateSnapshot={() => {
+            setSnapshotSuggestedOccasion(undefined);
+            setSnapshotDialogOpen(true);
+          }}
           onNavigateTab={onTabChange}
           onReallocate={onReallocate}
           onRegisterExpense={() => setOpenModal('expense')}
+          onOpenLandingForecast={onOpenLandingForecast}
+          landingForecastPressed={workspace === 'pa'}
+          landingForecastEnabled={landingForecastEnabled}
         />
 
         <BudgetDetailKpiStrip
@@ -492,7 +516,7 @@ export default function BudgetDetailPage() {
           }
         />
 
-        {isEmptyGlobal ? (
+        {isEmptyGlobal && workspace !== 'pa' ? (
           <BudgetEmptyState
             title="Aucune enveloppe"
             description="Ce budget n’a pas encore d’enveloppe. Les lignes budgétaires apparaîtront ici une fois la structure créée."
@@ -500,7 +524,8 @@ export default function BudgetDetailPage() {
         ) : (
           <BudgetDetailWorkspace
             budgetId={budgetId}
-            tab={tab}
+            tab={workspace === 'pa' ? null : tab}
+            workspace={workspace}
             onTabChange={onTabChange}
             suiviView={suiviView}
             onSuiviViewChange={setSuiviView}
@@ -510,7 +535,10 @@ export default function BudgetDetailPage() {
             isTaxLoading={isTaxLoading}
             onBudgetLineClick={onBudgetLineClick}
             lines={(lines as BudgetLine[]) ?? []}
-            onCreateSnapshot={() => setSnapshotDialogOpen(true)}
+            onCreateSnapshot={(suggestedOccasionCode) => {
+              setSnapshotSuggestedOccasion(suggestedOccasionCode);
+              setSnapshotDialogOpen(true);
+            }}
             onCreateReallocation={() => setReallocationCreateOpen(true)}
             explorer={{
               isReady: explorerReady,
@@ -600,7 +628,11 @@ export default function BudgetDetailPage() {
         <CreateBudgetSnapshotDialog
           budgetId={budgetId}
           open={snapshotDialogOpen}
-          onOpenChange={setSnapshotDialogOpen}
+          onOpenChange={(open) => {
+            setSnapshotDialogOpen(open);
+            if (!open) setSnapshotSuggestedOccasion(undefined);
+          }}
+          suggestedOccasionCode={snapshotSuggestedOccasion}
         />
 
         <BudgetExpenseEntryModal
@@ -608,6 +640,7 @@ export default function BudgetDetailPage() {
           onOpenChange={(nextOpen) => setOpenModal(nextOpen ? 'expense' : null)}
           budgetId={budgetId}
           budgetName={budget.name}
+          budgetStatus={budget.status}
           envelopes={(envelopes as BudgetEnvelope[]) ?? []}
           lines={(lines as BudgetLine[]) ?? []}
         />

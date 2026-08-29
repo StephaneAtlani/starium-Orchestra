@@ -35,6 +35,7 @@ type BudgetExpenseEntryModalProps = {
   onOpenChange: (open: boolean) => void;
   budgetId: string;
   budgetName: string;
+  budgetStatus?: string;
   envelopes: BudgetEnvelope[];
   lines: BudgetLine[];
 };
@@ -83,6 +84,7 @@ export function BudgetExpenseEntryModal({
   onOpenChange,
   budgetId,
   budgetName,
+  budgetStatus,
   envelopes,
   lines,
 }: BudgetExpenseEntryModalProps) {
@@ -125,13 +127,17 @@ export function BudgetExpenseEntryModal({
   );
 
   const availableLines = useMemo(() => {
+    const scoped =
+      budgetStatus === 'VALIDATED'
+        ? lines.filter((line) => line.status === 'ACTIVE')
+        : lines;
     const filtered = envelopeId
-      ? lines.filter((line) => line.envelopeId === envelopeId)
-      : lines;
+      ? scoped.filter((line) => line.envelopeId === envelopeId)
+      : scoped;
     return [...filtered].sort((a, b) =>
       formatLineLabel(a).localeCompare(formatLineLabel(b), 'fr-FR'),
     );
-  }, [lines, envelopeId]);
+  }, [lines, envelopeId, budgetStatus]);
 
   const selectedLine = useMemo(
     () => availableLines.find((line) => line.id === lineId) ?? null,

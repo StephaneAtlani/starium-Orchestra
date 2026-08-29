@@ -52,6 +52,14 @@ import {
 } from '../../organization/resource-ownership-audit.constants';
 import { OrganizationOwnershipPolicyService } from '../../organization/organization-ownership-policy.service';
 import { isBudgetLineActivationStatus } from '../../organization/organization-ownership-obligation.helpers';
+import { ClientBudgetWorkflowSettingsService } from '../../clients/client-budget-workflow-settings.service';
+import { mergeBudgetWorkflowConfig } from '../../clients/budget-workflow-config.merge';
+import {
+  assertMidYearJustification,
+  isMidYearValidatedBudget,
+  resolveMidYearLineStatus,
+} from '../policies/mid-year-structural.policy';
+import { BudgetLinePlanningService } from './budget-line-planning.service';
 
 export interface CostCenterSplitResponse {
   id: string;
@@ -159,6 +167,22 @@ export class BudgetLinesService {
       'assertBudgetLineOwnerForClient'
     > = {
       assertBudgetLineOwnerForClient: async () => undefined,
+    },
+    @Inject(ClientBudgetWorkflowSettingsService)
+    private readonly workflowSettings: Pick<
+      ClientBudgetWorkflowSettingsService,
+      'getResolvedForClient'
+    > = {
+      getResolvedForClient: async () => mergeBudgetWorkflowConfig(null),
+    },
+    @Inject(BudgetLinePlanningService)
+    private readonly planning: Pick<
+      BudgetLinePlanningService,
+      'initializePlanningForMidYearLine'
+    > = {
+      initializePlanningForMidYearLine: async () => {
+        throw new Error('BudgetLinePlanningService not available');
+      },
     },
   ) {}
 
@@ -525,7 +549,17 @@ export class BudgetLinesService {
       budgetOwnerOrgUnitId: budget.ownerOrgUnitId,
     });
 
-    const lineStatus = dto.status ?? BudgetLineStatus.DRAFT;
+    let lineStatus = dto.status ?? BudgetLineStatus.DRAFT;
+    let description = dto.description?.trim() || null;
+    if (isMidYearValidatedBudget(budget.status)) {
+      const config = await this.workflowSettings.getResolvedForClient(clientId);
+      description = assertMidYearJustification(
+        dto.description,
+        config.midYearRequireJustification,
+      );
+      lineStatus = resolveMidYearLineStatus(config, dto.status);
+    }
+
     if (isBudgetLineActivationStatus(lineStatus)) {
       await this.ownershipPolicy.assertBudgetLineOwnerForClient(clientId, {
         phase: 'activate',
@@ -595,9 +629,9 @@ export class BudgetLinesService {
           envelopeId: dto.envelopeId,
           name: dto.name,
           code,
-          description: dto.description ?? null,
+          description,
           expenseType: dto.expenseType,
-          status: dto.status ?? BudgetLineStatus.DRAFT,
+          status: lineStatus,
           currency: dto.currency,
           generalLedgerAccountId: dto.generalLedgerAccountId,
           analyticalLedgerAccountId: dto.analyticalLedgerAccountId ?? null,
@@ -647,6 +681,7 @@ export class BudgetLinesService {
         initialAmount: fromDecimal(initialAmountStored),
         currency: created!.currency,
         status: created!.status,
+        justification: description,
         costCenterSplitsSummary: costCenterSplits.map((s) => ({
           costCenterId: s.costCenterId,
           percentage: s.percentage,
@@ -1184,6 +1219,97 @@ export class BudgetLinesService {
         normalizeStatusChangeComment(undefined),
       ),
     };
+  }
+
+  async submit(
+    clientId: string,
+    id: string,
+    context?: AuditContext,
+    request?: RequestWithClient,
+  ): Promise<BudgetLineResponse> {
+    return this.transitionLine(
+      clientId,
+      id,
+      BudgetLineStatus.PENDING_VALIDATION,
+      'budget_line.submitted',
+      context,
+      request,
+      false,
+    );
+  }
+
+  async activate(
+    clientId: string,
+    id: string,
+    context?: AuditContext,
+    request?: RequestWithClient,
+  ): Promise<BudgetLineResponse> {
+    return this.transitionLine(
+      clientId,
+      id,
+      BudgetLineStatus.ACTIVE,
+      'budget_line.activated',
+      context,
+      request,
+      true,
+    );
+  }
+
+  private async transitionLine(
+    clientId: string,
+    id: string,
+    toStatus: BudgetLineStatus,
+    action: 'budget_line.submitted' | 'budget_line.activated',
+    context: AuditContext | undefined,
+    request: RequestWithClient | undefined,
+    initPlanning: boolean,
+  ): Promise<BudgetLineResponse> {
+    const existing = await this.prisma.budgetLine.findFirst({
+      where: { id, clientId },
+      include: BUDGET_LINE_INCLUDE,
+    });
+    if (!existing) {
+      throw new NotFoundException('Budget line not found');
+    }
+    if (context?.actorUserId) {
+      await this.assertCanWriteLine(
+        clientId,
+        context.actorUserId,
+        existing.id,
+        existing.budgetId,
+        request,
+      );
+    }
+    if (existing.status === toStatus) {
+      return toResponse(existing);
+    }
+    assertBudgetLineStatusTransition(existing.status, toStatus);
+    const updated = await this.prisma.budgetLine.update({
+      where: { id },
+      data: { status: toStatus },
+      include: BUDGET_LINE_INCLUDE,
+    });
+    if (initPlanning && toStatus === BudgetLineStatus.ACTIVE) {
+      await this.planning.initializePlanningForMidYearLine(clientId, id, context);
+    }
+    const auditInput: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'budget_line',
+      resourceId: updated.id,
+      oldValue: { from: existing.status },
+      newValue: { to: updated.status },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(auditInput);
+    const reloaded = await this.prisma.budgetLine.findFirst({
+      where: { id, clientId },
+      include: BUDGET_LINE_INCLUDE,
+    });
+    return toResponse(reloaded ?? updated);
   }
 
   async bulkUpdateStatus(

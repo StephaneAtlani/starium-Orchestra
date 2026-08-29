@@ -71,6 +71,30 @@ export class BudgetEnvelopesController {
     return this.service.create(clientId!, dto, context);
   }
 
+  @Post(':id/submit')
+  @RequirePermissions('budgets.update')
+  submit(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.submit(clientId!, id, context);
+  }
+
+  @Post(':id/activate')
+  @RequirePermissions('budgets.update')
+  activate(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.activate(clientId!, id, context);
+  }
+
   @Patch(':id')
   @RequirePermissions('budgets.update')
   update(

@@ -87,6 +87,7 @@ export function BudgetEnvelopeFormPage({ mode, budgetId, envelopeId }: BudgetEnv
         cancelHref={cancelHref}
         submitError={submitError}
         budgetId={resolvedBudgetId}
+        isEdit={isEdit}
       />
     </>
   );

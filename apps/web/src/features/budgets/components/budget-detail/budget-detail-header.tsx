@@ -8,6 +8,7 @@ import {
   GitCompareArrows,
   Plus,
   Table2,
+  TrendingUp,
 } from 'lucide-react';
 import { PermissionGate } from '@/components/PermissionGate';
 import { PageHeader } from '@/components/layout/page-header';
@@ -17,6 +18,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { cn } from '@/lib/utils';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
 import { budgetEdit, budgetList } from '@/features/budgets/constants/budget-routes';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
 import type { Budget } from '@/features/budgets/types/budget-management.types';
 import type { BudgetDetailTabId } from '@/features/budgets/types/budget-detail-tabs.types';
 
@@ -37,6 +39,9 @@ export interface BudgetDetailHeaderProps {
   onNavigateTab: (tab: BudgetDetailTabId) => void;
   onReallocate: () => void;
   onRegisterExpense: () => void;
+  onOpenLandingForecast?: () => void;
+  landingForecastPressed?: boolean;
+  landingForecastEnabled?: boolean;
 }
 
 function ToolbarAction({
@@ -84,6 +89,9 @@ export function BudgetDetailHeader({
   onNavigateTab,
   onReallocate,
   onRegisterExpense,
+  onOpenLandingForecast,
+  landingForecastPressed,
+  landingForecastEnabled,
 }: BudgetDetailHeaderProps) {
   const description = [
     budget.ownerOrgUnitSummary?.name ?? 'Sans direction rattachée',
@@ -157,10 +165,18 @@ export function BudgetDetailHeader({
         />
         <ToolbarAction
           icon={Table2}
-          label="Prévisionnel"
+          label={BUDGET_LABELS.planningTab}
           pressed={activeTab === 'previsionnel'}
           onClick={() => onNavigateTab('previsionnel')}
         />
+        {landingForecastEnabled && budget.status === 'VALIDATED' && onOpenLandingForecast ? (
+          <ToolbarAction
+            icon={TrendingUp}
+            label={BUDGET_LABELS.landingForecastExercise}
+            pressed={landingForecastPressed}
+            onClick={onOpenLandingForecast}
+          />
+        ) : null}
         <PermissionGate permission="budgets.update">
           <ToolbarAction
             icon={ArrowRightLeft}

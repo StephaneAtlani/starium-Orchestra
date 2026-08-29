@@ -219,4 +219,56 @@ describe('BudgetEnvelopesService', () => {
       expect(result.failed[0]?.id).toBe('env-ko');
     });
   });
+
+  describe('RFC-BUD-041', () => {
+    it('C8 — activate enveloppe ne touche pas aux lignes', async () => {
+      prisma.budgetEnvelope.findFirst.mockResolvedValue({
+        id: 'env-1',
+        clientId,
+        budgetId,
+        name: 'E',
+        status: BudgetEnvelopeStatus.PENDING_VALIDATION,
+        deferredToExercise: null,
+      });
+      prisma.budgetEnvelope.update.mockResolvedValue({
+        id: 'env-1',
+        clientId,
+        budgetId,
+        name: 'E',
+        status: BudgetEnvelopeStatus.ACTIVE,
+        deferredToExercise: null,
+      });
+
+      const result = await service.activate(clientId, 'env-1', {
+        actorUserId: 'u1',
+        meta: {},
+      });
+
+      expect(result.status).toBe(BudgetEnvelopeStatus.ACTIVE);
+      expect(prisma.budgetLine).toBeUndefined();
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'budget_envelope.activated' }),
+      );
+    });
+
+    it('C2 — create VALIDATED sans justification → 400', async () => {
+      prisma.budget.findFirst.mockResolvedValue({
+        id: budgetId,
+        clientId,
+        status: BudgetStatus.VALIDATED,
+      });
+
+      await expect(
+        service.create(clientId, {
+          budgetId,
+          name: 'E',
+          type: BudgetEnvelopeType.RUN,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'mid_year_justification_required',
+        }),
+      });
+    });
+  });
 });

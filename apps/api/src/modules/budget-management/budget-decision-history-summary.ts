@@ -92,6 +92,10 @@ export function buildDecisionHistorySummary(
         ? `Échec de la version figée automatique (${m}) — ${err}`
         : `Échec de la version figée automatique (${m})`;
     }
+    case 'budget.landing_forecast.validated':
+      return `Prévision d’atterrissage validée pour le budget « ${ctx.budgetName} »`;
+    case 'budget.landing_forecast.applied':
+      return `Prévision d’atterrissage activée pour le budget « ${ctx.budgetName} »`;
     case 'budget.reallocated': {
       const r = ctx.reallocation;
       if (r) {
@@ -111,6 +115,14 @@ export function buildDecisionHistorySummary(
       return ctx.envelopeName
         ? `Enveloppe « ${ctx.envelopeName} » modifiée`
         : 'Enveloppe modifiée';
+    case 'budget_envelope.submitted':
+      return ctx.envelopeName
+        ? `Enveloppe « ${ctx.envelopeName} » soumise`
+        : 'Enveloppe soumise';
+    case 'budget_envelope.activated':
+      return ctx.envelopeName
+        ? `Enveloppe « ${ctx.envelopeName} » activée`
+        : 'Enveloppe activée';
     case 'budget_line.created':
       return ctx.lineName
         ? `Ligne « ${ctx.lineName} » créée`
@@ -119,6 +131,14 @@ export function buildDecisionHistorySummary(
       return ctx.lineName
         ? `Ligne « ${ctx.lineName} » modifiée`
         : 'Ligne budgétaire modifiée';
+    case 'budget_line.submitted':
+      return ctx.lineName
+        ? `Ligne « ${ctx.lineName} » soumise`
+        : 'Ligne budgétaire soumise';
+    case 'budget_line.activated':
+      return ctx.lineName
+        ? `Ligne « ${ctx.lineName} » activée`
+        : 'Ligne budgétaire activée';
     case 'budget_line.status.changed': {
       const fromRaw = (ov?.from as string | undefined) ?? (ov?.status as string | undefined);
       const toRaw = (nv?.to as string | undefined) ?? (nv?.status as string | undefined);

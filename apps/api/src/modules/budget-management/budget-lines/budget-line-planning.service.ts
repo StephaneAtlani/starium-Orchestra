@@ -37,6 +37,10 @@ import { ApplyCalculationPlanningDto } from './dto/apply-calculation-planning.dt
 import { ApplyBudgetLinePlanningModeDto } from './dto/apply-budget-line-planning-mode.dto';
 import { BudgetLandingService } from '../../budget-landing/budget-landing.service';
 import {
+  remainingPlanningMonthIndexes,
+  splitAmountAcrossMonths,
+} from './budget-line-mid-year-planning.util';
+import {
   computeEffectiveBudgetBase,
   type EventSlice,
 } from '../../financial-core/budget-line-amounts.aggregate';
@@ -125,10 +129,69 @@ export class BudgetLinePlanningService {
         months: result.months,
         landing: result.landing,
         remainingPlanning: result.remainingPlanning,
+        intention: 'B',
       },
     });
 
     return result;
+  }
+
+  /**
+   * RFC-BUD-041 — init prorata mois restants à l’activation structurelle.
+   * Ne passe pas par `ensureEditableLine` (la ligne est encore PENDING).
+   */
+  async initializePlanningForMidYearLine(
+    clientId: string,
+    lineId: string,
+    context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
+  ): Promise<GetBudgetLinePlanningResponseDto> {
+    const line = await this.prisma.budgetLine.findFirst({
+      where: { id: lineId, clientId },
+      include: {
+        budget: {
+          include: { exercise: { select: { startDate: true, endDate: true } } },
+        },
+      },
+    });
+    if (!line) {
+      throw new NotFoundException('Budget line not found');
+    }
+    const indexes = remainingPlanningMonthIndexes(
+      line.budget.exercise.startDate,
+      line.budget.exercise.endDate,
+      referenceDate,
+    );
+    const months = splitAmountAcrossMonths(Number(line.initialAmount), indexes);
+    return this.applyComputedMonths(
+      clientId,
+      lineId,
+      BudgetLinePlanningMode.MANUAL,
+      months,
+      context,
+      null,
+      referenceDate,
+    );
+  }
+
+  /** Écrit un planning 12 mois déjà validé (apply PA) — sans garde ACTIVE. */
+  async writePlanningMonths(
+    clientId: string,
+    lineId: string,
+    months: number[],
+    mode: BudgetLinePlanningMode | null,
+    context?: AuditContext,
+    referenceDate: Date = defaultReferenceDateUtc(),
+  ): Promise<GetBudgetLinePlanningResponseDto> {
+    return this.applyComputedMonths(
+      clientId,
+      lineId,
+      mode ?? BudgetLinePlanningMode.MANUAL,
+      months,
+      context,
+      null,
+      referenceDate,
+    );
   }
 
   async applyPlanningMode(
@@ -693,6 +756,16 @@ export class BudgetLinePlanningService {
       line.status === BudgetLineStatus.CLOSED
     ) {
       throw new BadRequestException('Budget line is not editable');
+    }
+    if (
+      line.budget.status === BudgetStatus.VALIDATED &&
+      line.status !== BudgetLineStatus.ACTIVE
+    ) {
+      throw new BadRequestException({
+        code: 'planning_not_editable_until_active',
+        message:
+          'Le plan 12 mois d’un budget validé n’est modifiable que sur une ligne active.',
+      });
     }
     return line;
   }

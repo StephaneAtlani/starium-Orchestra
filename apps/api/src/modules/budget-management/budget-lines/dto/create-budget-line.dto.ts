@@ -35,6 +35,7 @@ export class CreateBudgetLineDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 
   @IsEnum(ExpenseType)

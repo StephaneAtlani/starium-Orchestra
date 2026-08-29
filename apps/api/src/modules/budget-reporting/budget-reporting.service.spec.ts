@@ -132,6 +132,25 @@ describe('BudgetReportingService', () => {
       expect(result.currency).toBe('GBP');
       expect(result.lineCount).toBe(0);
     });
+
+    it('C6 — budget VALIDATED ignore les lignes PENDING', async () => {
+      prisma.budget.findFirst.mockResolvedValue({
+        id: 'b1',
+        clientId,
+        currency: 'EUR',
+        status: 'VALIDATED',
+      });
+      prisma.budgetLine.findMany.mockResolvedValue([]);
+      prisma.budgetEnvelope.count.mockResolvedValue(0);
+      await service.getBudgetSummary(clientId, 'b1');
+      expect(prisma.budgetLine.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['ACTIVE', 'CLOSED'] },
+          }),
+        }),
+      );
+    });
   });
 
   describe('getEnvelopeSummary', () => {

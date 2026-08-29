@@ -8,7 +8,7 @@ import {
 } from '@/features/budgets/types/budget-detail-tabs.types';
 
 export interface BudgetDetailTabsProps {
-  tab: BudgetDetailTabId;
+  tab: BudgetDetailTabId | null;
   onTabChange: (tab: BudgetDetailTabId) => void;
   className?: string;
 }

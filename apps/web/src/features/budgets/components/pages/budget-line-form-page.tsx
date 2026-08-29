@@ -142,6 +142,17 @@ export function BudgetLineFormPage({
     );
   }
 
+  if (!isEdit && !budget) {
+    return variant === 'page' ? (
+      <>
+        <BudgetPageHeader title="Nouvelle ligne budgétaire" description="Chargement…" />
+        <LoadingState rows={3} />
+      </>
+    ) : (
+      <LoadingState rows={3} />
+    );
+  }
+
   const defaultValues: Partial<BudgetLineFormValues> = isEdit && line
     ? lineApiToForm(line, budget?.taxMode ?? 'HT')
     : { budgetId: resolvedBudgetId, envelopeId, currency: 'EUR' };
@@ -203,6 +214,7 @@ export function BudgetLineFormPage({
           hasPlanning
           monthColumnLabels={monthColumnLabels}
           exercisePeriodHint={exercisePeriodHint}
+          isMidYearValidated={!isEdit && budget?.status === 'VALIDATED'}
         />
       </div>
     </>

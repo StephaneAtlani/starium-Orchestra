@@ -17,6 +17,14 @@ Poser un socle frontend **feature-first** pour le domaine budget :
 
 La logique métier reste **côté backend** ; le frontend ne fait pas de calculs budgétaires ni de règles de cohérence.
 
+### Glossaire RFC-BUD-041 (ne pas confondre)
+
+| Terme | Sens | Où |
+|-------|------|-----|
+| **Prévisionnel** | Onglet plan annuel 12 mois (`?onglet=previsionnel`) | Grille explorateur |
+| **Atterrissage** | KPI de projection fin d’exercice | Bandeau KPI, encart lecture seule |
+| **Prévision d’atterrissage (PA)** | Rituel CODIR (figer, comparer, valider, activer) | CTA header → `?onglet=pa` (**hors** tablist des 6 onglets) |
+
 ---
 
 ## 2. Structure (apps/web/src/features/budgets/)
@@ -32,6 +40,7 @@ features/budgets/
 │   ├── get-budget-exercise-options.ts  # Options pour filtre exercice (RFC-FE-003)
 │   ├── budget-reporting.api.ts
 │   ├── budget-landing.api.ts       # RFC-BUD-040 — atterrissage (canonique)
+│   ├── budget-landing-forecast.api.ts  # RFC-BUD-041 — rituel PA (GET/validate/apply + submit/activate)
 │   ├── budget-dashboard.api.ts
 │   ├── budget-forecast.api.ts        # RFC-BUD-040 — wrapper déprécié → landing
 │   ├── budget-comparison.api.ts
@@ -255,8 +264,9 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetDetailHeader` | `PageHeader` DS : identité + statut + méta ; Select budget + Accès + **Saisir une dépense** ; barre d’outils (Exporter, Version figée, Comparaisons, Prévisionnel, Réaffectations) |
 | `BudgetDetailKpiStrip` | Bande **6 KPI** persistante (Budget, Engagé, Consommé, Restant, Dépassement, Taux d’exécution) + filtre Tout/CAPEX/OPEX + toggle HT/TTC |
 | `BudgetDetailAlertsBanner` | Alertes API `ALERT_LIST` (composant disponible) |
-| `BudgetDetailTabs` | 6 onglets (`role="tablist"`, navigation flèches, scroll horizontal contrôlé) — remplace `BudgetViewTabs` (7 modes) ; masqués sur la Vue d’ensemble (accès via la barre d’outils) |
-| `BudgetDetailWorkspace` | Switch de contenu + toolbar contextuelle (`BudgetExplorerToolbar` sur Prévisionnel/Suivi, `BudgetDensityToggle` sur Prévisionnel, forcé en `condense` sous `md`) |
+| `BudgetDetailTabs` | 6 onglets (`role="tablist"`, navigation flèches, scroll horizontal contrôlé) — remplace `BudgetViewTabs` (7 modes) ; masqués sur la Vue d’ensemble (accès via la barre d’outils) ; **pas** d’onglet PA |
+| `BudgetDetailWorkspace` | Switch de contenu + toolbar contextuelle (`BudgetExplorerToolbar` sur Prévisionnel/Suivi, `BudgetDensityToggle` sur Prévisionnel, forcé en `condense` sous `md`) ; `?onglet=pa` affiche `BudgetLandingForecastPanel` hors tablist |
+| `BudgetLandingForecastPanel` | Checklist 6 étapes du rituel PA (`aria-live` sur le statut) — RFC-BUD-041 |
 | `BudgetReallocationsPanel` | Journal des réaffectations + CTA création — partagé avec `/budgets/[budgetId]/reallocations` |
 | `BudgetComparisonsPanel` | Versions figées récentes + `BudgetReportingForecastPage variant="embedded"` + liens `/snapshots` et `/versions` |
 | `BudgetHistoriquePanel` | `BudgetDecisionTimeline` + accès à l’assistant d’import |
@@ -295,7 +305,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budget-envelopes/[envelopeId]/edit` | **Édition enveloppe** (RFC-FE-015) |
 | `/budgets/[budgetId]/lines/new` | **Création ligne budgétaire** (RFC-FE-015) |
 | `/budget-lines/[lineId]/edit` | **Édition ligne budgétaire** (RFC-FE-015) |
-| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032)** : `PageHeader` + bande 6 KPI + Vue d’ensemble (graphique **Réalisé vs prévu** 12 mois, lignes critiques API, tableau enveloppes/lignes). Navigation métier via barre d’outils / onglets (`?onglet=`). Export CSV **client** (`downloadBudgetDetailCsv`). Modale unique **Saisir une dépense** (Engagement / commande · Consommé / Facture) |
+| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032 + RFC-BUD-041)** : `PageHeader` + bande 6 KPI + Vue d’ensemble. Navigation métier via barre d’outils / onglets (`?onglet=`). **`?onglet=pa`** : panneau Prévision d’atterrissage **hors tablist**. Export CSV **client**. Modale unique **Saisir une dépense**. |
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | **Redirect** (RFC-BUD-040 D2) vers `/budgets/[budgetId]?onglet=comparaisons` — contenu forecast/comparaison embarqué dans la fiche (RFC-FE-BUD-030) |

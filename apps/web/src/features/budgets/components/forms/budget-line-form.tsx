@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -60,6 +60,8 @@ interface BudgetLineFormProps {
   monthColumnLabels?: string[];
   /** Période d’exercice budgétaire (affichage calculette). */
   exercisePeriodHint?: string | null;
+  /** Création mid-year sur budget VALIDATED : justification obligatoire, statut non forçable. */
+  isMidYearValidated?: boolean;
 }
 
 export function BudgetLineForm({
@@ -82,6 +84,7 @@ export function BudgetLineForm({
   onOpenPlanning,
   monthColumnLabels,
   exercisePeriodHint = null,
+  isMidYearValidated = false,
 }: BudgetLineFormProps) {
   const noEnvelopes = envelopeOptionsSuccess && envelopeOptions.length === 0;
   const envelopeSelectLoading = !envelopeOptionsSuccess || envelopeOptionsLoading;
@@ -89,6 +92,14 @@ export function BudgetLineForm({
   const { activeClient } = useActiveClient();
   const isBudgetAccountingEnabled = activeClient?.budgetAccountingEnabled ?? false;
   const canSubmit = !noEnvelopes && (isBudgetAccountingEnabled ? !noGeneralLedger : true);
+  const requireJustification = isMidYearValidated && !isEdit;
+  const lineFormSchema = useMemo(
+    () =>
+      buildBudgetLineFormSchema(isBudgetAccountingEnabled, {
+        requireJustification,
+      }),
+    [isBudgetAccountingEnabled, requireJustification],
+  );
 
   const [showQuickCalculator, setShowQuickCalculator] = useState(false);
   /** Évite de rouvrir la calculette tout de suite quand le focus revient au champ après fermeture de la modale. */
@@ -120,7 +131,7 @@ export function BudgetLineForm({
     setValue,
     formState: { errors },
   } = useForm<BudgetLineFormValues>({
-    resolver: zodResolver(buildBudgetLineFormSchema(isBudgetAccountingEnabled)),
+    resolver: zodResolver(lineFormSchema),
     defaultValues: {
       currency: 'EUR',
       status: 'DRAFT',
@@ -168,12 +179,20 @@ export function BudgetLineForm({
 
   return (
     <>
-      <form onSubmit={handleSubmit(submitWithPlanning, onInvalid)} className="space-y-6">
-        {submitError && (
-          <Alert variant="destructive">
-            <AlertDescription>{submitError.message}</AlertDescription>
-          </Alert>
-        )}
+    <form onSubmit={handleSubmit(submitWithPlanning, onInvalid)} className="space-y-6">
+      {submitError && (
+        <Alert variant="destructive">
+          <AlertDescription>{submitError.message}</AlertDescription>
+        </Alert>
+      )}
+      {isMidYearValidated && !isEdit ? (
+        <Alert>
+          <AlertDescription>
+            Ajout structurel en cours d’exercice : une justification (PA / CODIR) est
+            obligatoire. La ligne sera créée en attente de validation, pas active.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
         {noGeneralLedger && (
           <Alert variant={isBudgetAccountingEnabled ? 'destructive' : 'default'}>
@@ -252,8 +271,18 @@ export function BudgetLineForm({
                 {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" {...register('description')} aria-invalid={!!errors.description} />
+                <Label htmlFor="description">
+                  {isMidYearValidated && !isEdit
+                    ? 'Justification (PA / CODIR) *'
+                    : 'Description'}
+                </Label>
+                <Input
+                  id="description"
+                  {...register('description')}
+                  aria-invalid={!!errors.description}
+                  required={isMidYearValidated && !isEdit}
+                  maxLength={500}
+                />
                 {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
               </div>
             </div>
@@ -340,42 +369,50 @@ export function BudgetLineForm({
                 <Input id="currency" {...register('currency')} aria-invalid={!!errors.currency} />
                 {errors.currency && <p className="text-sm text-destructive">{errors.currency.message}</p>}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Statut</Label>
-                <select
-                  id="status"
-                  className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  {...register('status')}
-                  aria-invalid={!!errors.status}
-                >
-                  {BUDGET_LINE_STATUS_EDIT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
-              </div>
-              {isEdit && statusWatch === 'DEFERRED' && (
-                <div className="space-y-2">
-                  <Label htmlFor="deferredToExerciseId">Report vers l’exercice</Label>
-                  <select
-                    id="deferredToExerciseId"
-                    className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    {...register('deferredToExerciseId')}
-                    aria-invalid={!!errors.deferredToExerciseId}
-                  >
-                    <option value="">— Choisir —</option>
-                    {exerciseOptions.map((ex) => (
-                      <option key={ex.id} value={ex.id}>
-                        {formatBudgetExerciseOptionLabel(ex)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.deferredToExerciseId && (
-                    <p className="text-sm text-destructive">{errors.deferredToExerciseId.message}</p>
+              {isMidYearValidated && !isEdit ? (
+                <p className="text-sm text-muted-foreground">
+                  Statut imposé : en attente de validation.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Statut</Label>
+                    <select
+                      id="status"
+                      className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      {...register('status')}
+                      aria-invalid={!!errors.status}
+                    >
+                      {BUDGET_LINE_STATUS_EDIT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+                  </div>
+                  {isEdit && statusWatch === 'DEFERRED' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="deferredToExerciseId">Report vers l’exercice</Label>
+                      <select
+                        id="deferredToExerciseId"
+                        className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        {...register('deferredToExerciseId')}
+                        aria-invalid={!!errors.deferredToExerciseId}
+                      >
+                        <option value="">— Choisir —</option>
+                        {exerciseOptions.map((ex) => (
+                          <option key={ex.id} value={ex.id}>
+                            {formatBudgetExerciseOptionLabel(ex)}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.deferredToExerciseId && (
+                        <p className="text-sm text-destructive">{errors.deferredToExerciseId.message}</p>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           </CardContent>

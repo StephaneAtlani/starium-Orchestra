@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -24,12 +25,27 @@ import { UpdateBudgetEnvelopeDto } from './dto/update-budget-envelope.dto';
 import type { BudgetEnvelopeDetailResponseDto } from './dto/budget-envelope-detail-response.dto';
 import { assertBudgetEnvelopeStatusTransition } from '../policies/budget-envelope-status-transitions';
 import { resolveDeferredExerciseIdForEnvelope } from '../helpers/deferred-exercise.helper';
+import { ClientBudgetWorkflowSettingsService } from '../../clients/client-budget-workflow-settings.service';
+import { mergeBudgetWorkflowConfig } from '../../clients/budget-workflow-config.merge';
+import {
+  assertMidYearJustification,
+  isMidYearValidatedBudget,
+  resolveMidYearEnvelopeStatus,
+} from '../policies/mid-year-structural.policy';
+import { pilotageLineStatusesForBudgetStatus } from '../constants/budget-aggregate-statuses';
 
 @Injectable()
 export class BudgetEnvelopesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
+    @Inject(ClientBudgetWorkflowSettingsService)
+    private readonly workflowSettings: Pick<
+      ClientBudgetWorkflowSettingsService,
+      'getResolvedForClient'
+    > = {
+      getResolvedForClient: async () => mergeBudgetWorkflowConfig(null),
+    },
   ) {}
 
   async list(
@@ -90,6 +106,7 @@ export class BudgetEnvelopesService {
       where: {
         clientId,
         envelopeId: id,
+        status: { in: [...pilotageLineStatusesForBudgetStatus(envelope.budget.status)] },
       },
       _sum: {
         initialAmount: true,
@@ -194,6 +211,17 @@ export class BudgetEnvelopesService {
       }
     }
 
+    let envelopeStatus = dto.status ?? BudgetEnvelopeStatus.ACTIVE;
+    let description = dto.description?.trim() || null;
+    if (isMidYearValidatedBudget(budget.status)) {
+      const config = await this.workflowSettings.getResolvedForClient(clientId);
+      description = assertMidYearJustification(
+        dto.description,
+        config.midYearRequireJustification,
+      );
+      envelopeStatus = resolveMidYearEnvelopeStatus(config, dto.status);
+    }
+
     const created = await this.prisma.budgetEnvelope.create({
       data: {
         clientId,
@@ -201,10 +229,10 @@ export class BudgetEnvelopesService {
         name: dto.name,
         code,
         type: dto.type,
-        description: dto.description ?? null,
+        description,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
-        status: dto.status ?? BudgetEnvelopeStatus.ACTIVE,
+        status: envelopeStatus,
       },
     });
 
@@ -220,6 +248,8 @@ export class BudgetEnvelopesService {
         code: created.code,
         budgetId: created.budgetId,
         type: created.type,
+        status: created.status,
+        justification: description,
       },
       ipAddress: context?.meta?.ipAddress,
       userAgent: context?.meta?.userAgent,
@@ -535,6 +565,78 @@ export class BudgetEnvelopesService {
     throw new ConflictException(
       'Could not generate unique code for budget envelope',
     );
+  }
+
+  async submit(
+    clientId: string,
+    id: string,
+    context?: AuditContext,
+  ): Promise<EnvelopeWithNumbers> {
+    return this.transitionEnvelope(
+      clientId,
+      id,
+      BudgetEnvelopeStatus.PENDING_VALIDATION,
+      'budget_envelope.submitted',
+      context,
+    );
+  }
+
+  /** C8 — active l’enveloppe uniquement, sans cascade sur les lignes. */
+  async activate(
+    clientId: string,
+    id: string,
+    context?: AuditContext,
+  ): Promise<EnvelopeWithNumbers> {
+    return this.transitionEnvelope(
+      clientId,
+      id,
+      BudgetEnvelopeStatus.ACTIVE,
+      'budget_envelope.activated',
+      context,
+    );
+  }
+
+  private async transitionEnvelope(
+    clientId: string,
+    id: string,
+    toStatus: BudgetEnvelopeStatus,
+    action: 'budget_envelope.submitted' | 'budget_envelope.activated',
+    context?: AuditContext,
+  ): Promise<EnvelopeWithNumbers> {
+    const existing = await this.prisma.budgetEnvelope.findFirst({
+      where: { id, clientId },
+      include: {
+        deferredToExercise: { select: { id: true, name: true, code: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Budget envelope not found');
+    }
+    if (existing.status === toStatus) {
+      return toResponse(existing);
+    }
+    assertBudgetEnvelopeStatusTransition(existing.status, toStatus);
+    const updated = await this.prisma.budgetEnvelope.update({
+      where: { id },
+      data: { status: toStatus },
+      include: {
+        deferredToExercise: { select: { id: true, name: true, code: true } },
+      },
+    });
+    const auditInput: CreateAuditLogInput = {
+      clientId,
+      userId: context?.actorUserId,
+      action,
+      resourceType: 'budget_envelope',
+      resourceId: updated.id,
+      oldValue: { from: existing.status },
+      newValue: { to: updated.status },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    };
+    await this.auditLogs.create(auditInput);
+    return toResponse(updated);
   }
 }
 

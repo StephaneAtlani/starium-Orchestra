@@ -6,7 +6,7 @@ export const baseBudgetLineFormSchema = z
     envelopeId: z.string().min(1, 'Enveloppe requise'),
     name: z.string().min(1, 'Nom requis').max(255),
     code: z.string().max(64).optional().or(z.literal('')),
-    description: z.string().optional().or(z.literal('')),
+    description: z.string().max(500, '500 caractères maximum').optional().or(z.literal('')),
     expenseType: z.enum(['CAPEX', 'OPEX']),
     generalLedgerAccountId: z.string().optional().or(z.literal('')),
     initialAmount: z.number().min(0, 'Le montant budgétaire doit être ≥ 0'),
@@ -24,12 +24,19 @@ export const baseBudgetLineFormSchema = z
     }
   });
 
-export function buildBudgetLineFormSchema(isBudgetAccountingEnabled: boolean) {
-  if (!isBudgetAccountingEnabled) {
-    return baseBudgetLineFormSchema;
-  }
-
+export function buildBudgetLineFormSchema(
+  isBudgetAccountingEnabled: boolean,
+  options?: { requireJustification?: boolean },
+) {
   return baseBudgetLineFormSchema.superRefine((val, ctx) => {
+    if (options?.requireJustification && !val.description?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['description'],
+        message: 'Justification (PA / CODIR) obligatoire',
+      });
+    }
+    if (!isBudgetAccountingEnabled) return;
     if (!val.generalLedgerAccountId || val.generalLedgerAccountId.trim().length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

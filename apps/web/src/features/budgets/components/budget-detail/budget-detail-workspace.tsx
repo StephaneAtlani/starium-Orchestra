@@ -27,12 +27,17 @@ import {
   BUDGET_SUIVI_VIEWS,
   budgetDetailTabUsesExplorerGrid,
   type BudgetDetailTabId,
+  type BudgetDetailWorkspaceId,
   type BudgetSuiviView,
 } from '@/features/budgets/types/budget-detail-tabs.types';
 import { BudgetDetailTabs } from './budget-detail-tabs';
 import { BudgetComparisonsPanel } from './budget-comparisons-panel';
 import { BudgetHistoriquePanel } from './budget-historique-panel';
 import { BudgetReallocationsPanel } from './budget-reallocations-panel';
+import { BudgetLandingForecastPanel } from './budget-landing-forecast-panel';
+import { useBudgetLanding } from '@/features/budgets/hooks/use-budget-landing';
+import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
+import { formatCurrency } from '@/features/budgets/lib/budget-formatters';
 
 export interface BudgetDetailWorkspaceExplorer {
   /** Les libellés de mois de l'exercice sont chargés : la grille peut s'afficher. */
@@ -65,7 +70,8 @@ export interface BudgetDetailWorkspaceOverview {
 
 export interface BudgetDetailWorkspaceProps {
   budgetId: string;
-  tab: BudgetDetailTabId;
+  tab: BudgetDetailTabId | null;
+  workspace?: BudgetDetailWorkspaceId;
   onTabChange: (tab: BudgetDetailTabId) => void;
   suiviView: BudgetSuiviView;
   onSuiviViewChange: (view: BudgetSuiviView) => void;
@@ -77,7 +83,7 @@ export interface BudgetDetailWorkspaceProps {
   explorer: BudgetDetailWorkspaceExplorer;
   overview: BudgetDetailWorkspaceOverview;
   lines: BudgetLine[];
-  onCreateSnapshot: () => void;
+  onCreateSnapshot: (suggestedOccasionCode?: string) => void;
   onCreateReallocation: () => void;
 }
 
@@ -89,6 +95,7 @@ export interface BudgetDetailWorkspaceProps {
 export function BudgetDetailWorkspace({
   budgetId,
   tab,
+  workspace,
   onTabChange,
   suiviView,
   onSuiviViewChange,
@@ -103,7 +110,9 @@ export function BudgetDetailWorkspace({
   onCreateSnapshot,
   onCreateReallocation,
 }: BudgetDetailWorkspaceProps) {
-  const usesGrid = budgetDetailTabUsesExplorerGrid(tab);
+  const usesGrid = tab != null && budgetDetailTabUsesExplorerGrid(tab);
+  const isPa = workspace === 'pa';
+  const landingQuery = useBudgetLanding(budgetId, { enabled: tab === 'previsionnel' });
   /** La grille 12 mois n'est pas exploitable sous `md` : densité condensée imposée. */
   const isMobile = useIsMobile();
   const monthlyDensityAvailable = !isMobile;
@@ -173,14 +182,20 @@ export function BudgetDetailWorkspace({
 
   return (
     <section className="starium-module space-y-4">
-      {tab !== 'overview' ? (
-        <BudgetDetailTabs tab={tab} onTabChange={onTabChange} />
+      {tab !== 'overview' || isPa ? (
+        <BudgetDetailTabs tab={isPa ? null : tab} onTabChange={onTabChange} />
       ) : null}
 
+      {isPa ? (
+        <BudgetLandingForecastPanel
+          budgetId={budgetId}
+          onCreateSnapshot={(code) => onCreateSnapshot(code)}
+        />
+      ) : (
       <div
         role="tabpanel"
-        id={`budget-detail-panel-${tab}`}
-        aria-labelledby={`budget-detail-tab-${tab}`}
+        id={tab ? `budget-detail-panel-${tab}` : undefined}
+        aria-labelledby={tab ? `budget-detail-tab-${tab}` : undefined}
         tabIndex={-1}
       >
         {tab === 'overview' ? overviewContent : null}
@@ -189,6 +204,30 @@ export function BudgetDetailWorkspace({
           <Card className="starium-panel">
             <CardHeader className="border-b border-border/60 pb-4">
               <div className="flex flex-col gap-3">
+                {tab === 'previsionnel' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {BUDGET_LABELS.planningTabSubtitle}
+                    </p>
+                    <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                      <p className="starium-overline">{BUDGET_LABELS.landing}</p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                        {landingQuery.data
+                          ? formatCurrency(
+                              landingQuery.data.totalLanding ??
+                                landingQuery.data.totalForecast,
+                              landingQuery.data.currency ?? currency,
+                            )
+                          : landingQuery.isLoading
+                            ? 'Chargement…'
+                            : '—'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Lecture seule — résultat du plan 12 mois et de l’exécution.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
                 {tab === 'suivi' ? (
                   <div className="starium-tab-group self-start" role="group" aria-label="Sous-vue du suivi">
                     {BUDGET_SUIVI_VIEWS.map((view) => (
@@ -265,6 +304,7 @@ export function BudgetDetailWorkspace({
           </Card>
         ) : null}
       </div>
+      )}
     </section>
   );
 }

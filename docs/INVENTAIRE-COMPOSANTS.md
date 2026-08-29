@@ -2,7 +2,7 @@
 
 Document genere a partir des composants React trouves dans `apps/web/src` (`.tsx`, hors routes `app/` et hors tests).
 
-Total inventorie : **298 composants**.
+Total inventorie : **299 composants**.
 
 ## Lecture rapide
 
@@ -171,7 +171,7 @@ Chaque entree contient : `NomDuComposant` - chemin - role principal dans l'inter
 - `new-budget-line-dialog` - `features/budgets/components/new-budget-line-dialog.tsx` - ouvre un dialogue pour creation budget ligne.
 - `pagination-summary` - `features/budgets/components/pagination-summary.tsx` - gere l'interface de pagination synthese.
 
-## Budgets / Budget Detail (8)
+## Budgets / Budget Detail (9)
 
 Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budgets/components/budget-detail/index.ts`.
 
@@ -179,7 +179,8 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `budget-detail-kpi-strip` - `features/budgets/components/budget-detail/budget-detail-kpi-strip.tsx` - bande 6 KPI persistants (Budget, Engage, Consomme, Restant, Depassement, Execution) + filtre nature + HT/TTC.
 - `budget-detail-alerts-banner` - `features/budgets/components/budget-detail/budget-detail-alerts-banner.tsx` - annonce les alertes API du budget (`aria-live`).
 - `budget-detail-tabs` - `features/budgets/components/budget-detail/budget-detail-tabs.tsx` - organise les 6 onglets de la fiche budget.
-- `budget-detail-workspace` - `features/budgets/components/budget-detail/budget-detail-workspace.tsx` - aiguille le contenu et la barre d'outils selon l'onglet actif.
+- `budget-detail-workspace` - `features/budgets/components/budget-detail/budget-detail-workspace.tsx` - aiguille le contenu et la barre d'outils selon l'onglet actif (y compris `?onglet=pa` hors tablist).
+- `budget-landing-forecast-panel` - `features/budgets/components/budget-detail/budget-landing-forecast-panel.tsx` - checklist PA (6 étapes) de la prévision d'atterrissage, hors tablist (`?onglet=pa`).
 - `budget-reallocations-panel` - `features/budgets/components/budget-detail/budget-reallocations-panel.tsx` - affiche le journal des reaffectations et l'action de creation.
 - `budget-comparisons-panel` - `features/budgets/components/budget-detail/budget-comparisons-panel.tsx` - affiche les versions figees et la comparaison embarquee.
 - `budget-historique-panel` - `features/budgets/components/budget-detail/budget-historique-panel.tsx` - affiche la frise des decisions budgetaires.

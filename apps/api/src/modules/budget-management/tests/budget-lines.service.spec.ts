@@ -505,5 +505,127 @@ describe('BudgetLinesService', () => {
       expect(result.failed[0]?.id).toBe('line-ko');
     });
   });
+
+  describe('RFC-BUD-041 mid-year', () => {
+    it('C2 — create sur budget VALIDATED sans justification → 400', async () => {
+      prisma.generalLedgerAccount.findFirst.mockResolvedValue({
+        id: generalLedgerAccountId,
+        clientId,
+      });
+      prisma.budget.findFirst.mockResolvedValue({
+        id: budgetId,
+        clientId,
+        status: BudgetStatus.VALIDATED,
+        ownerOrgUnitId: null,
+      });
+      prisma.budgetEnvelope.findFirst.mockResolvedValue({
+        id: envelopeId,
+        clientId,
+        budgetId,
+      });
+
+      await expect(
+        service.create(clientId, {
+          budgetId,
+          envelopeId,
+          name: 'L',
+          expenseType: ExpenseType.OPEX,
+          generalLedgerAccountId,
+          initialAmount: 100,
+          currency: 'EUR',
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'mid_year_justification_required',
+        }),
+      });
+    });
+
+    it('C2 — justification persistée dans description', async () => {
+      prisma.generalLedgerAccount.findFirst.mockResolvedValue({
+        id: generalLedgerAccountId,
+        clientId,
+      });
+      prisma.budget.findFirst.mockResolvedValue({
+        id: budgetId,
+        clientId,
+        status: BudgetStatus.VALIDATED,
+        ownerOrgUnitId: null,
+      });
+      prisma.budgetEnvelope.findFirst.mockResolvedValue({
+        id: envelopeId,
+        clientId,
+        budgetId,
+      });
+      prisma.budgetLine.findUnique.mockResolvedValue(null);
+      prisma.$transaction.mockImplementation(async (cb: (tx: any) => Promise<any>) => {
+        const tx = {
+          budgetLine: {
+            create: jest.fn().mockResolvedValue({ id: 'line-1' }),
+            findUniqueOrThrow: jest.fn().mockResolvedValue(
+              lineWithInclude({
+                description: 'Besoin CODIR août',
+                status: BudgetLineStatus.PENDING_VALIDATION,
+              }),
+            ),
+          },
+          budgetLineCostCenterSplit: { create: jest.fn() },
+        };
+        return cb(tx);
+      });
+
+      const result = await service.create(clientId, {
+        budgetId,
+        envelopeId,
+        name: 'L',
+        expenseType: ExpenseType.OPEX,
+        generalLedgerAccountId,
+        initialAmount: 100,
+        currency: 'EUR',
+        description: 'Besoin CODIR août',
+        status: BudgetLineStatus.ACTIVE,
+      });
+
+      expect(result.description).toBe('Besoin CODIR août');
+      expect(result.status).toBe(BudgetLineStatus.PENDING_VALIDATION);
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          newValue: expect.objectContaining({ justification: 'Besoin CODIR août' }),
+        }),
+      );
+    });
+
+    it('activate initialise le planning prorata', async () => {
+      const planning = {
+        initializePlanningForMidYearLine: jest.fn().mockResolvedValue({}),
+      };
+      (service as unknown as { planning: typeof planning }).planning = planning;
+      prisma.budgetLine.findFirst
+        .mockResolvedValueOnce(
+          lineWithInclude({ status: BudgetLineStatus.PENDING_VALIDATION }),
+        )
+        .mockResolvedValueOnce(
+          lineWithInclude({ status: BudgetLineStatus.ACTIVE }),
+        );
+      prisma.budgetLine.update.mockResolvedValue(
+        lineWithInclude({ status: BudgetLineStatus.ACTIVE }),
+      );
+
+      const result = await service.activate(clientId, 'line-1', {
+        actorUserId: 'user-1',
+        meta: {},
+      });
+
+      expect(planning.initializePlanningForMidYearLine).toHaveBeenCalledWith(
+        clientId,
+        'line-1',
+        expect.any(Object),
+      );
+      expect(result.status).toBe(BudgetLineStatus.ACTIVE);
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'budget_line.activated' }),
+      );
+    });
+  });
 });
 

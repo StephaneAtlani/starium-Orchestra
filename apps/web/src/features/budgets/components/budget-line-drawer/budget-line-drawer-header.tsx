@@ -30,6 +30,7 @@ export function BudgetLineDrawerHeader({
   onCreateEngagement,
   onCreateConsumption,
   lineDrilldownNavigation,
+  canRegisterExpense = true,
 }: {
   line: BudgetLine;
   budgetName?: string | null;
@@ -44,6 +45,8 @@ export function BudgetLineDrawerHeader({
   onCreateConsumption: () => void;
   /** Ligne précédente / suivante dans l’ordre explorateur (drilldown inchangé). */
   lineDrilldownNavigation?: BudgetLineDrilldownNavigation | null;
+  /** Budget VALIDATED : saisie dépense uniquement si la ligne est ACTIVE. */
+  canRegisterExpense?: boolean;
 }) {
   const isOverrun = line.consumedAmount > line.initialAmount;
   const isNegativeRemaining = line.remainingAmount < 0;
@@ -192,6 +195,12 @@ export function BudgetLineDrawerHeader({
             variant="default"
             size="xs"
             className={actionBtn}
+            disabled={!canRegisterExpense}
+            title={
+              canRegisterExpense
+                ? undefined
+                : 'Saisie possible uniquement sur une ligne active'
+            }
             onClick={onCreateEngagement}
           >
             <CircleDollarSign className="size-3 shrink-0 opacity-90" aria-hidden />
@@ -202,6 +211,12 @@ export function BudgetLineDrawerHeader({
             variant="default"
             size="xs"
             className={actionBtn}
+            disabled={!canRegisterExpense}
+            title={
+              canRegisterExpense
+                ? undefined
+                : 'Saisie possible uniquement sur une ligne active'
+            }
             onClick={onCreateConsumption}
           >
             <ArrowDownCircle className="size-3 shrink-0 opacity-90" aria-hidden />

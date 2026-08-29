@@ -522,7 +522,11 @@ Paramètres **scopés au client actif** (`X-Client-Id`). Pas d’admin plateform
   "stored": null,
   "resolved": {
     "requireEnvelopesNonDraftForBudgetValidated": true,
-    "snapshotIncludedBudgetLineStatuses": ["PENDING_VALIDATION", "ACTIVE", "REJECTED", "DEFERRED", "CLOSED", "ARCHIVED"]
+    "snapshotIncludedBudgetLineStatuses": ["PENDING_VALIDATION", "ACTIVE", "REJECTED", "DEFERRED", "CLOSED", "ARCHIVED"],
+    "landingForecastEnabled": true,
+    "midYearDefaultLineStatus": "PENDING_VALIDATION",
+    "midYearDefaultEnvelopeStatus": "PENDING_VALIDATION",
+    "midYearRequireJustification": true
   }
 }
 ```
@@ -537,6 +541,10 @@ Paramètres **scopés au client actif** (`X-Client-Id`). Pas d’admin plateform
 |-------|------|-------------|
 | `requireEnvelopesNonDraftForBudgetValidated` | boolean | Si `true` (défaut), le passage du budget à **`VALIDATED`** est refusé tant qu’une enveloppe du budget est en **`DRAFT`**. Si `false`, cette garde est désactivée pour ce client. |
 | `snapshotIncludedBudgetLineStatuses` | `BudgetLineStatus[]` | Statuts de ligne budgétaire à inclure dans les versions figées. **Min. 1** élément si le champ est présent. Défaut résolu : tous sauf **`DRAFT`**. |
+| `landingForecastEnabled` | boolean | Active le rituel **Prévision d’atterrissage** (PA) sur les budgets validés. Défaut `true`. |
+| `midYearDefaultLineStatus` | `"PENDING_VALIDATION"` \| `"DRAFT"` | Statut imposé à la création d’une ligne sur un budget **VALIDATED**. Défaut `PENDING_VALIDATION`. |
+| `midYearDefaultEnvelopeStatus` | `"PENDING_VALIDATION"` \| `"DRAFT"` | Idem enveloppe. Défaut `PENDING_VALIDATION`. |
+| `midYearRequireJustification` | boolean | Si `true` (défaut), `description` obligatoire (trim non vide, max 500) à la création mid-year. |
 
 Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
@@ -578,6 +586,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/budget-import-mappings | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update`) |
 | /api/budget-version-sets | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read`) |
 | /api/budgets/:id/create-baseline, create-revision, activate-version, archive-version, version-history, compare | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.create` / `budgets.update` selon l’action) |
+| /api/budgets/:budgetId/landing-forecast, …/validate, …/apply | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`budgets.read` / `budgets.update` / `budgets.landing_forecast.apply`) — RFC-BUD-041 |
 | /api/strategic-vision (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/kpis | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-vision/kpis/by-direction | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
@@ -2138,6 +2147,8 @@ Mise à jour du **statut** sur plusieurs enveloppes. **Body** : `ids` (1 à 100)
 
 **Transitions autorisées (enveloppe) — résumé** : `DRAFT → PENDING_VALIDATION|ARCHIVED`, `PENDING_VALIDATION → ACTIVE|REJECTED|DEFERRED`, `REJECTED → DRAFT`, `DEFERRED → DRAFT|ACTIVE`, `ACTIVE → PENDING_VALIDATION|LOCKED|DEFERRED`, `LOCKED → ARCHIVED` ; sinon `400 invalid_status_transition`.
 
+**Soumission / activation unitaire (RFC-BUD-041 lot 3)** — `POST /api/budget-envelopes/:id/submit` et `POST /api/budget-envelopes/:id/activate`. Permission `budgets.update`. **C8** : l’activation d’une enveloppe `PENDING_VALIDATION` → `ACTIVE` **ne cascade pas** sur les lignes filles (pas de prorata). Un budget VALIDATED avec enveloppe ACTIVE et lignes PENDING est un état valide.
+
 ---
 
 ### GET /api/budget-lines
@@ -2149,6 +2160,8 @@ Liste les lignes budgétaires. **Query** : `budgetId`, `envelopeId`, `status`, `
 ### POST /api/budget-lines
 
 Crée une ligne. **Body** : `budgetId`, `envelopeId`, `name`, `code?`, `description?`, `expenseType`, **`generalLedgerAccountId`** (obligatoire), `analyticalLedgerAccountId?`, `allocationScope?` (défaut ENTERPRISE), `costCenterSplits?` (tableau `[{ costCenterId, percentage }]` si ANALYTICAL ; somme = 100), `initialAmount`, `revisedAmount?`, `currency`, `status?`. L’enveloppe et le compte comptable doivent appartenir au client. **Règles** : ENTERPRISE ⇒ 0 split ; ANALYTICAL ⇒ au moins 1 split, somme 100 %, unicité costCenter par ligne. Si `code` absent, généré (`BL-suffix`).
+
+**Budget VALIDATED (RFC-BUD-041 C1/C2)** : le `status` du body est **ignoré** (imposé par `midYearDefaultLineStatus`) ; `description` obligatoire si `midYearRequireJustification` (max 500) — code `mid_year_justification_required`. Idem `POST /api/budget-envelopes`.
 
 ---
 
@@ -2173,6 +2186,24 @@ Détail et mise à jour d’une ligne. Réponse inclut `generalLedgerAccount`, `
 Mise à jour du **statut** sur plusieurs lignes. **Body** : `ids` (1 à 100), `status` (`BudgetLineStatus`), `deferredToExerciseId?` (obligatoire si `status` = `DEFERRED`, interdit sinon). **Permission** : `budgets.update`. Même logique que `PATCH /api/budget-lines/:id` par id. **Réponse 200** : `{ status, updatedIds, failed: [{ id, error }] }`.
 
 **Transitions autorisées (ligne) — résumé** : `DRAFT → PENDING_VALIDATION|ARCHIVED`, `PENDING_VALIDATION → ACTIVE|REJECTED|DEFERRED`, `REJECTED → DRAFT`, `DEFERRED → DRAFT|ACTIVE`, `ACTIVE → PENDING_VALIDATION|CLOSED|DEFERRED`, `CLOSED → ARCHIVED` ; sinon `400 invalid_status_transition`.
+
+**Soumission / activation unitaire (RFC-BUD-041 lot 3)** — `POST /api/budget-lines/:id/submit` et `POST /api/budget-lines/:id/activate`. Permission `budgets.update`. L’activation initialise le planning 12 mois au **prorata** (mois restants de l’exercice, mois passés à 0) et recalcule l’atterrissage. Idempotent avec l’apply PA (C4) : une ligne déjà `ACTIVE` n’est pas re-statutée.
+
+**Planning sur budget VALIDATED** : `PUT .../planning` et saisie dépense (`FinancialEvent`) uniquement si la ligne est `ACTIVE` — sinon `400` `planning_not_editable_until_active` / `budget_line_not_active`. Construction `DRAFT` inchangée.
+
+---
+
+### Prévision d’atterrissage (RFC-BUD-041) — `/api/budgets/:budgetId/landing-forecast`
+
+Rituel CODIR. Isolation client : 404 si le budget n’appartient pas au client actif.
+
+| Méthode | Permission | Description |
+|---------|------------|-------------|
+| **GET** | `budgets.read` | État de session C3 : `status` (`NONE` \| `BASELINE_FROZEN` \| `SCENARIO_FROZEN` \| `VALIDATED` \| `APPLIED`), `staleSession`, `baseline`, `arbitrated`, `pendingStructuralLines[]` (`id`, `name`, `description`, `status`). |
+| **POST …/validate** | `budgets.update` | Body `{ arbitratedSnapshotId }`. 409 `pa_arbitrated_required` / `pa_already_applied`. |
+| **POST …/apply** | `budgets.landing_forecast.apply` | Body `{ arbitratedSnapshotId }`. Fail-fast **409** : `snapshot_missing_planning`, `live_ceiling_diverged`. Recopie le planning 12 mois, active les lignes PENDING présentes dans le snapshot, crée un snapshot `PA_ACTIVATED`. Le réel (consommé / engagé) n’est pas écrasé. |
+
+**Captures `PA_*` (C7)** : `POST /api/budget-snapshots` avec occasion `PA_BASELINE` \| `PA_ARBITRATED` \| `PA_ACTIVATED` unionne `DRAFT` et `PENDING_VALIDATION` à la whitelist client ; 409 `pa_structural_lines_excluded` si une ligne structurelle live reste hors set.
 
 ---
 

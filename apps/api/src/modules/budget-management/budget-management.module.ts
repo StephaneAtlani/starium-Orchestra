@@ -25,6 +25,8 @@ import { AccessDecisionModule } from '../access-decision/access-decision.module'
 import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 import { OrganizationModule } from '../organization/organization.module';
 import { BudgetLandingModule } from '../budget-landing/budget-landing.module';
+import { BudgetLandingForecastController } from './budget-landing-forecast/budget-landing-forecast.controller';
+import { BudgetLandingForecastService } from './budget-landing-forecast/budget-landing-forecast.service';
 
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { BudgetLandingModule } from '../budget-landing/budget-landing.module';
     BudgetEnvelopesController,
     BudgetLinesController,
     BudgetLinePlanningController,
+    BudgetLandingForecastController,
     GeneralLedgerAccountsController,
     AnalyticalLedgerAccountsController,
     CostCentersController,
@@ -54,6 +57,7 @@ import { BudgetLandingModule } from '../budget-landing/budget-landing.module';
     BudgetEnvelopesService,
     BudgetLinesService,
     BudgetLinePlanningService,
+    BudgetLandingForecastService,
     GeneralLedgerAccountsService,
     AnalyticalLedgerAccountsService,
     CostCentersService,

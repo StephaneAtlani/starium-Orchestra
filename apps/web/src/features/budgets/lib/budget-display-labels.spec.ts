@@ -10,7 +10,10 @@ describe('BUDGET_LABELS', () => {
   it('expose un libellé unique par concept financier (RFC-BUD-040)', () => {
     expect(BUDGET_LABELS.budget).toBe('Budget');
     expect(BUDGET_LABELS.planningTab).toBe('Prévisionnel');
-    expect(BUDGET_LABELS.planningTotal).toBe('Total prévisionnel');
+    expect(BUDGET_LABELS.planningTabSubtitle).toContain('Plan annuel');
+    expect(BUDGET_LABELS.planningTotal).toBe('Total plan annuel');
+    expect(BUDGET_LABELS.landingForecastExercise).toBe("Prévision d'atterrissage");
+    expect(BUDGET_LABELS.landingForecastExerciseShort).toBe('PA');
     expect(BUDGET_LABELS.remainingPlanning).toBe('Prévision restante');
     expect(BUDGET_LABELS.landing).toBe('Atterrissage');
     expect(BUDGET_LABELS.landingGap).toBe("Écart d'atterrissage");
@@ -36,8 +39,8 @@ describe('BUDGET_LABELS', () => {
 
 describe('BUDGET_LABEL_HINTS', () => {
   it('documente l\'atterrissage sans ambiguïté', () => {
-    expect(BUDGET_LABEL_HINTS.landing).toContain('consommé');
-    expect(BUDGET_LABEL_HINTS.landing).toContain('engagé');
+    expect(BUDGET_LABEL_HINTS.landing).toContain('plan');
+    expect(BUDGET_LABEL_HINTS.landing).toContain('PA');
   });
 });
 

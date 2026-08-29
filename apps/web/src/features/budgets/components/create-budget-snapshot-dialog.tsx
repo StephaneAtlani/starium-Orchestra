@@ -44,6 +44,7 @@ export interface CreateBudgetSnapshotDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Ex. focus parent, toast — après invalidation cache */
   onSuccess?: () => void;
+  suggestedOccasionCode?: string;
 }
 
 export function CreateBudgetSnapshotDialog({
@@ -51,6 +52,7 @@ export function CreateBudgetSnapshotDialog({
   open,
   onOpenChange,
   onSuccess,
+  suggestedOccasionCode,
 }: CreateBudgetSnapshotDialogProps) {
   const id = useId();
   const nameFieldId = `${id}-snapshot-name`;
@@ -73,6 +75,12 @@ export function CreateBudgetSnapshotDialog({
     queryFn: () => listBudgetSnapshotOccasionTypesMerged(authFetch),
     enabled: open && !!clientId,
   });
+
+  React.useEffect(() => {
+    if (!open || !suggestedOccasionCode || !occasionTypesQuery.data) return;
+    const match = occasionTypesQuery.data.find((t) => t.code === suggestedOccasionCode);
+    if (match) setOccasionTypeId(match.id);
+  }, [open, suggestedOccasionCode, occasionTypesQuery.data]);
 
   const createSnapshotMutation = useMutation({
     mutationFn: () =>
@@ -99,6 +107,9 @@ export function CreateBudgetSnapshotDialog({
       onOpenChange(false);
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.budgetSnapshotsList(clientId, budgetId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: budgetQueryKeys.landingForecast(clientId, budgetId),
       });
       onSuccess?.();
     },

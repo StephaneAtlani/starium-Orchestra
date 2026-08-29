@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { BudgetSnapshotStatus, Prisma, type BudgetSnapshot } from '@prisma/client';
+import {
+  BudgetLineStatus,
+  BudgetSnapshotStatus,
+  Prisma,
+  type BudgetSnapshot,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ClientBudgetWorkflowSettingsService } from '../clients/client-budget-workflow-settings.service';
 import {
@@ -16,6 +21,8 @@ import { QueryBudgetSnapshotsDto } from './dto/query-budget-snapshots.dto';
 import { BudgetSnapshotOccasionTypesService } from '../budget-snapshot-occasion-types/budget-snapshot-occasion-types.service';
 import { randomBytes } from 'crypto';
 import { WORKFLOW_SNAPSHOT_OCCASION_CODES } from './budget-workflow-snapshot.constants';
+import { isPaSnapshotOccasionCode } from './budget-pa-snapshot.constants';
+import { serializePlanningMonthsForSnapshot } from './budget-snapshot-planning.util';
 import {
   aggregateBudgetLineAmounts,
   snapshotAsOfInclusiveEndUtc,
@@ -218,16 +225,31 @@ export class BudgetSnapshotsService {
     }
 
     const occasionTypeId = dto.occasionTypeId?.trim() || null;
+    let occasionCode: string | null = null;
     if (occasionTypeId) {
       await this.occasionTypes.assertOccasionTypeAssignable(
         clientId,
         occasionTypeId,
       );
+      const occasion = await this.prisma.budgetSnapshotOccasionType.findFirst({
+        where: { id: occasionTypeId },
+        select: { code: true },
+      });
+      occasionCode = occasion?.code ?? null;
     }
 
     const workflowResolved =
       await this.clientBudgetWorkflowSettings.getResolvedForClient(clientId);
-    const includedStatuses = workflowResolved.snapshotIncludedBudgetLineStatuses;
+    const whitelist = workflowResolved.snapshotIncludedBudgetLineStatuses;
+    const includedStatuses = isPaSnapshotOccasionCode(occasionCode)
+      ? Array.from(
+          new Set([
+            ...whitelist,
+            BudgetLineStatus.DRAFT,
+            BudgetLineStatus.PENDING_VALIDATION,
+          ]),
+        )
+      : whitelist;
     if (includedStatuses.length === 0) {
       throw new BadRequestException(
         'Client budget workflow settings must include at least one budget line status for snapshots',
@@ -245,6 +267,28 @@ export class BudgetSnapshotsService {
         planningMonths: { select: { monthIndex: true, amount: true } },
       },
     });
+
+    if (isPaSnapshotOccasionCode(occasionCode)) {
+      const structuralLive = await this.prisma.budgetLine.findMany({
+        where: {
+          budgetId: budget.id,
+          clientId,
+          status: {
+            in: [BudgetLineStatus.DRAFT, BudgetLineStatus.PENDING_VALIDATION],
+          },
+        },
+        select: { id: true },
+      });
+      const captured = new Set(lines.map((l) => l.id));
+      const excluded = structuralLive.filter((l) => !captured.has(l.id));
+      if (excluded.length > 0) {
+        throw new ConflictException({
+          code: 'pa_structural_lines_excluded',
+          message:
+            'Des lignes en attente n’ont pas été incluses dans la version figée.',
+        });
+      }
+    }
 
     const snapshotDate = dto.snapshotDate
       ? new Date(dto.snapshotDate)
@@ -381,6 +425,11 @@ export class BudgetSnapshotsService {
               committedAmount: agg.committedAmount,
               consumedAmount: agg.consumedAmount,
               remainingAmount: agg.remainingAmount,
+              planningMode: line.planningMode,
+              planningTotalAmount: line.planningTotalAmount,
+              planningMonths: serializePlanningMonthsForSnapshot(
+                line.planningMonths ?? [],
+              ),
             })),
           });
           return snap;

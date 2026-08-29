@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -31,10 +32,18 @@ import { cn } from '@/lib/utils';
 export type ForecastComparisonTab = 'reference' | 'snapshotPair' | 'multiSnapshot';
 
 export function ForecastComparisonPanel({ budgetId }: { budgetId: string }) {
+  const searchParams = useSearchParams();
+  const presetCompare = searchParams.get('compareTo');
+  const presetTarget = searchParams.get('targetId');
+
   const [tab, setTab] = useState<ForecastComparisonTab>('reference');
 
-  const [compareTo, setCompareTo] = useState<BudgetComparisonMode>('baseline');
-  const [targetId, setTargetId] = useState<string | undefined>(undefined);
+  const [compareTo, setCompareTo] = useState<BudgetComparisonMode>(
+    presetCompare === 'snapshot' ? 'snapshot' : 'baseline',
+  );
+  const [targetId, setTargetId] = useState<string | undefined>(
+    presetTarget?.trim() || undefined,
+  );
 
   const [snapLeft, setSnapLeft] = useState<string | undefined>();
   const [snapRight, setSnapRight] = useState<string | undefined>();

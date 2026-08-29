@@ -16,6 +16,7 @@ describe('FinancialEventsService', () => {
   beforeEach(() => {
     prisma = {
       budgetLine: { findFirst: jest.fn() },
+      budget: { findFirst: jest.fn() },
       financialEvent: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -338,6 +339,52 @@ describe('FinancialEventsService', () => {
       );
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
+    });
+  });
+
+  describe('RFC-BUD-041 C1', () => {
+    const baseDto: CreateFinancialEventDto = {
+      budgetLineId,
+      sourceType: 'ORDER' as any,
+      sourceId: 'ord-1',
+      eventType: FinancialEventType.CONSUMPTION_REGISTERED,
+      amountHt: '50',
+      taxRate: '20',
+      currency: 'EUR',
+      eventDate: new Date(),
+      label: 'Facture',
+    };
+
+    it('event sur ligne DRAFT d’un budget DRAFT → OK', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({
+        id: budgetLineId,
+        budgetId: 'b1',
+        status: 'DRAFT',
+      } as any);
+      prisma.budget.findFirst.mockResolvedValue({ status: 'DRAFT' });
+      prisma.financialEvent.create.mockResolvedValue({
+        id: 'evt-1',
+        amountHt: new Prisma.Decimal(50),
+        taxRate: new Prisma.Decimal(20),
+        taxAmount: new Prisma.Decimal(10),
+        amountTtc: new Prisma.Decimal(60),
+      });
+
+      await expect(service.create(clientId, baseDto, { actorUserId: 'u1' })).resolves.toBeDefined();
+    });
+
+    it('event sur ligne DRAFT d’un budget VALIDATED → 400', async () => {
+      jest.spyOn(budgetLineHelper, 'assertBudgetLineExistsForClient').mockResolvedValue({
+        id: budgetLineId,
+        budgetId: 'b1',
+        status: 'DRAFT',
+      } as any);
+      prisma.budget.findFirst.mockResolvedValue({ status: 'VALIDATED' });
+
+      await expect(service.create(clientId, baseDto, { actorUserId: 'u1' })).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'budget_line_not_active' }),
+      });
+      expect(prisma.financialEvent.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -4,6 +4,8 @@ import { BudgetDetailTabs } from './budget-detail-tabs';
 import {
   budgetDetailTabToExplorerMode,
   isBudgetDetailTabId,
+  isBudgetDetailWorkspaceId,
+  BUDGET_DETAIL_TABS,
 } from '@/features/budgets/types/budget-detail-tabs.types';
 
 describe('BudgetDetailTabs', () => {
@@ -74,5 +76,12 @@ describe('budgetDetailTabToExplorerMode', () => {
     expect(isBudgetDetailTabId('scenarios')).toBe(false);
     expect(isBudgetDetailTabId(null)).toBe(false);
     expect(isBudgetDetailTabId('suivi')).toBe(true);
+    expect(isBudgetDetailTabId('pa')).toBe(false);
+  });
+
+  it('accepte onglet=pa comme workspace hors tablist', () => {
+    expect(isBudgetDetailWorkspaceId('pa')).toBe(true);
+    const tabIds: string[] = BUDGET_DETAIL_TABS.map((tab) => tab.id);
+    expect(tabIds).not.toContain('pa');
   });
 });

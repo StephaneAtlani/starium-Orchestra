@@ -224,6 +224,9 @@ export function BudgetLineIntelligenceDrawer({
                 }}
                 onCreateEngagement={() => setEngagementOpen(true)}
                 onCreateConsumption={() => setConsumptionOpen(true)}
+                canRegisterExpense={
+                  budget?.status !== 'VALIDATED' || line.status === 'ACTIVE'
+                }
                 lineDrilldownNavigation={lineDrilldownNavigation ?? null}
               />
 

@@ -13,6 +13,10 @@ describe('budget-workflow-config.merge', () => {
         requireEnvelopesNonDraftForBudgetValidated: true,
         snapshotIncludedBudgetLineStatuses:
           defaultSnapshotIncludedLineStatuses(),
+        landingForecastEnabled: true,
+        midYearDefaultLineStatus: BudgetLineStatus.PENDING_VALIDATION,
+        midYearDefaultEnvelopeStatus: 'PENDING_VALIDATION',
+        midYearRequireJustification: true,
       });
     });
 
@@ -24,6 +28,10 @@ describe('budget-workflow-config.merge', () => {
       ).toEqual({
         requireEnvelopesNonDraftForBudgetValidated: false,
         snapshotIncludedBudgetLineStatuses: defaultSnapshotIncludedLineStatuses(),
+        landingForecastEnabled: true,
+        midYearDefaultLineStatus: BudgetLineStatus.PENDING_VALIDATION,
+        midYearDefaultEnvelopeStatus: 'PENDING_VALIDATION',
+        midYearRequireJustification: true,
       });
     });
 
@@ -39,6 +47,10 @@ describe('budget-workflow-config.merge', () => {
       ).toEqual({
         requireEnvelopesNonDraftForBudgetValidated: true,
         snapshotIncludedBudgetLineStatuses: custom,
+        landingForecastEnabled: true,
+        midYearDefaultLineStatus: BudgetLineStatus.PENDING_VALIDATION,
+        midYearDefaultEnvelopeStatus: 'PENDING_VALIDATION',
+        midYearRequireJustification: true,
       });
     });
 
@@ -51,6 +63,10 @@ describe('budget-workflow-config.merge', () => {
       ).toEqual({
         requireEnvelopesNonDraftForBudgetValidated: false,
         snapshotIncludedBudgetLineStatuses: defaultSnapshotIncludedLineStatuses(),
+        landingForecastEnabled: true,
+        midYearDefaultLineStatus: BudgetLineStatus.PENDING_VALIDATION,
+        midYearDefaultEnvelopeStatus: 'PENDING_VALIDATION',
+        midYearRequireJustification: true,
       });
     });
 
@@ -62,6 +78,10 @@ describe('budget-workflow-config.merge', () => {
       ).toEqual({
         requireEnvelopesNonDraftForBudgetValidated: true,
         snapshotIncludedBudgetLineStatuses: defaultSnapshotIncludedLineStatuses(),
+        landingForecastEnabled: true,
+        midYearDefaultLineStatus: BudgetLineStatus.PENDING_VALIDATION,
+        midYearDefaultEnvelopeStatus: 'PENDING_VALIDATION',
+        midYearRequireJustification: true,
       });
     });
   });

@@ -9,6 +9,7 @@ import type {
   ExplorerLineNode,
   ExplorerNode,
 } from '../types/budget-explorer.types';
+import { isLineIncludedInFicheTotals } from './budget-fiche-line-totals';
 
 const ORPHAN_LINES_NODE_ID = '__orphan_lines__';
 
@@ -73,8 +74,13 @@ export function buildBudgetTree(
 ): ExplorerNode[] {
   const currency = budget.currency;
   const envelopeById = new Map<string, BudgetEnvelope>(envelopes.map((e) => [e.id, e]));
+  const inTotals = (line: BudgetLine) =>
+    isLineIncludedInFicheTotals(line.status, budget.status);
 
-  const totalBudgetScope = lines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
+  const totalBudgetScope = lines.reduce(
+    (s, l) => s + (inTotals(l) ? (l.initialAmount ?? 0) : 0),
+    0,
+  );
 
   const linesByEnvelopeId = new Map<string, BudgetLine[]>();
   const orphanLines: BudgetLine[] = [];
@@ -120,35 +126,37 @@ export function buildBudgetTree(
       ...directLines.map((l, i) => lineToNode(l, depth + 1, i)),
     ];
 
-    const envelopeBudgetHt = directLines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
-    const totalCommitted = directLines.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
-    const totalConsumed = directLines.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
-    const totalRemaining = directLines.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
-    const opexAmount = directLines
+    const totaledLines = directLines.filter(inTotals);
+
+    const envelopeBudgetHt = totaledLines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
+    const totalCommitted = totaledLines.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
+    const totalConsumed = totaledLines.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
+    const totalRemaining = totaledLines.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
+    const opexAmount = totaledLines
       .filter((l) => l.expenseType === 'OPEX')
       .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
-    const capexAmount = directLines
+    const capexAmount = totaledLines
       .filter((l) => l.expenseType === 'CAPEX')
       .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const envelopeBudgetTtc = sumAllKnownOrNull(
-      directLines.map((l) => l.initialAmountTtc ?? null),
+      totaledLines.map((l) => l.initialAmountTtc ?? null),
     );
     const totalCommittedTtc = sumAllKnownOrNull(
-      directLines.map((l) => l.committedAmountTtc ?? null),
+      totaledLines.map((l) => l.committedAmountTtc ?? null),
     );
     const totalConsumedTtc = sumAllKnownOrNull(
-      directLines.map((l) => l.consumedAmountTtc ?? null),
+      totaledLines.map((l) => l.consumedAmountTtc ?? null),
     );
     const totalRemainingTtc = sumAllKnownOrNull(
-      directLines.map((l) => l.remainingAmountTtc ?? null),
+      totaledLines.map((l) => l.remainingAmountTtc ?? null),
     );
     const opexAmountTtc = sumAllKnownOrNull(
-      directLines
+      totaledLines
         .filter((l) => l.expenseType === 'OPEX')
         .map((l) => l.initialAmountTtc ?? null),
     );
     const capexAmountTtc = sumAllKnownOrNull(
-      directLines
+      totaledLines
         .filter((l) => l.expenseType === 'CAPEX')
         .map((l) => l.initialAmountTtc ?? null),
     );
@@ -190,35 +198,36 @@ export function buildBudgetTree(
     const orphanLineNodes: ExplorerLineNode[] = orphanLines.map((l, i) =>
       lineToNode(l, 1, i),
     );
-    const orphanBudgetHt = orphanLines.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
-    const totalCommitted = orphanLines.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
-    const totalConsumed = orphanLines.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
-    const totalRemaining = orphanLines.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
-    const opexAmount = orphanLines
+    const totaledOrphans = orphanLines.filter(inTotals);
+    const orphanBudgetHt = totaledOrphans.reduce((s, l) => s + (l.initialAmount ?? 0), 0);
+    const totalCommitted = totaledOrphans.reduce((s, l) => s + (l.committedAmount ?? 0), 0);
+    const totalConsumed = totaledOrphans.reduce((s, l) => s + (l.consumedAmount ?? 0), 0);
+    const totalRemaining = totaledOrphans.reduce((s, l) => s + (l.remainingAmount ?? 0), 0);
+    const opexAmount = totaledOrphans
       .filter((l) => l.expenseType === 'OPEX')
       .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
-    const capexAmount = orphanLines
+    const capexAmount = totaledOrphans
       .filter((l) => l.expenseType === 'CAPEX')
       .reduce((s, l) => s + (l.initialAmount ?? 0), 0);
     const orphanBudgetTtc = sumAllKnownOrNull(
-      orphanLines.map((l) => l.initialAmountTtc ?? null),
+      totaledOrphans.map((l) => l.initialAmountTtc ?? null),
     );
     const totalCommittedTtc = sumAllKnownOrNull(
-      orphanLines.map((l) => l.committedAmountTtc ?? null),
+      totaledOrphans.map((l) => l.committedAmountTtc ?? null),
     );
     const totalConsumedTtc = sumAllKnownOrNull(
-      orphanLines.map((l) => l.consumedAmountTtc ?? null),
+      totaledOrphans.map((l) => l.consumedAmountTtc ?? null),
     );
     const totalRemainingTtc = sumAllKnownOrNull(
-      orphanLines.map((l) => l.remainingAmountTtc ?? null),
+      totaledOrphans.map((l) => l.remainingAmountTtc ?? null),
     );
     const opexAmountTtc = sumAllKnownOrNull(
-      orphanLines
+      totaledOrphans
         .filter((l) => l.expenseType === 'OPEX')
         .map((l) => l.initialAmountTtc ?? null),
     );
     const capexAmountTtc = sumAllKnownOrNull(
-      orphanLines
+      totaledOrphans
         .filter((l) => l.expenseType === 'CAPEX')
         .map((l) => l.initialAmountTtc ?? null),
     );

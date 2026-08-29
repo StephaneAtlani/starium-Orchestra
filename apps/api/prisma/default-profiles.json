@@ -49,7 +49,8 @@
       "budgets.analytical-ledger-accounts.read",
       "budgets.analytical-ledger-accounts.create",
       "budgets.analytical-ledger-accounts.update",
-      "budgets.snapshot_occasion_types.manage"
+      "budgets.snapshot_occasion_types.manage",
+      "budgets.landing_forecast.apply"
     ]
   },
   {

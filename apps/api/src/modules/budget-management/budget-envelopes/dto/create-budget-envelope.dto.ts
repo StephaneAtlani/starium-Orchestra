@@ -27,6 +27,7 @@ export class CreateBudgetEnvelopeDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   description?: string;
 
   @IsEnum(BudgetEnvelopeType)

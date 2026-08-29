@@ -89,6 +89,18 @@ export class ClientBudgetWorkflowSettingsService {
       }
       patch.snapshotIncludedBudgetLineStatuses = uniq;
     }
+    if (dto.landingForecastEnabled !== undefined) {
+      patch.landingForecastEnabled = dto.landingForecastEnabled;
+    }
+    if (dto.midYearDefaultLineStatus !== undefined) {
+      patch.midYearDefaultLineStatus = dto.midYearDefaultLineStatus;
+    }
+    if (dto.midYearDefaultEnvelopeStatus !== undefined) {
+      patch.midYearDefaultEnvelopeStatus = dto.midYearDefaultEnvelopeStatus;
+    }
+    if (dto.midYearRequireJustification !== undefined) {
+      patch.midYearRequireJustification = dto.midYearRequireJustification;
+    }
 
     const nextJson = mergeBudgetWorkflowPatch(
       before.budgetWorkflowConfig,

@@ -87,6 +87,32 @@ export class BudgetLinesController {
     return this.service.create(clientId!, dto, context, request);
   }
 
+  @Post(':id/submit')
+  @RequirePermissions('budgets.update')
+  submit(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.submit(clientId!, id, context, request);
+  }
+
+  @Post(':id/activate')
+  @RequirePermissions('budgets.update')
+  activate(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+    @Req() request: RequestWithClient,
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.service.activate(clientId!, id, context, request);
+  }
+
   @Patch(':id')
   @RequireAccessIntent({ module: 'budgets', intent: 'write' })
   @AccessDecision({ resourceType: 'BUDGET_LINE', resourceIdParam: 'id', intent: 'write' })

@@ -15,16 +15,28 @@ type BudgetWorkflowSettingsResponse = {
   stored: {
     requireEnvelopesNonDraftForBudgetValidated?: boolean;
     snapshotIncludedBudgetLineStatuses?: string[];
+    landingForecastEnabled?: boolean;
+    midYearDefaultLineStatus?: string;
+    midYearDefaultEnvelopeStatus?: string;
+    midYearRequireJustification?: boolean;
   } | null;
   resolved: {
     requireEnvelopesNonDraftForBudgetValidated: boolean;
     snapshotIncludedBudgetLineStatuses: string[];
+    landingForecastEnabled: boolean;
+    midYearDefaultLineStatus: string;
+    midYearDefaultEnvelopeStatus: string;
+    midYearRequireJustification: boolean;
   };
 };
 
 type PatchBody = {
   requireEnvelopesNonDraftForBudgetValidated?: boolean;
   snapshotIncludedBudgetLineStatuses?: string[];
+  landingForecastEnabled?: boolean;
+  midYearDefaultLineStatus?: string;
+  midYearDefaultEnvelopeStatus?: string;
+  midYearRequireJustification?: boolean;
 };
 
 async function fetchSettings(
@@ -74,6 +86,12 @@ export function BudgetWorkflowSettingsPage() {
   const checked = data?.resolved.requireEnvelopesNonDraftForBudgetValidated ?? true;
   const snapshotStatuses = data?.resolved.snapshotIncludedBudgetLineStatuses ?? [];
   const included = new Set(snapshotStatuses);
+  const landingForecastEnabled = data?.resolved.landingForecastEnabled ?? true;
+  const midYearRequireJustification = data?.resolved.midYearRequireJustification ?? true;
+  const midYearDefaultLineStatus =
+    data?.resolved.midYearDefaultLineStatus ?? 'PENDING_VALIDATION';
+  const midYearDefaultEnvelopeStatus =
+    data?.resolved.midYearDefaultEnvelopeStatus ?? 'PENDING_VALIDATION';
 
   const toggleSnapshotStatus = (value: string, nextChecked: boolean) => {
     const next = new Set(included);
@@ -128,6 +146,84 @@ export function BudgetWorkflowSettingsPage() {
                     mutation.mutate({ requireEnvelopesNonDraftForBudgetValidated: v })
                   }
                 />
+              </div>
+
+              <div className="border-t border-border/60 pt-6 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="landing-forecast-enabled">
+                      Prévision d’atterrissage (PA)
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Affiche le rituel CODIR (figer l’avant, scénario, comparer, valider,
+                      activer) sur les budgets validés.
+                    </p>
+                  </div>
+                  <Switch
+                    id="landing-forecast-enabled"
+                    aria-label="Activer la prévision d’atterrissage"
+                    checked={landingForecastEnabled}
+                    disabled={mutation.isPending}
+                    onCheckedChange={(v) => mutation.mutate({ landingForecastEnabled: v })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="mid-year-justification">
+                      Justification obligatoire en cours d’exercice
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      À la création d’une ligne ou enveloppe sur un budget validé, le champ
+                      Justification (PA / CODIR) est exigé.
+                    </p>
+                  </div>
+                  <Switch
+                    id="mid-year-justification"
+                    aria-label="Exiger une justification en cours d’exercice"
+                    checked={midYearRequireJustification}
+                    disabled={mutation.isPending}
+                    onCheckedChange={(v) =>
+                      mutation.mutate({ midYearRequireJustification: v })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mid-year-line-status">
+                    Statut par défaut des nouvelles lignes (budget validé)
+                  </Label>
+                  <select
+                    id="mid-year-line-status"
+                    className="flex min-h-11 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm sm:min-h-9"
+                    value={midYearDefaultLineStatus}
+                    disabled={mutation.isPending}
+                    onChange={(e) =>
+                      mutation.mutate({ midYearDefaultLineStatus: e.target.value })
+                    }
+                  >
+                    <option value="PENDING_VALIDATION">À valider</option>
+                    <option value="DRAFT">Brouillon</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mid-year-envelope-status">
+                    Statut par défaut des nouvelles enveloppes (budget validé)
+                  </Label>
+                  <select
+                    id="mid-year-envelope-status"
+                    className="flex min-h-11 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm sm:min-h-9"
+                    value={midYearDefaultEnvelopeStatus}
+                    disabled={mutation.isPending}
+                    onChange={(e) =>
+                      mutation.mutate({ midYearDefaultEnvelopeStatus: e.target.value })
+                    }
+                  >
+                    <option value="PENDING_VALIDATION">À valider</option>
+                    <option value="DRAFT">Brouillon</option>
+                  </select>
+                </div>
               </div>
 
               <div className="border-t border-border/60 pt-6 space-y-3">

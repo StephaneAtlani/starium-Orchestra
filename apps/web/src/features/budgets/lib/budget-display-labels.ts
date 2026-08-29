@@ -9,14 +9,19 @@ export const BUDGET_LABELS = {
   budget: 'Budget',
   /** Onglet fiche — grille 12 mois (RFC-BUD-040 D1). */
   planningTab: 'Prévisionnel',
+  /** Sous-titre obligatoire de l’onglet grille (RFC-BUD-041 D4). */
+  planningTabSubtitle: 'Plan annuel (12 mois) — alimente l’atterrissage',
   /** Somme des 12 mois — répartition, pas l'atterrissage. */
-  planningTotal: 'Total prévisionnel',
+  planningTotal: 'Total plan annuel',
   /** Somme des mois strictement après la date de référence. */
   remainingPlanning: 'Prévision restante',
   /** Projection fin d'exercice : consommé + engagé + prévision restante. */
   landing: 'Atterrissage',
   /** landingAmount − base effective. */
   landingGap: "Écart d'atterrissage",
+  /** Rituel de gouvernance mid-year / CODIR (RFC-BUD-041). */
+  landingForecastExercise: "Prévision d'atterrissage",
+  landingForecastExerciseShort: 'PA',
   /** Promesse non encore facturée (commande ou engagement manuel). */
   committed: 'Engagé',
   /** Facturé / imputé. */
@@ -47,7 +52,7 @@ export const BUDGET_LABEL_HINTS: Record<
   committed: 'Commandes et engagements manuels',
   consumed: 'Facturé ou imputé',
   landing:
-    'Estimation de fin d\'exercice : consommé + engagé + prévision restante sur les mois à venir.',
+    'Résultat de votre plan et de l’exécution ; ajustez via le plan 12 mois ou une PA',
   planningTotal: 'Somme des 12 mois saisis — répartition temporelle',
   remainingPlanning: 'Somme des mois à venir après la date de référence',
 };
