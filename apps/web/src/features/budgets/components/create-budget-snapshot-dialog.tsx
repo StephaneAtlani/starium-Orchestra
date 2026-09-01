@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { displayLabel } from '@/lib/display-label';
+import type { BudgetSnapshotOccasionTypeDto } from '@/features/budgets/types/budget-snapshot-occasion-types.types';
 
 function todayDateInputValue(): string {
   const d = new Date();
@@ -31,6 +33,17 @@ function todayDateInputValue(): string {
 }
 
 const NO_OCCASION_TYPE = '__none__';
+
+function occasionTypeSelectLabel(
+  occasionTypeId: string,
+  types: BudgetSnapshotOccasionTypeDto[] | undefined,
+): string {
+  if (occasionTypeId === NO_OCCASION_TYPE) {
+    return 'Aucun type — renseigner seulement le nom';
+  }
+  const match = types?.find((t) => t.id === occasionTypeId);
+  return displayLabel(match?.label, 'Type supprimé');
+}
 
 const textareaClass = cn(
   'min-h-[88px] w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-sm transition-colors outline-none',
@@ -107,9 +120,11 @@ export function CreateBudgetSnapshotDialog({
       onOpenChange(false);
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.budgetSnapshotsList(clientId, budgetId),
+        refetchType: 'active',
       });
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.landingForecast(clientId, budgetId),
+        refetchType: 'active',
       });
       onSuccess?.();
     },
@@ -186,13 +201,19 @@ export function CreateBudgetSnapshotDialog({
               disabled={isCreatePending || occasionTypesQuery.isLoading}
             >
               <SelectTrigger id={typeFieldId} className="w-full">
-                <SelectValue placeholder="Aucun type — renseigner seulement le nom" />
+                <SelectValue placeholder="Aucun type — renseigner seulement le nom">
+                  {occasionTypeSelectLabel(occasionTypeId, occasionTypesQuery.data)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_OCCASION_TYPE}>Aucun</SelectItem>
                 {(occasionTypesQuery.data ?? []).map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {`${t.label} (${t.code})${t.scope === 'global' ? ' — plateforme' : ''}`}
+                    {displayLabel(
+                      t.label,
+                      'Type sans libellé',
+                    )}
+                    {t.scope === 'global' ? ' — plateforme' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

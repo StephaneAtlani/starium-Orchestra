@@ -190,9 +190,15 @@ export const budgetQueryKeys = {
       rightBudgetId,
     ] as const,
 
-  /** Liste snapshots (par budget) */
-  budgetSnapshotsList: (clientId: string, budgetId: string) =>
-    ['budgets', clientId, 'budget-snapshots-list', budgetId] as const,
+  /** Liste snapshots (par budget) — sans `params`, clé préfixe pour invalidation globale. */
+  budgetSnapshotsList: (
+    clientId: string,
+    budgetId: string,
+    params?: { limit?: number; offset?: number },
+  ) =>
+    params != null
+      ? (['budgets', clientId, 'budget-snapshots-list', budgetId, params] as const)
+      : (['budgets', clientId, 'budget-snapshots-list', budgetId] as const),
 
   /** RFC-033 — types d’occasion (fusion global + client) */
   budgetSnapshotOccasionTypesMerged: (clientId: string) =>

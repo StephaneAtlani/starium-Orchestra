@@ -95,7 +95,7 @@ features/budgets/
 │   │   ├── budget-detail-header.tsx        # PageHeader + barre d’outils secondaire
 │   │   ├── budget-detail-kpi-strip.tsx     # Bande 6 KPI + Tout/CAPEX/OPEX + HT/TTC
 │   │   ├── budget-detail-alerts-banner.tsx # Alertes API (aria-live)
-│   │   ├── budget-detail-tabs.tsx          # 6 onglets (role="tablist")
+│   │   ├── budget-detail-tabs.tsx          # WorkspaceTabBar — 6 onglets DS
 │   │   ├── budget-detail-workspace.tsx     # Switch contenu + toolbar contextuelle
 │   │   ├── budget-reallocations-panel.tsx  # Journal + CTA création (partagé avec /reallocations)
 │   │   ├── budget-comparisons-panel.tsx    # Versions figées + comparaison embarquée
@@ -261,10 +261,10 @@ Les hooks **forecast** (RFC-FE-BUD-030) vivent sous `forecast/hooks/`. Les autre
 | `BudgetExplorerRow` | Ligne enveloppe ou ligne budgétaire ; **Statut** (étroit : badge ligne ou « — » enveloppe) puis **Libellé** (indentation, chevron, aria) ; **lecture seule** sur les montants — clic sur le **libellé** (nom) → drawer intelligence ([RFC-FE-ADD-006](../RFC/RFC-FE-ADD-006%20%E2%80%94%20Budget%20Line%20Intelligence%20Drawer%20UI.md)) ; pas d’édition inline ni d’UI planning dans la ligne |
 | `BudgetPilotageSection` / `BudgetTable` | Onglet **Pilotage** sur `/budgets/[budgetId]` : planning mensuel / atterrissage / forecast ([RFC-024](../RFC/RFC-024%20%E2%80%94%20Budget%20UI.md), [RFC-023](../RFC/RFC-023%20%E2%80%94%20Budget%20Pr%C3%A9visionnel%20(Planning%20%26%20Atterrissage).md)) |
 | **Fiche cockpit (RFC-FE-BUD-032)** — `components/budget-detail/` | |
-| `BudgetDetailHeader` | `PageHeader` DS : identité + statut + méta ; Select budget + Accès + **Saisir une dépense** ; barre d’outils (Exporter, Version figée, Comparaisons, Prévisionnel, Réaffectations) |
-| `BudgetDetailKpiStrip` | Bande **6 KPI** persistante (Budget, Engagé, Consommé, Restant, Dépassement, Taux d’exécution) + filtre Tout/CAPEX/OPEX + toggle HT/TTC |
+| `BudgetDetailHeader` | `PageHeader` DS : identité + statut + méta ; Accès + **Saisir une dépense** ; barre d’outils (switch budget si plusieurs, Exporter, Version figée, Importer, Réaffecter, **Prévision d’atterrissage** hors tablist) |
+| `BudgetDetailKpiStrip` | Bande **6 KPI** persistante (Budget, Atterrissage, Engagé, Consommé, Restant, Écart d’atterrissage) + filtre Tout/CAPEX/OPEX + toggle HT/TTC |
 | `BudgetDetailAlertsBanner` | Alertes API `ALERT_LIST` (composant disponible) |
-| `BudgetDetailTabs` | 6 onglets (`role="tablist"`, navigation flèches, scroll horizontal contrôlé) — remplace `BudgetViewTabs` (7 modes) ; masqués sur la Vue d’ensemble (accès via la barre d’outils) ; **pas** d’onglet PA |
+| `BudgetDetailTabs` | 6 onglets via **`WorkspaceTabBar`** (bandeau icône + soulignement or, sélecteur mobile) — visible y compris sur Vue d’ensemble ; **pas** d’onglet PA |
 | `BudgetDetailWorkspace` | Switch de contenu + toolbar contextuelle (`BudgetExplorerToolbar` sur Prévisionnel/Suivi, `BudgetDensityToggle` sur Prévisionnel, forcé en `condense` sous `md`) ; `?onglet=pa` affiche `BudgetLandingForecastPanel` hors tablist |
 | `BudgetLandingForecastPanel` | Checklist 6 étapes du rituel PA (`aria-live` sur le statut) — RFC-BUD-041 |
 | `BudgetReallocationsPanel` | Journal des réaffectations + CTA création — partagé avec `/budgets/[budgetId]/reallocations` |
@@ -305,7 +305,7 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budget-envelopes/[envelopeId]/edit` | **Édition enveloppe** (RFC-FE-015) |
 | `/budgets/[budgetId]/lines/new` | **Création ligne budgétaire** (RFC-FE-015) |
 | `/budget-lines/[lineId]/edit` | **Édition ligne budgétaire** (RFC-FE-015) |
-| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032 + RFC-BUD-041)** : `PageHeader` + bande 6 KPI + Vue d’ensemble. Navigation métier via barre d’outils / onglets (`?onglet=`). **`?onglet=pa`** : panneau Prévision d’atterrissage **hors tablist**. Export CSV **client**. Modale unique **Saisir une dépense**. |
+| `/budgets/[budgetId]` | **Cockpit budget (RFC-FE-004 + RFC-FE-BUD-032 + RFC-BUD-041)** : `PageHeader` + bande 6 KPI + `WorkspaceTabBar` (6 onglets toujours visibles). **`?onglet=pa`** : panneau Prévision d’atterrissage **hors tablist** (CTA header, second clic pour quitter). Export CSV **client**. Modale unique **Saisir une dépense**. |
 | `/budgets/dashboard` | **Budget Cockpit** (RFC-FE-002) : KPI, alertes, analytics, tableaux — lien **Forecast & comparaison** vers reporting si budget réel (RFC-FE-BUD-030) — voir [budget-cockpit.md](budget-cockpit.md) |
 | `/budgets/[budgetId]/lines` | Liste lignes (détail) |
 | `/budgets/[budgetId]/reporting` | **Redirect** (RFC-BUD-040 D2) vers `/budgets/[budgetId]?onglet=comparaisons` — contenu forecast/comparaison embarqué dans la fiche (RFC-FE-BUD-030) |

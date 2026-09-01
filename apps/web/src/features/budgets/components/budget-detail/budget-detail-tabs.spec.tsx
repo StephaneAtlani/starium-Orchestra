@@ -25,16 +25,18 @@ describe('BudgetDetailTabs', () => {
     expect(screen.getByRole('tablist')).toBeTruthy();
   });
 
-  it('marque un seul onglet sélectionné et le rend focusable', () => {
+  it('marque un seul onglet sélectionné', () => {
     render(<BudgetDetailTabs tab="suivi" onTabChange={() => undefined} />);
 
     const selected = screen.getAllByRole('tab', { selected: true });
     expect(selected).toHaveLength(1);
-    expect(selected[0]!.textContent).toBe('Suivi');
-    expect(selected[0]!.getAttribute('tabindex')).toBe('0');
-    expect(
-      screen.getByRole('tab', { name: 'Historique' }).getAttribute('tabindex'),
-    ).toBe('-1');
+    expect(selected[0]).toHaveTextContent('Suivi');
+  });
+
+  it('n’en sélectionne aucun pendant le rituel PA', () => {
+    render(<BudgetDetailTabs tab={null} onTabChange={() => undefined} />);
+
+    expect(screen.queryByRole('tab', { selected: true })).toBeNull();
   });
 
   it('notifie le changement d’onglet au clic', () => {
@@ -43,21 +45,6 @@ describe('BudgetDetailTabs', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Réaffectations' }));
     expect(onTabChange).toHaveBeenCalledWith('reallocations');
-  });
-
-  it('navigue au clavier avec les flèches', () => {
-    const onTabChange = vi.fn();
-    render(<BudgetDetailTabs tab="overview" onTabChange={onTabChange} />);
-
-    fireEvent.keyDown(screen.getByRole('tab', { selected: true }), {
-      key: 'ArrowRight',
-    });
-    expect(onTabChange).toHaveBeenCalledWith('previsionnel');
-
-    fireEvent.keyDown(screen.getByRole('tab', { selected: true }), {
-      key: 'ArrowLeft',
-    });
-    expect(onTabChange).toHaveBeenLastCalledWith('historique');
   });
 });
 

@@ -24,6 +24,7 @@ import type {
   BudgetLine,
 } from '@/features/budgets/types/budget-management.types';
 import {
+  BUDGET_DETAIL_TABS,
   BUDGET_SUIVI_VIEWS,
   budgetDetailTabUsesExplorerGrid,
   type BudgetDetailTabId,
@@ -182,9 +183,7 @@ export function BudgetDetailWorkspace({
 
   return (
     <section className="starium-module space-y-4">
-      {tab !== 'overview' || isPa ? (
-        <BudgetDetailTabs tab={isPa ? null : tab} onTabChange={onTabChange} />
-      ) : null}
+      <BudgetDetailTabs tab={isPa ? null : tab} onTabChange={onTabChange} />
 
       {isPa ? (
         <BudgetLandingForecastPanel
@@ -195,7 +194,11 @@ export function BudgetDetailWorkspace({
       <div
         role="tabpanel"
         id={tab ? `budget-detail-panel-${tab}` : undefined}
-        aria-labelledby={tab ? `budget-detail-tab-${tab}` : undefined}
+        aria-label={
+          tab
+            ? BUDGET_DETAIL_TABS.find((item) => item.id === tab)?.label
+            : undefined
+        }
         tabIndex={-1}
       >
         {tab === 'overview' ? overviewContent : null}

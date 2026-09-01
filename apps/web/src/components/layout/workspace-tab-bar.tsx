@@ -91,8 +91,10 @@ function WorkspaceTabBarMobileSelect({
   mobileEyebrow: string;
   mobileAriaLabel: string;
 }) {
-  const activeItem = items.find((item) => item.id === activeId) ?? items[0];
+  const matchedItem = items.find((item) => item.id === activeId);
+  const activeItem = matchedItem ?? items[0];
   const ActiveIcon = activeItem.icon;
+  const selectValue = matchedItem?.id ?? items[0]?.id ?? '';
 
   return (
     <div className="starium-project-workspace-tabs-mobile max-md:block md:hidden">
@@ -100,7 +102,7 @@ function WorkspaceTabBarMobileSelect({
         {mobileEyebrow}
       </Label>
       <Select
-        value={activeId}
+        value={selectValue}
         onValueChange={(value) => {
           if (value) onSelect(value);
         }}

@@ -5,22 +5,35 @@ import {
   ArrowRightLeft,
   Bookmark,
   Download,
-  GitCompareArrows,
   Plus,
-  Table2,
   TrendingUp,
+  Upload,
 } from 'lucide-react';
 import { PermissionGate } from '@/components/PermissionGate';
 import { PageHeader } from '@/components/layout/page-header';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { budgetEdit, budgetList } from '@/features/budgets/constants/budget-routes';
-import { BUDGET_LABELS } from '@/features/budgets/lib/budget-display-labels';
+import {
+  budgetEdit,
+  budgetImport,
+  budgetList,
+} from '@/features/budgets/constants/budget-routes';
+import {
+  BUDGET_LABELS,
+  formatBudgetSelectLabel,
+} from '@/features/budgets/lib/budget-display-labels';
 import type { Budget } from '@/features/budgets/types/budget-management.types';
-import type { BudgetDetailTabId } from '@/features/budgets/types/budget-detail-tabs.types';
 
 export type BudgetDetailHeaderBudgetOption = {
   id: string;
@@ -32,11 +45,9 @@ export interface BudgetDetailHeaderProps {
   budget: Budget;
   exerciseYearLabel: string | null;
   budgetOptions: BudgetDetailHeaderBudgetOption[];
-  activeTab: BudgetDetailTabId;
   onBudgetChange: (budgetId: string) => void;
   onExport: () => void;
   onCreateSnapshot: () => void;
-  onNavigateTab: (tab: BudgetDetailTabId) => void;
   onReallocate: () => void;
   onRegisterExpense: () => void;
   onOpenLandingForecast?: () => void;
@@ -58,12 +69,9 @@ function ToolbarAction({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant={pressed ? 'default' : 'outline'}
       size="sm"
-      className={cn(
-        'min-h-11 gap-1.5 sm:min-h-9',
-        pressed && 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold-050)]',
-      )}
+      className="min-h-11 gap-1.5 sm:min-h-9"
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
@@ -75,18 +83,16 @@ function ToolbarAction({
 }
 
 /**
- * En-tête fiche budget — `PageHeader` standard (comme le portefeuille) :
- * identité + CTA principaux à droite ; outils secondaires en barre sous la carte.
+ * En-tête fiche budget — `PageHeader` + actions (pas de navigation d’onglets).
+ * Les 6 onglets métier sont dans `BudgetDetailTabs` (`WorkspaceTabBar`).
  */
 export function BudgetDetailHeader({
   budget,
   exerciseYearLabel,
   budgetOptions,
-  activeTab,
   onBudgetChange,
   onExport,
   onCreateSnapshot,
-  onNavigateTab,
   onReallocate,
   onRegisterExpense,
   onOpenLandingForecast,
@@ -102,6 +108,9 @@ export function BudgetDetailHeader({
     .filter((part): part is string => Boolean(part))
     .join(' · ');
 
+  const currentLabel = formatBudgetSelectLabel(budget.name, budget.code);
+  const showBudgetSwitch = budgetOptions.length > 1;
+
   return (
     <div className="space-y-3">
       <PageHeader
@@ -115,7 +124,10 @@ export function BudgetDetailHeader({
             <PermissionGate permission="budgets.update">
               <Link
                 href={budgetEdit(budget.id)}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11 sm:min-h-9')}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'min-h-11 sm:min-h-9',
+                )}
               >
                 Modifier
               </Link>
@@ -143,10 +155,36 @@ export function BudgetDetailHeader({
       />
 
       <div
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-wrap items-end gap-2"
         role="toolbar"
         aria-label="Outils du budget"
       >
+        {showBudgetSwitch ? (
+          <div className="grid w-full min-w-0 gap-1 sm:w-64">
+            <Label htmlFor="budget-detail-switch">Budget</Label>
+            <Select
+              value={budget.id}
+              onValueChange={(value) => {
+                if (value) onBudgetChange(value);
+              }}
+            >
+              <SelectTrigger
+                id="budget-detail-switch"
+                className="h-auto min-h-11 w-full min-w-0 sm:min-h-9"
+              >
+                <SelectValue placeholder="Choisir un budget">{currentLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {budgetOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {formatBudgetSelectLabel(option.name, option.code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
         <PermissionGate permission="budgets.read">
           <ToolbarAction icon={Download} label="Exporter" onClick={onExport} />
         </PermissionGate>
@@ -157,18 +195,25 @@ export function BudgetDetailHeader({
             onClick={onCreateSnapshot}
           />
         </PermissionGate>
-        <ToolbarAction
-          icon={GitCompareArrows}
-          label="Comparaisons"
-          pressed={activeTab === 'comparaisons'}
-          onClick={() => onNavigateTab('comparaisons')}
-        />
-        <ToolbarAction
-          icon={Table2}
-          label={BUDGET_LABELS.planningTab}
-          pressed={activeTab === 'previsionnel'}
-          onClick={() => onNavigateTab('previsionnel')}
-        />
+        <PermissionGate permission="budgets.update">
+          <Link
+            href={budgetImport(budget.id)}
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'sm' }),
+              'min-h-11 gap-1.5 sm:min-h-9',
+            )}
+          >
+            <Upload className="size-4 shrink-0" aria-hidden />
+            Importer
+          </Link>
+        </PermissionGate>
+        <PermissionGate permission="budgets.update">
+          <ToolbarAction
+            icon={ArrowRightLeft}
+            label="Réaffecter"
+            onClick={onReallocate}
+          />
+        </PermissionGate>
         {landingForecastEnabled && budget.status === 'VALIDATED' && onOpenLandingForecast ? (
           <ToolbarAction
             icon={TrendingUp}
@@ -177,14 +222,6 @@ export function BudgetDetailHeader({
             onClick={onOpenLandingForecast}
           />
         ) : null}
-        <PermissionGate permission="budgets.update">
-          <ToolbarAction
-            icon={ArrowRightLeft}
-            label="Réaffectations"
-            pressed={activeTab === 'reallocations'}
-            onClick={onReallocate}
-          />
-        </PermissionGate>
       </div>
     </div>
   );

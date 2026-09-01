@@ -122,6 +122,12 @@ export default function BudgetDetailPage() {
 
   const onOpenLandingForecast = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
+    if (searchParams.get(TAB_QUERY_PARAM) === 'pa') {
+      next.delete(TAB_QUERY_PARAM);
+      const query = next.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      return;
+    }
     next.set(TAB_QUERY_PARAM, 'pa');
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   }, [pathname, router, searchParams]);
@@ -483,14 +489,12 @@ export default function BudgetDetailPage() {
           budget={budget}
           exerciseYearLabel={exerciseYearLabel}
           budgetOptions={budgetOptions}
-          activeTab={tab}
           onBudgetChange={(nextBudgetId) => router.push(budgetDetail(nextBudgetId))}
           onExport={onExport}
           onCreateSnapshot={() => {
             setSnapshotSuggestedOccasion(undefined);
             setSnapshotDialogOpen(true);
           }}
-          onNavigateTab={onTabChange}
           onReallocate={onReallocate}
           onRegisterExpense={() => setOpenModal('expense')}
           onOpenLandingForecast={onOpenLandingForecast}
@@ -633,6 +637,11 @@ export default function BudgetDetailPage() {
             if (!open) setSnapshotSuggestedOccasion(undefined);
           }}
           suggestedOccasionCode={snapshotSuggestedOccasion}
+          onSuccess={() => {
+            if (tab !== 'comparaisons') {
+              onTabChange('comparaisons');
+            }
+          }}
         />
 
         <BudgetExpenseEntryModal
