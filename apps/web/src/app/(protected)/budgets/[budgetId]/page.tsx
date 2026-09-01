@@ -659,6 +659,11 @@ export default function BudgetDetailPage() {
           lines={(lines as BudgetLine[]) ?? []}
           open={reallocationCreateOpen}
           onOpenChange={setReallocationCreateOpen}
+          onSuccess={() => {
+            if (tab !== 'reallocations') {
+              onTabChange('reallocations');
+            }
+          }}
         />
 
         <BudgetLineIntelligenceDrawer

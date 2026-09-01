@@ -9,7 +9,6 @@ import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
 import { BudgetReallocationsPanel } from '@/features/budgets/components/budget-detail';
@@ -56,15 +55,11 @@ export default function BudgetReallocationsPage() {
         {isLoading ? (
           <LoadingState rows={4} />
         ) : (
-          <Card className="starium-panel">
-            <CardContent>
-              <BudgetReallocationsPanel
-                budgetId={budgetId}
-                lines={(lines ?? []) as BudgetLine[]}
-                onCreateRequest={() => setDialogOpen(true)}
-              />
-            </CardContent>
-          </Card>
+          <BudgetReallocationsPanel
+            budgetId={budgetId}
+            lines={(lines ?? []) as BudgetLine[]}
+            onCreateRequest={() => setDialogOpen(true)}
+          />
         )}
 
         <CreateBudgetReallocationDialog

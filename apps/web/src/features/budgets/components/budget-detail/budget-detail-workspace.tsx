@@ -288,15 +288,11 @@ export function BudgetDetailWorkspace({
         ) : null}
 
         {tab === 'reallocations' ? (
-          <Card className="starium-panel">
-            <CardContent>
-              <BudgetReallocationsPanel
-                budgetId={budgetId}
-                lines={lines}
-                onCreateRequest={onCreateReallocation}
-              />
-            </CardContent>
-          </Card>
+          <BudgetReallocationsPanel
+            budgetId={budgetId}
+            lines={lines}
+            onCreateRequest={onCreateReallocation}
+          />
         ) : null}
 
         {tab === 'historique' ? (

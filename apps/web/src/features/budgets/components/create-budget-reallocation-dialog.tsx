@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
@@ -21,9 +21,18 @@ import { budgetQueryKeys } from '@/features/budgets/lib/budget-query-keys';
 import { createBudgetReallocation } from '@/features/budgets/api/budget-reallocations.api';
 import type { BudgetLine } from '@/features/budgets/types/budget-management.types';
 import { toast } from '@/lib/toast';
+import { displayLabel } from '@/lib/display-label';
+import { cn } from '@/lib/utils';
 
 function formatLineLabel(line: BudgetLine): string {
-  return `${line.name}${line.code ? ` (${line.code})` : ''}`;
+  const name = displayLabel(line.name, 'Ligne sans nom');
+  return line.code ? `${name} (${line.code})` : name;
+}
+
+function lineSelectLabel(lineId: string, lines: BudgetLine[]): string | null {
+  if (!lineId) return null;
+  const line = lines.find((item) => item.id === lineId);
+  return line ? formatLineLabel(line) : 'Ligne supprimée';
 }
 
 function formatAmount(value: number, currency: string): string {
@@ -34,16 +43,45 @@ function formatAmount(value: number, currency: string): string {
   }).format(value);
 }
 
+function sourceLineOptionLabel(line: BudgetLine): string {
+  return `${formatLineLabel(line)} · Reste ${formatAmount(line.remainingAmount, line.currency)}`;
+}
+
+function getSubmitBlockReason(input: {
+  sourceLineId: string;
+  targetLineId: string;
+  amount: string;
+  sourceLine: BudgetLine | null;
+}): string | null {
+  const { sourceLineId, targetLineId, amount, sourceLine } = input;
+  if (!sourceLineId) return 'Choisissez une ligne source.';
+  if (!targetLineId) return 'Choisissez une ligne cible.';
+  if (sourceLineId === targetLineId) return 'La ligne source et la ligne cible doivent être différentes.';
+  if (!sourceLine || sourceLine.remainingAmount <= 0) {
+    return 'La ligne source n’a plus de budget disponible. Choisissez une ligne avec un reste positif, ou utilisez la ligne surconsommée comme cible.';
+  }
+  const parsedAmount = Number(amount);
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    return 'Saisissez un montant strictement positif.';
+  }
+  if (parsedAmount > sourceLine.remainingAmount) {
+    return `Le montant dépasse le reste disponible (${formatAmount(sourceLine.remainingAmount, sourceLine.currency)}).`;
+  }
+  return null;
+}
+
 export function CreateBudgetReallocationDialog({
   budgetId,
   lines,
   open,
   onOpenChange,
+  onSuccess,
 }: {
   budgetId: string;
   lines: BudgetLine[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }) {
   const id = useId();
   const authFetch = useAuthenticatedFetch();
@@ -59,14 +97,36 @@ export function CreateBudgetReallocationDialog({
     [lines],
   );
 
+  const sourceEligibleLines = useMemo(
+    () => eligibleLines.filter((line) => line.remainingAmount > 0),
+    [eligibleLines],
+  );
+
   const [sourceLineId, setSourceLineId] = useState<string>('');
   const [targetLineId, setTargetLineId] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [reason, setReason] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const sourceLine = eligibleLines.find((line) => line.id === sourceLineId) ?? null;
+  const sourceLine =
+    eligibleLines.find((line) => line.id === sourceLineId) ??
+    lines.find((line) => line.id === sourceLineId) ??
+    null;
   const currency = sourceLine?.currency ?? lines[0]?.currency ?? 'EUR';
+  const submitBlockReason = getSubmitBlockReason({
+    sourceLineId,
+    targetLineId,
+    amount,
+    sourceLine,
+  });
+  const canSubmit = submitBlockReason == null;
+
+  useEffect(() => {
+    if (!open) return;
+    if (sourceLineId && !sourceEligibleLines.some((line) => line.id === sourceLineId)) {
+      setSourceLineId('');
+    }
+  }, [open, sourceLineId, sourceEligibleLines]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -87,29 +147,27 @@ export function CreateBudgetReallocationDialog({
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.reallocations(clientId, budgetId),
+          refetchType: 'active',
         }),
         queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.budgetDetail(clientId, budgetId),
+          refetchType: 'active',
         }),
         queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.budgetLinesByBudget(clientId, budgetId),
+          refetchType: 'active',
         }),
         queryClient.invalidateQueries({
           queryKey: budgetQueryKeys.budgetSummary(clientId, budgetId),
+          refetchType: 'active',
         }),
       ]);
+      onSuccess?.();
     },
     onError: (error: Error) => {
       setSubmitError(error.message || 'Réaffectation impossible.');
     },
   });
-
-  const canSubmit =
-    sourceLineId &&
-    targetLineId &&
-    sourceLineId !== targetLineId &&
-    Number(amount) > 0 &&
-    (!sourceLine || Number(amount) <= sourceLine.remainingAmount);
 
   return (
     <StariumModal
@@ -154,21 +212,40 @@ export function CreateBudgetReallocationDialog({
         <div className="starium-form-grid starium-form-grid--2 grid gap-4 sm:grid-cols-2">
           <div className="starium-form-field space-y-2">
             <Label htmlFor={`${id}-source`}>Ligne source</Label>
-            <Select value={sourceLineId} onValueChange={(value) => setSourceLineId(value ?? '')}>
+            <Select
+              value={sourceLineId}
+              onValueChange={(value) => setSourceLineId(value ?? '')}
+              disabled={mutation.isPending || sourceEligibleLines.length === 0}
+            >
               <SelectTrigger id={`${id}-source`} className="w-full">
-                <SelectValue placeholder="Choisir une ligne source" />
+                <SelectValue placeholder="Choisir une ligne source">
+                  {lineSelectLabel(sourceLineId, sourceEligibleLines)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {eligibleLines.map((line) => (
+                {sourceEligibleLines.map((line) => (
                   <SelectItem key={line.id} value={line.id}>
-                    {formatLineLabel(line)}
+                    {sourceLineOptionLabel(line)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {sourceLine ? (
-              <p className="text-xs text-muted-foreground">
+              <p
+                className={cn(
+                  'text-xs',
+                  sourceLine.remainingAmount <= 0
+                    ? 'font-medium text-destructive'
+                    : 'text-muted-foreground',
+                )}
+              >
                 Reste disponible : {formatAmount(sourceLine.remainingAmount, sourceLine.currency)}
+              </p>
+            ) : sourceEligibleLines.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Aucune ligne source éligible : seules les lignes avec un reste positif peuvent céder du
+                budget. Réaffectez vers une ligne surconsommée en choisissant une autre ligne comme
+                source.
               </p>
             ) : null}
           </div>
@@ -177,7 +254,9 @@ export function CreateBudgetReallocationDialog({
             <Label htmlFor={`${id}-target`}>Ligne cible</Label>
             <Select value={targetLineId} onValueChange={(value) => setTargetLineId(value ?? '')}>
               <SelectTrigger id={`${id}-target`} className="w-full">
-                <SelectValue placeholder="Choisir une ligne cible" />
+                <SelectValue placeholder="Choisir une ligne cible">
+                  {lineSelectLabel(targetLineId, eligibleLines)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {eligibleLines
@@ -206,6 +285,12 @@ export function CreateBudgetReallocationDialog({
           />
           <p className="text-xs text-muted-foreground">Devise : {currency}</p>
         </div>
+
+        {!canSubmit && submitBlockReason && (sourceLineId || targetLineId || amount) ? (
+          <Alert>
+            <AlertDescription>{submitBlockReason}</AlertDescription>
+          </Alert>
+        ) : null}
 
         <div className="starium-form-field space-y-2">
           <Label htmlFor={`${id}-reason`}>Motif</Label>

@@ -105,7 +105,9 @@ export const budgetQueryKeys = {
     ['budgets', clientId, 'versions', budgetId] as const,
 
   reallocations: (clientId: string, budgetId: string, filters?: object) =>
-    ['budgets', clientId, 'reallocations', budgetId, filters] as const,
+    filters != null
+      ? (['budgets', clientId, 'reallocations', budgetId, filters] as const)
+      : (['budgets', clientId, 'reallocations', budgetId] as const),
 
   imports: (clientId: string, budgetId: string, filters?: object) =>
     ['budgets', clientId, 'imports', budgetId, filters] as const,
