@@ -16,7 +16,6 @@ import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer'
 import { useBudgetExplorerTree } from '@/features/budgets/hooks/use-budget-explorer-tree';
 import { useBudgetSummary } from '@/features/budgets/hooks/use-budget-summary';
 import { useBudgetExerciseSummary } from '@/features/budgets/hooks/use-budget-exercises';
-import { useExerciseBudgetsReportingQuery } from '@/features/budgets/hooks/use-exercise-budgets-reporting-query';
 import { useBudgetLinesPlanningQueries } from '@/features/budgets/hooks/use-budget-lines-planning-queries';
 import { useUpdateBudgetLinePlanningManualForBudgetMutation } from '@/features/budgets/hooks/use-budget-line-planning';
 import { useBudgetPlanningQuickCalculator } from '@/features/budgets/hooks/use-budget-planning-quick-calculator';
@@ -49,7 +48,6 @@ import {
 } from '@/features/budgets/lib/filter-budget-tree';
 import { flattenExplorerBudgetLineIds } from '@/features/budgets/lib/budget-explorer-flat-lines';
 import { getBudgetMonthColumnLabelsSafe } from '@/features/budgets/lib/budget-month-labels';
-import { downloadBudgetDetailCsv } from '@/features/budgets/lib/budget-detail-export';
 import {
   amounts12FromPlanningMonths,
   buildManualPlanningPutPayload,
@@ -66,7 +64,6 @@ import {
   type BudgetDetailWorkspaceId,
   type BudgetSuiviView,
 } from '@/features/budgets/types/budget-detail-tabs.types';
-import { useBudgetWorkflowSettings } from '@/features/budgets/hooks/use-budget-workflow-settings';
 import { useBudgetDashboardQuery } from '@/features/budgets/hooks/use-budget-dashboard';
 import {
   BudgetExpenseEntryModal,
@@ -83,9 +80,6 @@ export default function BudgetDetailPage() {
   const budgetId = typeof p.budgetId === 'string' ? p.budgetId : null;
 
   const { budget, envelopes, lines, isLoading, error } = useBudgetExplorer(budgetId);
-  const workflowQuery = useBudgetWorkflowSettings();
-  const landingForecastEnabled =
-    workflowQuery.data?.resolved.landingForecastEnabled ?? true;
 
   useWorkspaceBreadcrumbOverride(
     budget?.name && budgetId
@@ -119,18 +113,6 @@ export default function BudgetDetailPage() {
     },
     [pathname, router, searchParams],
   );
-
-  const onOpenLandingForecast = useCallback(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    if (searchParams.get(TAB_QUERY_PARAM) === 'pa') {
-      next.delete(TAB_QUERY_PARAM);
-      const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-      return;
-    }
-    next.set(TAB_QUERY_PARAM, 'pa');
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
 
   const [suiviView, setSuiviView] = useState<BudgetSuiviView>('synthese');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -213,11 +195,6 @@ export default function BudgetDetailPage() {
   const { data: exercise, isLoading: exerciseLoading } = useBudgetExerciseSummary(
     budget?.exerciseId ?? null,
   );
-  const exerciseBudgetsQuery = useExerciseBudgetsReportingQuery(
-    budget?.exerciseId ?? null,
-    { limit: 100, offset: 0 },
-    { enabled: !!budget?.exerciseId },
-  );
   const { has, isLoading: permLoading } = usePermissions();
 
   const monthColumnLabels = useMemo(
@@ -245,16 +222,6 @@ export default function BudgetDetailPage() {
       timeZone: 'UTC',
     }).format(new Date(exercise.startDate));
   }, [exercise?.startDate]);
-
-  const budgetOptions = useMemo(
-    () =>
-      (exerciseBudgetsQuery.data?.items ?? []).map((item) => ({
-        id: item.budget.id,
-        name: item.budget.name,
-        code: item.budget.code ?? null,
-      })),
-    [exerciseBudgetsQuery.data?.items],
-  );
 
   const planningQuickCalc = useBudgetPlanningQuickCalculator({ monthColumnLabels });
 
@@ -321,11 +288,14 @@ export default function BudgetDetailPage() {
   }, [planningFetchedLineIds, draftAmounts12ByLineId, planningByLineId]);
 
   const { reset: resetPlanningQuickCalc } = planningQuickCalc;
+  const amounts12ByLineIdRef = useRef(amounts12ByLineId);
+  amounts12ByLineIdRef.current = amounts12ByLineId;
+
   useEffect(() => {
     if (!planningCalculatorLineId) return;
-    const amounts = amounts12ByLineId.get(planningCalculatorLineId);
+    const amounts = amounts12ByLineIdRef.current.get(planningCalculatorLineId);
     resetPlanningQuickCalc(amounts ?? null);
-  }, [planningCalculatorLineId, amounts12ByLineId, resetPlanningQuickCalc]);
+  }, [planningCalculatorLineId, resetPlanningQuickCalc]);
 
   const canEditPrevisionnel = !permLoading && has('budgets.update') && tab === 'previsionnel';
   const canEditPlanning = canEditPrevisionnel && pilotageDensity === 'mensuel';
@@ -428,20 +398,6 @@ export default function BudgetDetailPage() {
     setExpandedIds(new Set());
   }, []);
 
-  const onExport = useCallback(() => {
-    if (!budget) return;
-    downloadBudgetDetailCsv({
-      budgetName: budget.name,
-      envelopes: (envelopes as BudgetEnvelope[]) ?? [],
-      lines: (lines as BudgetLine[]) ?? [],
-    });
-  }, [budget, envelopes, lines]);
-
-  const onReallocate = useCallback(() => {
-    onTabChange('reallocations');
-    setReallocationCreateOpen(true);
-  }, [onTabChange]);
-
   if (isLoading) {
     return (
       <RequireActiveClient>
@@ -488,18 +444,7 @@ export default function BudgetDetailPage() {
         <BudgetDetailHeader
           budget={budget}
           exerciseYearLabel={exerciseYearLabel}
-          budgetOptions={budgetOptions}
-          onBudgetChange={(nextBudgetId) => router.push(budgetDetail(nextBudgetId))}
-          onExport={onExport}
-          onCreateSnapshot={() => {
-            setSnapshotSuggestedOccasion(undefined);
-            setSnapshotDialogOpen(true);
-          }}
-          onReallocate={onReallocate}
           onRegisterExpense={() => setOpenModal('expense')}
-          onOpenLandingForecast={onOpenLandingForecast}
-          landingForecastPressed={workspace === 'pa'}
-          landingForecastEnabled={landingForecastEnabled}
         />
 
         <BudgetDetailKpiStrip

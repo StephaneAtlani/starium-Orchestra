@@ -1,7 +1,6 @@
 export {
   BudgetDetailHeader,
   type BudgetDetailHeaderProps,
-  type BudgetDetailHeaderBudgetOption,
 } from './budget-detail-header';
 
 export {
