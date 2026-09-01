@@ -43,6 +43,7 @@ description: Assure la cohérence de la documentation sous docs/ (RFC, _RFC List
    - sections « Implémentation », « API », « Dépendances » pour refléter la réalité ;
    - `_RFC Liste.md` : lien, statut court, date si le repo le prévoit ;
    - `docs/API.md` si des routes exposées changent ;
+   - `docs/LIAISONS-MODULES.md` (+ canvas `docs/liaisons/`) si un pont entre modules change ;
    - `docs/INVENTAIRE-COMPOSANTS.md` si un composant frontend est ajouté ou supprimé ;
    - `docs/FRONTEND_UI-UX.md` / `docs/design-system/` si un pattern DS évolue.
 5. **Ne pas** modifier des RFC hors du périmètre de la demande.
@@ -52,6 +53,7 @@ description: Assure la cohérence de la documentation sous docs/ (RFC, _RFC List
 - [ ] Une seule RFC par fichier `RFC-XXX` ; pas de doublon de sens.
 - [ ] `_RFC Liste.md` à jour si la RFC change de nom ou de statut visible.
 - [ ] `ARCHITECTURE.md` / `API.md` à jour si la structure ou les routes changent.
+- [ ] `LIAISONS-MODULES.md` à jour si un pont inter-modules est ajouté ou modifié.
 - [ ] `INVENTAIRE-COMPOSANTS.md` à jour si le socle frontend change.
 - [ ] Aucune promesse sans équivalent dans le code (sinon marquer « prévu » / « hors scope »).
 - [ ] Liens relatifs valides.

@@ -24,7 +24,7 @@ Tech stack target:
 * Auth: JWT / refresh token / RBAC
 * Infra: Docker + Redis + Nginx
 
-**Architecture technique** : voir `docs/ARCHITECTURE.md` pour la structure du repo, l’arborescence backend/frontend, le modèle de données, la gestion multi-client, les logs et la CI/CD.
+**Architecture technique** : voir `docs/ARCHITECTURE.md` (structure, multi-client, données). **Ponts entre modules** : `docs/LIAISONS-MODULES.md`.
 
 ---
 
@@ -498,7 +498,7 @@ Always test:
 
 ### Mandatory workflow
 
-1. Read the relevant PRD / RFC / module spec first. For structure, repo layout, multi-client or new modules: read `docs/ARCHITECTURE.md`.
+1. Read the relevant PRD / RFC / module spec first. For structure, repo layout, multi-client or new modules: read `docs/ARCHITECTURE.md`. For a new inter-module link: read `docs/LIAISONS-MODULES.md`.
 2. Understand only the necessary files.
 3. Plan before coding for medium or large changes.
 4. Implement one bounded change at a time.
@@ -542,6 +542,7 @@ When implementing a feature, prompts should include:
 The repository must include a `docs/` folder with at least:
 
 * **`docs/ARCHITECTURE.md`** — architecture technique (structure repo, backend/frontend, multi-client, données, logs, CI/CD)
+* **`docs/LIAISONS-MODULES.md`** — référence des ponts inter-modules (patterns, catalogue, graphe)
 * **`docs/VISION_PRODUIT.md`** — vision produit
 * PRD, RFCs par feature
 * conventions API, auth/RBAC, multi-client, admin studio

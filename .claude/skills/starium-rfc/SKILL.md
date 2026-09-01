@@ -7,7 +7,8 @@ description: Méthode obligatoire de rédaction et d'implémentation d'une RFC S
 
 Toute RFC vit dans `docs/RFC/` et est indexée dans `docs/RFC/_RFC Liste.md`.
 La documentation de référence est dans `docs/` ; pour l'UX/UI, la base est
-`docs/FRONTEND_UI-UX.md` + `docs/design-system/`.
+`docs/FRONTEND_UI-UX.md` + `docs/design-system/`. Pour un pont entre modules :
+`docs/LIAISONS-MODULES.md`.
 
 ## Plan de réponse imposé
 
@@ -55,4 +56,5 @@ d'API · scoping client enforced · permissions enforced.
 - Mettre à jour `docs/RFC/_RFC Liste.md` (lien, statut) si le statut ou le titre change.
 - Mettre à jour `docs/API.md` / `docs/ARCHITECTURE.md` si les routes ou la structure changent
   (skill `starium-documentation`).
+- Nouveau pont inter-modules : `docs/LIAISONS-MODULES.md` + canvas `docs/liaisons/`.
 - Passer la checklist de la skill `starium-conformite`.

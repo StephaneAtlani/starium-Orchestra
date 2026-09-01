@@ -212,6 +212,8 @@ Côté frontend, `apps/web/src/lib/api-client.ts` exclut ces chemins de l’envo
 
 ## 4. Schéma de données métier
 
+**Ponts entre modules** (patterns, catalogue Prisma/RFC, graphe) : [LIAISONS-MODULES.md](./LIAISONS-MODULES.md). Les modules ne s’appellent pas ; tout pont est une table N:N, une FK, un couple `sourceType`+`sourceId`, ou un overlay de lecture.
+
 ### 4.0 Utilisateur, rattachement client et identités e-mail
 
 ```text

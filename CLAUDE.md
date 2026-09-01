@@ -221,6 +221,7 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 
 1. Lire la RFC / spec / doc module concernée (`docs/RFC/`, `docs/modules/`) — et
    `docs/ARCHITECTURE.md` pour toute question de structure, multi-client ou nouveau module.
+   Pour un **pont entre modules** : `docs/LIAISONS-MODULES.md`.
 2. Lire uniquement les fichiers nécessaires.
 3. Planifier pour un changement moyen ou large.
 4. Implémenter **un changement borné à la fois**.
@@ -248,6 +249,7 @@ Détail : `docs/design-system/MODALES.md` et la skill `starium-modales`.
 | Sujet | Fichier |
 |---|---|
 | Architecture technique, multi-client, guards, données | `docs/ARCHITECTURE.md` |
+| Liaisons inter-modules (ponts, graphe) | `docs/LIAISONS-MODULES.md` |
 | Vision produit | `docs/VISION_PRODUIT.md` |
 | API (routes, contrats) | `docs/API.md` |
 | Frontend — routing, features, query keys | `docs/FRONTEND_ARCHITECTURE.md` |
