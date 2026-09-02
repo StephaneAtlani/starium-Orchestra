@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { FileSpreadsheet } from 'lucide-react';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageHeader } from '@/components/layout/page-header';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { budgetImportsTab, budgetList } from '../constants/budget-routes';
 import { ImportProfilesTab } from './import-profiles-tab';
 import { ImportHistoryTab } from './import-history-tab';
 import { ImportCsvHelpTab } from './import-csv-help-tab';
@@ -43,7 +47,24 @@ export function BudgetImportHubPage() {
       <PageContainer>
         <PageHeader
           title="Imports budget"
-          description="Profils de mapping, historique des exécutions et modèle CSV."
+          description="Profils de mapping, historique des exécutions et modèle CSV. Pour importer des lignes, ouvrez un budget puis « Importer », ou lancez un profil depuis l’onglet Profils."
+          actions={
+            <div className="flex w-full flex-wrap items-stretch gap-2 sm:w-auto sm:items-center">
+              <Link
+                href={budgetImportsTab('help')}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5 min-h-11 sm:min-h-9')}
+              >
+                <FileSpreadsheet className="size-4" aria-hidden />
+                Modèle CSV
+              </Link>
+              <Link
+                href={budgetList()}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-11 sm:min-h-9')}
+              >
+                Choisir un budget
+              </Link>
+            </div>
+          }
         />
 
         <div

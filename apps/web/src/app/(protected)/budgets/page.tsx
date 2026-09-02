@@ -23,9 +23,9 @@ import {
 import { useBudgetsListFilters } from '@/features/budgets/hooks/use-budget-list-filters';
 import { useBudgetExerciseOptionsQuery } from '@/features/budgets/hooks/use-budget-exercise-options-query';
 import { DEFAULT_LIMIT } from '@/features/budgets/constants/budget-filters';
-import { budgetDashboard, budgetNew } from '@/features/budgets/constants/budget-routes';
+import { budgetDashboard, budgetImports, budgetNew } from '@/features/budgets/constants/budget-routes';
 import { PermissionGate } from '@/components/PermissionGate';
-import { ChevronLeft, ChevronRight, Download, LayoutDashboard, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, LayoutDashboard, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useExerciseReportingSummaryQuery } from '@/features/budgets/hooks/use-exercise-reporting-summary-query';
 import { useExerciseBudgetsReportingQuery } from '@/features/budgets/hooks/use-exercise-budgets-reporting-query';
@@ -141,6 +141,13 @@ export default function BudgetsListPage() {
               >
                 <LayoutDashboard className="size-4" aria-hidden />
                 Dashboard
+              </Link>
+              <Link
+                href={budgetImports()}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}
+              >
+                <FileSpreadsheet className="size-4" aria-hidden />
+                Imports
               </Link>
               <PermissionGate permission="budgets.create">
                 <Link

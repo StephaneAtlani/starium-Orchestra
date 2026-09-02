@@ -8,6 +8,7 @@ type LogicalFieldKey =
   | 'consumedAmount'
   | 'name'
   | 'envelopeCode'
+  | 'envelopeName'
   | 'envelopeId'
   | 'currency'
   | 'externalId'
@@ -87,11 +88,26 @@ export function guessMappingFromColumnHeaders(columns: string[]): MappingConfigF
 
   pick('envelopeCode', (n) => {
     return (
-      n.includes('enveloppe') ||
-      n.includes('envelope') ||
+      n.includes('code enveloppe') ||
+      n.includes('code_enveloppe') ||
+      n.includes('envelope code') ||
       n.includes('code env') ||
-      (n.includes('compte') && !n.includes('libell'))
+      (n.includes('enveloppe') && n.includes('code')) ||
+      (n.includes('compte') && !n.includes('libell') && !n.includes('nom'))
     );
+  });
+
+  pick('envelopeName', (n) => {
+    return (
+      (n.includes('enveloppe') && (n.includes('nom') || n.includes('libell') || n.includes('name'))) ||
+      n.includes('nom enveloppe') ||
+      n.includes('libelle enveloppe')
+    );
+  });
+
+  // Repli : colonne « enveloppe » seule → code
+  pick('envelopeCode', (n) => {
+    return n.includes('enveloppe') || n.includes('envelope');
   });
 
   pick('envelopeId', (n) => {

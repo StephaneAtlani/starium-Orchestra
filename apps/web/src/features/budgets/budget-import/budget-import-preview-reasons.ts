@@ -6,6 +6,7 @@ const LABELS: Partial<Record<PreviewReason, string>> = {
   NO_MATCH_CREATE: 'Création (aucune correspondance)',
   NO_MATCH_UPDATE_ONLY: 'Ignoré — mode mise à jour seule sans correspondance',
   MISSING_ENVELOPE: 'Enveloppe manquante ou introuvable',
+  WILL_CREATE_ENVELOPE: 'Création enveloppe + ligne (code fichier absent du budget)',
   INVALID_AMOUNT: 'Montant invalide',
   INVALID_DATE: 'Date invalide',
   MISSING_REQUIRED_FIELD: 'Champ obligatoire manquant',

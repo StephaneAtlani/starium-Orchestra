@@ -52,6 +52,41 @@ describe('BudgetImportMatchingService', () => {
       expect(typeof result.compositeHash).toBe('string');
       expect(result.compositeHash!.length).toBe(64);
     });
+
+    it('routes shared amount to committedAmount for CD and consumedAmount for FA', () => {
+      const mapping: MappingConfig = {
+        fields: {
+          name: 'Libelle',
+          amount: 'Montant',
+          committedAmount: 'Montant',
+          consumedAmount: 'Montant',
+        },
+        documentKindFilter: {
+          column: 'Piece',
+          orderPrefix: 'CD',
+          invoicePrefix: 'FA',
+          amountColumn: 'Montant',
+        },
+      };
+      const orderRow = service.normalizeRow(
+        { Piece: 'CD  0000188999', Libelle: 'L1', Montant: '1000' },
+        mapping,
+        { trimValues: true },
+      );
+      expect(orderRow.values.documentKind).toBe('ORDER');
+      expect(orderRow.values.documentRef).toBe('CD 0000188999');
+      expect(orderRow.values.committedAmount).toBe(1000);
+      expect(orderRow.values.consumedAmount).toBeNull();
+
+      const invoiceRow = service.normalizeRow(
+        { Piece: 'FA  0000302487', Libelle: 'L2', Montant: '250,5' },
+        mapping,
+        { trimValues: true, decimalSeparator: ',' },
+      );
+      expect(invoiceRow.values.documentKind).toBe('INVOICE');
+      expect(invoiceRow.values.consumedAmount).toBe(250.5);
+      expect(invoiceRow.values.committedAmount).toBeNull();
+    });
   });
 
   describe('findExistingLink', () => {

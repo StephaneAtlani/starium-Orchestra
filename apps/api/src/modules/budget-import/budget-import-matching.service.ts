@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { BudgetImportTargetEntityType } from '@prisma/client';
 import type { MappingConfig, BudgetImportOptionsConfig } from './types/mapping.types';
 import type { ParsedSheetRow } from './budget-import-parser.service';
+import { classifyDocumentKind } from './document-kind-filter';
 
 export interface RowLinkLookup {
   targetEntityId: string;
@@ -83,6 +84,78 @@ export class BudgetImportMatchingService {
   }
 
   /**
+   * Aiguillage CD / FA : un même montant colonne → engagé (commande) ou consommé (facture).
+   */
+  applyDocumentKindFilter(
+    row: ParsedSheetRow,
+    values: Record<string, string | number | null>,
+    mappingConfig: MappingConfig,
+    options: BudgetImportOptionsConfig,
+  ): void {
+    const filter = mappingConfig.documentKindFilter;
+    if (!filter?.column?.trim()) return;
+
+    const fields = mappingConfig.fields || {};
+    const rawRef = this.normalizeValue(String(row[filter.column] ?? ''), options);
+    values.documentRef = rawRef || null;
+
+    const kind = classifyDocumentKind(
+      rawRef,
+      filter.orderPrefix ?? 'CD',
+      filter.invoicePrefix ?? 'FA',
+    );
+    values.documentKind = kind;
+
+    const amountCol =
+      filter.amountColumn?.trim() ||
+      fields.amount?.trim() ||
+      (fields.committedAmount &&
+      fields.consumedAmount &&
+      fields.committedAmount === fields.consumedAmount
+        ? fields.committedAmount
+        : undefined) ||
+      fields.committedAmount?.trim() ||
+      fields.consumedAmount?.trim() ||
+      '';
+
+    let sharedAmount: number | null = null;
+    if (amountCol) {
+      sharedAmount = this.parseDecimal(
+        this.normalizeValue(String(row[amountCol] ?? ''), options),
+        options.decimalSeparator,
+      );
+    } else if (typeof values.amount === 'number') {
+      sharedAmount = values.amount;
+    }
+
+    if (kind === 'ORDER') {
+      if (sharedAmount != null) {
+        values.committedAmount = sharedAmount;
+      }
+      if (
+        !fields.consumedAmount ||
+        fields.consumedAmount === amountCol ||
+        fields.consumedAmount === fields.committedAmount ||
+        fields.consumedAmount === fields.amount
+      ) {
+        values.consumedAmount = null;
+      }
+    } else if (kind === 'INVOICE') {
+      if (sharedAmount != null) {
+        values.consumedAmount = sharedAmount;
+      }
+      if (
+        !fields.committedAmount ||
+        fields.committedAmount === amountCol ||
+        fields.committedAmount === fields.consumedAmount ||
+        fields.committedAmount === fields.amount
+      ) {
+        values.committedAmount = null;
+      }
+    }
+  }
+
+  /**
    * Build normalized row and compute externalId / compositeHash.
    */
   normalizeRow(
@@ -110,13 +183,15 @@ export class BudgetImportMatchingService {
         logicalKey === 'effectiveDate'
       ) {
         const d = this.parseDate(normalizedStr, options.dateFormat);
-         values[logicalKey] = (d ?? normalizedStr) || null;
+        values[logicalKey] = (d ?? normalizedStr) || null;
       } else if (logicalKey === 'currency') {
         values[logicalKey] = (normalizedStr || options.defaultCurrency || '').toUpperCase() || null;
       } else {
         values[logicalKey] = normalizedStr || null;
       }
     }
+
+    this.applyDocumentKindFilter(row, values, mappingConfig, options);
 
     let externalId: string | null = null;
     const externalIdCol = fields['externalId'] ?? fields['sourceLineId'] ?? fields['erpId'];
@@ -144,9 +219,6 @@ export class BudgetImportMatchingService {
     return createHash('sha256').update(concatenated, 'utf-8').digest('hex');
   }
 
-  /**
-   * Find existing link by externalId or compositeHash. Returns at most one match.
-   */
   findExistingLink(
     externalId: string | null,
     compositeHash: string | null,
@@ -163,10 +235,13 @@ export class BudgetImportMatchingService {
     return null;
   }
 
-  /**
-   * Build RowLinkMaps from list of RowLinks (e.g. from Prisma).
-   */
-  buildRowLinkMaps(links: Array<{ externalId: string | null; compositeHash: string | null; targetEntityId: string }>): RowLinkMaps {
+  buildRowLinkMaps(
+    links: Array<{
+      externalId: string | null;
+      compositeHash: string | null;
+      targetEntityId: string;
+    }>,
+  ): RowLinkMaps {
     const byExternalId = new Map<string, RowLinkLookup>();
     const byCompositeHash = new Map<string, RowLinkLookup>();
     for (const link of links) {

@@ -19,16 +19,13 @@ import type {
   MappingConfig,
 } from '../types/budget-imports.types';
 import type { BudgetImportConfigBlockId } from './budget-import-config-types';
-import {
-  BUDGET_IMPORT_CONFIG_BLOCK_ORDER,
-  budgetImportConfigBlockIndex,
-} from './budget-import-config-types';
 import type { EnvelopeImportMode } from './budget-import-mapping-validation';
 import { BudgetImportConfigFileSheetBlock } from './budget-import-config-file-sheet-block';
 import { BudgetImportConfigEnvelopeBlock } from './budget-import-config-envelope-block';
 import { BudgetImportConfigBudgetLineBlock } from './budget-import-config-budget-line-block';
 import { BudgetImportConfigOrdersBlock } from './budget-import-config-orders-block';
 import { BudgetImportConfigInvoicesBlock } from './budget-import-config-invoices-block';
+import { BudgetImportConfigDocumentFilterBlock } from './budget-import-config-document-filter-block';
 import { BudgetImportConfigOptionsBlock } from './budget-import-config-options-block';
 import type { AnalyzeResult } from '../types/budget-imports.types';
 
@@ -41,8 +38,38 @@ const BLOCK_LABELS: Record<BudgetImportConfigBlockId, string> = {
   options: 'Options',
 };
 
+function MappingSection({
+  id,
+  title,
+  validationMessage,
+  validationBlock,
+  blockId,
+  children,
+}: {
+  id: BudgetImportConfigBlockId;
+  title: string;
+  validationMessage: string | null;
+  validationBlock: BudgetImportConfigBlockId | null;
+  blockId: BudgetImportConfigBlockId;
+  children: React.ReactNode;
+}) {
+  const showError =
+    validationMessage && (validationBlock === blockId || (!validationBlock && blockId === id));
+
+  return (
+    <section id={`import-mapping-${blockId}`} className="space-y-3 scroll-mt-6">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {showError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{validationMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
 export interface BudgetImportMappingStepProps {
-  configBlock: BudgetImportConfigBlockId;
   analyzeResult: AnalyzeResult;
   excelSheetValue: string | undefined;
   sheetChangeLoading: boolean;
@@ -86,7 +113,6 @@ export interface BudgetImportMappingStepProps {
 }
 
 export function BudgetImportMappingStep({
-  configBlock,
   analyzeResult,
   excelSheetValue,
   sheetChangeLoading,
@@ -125,26 +151,22 @@ export function BudgetImportMappingStep({
   const libelleMappingSauvegarde =
     selectedSavedId == null
       ? 'Aucun'
-      : (savedMappings.find((m) => m.id === selectedSavedId)?.name ?? '—');
+      : (savedMappings.find((m) => m.id === selectedSavedId)?.name ?? 'Profil supprimé');
 
-  const idx = budgetImportConfigBlockIndex(configBlock);
-  const total = BUDGET_IMPORT_CONFIG_BLOCK_ORDER.length;
   const showGeneralAmounts = !ordersSectionEnabled && !invoicesSectionEnabled;
 
-  const showValidationHere = validationMessage && (!validationBlock || validationBlock === configBlock);
-
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-muted/30 p-4">
-        <h3 className="mb-3 text-sm font-semibold">Reprendre un mapping</h3>
+    <div className="space-y-8">
+      <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+        <h3 className="mb-3 text-sm font-semibold">Reprendre un profil</h3>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <Label>Charger un mapping enregistré</Label>
+            <Label htmlFor="import-saved-mapping">Charger un profil enregistré</Label>
             <Select
               value={selectedSavedId ?? EMPTY_SELECT_VALUE}
               onValueChange={(id) => onSelectSaved(id === EMPTY_SELECT_VALUE ? null : id)}
             >
-              <SelectTrigger className="w-full min-w-0">
+              <SelectTrigger id="import-saved-mapping" className="w-full min-w-0">
                 <SelectValue>{libelleMappingSauvegarde}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -171,30 +193,30 @@ export function BudgetImportMappingStep({
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Écriture budget requise pour modifier ou supprimer un mapping.
+              Écriture budget requise pour modifier ou supprimer un profil.
             </p>
           )}
         </div>
         {isEditingSaved ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            Mode édition : les changements sont enregistrés sur ce mapping.
+            Mode édition : les changements sont enregistrés sur ce profil.
           </p>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-        <span>
-          Étape {idx + 1} / {total} — {BLOCK_LABELS[configBlock]}
-        </span>
-      </div>
-
-      {showValidationHere && validationMessage ? (
+      {validationMessage && !validationBlock ? (
         <Alert variant="destructive">
           <AlertDescription>{validationMessage}</AlertDescription>
         </Alert>
       ) : null}
 
-      {configBlock === 'file_sheet' ? (
+      <MappingSection
+        id="file_sheet"
+        blockId="file_sheet"
+        title={BLOCK_LABELS.file_sheet}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
         <BudgetImportConfigFileSheetBlock
           analyzeResult={analyzeResult}
           excelSheetValue={excelSheetValue}
@@ -203,9 +225,15 @@ export function BudgetImportMappingStep({
           onExcelSheetChange={onExcelSheetChange}
           onChangeFile={onChangeFile}
         />
-      ) : null}
+      </MappingSection>
 
-      {configBlock === 'envelope' ? (
+      <MappingSection
+        id="envelope"
+        blockId="envelope"
+        title={BLOCK_LABELS.envelope}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
         <BudgetImportConfigEnvelopeBlock
           columns={columns}
           envelopes={envelopes}
@@ -217,28 +245,54 @@ export function BudgetImportMappingStep({
           onEnvelopeImportModeChange={onEnvelopeImportModeChange}
           onCreateEnvelope={onCreateEnvelope}
         />
-      ) : null}
+      </MappingSection>
 
-      {configBlock === 'budget_line' ? (
+      <MappingSection
+        id="budget_line"
+        blockId="budget_line"
+        title={BLOCK_LABELS.budget_line}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
         <BudgetImportConfigBudgetLineBlock
           columns={columns}
           mapping={mapping}
           onMappingChange={onMappingChange}
           showGeneralAmounts={showGeneralAmounts}
         />
-      ) : null}
+      </MappingSection>
 
-      {configBlock === 'orders' ? (
-        <BudgetImportConfigOrdersBlock
-          columns={columns}
-          mapping={mapping}
-          onMappingChange={onMappingChange}
-          ordersSectionEnabled={ordersSectionEnabled}
-          onOrdersSectionEnabledChange={onOrdersSectionEnabledChange}
-        />
-      ) : null}
+      <MappingSection
+        id="orders"
+        blockId="orders"
+        title={BLOCK_LABELS.orders}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
+        <div className="space-y-4">
+          <BudgetImportConfigDocumentFilterBlock
+            columns={columns}
+            mapping={mapping}
+            onMappingChange={onMappingChange}
+            enabled={ordersSectionEnabled || invoicesSectionEnabled}
+          />
+          <BudgetImportConfigOrdersBlock
+            columns={columns}
+            mapping={mapping}
+            onMappingChange={onMappingChange}
+            ordersSectionEnabled={ordersSectionEnabled}
+            onOrdersSectionEnabledChange={onOrdersSectionEnabledChange}
+          />
+        </div>
+      </MappingSection>
 
-      {configBlock === 'invoices' ? (
+      <MappingSection
+        id="invoices"
+        blockId="invoices"
+        title={BLOCK_LABELS.invoices}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
         <BudgetImportConfigInvoicesBlock
           columns={columns}
           mapping={mapping}
@@ -246,9 +300,15 @@ export function BudgetImportMappingStep({
           invoicesSectionEnabled={invoicesSectionEnabled}
           onInvoicesSectionEnabledChange={onInvoicesSectionEnabledChange}
         />
-      ) : null}
+      </MappingSection>
 
-      {configBlock === 'options' ? (
+      <MappingSection
+        id="options"
+        blockId="options"
+        title={BLOCK_LABELS.options}
+        validationMessage={validationMessage}
+        validationBlock={validationBlock}
+      >
         <BudgetImportConfigOptionsBlock
           columns={columns}
           budgetCurrency={budgetCurrency}
@@ -263,7 +323,7 @@ export function BudgetImportMappingStep({
           onUpdateSaved={onUpdateSaved}
           canMutateMappings={canMutateMappings}
         />
-      ) : null}
+      </MappingSection>
     </div>
   );
 }

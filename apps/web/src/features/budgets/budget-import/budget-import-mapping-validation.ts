@@ -129,14 +129,21 @@ export function validateMappingForPreview(
   }
 
   if (ordersOn) {
-    if (!trim(fields.committedAmount)) {
+    const docFilter = mapping.documentKindFilter;
+    const docFilterOn = !!trim(docFilter?.column);
+    const hasSharedAmountViaFilter = !!(
+      docFilterOn &&
+      (trim(docFilter?.amountColumn) || trim(fields.amount) || trim(fields.committedAmount))
+    );
+    if (!trim(fields.committedAmount) && !hasSharedAmountViaFilter) {
       return {
         ok: false,
-        message: 'Section commande activée : mappez la colonne « montant engagé / facturé (commande) ».',
+        message:
+          'Section commande activée : mappez la colonne « montant engagé / facturé (commande) », ou activez le filtre CD/FA avec un montant partagé.',
         block: 'orders',
       };
     }
-    if (!trim(fields.initialAmount) && !trim(fields.amount)) {
+    if (!trim(fields.initialAmount) && !trim(fields.amount) && !hasSharedAmountViaFilter) {
       return {
         ok: false,
         message: 'Section commande activée : mappez un montant initial ou le montant de ligne.',
@@ -146,14 +153,21 @@ export function validateMappingForPreview(
   }
 
   if (invoicesOn) {
-    if (!trim(fields.consumedAmount)) {
+    const docFilter = mapping.documentKindFilter;
+    const docFilterOn = !!trim(docFilter?.column);
+    const hasSharedAmountViaFilter = !!(
+      docFilterOn &&
+      (trim(docFilter?.amountColumn) || trim(fields.amount) || trim(fields.consumedAmount))
+    );
+    if (!trim(fields.consumedAmount) && !hasSharedAmountViaFilter) {
       return {
         ok: false,
-        message: 'Section facture activée : mappez la colonne « montant consommé ».',
+        message:
+          'Section facture activée : mappez la colonne « montant consommé », ou activez le filtre CD/FA avec un montant partagé.',
         block: 'invoices',
       };
     }
-    if (!trim(fields.initialAmount) && !trim(fields.amount)) {
+    if (!trim(fields.initialAmount) && !trim(fields.amount) && !hasSharedAmountViaFilter) {
       return {
         ok: false,
         message: 'Section facture activée : mappez un montant initial ou le montant de ligne.',
@@ -162,11 +176,34 @@ export function validateMappingForPreview(
     }
   }
 
+  if (mapping.documentKindFilter) {
+    if (!trim(mapping.documentKindFilter.column)) {
+      return {
+        ok: false,
+        message: 'Filtre CD/FA activé : choisissez la colonne type / référence document.',
+        block: 'orders',
+      };
+    }
+    if (
+      !trim(mapping.documentKindFilter.amountColumn) &&
+      !trim(fields.amount) &&
+      !trim(fields.committedAmount) &&
+      !trim(fields.consumedAmount)
+    ) {
+      return {
+        ok: false,
+        message: 'Filtre CD/FA activé : indiquez la colonne montant partagé (ou mappez un montant).',
+        block: 'orders',
+      };
+    }
+  }
+
   const hasAmount = !!(
     trim(fields.amount) ||
     trim(fields.initialAmount) ||
     trim(fields.committedAmount) ||
-    trim(fields.consumedAmount)
+    trim(fields.consumedAmount) ||
+    trim(mapping.documentKindFilter?.amountColumn)
   );
   if (!hasAmount) {
     return {

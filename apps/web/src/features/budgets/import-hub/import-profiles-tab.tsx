@@ -236,8 +236,23 @@ export function ImportProfilesTab() {
       ) : null}
       {!isLoading && !error && items.length === 0 ? (
         <EmptyState
-          title="Aucun profil"
-          description="Créez un profil ou enregistrez-en un depuis le wizard d’import."
+          title="Aucun profil d’import"
+          description="Les profils mémorisent un mapping réutilisable. Créez-en un ici, ou enregistrez un mapping depuis l’assistant sur une fiche budget (bouton Importer)."
+          action={
+            canUpdate ? (
+              <Button
+                type="button"
+                className="min-h-11 sm:min-h-9"
+                onClick={() => {
+                  setFormMode('create');
+                  setEditing(null);
+                  setFormOpen(true);
+                }}
+              >
+                Nouveau profil
+              </Button>
+            ) : undefined
+          }
         />
       ) : null}
 

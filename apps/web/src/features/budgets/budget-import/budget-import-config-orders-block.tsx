@@ -44,8 +44,9 @@ export function BudgetImportConfigOrdersBlock({
       {ordersSectionEnabled ? (
         <>
           <p className="text-xs text-muted-foreground">
-            Les colonnes ci-dessous alimentent les mêmes champs que le reste du mapping (pas de second état pour les
-            montants partagés avec la section facture).
+            Les colonnes ci-dessous alimentent les mêmes champs que le reste du mapping. Si votre
+            fichier mélange CD/FA dans une seule colonne, utilisez le filtre commande / facture
+            ci-dessus.
           </p>
           <div className="rounded-lg border border-border">
             <div className="px-4 pb-1 pt-2">

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { PermissionGate } from '@/components/PermissionGate';
 import { PageHeader } from '@/components/layout/page-header';
 import { ResourceAclTriggerButton } from '@/features/resource-acl/components/resource-acl-trigger-button';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { cn } from '@/lib/utils';
 import { BudgetStatusBadge } from '@/features/budgets/components/budget-status-badge';
-import { budgetEdit, budgetList } from '@/features/budgets/constants/budget-routes';
+import { budgetEdit, budgetImport, budgetList } from '@/features/budgets/constants/budget-routes';
 import type { Budget } from '@/features/budgets/types/budget-management.types';
 
 export interface BudgetDetailHeaderProps {
@@ -54,6 +54,16 @@ export function BudgetDetailHeader({
               )}
             >
               Modifier
+            </Link>
+            <Link
+              href={budgetImport(budget.id)}
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'sm' }),
+                'min-h-11 sm:min-h-9',
+              )}
+            >
+              <Upload className="size-4" aria-hidden />
+              Importer
             </Link>
           </PermissionGate>
           <ResourceAclTriggerButton

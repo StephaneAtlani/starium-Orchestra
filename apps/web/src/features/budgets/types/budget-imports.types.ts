@@ -29,11 +29,22 @@ export interface MappingMatchingConfig {
 
 export type MappingConfigFields = Record<string, string>;
 
+/** Filtre type document CD / FA (aligné backend). */
+export interface DocumentKindFilterConfig {
+  column: string;
+  orderPrefix?: string;
+  invoicePrefix?: string;
+  amountColumn?: string;
+}
+
+export type DocumentKind = 'ORDER' | 'INVOICE';
+
 /** Aligné sur `MappingConfig` backend. */
 export interface MappingConfig {
   fields: MappingConfigFields;
   matching?: MappingMatchingConfig;
   defaults?: Record<string, string>;
+  documentKindFilter?: DocumentKindFilterConfig;
 }
 
 /** Aligné sur `BudgetImportOptionsConfig` backend. */
@@ -46,6 +57,8 @@ export interface BudgetImportOptionsConfig {
   trimValues?: boolean;
   dateFormat?: string;
   decimalSeparator?: ',' | '.';
+  /** Créer automatiquement les enveloppes absentes à partir des codes fichier. */
+  createMissingEnvelopes?: boolean;
 }
 
 /** `AnalyzeResult` — réponse POST /api/budget-imports/analyze | analyze-sheet */
@@ -71,6 +84,7 @@ export type PreviewReason =
   | 'NO_MATCH_CREATE'
   | 'NO_MATCH_UPDATE_ONLY'
   | 'MISSING_ENVELOPE'
+  | 'WILL_CREATE_ENVELOPE'
   | 'INVALID_AMOUNT'
   | 'INVALID_DATE'
   | 'MISSING_REQUIRED_FIELD'

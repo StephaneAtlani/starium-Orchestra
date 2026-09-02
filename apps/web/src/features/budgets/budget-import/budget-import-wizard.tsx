@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
@@ -9,6 +8,8 @@ import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { LoadingState } from '@/components/feedback/loading-state';
+import { toast } from '@/lib/toast';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
 import { createEnvelope } from '../api/budget-management.api';
 import { useBudgetDetail } from '../hooks/use-budgets';
@@ -32,11 +33,7 @@ import type {
   MappingConfig,
   PreviewResult,
 } from '../types/budget-imports.types';
-import {
-  BUDGET_IMPORT_CONFIG_BLOCK_ORDER,
-  type BudgetImportConfigBlockId,
-  budgetImportConfigBlockIndex,
-} from './budget-import-config-types';
+import type { BudgetImportConfigBlockId } from './budget-import-config-types';
 import {
   deriveOrdersInvoicesSectionSwitches,
   inferEnvelopeImportModeFromMapping,
@@ -48,13 +45,12 @@ import { BudgetImportUploadStep } from './budget-import-upload-step';
 import { BudgetImportMappingStep } from './budget-import-mapping-step';
 import { BudgetImportPreviewStep } from './budget-import-preview-step';
 import { BudgetImportExecuteStep } from './budget-import-execute-step';
+import { BudgetImportWizardStepper, type BudgetImportWizardStepId } from './budget-import-wizard-stepper';
 import {
   budgetDetail,
   budgetImportJobDetail,
-  budgetImportsTab,
 } from '../constants/budget-routes';
-
-type WizardStep = 'upload' | 'mapping' | 'preview' | 'execute';
+import { displayLabel } from '@/lib/display-label';
 
 function errMessage(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: string }).message === 'string') {
@@ -71,9 +67,10 @@ function sheetNameForImportPayload(ar: AnalyzeResult): string | undefined {
 
 export interface BudgetImportWizardProps {
   budgetId: string;
+  budgetLabel?: string;
 }
 
-export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
+export function BudgetImportWizard({ budgetId, budgetLabel = 'Budget' }: BudgetImportWizardProps) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -97,7 +94,8 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
   });
   const savedMappings = mappingsList?.items ?? [];
 
-  const [step, setStep] = useState<WizardStep>('upload');
+  const [step, setStep] = useState<BudgetImportWizardStepId>('upload');
+  const [sourceFileName, setSourceFileName] = useState<string | null>(null);
   const [fileToken, setFileToken] = useState<string | null>(null);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
   const [mapping, setMapping] = useState<MappingConfig>({ fields: {} });
@@ -106,6 +104,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     trimValues: true,
     ignoreEmptyRows: true,
     dateFormat: 'DD/MM/YYYY',
+    createMissingEnvelopes: true,
   });
   const [activeImportPurpose, setActiveImportPurpose] =
     useState<BudgetImportPurpose>('MIXED');
@@ -133,7 +132,6 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
   const [envelopeImportMode, setEnvelopeImportMode] = useState<EnvelopeImportMode>('from_file_columns');
 
-  const [configBlock, setConfigBlock] = useState<BudgetImportConfigBlockId>('file_sheet');
   const [ordersSectionEnabled, setOrdersSectionEnabled] = useState(false);
   const [invoicesSectionEnabled, setInvoicesSectionEnabled] = useState(false);
 
@@ -241,12 +239,13 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
         const f = { ...(prev.fields ?? {}) };
         delete f.envelopeCode;
         delete f.envelopeId;
+        delete f.envelopeName;
         delete (f as Record<string, string | undefined>).envelope;
         const m = prev.matching;
         let nextMatching = prev.matching;
         if (m?.strategy === 'COMPOSITE' && m.keys?.length) {
           const nextKeys = m.keys.filter(
-            (k) => !['envelopeCode', 'envelopeId', 'envelope'].includes(k),
+            (k) => !['envelopeCode', 'envelopeId', 'envelope', 'envelopeName'].includes(k),
           );
           nextMatching =
             nextKeys.length > 0 ? { strategy: 'COMPOSITE' as const, keys: nextKeys } : { strategy: 'EXTERNAL_ID' };
@@ -258,6 +257,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
   const resetWizard = useCallback(() => {
     setStep('upload');
+    setSourceFileName(null);
     setFileToken(null);
     setAnalyzeResult(null);
     setMapping({ fields: {} });
@@ -267,6 +267,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       ignoreEmptyRows: true,
       defaultCurrency: budget?.currency,
       dateFormat: 'DD/MM/YYYY',
+      createMissingEnvelopes: true,
     });
     setPreviewResult(null);
     setExecuteResult(null);
@@ -280,29 +281,15 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     setPreviewError(null);
     setExecuteError(null);
     setEnvelopeImportMode('from_file_columns');
-    setConfigBlock('file_sheet');
     setOrdersSectionEnabled(false);
     setInvoicesSectionEnabled(false);
   }, [budget?.currency]);
-
-  const goNextConfigBlock = useCallback(() => {
-    const i = budgetImportConfigBlockIndex(configBlock);
-    if (i < BUDGET_IMPORT_CONFIG_BLOCK_ORDER.length - 1) {
-      setConfigBlock(BUDGET_IMPORT_CONFIG_BLOCK_ORDER[i + 1]!);
-    }
-  }, [configBlock]);
-
-  const goPrevConfigBlock = useCallback(() => {
-    const i = budgetImportConfigBlockIndex(configBlock);
-    if (i > 0) {
-      setConfigBlock(BUDGET_IMPORT_CONFIG_BLOCK_ORDER[i - 1]!);
-    }
-  }, [configBlock]);
 
   const handleAnalyzeFile = async (file: File) => {
     setAnalyzeError(null);
     setAnalyzeLoading(true);
     try {
+      setSourceFileName(file.name);
       const r = await analyzeImport(authFetch, file);
       setAnalyzeResult(r);
       setFileToken(r.fileToken);
@@ -312,7 +299,6 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       const derived = deriveOrdersInvoicesSectionSwitches(guessMappingFromColumnHeaders(r.columns));
       setOrdersSectionEnabled(derived.ordersSectionEnabled);
       setInvoicesSectionEnabled(derived.invoicesSectionEnabled);
-      setConfigBlock('file_sheet');
       setStep('mapping');
     } catch (e) {
       setAnalyzeError(errMessage(e));
@@ -346,11 +332,12 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     }
   };
 
-  const runPreview = async () => {
+  const runPreview = async (optionsOverride?: BudgetImportOptionsConfig) => {
+    const previewOptions = optionsOverride ?? options;
     if (!fileToken || !budgetId || !analyzeResult) return;
     const v = validateMappingForPreview(
       mapping,
-      options,
+      previewOptions,
       budgetCurrency,
       envelopeImportMode,
       {
@@ -363,9 +350,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     if (!v.ok) {
       setMappingValidationError(v.message);
       setMappingValidationBlock(v.block ?? null);
-      if (v.block) {
-        setConfigBlock(v.block);
-      }
+      toast.error(v.message);
       return;
     }
     setMappingValidationError(null);
@@ -378,12 +363,20 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
         fileToken,
         sheetName: sheetNameForImportPayload(analyzeResult),
         mapping,
-        options,
+        options: previewOptions,
       });
+      if (optionsOverride) {
+        setOptions(previewOptions);
+      }
       setPreviewResult(r);
+      toast.success(
+        `Aperçu calculé — ${r.stats.createRows} création(s), ${r.stats.updateRows} mise(s) à jour, ${r.stats.errorRows} erreur(s).`,
+      );
       setStep('preview');
     } catch (e) {
-      setPreviewError(errMessage(e));
+      const msg = errMessage(e);
+      setPreviewError(msg);
+      toast.error(msg);
     } finally {
       setPreviewLoading(false);
     }
@@ -552,6 +545,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       code?: string;
       description?: string;
       type: string;
+      status?: string;
     }) => {
       const created = await createEnvelope(authFetch, {
         budgetId,
@@ -559,6 +553,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
         code: input.code,
         description: input.description,
         type: input.type,
+        status: input.status,
       });
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.budgetEnvelopes(clientId, budgetId, { full: true }),
@@ -581,47 +576,45 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     );
   }
 
-  const steps: { id: WizardStep; label: string }[] = [
-    { id: 'upload', label: 'Fichier' },
-    { id: 'mapping', label: 'Configuration' },
-    { id: 'preview', label: 'Aperçu' },
-    { id: 'execute', label: 'Import' },
-  ];
-
-  const configIdx = budgetImportConfigBlockIndex(configBlock);
-  const atStartConfig = configIdx === 0;
-  const atEndConfig = configIdx === BUDGET_IMPORT_CONFIG_BLOCK_ORDER.length - 1;
+  const handleStepChange = (next: BudgetImportWizardStepId) => {
+    if (next === 'upload') {
+      setStep('upload');
+      return;
+    }
+    if (next === 'mapping' && analyzeResult) {
+      setStep('mapping');
+      return;
+    }
+    if (next === 'preview' && previewResult) {
+      setStep('preview');
+      return;
+    }
+    if (next === 'execute' && previewResult) {
+      setStep('execute');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <nav aria-label="Étapes du wizard" className="flex flex-wrap gap-2">
-          {steps.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              role="tab"
-              aria-selected={step === s.id}
-              onClick={() => {
-                if (s.id === 'upload') setStep('upload');
-                if (s.id === 'mapping' && analyzeResult) setStep('mapping');
-                if (s.id === 'preview' && previewResult) setStep('preview');
-                if (s.id === 'execute' && previewResult) setStep('execute');
-              }}
-              className={`rounded-full px-3 py-1 text-xs font-medium min-h-11 sm:min-h-9 ${
-                step === s.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </nav>
-        <Button type="button" variant="ghost" size="sm" asChild className="min-h-11 sm:min-h-9">
-          <Link href={budgetImportsTab('profiles')}>Gérer les profils</Link>
-        </Button>
-      </div>
+    <section className="starium-module space-y-5">
+      <BudgetImportWizardStepper
+        activeStep={step}
+        canGoToMapping={!!analyzeResult}
+        canGoToPreview={!!previewResult}
+        canGoToExecute={!!previewResult}
+        onStepChange={handleStepChange}
+      />
+
+      {analyzeResult && step !== 'upload' ? (
+        <p className="text-sm text-muted-foreground">
+          Fichier :{' '}
+          <span className="font-medium text-foreground">
+            {displayLabel(sourceFileName, 'Fichier')}
+          </span>
+          {' · '}
+          Budget :{' '}
+          <span className="font-medium text-foreground">{budgetLabel}</span>
+        </p>
+      ) : null}
 
       {showMidYearStructureWarning ? (
         <Alert>
@@ -633,18 +626,25 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
         </Alert>
       ) : null}
 
-      {step === 'upload' ? (
-        <BudgetImportUploadStep
-          onAnalyzeFile={handleAnalyzeFile}
-          isLoading={analyzeLoading}
-          errorMessage={analyzeError}
-        />
-      ) : null}
+      <div className="starium-panel rounded-lg border border-border bg-card p-4 sm:p-6 shadow-[var(--shadow-1)]">
+        {step === 'upload' ? (
+          <BudgetImportUploadStep
+            onAnalyzeFile={handleAnalyzeFile}
+            isLoading={analyzeLoading}
+            errorMessage={analyzeError}
+          />
+        ) : null}
 
-      {step === 'mapping' && analyzeResult ? (
-        <div className="space-y-4">
-          <BudgetImportMappingStep
-            configBlock={configBlock}
+        {step === 'mapping' && analyzeResult ? (
+          previewLoading ? (
+            <div aria-live="polite">
+              <LoadingState rows={4} />
+              <p className="mt-3 text-sm text-muted-foreground">
+                Calcul de l’aperçu en cours — analyse des lignes sans écriture en base.
+              </p>
+            </div>
+          ) : (
+            <BudgetImportMappingStep
             analyzeResult={analyzeResult}
             excelSheetValue={sheetNameForImportPayload(analyzeResult)}
             sheetChangeLoading={sheetChangeLoading}
@@ -694,71 +694,125 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
               setPreviewResult(null);
               setExecuteResult(null);
             }}
+            />
+          )
+        ) : null}
+
+        {step === 'preview' && previewResult ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Résultat du calcul d’aperçu — aucune donnée n’a été écrite. Vérifiez les lignes
+              en erreur avant de lancer l’import.
+            </p>
+            <BudgetImportPreviewStep
+            preview={previewResult}
+            options={options}
+            envelopes={envelopes}
+            errorMessage={previewError}
+            isLoading={previewLoading}
+            ordersSectionEnabled={ordersSectionEnabled}
+            invoicesSectionEnabled={invoicesSectionEnabled}
+            onCreateEnvelope={handleCreateEnvelopeInline}
+            onSelectDefaultEnvelope={(envelopeId) => {
+              void runPreview({ ...options, defaultEnvelopeId: envelopeId });
+            }}
+            onRefreshPreview={() => runPreview()}
+            onEditConfiguration={() => setStep('mapping')}
+            onSwitchToUpsert={() => {
+              const next = { ...options, importMode: 'UPSERT' as const };
+              void runPreview(next);
+            }}
+            onContinue={() => setStep('execute')}
+            onBack={() => setStep('mapping')}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" onClick={() => setStep('upload')}>
-              Retour fichier
-            </Button>
-            <Button type="button" variant="outline" onClick={goPrevConfigBlock} disabled={atStartConfig}>
-              Précédent
-            </Button>
-            <Button type="button" variant="outline" onClick={goNextConfigBlock} disabled={atEndConfig}>
-              Suivant
+          </div>
+        ) : null}
+
+        {step === 'execute' && previewResult ? (
+          <BudgetImportExecuteStep
+            previewStats={previewResult.stats}
+            executeResult={executeResult}
+            isExecuting={executeLoading}
+            errorMessage={executeError}
+            canExecute={hasUpdate && !!fileToken && !!previewResult}
+            readOnlyReason={
+              !hasUpdate
+                ? 'Droits d’écriture budget requis pour lancer l’import (budgets.update).'
+                : null
+            }
+            budgetDetailHref={budgetDetail(budgetId)}
+            historyJobHref={
+              executeResult?.jobId ? budgetImportJobDetail(executeResult.jobId) : null
+            }
+            onExecute={() => void runExecute()}
+            onBack={() => setStep('preview')}
+            onResetWizard={resetWizard}
+          />
+        ) : null}
+      </div>
+
+      {step === 'mapping' && analyzeResult ? (
+        <div className="space-y-3 border-t border-border pt-4">
+          {(mappingValidationError || previewError) && !previewLoading ? (
+            <Alert variant="destructive" role="alert" aria-live="assertive">
+              <AlertTitle>Prévisualisation impossible</AlertTitle>
+              <AlertDescription>{previewError ?? mappingValidationError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setStep('upload')}
+              disabled={previewLoading}
+            >
+              Changer de fichier
             </Button>
             <Button
               type="button"
+              className="min-h-11 sm:min-h-9"
               onClick={() => void runPreview()}
               disabled={previewLoading || sheetChangeLoading || !hasRead || mappingMutationBusy}
             >
-              {previewLoading ? 'Prévisualisation…' : 'Prévisualiser'}
+              {previewLoading ? 'Calcul de l’aperçu…' : 'Calculer l’aperçu'}
             </Button>
           </div>
-          {!hasRead ? (
-            <p className="text-xs text-muted-foreground">Lecture budget requise.</p>
-          ) : null}
         </div>
       ) : null}
 
-      {step === 'preview' && previewResult ? (
-        <BudgetImportPreviewStep
-          preview={previewResult}
-          errorMessage={previewError}
-          isLoading={previewLoading}
-          ordersSectionEnabled={ordersSectionEnabled}
-          invoicesSectionEnabled={invoicesSectionEnabled}
-          onContinue={() => setStep('execute')}
-          onBack={() => setStep('mapping')}
-        />
+      {step === 'upload' ? (
+        <div className="flex justify-end border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 sm:min-h-9 text-muted-foreground"
+            onClick={resetWizard}
+          >
+            Réinitialiser
+          </Button>
+        </div>
       ) : null}
 
-      {step === 'execute' && previewResult ? (
-        <BudgetImportExecuteStep
-          previewStats={previewResult.stats}
-          executeResult={executeResult}
-          isExecuting={executeLoading}
-          errorMessage={executeError}
-          canExecute={hasUpdate && !!fileToken && !!previewResult}
-          readOnlyReason={
-            !hasUpdate
-              ? 'Droits d’écriture budget requis pour lancer l’import (budgets.update).'
-              : null
-          }
-          budgetDetailHref={budgetDetail(budgetId)}
-          historyJobHref={
-            executeResult?.jobId ? budgetImportJobDetail(executeResult.jobId) : null
-          }
-          profilesHref={budgetImportsTab('profiles')}
-          onExecute={() => void runExecute()}
-          onBack={() => setStep('preview')}
-          onResetWizard={resetWizard}
-        />
+      {step !== 'upload' && step !== 'execute' && !executeResult ? (
+        <div className="flex justify-end border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11 sm:min-h-9 text-muted-foreground"
+            onClick={resetWizard}
+          >
+            Recommencer
+          </Button>
+        </div>
       ) : null}
 
-      <div className="border-t border-border pt-4">
-        <Button type="button" variant="ghost" size="sm" onClick={resetWizard}>
-          Recommencer depuis le début
-        </Button>
-      </div>
-    </div>
+      {!hasRead && step === 'mapping' ? (
+        <p className="text-xs text-muted-foreground">Lecture budget requise.</p>
+      ) : null}
+    </section>
   );
 }

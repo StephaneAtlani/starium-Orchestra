@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import {
+  BudgetEnvelopeStatus,
+  BudgetEnvelopeType,
   BudgetImportJobStatus,
   BudgetImportMode,
   BudgetImportSourceType,
@@ -82,6 +84,9 @@ interface ResolvedAction {
   reason?: PreviewReason;
   normalizedRow: { values: Record<string, string | number | null>; externalId: string | null; compositeHash: string | null };
   envelopeId?: string | null;
+  /** Code fichier à matérialiser si `createMissingEnvelopes` (enveloppe absente du budget). */
+  pendingEnvelopeCode?: string;
+  pendingEnvelopeName?: string;
   existingTargetEntityId?: string | null;
   rawRow: ParsedSheetRow;
 }
@@ -233,16 +238,43 @@ export class BudgetImportService {
       rowIndex: r.rowIndex,
       status: r.action,
       reason: r.reason,
-      data: r.normalizedRow.values as Record<string, unknown>,
-      errorMessage: r.reason === 'MISSING_ENVELOPE' || r.reason === 'INVALID_AMOUNT' || r.reason === 'INVALID_DATE' || r.reason === 'MISSING_REQUIRED_FIELD' ? r.reason : undefined,
+      data: {
+        ...(r.normalizedRow.values as Record<string, unknown>),
+        ...(r.pendingEnvelopeCode
+          ? {
+              _willCreateEnvelopeCode: r.pendingEnvelopeCode,
+              _willCreateEnvelopeName: r.pendingEnvelopeName ?? null,
+            }
+          : {}),
+      },
+      errorMessage:
+        r.reason === 'MISSING_ENVELOPE' ||
+        r.reason === 'INVALID_AMOUNT' ||
+        r.reason === 'INVALID_DATE' ||
+        r.reason === 'MISSING_REQUIRED_FIELD'
+          ? r.reason
+          : undefined,
     }));
+    const pendingEnvelopeCodes = [
+      ...new Set(
+        resolved
+          .map((r) => r.pendingEnvelopeCode)
+          .filter((c): c is string => !!c),
+      ),
+    ].sort((a, b) => a.localeCompare(b, 'fr'));
+    const warnings =
+      pendingEnvelopeCodes.length > 0
+        ? [
+            `${pendingEnvelopeCodes.length} enveloppe(s) seront créées à l’import : ${pendingEnvelopeCodes.join(', ')}.`,
+          ]
+        : [];
     await this.auditLogs.create({
       clientId,
       userId,
       action: 'budget_import.previewed',
       resourceType: 'budget_import',
       resourceId: dto.budgetId,
-      newValue: { budgetId: dto.budgetId, stats },
+      newValue: { budgetId: dto.budgetId, stats, pendingEnvelopeCodes },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
       requestId: meta?.requestId,
@@ -250,7 +282,7 @@ export class BudgetImportService {
     return {
       stats,
       previewRows,
-      warnings: [],
+      warnings,
       errors: [],
     };
   }
@@ -317,7 +349,21 @@ export class BudgetImportService {
         const touchedLineIds: string[] = [];
         for (const r of resolved) {
           if (r.action === 'CREATE') {
-            const envelopeId = r.envelopeId ?? options.defaultEnvelopeId;
+            let envelopeId = r.envelopeId ?? options.defaultEnvelopeId ?? null;
+            if (
+              !envelopeId &&
+              r.pendingEnvelopeCode &&
+              options.createMissingEnvelopes !== false
+            ) {
+              envelopeId = await this.ensureEnvelopeInTx(
+                tx,
+                clientId,
+                dto.budgetId,
+                envelopeMaps,
+                r.pendingEnvelopeCode,
+                r.pendingEnvelopeName ?? `Enveloppe ${r.pendingEnvelopeCode}`,
+              );
+            }
             if (!envelopeId) {
               errorRows++;
               continue;
@@ -492,6 +538,7 @@ export class BudgetImportService {
       ignoreEmptyRows: true,
       defaultCurrency: 'EUR',
       importMode: 'UPSERT',
+      createMissingEnvelopes: true,
       ...options,
     };
   }
@@ -567,18 +614,36 @@ export class BudgetImportService {
     );
   }
 
+  private envelopeCodeFromNormalized(
+    values: Record<string, string | number | null>,
+  ): string | null {
+    const raw = values['envelopeCode'] ?? values['envelope'];
+    if (raw == null || raw === '') return null;
+    const code = String(raw).trim();
+    return code.length > 0 ? code : null;
+  }
+
+  private envelopeNameFromNormalized(
+    values: Record<string, string | number | null>,
+    fallbackCode: string,
+  ): string {
+    const raw = values['envelopeName'];
+    if (raw != null && String(raw).trim()) return String(raw).trim();
+    return `Enveloppe ${fallbackCode}`;
+  }
+
   private resolveEnvelopeId(
     normalized: { values: Record<string, string | number | null> },
     options: BudgetImportOptionsConfig,
     maps: EnvelopeMaps,
   ): string | null {
-    const envelopeCode = normalized.values['envelopeCode'] ?? normalized.values['envelope'];
+    const envelopeCode = this.envelopeCodeFromNormalized(normalized.values);
     const envelopeId = normalized.values['envelopeId'];
     if (envelopeId && maps.byId.has(String(envelopeId))) {
       return String(envelopeId);
     }
-    if (envelopeCode != null && envelopeCode !== '') {
-      const id = maps.byCode.get(String(envelopeCode).toUpperCase());
+    if (envelopeCode) {
+      const id = maps.byCode.get(envelopeCode.toUpperCase());
       if (id) return id;
     }
     return options.defaultEnvelopeId ?? null;
@@ -592,15 +657,25 @@ export class BudgetImportService {
     rowLinkMaps: RowLinkMaps,
   ): ResolvedAction[] {
     const importMode = (options.importMode ?? 'UPSERT') as BudgetImportMode;
+    const createMissingEnvelopes = options.createMissingEnvelopes !== false;
     const seenExternalId = new Set<string>();
     const seenCompositeHash = new Set<string>();
     const result: ResolvedAction[] = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const normalized = this.matching.normalizeRow(row, mapping, options);
-      const envelopeId = this.resolveEnvelopeId(normalized, options, envelopeMaps);
+      let envelopeId = this.resolveEnvelopeId(normalized, options, envelopeMaps);
+      let pendingEnvelopeCode: string | undefined;
+      let pendingEnvelopeName: string | undefined;
       if (!envelopeId) {
-        if (!options.defaultEnvelopeId) {
+        const code = this.envelopeCodeFromNormalized(normalized.values);
+        if (createMissingEnvelopes && code) {
+          pendingEnvelopeCode = code;
+          pendingEnvelopeName = this.envelopeNameFromNormalized(
+            normalized.values,
+            code,
+          );
+        } else {
           result.push({
             action: 'ERROR',
             rowIndex: i + 1,
@@ -669,6 +744,11 @@ export class BudgetImportService {
         normalized.compositeHash,
         rowLinkMaps,
       );
+      const envelopeMeta = {
+        envelopeId: envelopeId ?? undefined,
+        pendingEnvelopeCode,
+        pendingEnvelopeName,
+      };
       if (existing) {
         const matchReason: PreviewReason = normalized.externalId
           ? 'MATCHED_BY_EXTERNAL_ID'
@@ -680,17 +760,17 @@ export class BudgetImportService {
             reason: matchReason,
             normalizedRow: normalized,
             existingTargetEntityId: existing.targetEntityId,
-            envelopeId: envelopeId ?? undefined,
+            ...envelopeMeta,
             rawRow: row,
           });
         } else {
           result.push({
             action: 'UPDATE',
             rowIndex: i + 1,
-            reason: matchReason,
+            reason: pendingEnvelopeCode ? 'WILL_CREATE_ENVELOPE' : matchReason,
             normalizedRow: normalized,
             existingTargetEntityId: existing.targetEntityId,
-            envelopeId: envelopeId ?? undefined,
+            ...envelopeMeta,
             rawRow: row,
           });
         }
@@ -701,22 +781,62 @@ export class BudgetImportService {
             rowIndex: i + 1,
             reason: 'NO_MATCH_UPDATE_ONLY',
             normalizedRow: normalized,
-            envelopeId: envelopeId ?? undefined,
+            ...envelopeMeta,
             rawRow: row,
           });
         } else {
           result.push({
             action: 'CREATE',
             rowIndex: i + 1,
-            reason: 'NO_MATCH_CREATE',
+            reason: pendingEnvelopeCode ? 'WILL_CREATE_ENVELOPE' : 'NO_MATCH_CREATE',
             normalizedRow: normalized,
-            envelopeId: envelopeId ?? undefined,
+            ...envelopeMeta,
             rawRow: row,
           });
         }
       }
     }
     return result;
+  }
+
+  private async ensureEnvelopeInTx(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    budgetId: string,
+    maps: EnvelopeMaps,
+    code: string,
+    name: string,
+  ): Promise<string> {
+    const key = code.toUpperCase();
+    const existingId = maps.byCode.get(key);
+    if (existingId) return existingId;
+
+    const existing = await tx.budgetEnvelope.findUnique({
+      where: {
+        clientId_budgetId_code: { clientId, budgetId, code },
+      },
+    });
+    if (existing) {
+      maps.byCode.set(key, existing.id);
+      maps.byId.set(existing.id, { id: existing.id, code: existing.code });
+      return existing.id;
+    }
+
+    const created = await tx.budgetEnvelope.create({
+      data: {
+        clientId,
+        budgetId,
+        name: name.trim() || `Enveloppe ${code}`,
+        code,
+        type: BudgetEnvelopeType.RUN,
+        status: BudgetEnvelopeStatus.ACTIVE,
+        description: 'Créée automatiquement lors de l’import',
+        sortOrder: 0,
+      },
+    });
+    maps.byCode.set(key, created.id);
+    maps.byId.set(created.id, { id: created.id, code: created.code });
+    return created.id;
   }
 
   private async resolveUniqueBudgetLineCodeInTx(

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -35,6 +36,10 @@ export class PreviewImportOptionsDto implements BudgetImportOptionsConfig {
 
   @IsOptional()
   decimalSeparator?: ',' | '.';
+
+  @IsOptional()
+  @IsBoolean()
+  createMissingEnvelopes?: boolean;
 }
 
 export class PreviewImportDto {

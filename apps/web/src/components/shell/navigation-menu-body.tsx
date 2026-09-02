@@ -100,6 +100,7 @@ export function NavigationMenuBody({ className }: NavigationMenuBodyProps) {
                 const budgetsChildren = [
                   { label: 'Dashboard', href: '/budgets/dashboard' },
                   { label: 'Budget', href: '/budgets' },
+                  { label: 'Imports', href: '/budgets/imports' },
                   { label: 'Configuration', href: '/budgets/configuration' },
                 ];
 
@@ -108,8 +109,11 @@ export function NavigationMenuBody({ className }: NavigationMenuBodyProps) {
                   if (href === '/budgets/dashboard') {
                     return pathname === '/budgets/dashboard' || pathname.startsWith('/budgets/dashboard/');
                   }
+                  if (href === '/budgets/imports') {
+                    return pathname.startsWith('/budgets/imports');
+                  }
                   if (href === '/budgets/configuration') {
-                    return pathname.startsWith('/budgets/configuration') || pathname.startsWith('/budgets/exercises') || pathname.startsWith('/budgets/imports');
+                    return pathname.startsWith('/budgets/configuration') || pathname.startsWith('/budgets/exercises');
                   }
                   if (href === '/budgets') {
                     if (pathname === '/budgets') return true;

@@ -28,6 +28,7 @@ const LOGICAL_FIELD_LABELS: Record<string, string> = {
   name: 'Libellé',
   label: 'Libellé (second)',
   envelopeCode: 'Code enveloppe',
+  envelopeName: 'Nom enveloppe',
   envelope: 'Enveloppe',
   envelopeId: 'Référence enveloppe',
   committedAmount: 'Montant engagé / facturé (commande)',

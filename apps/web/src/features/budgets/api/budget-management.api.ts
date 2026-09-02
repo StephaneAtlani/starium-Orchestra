@@ -329,6 +329,7 @@ export interface CreateEnvelopePayload {
   type: string;
   parentId?: string;
   sortOrder?: number;
+  status?: string;
 }
 
 export interface UpdateEnvelopePayload {

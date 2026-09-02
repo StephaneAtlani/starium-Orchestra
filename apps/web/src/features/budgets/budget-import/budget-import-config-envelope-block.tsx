@@ -148,10 +148,17 @@ export function BudgetImportConfigEnvelopeBlock({
           <div className="px-4 pb-1 pt-2">
             <BudgetImportColSelect
               label="Code enveloppe (fichier)"
-              hint="Code ou compte côté fichier pour rattacher la ligne à une enveloppe du budget."
+              hint="Code ou compte côté fichier pour rattacher la ligne à une enveloppe du budget. Si absent du budget, l’enveloppe peut être créée automatiquement."
               value={fields.envelopeCode}
               columnChoices={columns}
               onChange={(c) => setField('envelopeCode', c)}
+            />
+            <BudgetImportColSelect
+              label="Nom enveloppe (fichier)"
+              hint="Libellé utilisé si l’enveloppe est créée automatiquement (sinon « Enveloppe {code} »)."
+              value={fields.envelopeName}
+              columnChoices={columns}
+              onChange={(c) => setField('envelopeName', c)}
             />
             <BudgetImportColSelect
               label="Référence enveloppe (fichier)"
@@ -161,6 +168,27 @@ export function BudgetImportConfigEnvelopeBlock({
               onChange={(c) => setField('envelopeId', c)}
             />
           </div>
+        </div>
+      ) : null}
+
+      {envelopeImportMode === 'from_file_columns' ? (
+        <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/30 p-3">
+          <input
+            id="create-missing-envelopes"
+            type="checkbox"
+            className="mt-1 size-4 accent-[var(--brand-gold)]"
+            checked={options.createMissingEnvelopes !== false}
+            onChange={(e) =>
+              onOptionsChange({
+                ...options,
+                createMissingEnvelopes: e.target.checked,
+              })
+            }
+          />
+          <Label htmlFor="create-missing-envelopes" className="font-normal leading-snug">
+            Créer automatiquement les enveloppes absentes à partir des codes du fichier, puis
+            importer les lignes
+          </Label>
         </div>
       ) : null}
 
