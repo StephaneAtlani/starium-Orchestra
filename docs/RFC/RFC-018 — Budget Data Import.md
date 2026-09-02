@@ -2,7 +2,11 @@
 
 ## Statut
 
-Draft
+✅ **Backend implémenté** · 🟡 **UI wizard MVP** (`/budgets/[budgetId]/import`)
+
+> **Produit & centre de gestion** : voir **[RFC-BUD-043 — Import CSV/Excel — centre de gestion](./RFC-BUD-043%20%E2%80%94%20Import%20budg%C3%A9taire%20CSV%20Excel%20%E2%80%94%20centre%20de%20gestion.md)** (Configuration → Imports, profils, historique, modèle CSV).  
+> **Planification / SFTP / async** : voir **[RFC-BUD-044 — Automatisation](./RFC-BUD-044%20%E2%80%94%20Automatisation%20des%20imports%20budg%C3%A9taires.md)**.  
+> Conformité implémentation : [RFC-018 — Conformité implémentation](./RFC-018%20%E2%80%94%20Conformité%20implémentation.md).
 
 ## Dépendances
 

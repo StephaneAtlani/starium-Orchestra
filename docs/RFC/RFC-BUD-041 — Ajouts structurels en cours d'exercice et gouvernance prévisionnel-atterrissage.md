@@ -289,7 +289,7 @@ Tout intégrateur peut utiliser les **mêmes APIs** que le frontend :
 |-------|-------------|
 | Pas de mapping « import = intention A/B » en UI | Lot 2 — choix à l’execute |
 | Pas d’import planning 12 mois | Lot 6 — extension RFC-018 ou API bulk planning |
-| Pas de connecteur ERP temps réel | RFC future `RFC-BUD-042` ou extension RFC-018 §connecteurs |
+| Pas de connecteur ERP temps réel | RFC future `RFC-BUD-042` (ERP natif) ; hub profils/historique → **RFC-BUD-043** ; planification SFTP/cron → **RFC-BUD-044** |
 | Import consommé sans garde PA | Documenter : réel toujours autorisé ; structure soumise à gardes |
 
 ### 3.7.6 Schéma — flux ERP vs PA
