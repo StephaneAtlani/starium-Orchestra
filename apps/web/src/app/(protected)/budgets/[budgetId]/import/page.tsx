@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -10,6 +10,7 @@ import { BudgetPageHeader } from '@/features/budgets/components/budget-page-head
 import { BudgetImportWizard } from '@/features/budgets/budget-import';
 import { budgetDetail } from '@/features/budgets/constants/budget-routes';
 import { Button } from '@/components/ui/button';
+import { LoadingState } from '@/components/feedback/loading-state';
 
 export default function BudgetImportPage() {
   const p = useParams();
@@ -40,7 +41,9 @@ export default function BudgetImportPage() {
             </Link>
           </Button>
         </div>
-        <BudgetImportWizard budgetId={budgetId} />
+        <Suspense fallback={<LoadingState rows={3} />}>
+          <BudgetImportWizard budgetId={budgetId} />
+        </Suspense>
       </PageContainer>
     </RequireActiveClient>
   );

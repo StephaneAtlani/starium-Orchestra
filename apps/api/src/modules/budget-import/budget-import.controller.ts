@@ -1,11 +1,15 @@
 import {
   Body,
   Controller,
+  Get,
+  Header,
   Post,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -20,11 +24,26 @@ import { ExecuteImportDto } from './dto/execute-import.dto';
 import { AnalyzeSheetDto } from './dto/analyze-sheet.dto';
 import { PlatformMaxFileInterceptor } from '../platform-upload/platform-max-file.interceptor';
 import type { UploadedFileType } from './types';
+import {
+  BUDGET_IMPORT_CSV_TEMPLATE_BODY,
+  BUDGET_IMPORT_CSV_TEMPLATE_FILENAME,
+} from './constants/csv-template';
 
 @Controller('budget-imports')
 @UseGuards(JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard)
 export class BudgetImportController {
   constructor(private readonly service: BudgetImportService) {}
+
+  @Get('template.csv')
+  @RequirePermissions('budgets.read')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  templateCsv(@Res() res: Response) {
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${BUDGET_IMPORT_CSV_TEMPLATE_FILENAME}"`,
+    );
+    res.send(BUDGET_IMPORT_CSV_TEMPLATE_BODY);
+  }
 
   @Post('analyze')
   @RequirePermissions('budgets.read')

@@ -83,17 +83,25 @@ reporting --> decisions
 
 ### Routes
 
-- `/budgets/imports`
-- `/budgets/[budgetId]/import`
+- `/budgets/imports` — centre de gestion (profils, historique, modèle CSV)
+- `/budgets/imports/jobs/[jobId]` — détail d’une exécution
+- `/budgets/[budgetId]/import` — wizard d’import sur un budget
+- `/budgets/configuration` — accès carte **Imports**
 
-### Procédure
+### Procédure (hub)
 
-1. Charger fichier.
-2. Mapper colonnes.
-3. Vérifier preview.
-4. Lancer import.
-5. Contrôler anomalies.
+1. Ouvrir **Configuration → Imports** (ou `/budgets/imports`).
+2. Onglet **Aide CSV** : télécharger le modèle si besoin.
+3. Onglet **Profils** : créer / éditer un profil (finalité Structure / Réel / Mixte, budget par défaut optionnel).
+4. **Lancer** : si budget par défaut → wizard ; sinon choisir le budget dans la modale.
+5. Dans le wizard : charger le fichier, vérifier le mapping, prévisualiser, exécuter.
+6. Onglet **Historique** : contrôler le statut et les compteurs ; ouvrir le détail du job.
 
+### Procédure (depuis un budget)
+
+1. Fiche budget → Historique → **Importer des données** (ou URL `/budgets/[budgetId]/import`).
+2. Charger fichier → mapper → preview → lancer.
+3. Lien post-import vers l’historique hub.
 ---
 
 ## 7) Snapshots et comparaison

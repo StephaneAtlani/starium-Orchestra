@@ -54,6 +54,16 @@ export class BudgetImportMappingsController {
     return this.service.create(clientId!, dto, userId);
   }
 
+  @Post(':id/duplicate')
+  @RequirePermissions('budgets.update')
+  duplicate(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('id') id: string,
+    @RequestUserId() userId: string | undefined,
+  ) {
+    return this.service.duplicate(clientId!, id, userId);
+  }
+
   @Patch(':id')
   @RequirePermissions('budgets.update')
   update(

@@ -1,7 +1,6 @@
 /**
- * Contrats alignés sur le backend RFC-018 — pas de champs JSON inventés.
- * @see apps/api/src/modules/budget-import/budget-import.service.ts
- * @see apps/api/src/modules/budget-import/types/mapping.types.ts
+ * Contrats alignés sur le backend RFC-018 / RFC-BUD-043.
+ * @see apps/api/src/modules/budget-import/
  */
 
 /** Aligné sur `BudgetImportSourceType` Prisma / JSON. */
@@ -9,6 +8,17 @@ export type BudgetImportSourceType = 'CSV' | 'XLSX';
 
 /** Aligné sur `BudgetImportMode` Prisma. */
 export type BudgetImportMode = 'CREATE_ONLY' | 'UPSERT' | 'UPDATE_ONLY';
+
+/** Aligné sur `BudgetImportPurpose` Prisma — RFC-BUD-043. */
+export type BudgetImportPurpose = 'STRUCTURE' | 'REALITY' | 'MIXED';
+
+/** Aligné sur `BudgetImportJobStatus` Prisma. */
+export type BudgetImportJobStatus =
+  | 'ANALYZED'
+  | 'PREVIEWED'
+  | 'RUNNING'
+  | 'COMPLETED'
+  | 'FAILED';
 
 export type MatchingStrategy = 'EXTERNAL_ID' | 'COMPOSITE';
 
@@ -105,6 +115,50 @@ export interface ExecuteResult {
 
 export type ExecuteImportResult = ExecuteResult;
 
+export interface BudgetImportJobSummary {
+  warningsCount: number;
+  errorsByType: Record<string, number>;
+}
+
+/** Aligné sur `BudgetImportJobListItem` backend — RFC-BUD-043. */
+export interface BudgetImportJobDto {
+  id: string;
+  budgetId: string;
+  budgetLabel: string;
+  exerciseLabel: string | null;
+  fileName: string;
+  sourceType: BudgetImportSourceType;
+  status: BudgetImportJobStatus;
+  importMode: BudgetImportMode;
+  mappingId: string | null;
+  mappingName: string | null;
+  totalRows: number;
+  createdRows: number;
+  updatedRows: number;
+  skippedRows: number;
+  errorRows: number;
+  summary: BudgetImportJobSummary | null;
+  createdByLabel: string | null;
+  createdAt: string;
+}
+
+export interface ListBudgetImportJobsResult {
+  items: BudgetImportJobDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ListBudgetImportJobsParams {
+  budgetId?: string;
+  status?: BudgetImportJobStatus;
+  mappingId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
+
 /** Aligné sur `BudgetImportMappingResponse` backend. */
 export interface BudgetImportMappingDto {
   id: string;
@@ -117,6 +171,11 @@ export interface BudgetImportMappingDto {
   headerRowIndex: number;
   mappingConfig: MappingConfig;
   optionsConfig: Record<string, unknown> | null;
+  importPurpose: BudgetImportPurpose;
+  defaultBudgetId: string | null;
+  defaultBudgetLabel: string | null;
+  lastUsedAt: string | null;
+  jobCount: number;
   createdById: string | null;
   createdAt: string;
   updatedAt: string;
@@ -129,6 +188,15 @@ export interface ListBudgetImportMappingsResult {
   offset: number;
 }
 
+export interface ListBudgetImportMappingsParams {
+  limit?: number;
+  offset?: number;
+  importPurpose?: BudgetImportPurpose;
+  sourceType?: BudgetImportSourceType;
+  search?: string;
+  defaultBudgetId?: string;
+}
+
 export interface CreateBudgetImportMappingPayload {
   name: string;
   description?: string;
@@ -138,6 +206,8 @@ export interface CreateBudgetImportMappingPayload {
   headerRowIndex?: number;
   mappingConfig: MappingConfig;
   optionsConfig?: Record<string, unknown>;
+  importPurpose?: BudgetImportPurpose;
+  defaultBudgetId?: string | null;
 }
 
 export interface UpdateBudgetImportMappingPayload {
@@ -147,4 +217,6 @@ export interface UpdateBudgetImportMappingPayload {
   headerRowIndex?: number;
   mappingConfig?: MappingConfig;
   optionsConfig?: Record<string, unknown>;
+  importPurpose?: BudgetImportPurpose;
+  defaultBudgetId?: string | null;
 }

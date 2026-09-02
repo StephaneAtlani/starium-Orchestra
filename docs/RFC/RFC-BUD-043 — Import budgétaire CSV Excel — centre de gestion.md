@@ -2,11 +2,12 @@
 
 ## Statut
 
-📝 **Draft** — clarifie et étend **RFC-018** (moteur livré) ; cible l’écran **Configuration → Imports** et le parcours administrateur DSI/DAF.
+🟡 **Partiel (L1–L2 livrés, 2026-09)** — hub Configuration → Imports, API jobs/template/duplicate, profils enrichis, wizard `profileId`.  
+**Reste** : L3 (KPI strip, imports dans timeline décisions fiche budget), L4 export symétrique. Automatisation → [RFC-BUD-044](./RFC-BUD-044%20%E2%80%94%20Automatisation%20des%20imports%20budg%C3%A9taires.md).
 
 ## Priorité
 
-🔥 **Haute** — adoption Excel → Orchestra ; le wizard `/budgets/[budgetId]/import` existe mais le hub `/budgets/imports` est un placeholder et les jobs ne sont pas exploitables en UI.
+🔥 **Haute** — adoption Excel → Orchestra. Le moteur RFC-018 et le hub L1–L2 sont en place ; industrialisation (async, SFTP) hors lot.
 
 ## Dépendances
 
@@ -20,25 +21,37 @@
 
 * **RFC-018** reste la référence technique du **moteur d’import** (API, anti-doublon, transaction).
 * **Cette RFC** fixe le **modèle produit CSV/Excel**, le **centre de gestion** sous Configuration, les **profils d’import**, l’**historique des exécutions** et les **écarts assumés** par rapport à la spec initiale RFC-018.
-* Le hub `/budgets/imports` remplace la page d’orientation actuelle.
+* Le hub `/budgets/imports` remplace l’ancienne page d’orientation (L1–L2 livrés).
 
 ---
 
-# 1. Analyse de l'existant
+# 0. État d’implémentation (code)
 
-## 1.1 Moteur RFC-018 (livré)
+| Lot | Contenu | État |
+|-----|---------|------|
+| **L1** | `GET /api/budget-import-jobs`, détail job, `GET template.csv`, onglets Historique + Aide CSV | ✅ |
+| **L2** | `importPurpose` / `defaultBudgetId` / `lastUsedAt`, duplicate, onglet Profils, `LaunchImportBudgetModal`, wizard `?profileId=` + warning mid-year STRUCTURE | ✅ |
+| **L3** | KPI strip hub, imports dans timeline décisions fiche budget | ❌ Hors lot |
+| **L4** | Export lignes → CSV template | ❌ Hors lot |
 
-| Composant | État | Détail |
-|-----------|------|--------|
-| API `POST analyze` / `preview` / `execute` | ✅ | Module `apps/api/src/modules/budget-import/` |
-| CRUD `BudgetImportMapping` | ✅ | `/api/budget-import-mappings` |
-| Persistance `BudgetImportJob` + `BudgetImportRowLink` | ✅ | Jobs en base, **sans API de lecture liste** |
-| Wizard UI 4 étapes | ✅ | `/budgets/[budgetId]/import` |
-| Mappings sauvegardés dans le wizard | ✅ | CRUD depuis l’étape Configuration |
-| Hub Configuration → Imports | 🔸 | `/budgets/imports` = texte + lien liste budgets |
-| Historique imports dans fiche budget | ❌ | Onglet Historique = décisions RFC-032 uniquement |
-| Export template réimportable | ❌ | Hors MVP RFC-018 |
-| Intention métier (structure / réel) | ❌ | Écart RFC-BUD-041 §3.7 |
+**Chemins** : API `apps/api/src/modules/budget-import/` ; UI `apps/web/src/features/budgets/import-hub/` + wizard `budget-import/` ; routes `/budgets/imports`, `/budgets/imports/jobs/[jobId]`, `/budgets/[budgetId]/import`. Migration `20260902120000_rfc_bud_043_import_hub`.
+
+---
+
+# 1. Analyse de l'existant (pré-L1 — contexte)
+
+## 1.1 Moteur RFC-018 et gaps comblés par L1–L2
+
+| Composant | Avant L1 | Après L1–L2 |
+|-----------|----------|-------------|
+| API `POST analyze` / `preview` / `execute` | ✅ | ✅ inchangé |
+| CRUD `BudgetImportMapping` | ✅ | ✅ + purpose / defaultBudget / duplicate / filtres |
+| Persistance `BudgetImportJob` | ✅ DB only | ✅ + `GET /api/budget-import-jobs` |
+| Wizard UI 4 étapes | ✅ | ✅ + `profileId` / warning STRUCTURE |
+| Hub Configuration → Imports | 🔸 placeholder | ✅ 3 onglets Profils / Historique / Aide CSV |
+| Historique imports fiche budget | ❌ | ❌ (L3) |
+| Export template réimportable | ❌ | ❌ (L4) ; modèle CSV canonique téléchargeable ✅ |
+| Intention métier (structure / réel) | ❌ | ✅ `importPurpose` sur profil (+ warning UI) |
 
 ## 1.2 Formats et limites (inchangées, rappel explicite)
 
@@ -168,7 +181,7 @@ Le modèle est **indicatif** : le mapping reste configurable colonne → champ l
 
 ## 5.1 Structure page (3 zones)
 
-Route : **`/budgets/imports`** (remplace le placeholder).
+Route : **`/budgets/imports`** (centre de gestion L1–L2 livré).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

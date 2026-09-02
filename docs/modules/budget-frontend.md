@@ -312,7 +312,8 @@ Ils s’appuient sur les primitives : `PageHeader`, `Card`, `Table`, `Badge`, `E
 | `/budgets/[budgetId]/snapshots` | **Versions figées** (RFC-033) : liste (y compris captures **automatiques** aux statuts Soumis / Validé), colonnes **Figée au…** / **Date** (exécution), tri et filtres ; création manuelle ; détail `/budgets/[budgetId]/snapshots/[snapshotId]` avec bande KPI (`BudgetSnapshotKpiStrip`) |
 | `/budgets/[budgetId]/versions` | Squelette |
 | `/budgets/[budgetId]/reallocations` | **Journal des réaffectations** — `BudgetReallocationsPanel` (même panneau que l’onglet Réaffectations de la fiche) |
-| `/budgets/imports` | Squelette |
+| `/budgets/imports` | **Centre de gestion imports (RFC-BUD-043 L1–L2)** : onglets Profils / Historique / Aide CSV ; détail job `/budgets/imports/jobs/[jobId]` |
+| `/budgets/[budgetId]/import` | **Wizard import** (RFC-018 + BUD-043) : upload, mapping, preview, execute ; query `?profileId=` / `?purpose=` |
 | `/budgets/configuration` | Configuration budget : **Exercices**, **Imports**, workflow, **Types de version figée** → `/budgets/snapshot-occasion-types` (RFC-033) |
 | `/admin/snapshot-occasion-types` | CRUD types de version figée **globaux** (`PLATFORM_ADMIN`, RFC-033) |
 

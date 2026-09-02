@@ -241,7 +241,7 @@ Effets (transaction) :
 
 | Canal | Statut Orchestra | Usage typique | Intention RFC-BUD-041 |
 |-------|------------------|---------------|------------------------|
-| **A. Fichier Excel/CSV** | ✅ **Implémenté** — RFC-018, `/api/budget-imports/*`, UI `/budgets/configuration` → Imports | Export ERP / compta / Excel maison ; réimport mensuel | Selon mapping — voir §3.7.2 |
+| **A. Fichier Excel/CSV** | ✅ **Implémenté** — RFC-018 + **RFC-BUD-043** L1–L2 (`/api/budget-imports/*`, hub `/budgets/imports`, wizard `/budgets/[budgetId]/import`) | Export ERP / compta / Excel maison ; réimport mensuel | Selon mapping — voir §3.7.2 |
 | **B. API REST Orchestra** | ✅ **Disponible** (API-first) | Intégrateur, ETL, script DSI, iPaaS (Make, n8n…) | CRUD budget-lines, planning, events — voir §3.7.3 |
 | **C. Connecteur ERP natif** | ❌ **Hors scope** RFC-018 MVP | Sync SAP / BC / Cegid / etc. | Phase ultérieure (RFC dédiée ou module `integrations`) |
 

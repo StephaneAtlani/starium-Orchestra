@@ -118,7 +118,7 @@ Référence: `MANUEL-20-ADMIN-CLIENT.md`.
 - budgets;
 - cockpit budget;
 - enveloppes/lignes;
-- imports;
+- imports (hub `/budgets/imports` + wizard budget) ;
 - snapshots;
 - reporting et comparaisons;
 - paramétrages module.

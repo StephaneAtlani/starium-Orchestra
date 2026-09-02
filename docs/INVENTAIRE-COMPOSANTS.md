@@ -261,7 +261,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `budget-status-change-dialog` - `features/budgets/components/forms/budget-status-change-dialog.tsx` - ouvre un dialogue pour budget statut changement.
 - `budget-validation-workflow-strip` - `features/budgets/components/forms/budget-validation-workflow-strip.tsx` - gere l'interface de budget validation workflow strip.
 
-## Budgets / Import budget (12)
+## Budgets / Import budget (12) + hub RFC-BUD-043 (8)
 
 - `budget-import-column-selects` - `features/budgets/budget-import/budget-import-column-selects.tsx` - gere l'interface de budget import colonne selects.
 - `budget-import-config-budget-line-block` - `features/budgets/budget-import/budget-import-config-budget-line-block.tsx` - gere l'interface de budget import configuration budget ligne block.
@@ -275,6 +275,14 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `budget-import-preview-step` - `features/budgets/budget-import/budget-import-preview-step.tsx` - gere l'interface de budget import apercu step.
 - `budget-import-upload-step` - `features/budgets/budget-import/budget-import-upload-step.tsx` - gere l'interface de budget import televersement step.
 - `budget-import-wizard` - `features/budgets/budget-import/budget-import-wizard.tsx` - gere l'interface de budget import assistant.
+- `budget-import-hub-page` - `features/budgets/import-hub/budget-import-hub-page.tsx` - hub Configuration → Imports (onglets Profils / Historique / Aide CSV).
+- `import-profiles-tab` - `features/budgets/import-hub/import-profiles-tab.tsx` - liste et actions des profils d'import.
+- `import-history-tab` - `features/budgets/import-hub/import-history-tab.tsx` - historique des jobs d'import.
+- `import-csv-help-tab` - `features/budgets/import-hub/import-csv-help-tab.tsx` - aide CSV et telechargement du modele.
+- `launch-import-budget-modal` - `features/budgets/import-hub/launch-import-budget-modal.tsx` - modale choix du budget cible (StariumModal).
+- `import-profile-form-modal` - `features/budgets/import-hub/import-profile-form-modal.tsx` - creation / edition metadonnees profil.
+- `import-job-status-badge` - `features/budgets/import-hub/import-job-status-badge.tsx` - badge statut job (texte + couleur token).
+- `import-purpose-labels` - `features/budgets/import-hub/import-purpose-labels.ts` - libelles FR STRUCTURE / REALITY / MIXED.
 
 ## Budgets / Pages (4)
 

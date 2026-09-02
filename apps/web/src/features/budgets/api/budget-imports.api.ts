@@ -1,14 +1,18 @@
 /**
- * API budget-imports — RFC-018 (analyze, preview, execute, mappings CRUD).
+ * API budget-imports — RFC-018 + RFC-BUD-043 (jobs, template, duplicate).
  */
 
 import { parseApiFormError } from './budget-management.api';
 import type { AuthFetch } from './budget-management.api';
 import type {
   AnalyzeResult,
+  BudgetImportJobDto,
   BudgetImportMappingDto,
   CreateBudgetImportMappingPayload,
   ExecuteResult,
+  ListBudgetImportJobsParams,
+  ListBudgetImportJobsResult,
+  ListBudgetImportMappingsParams,
   ListBudgetImportMappingsResult,
   MappingConfig,
   BudgetImportOptionsConfig,
@@ -20,6 +24,7 @@ export type { AuthFetch };
 
 const BASE_IMPORTS = '/api/budget-imports';
 const BASE_MAPPINGS = '/api/budget-import-mappings';
+const BASE_JOBS = '/api/budget-import-jobs';
 
 function buildQueryString(params?: Record<string, string | number | boolean | undefined>): string {
   if (!params) return '';
@@ -104,11 +109,45 @@ export async function executeImport(
   return handleResponse<ExecuteResult>(res);
 }
 
+export async function downloadBudgetImportTemplate(authFetch: AuthFetch): Promise<void> {
+  const res = await authFetch(`${BASE_IMPORTS}/template.csv`);
+  if (!res.ok) {
+    throw await parseApiFormError(res);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'orchestra-import-lignes-modele.csv';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function listBudgetImportJobs(
+  authFetch: AuthFetch,
+  params?: ListBudgetImportJobsParams,
+): Promise<ListBudgetImportJobsResult> {
+  const qs = buildQueryString(params as Record<string, string | number | undefined>);
+  const res = await authFetch(`${BASE_JOBS}${qs}`);
+  return handleResponse<ListBudgetImportJobsResult>(res);
+}
+
+export async function getBudgetImportJob(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<BudgetImportJobDto> {
+  const res = await authFetch(`${BASE_JOBS}/${id}`);
+  return handleResponse<BudgetImportJobDto>(res);
+}
+
 export async function listBudgetImportMappings(
   authFetch: AuthFetch,
-  params?: { limit?: number; offset?: number },
+  params?: ListBudgetImportMappingsParams,
 ): Promise<ListBudgetImportMappingsResult> {
-  const qs = buildQueryString(params);
+  const qs = buildQueryString(params as Record<string, string | number | undefined>);
   const res = await authFetch(`${BASE_MAPPINGS}${qs}`);
   return handleResponse<ListBudgetImportMappingsResult>(res);
 }
@@ -142,6 +181,16 @@ export async function updateBudgetImportMapping(
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  });
+  return handleResponse<BudgetImportMappingDto>(res);
+}
+
+export async function duplicateBudgetImportMapping(
+  authFetch: AuthFetch,
+  id: string,
+): Promise<BudgetImportMappingDto> {
+  const res = await authFetch(`${BASE_MAPPINGS}/${id}/duplicate`, {
+    method: 'POST',
   });
   return handleResponse<BudgetImportMappingDto>(res);
 }

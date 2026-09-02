@@ -93,9 +93,20 @@ export const budgetQueryKeys = {
   budgetEnvelopeLinesAll: (clientId: string) =>
     ['budgets', clientId, 'budget-lines'] as const,
 
-  /** Liste des mappings d’import CSV/XLSX (scope client) — RFC-018 wizard. */
-  budgetImportMappingsList: (clientId: string) =>
-    ['budgets', clientId, 'budget-import-mappings'] as const,
+  /** Liste des mappings d’import CSV/XLSX (scope client) — RFC-018 / RFC-BUD-043. */
+  budgetImportMappingsList: (clientId: string, filters?: object) =>
+    filters != null
+      ? (['budgets', clientId, 'budget-import-mappings', filters] as const)
+      : (['budgets', clientId, 'budget-import-mappings'] as const),
+
+  /** Historique jobs d’import — RFC-BUD-043. */
+  budgetImportJobsList: (clientId: string, filters?: object) =>
+    filters != null
+      ? (['budgets', clientId, 'budget-import-jobs', filters] as const)
+      : (['budgets', clientId, 'budget-import-jobs'] as const),
+
+  budgetImportJobDetail: (clientId: string, jobId: string) =>
+    ['budgets', clientId, 'budget-import-jobs', jobId] as const,
 
   // Sous-domaines futurs (snapshots, versions, reallocations, imports)
   snapshots: (clientId: string, budgetId: string, filters?: object) =>

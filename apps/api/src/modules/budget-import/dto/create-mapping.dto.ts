@@ -1,12 +1,18 @@
 import {
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
 } from 'class-validator';
-import { BudgetImportEntityType, BudgetImportSourceType } from '@prisma/client';
+import {
+  BudgetImportEntityType,
+  BudgetImportPurpose,
+  BudgetImportSourceType,
+} from '@prisma/client';
 import type { MappingConfig } from '../types/mapping.types';
 
 export class CreateBudgetImportMappingDto {
@@ -39,4 +45,14 @@ export class CreateBudgetImportMappingDto {
   @IsOptional()
   @IsObject()
   optionsConfig?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsEnum(BudgetImportPurpose)
+  importPurpose?: BudgetImportPurpose;
+
+  /** `null` ou string vide = pas de budget par défaut. */
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsString()
+  defaultBudgetId?: string | null;
 }

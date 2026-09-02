@@ -406,6 +406,12 @@ export class BudgetImportService {
         return { jobId: job.id };
       });
       this.fileStore.delete(dto.fileToken);
+      if (dto.mappingId) {
+        await this.prisma.budgetImportMapping.updateMany({
+          where: { id: dto.mappingId, clientId },
+          data: { lastUsedAt: new Date() },
+        });
+      }
       await this.auditLogs.create({
         clientId,
         userId,

@@ -14,10 +14,10 @@ _Dernière mise à jour : avril 2026 (alignée sur le dépôt `starium-Orchestra
 | RFC-019 + RFC-015-3 + UI compare | Versioning & snapshots exploitables     | Comparaison forecast/baseline/snapshot/version : UI MVP ([RFC-FE-BUD-030](./RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md)), pages `/budgets/[budgetId]/reporting`, `/budgets/[budgetId]/versions`, `/budgets/[budgetId]/snapshots`. Reste : timeline dédiée, écarts avancés, finitions hors MVP | ⚠️ Partiel (comparaison UI MVP) |
 | RFC-021                          | Axes analytiques                        | **Partiel** : schéma + API + formulaire ligne (compte analytique, répartition cost centers avec libellés). Reste : comptes comptables « général », lecture consolidée DAF-ready, reporting analytique transversal | ⚠️ Partiel              |
 | RFC-025 + UI procurement         | Intégration procurement                 | Dialogues création commande / facture depuis le drawer ligne, onglets engagements/factures. Reste : visibilité achat « bout en bout » dans tout le module budget | ⚠️ Partiel              |
-| RFC-018 + UI import              | Import / Export & interop               | **Wizard** sur `/budgets/[budgetId]/import` : upload, mapping, prévisualisation, exécution (`BudgetImportWizard`). Hub `/budgets/imports` = point d’entrée minimal. Reste : export, réutilisation avancée des mappings, polish erreurs / gros fichiers | ⚠️ Partiel (import UI MVP+) |
+| RFC-018 + **RFC-BUD-043** + UI import | Import / Export & interop | **Wizard** `/budgets/[budgetId]/import` + **hub** `/budgets/imports` (Profils / Historique / Aide CSV, API jobs + template). Reste : L3 KPI/timeline, L4 export, automatisation **RFC-BUD-044**, polish gros fichiers | ⚠️ Partiel (L1–L2 hub OK) |
 | Extension reporting multi-client | Vue multi-client                        | Cockpit transversal multi-clients pour DSI à temps partagé : **non**                                                                                             | ❌ À faire               |
 
-**Routes utiles (vérification code)** : liste `/budgets`, cockpit `/budgets/dashboard`, détail budget `/budgets/[budgetId]`, reporting & comparaison `/budgets/[budgetId]/reporting`, import `/budgets/[budgetId]/import`, enveloppe `/budget-envelopes/[envelopeId]`, exercices `/budgets/exercises`, configuration `/budgets/configuration`, réglages cockpit `/budgets/cockpit-settings`, réglage workflow budget (garde « enveloppes non brouillon » avant `VALIDATED`) `/budgets/workflow-settings`.
+**Routes utiles (vérification code)** : liste `/budgets`, cockpit `/budgets/dashboard`, détail budget `/budgets/[budgetId]`, reporting & comparaison `/budgets/[budgetId]/reporting`, import wizard `/budgets/[budgetId]/import`, **hub imports** `/budgets/imports` (+ `/budgets/imports/jobs/[jobId]`), enveloppe `/budget-envelopes/[envelopeId]`, exercices `/budgets/exercises`, configuration `/budgets/configuration`, réglages cockpit `/budgets/cockpit-settings`, réglage workflow budget (garde « enveloppes non brouillon » avant `VALIDATED`) `/budgets/workflow-settings`.
 
 ---
 
@@ -31,6 +31,7 @@ _Dernière mise à jour : avril 2026 (alignée sur le dépôt `starium-Orchestra
 | RFC-015-3  | Snapshots budgétaires     | Historisation backend                         | ✅ Terminé |
 | RFC-019    | Budget Versioning         | Versioning backend                            | ✅ Terminé |
 | RFC-018    | Budget Data Import        | Backend import / mapping / preview / execute  | ✅ Terminé |
+| RFC-BUD-043 | Import hub (Configuration) | Profils, historique jobs, modèle CSV, wizard `profileId` | 🟡 L1–L2 |
 | RFC-017    | Budget Reallocation       | Réallocation budgétaire                       | ✅ Terminé |
 | RFC-021    | Analytical Dimensions     | Modèle & API partiels (compte analytique, splits cost centers sur ligne) ; reporting analytique complet **non** | ⚠️ Partiel |
 | Config client (hors RFC numérotée) | Garde « enveloppes non `DRAFT` avant `VALIDATED` » : **défaut** aligné produit ; **override** par client (`Client.budgetWorkflowConfig`, API §4 [API.md](../API.md)) | ✅ Implémenté |
@@ -47,7 +48,7 @@ Les RFC backend ci-dessus sont documentées dans les RFC budget ; le frontend a 
 | Explicabilité | Le drawer ligne couvre beaucoup de données ; il reste à finaliser le récit métier par cellule / écart (sans friction) |
 | Gouvernance   | Statuts de cycle de vie présents ; **pas** de workflow métier piloté (validation obligatoire, files, rôles) — hors scope schéma actuel           |
 | Analytique    | Données analytiques sur ligne en cours ; pas encore une lecture comptable / consolidée « DAF » |
-| Adoption      | Import UI présent ; export, réutilisation des mappings et robustesse gros volumes à renforcer |
+| Adoption      | Hub import L1–L2 livré (profils, historique, modèle CSV) ; export, automatisation (RFC-BUD-044) et L3 timeline fiche budget à renforcer |
 | Réel achats   | L’intégration procurement est amorcée (drawer) mais pas encore le fil conducteur achats dans tout le budget |
 
 ---
@@ -62,7 +63,7 @@ Les RFC backend ci-dessus sont documentées dans les RFC budget ; le frontend a 
 | 🔥 4     | Vue enveloppe & landing    | Socle enveloppe déjà là ; monter en gamme comparatifs / projection |
 | 🔥 5     | Workflow budgétaire        | Gouvernance (toujours absent côté processus)         |
 | 🔥 6     | Axes analytiques           | Passer du partiel au reporting DAF-ready              |
-| 🔥 7     | Import polish + export     | Import wizard OK ; export et industrialisation imports |
+| 🔥 7     | Import polish + export + auto | Hub L1–L2 OK ; export + RFC-BUD-044 + L3 |
 | 🔥 8     | Alerting avancé            | Après socle cockpit / règles métier configurables   |
 
 ---

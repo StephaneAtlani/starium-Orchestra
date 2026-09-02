@@ -96,17 +96,19 @@ Détail : [docs/API.md](../API.md) §18.1 (Budget Dashboard API).
 
 Détail : [docs/API.md](../API.md) §17 (Réallocations budgétaires).
 
-### Backend Budget Import (RFC-018, RFC-021)
+### Backend Budget Import (RFC-018, RFC-021, RFC-BUD-043)
 
-- **Module** `budget-import` : import de lignes budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`).
+- **Module** `budget-import` : import de lignes budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`) ; hub UI `/budgets/imports` (L1–L2).
 - **API** :
   - `POST /api/budget-imports/analyze` — analyse du fichier (fileToken, colonnes, échantillon, rowCount) ; permission `budgets.read`.
   - `POST /api/budget-imports/preview` — prévisualisation sans écriture (stats create/update/skip/error, previewRows, warnings, errors) ; permission `budgets.read`.
-  - `POST /api/budget-imports/execute` — exécution transactionnelle (création/mise à jour BudgetLine, BudgetImportRowLink, job) ; option `defaultGeneralLedgerAccountId` ou compte client par défaut (code 999999) ; lignes importées en ENTERPRISE, sans splits ni compte analytique ; permission `budgets.update`.
-  - CRUD `GET/POST/GET/:id/PATCH/DELETE /api/budget-import-mappings` — mappings sauvegardés (scopés client) ; `budgets.read` (GET), `budgets.update` (POST, PATCH, DELETE).
-- **Règles** : fichier max 10 MB, 20 000 lignes ; seul l’uploader peut utiliser le fileToken pour preview/execute ; anti-doublon par externalId ou clé composite ; traçabilité via BudgetImportRowLink.
+  - `POST /api/budget-imports/execute` — exécution transactionnelle (création/mise à jour BudgetLine, BudgetImportRowLink, job) ; option `defaultGeneralLedgerAccountId` ou compte client par défaut (code 999999) ; lignes importées en ENTERPRISE, sans splits ni compte analytique ; permission `budgets.update` ; met à jour `lastUsedAt` du mapping si fourni.
+  - `GET /api/budget-imports/template.csv` — modèle CSV téléchargeable ; `budgets.read`.
+  - `GET /api/budget-import-jobs` / `GET …/:id` — historique des jobs (labels métier budget/exercice/auteur) ; `budgets.read`.
+  - CRUD `GET/POST/GET/:id/PATCH/DELETE /api/budget-import-mappings` — profils (finalité, budget par défaut, filtres, `POST …/:id/duplicate`) ; `budgets.read` (GET), `budgets.update` (écritures).
+- **Règles** : fichier max 10 MB, 20 000 lignes ; seul l’uploader peut utiliser le fileToken pour preview/execute ; anti-doublon par externalId ou clé composite ; traçabilité via BudgetImportRowLink ; isolation stricte `clientId`.
 
-Détail : [docs/API.md](../API.md) §19 (Budget Data Import).
+Détail : [docs/API.md](../API.md) §19 (Budget Data Import + hub BUD-043).
 
 ### Backend Budget Versioning (RFC-019, RFC-021)
 
@@ -145,7 +147,7 @@ Aucun formulaire complet (CRUD) ni UI avancée (versioning, import, snapshots, r
 - **Frontend** : pas d’interface CRUD complète pour exercices/budgets/enveloppes/lignes. Le **dashboard Budgets** (RFC-022) est implémenté : page `/budgets/dashboard` avec KPI, CAPEX/OPEX, tendance mensuelle, top enveloppes/lignes, enveloppes à risque. UI dimensions analytiques (référentiels, édition ligne avec portée et ventilation) hors périmètre immédiat (RFC-021).
 - **Suppression physique** : pas d’endpoint DELETE sur la structure budgétaire (RFC-015-2).
 - **Snapshots** : implémentés (RFC-015-3). **Réallocations** : backend implémenté (RFC-017) ; UI « Réallouer » hors périmètre MVP.
-- **Axes analytiques, export Excel, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend implémenté (RFC-018) ; UI d’import hors périmètre MVP. **Versioning** : backend implémenté (RFC-019) ; baseline, révisions, version active, comparaison ; UI versioning hors périmètre MVP.
+- **Axes analytiques, export Excel, workflow d’approbation** : hors périmètre du MVP. **Import Excel/CSV** : backend RFC-018 + hub UI **RFC-BUD-043** L1–L2 (`/budgets/imports`, wizard par budget). **Versioning** : backend implémenté (RFC-019) ; baseline, révisions, version active, comparaison ; UI versioning hors périmètre MVP.
 
 ---
 

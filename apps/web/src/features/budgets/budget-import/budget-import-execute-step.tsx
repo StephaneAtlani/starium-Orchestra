@@ -14,6 +14,8 @@ export interface BudgetImportExecuteStepProps {
   canExecute: boolean;
   readOnlyReason: string | null;
   budgetDetailHref: string;
+  historyJobHref?: string | null;
+  profilesHref?: string | null;
   onExecute: () => void;
   onBack: () => void;
   onResetWizard: () => void;
@@ -27,6 +29,8 @@ export function BudgetImportExecuteStep({
   canExecute,
   readOnlyReason,
   budgetDetailHref,
+  historyJobHref,
+  profilesHref,
   onExecute,
   onBack,
   onResetWizard,
@@ -63,9 +67,11 @@ export function BudgetImportExecuteStep({
       ) : null}
 
       {executeResult ? (
-        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-          <p className="font-semibold text-emerald-800 dark:text-emerald-200">Import terminé</p>
-          <p className="text-sm text-muted-foreground">Job : {executeResult.jobId}</p>
+        <div
+          className="space-y-3 rounded-lg border border-border bg-muted/30 p-4"
+          aria-live="polite"
+        >
+          <p className="font-semibold text-foreground">Import terminé</p>
           <ul className="text-sm">
             <li>Créées : {executeResult.createdRows}</li>
             <li>Mises à jour : {executeResult.updatedRows}</li>
@@ -76,6 +82,16 @@ export function BudgetImportExecuteStep({
             <Button type="button" asChild>
               <Link href={budgetDetailHref}>Retour au budget</Link>
             </Button>
+            {historyJobHref ? (
+              <Button type="button" variant="outline" asChild>
+                <Link href={historyJobHref}>Voir dans l’historique</Link>
+              </Button>
+            ) : null}
+            {profilesHref ? (
+              <Button type="button" variant="ghost" asChild>
+                <Link href={profilesHref}>Gérer les profils</Link>
+              </Button>
+            ) : null}
             <Button type="button" variant="secondary" onClick={onResetWizard}>
               Nouvel import
             </Button>

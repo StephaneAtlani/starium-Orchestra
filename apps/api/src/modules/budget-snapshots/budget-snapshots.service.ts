@@ -28,6 +28,7 @@ import {
   snapshotAsOfInclusiveEndUtc,
 } from '../financial-core/budget-line-amounts.aggregate';
 import { calculateLanding } from '../budget-landing/budget-landing.calculator';
+import { resolveCreatedByLabel } from '../../common/utils/user-display-label';
 
 const SNAP_CODE_SUFFIX_BYTES = 3; // 6 hex chars
 const MAX_CODE_RETRIES = 5;
@@ -786,21 +787,3 @@ function toDetail(
   };
 }
 
-function resolveCreatedByLabel(
-  createdByUser:
-    | {
-        firstName: string | null;
-        lastName: string | null;
-        email: string;
-      }
-    | null
-    | undefined,
-): string | null {
-  if (!createdByUser) return null;
-  const fullName = [createdByUser.firstName, createdByUser.lastName]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  if (fullName) return fullName;
-  return createdByUser.email || null;
-}

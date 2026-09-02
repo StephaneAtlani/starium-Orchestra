@@ -2,7 +2,7 @@
 
 Toutes les routes sont préfixées par **`/api`** (ex. `POST /api/auth/login`).
 
-Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** / **RFC-PROJ-CYCLE-002** (cycles de pilotage — CRUD + `by-project`, voir §5.8), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
+Références : RFC-002 (auth), RFC-SEC-001 (MFA Hardening & Recovery Codes), RFC-008 (gestion des utilisateurs), RFC-009 (gestion des clients), RFC-011 (rôles, permissions et modules), RFC-014-2 (GET /me avec platformRole), RFC-015-2 (Budget Management Backend), RFC-016 (Budget Reporting API), RFC-017 (Budget Reallocation), RFC-018 (Budget Data Import), **RFC-BUD-043** (hub imports — jobs, template CSV, profils enrichis), RFC-019 (Budget Versioning), RFC-022 (Budget Dashboard API), RFC-032 (historique décisionnel budget — `GET /api/budgets/:budgetId/decision-history`), RFC-033 (versions figées / snapshots + types d’occasion), RFC-034 (GED procurement — pièces jointes PO/facture), RFC-035 (stockage procurement local + S3 optionnel, settings plateforme), RFC-023 — *Client RBAC Administration* (fichier distinct de *RFC-023 — Budget Prévisionnel*), RFC-TEAM-004 (associations collaborateur ↔ compétence), RFC-PROJ-001 (module Projets MVP), **RFC-PROJ-CYCLE-001** / **RFC-PROJ-CYCLE-002** (cycles de pilotage — CRUD + `by-project`, voir §5.8), RFC-PROJ-INT-003 / RFC-PROJ-INT-005 (OAuth Microsoft 365), RFC-PROJ-INT-007 / RFC-PROJ-INT-008 / RFC-PROJ-INT-009 / RFC-PROJ-INT-016 (lien projet Microsoft, sync tâches, sync documents, sync bidirectionnelle tâches), RFC-ACL-012 (license reporting — `/api/platform/license-reporting`), RFC-038 (socle alertes, notifications in-app, file email async), **RFC-ACL-005** (`/api/resource-acl/*`), **RFC-ACL-011** (`/api/access-diagnostics/*`), **RFC-ACL-014** (`docs/ACCESS-MODEL.md`, self-diagnostic `effective-rights/me`, lockout ACL, guards mutations plateforme).
 
 ---
 
@@ -2650,7 +2650,7 @@ Retourne la vue globale du cockpit budgétaire pour un budget résolu (ou l’ex
 
 ## 19. Budget Data Import — `/api/budget-imports/*`, `/api/budget-import-mappings`
 
-Référence : **RFC-018** (Budget Data Import). Import de données budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`) : analyse, mapping des colonnes, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via `BudgetImportRowLink`.
+Référence : **RFC-018** (Budget Data Import) + **RFC-BUD-043** (centre de gestion : jobs, template CSV, profils). Import de données budgétaires depuis fichiers Excel (`.xlsx`) ou CSV (`.csv`) : analyse, mapping des colonnes, prévisualisation, exécution transactionnelle avec anti-doublon (externalId ou clé composite) et traçabilité via `BudgetImportRowLink`. Isolation stricte par `clientId` actif.
 
 ### Guards et headers
 
@@ -2762,19 +2762,43 @@ Exécution de l’import (création/mise à jour de `BudgetLine`, création de `
 
 **Erreurs :** 400 (validation), 401, 403 (fileToken invalide ou non uploader), 404 (fichier expiré ou budget introuvable).
 
+Si `mappingId` est fourni et l’exécution réussit, `BudgetImportMapping.lastUsedAt` est mis à jour (RFC-BUD-043).
+
+---
+
+### GET /api/budget-imports/template.csv (RFC-BUD-043)
+
+Modèle CSV téléchargeable (UTF-8 BOM, séparateur `;`). Permission `budgets.read`.
+
+**Réponse 200** : corps `text/csv` ; `Content-Disposition: attachment; filename="orchestra-import-lignes-modele.csv"`.
+
+---
+
+### Jobs d’import — `/api/budget-import-jobs` (RFC-BUD-043)
+
+Historique des exécutions (`BudgetImportJob`), scopé client actif. Permission `budgets.read`.
+
+- **GET /api/budget-import-jobs** — Query : `budgetId?`, `status?`, `mappingId?`, `from?`, `to?` (ISO), `limit` (max 100), `offset`.
+- **GET /api/budget-import-jobs/:id** — Détail.
+
+**Réponse item** : `id`, `budgetId`, `budgetLabel`, `exerciseLabel`, `fileName`, `sourceType`, `status`, `importMode`, `mappingId`, `mappingName`, compteurs, `summary`, `createdByLabel`, `createdAt`. Libellés métier uniquement (pas d’ID seul comme texte principal).
+
+**Erreurs :** 401, 403, 404 (job introuvable ou hors client).
+
 ---
 
 ### CRUD Budget Import Mappings — `/api/budget-import-mappings`
 
-Mappings sauvegardés (configuration colonnes → champs logiques, stratégie de rapprochement, options). Tous scopés au client actif.
+Mappings sauvegardés (configuration colonnes → champs logiques, stratégie de rapprochement, options). Tous scopés au client actif. **RFC-BUD-043** enrichit les profils (`importPurpose`, `defaultBudgetId`, `lastUsedAt`).
 
-- **GET /api/budget-import-mappings** — Liste (query : `limit`, `offset`). Permission `budgets.read`.
-- **POST /api/budget-import-mappings** — Création (name, description?, sourceType, entityType?, sheetName?, headerRowIndex?, mappingConfig, optionsConfig?). Permission `budgets.update`.
-- **GET /api/budget-import-mappings/:id** — Détail. Permission `budgets.read`.
-- **PATCH /api/budget-import-mappings/:id** — Mise à jour partielle. Permission `budgets.update`.
+- **GET /api/budget-import-mappings** — Liste. Query : `limit`, `offset`, `importPurpose?` (`STRUCTURE` \| `REALITY` \| `MIXED`), `sourceType?`, `search?`, `defaultBudgetId?`. Permission `budgets.read`.
+- **POST /api/budget-import-mappings** — Création (`name`, `description?`, `sourceType`, `entityType?`, `sheetName?`, `headerRowIndex?`, `mappingConfig`, `optionsConfig?`, `importPurpose?`, `defaultBudgetId?`). Permission `budgets.update`.
+- **GET /api/budget-import-mappings/:id** — Détail (inclut `defaultBudgetLabel`, `lastUsedAt`, `jobCount`). Permission `budgets.read`.
+- **POST /api/budget-import-mappings/:id/duplicate** — Copie avec suffixe « (copie) ». Audit `budget_import_mapping.duplicated`. Permission `budgets.update`.
+- **PATCH /api/budget-import-mappings/:id** — Mise à jour partielle (dont `importPurpose`, `defaultBudgetId`). Permission `budgets.update`.
 - **DELETE /api/budget-import-mappings/:id** — Suppression. Permission `budgets.update`.
 
-**Erreurs :** 401, 403, 404 (mapping introuvable ou hors client).
+**Erreurs :** 400 (`defaultBudgetId` hors client), 401, 403, 404 (mapping introuvable ou hors client).
 
 ---
 

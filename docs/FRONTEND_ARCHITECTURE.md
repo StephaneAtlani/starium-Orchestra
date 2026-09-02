@@ -922,7 +922,10 @@ features/budgets/
 │   ├── budget-landing.api.ts     # RFC-BUD-040 — atterrissage (canonique)
 │   ├── budget-forecast.api.ts      # RFC-BUD-040 — wrapper déprécié → landing
 │   ├── budget-dashboard.api.ts
-│   └── stubs (snapshots, reallocations, imports, versioning)
+│   ├── budget-imports.api.ts   # RFC-018 + RFC-BUD-043 (wizard + hub jobs/mappings/template)
+│   └── … (snapshots, reallocations, versioning selon feature)
+├── budget-import/              # wizard analyze / mapping / preview / execute
+├── import-hub/                 # RFC-BUD-043 — hub Profils / Historique / Aide CSV
 ├── hooks/
 │   ├── use-budget-exercises.ts, use-budgets.ts
 │   ├── use-budget-exercises-query.ts, use-budgets-query.ts, use-budget-exercise-options-query.ts  # RFC-FE-003

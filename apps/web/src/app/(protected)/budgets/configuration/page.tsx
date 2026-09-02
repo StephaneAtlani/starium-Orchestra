@@ -36,7 +36,7 @@ export default async function BudgetsConfigurationPage() {
               <div>
                 <h3 className="font-semibold">Imports</h3>
                 <p className="text-sm text-muted-foreground">
-                  Importer des données depuis Excel
+                  Profils, historique et modèle CSV
                 </p>
               </div>
             </CardContent>

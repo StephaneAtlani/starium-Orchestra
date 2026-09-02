@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { budgetQueryKeys } from '../lib/budget-query-keys';
 import { createEnvelope } from '../api/budget-management.api';
 import { useBudgetDetail } from '../hooks/use-budgets';
@@ -17,6 +19,7 @@ import {
   createBudgetImportMapping,
   deleteBudgetImportMapping,
   executeImport,
+  getBudgetImportMapping,
   listBudgetImportMappings,
   previewImport,
   updateBudgetImportMapping,
@@ -24,6 +27,7 @@ import {
 import type {
   AnalyzeResult,
   BudgetImportOptionsConfig,
+  BudgetImportPurpose,
   ExecuteResult,
   MappingConfig,
   PreviewResult,
@@ -44,7 +48,11 @@ import { BudgetImportUploadStep } from './budget-import-upload-step';
 import { BudgetImportMappingStep } from './budget-import-mapping-step';
 import { BudgetImportPreviewStep } from './budget-import-preview-step';
 import { BudgetImportExecuteStep } from './budget-import-execute-step';
-import { budgetDetail } from '../constants/budget-routes';
+import {
+  budgetDetail,
+  budgetImportJobDetail,
+  budgetImportsTab,
+} from '../constants/budget-routes';
 
 type WizardStep = 'upload' | 'mapping' | 'preview' | 'execute';
 
@@ -68,6 +76,10 @@ export interface BudgetImportWizardProps {
 export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
   const authFetch = useAuthenticatedFetch();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const profileIdParam = searchParams.get('profileId');
+  const purposeParam = searchParams.get('purpose');
+  const profileBootstrapped = useRef(false);
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const { has, isLoading: permLoading } = usePermissions();
@@ -95,6 +107,8 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     ignoreEmptyRows: true,
     dateFormat: 'DD/MM/YYYY',
   });
+  const [activeImportPurpose, setActiveImportPurpose] =
+    useState<BudgetImportPurpose>('MIXED');
 
   const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecuteResult | null>(null);
@@ -124,6 +138,8 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
   const [invoicesSectionEnabled, setInvoicesSectionEnabled] = useState(false);
 
   const budgetCurrency = budget?.currency ?? 'EUR';
+  const showMidYearStructureWarning =
+    activeImportPurpose === 'STRUCTURE' && budget?.status === 'VALIDATED';
 
   useEffect(() => {
     if (budget?.currency) {
@@ -133,6 +149,59 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       }));
     }
   }, [budget?.currency]);
+
+  useEffect(() => {
+    if (profileBootstrapped.current || !clientId || !hasRead) return;
+
+    if (purposeParam === 'REALITY') {
+      setOptions((o) => ({ ...o, importMode: 'UPDATE_ONLY' }));
+      setOrdersSectionEnabled(true);
+      setInvoicesSectionEnabled(true);
+      setActiveImportPurpose('REALITY');
+    }
+
+    if (!profileIdParam) {
+      profileBootstrapped.current = true;
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await getBudgetImportMapping(authFetch, profileIdParam);
+        if (cancelled) return;
+        const mc = profile.mappingConfig as MappingConfig;
+        setMapping(mc);
+        setSelectedSavedId(profile.id);
+        setMappingName(profile.name);
+        setActiveImportPurpose(profile.importPurpose ?? 'MIXED');
+        if (profile.optionsConfig && typeof profile.optionsConfig === 'object') {
+          setOptions((o) => ({
+            ...o,
+            ...(profile.optionsConfig as BudgetImportOptionsConfig),
+          }));
+        }
+        const derived = deriveOrdersInvoicesSectionSwitches(mc.fields ?? {});
+        setOrdersSectionEnabled(derived.ordersSectionEnabled);
+        setInvoicesSectionEnabled(derived.invoicesSectionEnabled);
+        setEnvelopeImportMode(inferEnvelopeImportModeFromMapping(mc));
+        if (purposeParam === 'REALITY' || profile.importPurpose === 'REALITY') {
+          setOptions((o) => ({
+            ...o,
+            importMode: purposeParam === 'REALITY' ? 'UPDATE_ONLY' : (o.importMode ?? 'UPSERT'),
+          }));
+        }
+      } catch {
+        // Profil introuvable : wizard sans préremplissage.
+      } finally {
+        profileBootstrapped.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authFetch, clientId, hasRead, profileIdParam, purposeParam]);
 
   /** Rafraîchir les enveloppes au retour onglet (ex. après création enveloppe). */
   useEffect(() => {
@@ -350,6 +419,9 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
       await queryClient.invalidateQueries({
         queryKey: budgetQueryKeys.budgetImportMappingsList(clientId),
       });
+      await queryClient.invalidateQueries({
+        queryKey: budgetQueryKeys.budgetImportJobsList(clientId),
+      });
     } catch (e) {
       setExecuteError(errMessage(e));
     } finally {
@@ -369,6 +441,7 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
     const mc = sel.mappingConfig as MappingConfig;
     const oc = (sel.optionsConfig as BudgetImportOptionsConfig | null) ?? {};
     setMapping(mc);
+    setActiveImportPurpose(sel.importPurpose ?? 'MIXED');
     applyDerivedSections(mc);
     setEnvelopeImportMode(inferEnvelopeImportModeFromMapping(mc));
     setOptions((prev) => ({
@@ -521,29 +594,44 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
 
   return (
     <div className="space-y-6">
-      <nav aria-label="Étapes du wizard" className="flex flex-wrap gap-2">
-        {steps.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={step === s.id}
-            onClick={() => {
-              if (s.id === 'upload') setStep('upload');
-              if (s.id === 'mapping' && analyzeResult) setStep('mapping');
-              if (s.id === 'preview' && previewResult) setStep('preview');
-              if (s.id === 'execute' && previewResult) setStep('execute');
-            }}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              step === s.id
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <nav aria-label="Étapes du wizard" className="flex flex-wrap gap-2">
+          {steps.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              aria-selected={step === s.id}
+              onClick={() => {
+                if (s.id === 'upload') setStep('upload');
+                if (s.id === 'mapping' && analyzeResult) setStep('mapping');
+                if (s.id === 'preview' && previewResult) setStep('preview');
+                if (s.id === 'execute' && previewResult) setStep('execute');
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-medium min-h-11 sm:min-h-9 ${
+                step === s.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+        <Button type="button" variant="ghost" size="sm" asChild className="min-h-11 sm:min-h-9">
+          <Link href={budgetImportsTab('profiles')}>Gérer les profils</Link>
+        </Button>
+      </div>
+
+      {showMidYearStructureWarning ? (
+        <Alert>
+          <AlertTitle>Import structurel sur budget validé</AlertTitle>
+          <AlertDescription>
+            Les lignes seront créées en brouillon ; pas d’activation de prévision d’atterrissage
+            (PA) automatique. Vous pouvez poursuivre l’import.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {step === 'upload' ? (
         <BudgetImportUploadStep
@@ -656,6 +744,10 @@ export function BudgetImportWizard({ budgetId }: BudgetImportWizardProps) {
               : null
           }
           budgetDetailHref={budgetDetail(budgetId)}
+          historyJobHref={
+            executeResult?.jobId ? budgetImportJobDetail(executeResult.jobId) : null
+          }
+          profilesHref={budgetImportsTab('profiles')}
           onExecute={() => void runExecute()}
           onBack={() => setStep('preview')}
           onResetWizard={resetWizard}

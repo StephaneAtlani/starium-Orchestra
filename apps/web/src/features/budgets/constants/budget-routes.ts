@@ -98,8 +98,20 @@ export function budgetImports(): string {
   return `${BUDGETS_ROOT}/imports`;
 }
 
-export function budgetImport(budgetId: string): string {
-  return `${BUDGETS_ROOT}/${budgetId}/import`;
+export function budgetImportsTab(tab: 'profiles' | 'history' | 'help'): string {
+  return `${BUDGETS_ROOT}/imports?tab=${tab}`;
+}
+
+export function budgetImportJobDetail(jobId: string): string {
+  return `${BUDGETS_ROOT}/imports/jobs/${jobId}`;
+}
+
+export function budgetImport(budgetId: string, profileId?: string): string {
+  const base = `${BUDGETS_ROOT}/${budgetId}/import`;
+  if (profileId) {
+    return `${base}?profileId=${encodeURIComponent(profileId)}`;
+  }
+  return base;
 }
 
 export function budgetDashboard(): string {

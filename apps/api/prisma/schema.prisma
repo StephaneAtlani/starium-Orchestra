@@ -3776,6 +3776,7 @@ model Budget {
   budgetSnapshots           BudgetSnapshot[]
   budgetReallocations       BudgetReallocation[]
   budgetImportJobs          BudgetImportJob[]
+  defaultImportMappings     BudgetImportMapping[]
   dashboardConfigsAsDefault BudgetDashboardConfig[]
   governanceCycleItems      GovernanceCycleItem[]
   budgetGovernanceDecisions BudgetGovernanceDecision[]
@@ -4595,26 +4596,40 @@ enum BudgetImportMode {
   UPDATE_ONLY
 }
 
-model BudgetImportMapping {
-  id             String                 @id @default(cuid())
-  clientId       String
-  name           String
-  description    String?
-  sourceType     BudgetImportSourceType
-  entityType     BudgetImportEntityType @default(BUDGET_LINES)
-  sheetName      String?
-  headerRowIndex Int                    @default(1)
-  mappingConfig  Json
-  optionsConfig  Json?
-  createdById    String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+/// RFC-BUD-043 — finalité métier d’un profil d’import.
+enum BudgetImportPurpose {
+  STRUCTURE
+  REALITY
+  MIXED
+}
 
-  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdBy User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  jobs      BudgetImportJob[]
+model BudgetImportMapping {
+  id              String                 @id @default(cuid())
+  clientId        String
+  name            String
+  description     String?
+  sourceType      BudgetImportSourceType
+  entityType      BudgetImportEntityType @default(BUDGET_LINES)
+  sheetName       String?
+  headerRowIndex  Int                    @default(1)
+  mappingConfig   Json
+  optionsConfig   Json?
+  /// RFC-BUD-043
+  importPurpose   BudgetImportPurpose    @default(MIXED)
+  defaultBudgetId String?
+  lastUsedAt      DateTime?
+  createdById     String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  client        Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  defaultBudget Budget?           @relation(fields: [defaultBudgetId], references: [id], onDelete: SetNull)
+  createdBy     User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  jobs          BudgetImportJob[]
 
   @@index([clientId])
+  @@index([clientId, importPurpose])
+  @@index([clientId, defaultBudgetId])
 }
 
 model BudgetImportJob {

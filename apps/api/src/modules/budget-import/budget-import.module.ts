@@ -8,19 +8,26 @@ import { BudgetImportParserService } from './budget-import-parser.service';
 import { BudgetImportMatchingService } from './budget-import-matching.service';
 import { BudgetImportMappingsController } from './budget-import-mappings.controller';
 import { BudgetImportMappingsService } from './budget-import-mappings.service';
+import { BudgetImportJobsController } from './budget-import-jobs.controller';
+import { BudgetImportJobsService } from './budget-import-jobs.service';
 import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
 import { BudgetLandingModule } from '../budget-landing/budget-landing.module';
 
 @Module({
   imports: [PrismaModule, AuditLogsModule, PlatformUploadModule, BudgetLandingModule],
-  controllers: [BudgetImportController, BudgetImportMappingsController],
+  controllers: [
+    BudgetImportController,
+    BudgetImportMappingsController,
+    BudgetImportJobsController,
+  ],
   providers: [
     BudgetImportService,
     BudgetImportFileStoreService,
     BudgetImportParserService,
     BudgetImportMatchingService,
     BudgetImportMappingsService,
+    BudgetImportJobsService,
   ],
-  exports: [BudgetImportService, BudgetImportMappingsService],
+  exports: [BudgetImportService, BudgetImportMappingsService, BudgetImportJobsService],
 })
 export class BudgetImportModule {}

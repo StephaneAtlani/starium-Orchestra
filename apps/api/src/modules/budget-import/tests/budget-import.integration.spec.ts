@@ -15,6 +15,7 @@ import { BudgetImportParserService } from '../budget-import-parser.service';
 import { BudgetImportMatchingService } from '../budget-import-matching.service';
 import { PlatformMaxFileInterceptor } from '../../platform-upload/platform-max-file.interceptor';
 import { PlatformUploadSettingsService } from '../../platform-upload/platform-upload-settings.service';
+import { BudgetLandingService } from '../../budget-landing/budget-landing.service';
 
 describe('Budget import integration', () => {
   let app: INestApplication;
@@ -39,6 +40,12 @@ describe('Budget import integration', () => {
             getEffectiveMaxBytes: () => 10 * 1024 * 1024,
           },
         },
+        {
+          provide: BudgetLandingService,
+          useValue: {
+            recalculateAndPersist: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -59,7 +66,7 @@ describe('Budget import integration', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   describe('BudgetImportMappingsService', () => {
