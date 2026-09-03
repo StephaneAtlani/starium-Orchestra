@@ -249,12 +249,14 @@ fil d'Ariane, résultat de recherche). Fil d'Ariane : `useWorkspaceBreadcrumbOve
 | Bordures verticales de tableau | Horizontales uniquement |
 | `asChild` sur `Button` | `Link` + `buttonVariants` |
 | ID technique affiché | Libellé métier |
+| Graphique / sparkline factice ou hardcodé | Série API dynamique (≥ 2 points) ou empty / skeleton — `.cursor/rules/charts-dynamic-only.mdc` |
 
 ---
 
 ## 9. Vérification avant de rendre
 
 - [ ] Aucune valeur en dur (couleur, espacement, rayon, ombre)
+- [ ] Aucun chart / sparkline décoratif — données dynamiques uniquement
 - [ ] Composants existants réutilisés (inventaire consulté)
 - [ ] Pas de cadre dans cadre
 - [ ] États loading / empty / error présents

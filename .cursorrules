@@ -632,3 +632,4 @@ A task is done only if:
 8. Multi-client fractional CIO workflow
 9. **Inputs et référentiels** : toujours afficher une valeur métier lisible ; jamais un ID brut en UI (voir section *Frontend rules* — *Inputs et référentiels*).
 10. **Standards "by design"** : RGPD, RGAA, Design System, Sécurité et interface mobile intégrés dès la conception (voir section *Standards "by design"* et `.cursor/rules/by-design-standards.mdc`).
+11. **Graphiques dynamiques uniquement** : aucune courbe / sparkline / donut / barre factice ou hardcodée — données API du client actif ou empty/skeleton (`.cursor/rules/charts-dynamic-only.mdc`).

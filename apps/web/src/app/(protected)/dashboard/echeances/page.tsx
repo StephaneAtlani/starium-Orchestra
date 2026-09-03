@@ -1,12 +1,12 @@
 'use client';
 
 import { RequireActiveClient } from '@/components/RequireActiveClient';
-import { HomeDashboardPage } from '@/features/dashboard/home-dashboard-page';
+import { HomeDeadlinesPage } from '@/features/dashboard/home-deadlines-page';
 
-export default function DashboardPage() {
+export default function DashboardEcheancesPage() {
   return (
     <RequireActiveClient>
-      <HomeDashboardPage />
+      <HomeDeadlinesPage />
     </RequireActiveClient>
   );
 }

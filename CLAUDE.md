@@ -139,6 +139,9 @@ justifiées uniquement dans `scripts/audit-ui-ids.allowlist.json` ou via un comm
 - Coder en dur une logique spécifique à un client dans du code partagé.
 - Introduire une couleur / un espacement en dur au lieu d'un token.
 - Afficher un identifiant technique en UI.
+- **Graphiques / sparklines / charts décoratifs ou factices** — toute visualisation doit être
+  alimentée par des données API dynamiques ; sinon empty / skeleton (règle définitive :
+  `.cursor/rules/charts-dynamic-only.mdc`).
 
 ---
 

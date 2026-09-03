@@ -284,6 +284,16 @@ Référence code : `features/projects/components/projects-list-table.tsx`, `feat
 - **`variant="default"`** : score card standard (icône or 38px, valeur display).
 - **`variant="dense"`** : même shell, padding réduit (`!p-3`), valeur `--dense`.
 
+### 6.0 Graphiques dynamiques (définitif)
+
+**Toute** visualisation (courbe, donut, sparkline KPI, barres) est alimentée par des **données API
+dynamiques** du client actif. Interdit : séries hardcodées, fallbacks « pour faire joli », points
+inventés (`valeur − n`). Sans ≥ 2 points réels (ou slices > 0) → empty / skeleton / pas de tracé.
+Règle Cursor : `.cursor/rules/charts-dynamic-only.mdc`. Dashboard home `/dashboard` : référence
+d’implémentation (`home-dashboard-*`, `home-dashboard-metrics.ts`). Widget **Prochaines échéances**
+: projets où l’utilisateur a un rôle (`myRoles`) ; CTA → `/dashboard/echeances` (liste complète,
+`myProjectsOnly`).
+
 Le composant `KpiCard` (`components/ui/kpi-card.tsx`) rend une **`.starium-kpi-card`** (pas de `Card` shadcn imbriquée). `BudgetKpiCard` utilise le même shell pour les montants budgétaires.
 
 ```tsx
@@ -313,7 +323,7 @@ import { FolderKanban } from 'lucide-react';
 />
 ```
 
-**Grille cockpit** : envelopper dans **`.starium-module`** (titre + actions, **sans** cadre parent) — voir **§2.1**. Widgets dashboard (`dashboard-*-kpi-widget.tsx`) et vision stratégique (`strategic-kpi-cards.tsx`) suivent ce pattern.
+**Grille cockpit** : envelopper dans **`.starium-module`** (titre + actions, **sans** cadre parent) — voir **§2.1**. Dashboard home (`home-dashboard-page.tsx`) et vision stratégique (`strategic-kpi-cards.tsx`) suivent ce pattern.
 
 ### 6.1 KPI portefeuille Projets (`/projects`)
 

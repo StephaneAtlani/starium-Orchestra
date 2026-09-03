@@ -66,6 +66,7 @@ const STATIC_SEGMENT_LABELS: Record<string, string> = {
   subscriptions: 'Abonnements',
   licenses: 'Licences',
   'portfolio-gantt': 'Frise portefeuille',
+  echeances: 'Prochaines échéances',
   requests: 'Demandes projet',
   committee: 'Comité',
   codir: 'CODIR',

@@ -1,0 +1,40 @@
+---
+description: Interdiction absolue des graphiques / sparklines / charts décoratifs ou factices — données dynamiques uniquement.
+alwaysApply: true
+---
+
+# Graphiques dynamiques uniquement (définitif)
+
+**Règle non négociable** pour tout écran Starium Orchestra (dashboard, cockpits, reporting, CODIR, widgets).
+
+## Obligation
+
+Tout élément graphique (courbe, aire, barre, donut, sparkline, jauge, heatmap, timeline visuelle) **doit** être alimenté par des **données dynamiques** issues de l’API / du state métier du client actif.
+
+## Interdit
+
+- Séries hardcodées (`[1,2,3,4…]`, valeurs « pour faire joli »)
+- Fallbacks décoratifs quand l’API est vide ou en erreur
+- Inventer des points dérivés non métier (`valeur - 4`, `valeur - 1` pour simuler une tendance)
+- Charts mock / placeholders persistants en prod
+- Afficher une sparkline / courbe sans au moins **2 points réels** issus de la source de vérité
+
+## Comportement attendu
+
+| Situation | Rendu |
+|---|---|
+| Données suffisantes (≥ 2 points ou slices > 0) | Graphique dynamique |
+| Chargement | Skeleton / `LoadingState` |
+| Vide / insuffisant | Empty state ou **absence** du graphique (pas de faux tracé) |
+| Erreur | `ErrorState` / `Alert` + retry — **jamais** une courbe inventée |
+
+## Dashboard home (`/dashboard`)
+
+- KPI sparkline : uniquement si série réelle (ex. cumul mensuel budget, histogramme jalons, historique risques).
+- Courbe consommation : `CONSUMPTION_TREND` / agrégats exercice — sinon empty.
+- Donut santé : counts `computedHealth` réels — sinon empty / skeleton.
+- Pas de personnalisation locale qui injecte des séries fictives.
+
+## Revue
+
+Avant merge : grep `sparkFromSeries(.*\[` / tableaux numériques littéraux passés à un chart ; `pnpm audit:ui-ids` ne couvre pas ça — relecture manuelle obligatoire sur tout nouveau graphique.
