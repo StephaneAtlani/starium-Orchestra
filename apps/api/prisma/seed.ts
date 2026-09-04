@@ -47,6 +47,7 @@ import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 import { ensureDemoGovernanceCycles } from "./seed-governance-cycles-demo";
+import { ensureLatestModulesDemoForAllClients } from "./seed-latest-modules-demo";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
@@ -3436,6 +3437,39 @@ async function ensureMemberHumanResourcesForAllClientUsers(): Promise<void> {
       cu.excludeFromResourceCatalog,
     );
     await syncCollaboratorFromHumanIdentitySeed(cu.clientId, cu.user, cu.userId);
+
+    // RFC-ORG-002 — rattacher ClientUser.resourceId à la fiche HUMAN
+    if (!cu.excludeFromResourceCatalog) {
+      const emailNorm = cu.user.email.trim().toLowerCase();
+      const human = await prisma.resource.findFirst({
+        where: {
+          clientId: cu.clientId,
+          type: ResourceType.HUMAN,
+          email: { equals: emailNorm, mode: "insensitive" },
+        },
+        select: { id: true },
+      });
+      if (human && cu.resourceId !== human.id) {
+        // Libérer un éventuel autre ClientUser déjà lié à cette resource
+        await prisma.clientUser.updateMany({
+          where: {
+            clientId: cu.clientId,
+            resourceId: human.id,
+            id: { not: cu.id },
+          },
+          data: { resourceId: null },
+        });
+        await prisma.clientUser.update({
+          where: { id: cu.id },
+          data: { resourceId: human.id },
+        });
+      }
+    } else if (cu.resourceId) {
+      await prisma.clientUser.update({
+        where: { id: cu.id },
+        data: { resourceId: null },
+      });
+    }
   }
   console.log(
     `✅ Membres clients → ressources Humaines + collaborateurs : ${rows.length} rattachement(s) synchronisé(s)`,
@@ -4069,7 +4103,9 @@ async function ensurePlatformUiBadgeDefaultsFromFile(): Promise<void> {
  * - `ActivityType` : pour chaque client, une ligne par `kind` **seulement** si aucune ligne n’existe
  *   déjà pour ce kind (pas de modification des types existants).
  *
- * Hors production : le bloc démo complet s’exécute en plus (voir `if (runDemoSeed)` dans `main`).
+ * Hors production : le bloc démo complet s’exécute en plus (voir `if (runDemoSeed)` dans `main`),
+ * y compris `ensureLatestModulesDemoForAllClients` (org, contrats, équipes, capacité, vision,
+ * réunions, alertes, abonnements licences).
  */
 async function main() {
   const isProduction = process.env.NODE_ENV === "production";
@@ -4139,6 +4175,9 @@ async function main() {
     await backfillBudgetLinesMissingPlanningMonths();
 
     await ensureDemoProjectsForAllClients();
+
+    /** Modules récents : org, contrats, équipes/compétences, capacité, vision, réunions, alertes, abonnements. */
+    await ensureLatestModulesDemoForAllClients(prisma);
 
     /** Après un SSO Microsoft, `passwordLoginEnabled` est à false → login mot de passe impossible. Réactive les comptes démo à chaque seed. */
     const demoLoginReset = await prisma.user.updateMany({
