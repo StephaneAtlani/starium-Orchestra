@@ -98,6 +98,7 @@ Agrégats ligne : `apps/api/src/modules/financial-core/budget-line-amounts.aggre
 |-----|----------|
 | [RFC-FE-BUD-031](./RFC-FE-BUD-031%20%E2%80%94%20Portefeuille%20budgets%20UI%20(refonte%20mockup).md) | Lot A portefeuille livré ; **Lot B fiche supersédé** par la présente RFC |
 | [RFC-024](./RFC-024%20%E2%80%94%20Budget%20UI.md) | Tableau unique multi-vues — conservé, onglets réduits |
+| [RFC-PROJ-010-B](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) | Suite P0 — onglet projets sur ligne + KPI budget×projet (hors scope livré de cette RFC) |
 | [RFC-FE-BUD-030](./RFC-FE-BUD-030%20%E2%80%94%20Forecast%20et%20Comparaison%20budg%C3%A9taire%20UI.md) | Comparaison / reporting — réintégré comme onglet Comparaisons |
 | [RFC-031](./RFC-031%20%E2%80%94%20Budget%20Snapshots%20MVP%20(fig%C3%A9,%20lecture%20seule).md) / [RFC-033](./RFC-033%20%E2%80%94%20Mise%20en%20place%20des%20versions%20budg%C3%A9taires%20(produit).md) | Snapshots = versions figées |
 | [RFC-017](./RFC-017%20%E2%80%94%20Budget%20Reallocation.md) | Réaffectations |

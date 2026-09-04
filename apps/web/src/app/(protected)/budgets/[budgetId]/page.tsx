@@ -69,6 +69,8 @@ import {
   BudgetExpenseEntryModal,
   type BudgetDetailModal,
 } from '@/features/budgets/components/budget-detail-modals';
+import { aggregateBudgetLinesToSummaryKpi } from '@/features/budgets/lib/aggregate-budget-lines-to-kpi';
+import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
 
 const TAB_QUERY_PARAM = 'onglet';
 
@@ -191,6 +193,16 @@ export default function BudgetDetailPage() {
     isLoading: summaryLoading,
     isError: summaryError,
   } = useBudgetSummary(budgetId);
+
+  /** Filtre Tout/CAPEX/OPEX : KPI recalculés sur les lignes de la nature sélectionnée. */
+  const displaySummaryKpi = useMemo<BudgetSummaryKpi | undefined>(() => {
+    const nature = filters.expenseType;
+    if (!nature) return budgetSummaryKpi;
+    if (!lines) return budgetSummaryKpi;
+    const scoped = (lines as BudgetLine[]).filter((line) => line.expenseType === nature);
+    return aggregateBudgetLinesToSummaryKpi(scoped, budget?.currency ?? null);
+  }, [budgetSummaryKpi, filters.expenseType, lines, budget?.currency]);
+
   const { activeClient } = useActiveClient();
   const { data: exercise, isLoading: exerciseLoading } = useBudgetExerciseSummary(
     budget?.exerciseId ?? null,
@@ -449,6 +461,7 @@ export default function BudgetDetailPage() {
 
         <BudgetDetailKpiStrip
           kpi={budgetSummaryKpi}
+          lines={(lines as BudgetLine[]) ?? null}
           currency={currency}
           taxDisplayMode={taxDisplayMode}
           setTaxDisplayMode={setTaxDisplayMode}
@@ -525,7 +538,7 @@ export default function BudgetDetailPage() {
               },
             }}
             overview={{
-              kpi: budgetSummaryKpi,
+              kpi: displaySummaryKpi,
               dashboard: dashboardQuery.data,
               defaultTaxRate: budget.defaultTaxRate ?? defaultTaxRate,
               envelopes: (envelopes as BudgetEnvelope[]) ?? [],

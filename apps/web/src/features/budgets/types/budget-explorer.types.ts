@@ -66,7 +66,8 @@ export type ExplorerNode = ExplorerEnvelopeNode | ExplorerLineNode;
 export interface BudgetExplorerFilters {
   search?: string;
   envelopeType?: string;
-  expenseType?: string;
+  /** Nature de dépense — filtre bande KPI + explorateur. */
+  expenseType?: 'CAPEX' | 'OPEX';
 }
 
 export type ExplorerSortColumn =

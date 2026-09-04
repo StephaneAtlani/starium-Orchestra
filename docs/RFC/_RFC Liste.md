@@ -143,7 +143,8 @@
 | Ordre | RFC              | Nom                | Description                                    | État       | Commentaire             |
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ----------------------- |
 | 12    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | base OK                 |
-| 13    | **RFC-PROJ-010** | Project Budget KPI | KPI budget projet (bandeau + synthèse onglet Budget) | 🟡 Partiel | UI livrée ; cockpit consolidé §8.3 RFC hors scope |
+| 13    | **RFC-PROJ-010** | Project Budget KPI | KPI budget projet (bandeau + synthèse onglet Budget) | 🟡 Partiel | UI fiche projet livrée |
+| 13b   | **RFC-PROJ-010-B** | Vue inverse BudgetLine + KPI cockpit | Liste projets sur ligne (§8.2) + KPI coût/conso/dérive par projet (§8.3) | 📝 Draft | [RFC](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) — P0 graphe `ui-line-projects` |
 | 14    | **RFC-PROJ-011** | Tasks / Activities | Tâches, activités, jalons, `GET /gantt`       | ✅ Couvert  | UI Gantt : [RFC-PROJ-012 — Gantt](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) (fichier distinct de *Project Sheet*) |
 | 14b   | **RFC-PROJ-017** | Project Tags       | Référentiel d’étiquettes + assignation projet  | ✅ Couvert  | options + fiche + liste |
 | 14c   | **RFC-PROJ-DOC-001** | ProjectDocument | Registre métier documents projet (Prisma + API + audit) | ✅ Couvert | MVP : pas d’upload binaire ; UI liste read-only fiche ; voir [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) |
@@ -314,7 +315,7 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 | **RFC-PROJ-012** (suite) | **Métriques fiche** + **règles d’arbitrage** (lignes 10–11 table *Fiche projet*) — backend |
 | **RFC-PROJ-SC-001 → 007** | **Simulation projet / baseline / arbitrage** : vraie couche décisionnelle avant exécution |
 | **RFC-FE-PROJ-014** (suite) | Finitions **fiche** (UX arbitrage CODIR, scénarios avancés) si hors périmètre MVP actuel |
-| **RFC-PROJ-010** suite | **KPI budget projet** (ligne 13 — partiel) |
+| **RFC-PROJ-010-B** | **Vue inverse BudgetLine → projets + KPI cockpit** (P0 liaisons) |
 | **RFC-RES-002** | Coût réel / affectation ressources |
 
 ---

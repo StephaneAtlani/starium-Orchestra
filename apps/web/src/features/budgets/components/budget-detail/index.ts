@@ -6,6 +6,7 @@ export {
 export {
   BudgetDetailKpiStrip,
   type BudgetDetailKpiStripProps,
+  type BudgetExpenseNatureFilter,
 } from './budget-detail-kpi-strip';
 
 export {

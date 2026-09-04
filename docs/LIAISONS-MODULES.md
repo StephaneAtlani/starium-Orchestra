@@ -194,7 +194,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `docs-project` | Projets | GED | partial | `ProjectDocument` (silo) | RFC-PROJ-DOC-001 |
 | `fut-license-resource` | Licences SI | RH | partial | `ResourceType.LICENSE` ≠ module RFC-037 | RFC-RES-001 vs RFC-037 |
 | `fut-cmdb-resource` | CMDB | RH | partial | `ResourceType.MATERIAL` ≠ inventaire IT | RFC-RES-001 |
-| `ui-line-projects` | Budgets | Projets | gap | Vue inverse `ProjectBudgetLink` (écran ligne) | RFC-PROJ-010 §8.2 |
+| `ui-line-projects` | Budgets | Projets | gap | Vue inverse `ProjectBudgetLink` (écran ligne) | [RFC-PROJ-010-B](../RFC/RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) |
 | `gap-project-event` | Projets | Financial Core | gap | `FinancialSourceType.PROJECT` (enum) | RFC-PROJ-010 §6 |
 | `gap-contract-budget` | Contrats | Budgets | gap | `FinancialSourceType.CONTRACT` (enum) | RFC-037 |
 | `gap-contract-project` | Contrats | Projets | gap | Pas de `projectId` sur `SupplierContract` | RFC-037 |

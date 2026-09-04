@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   PortfolioProgressBar,
   consumptionTone,
@@ -17,7 +17,11 @@ import {
   BUDGET_LABELS,
   BUDGET_LABEL_HINTS,
 } from '@/features/budgets/lib/budget-display-labels';
+import { aggregateBudgetLinesToSummaryKpi } from '@/features/budgets/lib/aggregate-budget-lines-to-kpi';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
+import type { BudgetLine } from '@/features/budgets/types/budget-management.types';
+
+export type BudgetExpenseNatureFilter = 'CAPEX' | 'OPEX' | null;
 
 export interface BudgetDetailKpiStripProps {
   kpi: BudgetSummaryKpi | undefined;
@@ -29,12 +33,17 @@ export interface BudgetDetailKpiStripProps {
   isTtcProjection: boolean;
   isLoading: boolean;
   isError: boolean;
-  /** Filtre nature (Tout / CAPEX / OPEX) — mockup `#budgets-detail`. */
-  expenseTypeFilter?: string | null;
-  onExpenseTypeFilterChange?: (value: string | null) => void;
+  /**
+   * Lignes du budget — nécessaires pour recalculer les KPI quand CAPEX/OPEX est actif.
+   * Sans lignes, le filtre nature ne peut pas réduire les montants.
+   */
+  lines?: readonly BudgetLine[] | null;
+  /** Filtre nature contrôlé (Tout / CAPEX / OPEX). Si omis, état interne. */
+  expenseTypeFilter?: BudgetExpenseNatureFilter;
+  onExpenseTypeFilterChange?: (value: BudgetExpenseNatureFilter) => void;
 }
 
-const EXPENSE_NATURE_FILTERS: { label: string; value: string | null }[] = [
+const EXPENSE_NATURE_FILTERS: { label: string; value: BudgetExpenseNatureFilter }[] = [
   { label: 'Tout', value: null },
   { label: 'CAPEX', value: 'CAPEX' },
   { label: 'OPEX', value: 'OPEX' },
@@ -50,6 +59,21 @@ type KpiCell = {
   progress: number;
 };
 
+function resolveDisplayKpi(
+  kpi: BudgetSummaryKpi | undefined,
+  lines: readonly BudgetLine[] | null | undefined,
+  nature: BudgetExpenseNatureFilter,
+  currency: string,
+): BudgetSummaryKpi | undefined {
+  if (!nature) return kpi;
+  if (!lines?.length) {
+    // Filtre actif mais pas de lignes : afficher zéro plutôt que le total global trompeur.
+    return aggregateBudgetLinesToSummaryKpi([], currency);
+  }
+  const scoped = lines.filter((line) => line.expenseType === nature);
+  return aggregateBudgetLinesToSummaryKpi(scoped, currency);
+}
+
 /**
  * Zone 2 du cockpit (RFC-FE-BUD-032 §3.A, RFC-BUD-040) : bande de 6 indicateurs persistante.
  * Ordre : Budget → Atterrissage → Engagé → Consommé → Restant → Écart d'atterrissage.
@@ -63,11 +87,26 @@ export function BudgetDetailKpiStrip({
   isTtcProjection,
   isLoading,
   isError,
-  expenseTypeFilter = null,
+  lines = null,
+  expenseTypeFilter,
   onExpenseTypeFilterChange,
 }: BudgetDetailKpiStripProps) {
+  const [internalNature, setInternalNature] = useState<BudgetExpenseNatureFilter>(null);
+  const nature: BudgetExpenseNatureFilter =
+    expenseTypeFilter !== undefined ? expenseTypeFilter : internalNature;
+
+  const setNature = (value: BudgetExpenseNatureFilter) => {
+    if (onExpenseTypeFilterChange) onExpenseTypeFilterChange(value);
+    else setInternalNature(value);
+  };
+
+  const displayKpi = useMemo(
+    () => resolveDisplayKpi(kpi, lines, nature, currency),
+    [kpi, lines, nature, currency],
+  );
+
   const cells = useMemo<KpiCell[]>(() => {
-    if (!kpi) return [];
+    if (!displayKpi) return [];
 
     const amount = (htValue: number, ttcValue: number | null | undefined) =>
       formatTaxAwareAmount({
@@ -78,14 +117,14 @@ export function BudgetDetailKpiStrip({
         isApproximation: isTtcProjection,
       });
 
-    const budgetBase = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'initial');
-    const landing = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'landing');
-    const committed = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'committed');
-    const consumed = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'consumed');
-    const remaining = budgetKpiAmountForTaxMode(kpi, taxDisplayMode, 'remaining');
+    const budgetBase = budgetKpiAmountForTaxMode(displayKpi, taxDisplayMode, 'initial');
+    const landing = budgetKpiAmountForTaxMode(displayKpi, taxDisplayMode, 'landing');
+    const committed = budgetKpiAmountForTaxMode(displayKpi, taxDisplayMode, 'committed');
+    const consumed = budgetKpiAmountForTaxMode(displayKpi, taxDisplayMode, 'consumed');
+    const remaining = budgetKpiAmountForTaxMode(displayKpi, taxDisplayMode, 'remaining');
     const landingGap =
-      kpi.landingGapAmount ??
-      kpi.forecastGapAmount ??
+      displayKpi.landingGapAmount ??
+      displayKpi.forecastGapAmount ??
       landing - budgetBase;
     const share = (value: number) => (budgetBase > 0 ? (value / budgetBase) * 100 : 0);
 
@@ -93,7 +132,7 @@ export function BudgetDetailKpiStrip({
       {
         id: 'budget',
         label: BUDGET_LABELS.budget,
-        value: amount(kpi.totalInitialAmount, kpi.totalInitialAmountTtc),
+        value: amount(displayKpi.totalInitialAmount, displayKpi.totalInitialAmountTtc),
         hint: BUDGET_LABEL_HINTS.budget,
         tone: 'brand',
         progress: 100,
@@ -102,8 +141,8 @@ export function BudgetDetailKpiStrip({
         id: 'landing',
         label: BUDGET_LABELS.landing,
         value: amount(
-          kpi.totalLandingAmount ?? kpi.totalForecastAmount,
-          kpi.totalLandingAmountTtc ?? kpi.totalForecastAmountTtc,
+          displayKpi.totalLandingAmount ?? displayKpi.totalForecastAmount,
+          displayKpi.totalLandingAmountTtc ?? displayKpi.totalForecastAmountTtc,
         ),
         hint: BUDGET_LABEL_HINTS.landing,
         tone: landing > budgetBase ? 'danger' : 'ok',
@@ -112,7 +151,7 @@ export function BudgetDetailKpiStrip({
       {
         id: 'committed',
         label: BUDGET_LABELS.committed,
-        value: amount(kpi.totalCommittedAmount, kpi.totalCommittedAmountTtc),
+        value: amount(displayKpi.totalCommittedAmount, displayKpi.totalCommittedAmountTtc),
         hint: `${formatPercent(share(committed) / 100)} du budget`,
         tone: consumptionTone(share(committed) / 100),
         progress: share(committed),
@@ -120,7 +159,7 @@ export function BudgetDetailKpiStrip({
       {
         id: 'consumed',
         label: BUDGET_LABELS.consumed,
-        value: amount(kpi.totalConsumedAmount, kpi.totalConsumedAmountTtc),
+        value: amount(displayKpi.totalConsumedAmount, displayKpi.totalConsumedAmountTtc),
         hint: `${formatPercent(share(consumed) / 100)} du budget`,
         tone: 'info',
         progress: share(consumed),
@@ -128,7 +167,7 @@ export function BudgetDetailKpiStrip({
       {
         id: 'remaining',
         label: BUDGET_LABELS.remaining,
-        value: amount(kpi.totalRemainingAmount, kpi.totalRemainingAmountTtc),
+        value: amount(displayKpi.totalRemainingAmount, displayKpi.totalRemainingAmountTtc),
         hint:
           remaining < 0
             ? 'Budget dépassé'
@@ -153,7 +192,7 @@ export function BudgetDetailKpiStrip({
         progress: share(Math.max(0, landingGap)),
       },
     ];
-  }, [kpi, currency, taxDisplayMode, isTtcProjection]);
+  }, [displayKpi, currency, taxDisplayMode, isTtcProjection]);
 
   if (isError) {
     return (
@@ -166,7 +205,7 @@ export function BudgetDetailKpiStrip({
     );
   }
 
-  if (isLoading && !kpi) {
+  if (isLoading && !displayKpi) {
     return (
       <section className="starium-module" aria-busy>
         <LoadingState rows={1} />
@@ -176,43 +215,48 @@ export function BudgetDetailKpiStrip({
 
   if (cells.length === 0) return null;
 
+  const natureLabel =
+    nature === 'CAPEX' ? 'CAPEX' : nature === 'OPEX' ? 'OPEX' : 'toutes natures';
+
   return (
     <section className="starium-module" data-testid="budget-detail-kpi-strip">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        {onExpenseTypeFilterChange ? (
-          <div
-            className="starium-tab-group"
-            role="group"
-            aria-label="Nature de dépense"
-          >
-            {EXPENSE_NATURE_FILTERS.map((option) => {
-              const isActive = expenseTypeFilter === option.value;
-              return (
-                <button
-                  key={option.label}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => onExpenseTypeFilterChange(option.value)}
-                  className={cn(
-                    'starium-tab-btn min-h-11 sm:min-h-9',
-                    isActive && 'starium-tab-btn--active',
-                  )}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <h2 className="starium-overline">Indicateurs du budget</h2>
-        )}
+        <div
+          className="starium-tab-group"
+          role="group"
+          aria-label="Nature de dépense"
+        >
+          {EXPENSE_NATURE_FILTERS.map((option) => {
+            const isActive = nature === option.value;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => setNature(option.value)}
+                className={cn(
+                  'starium-tab-btn min-h-11 sm:min-h-9',
+                  isActive && 'starium-tab-btn--active',
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
         <TaxDisplayModeToggle
           taxDisplayMode={taxDisplayMode}
           setTaxDisplayMode={setTaxDisplayMode}
           isLoading={isTaxLoading}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div
+        key={nature ?? 'all'}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label={`Indicateurs du budget — ${natureLabel}`}
+      >
         {cells.map((cell) => (
           <div key={cell.id} className="starium-kpi-card flex flex-col gap-2 !p-4">
             <div className="min-w-0">

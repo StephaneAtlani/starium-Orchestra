@@ -7,18 +7,29 @@ import type { BudgetExplorerFilters } from '../types/budget-explorer.types';
 import type { ExplorerNode } from '../types/budget-explorer.types';
 
 function nodeMatches(node: ExplorerNode, filters: BudgetExplorerFilters): boolean {
+  let matchedOwnCriterion = false;
+
   if (filters.search?.trim()) {
     const term = filters.search.trim().toLowerCase();
     const name = node.name.toLowerCase();
     const code = (node.code ?? '').toLowerCase();
     if (!name.includes(term) && !code.includes(term)) return false;
+    matchedOwnCriterion = true;
   }
   if (node.type === 'envelope' && filters.envelopeType) {
     if (node.envelopeType !== filters.envelopeType) return false;
+    matchedOwnCriterion = true;
   }
   if (node.type === 'line' && filters.expenseType) {
     if (node.expenseType !== filters.expenseType) return false;
+    matchedOwnCriterion = true;
   }
+
+  // Nature CAPEX/OPEX : une enveloppe ne « matche » pas toute seule — uniquement via ses lignes.
+  if (!matchedOwnCriterion && filters.expenseType && node.type === 'envelope') {
+    return false;
+  }
+
   return true;
 }
 

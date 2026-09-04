@@ -4,7 +4,7 @@
 
 ✅ **Implémenté (MVP)** — backend + UI sur la fiche projet (`project-budget`).
 
-**Hors périmètre livré** (toujours prévu ailleurs) : génération automatique de `FinancialEvent` depuis les tâches / jalons (→ RFC-PROJ-011), liste des projets sur l’écran **BudgetLine** (§8.2), KPI cockpit consolidés (§8.3).
+**Hors périmètre livré** (toujours prévu ailleurs) : génération automatique de `FinancialEvent` depuis les tâches / jalons (→ RFC-PROJ-011). Liste des projets sur l’écran **BudgetLine** (§8.2) et KPI cockpit consolidés (§8.3) → **[RFC-PROJ-010-B](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md)** (draft).
 
 ---
 
@@ -401,6 +401,8 @@ Ajouter :
 
 ## 8.2 Dans BudgetLine
 
+> **Spécifié dans [RFC-PROJ-010-B](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) lot A** (draft).
+
 Ajouter :
 
 * liste des projets liés
@@ -409,6 +411,8 @@ Ajouter :
 ---
 
 ## 8.3 Cockpit
+
+> **Spécifié dans [RFC-PROJ-010-B](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) lot B** (draft).
 
 Nouveaux KPI :
 

@@ -674,9 +674,9 @@ const LINKS: LinkDef[] = [
     pattern: "jonction",
     status: "gap",
     horizon: "next",
-    rfc: "RFC-PROJ-010 §8.2",
+    rfc: "RFC-PROJ-010-B",
     flows: ["argent", "projet", "futur"],
-    note: "Table live, écran ligne budget pas encore. KPI cockpit projet §8.3 aussi ouvert.",
+    note: "Table live, écran ligne budget pas encore. Spec draft RFC-PROJ-010-B (lots A+B §8.2/§8.3).",
   },
   {
     id: "gap-project-event",
@@ -1729,10 +1729,10 @@ export default function GrapheFonctionnelModules() {
             <CardBody>
               <Stack gap={8}>
                 <Text size="small">
-                  FinancialEvent `PROJECT` (tâches/jalons) · vue inverse BudgetLine
-                  · KPI cockpit projet · RFC-037 Licences SI (`contractId`,
-                  `budgetLineId`, `projectId`) · RFC-RES-002 costing timesheet /
-                  TJM · contrat → ligne.
+                  FinancialEvent `PROJECT` (tâches/jalons) · **RFC-PROJ-010-B**
+                  vue inverse BudgetLine + KPI cockpit · RFC-037 Licences SI
+                  (`contractId`, `budgetLineId`, `projectId`) · RFC-RES-002 costing
+                  timesheet / TJM · contrat → ligne.
                 </Text>
               </Stack>
             </CardBody>
