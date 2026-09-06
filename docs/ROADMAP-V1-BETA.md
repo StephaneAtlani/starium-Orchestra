@@ -65,10 +65,10 @@ Plus : FAQ top 10 des erreurs UAT (login, client vide, module masqué, droits re
 | Audit + alertes/notifs (RFC-038) | Socle | Live (triggers budget/projet/contrat/vision/intake/réunions) | Completer triggers **Achats / Capacité** si gap UAT |
 | **Orion** (chatbot runtime) | Adoption | Live | Harden + critères RFC-AI-001 ; seed réponses |
 | **Guide** (KB + pack nouveaux clients) | Adoption | Live technique ; contenu à produire | Pack Premiers pas + Explorer polish |
-| Budgets + Financial Core | Cœur | Live + BUD-040 ; BUD-041 lots 1–5 | **Fermer lot 6** ; polish cockpit dashboard |
+| Budgets + Financial Core | Cœur | Live + BUD-040 ; BUD-041 lots 1–5 (lot 6 import hors scope) | Polish cockpit si besoin ; **ne pas** rouvrir lot 6 |
 | Achats (PO / factures) → ligne | Argent | Live (`po-line`, `po-event`) | Smoke bout-en-bout + libellés |
 | Projets (CRUD, tâches, Gantt, risques, sheet) | Cœur | Live | Harden ; métriques sheet / règles d’arbitrage **post-beta** si trop gros |
-| Project ↔ Budget (`project-budget`, `ui-line-projects`) | Liaison critique | Live (010 + **010-B**) | Widget `/budgets/dashboard` (follow-up 010-B) |
+| Project ↔ Budget (`project-budget`, `ui-line-projects`) | Liaison critique | Live (010 + **010-B** + widget dashboard) | Smoke UAT |
 | Intake + Cycles gouvernance | Amont portefeuille | Live | Smoke UAT |
 | Vision stratégique | CODIR | Live ; STRAT-010 QA | **Clôturer STRAT-010** |
 | Réunions / points projet | Gouvernance | Live (ponts) | Stabiliser parcours COPIL si dette UI |
@@ -157,8 +157,8 @@ Durées indicatives (équipe produit actuelle). Ajuster au calendrier commercial
 
 | Item | RFC / id | Critère done |
 | --- | --- | --- |
-| BUD-041 lot 6 (activation PA / arbitrage) | RFC-BUD-041 | Cycle version figée → scénario → activation exploitable |
-| Widget KPI projets sur `/budgets/dashboard` | 010-B follow-up | Empty/skeleton si 0 projet ; données API only |
+| BUD-041 lot 6 (activation PA / arbitrage) | RFC-BUD-041 | ~~N/A~~ — lots 1–5 live ; lot 6 = import hors scope |
+| Widget KPI projets sur `/budgets/dashboard` | 010-B follow-up | ✅ section Projets financés (budget sélectionné) |
 | Smoke achats → ligne → KPI budget | `po-line` | Parcours documenté runbook |
 | Import hub polish minimal | BUD-043 L3 optionnel | Pas bloquant si L1–L2 OK |
 | Articles Guide liés budget / atterrissage | Guide pack | ≥ 2 articles + liens internes allowlist |

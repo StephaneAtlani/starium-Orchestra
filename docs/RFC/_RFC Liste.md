@@ -144,7 +144,7 @@
 | ----- | ---------------- | ------------------ | ---------------------------------------------- | ---------- | ----------------------- |
 | 12    | **RFC-PROJ-010** | Project ↔ Budget   | Lier projets aux lignes/enveloppes budgétaires | ✅ Couvert  | base OK                 |
 | 13    | **RFC-PROJ-010** | Project Budget KPI | KPI budget projet (bandeau + synthèse onglet Budget) | 🟡 Partiel | UI fiche projet livrée |
-| 13b   | **RFC-PROJ-010-B** | Vue inverse BudgetLine + KPI cockpit | Liste projets sur ligne (§8.2) + KPI coût/conso/dérive par projet (§8.3) | ✅ Implémentée (MVP) | [RFC](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) — drawer onglet Projets + section fiche budget ; dashboard hors V1 |
+| 13b   | **RFC-PROJ-010-B** | Vue inverse BudgetLine + KPI cockpit | Liste projets sur ligne (§8.2) + KPI coût/conso/dérive par projet (§8.3) | ✅ Implémentée (MVP) | [RFC](./RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) — drawer onglet Projets + section fiche budget + widget `/budgets/dashboard` |
 | 14    | **RFC-PROJ-011** | Tasks / Activities | Tâches, activités, jalons, `GET /gantt`       | ✅ Couvert  | UI Gantt : [RFC-PROJ-012 — Gantt](./RFC-PROJ-012%20%E2%80%94%20Gantt%20T%C3%A2ches%20et%20Jalons.md) (fichier distinct de *Project Sheet*) |
 | 14b   | **RFC-PROJ-017** | Project Tags       | Référentiel d’étiquettes + assignation projet  | ✅ Couvert  | options + fiche + liste |
 | 14c   | **RFC-PROJ-DOC-001** | ProjectDocument | Registre métier documents projet (Prisma + API + audit) | ✅ Couvert | MVP : pas d’upload binaire ; UI liste read-only fiche ; voir [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) |

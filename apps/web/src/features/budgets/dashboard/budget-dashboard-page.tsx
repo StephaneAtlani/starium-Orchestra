@@ -18,6 +18,7 @@ import { BudgetDashboardEmptyState } from './components/budget-dashboard-empty-s
 import { BudgetDashboardErrorState } from './components/budget-dashboard-error-state';
 import { BudgetDashboardHeader } from './components/budget-dashboard-header';
 import { BudgetCockpitWidgetRenderer } from './components/budget-cockpit-widget-renderer';
+import { BudgetDashboardProjectsFundedCard } from './components/budget-dashboard-projects-funded-card';
 import { CockpitSurfaceCard } from './components/budget-cockpit-primitives';
 import { BudgetCockpitUserSettingsDialog } from '@/features/budgets/cockpit-settings/budget-cockpit-user-settings-dialog';
 import { budgetComparisons } from '@/features/budgets/constants/budget-routes';
@@ -262,6 +263,11 @@ export function BudgetDashboardPage() {
               onBudgetLineClick={
                 isAggregatedBudgetMode ? () => {} : openBudgetLineDrawer
               }
+            />
+
+            <BudgetDashboardProjectsFundedCard
+              budgetId={isAggregatedBudgetMode ? '__ALL__' : data.budget.id}
+              budgetName={isAggregatedBudgetMode ? null : data.budget.name}
             />
 
             <BudgetEnvelopeIntelligenceDrawer

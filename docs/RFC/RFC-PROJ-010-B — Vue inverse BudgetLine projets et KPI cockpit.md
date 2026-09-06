@@ -14,8 +14,7 @@ Suite de [RFC-PROJ-010](./RFC-PROJ-010%20%E2%80%94%20Project%20%E2%86%94%20Budge
 **Écarts V1 assumés :**
 
 * Soft-mask `projects.read` **abandonné** : même client + `budgets.read` ⇒ libellés projet exposés. Le lien UI « Voir le projet » reste conditionné FE par `projects.read`.
-* Dashboard `/budgets/dashboard` = **hors V1** (follow-up).
-* Imputation `imputationBasis: PROPORTIONAL_V1` (heuristique FIXED / %) — pas de `FinancialEvent` PROJECT.
+* Dashboard `/budgets/dashboard` = **livré** (follow-up) — section Projets financés si un budget est sélectionné.* Imputation `imputationBasis: PROPORTIONAL_V1` (heuristique FIXED / %) — pas de `FinancialEvent` PROJECT.
 
 **Hors scope :** génération de `FinancialEvent` depuis tâches / jalons / timesheet (→ suite PROJ-011 / RES-002). Aucun nouveau mouvement d’argent. Aucune modification du modèle `ProjectBudgetLink`.
 
@@ -96,7 +95,7 @@ Critères d’acceptation (lots A+B) :
 * [x] Surface UI cockpit (fiche budget) avec 3 KPI : coût cible projet, consommé, dérive
 * [x] Tests isolation inter-clients + permissions (controllers + service)
 * [x] Mobile ≥ 320px, cibles ≥ 44px, tableau / cartes
-* [ ] Widget dashboard `/budgets/dashboard` — hors V1
+* [x] Widget dashboard `/budgets/dashboard` — même API KPI (budget sélectionné ; empty si « tous »)
 
 ---
 

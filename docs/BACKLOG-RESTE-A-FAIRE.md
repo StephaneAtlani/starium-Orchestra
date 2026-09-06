@@ -33,8 +33,8 @@ Légende horizon :
 
 | # | Item | Ref |
 | --- | --- | --- |
-| B1.1 | **RFC-BUD-041 lot 6** — activation PA / arbitrage | BUD-041 |
-| B1.2 | Widget KPI projets sur `/budgets/dashboard` | 010-B follow-up |
+| B1.1 | **RFC-BUD-041** — lots 1–5 déjà live ; lot 6 import **hors scope** (ne pas rouvrir) | BUD-041 |
+| B1.2 | ~~Widget KPI projets sur `/budgets/dashboard`~~ **fait** | 010-B follow-up |
 | B1.3 | Smoke achats → ligne → KPI (runbook) | `po-line` |
 | B1.4 | Articles Guide budget / atterrissage (≥ 2) | Guide |
 
