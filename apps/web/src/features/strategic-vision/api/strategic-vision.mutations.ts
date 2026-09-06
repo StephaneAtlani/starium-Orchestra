@@ -56,6 +56,9 @@ async function invalidateStrategicAlignmentQueries(
   ]);
 }
 
+/** Exposé pour tests — invalidation KPI/alertes après mutation de lien. */
+export { invalidateStrategicAlignmentQueries };
+
 export function useUpdateStrategicAxisMutation() {
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -69,6 +72,7 @@ export function useUpdateStrategicAxisMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: strategicVisionKeys.axes(clientId, null) }),
         queryClient.invalidateQueries({ queryKey: strategicVisionKeys.list(clientId) }),
+        invalidateStrategicAlignmentQueries(queryClient, clientId),
       ]);
     },
   });
@@ -86,6 +90,7 @@ export function useCreateStrategicAxisMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: strategicVisionKeys.axes(clientId, null) }),
         queryClient.invalidateQueries({ queryKey: strategicVisionKeys.list(clientId) }),
+        invalidateStrategicAlignmentQueries(queryClient, clientId),
       ]);
     },
   });

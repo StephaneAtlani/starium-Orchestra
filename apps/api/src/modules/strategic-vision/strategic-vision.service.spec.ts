@@ -989,14 +989,65 @@ describe('StrategicVisionService', () => {
       expect((created as { targetId: string }).targetId).toMatch(/^manual:/);
     });
 
-    it('addObjectiveLink avec MANUAL sans libellé métier est rejeté', async () => {
+    it('addObjectiveLink PROJECT OK quand le projet appartient au client actif', async () => {
       prisma.strategicObjective.findFirst.mockResolvedValue({ id: 'o1' });
+      prisma.project.findFirst.mockResolvedValue({ id: 'p1' });
+      prisma.strategicLink.create.mockImplementation(async (args: { data: unknown }) => ({
+        id: 'l1',
+        ...(args.data as object),
+      }));
+
+      const created = await service.addObjectiveLink('c1', 'o1', {
+        linkType: StrategicLinkType.PROJECT,
+        targetId: 'p1',
+        targetLabelSnapshot: 'Projet A',
+      });
+
+      expect(prisma.project.findFirst).toHaveBeenCalledWith({
+        where: { id: 'p1', clientId: 'c1' },
+        select: { id: true },
+      });
+      expect(prisma.strategicLink.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clientId: 'c1',
+            linkType: StrategicLinkType.PROJECT,
+            targetId: 'p1',
+            targetLabelSnapshot: 'Projet A',
+          }),
+        }),
+      );
+      expect((created as { targetId: string }).targetId).toBe('p1');
+    });
+
+    it('addObjectiveLink PROJECT refuse un projet hors client (cross-client)', async () => {
+      prisma.strategicObjective.findFirst.mockResolvedValue({ id: 'o1' });
+      prisma.project.findFirst.mockResolvedValue(null);
 
       await expect(
         service.addObjectiveLink('c1', 'o1', {
-          targetType: StrategicLinkType.MANUAL,
+          linkType: StrategicLinkType.PROJECT,
+          targetId: 'p-other-client',
+          targetLabelSnapshot: 'Projet fuite',
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.strategicLink.create).not.toHaveBeenCalled();
+    });
+
+    it('addObjectiveLink refuse un objectif hors client (cross-client)', async () => {
+      prisma.strategicObjective.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addObjectiveLink('c1', 'o-c2', {
+          linkType: StrategicLinkType.PROJECT,
+          targetId: 'p1',
+          targetLabelSnapshot: 'Projet A',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(prisma.project.findFirst).not.toHaveBeenCalled();
+      expect(prisma.strategicLink.create).not.toHaveBeenCalled();
     });
 
     it.each([

@@ -1,6 +1,8 @@
 # Backlog — tout ce qui reste à faire
 
-**Date** : 2026-09 · Aligné [`ROADMAP-V1-BETA.md`](./ROADMAP-V1-BETA.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`RFC/_RFC Liste.md`](./RFC/_RFC%20Liste.md).
+**Date** : 2026-09-06 · Aligné [`ROADMAP-V1-BETA.md`](./ROADMAP-V1-BETA.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`RFC/_RFC Liste.md`](./RFC/_RFC%20Liste.md).
+
+Ce fichier ne liste **que le travail restant**. Pas de statuts, pas d’historique « fait » : l’avancement produit vit dans les RFC / la roadmap.
 
 Légende horizon :
 
@@ -21,10 +23,8 @@ Légende horizon :
 
 | # | Item | Ref |
 | --- | --- | --- |
-| B0.1 | Push / merge **RFC-PROJ-010-B** (commit local) + smoke UI drawer + fiche budget | 010-B |
 | B0.2 | Gate technique : lint / typecheck / test / `audit:ui-ids` / `audit:modals` | release-gate |
 | B0.3 | Préprod bootable + smoke multi-client + MFA | runbook préprod |
-| B0.4 | Clôturer **RFC-STRAT-010** (QA vision) | STRAT-010 |
 | B0.5 | **Orion** : smoke drawer (authz client, no-match, historique, isolation) | AI-001 |
 | B0.6 | **Guide** : inventaire KB + kickoff pack Premiers pas | AI-001 |
 | B0.7 | Indexer **RFC-AI-001** dans `_RFC Liste` + statut aligné code | doc |
@@ -33,10 +33,10 @@ Légende horizon :
 
 | # | Item | Ref |
 | --- | --- | --- |
-| B1.1 | **RFC-BUD-041** — lots 1–5 déjà live ; lot 6 import **hors scope** (ne pas rouvrir) | BUD-041 |
-| B1.2 | ~~Widget KPI projets sur `/budgets/dashboard`~~ **fait** | 010-B follow-up |
 | B1.3 | Smoke achats → ligne → KPI (runbook) | `po-line` |
 | B1.4 | Articles Guide budget / atterrissage (≥ 2) | Guide |
+
+*(BUD-041 lots 1–5 déjà livrés ; lot 6 import hors scope — ne pas rouvrir.)*
 
 ### A.3 Vague 2 — Portefeuille CODIR
 
@@ -175,16 +175,16 @@ Légende horizon :
 | RFC-024 UI | Scénarios planning avancés, saisie de masse | V1.1 |
 | RES-001 catalogue | Partiel | V1.1 avec RES-002 |
 | INT-006 sélection ressources Graph | Partiel | V1.1 |
-| StrategicLink BUDGET/RISK write | Rejeté MVP STRAT | V1.1 / F26 |
+| StrategicLink BUDGET/RISK/CYCLE write | Hors write V1 ; seul `PROJECT` (+ `MANUAL`) | V1.1 / F26 |
 | MANUEL-* sync contenu Guide | Pointer depuis articles | B3 |
 
 ---
 
 ## I. Compteurs (ordre de grandeur)
 
-| Horizon | Items listés |
+| Horizon | Items restants |
 | --- | --- |
-| Beta obligatoire (A) | ~26 |
+| Beta obligatoire (A) | ~22 |
 | Nice-to-have beta (B) | 5 |
 | Buffer (C) | 3 |
 | V1.1 (D) | ~28 |
@@ -192,16 +192,16 @@ Légende horizon :
 | 2027+ (F) | 3 |
 | Vision (G) | 3 |
 
-**Total tracké** : ~70 chantiers (certains regroupables).
+**Total restant tracké** : ~65 chantiers (certains regroupables).
 
 ---
 
 ## J. Ordre d’attaque immédiat
 
-1. B0.1 Push 010-B  
-2. B0.2–B0.7 Vague 0  
-3. B1.* → B2.* → B3.*  
-4. En parallèle buffer BUF.1–2 (doc only)  
-5. Après go-live : V11.L1 + V11.1 (argent projet) puis MEET / SC  
+1. B0.2–B0.3 — gate technique + préprod MFA  
+2. B0.5–B0.7 — Orion smoke + Guide kickoff + indexer RFC-AI-001  
+3. B1.3–B1.4 → B2.* → B3.*  
+4. En parallèle BUF.1–2 (doc only)  
+5. Après go-live : V11.L1 + V11.1 puis MEET / SC  
 
 Canvas : `backlog-reste-a-faire.canvas.tsx` (filtre par horizon).

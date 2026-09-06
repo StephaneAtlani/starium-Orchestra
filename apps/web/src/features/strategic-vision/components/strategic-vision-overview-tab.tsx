@@ -131,6 +131,7 @@ export function StrategicVisionOverviewTab({
   unalignedProjectsAlertsError,
   isLoading,
   isError,
+  canManageLinks,
 }: {
   vision: StrategicVisionDto | null;
   axes: StrategicAxisDto[];
@@ -145,6 +146,7 @@ export function StrategicVisionOverviewTab({
   isError: boolean;
   isEditMode: boolean;
   canUpdate: boolean;
+  canManageLinks: boolean;
 }) {
   const [unalignedProjectsDialogOpen, setUnalignedProjectsDialogOpen] = useState(false);
 
@@ -266,6 +268,8 @@ export function StrategicVisionOverviewTab({
         isLoading={Boolean(unalignedProjectsAlertsLoading)}
         isError={Boolean(unalignedProjectsAlertsError)}
         expectedCount={kpis?.unalignedProjectsCount ?? 0}
+        objectives={objectives}
+        canManageLinks={canManageLinks}
       />
     </section>
   );

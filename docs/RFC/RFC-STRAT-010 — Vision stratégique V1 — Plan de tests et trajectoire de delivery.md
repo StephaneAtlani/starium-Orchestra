@@ -2,7 +2,7 @@
 
 ## Statut
 
-🟡 En cours d’implémentation
+✅ Implémentée (V1)
 
 ## 1. Analyse de l’existant
 
@@ -18,7 +18,10 @@ Le plan de développement Vision stratégique détaille un séquencement par spr
 
 - `docs/RFC/RFC-STRAT-010 — Vision stratégique V1 — Plan de tests et trajectoire de delivery.md`
 - `docs/RFC/_RFC Liste.md`
-- `docs/API.md` (au fil des livraisons)
+- `docs/API.md` (§5.5a liens objectifs)
+- `docs/LIAISONS-MODULES.md` (`vision-project` / write V1)
+- `docs/BACKLOG-RESTE-A-FAIRE.md` (B0.4)
+- `docs/ROADMAP-V1-BETA.md` (Vague 0)
 
 ## 4. Implémentation complète
 
@@ -69,12 +72,17 @@ Sprint 7 :
 
 ### 4.2 Critères de sortie V1
 
-- API compile et tests backend passent.
-- UI compile et tests frontend passent.
-- Isolation inter-client vérifiée.
-- Permissions vérifiées sur routes et actions UI.
-- Aucun affichage d’ID brut dans l’interface.
-- Documentation RFC/API à jour.
+- [x] API compile et tests backend passent.
+- [x] UI compile et tests frontend passent.
+- [x] Isolation inter-client vérifiée (create/list lien PROJECT ; refus projet/objectif hors client).
+- [x] Permissions vérifiées sur routes et actions UI.
+- [x] Aucun affichage d’ID brut dans l’interface (`pnpm audit:ui-ids`).
+- [x] Documentation RFC/API à jour.
+- [x] Layout cockpit `/strategic-vision` (zone haute visible).
+- [x] StrategicLink **PROJECT** créable depuis panneau Liens (mode Projet | Manuel).
+- [x] Parcours **Aligner** depuis projets non alignés (`StariumModal` + objectif).
+- [x] Invalidations KPI / alertes / objectives après add/remove lien (+ create/update axe).
+- [x] `pnpm audit:modals` vert (dialog non alignés en `StariumModal`).
 
 ## 5. Modifications Prisma si nécessaire
 
@@ -104,12 +112,23 @@ Sans objet spécifique dans cette RFC (dépend des RFC STRAT-007/008).
 - invalidation mutation ;
 - aucun ID brut affiché.
 - correction layout cockpit : zone haute visible (breadcrumb, titre, badge, sous-titre, onglets, actions) sans recouvrement par le header global ;
-- gestion StrategicLink depuis le flux objectifs + invalidations KPI/alertes après mutation.
+- gestion StrategicLink **PROJECT** depuis le panneau Liens (mode Projet | Manuel) + parcours **Aligner** (projets non alignés) ;
+- invalidations KPI/alertes/objectives après mutation de lien.
 
-## 7. Récapitulatif final
+## 7. Récapitulatif final / gate V1
 
 Cette RFC transforme le plan stratégique en trajectoire de delivery testable, avec des gates qualité explicites et une sortie V1 mesurable.
-Le lot frontend V1 est validé uniquement si le bug layout de la zone haute est corrigé **et** si les liens stratégiques + invalidations KPI/alertes sont opérationnels.
+
+**Gate 10/10 (clôturée)** :
+
+- [x] Lien PROJECT créable depuis le panneau Liens.
+- [x] Lien PROJECT créable depuis **Aligner** sur un projet non aligné.
+- [x] KPI + alertes refresh après add/remove (invalidations prouvées par test).
+- [x] Tests FE payload + labels ; tests API cross-client.
+- [x] Dialog en `StariumModal` ; `audit:modals` + `audit:ui-ids` verts.
+- [x] RFC-STRAT-010 + index + backlog B0.4 → Implémentée.
+
+Le lot frontend V1 est validé : bug layout zone haute corrigé, liens stratégiques PROJECT + invalidations KPI/alertes opérationnels.
 
 ## 8. Points de vigilance
 

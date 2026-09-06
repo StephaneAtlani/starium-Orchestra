@@ -230,6 +230,7 @@ export function StrategicVisionTabs({
               isError={baseState.isError}
               isEditMode={isEditMode}
               canUpdate={canUpdate}
+              canManageLinks={canManageLinks}
             />
           ) : null}
 

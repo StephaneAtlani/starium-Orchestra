@@ -852,8 +852,8 @@ Endpoint RFC-STRAT-008 (alertes stratégiques V1, scoping client strict).
   - `unassigned=true` : alerte(s) liées à des objectifs sans direction
   - `directionId` et `unassigned=true` sont mutuellement exclusifs
 - **Périmètre V1** :
-  - backend-only (pas de branchement sur le socle transverse `Alert`/`Notification`)
-  - pas d’extension frontend dans cette RFC
+  - backend-only pour le socle transverse `Alert`/`Notification` (pas de branchement)
+  - UI cockpit : panel alertes + parcours **Aligner** projets non alignés (RFC-STRAT-010)
 - **Projets actifs (PROJECT_UNALIGNED)** :
   - source unique : `activePortfolioProjectsWhere(clientId)`
   - exclus a minima : `ARCHIVED`, `CANCELLED`, `COMPLETED`
@@ -929,6 +929,22 @@ Endpoint RFC-STRAT-005 (lecture cockpit par direction, sans changer le KPI globa
   generatedAt: string;
 }
 ```
+
+## 5.5a Strategic Vision objective links — `…/objectives/:objectiveId/links`
+
+Écriture V1 des `StrategicLink` (RFC-STRAT-007 write + clôture UI [RFC-STRAT-010](RFC/RFC-STRAT-010%20—%20Vision%20stratégique%20V1%20—%20Plan%20de%20tests%20et%20trajectoire%20de%20delivery.md)). Isolation **client actif** obligatoire : objectif et cible projet doivent appartenir au même `clientId` (dérivé du scope, pas du body).
+
+- **Routes** :
+  - `POST /api/strategic-vision/objectives/:objectiveId/links`
+  - `PATCH /api/strategic-vision/objectives/:objectiveId/links/:linkId`
+  - `DELETE /api/strategic-vision/objectives/:objectiveId/links/:linkId`
+- **Permission** : `strategic_vision.manage_links`
+- **Guards** : `JwtAuthGuard` → `ActiveClientGuard` → `ModuleAccessGuard` → `PermissionsGuard`
+- **Write V1 autorisé** : `linkType` / `targetType` = `PROJECT` | `MANUAL` uniquement. `BUDGET`, `BUDGET_LINE`, `RISK`, `GOVERNANCE_CYCLE` → **400** (`not supported in MVP`).
+- **Body POST (PROJECT)** : `{ linkType: "PROJECT", targetId: "<projectId>", targetLabelSnapshot: "<libellé métier>" }` — `targetId` doit exister dans `Project` du client actif, sinon **400** `target project not found for active client`. Objectif hors client → **404**.
+- **Body POST (MANUAL)** : `{ linkType: "MANUAL", targetLabelSnapshot: "<libellé>" }` — `targetId` optionnel ; sinon généré `manual:<uuid>`.
+- **KPI / alertes** : seuls les liens `PROJECT` comptent pour l’alignement (`projectAlignmentRate`, `PROJECT_UNALIGNED`).
+- **UI** : panneau Liens (modes Projet | Manuel) + parcours **Aligner** depuis les projets non alignés (`/strategic-vision`).
 
 ## 5.6 Strategic directions — `/api/strategic-directions`
 

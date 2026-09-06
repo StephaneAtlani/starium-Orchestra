@@ -1,11 +1,23 @@
 # Roadmap V1 Beta — Starium Orchestra en production
 
-**Statut** : proposition de périmètre produit (2026-09)  
+**Statut** : périmètre produit actif (dernière sync **2026-09-06**)  
+**Vague en cours** : **Vague 0** (gel socle) — partiellement livrée  
 **Objectif** : une **beta production** utilisable par un DSI à temps partagé / CODIR client, avec les **liaisons critiques** branchées — pas le produit « vision Fin 2026 ».  
 **Sources** : [`VISION_PRODUIT.md`](./VISION_PRODUIT.md), [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md), [`RFC/_RFC Liste.md`](./RFC/_RFC%20Liste.md), plans Budget / Projet, runbooks préprod.  
 **Backlog exhaustif (tout le reste)** : [`BACKLOG-RESTE-A-FAIRE.md`](./BACKLOG-RESTE-A-FAIRE.md).
 
 **Définition V1 Beta** : déploiement **préprod → prod** (`preprod` → `main`), multi-client réel, parcours CODIR du jour J **+ adoption** (**Orion** + **Guide** nouveaux clients), sans CMDB / GED / IA générative / connecteurs génériques.
+
+### Avancement (snapshot)
+
+| Item | Statut |
+| --- | --- |
+| RFC-PROJ-010-B + widget `/budgets/dashboard` Projets financés | ✅ livré |
+| RFC-BUD-041 lots 1–5 | ✅ live ; lot 6 import **hors scope** |
+| **RFC-STRAT-010** (QA vision, lien PROJECT panneau + Aligner, invalidations, isolation) | ✅ clôturée (V1) — commit/merge si pas encore sur la branche distante |
+| Gate technique préprod + smoke Orion + pack Guide Premiers pas | 🔲 reste Vague 0 |
+| Indexer **RFC-AI-001** dans `_RFC Liste` | 🔲 reste Vague 0 (B0.7) |
+| Vagues 1–3 (smoke achats, portefeuille 014–016, UAT go-live) | 🔲 à venir |
 
 ---
 
@@ -70,7 +82,7 @@ Plus : FAQ top 10 des erreurs UAT (login, client vide, module masqué, droits re
 | Projets (CRUD, tâches, Gantt, risques, sheet) | Cœur | Live | Harden ; métriques sheet / règles d’arbitrage **post-beta** si trop gros |
 | Project ↔ Budget (`project-budget`, `ui-line-projects`) | Liaison critique | Live (010 + **010-B** + widget dashboard) | Smoke UAT |
 | Intake + Cycles gouvernance | Amont portefeuille | Live | Smoke UAT |
-| Vision stratégique | CODIR | Live ; STRAT-010 QA | **Clôturer STRAT-010** |
+| Vision stratégique | CODIR | Live ; **STRAT-010 ✅** (PROJECT write UI + Aligner) | Smoke UAT alignement ; write BUDGET/RISK/CYCLE hors V1 |
 | Réunions / points projet | Gouvernance | Live (ponts) | Stabiliser parcours COPIL si dette UI |
 | Fournisseurs + Contrats | Achats | MVP ; FOU partiel | Harden ; **pas** de pont contrat↔budget/projet en beta |
 | Équipes / RH / Capacité / Timesheet | People | Live capa + TEAM-009 | Finir **FE-CAPA-001** polish |
@@ -91,7 +103,8 @@ Plus : FAQ top 10 des erreurs UAT (login, client vide, module masqué, droits re
 | `project-budget` + `ui-line-projects` | Projets ↔ Budgets | Lecture portefeuille ↔ enveloppe (010-B ✅) |
 | `po-line` + `po-event` | Achats → Budgets / Financial | Seul chemin argent réel aujourd’hui |
 | `budget-event` | Budgets → Financial Core | Atterrissage / recalculs |
-| `vision-project` (+ budget/risk/cycle) | Vision → domaines | Alignement CODIR |
+| `vision-project` | Vision → Projets | Alignement CODIR — **STRAT-010 ✅** (write `PROJECT` + UI Aligner) ; KPI/alertes = liens `PROJECT` uniquement |
+| `vision-budget` / `vision-risk` / `vision-cycle` | Vision → domaines | Schéma live ; **write rejeté V1** (hors beta) |
 | `intake-project` | Demandes → Projets | Entrée portefeuille |
 | `cycle-*` | Cycles ↔ projets/budgets/risques | Pilotage périodique |
 | `meet-project` / `meet-cycle` | Réunions → projets/cycles | Tenue de gouvernance |
@@ -103,7 +116,7 @@ Plus : FAQ top 10 des erreurs UAT (login, client vide, module masqué, droits re
 
 | Id | Action |
 | --- | --- |
-| Widget dashboard budget × projet | Même API KPI que 010-B |
+| ~~Widget dashboard budget × projet~~ | ✅ même API KPI que 010-B (`budget-dashboard-projects-funded-card`) |
 | Triggers alertes Achats / Capacité | Completer socle partial (§4.2 LIAISONS) |
 | `task-line` explicabilité UI | Afficher FK tâche→ligne **sans** générer d’event |
 | `docs-project` | Liste documents projet lisible (silo actuel) — pas de GED |
@@ -142,16 +155,22 @@ Toutes les entrées `partial` / `gap` / `future` de [`LIAISONS-MODULES.md`](./LI
 
 Durées indicatives (équipe produit actuelle). Ajuster au calendrier commercial.
 
-### Vague 0 — Gel du socle (1–2 sem.)
+### Vague 0 — Gel du socle (1–2 sem.) — **en cours**
+
+**Fait**
+
+- ~~Clôturer **RFC-STRAT-010**~~ ✅ — panneau Liens Projet\|Manuel, Aligner non-alignés (`StariumModal`), invalidations KPI/alertes, tests isolation, doc + `API.md` §5.5a + LIAISONS `vision-project`.
+- ~~010-B + widget dashboard projets financés~~ ✅ (voir Vague 1).
+
+**Reste**
 
 - Freeze features hors roadmap.
-- Gate technique : `pnpm lint` / `typecheck` / `test` / `audit:ui-ids` / `audit:modals` ; runbook préprod ; smoke multi-client.
-- Clôturer **RFC-STRAT-010** (QA vision).
-- **Orion** : smoke drawer (client actif / unauthorized / no-match / historique) ; vérifier isolation `clientId` sur conversations.
-- **Guide** : inventaire contenus existants ; ouvrir chantier pack « Premiers pas » (rédaction + seed admin).
-- Doc : ce fichier + pointer depuis `_RFC Liste` / LIAISONS ; indexer **RFC-AI-001** si absent de la liste.
+- Gate technique : `pnpm lint` / `typecheck` / `test` / `audit:ui-ids` / `audit:modals` ; runbook préprod ; smoke multi-client + MFA.
+- **Orion** : smoke drawer (client actif / unauthorized / no-match / historique) ; isolation `clientId` sur conversations.
+- **Guide** : inventaire KB existante ; kickoff pack « Premiers pas » (rédaction + seed admin).
+- Doc : indexer **RFC-AI-001** dans `_RFC Liste` + statut aligné code (B0.7) ; pointer LIAISONS / ce fichier déjà à jour pour STRAT-010.
 
-**Exit** : préprod bootable, UAT login MFA, Orion utilisable, zéro fuite client connue.
+**Exit** : préprod bootable, UAT login MFA, Orion utilisable, zéro fuite client connue, STRAT-010 mergée.
 
 ### Vague 1 — Boucle argent & budget gouvernance (2–4 sem.)
 
@@ -246,12 +265,12 @@ Durées indicatives (équipe produit actuelle). Ajuster au calendrier commercial
 
 ## 7. Ordre de chantier recommandé (prochaines actions concrètes)
 
-1. **Push / merge** RFC-PROJ-010-B + smoke UI.
-2. **Vague 0** : STRAT-010 + gate préprod + smoke **Orion** + kickoff pack **Guide**.
-3. **Vague 1** : BUD-041 lot 6 + widget dashboard + articles Guide budget.
-4. **Vague 2** : PROJ-014 → 016 + articles Guide projets/capa.
+1. **Commit / merge** lot **STRAT-010** (si encore local) + smoke UI Aligner / panneau Liens PROJECT.
+2. **Finir Vague 0** : gate technique + préprod MFA · smoke **Orion** · inventaire/kickoff **Guide** · indexer **RFC-AI-001** dans `_RFC Liste`.
+3. **Vague 1** : smoke achats → ligne → KPI (runbook) + ≥ 2 articles Guide budget (widget 010-B ✅ ; BUD-041 lot 6 hors scope).
+4. **Vague 2** : PROJ-014 → 016 + FE portefeuille + polish FE-CAPA-001 + articles Guide projets/capa.
 5. **Vague 3** : pack Guide « Nouveaux clients » publié + UAT + go-live.
-6. Ouvrir RFC **RES-002** / **project-event** pour V1.1 (doc only pendant la beta).
+6. En parallèle non bloquant : RFC **RES-002** / **project-event** (doc only) pour V1.1.
 
 ---
 
