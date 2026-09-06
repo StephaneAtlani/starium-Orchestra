@@ -7,6 +7,7 @@
 | **Ce document** | Référence : patterns, graphes, catalogue des ponts (table Prisma, RFC, statut) |
 | [liaisons/graphe-fonctionnel-modules.canvas.tsx](./liaisons/graphe-fonctionnel-modules.canvas.tsx) | Graphe interactif (Cursor Canvas), versionné ici |
 | [liaisons/README.md](./liaisons/README.md) | Comment ouvrir le canvas dans l’IDE |
+| [ROADMAP-V1-BETA.md](./ROADMAP-V1-BETA.md) | Périmètre beta production : modules IN/OUT, liaisons bloquantes, vagues 0→3 |
 
 Les modules **ne s’appellent pas**. Un pont est toujours une table, une FK, un `sourceType`+`sourceId`, ou une lecture overlay. Isolation **client actif** sur chaque pont métier.
 

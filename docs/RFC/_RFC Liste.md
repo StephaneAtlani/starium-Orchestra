@@ -307,6 +307,9 @@ Module `meetings` en **surcouche** : il orchestre le rituel (template, périmèt
 
 # 🚨 SYNTHÈSE AJUSTÉE
 
+> **Roadmap beta production** (modules + liaisons + vagues) : [ROADMAP-V1-BETA.md](../ROADMAP-V1-BETA.md).  
+> **Backlog exhaustif** (beta → vision) : [BACKLOG-RESTE-A-FAIRE.md](../BACKLOG-RESTE-A-FAIRE.md).
+
 ## 🔥 À FAIRE MAINTENANT (CRITIQUE RÉEL)
 
 | RFC | Pourquoi |
