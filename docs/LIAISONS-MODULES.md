@@ -19,7 +19,7 @@ Les modules **ne s’appellent pas**. Un pont est toujours une table, une FK, un
 | **Table N:N** (`jonction`) | Table de liaison scopée client | `ProjectBudgetLink` (RFC-PROJ-010) |
 | **FK consommateur** | Le module aval pointe le maître | `PurchaseOrder.budgetLineId` |
 | **Polymorphe** | `sourceType` + `sourceId` | `FinancialEvent`, `CapacityAllocation`, `Alert` |
-| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Cartographie (Fin 2027), ACL, Financial Core |
+| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Cartographie (Fin 2026), IA analyse (Fin 2026), ACL, Financial Core |
 
 **Argent** : un projet n’a **pas** de `budgetId`. Il pointe des **lignes** via `ProjectBudgetLink`. Aucun `FinancialEvent` sur ce lien. L’argent bouge si un PO / une facture tombe sur la même ligne.
 
@@ -38,7 +38,9 @@ flowchart TB
     ALERT[Alertes / Notifs]
     MEET[Réunions]
     SEARCH[Recherche]
-            ATLAS[Cartographie — Fin 2027]
+    ATLAS[Cartographie — Fin 2026]
+    AI[IA analyse — Fin 2026]
+    CONN[API externes — 2028+]
   end
   subgraph gouv [Gouvernance]
     VIS[Vision]
@@ -55,9 +57,9 @@ flowchart TB
     CAPA[Capacité]
     PLAN[Plans d'action]
     RISK[Risques]
-    LIC[Licences SI — futur]
-    CMDB[CMDB — futur]
-    GED[GED — futur]
+    LIC[Licences SI — Fin 2026]
+    CMDB[CMDB — 2027]
+    GED[GED — 2027]
   end
   subgraph noy [Noyaux]
     FIN[Financial Core]
@@ -184,7 +186,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | Risques | live | `project_risk` |
 | Contrats | live | `supplier_contract` |
 | Recherche, Cycles, Conformité, Achats, Équipes, Capacité, Plans, Financial, RH, Org, ACL, M365, Licences (sièges plateforme) | partial | Socle prêt, pas de règle métier dédiée |
-| Atlas, CMDB, GED | future | Module absent ou overlay prévu |
+| Atlas, CMDB, GED, IA, API externes | future | Overlay / modules absents — Cartographie + IA = Fin 2026 ; CMDB/GED = 2027 ; connecteurs = 2028+ |
 
 ### 4.3 Partiels, trous, futur
 
@@ -212,7 +214,9 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `fut-ms-lot5` | Microsoft 365 | GED | future | Provisioning Planner / dossier | RFC-PROJ-INT-010 lot 5 |
 | `fut-finance` | Financial Core | Budgets | future | Orchestra Finance (DAF) | VISION |
 | `fut-hr` | RH | Capacité | future | `CapacitySource.SIRH` | VISION · RFC-CAPA-001 |
-| `atlas-*` | Cartographie | Tous les modules métier / noyaux | future (Fin 2027) | Overlay `AtlasRelation` kind=ORG\|FUNCTIONAL\|TECHNICAL — lit les ponts, ne duplique pas | Prototype Cartographie (hors repo RFC) |
+| `atlas-*` | Cartographie | Tous les modules métier / noyaux | future (**Fin 2026**) | Overlay `AtlasRelation` kind=ORG\|FUNCTIONAL\|TECHNICAL — lit les ponts, ne duplique pas | Prototype Cartographie |
+| `ai-*` | IA analyse | Dashboard, Cartographie, projets, budgets, risques, réunions, search, vision, capa, ACL | future (**Fin 2026**) | Overlay insights lecture seule + audit ; pas de mutation auto ; RGPD (pas de DCP en clair vers LLM) | VISION_PRODUIT |
+| `conn-*` | API externes | M365, IA, CMDB, RH | future (**2028+**) | Hub connecteurs générique (M365 déjà live comme référence) | VISION |
 
 ---
 

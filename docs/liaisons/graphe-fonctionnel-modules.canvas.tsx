@@ -1813,8 +1813,8 @@ function FunctionalGraph({
   const nodeLooksFuture = (node: NodeDef) => {
     if (projectFin2027) return false;
     if (projectFin2026) {
-      // Fin 2026 : Cartographie + IA livrés ; CMDB/GED/API externes encore futurs
-      return node.id === "cmdb" || node.id === "ged" || node.id === "connectors" || node.id === "licenses";
+      // Fin 2026 : Cartographie + IA + Licences SI ; CMDB/GED/API externes encore ouverts
+      return node.id === "cmdb" || node.id === "ged" || node.id === "connectors";
     }
     return !!node.future;
   };
