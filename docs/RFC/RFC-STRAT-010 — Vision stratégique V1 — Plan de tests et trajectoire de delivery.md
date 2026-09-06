@@ -20,8 +20,8 @@ Le plan de développement Vision stratégique détaille un séquencement par spr
 - `docs/RFC/_RFC Liste.md`
 - `docs/API.md` (§5.5a liens objectifs)
 - `docs/LIAISONS-MODULES.md` (`vision-project` / write V1)
-- `docs/BACKLOG-RESTE-A-FAIRE.md` (B0.4)
-- `docs/ROADMAP-V1-BETA.md` (Vague 0)
+- `docs/BACKLOG.md`
+- `docs/ROADMAP.md`
 
 ## 4. Implémentation complète
 
