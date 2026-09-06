@@ -19,7 +19,7 @@ Les modules **ne s’appellent pas**. Un pont est toujours une table, une FK, un
 | **Table N:N** (`jonction`) | Table de liaison scopée client | `ProjectBudgetLink` (RFC-PROJ-010) |
 | **FK consommateur** | Le module aval pointe le maître | `PurchaseOrder.budgetLineId` |
 | **Polymorphe** | `sourceType` + `sourceId` | `FinancialEvent`, `CapacityAllocation`, `Alert` |
-| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Atlas, ACL, Financial Core |
+| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Cartographie (Fin 2027), ACL, Financial Core |
 
 **Argent** : un projet n’a **pas** de `budgetId`. Il pointe des **lignes** via `ProjectBudgetLink`. Aucun `FinancialEvent` sur ce lien. L’argent bouge si un PO / une facture tombe sur la même ligne.
 
@@ -38,7 +38,7 @@ flowchart TB
     ALERT[Alertes / Notifs]
     MEET[Réunions]
     SEARCH[Recherche]
-    ATLAS[Atlas — futur]
+            ATLAS[Cartographie — Fin 2027]
   end
   subgraph gouv [Gouvernance]
     VIS[Vision]
@@ -194,7 +194,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `docs-project` | Projets | GED | partial | `ProjectDocument` (silo) | RFC-PROJ-DOC-001 |
 | `fut-license-resource` | Licences SI | RH | partial | `ResourceType.LICENSE` ≠ module RFC-037 | RFC-RES-001 vs RFC-037 |
 | `fut-cmdb-resource` | CMDB | RH | partial | `ResourceType.MATERIAL` ≠ inventaire IT | RFC-RES-001 |
-| `ui-line-projects` | Budgets | Projets | gap | Vue inverse `ProjectBudgetLink` (écran ligne) | [RFC-PROJ-010-B](../RFC/RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) |
+| `ui-line-projects` | Budgets | Projets | live | Vue inverse `ProjectBudgetLink` (écran ligne + KPI fiche) | [RFC-PROJ-010-B](../RFC/RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) |
 | `gap-project-event` | Projets | Financial Core | gap | `FinancialSourceType.PROJECT` (enum) | RFC-PROJ-010 §6 |
 | `gap-contract-budget` | Contrats | Budgets | gap | `FinancialSourceType.CONTRACT` (enum) | RFC-037 |
 | `gap-contract-project` | Contrats | Projets | gap | Pas de `projectId` sur `SupplierContract` | RFC-037 |
@@ -212,7 +212,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `fut-ms-lot5` | Microsoft 365 | GED | future | Provisioning Planner / dossier | RFC-PROJ-INT-010 lot 5 |
 | `fut-finance` | Financial Core | Budgets | future | Orchestra Finance (DAF) | VISION |
 | `fut-hr` | RH | Capacité | future | `CapacitySource.SIRH` | VISION · RFC-CAPA-001 |
-| `atlas-*` | Atlas | Projets / Org / CMDB | future | Overlay, ne duplique pas | Prototype Atlas |
+| `atlas-*` | Cartographie | Tous les modules métier / noyaux | future (Fin 2027) | Overlay `AtlasRelation` kind=ORG\|FUNCTIONAL\|TECHNICAL — lit les ponts, ne duplique pas | Prototype Cartographie (hors repo RFC) |
 
 ---
 

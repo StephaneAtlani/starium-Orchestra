@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { BudgetLineDrawerHeader } from './budget-line-drawer-header';
 import { BudgetLineKpiStrip } from './budget-line-kpi-strip';
 import { BudgetLineOverviewTab } from './budget-line-overview-tab';
+import { BudgetLineProjectsTab } from './budget-line-projects-tab';
 import { BudgetLineCommitmentsTab } from './budget-line-commitments-tab';
 import { BudgetLineInvoicesTab } from './budget-line-invoices-tab';
 import { BudgetLineAllocationsTab } from './budget-line-allocations-tab';
@@ -32,6 +33,7 @@ import { ResourceAclDialog } from '@/features/resource-acl/components/resource-a
 
 export type BudgetLineDrawerTab =
   | 'overview'
+  | 'projects'
   | 'previsionnel'
   | 'commitments'
   | 'invoices'
@@ -243,6 +245,7 @@ export function BudgetLineIntelligenceDrawer({
                   <div className="sticky top-0 z-10 -mx-4 border-b border-border/60 bg-background/90 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/80 shadow-sm">
                     <TabsList variant="line" className="w-full justify-start gap-1">
                       <TabsTrigger value="overview">Vue d’ensemble</TabsTrigger>
+                      <TabsTrigger value="projects">Projets</TabsTrigger>
                       <TabsTrigger value="previsionnel">Prévisionnel</TabsTrigger>
                       <TabsTrigger value="commitments">Commandes</TabsTrigger>
                       <TabsTrigger value="invoices">Factures</TabsTrigger>
@@ -268,6 +271,12 @@ export function BudgetLineIntelligenceDrawer({
                         envelopeCode={envelopeCode}
                         envelopeType={envelopeType}
                         lastEvent={lastEvent}
+                      />
+                    </TabsContent>
+                    <TabsContent value="projects">
+                      <BudgetLineProjectsTab
+                        budgetLineId={line.id}
+                        enabled={activeTab === 'projects'}
                       />
                     </TabsContent>
                     <TabsContent value="previsionnel">

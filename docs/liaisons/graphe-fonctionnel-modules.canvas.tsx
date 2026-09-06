@@ -30,7 +30,7 @@ import {
 import type { Color } from "cursor/canvas";
 
 type LayerId = "cockpit" | "gouvernance" | "domaines" | "noyaux";
-type FlowId = "all" | "argent" | "projet" | "gouvernance" | "org" | "capa" | "futur" | "atlas";
+type FlowId = "all" | "argent" | "projet" | "gouvernance" | "org" | "capa" | "futur" | "atlas" | "ia";
 type AtlasKind = "org" | "functional" | "technical";
 type Pattern = "jonction" | "fk" | "polymorphe" | "overlay" | "noyau";
 type LinkStatus = "live" | "partial" | "gap" | "future";
@@ -61,10 +61,10 @@ type LinkDef = {
   note: string;
 };
 
-const VIEW_W = 1560;
+const VIEW_W = 1680;
 const VIEW_H = 780;
 const LAYER_X = 112;
-const LAYER_W = 1424;
+const LAYER_W = 1544;
 
 const LAYERS: { id: LayerId; label: string; y: number; h: number; color: Color }[] = [
   { id: "cockpit", label: "Cockpit", y: 16, h: 88, color: "gray" },
@@ -74,11 +74,13 @@ const LAYERS: { id: LayerId; label: string; y: number; h: number; color: Color }
 ];
 
 const NODES: NodeDef[] = [
-  { id: "dashboard", label: "Dashboard", layer: "cockpit", x: 136, y: 32, w: 188, h: 56 },
-  { id: "alerts", label: "Alertes / Notifs", layer: "cockpit", x: 384, y: 32, w: 212, h: 56 },
-  { id: "meetings", label: "Réunions", layer: "cockpit", x: 656, y: 32, w: 188, h: 56 },
-  { id: "search", label: "Recherche", layer: "cockpit", x: 916, y: 32, w: 188, h: 56 },
-  { id: "atlas", label: "Atlas", layer: "cockpit", x: 1176, y: 32, w: 220, h: 56, future: true },
+  { id: "dashboard", label: "Dashboard", layer: "cockpit", x: 128, y: 32, w: 156, h: 56 },
+  { id: "alerts", label: "Alertes / Notifs", layer: "cockpit", x: 304, y: 32, w: 176, h: 56 },
+  { id: "meetings", label: "Réunions", layer: "cockpit", x: 500, y: 32, w: 148, h: 56 },
+  { id: "search", label: "Recherche", layer: "cockpit", x: 668, y: 32, w: 140, h: 56 },
+  { id: "atlas", label: "Cartographie", layer: "cockpit", x: 828, y: 32, w: 172, h: 56, future: true },
+  { id: "ai", label: "IA analyse", layer: "cockpit", x: 1020, y: 32, w: 148, h: 56, future: true },
+  { id: "connectors", label: "API externes", layer: "cockpit", x: 1188, y: 32, w: 168, h: 56, future: true },
 
   { id: "vision", label: "Vision", layer: "gouvernance", x: 168, y: 142, w: 220, h: 56 },
   { id: "cycles", label: "Cycles", layer: "gouvernance", x: 500, y: 142, w: 220, h: 56 },
@@ -133,7 +135,30 @@ const ALERT_LINKS: LinkDef[] = [
   alertLink("dashboard", "panel /dashboard", "live", ["gouvernance"], "Cloche + panel critiques. Bell = /api/notifications, pas la liste Alert."),
   alertLink("meetings", "project_review", "live", ["gouvernance", "projet"], "Invitations revue → Notification (alertId optionnel)."),
   alertLink("search", "—", "partial", ["gouvernance"], "Pas de trigger.search. Socle entityType prêt."),
-  alertLink("atlas", "—", "future", ["gouvernance", "futur", "atlas"], "Atlas n'émet pas encore. Overlay prévu comme Meetings."),
+  alertLink(
+    "atlas",
+    "atlas_relation",
+    "future",
+    ["gouvernance", "futur", "atlas"],
+    "Fin 2026 : alertes sur rupture de relation cartographiée (overlay Meetings).",
+    "next",
+  ),
+  alertLink(
+    "ai",
+    "ai_insight",
+    "future",
+    ["gouvernance", "futur", "ia"],
+    "Fin 2026 : notification quand une insight IA est prête / validée.",
+    "next",
+  ),
+  alertLink(
+    "connectors",
+    "external_connector",
+    "future",
+    ["futur"],
+    "2028+ : sync / échec connecteur API externe.",
+    "distant",
+  ),
   alertLink("vision", "strategic_direction_strategy", "live", ["gouvernance"], "AlertType.STRATEGIC_VISION + notif stratégie direction."),
   alertLink("cycles", "governance_cycle", "partial", ["gouvernance"], "capacityScore / décision cycle : pas de règle Alert dédiée."),
   alertLink("intake", "project_request", "live", ["gouvernance", "projet"], "Notification workflow demande (soumission / décision)."),
@@ -672,11 +697,11 @@ const LINKS: LinkDef[] = [
     label: "Liste des projets sur une BudgetLine",
     table: "ProjectBudgetLink (vue inverse)",
     pattern: "jonction",
-    status: "gap",
-    horizon: "next",
+    status: "live",
+    horizon: "now",
     rfc: "RFC-PROJ-010-B",
-    flows: ["argent", "projet", "futur"],
-    note: "Table live, écran ligne budget pas encore. Spec draft RFC-PROJ-010-B (lots A+B §8.2/§8.3).",
+    flows: ["argent", "projet"],
+    note: "API + drawer onglet Projets + KPI fiche budget (imputation PROPORTIONAL_V1). Dashboard hors V1.",
   },
   {
     id: "gap-project-event",
@@ -881,7 +906,7 @@ const LINKS: LinkDef[] = [
     table: "AuditLog + FinancialEvent + ProjectActivity",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
+    horizon: "next",
     rfc: "RFC-032 hors scope",
     flows: ["gouvernance", "argent", "futur"],
     note: "Aujourd'hui timeline budget seule (decision-history) et timeline ligne (events).",
@@ -894,7 +919,7 @@ const LINKS: LinkDef[] = [
     table: "Project.parentProjectId (agrégats)",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
+    horizon: "next",
     rfc: "RFC-PROJ-020",
     flows: ["projet", "argent", "futur"],
     note: "Hiérarchie live (RFC-PROJ-019). Agrégation budget / santé / risques à faire.",
@@ -933,7 +958,7 @@ const LINKS: LinkDef[] = [
     table: "ProjectMicrosoftTeamsProvisioning lot 5",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
+    horizon: "next",
     rfc: "RFC-PROJ-INT-010 lot 5",
     flows: ["projet", "futur"],
     note: "MVP Team+canaux live. Cases Planner / dossier / sync auto encore planifiés.",
@@ -964,44 +989,305 @@ const LINKS: LinkDef[] = [
     flows: ["org", "capa", "futur"],
     note: "Enum SIRH déjà sur ClientMonthlyCapacity.source. Pas de connecteur. Congés / effectif viendront du DRH, pas saisis à la main.",
   },
+  // —— Cartographie (Atlas) — cible Fin 2026 : overlay qui lit tous les ponts ——
   {
-    id: "atlas-overlay",
+    id: "atlas-projects",
     from: "atlas",
     to: "projects",
-    label: "Cartographie — lit les ponts, ne duplique pas",
-    table: "AtlasRelation (à créer) kind=ORG|FUNCTIONAL|TECHNICAL",
+    label: "Cartographie — projets & hiérarchie",
+    table: "AtlasRelation ← Project · parentProjectId · ProjectBudgetLink",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
-    rfc: "Prototype Starium Atlas (hors repo RFC)",
-    flows: ["gouvernance", "futur", "atlas"],
-    note: "Surcouche comme Meetings. Calques prototype : processus, apps, flux métier/tech, données, infra, sites, fournisseurs, risques, SSI/RGPD.",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026 (prototype Atlas)",
+    flows: ["gouvernance", "projet", "futur", "atlas"],
+    note: "Nœud central du graphe. Lit les FK/jonctions, ne copie ni montants ni risques.",
+  },
+  {
+    id: "atlas-budgets",
+    from: "atlas",
+    to: "budgets",
+    label: "Cartographie — enveloppes & lignes",
+    table: "AtlasRelation ← Budget · BudgetLine · ProjectBudgetLink",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["argent", "gouvernance", "futur", "atlas"],
+    note: "Calque fonctionnel argent. Pas de second Financial Core.",
   },
   {
     id: "atlas-org",
     from: "atlas",
     to: "org",
-    label: "Relations organisationnelles",
-    table: "ownerOrgUnitId · stewardResourceId · OrgUnitMembership · WorkTeam",
+    label: "Cartographie — org / stewardship",
+    table: "ownerOrgUnitId · stewardResourceId · OrgUnitMembership",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
-    rfc: "RFC-ORG-003/004 + Atlas",
+    horizon: "next",
+    rfc: "RFC-ORG-003/004 + Cartographie",
     flows: ["org", "futur", "atlas"],
-    note: "Propriétaire métier, steward, unités, équipes, sites. Déjà en colonnes ; Atlas les rend navigables.",
+    note: "Axe organisationnel. Colonnes déjà live ; graphe navigable Fin 2026.",
+  },
+  {
+    id: "atlas-resource",
+    from: "atlas",
+    to: "resource",
+    label: "Cartographie — personnes & comptes",
+    table: "ClientUser.resourceId · WorkTeamMembership · MeetingAttendee",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["org", "futur", "atlas"],
+    note: "HUMAN dans le graphe org. Pas de DCP en clair dans les calques.",
+  },
+  {
+    id: "atlas-teams",
+    from: "atlas",
+    to: "teams",
+    label: "Cartographie — équipes / centres capa",
+    table: "WorkTeam · primaryCapacityWorkTeamId · strategicDirectionId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["org", "capa", "futur", "atlas"],
+    note: "Équipe = nœud org + capa. Distinct d'OrgUnit.",
+  },
+  {
+    id: "atlas-capa",
+    from: "atlas",
+    to: "capacity",
+    label: "Cartographie — allocations J/H",
+    table: "CapacityAllocation (PROJECT|RISK|ACTION_PLAN)",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026 · RFC-CAPA-001",
+    flows: ["capa", "futur", "atlas"],
+    note: "Calque charge. Lecture des allocations, pas de replanification.",
+  },
+  {
+    id: "atlas-vision",
+    from: "atlas",
+    to: "vision",
+    label: "Cartographie — objectifs stratégiques",
+    table: "StrategicLink · WorkTeam.strategicDirectionId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-STRAT-001 + Cartographie",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Alignement CODIR visible comme arêtes vision ↔ cibles.",
+  },
+  {
+    id: "atlas-cycles",
+    from: "atlas",
+    to: "cycles",
+    label: "Cartographie — cycles de gouvernance",
+    table: "GovernanceCycleItem · Meeting.governanceCycleInstanceId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-PROJ-CYCLE-001 + Cartographie",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Portefeuille arbitrage. Trace réunion ↔ instance déjà live.",
+  },
+  {
+    id: "atlas-intake",
+    from: "atlas",
+    to: "intake",
+    label: "Cartographie — demandes → projets",
+    table: "ProjectRequest.convertedProjectId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["gouvernance", "projet", "futur", "atlas"],
+    note: "Flux d'entrée du portefeuille.",
+  },
+  {
+    id: "atlas-compliance",
+    from: "atlas",
+    to: "compliance",
+    label: "Cartographie — exigences / preuves",
+    table: "ProjectRisk.complianceRequirementId · ComplianceEvidence",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026 · SSI/RGPD",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Calque conformité. Preuves → GED au même horizon.",
+  },
+  {
+    id: "atlas-risks",
+    from: "atlas",
+    to: "risks",
+    label: "Cartographie — risques",
+    table: "ProjectRisk · MeetingBlocker.riskId · StrategicLink(RISK)",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["gouvernance", "projet", "futur", "atlas"],
+    note: "Risques projet et hors projet dans le même calque.",
+  },
+  {
+    id: "atlas-plans",
+    from: "atlas",
+    to: "action-plans",
+    label: "Cartographie — plans d'action",
+    table: "ActionPlan · ProjectTask.actionPlanId · CapacityAllocation",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["projet", "futur", "atlas"],
+    note: "Plans liés projets / capa.",
+  },
+  {
+    id: "atlas-procurement",
+    from: "atlas",
+    to: "procurement",
+    label: "Cartographie — achats / fournisseurs",
+    table: "PurchaseOrder · Invoice · Supplier · SupplierContract",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["argent", "futur", "atlas"],
+    note: "Calque fournisseurs + flux PO/facture vers lignes.",
+  },
+  {
+    id: "atlas-contracts",
+    from: "atlas",
+    to: "contracts",
+    label: "Cartographie — contrats",
+    table: "SupplierContract · License.contractId? (RFC-037)",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["argent", "futur", "atlas"],
+    note: "Registre contractuel + pont licences SI.",
+  },
+  {
+    id: "atlas-meetings",
+    from: "atlas",
+    to: "meetings",
+    label: "Cartographie — rituels gouvernance",
+    table: "MeetingProject · Meeting.governanceCycleInstanceId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-MEET-001 + Cartographie",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Même pattern overlay : Meetings déjà ; Cartographie étend le graphe.",
+  },
+  {
+    id: "atlas-financial",
+    from: "atlas",
+    to: "financial",
+    label: "Cartographie — mouvements d'argent",
+    table: "FinancialEvent (lecture) · sourceType+sourceId",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["argent", "futur", "atlas"],
+    note: "Lit les events pour tracer PO/facture/contrat → ligne. Ne recalcule rien.",
+  },
+  {
+    id: "atlas-licenses",
+    from: "atlas",
+    to: "licenses",
+    label: "Cartographie — parc licences SI",
+    table: "License.contractId? · budgetLineId? · projectId? · applicationId?",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-037 + Cartographie Fin 2026",
+    flows: ["argent", "futur", "atlas"],
+    note: "Dépend RFC-037. Distinct ResourceType.LICENSE.",
   },
   {
     id: "atlas-cmdb",
     from: "atlas",
     to: "cmdb",
-    label: "Relations techniques (flux SI)",
-    table: "flux technique / applicatif (prototype Atlas)",
+    label: "Cartographie — flux techniques SI",
+    table: "AtlasRelation kind=TECHNICAL (apps, BDD, domaines, certs, téléphonie)",
     pattern: "overlay",
     status: "future",
-    horizon: "later",
-    rfc: "Starium Atlas + VISION CMDB",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026 + VISION CMDB",
     flows: ["futur", "atlas"],
-    note: "LDAP, SQL, hébergement, API, SFTP — aujourd'hui seulement Microsoft 365 + silos documents.",
+    note: "LDAP, SQL, API, hébergement, SFTP. CMDB = prérequis du calque technique.",
+  },
+  {
+    id: "atlas-ged",
+    from: "atlas",
+    to: "ged",
+    label: "Cartographie — documents / preuves",
+    table: "Document transverse · ComplianceEvidence · ProjectDocument",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026 · GED unifiée",
+    flows: ["futur", "atlas"],
+    note: "Calque données. Fusion silos docs au même horizon.",
+  },
+  {
+    id: "atlas-microsoft",
+    from: "atlas",
+    to: "microsoft",
+    label: "Cartographie — identités & collab M365",
+    table: "DirectoryConnection · ProjectMicrosoftLink",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["org", "projet", "futur", "atlas"],
+    note: "Technique déjà partiel (AD/Teams). Cartographie les rend navigables avec le reste du SI.",
+  },
+  {
+    id: "atlas-dashboard",
+    from: "atlas",
+    to: "dashboard",
+    label: "Cartographie — widgets cockpit",
+    table: "widgets graphe / santé relations (lecture)",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie Fin 2026",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Dashboard consomme le graphe ; pas l'inverse.",
+  },
+  {
+    id: "atlas-search",
+    from: "atlas",
+    to: "search",
+    label: "Cartographie — recherche de relations",
+    table: "searchText + index AtlasRelation",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-CORE-SEARCH-001 + Cartographie",
+    flows: ["gouvernance", "futur", "atlas"],
+    note: "Recherche full-text étendue aux arêtes typées.",
+  },
+  {
+    id: "atlas-acl",
+    from: "atlas",
+    to: "acl",
+    label: "Cartographie — ACL sur le graphe",
+    table: "ResourceAcl · AuditLog (mutations relation)",
+    pattern: "noyau",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-ACL-013 + Cartographie",
+    flows: ["org", "gouvernance", "futur", "atlas"],
+    note: "Toute mutation de relation = audit. Scope client strict.",
   },
   {
     id: "org-human",
@@ -1055,6 +1341,190 @@ const LINKS: LinkDef[] = [
     flows: ["org"],
     note: "AD DS / Entra. Relation technique d'identité, pas un flux applicatif Atlas.",
   },
+  // —— IA analyse — cible Fin 2026 (VISION) ——
+  {
+    id: "ai-dashboard",
+    from: "ai",
+    to: "dashboard",
+    label: "Insights CODIR / widgets",
+    table: "AiInsight (à créer) → widgets dashboard",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "VISION_PRODUIT · IA d'analyse",
+    flows: ["gouvernance", "futur", "ia"],
+    note: "Lecture seule. Jamais de série chart inventée — insights sur données client actif.",
+  },
+  {
+    id: "ai-atlas",
+    from: "ai",
+    to: "atlas",
+    label: "Suggestions de relations manquantes",
+    table: "AiInsight kind=RELATION_GAP ← AtlasRelation",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "Cartographie + IA Fin 2026",
+    flows: ["gouvernance", "futur", "atlas", "ia"],
+    note: "Propose des arêtes ; validation humaine avant écriture AtlasRelation.",
+  },
+  {
+    id: "ai-projects",
+    from: "ai",
+    to: "projects",
+    label: "Synthèse santé / dérive projet",
+    table: "AiInsight ← Project · ProjectRisk · ProjectBudgetLink",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "VISION_PRODUIT · IA d'analyse",
+    flows: ["projet", "futur", "ia"],
+    note: "Copilote fiche projet. Pas d'auto-mutation de statut.",
+  },
+  {
+    id: "ai-budgets",
+    from: "ai",
+    to: "budgets",
+    label: "Anomalies budget / atterrissage",
+    table: "AiInsight ← BudgetLine · FinancialEvent",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "VISION_PRODUIT · IA d'analyse",
+    flows: ["argent", "futur", "ia"],
+    note: "Complète les triggers overrun ; explique les écarts.",
+  },
+  {
+    id: "ai-risks",
+    from: "ai",
+    to: "risks",
+    label: "Priorisation / clustering risques",
+    table: "AiInsight ← ProjectRisk",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "VISION_PRODUIT · IA d'analyse",
+    flows: ["gouvernance", "projet", "futur", "ia"],
+    note: "Aide CODIR, pas de création auto de risque.",
+  },
+  {
+    id: "ai-meetings",
+    from: "ai",
+    to: "meetings",
+    label: "Préparation ordre du jour / synthèse",
+    table: "AiInsight ← Meeting · MeetingProject",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-MEET-001 + IA",
+    flows: ["gouvernance", "futur", "ia"],
+    note: "Brouillon pour l'animateur. Compte-rendu validé humainement.",
+  },
+  {
+    id: "ai-search",
+    from: "ai",
+    to: "search",
+    label: "Requête en langage naturel",
+    table: "searchText + AiQuery (NL → filtres)",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-CORE-SEARCH-001 + IA",
+    flows: ["gouvernance", "futur", "ia"],
+    note: "Traduit en filtres scopés client. Pas de fuite inter-client.",
+  },
+  {
+    id: "ai-vision",
+    from: "ai",
+    to: "vision",
+    label: "Alignement stratégie ↔ portefeuille",
+    table: "AiInsight ← StrategicLink",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-STRAT-001 + IA",
+    flows: ["gouvernance", "futur", "ia"],
+    note: "Signale objectifs orphelins / projets hors axes.",
+  },
+  {
+    id: "ai-acl",
+    from: "ai",
+    to: "acl",
+    label: "Audit appels IA + minimisation DCP",
+    table: "AuditLog · AiInvocationLog (sans DCP en clair)",
+    pattern: "noyau",
+    status: "future",
+    horizon: "next",
+    rfc: "RGPD by design · RFC-013-1",
+    flows: ["org", "gouvernance", "futur", "ia"],
+    note: "Pas d'envoi de DCP à un LLM tiers sans anonymisation. Scope client strict.",
+  },
+  {
+    id: "ai-capacity",
+    from: "ai",
+    to: "capacity",
+    label: "Alerte surcharge J/H anticipée",
+    table: "AiInsight ← CapacityAllocation",
+    pattern: "overlay",
+    status: "future",
+    horizon: "next",
+    rfc: "RFC-CAPA-001 + IA",
+    flows: ["capa", "futur", "ia"],
+    note: "Projection de charge ; pas de replanification auto.",
+  },
+  // —— API externes — 2028+ ——
+  {
+    id: "conn-microsoft",
+    from: "connectors",
+    to: "microsoft",
+    label: "M365 = 1er connecteur (référence)",
+    table: "pattern DirectoryConnection / Graph",
+    pattern: "noyau",
+    status: "partial",
+    horizon: "distant",
+    rfc: "VISION connecteurs API",
+    flows: ["futur", "org"],
+    note: "Microsoft live. Cadre générique connecteurs hors M365 = 2028+.",
+  },
+  {
+    id: "conn-ai",
+    from: "connectors",
+    to: "ai",
+    label: "Providers LLM / outils externes",
+    table: "AiProviderConfig (env secrets)",
+    pattern: "noyau",
+    status: "future",
+    horizon: "distant",
+    rfc: "VISION · IA",
+    flows: ["futur", "ia"],
+    note: "Secrets en env. Fin 2026 peut démarrer avec 1 provider ; multi-provider = plus tard.",
+  },
+  {
+    id: "conn-cmdb",
+    from: "connectors",
+    to: "cmdb",
+    label: "Import inventaire SI externe",
+    table: "ConnectorSync → Application / Asset",
+    pattern: "overlay",
+    status: "future",
+    horizon: "distant",
+    rfc: "VISION CMDB + connecteurs",
+    flows: ["futur"],
+    note: "Après CMDB 2027. Discovery / CMDB tierce.",
+  },
+  {
+    id: "conn-hr",
+    from: "connectors",
+    to: "resource",
+    label: "SIRH / RH externes → HUMAN",
+    table: "CapacitySource.SIRH · ConnectorSync",
+    pattern: "noyau",
+    status: "future",
+    horizon: "distant",
+    rfc: "VISION Orchestra HR",
+    flows: ["org", "capa", "futur"],
+    note: "Aligné fut-hr. Pas de DCP en logs.",
+  },
 ];
 
 const ATLAS_ORG_IDS = new Set([
@@ -1070,6 +1540,9 @@ const ATLAS_ORG_IDS = new Set([
   "org-human",
   "parent-project",
   "atlas-org",
+  "atlas-resource",
+  "atlas-teams",
+  "atlas-microsoft",
   "fut-license-resource",
   "directory-ad",
 ]);
@@ -1086,6 +1559,13 @@ const ATLAS_TECH_IDS = new Set([
   "fut-quotation",
   "docs-project",
   "atlas-cmdb",
+  "atlas-ged",
+  "atlas-licenses",
+  "atlas-acl",
+  "atlas-search",
+  "ai-acl",
+  "conn-microsoft",
+  "conn-cmdb",
 ]);
 
 function atlasKindOf(link: LinkDef): AtlasKind {
@@ -1102,7 +1582,8 @@ const ATLAS_KIND_LABEL: Record<AtlasKind, string> = {
 
 const FLOWS: { id: FlowId; label: string }[] = [
   { id: "all", label: "Tout" },
-  { id: "atlas", label: "Atlas" },
+  { id: "atlas", label: "Cartographie" },
+  { id: "ia", label: "IA" },
   { id: "argent", label: "Argent" },
   { id: "projet", label: "Pilotage projet" },
   { id: "gouvernance", label: "Gouvernance" },
@@ -1127,14 +1608,15 @@ const STATUS_LABEL: Record<LinkStatus, string> = {
 };
 
 const HORIZON_LABEL: Record<Horizon, string> = {
-  now: "Maintenant",
-  next: "Prochain",
-  later: "Ensuite",
-  distant: "Distant",
+  now: "Live",
+  next: "Fin 2026",
+  later: "2027",
+  distant: "2028+",
 };
 
 function linkInFlow(link: LinkDef, flow: FlowId): boolean {
   if (flow === "all" || flow === "atlas") return true;
+  if (flow === "ia") return link.flows.includes("ia") || link.from === "ai" || link.to === "ai";
   if (flow === "futur") return link.status === "future" || link.status === "gap" || link.horizon !== "now";
   return link.flows.includes(flow);
 }
@@ -1300,11 +1782,13 @@ function FunctionalGraph({
   selected,
   onSelect,
   atlasKind,
+  projection,
 }: {
   flow: FlowId;
   selected: string;
   onSelect: (id: string) => void;
   atlasKind: "all" | AtlasKind;
+  projection: "actuel" | "fin2026" | "fin2027";
 }) {
   const theme = useHostTheme();
   const kindColor: Record<AtlasKind, string> = {
@@ -1317,13 +1801,36 @@ function FunctionalGraph({
     if (atlasKind !== "all" && atlasKindOf(l) !== atlasKind) return false;
     return true;
   });
+  const projectFin2026 = projection === "fin2026";
+  const projectFin2027 = projection === "fin2027";
+
+  const linkLooksPending = (link: LinkDef) => {
+    if (projectFin2027) return false;
+    if (projectFin2026) return link.horizon === "later" || link.horizon === "distant";
+    return link.status !== "live";
+  };
+
+  const nodeLooksFuture = (node: NodeDef) => {
+    if (projectFin2027) return false;
+    if (projectFin2026) {
+      // Fin 2026 : Cartographie + IA livrés ; CMDB/GED/API externes encore futurs
+      return node.id === "cmdb" || node.id === "ged" || node.id === "connectors" || node.id === "licenses";
+    }
+    return !!node.future;
+  };
 
   return (
     <svg
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       width="100%"
       role="img"
-      aria-label="Graphe des relations Starium Orchestra, y compris Atlas"
+      aria-label={
+        projectFin2026
+          ? "Graphe Starium Orchestra projeté Fin 2026 — Cartographie et IA"
+          : projectFin2027
+            ? "Graphe Starium Orchestra projeté Fin 2027"
+            : "Graphe des relations Starium Orchestra"
+      }
       style={{ display: "block", minHeight: 560 }}
     >
       <defs>
@@ -1365,7 +1872,11 @@ function FunctionalGraph({
       ))}
 
       <text x={348} y={546} fill={theme.text.quaternary} fontSize={11}>
-        Rangée pointillée = pas encore de module
+        {projectFin2026
+          ? "Projection Fin 2026 — Cartographie + IA live ; CMDB / GED / API encore ouverts"
+          : projectFin2027
+            ? "Projection Fin 2027 — CMDB, GED, Licences SI livrés"
+            : "Rangée pointillée = pas encore de module"}
       </text>
 
       {graphLinks.map((link, i) => {
@@ -1376,8 +1887,11 @@ function FunctionalGraph({
         const touchesSelected = selected !== "" && (link.from === selected || link.to === selected);
         const focused = selected !== "";
         const dimmed = focused && !touchesSelected;
-        const pending = link.status !== "live";
-        const isHero = link.id === "project-budget";
+        const pending = linkLooksPending(link);
+        const isHero =
+          link.id === "project-budget" ||
+          link.id.startsWith("atlas-") ||
+          link.id.startsWith("ai-");
         const stroke = pending ? theme.category.orange : kindColor[kind];
         const marker = pending
           ? "url(#arrow-gap)"
@@ -1424,9 +1938,11 @@ function FunctionalGraph({
                 (l.from === node.id || l.to === node.id) &&
                 atlasKindOf(l) === atlasKind,
             ) ||
-            node.id === "atlas");
+            node.id === "atlas" ||
+            node.id === "ai");
         const isSelected = node.id === selected;
-        const isHub = node.id === "projects" || node.id === "atlas" || node.id === "alerts";
+        const isHub =
+          node.id === "projects" || node.id === "atlas" || node.id === "alerts" || node.id === "ai";
         const connected =
           selected !== "" &&
           graphLinks.some(
@@ -1434,6 +1950,7 @@ function FunctionalGraph({
               (l.from === selected && l.to === node.id) ||
               (l.to === selected && l.from === node.id),
           );
+        const showAsFuture = nodeLooksFuture(node);
         return (
           <g
             key={node.id}
@@ -1459,14 +1976,14 @@ function FunctionalGraph({
               stroke={
                 isSelected
                   ? theme.accent.primary
-                  : node.future
+                  : showAsFuture
                     ? theme.category.orange
                     : isHub
                       ? theme.stroke.primary
                       : theme.stroke.secondary
               }
-              strokeWidth={isSelected ? 2 : node.future ? 1.4 : 1}
-              strokeDasharray={node.future ? "4 3" : undefined}
+              strokeWidth={isSelected ? 2 : showAsFuture ? 1.4 : 1}
+              strokeDasharray={showAsFuture ? "4 3" : undefined}
             />
             <text
               x={node.x + node.w / 2}
@@ -1557,14 +2074,18 @@ export default function GrapheFonctionnelModules() {
     "all",
   );
   const [atlasKind, setAtlasKind] = useCanvasState<"all" | AtlasKind>("atlasKind", "all");
+  const [projection, setProjection] = useCanvasState<"actuel" | "fin2026" | "fin2027">(
+    "projection",
+    "fin2026",
+  );
 
   const liveCount = LINKS.filter((l) => l.status === "live").length;
   const partialCount = LINKS.filter((l) => l.status === "partial").length;
   const gapCount = LINKS.filter((l) => l.status === "gap").length;
   const futureCount = LINKS.filter((l) => l.status === "future").length;
-  const orgCount = LINKS.filter((l) => atlasKindOf(l) === "org").length;
-  const funcCount = LINKS.filter((l) => atlasKindOf(l) === "functional").length;
-  const techCount = LINKS.filter((l) => atlasKindOf(l) === "technical").length;
+  const atlasCount = LINKS.filter((l) => l.id.startsWith("atlas-") || l.id === "alert-atlas").length;
+  const aiCount = LINKS.filter((l) => l.id.startsWith("ai-") || l.id === "alert-ai").length;
+  const fin2026Count = LINKS.filter((l) => l.horizon === "next").length;
 
   const tableLinks = LINKS.filter((l) => {
     if (!linkInFlow(l, flow)) return false;
@@ -1581,24 +2102,55 @@ export default function GrapheFonctionnelModules() {
       <Stack gap={8}>
         <H1>Graphe fonctionnel — Starium Orchestra</H1>
         <Text tone="secondary">
-          Recoupé sur Prisma, RFC, VISION et le prototype Atlas. Toutes les liaisons
-          du catalogue sont dessinées (live, trous, futur). Clique un module pour
-          isoler ses ponts ; reclic pour tout réafficher. Atlas n'invente pas de
-          montants : il rend les relations navigables.
+          Toutes les liaisons du catalogue + cible Fin 2026 (Cartographie + IA) et
+          horizons 2027 / 2028+. Clique un module pour isoler ses ponts. La
+          Cartographie et l'IA lisent les données — elles ne dupliquent ni montants
+          ni docs.
         </Text>
       </Stack>
 
       <Row gap={20} wrap>
         <Stat value={String(NODES.filter((n) => !n.future).length)} label="Nœuds live" />
-        <Stat value={String(orgCount)} label="Relations org" />
-        <Stat value={String(funcCount)} label="Relations fonctionnelles" />
-        <Stat value={String(techCount)} label="Relations techniques" />
-        <Stat value={String(liveCount)} label="Liaisons live" tone="success" />
+        <Stat value={String(LINKS.length)} label="Liaisons totales" />
+        <Stat value={String(fin2026Count)} label="Ponts Fin 2026" tone="info" />
+        <Stat value={String(atlasCount)} label="Cartographie" />
+        <Stat value={String(aiCount)} label="Ponts IA" />
+        <Stat value={String(liveCount)} label="Live aujourd'hui" tone="success" />
         <Stat value={String(futureCount + gapCount + partialCount)} label="Ouvertes / futures" tone="warning" />
       </Row>
 
       <Stack gap={10}>
         <H2>Carte des liaisons</H2>
+        <Row gap={8} wrap>
+          <span>
+            <Pill active={projection === "actuel"} onClick={() => setProjection("actuel")}>
+              État actuel
+            </Pill>
+          </span>
+          <span>
+            <Pill active={projection === "fin2026"} onClick={() => setProjection("fin2026")}>
+              Projection Fin 2026
+            </Pill>
+          </span>
+          <span>
+            <Pill active={projection === "fin2027"} onClick={() => setProjection("fin2027")}>
+              Projection Fin 2027
+            </Pill>
+          </span>
+        </Row>
+        {projection === "fin2026" ? (
+          <Callout tone="info" title="Projection Fin 2026">
+            Cartographie + IA + ponts argent (FinancialEvent PROJECT, Licences SI,
+            costing timesheet) + roll-up / timeline / MS lot 5 en trait plein.
+            CMDB, GED unifiée et API externes restent pointillés (2027 / 2028+).
+          </Callout>
+        ) : null}
+        {projection === "fin2027" ? (
+          <Callout tone="info" title="Projection Fin 2027">
+            CMDB, GED, licences parc technique et calques Cartographie complets.
+            Orchestra Finance / HR / multi-connecteurs = 2028+.
+          </Callout>
+        ) : null}
         <Row gap={8} wrap>
           {FLOWS.map((f) => (
             <span key={f.id}>
@@ -1612,7 +2164,7 @@ export default function GrapheFonctionnelModules() {
           ))}
         </Row>
         <Text size="small" tone="tertiary">
-          {LINKS.length} arêtes — colorées par axe Atlas. Filtres flux / axe ci-dessus.
+          {LINKS.length} arêtes — colorées par axe Cartographie. Filtres flux / axe ci-dessous.
         </Text>
         <Row gap={8} wrap>
           {(
@@ -1652,7 +2204,7 @@ export default function GrapheFonctionnelModules() {
           <Row gap={6} align="center">
             <Swatch color="orange" />
             <Text size="small" tone="secondary">
-              Pointillé = trou / futur
+              Pointillé = trou / futur (vue actuelle)
             </Text>
           </Row>
         </Row>
@@ -1661,6 +2213,7 @@ export default function GrapheFonctionnelModules() {
           selected={selected}
           onSelect={setSelected}
           atlasKind={atlasKind}
+          projection={projection}
         />
       </Stack>
 
@@ -1668,27 +2221,56 @@ export default function GrapheFonctionnelModules() {
         <SelectedDetail nodeId={selected} />
         {selected === "atlas" ? (
           <Stack gap={12}>
-            <H3>Atlas — 3 axes de relation</H3>
+            <H3>Cartographie — cible Fin 2026</H3>
             <Text>
-              Module **futur** (prototype UI kits). Surcouche : aucune copie des
-              montants, risques ou docs. Il indexe les relations déjà portées
-              par les modules + les flux SI encore absents (CMDB).
+              Module cockpit **overlay** (pattern Meetings). Table `AtlasRelation`
+              kind=ORG|FUNCTIONAL|TECHNICAL. V1 lit les ponts déjà live (org +
+              fonctionnel). Calques CMDB / GED mûrissent en 2027.
             </Text>
             <Text size="small" tone="secondary">
-              **Organisationnel** — OrgUnit, steward, équipes, sites, compte ↔
-              HUMAN, hiérarchie projet.
+              **Organisationnel** — OrgUnit, steward, équipes, HUMAN, M365 identité.
             </Text>
             <Text size="small" tone="secondary">
-              **Fonctionnel** — ProjectBudgetLink, StrategicLink, cycles, PO/
-              facture, contrats, capacité, demandes.
+              **Fonctionnel** — budgets, projets, cycles, vision, achats, capa, risques…
             </Text>
             <Text size="small" tone="secondary">
-              **Technique** — Microsoft 365, annuaire, documents, futurs flux
-              app/infra (LDAP, SQL, API, hébergement).
+              **Technique** — progressif : M365 d'abord ; apps/infra via CMDB 2027.
             </Text>
-            <Callout tone="info" title="Atlas lit, il ne duplique pas">
-              Filtre Atlas ou axe org / fonctionnel / technique pour isoler un
-              calque. Chaque pont déjà porté par un module devient une arête.
+            <Callout tone="info" title="Couplé à l'IA Fin 2026">
+              L'IA propose des relations manquantes ; validation humaine avant
+              écriture `AtlasRelation`.
+            </Callout>
+          </Stack>
+        ) : selected === "ai" ? (
+          <Stack gap={12}>
+            <H3>IA analyse — cible Fin 2026</H3>
+            <Text>
+              Copilote CODIR (VISION). Insights en lecture seule sur le client actif :
+              dashboard, projets, budgets, risques, réunions, capacité, Cartographie,
+              recherche NL. Aucune mutation métier sans validation.
+            </Text>
+            <Text size="small" tone="secondary">
+              **RGPD** — pas de DCP en clair vers un LLM tiers ; anonymisation /
+              pseudonymisation ; audit de chaque invocation.
+            </Text>
+            <Text size="small" tone="secondary">
+              **Charts** — jamais de série inventée ; insights sur données API réelles
+              ou empty.
+            </Text>
+            <Callout tone="warning" title="Pas un agent autonome">
+              Suggestions + brouillons. Statuts, budgets, risques restent humains.
+            </Callout>
+          </Stack>
+        ) : selected === "connectors" ? (
+          <Stack gap={12}>
+            <H3>API externes — 2028+</H3>
+            <Text>
+              Cadre générique de connecteurs (hors Microsoft 365 déjà live). SIRH,
+              CMDB tierce, multi-providers LLM.
+            </Text>
+            <Callout tone="info" title="Fin 2026">
+              Un provider LLM suffit pour l'IA V1 (secrets en env). Le hub multi-
+              connecteurs reste 2028+.
             </Callout>
           </Stack>
         ) : (
@@ -1709,11 +2291,11 @@ export default function GrapheFonctionnelModules() {
               3. Facture → CONSUMPTION + dénouement engagement.
             </Text>
             <Text size="small" tone="secondary">
-              4. BudgetLine recalculée. Liste projets : consommé = somme FIXED.
+              4. BudgetLine recalculée. Vue inverse live : drawer ligne + KPI fiche
+              (RFC-PROJ-010-B).
             </Text>
-            <Callout tone="warning" title="Pas encore">
-              Tâche/jalon/timesheet ne poussent pas d'event. Vue inverse ligne →
-              projets absente (RFC-PROJ-010 §8.2).
+            <Callout tone="warning" title="Fin 2026 (encore ouvert)">
+              FinancialEvent `PROJECT` + costing timesheet (RFC-RES-002) + Licences SI.
             </Callout>
           </Stack>
         )}
@@ -1725,46 +2307,33 @@ export default function GrapheFonctionnelModules() {
         <H2>Roadmap des ponts</H2>
         <Grid columns={2} gap={12}>
           <Card>
-            <CardHeader trailing="RFC écrite / enum prêt">Prochain</CardHeader>
-            <CardBody>
-              <Stack gap={8}>
-                <Text size="small">
-                  FinancialEvent `PROJECT` (tâches/jalons) · **RFC-PROJ-010-B**
-                  vue inverse BudgetLine + KPI cockpit · RFC-037 Licences SI
-                  (`contractId`, `budgetLineId`, `projectId`) · RFC-RES-002 costing
-                  timesheet / TJM · contrat → ligne.
-                </Text>
-              </Stack>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardHeader trailing="VISION / RFC draft">Ensuite</CardHeader>
+            <CardHeader trailing="Fin 2026">Cartographie + IA</CardHeader>
             <CardBody>
               <Text size="small">
-                CMDB (applications, BDD, domaines, certificats, téléphonie) · GED
-                unifiée · devis `SupplierQuotation` · timeline multi-domaines
-                (RFC-032) · roll-up RFC-PROJ-020 · axes analytiques sur PO ·
-                preuves conformité → documents · Microsoft lot 5.
+                **Cartographie** V1 (org + fonctionnel sur ponts live) · **IA analyse**
+                CODIR (insights lecture seule, NL search, prep réunions, anomalies
+                budget/capa) · FinancialEvent `PROJECT` · RFC-037 Licences SI ·
+                RFC-RES-002 costing timesheet · roll-up PROJ-020 · timeline multi-
+                domaines · MS lot 5.
               </Text>
             </CardBody>
           </Card>
           <Card>
-            <CardHeader trailing="VISION long terme">Distant</CardHeader>
+            <CardHeader trailing="2027">Référentiel IT</CardHeader>
             <CardBody>
               <Text size="small">
-                Orchestra Finance (DAF) · Orchestra HR (connecteur `CapacitySource.SIRH`)
-                · IA d'analyse · connecteurs API externes hors Microsoft.
+                CMDB (apps, BDD, domaines, certificats, téléphonie) · GED unifiée ·
+                devis `SupplierQuotation` · axes analytiques sur PO · preuves
+                conformité → docs · calques techniques Cartographie complets.
               </Text>
             </CardBody>
           </Card>
           <Card>
-            <CardHeader trailing="prototype UI kits">Atlas</CardHeader>
+            <CardHeader trailing="2028+">Plateforme étendue</CardHeader>
             <CardBody>
               <Text size="small">
-                Gestion des relations **organisationnelles, fonctionnelles,
-                techniques**. Pas de RFC dans le repo. À brancher comme overlay
-                (pattern Meetings) : table de relations typées + graphe, lecture
-                des FK/jonctions existantes, pas de second Financial Core.
+                Orchestra Finance (DAF) · Orchestra HR (`CapacitySource.SIRH`) ·
+                hub **API externes** multi-connecteurs · multi-providers LLM.
               </Text>
             </CardBody>
           </Card>
@@ -1772,10 +2341,9 @@ export default function GrapheFonctionnelModules() {
             <CardHeader trailing="ne pas confondre">Deux « licences »</CardHeader>
             <CardBody>
               <Text size="small">
-                `ClientSubscription` = sièges plateforme (ACL-001, live).
-                `ResourceType.LICENSE` = fiche catalogue projet (info, live).
-                RFC-037 = **parc licences SI** lié aux contrats — n'existe pas
-                encore. Pas de fusion.
+                `ClientSubscription` = sièges plateforme (live).
+                `ResourceType.LICENSE` = fiche catalogue projet (live).
+                RFC-037 = **parc licences SI** (Fin 2026) — pas de fusion.
               </Text>
             </CardBody>
           </Card>
@@ -1792,9 +2360,9 @@ export default function GrapheFonctionnelModules() {
               ["partial", "Partielles"],
               ["gap", "Trous"],
               ["future", "Futur"],
-              ["next", "Horizon prochain"],
-              ["later", "Horizon ensuite"],
-              ["distant", "Horizon distant"],
+              ["next", "Fin 2026"],
+              ["later", "2027"],
+              ["distant", "2028+"],
             ] as const
           ).map(([id, label]) => (
             <span key={id}>
@@ -1808,7 +2376,7 @@ export default function GrapheFonctionnelModules() {
           ))}
         </Row>
         <Table
-          headers={["De", "Vers", "Liaison", "Axe Atlas", "Mécanisme", "Pattern", "État", "Horizon", "RFC"]}
+          headers={["De", "Vers", "Liaison", "Axe", "Mécanisme", "Pattern", "État", "Horizon", "RFC"]}
           striped
           stickyHeader
           rowTone={tableLinks.map((l) =>
@@ -1839,8 +2407,9 @@ export default function GrapheFonctionnelModules() {
       <Callout tone="info" title="Règle pour un nouveau couple">
         Recopier `apps/api/src/modules/project-budget/` : jonction + DTO + isolation
         client + audit. Argent → FinancialEvent. Rituel → overlay + snapshot.
-        Jamais `budgetId` sur Project. Ne pas inventer Application/License SI sans
-        RFC : l'enum `FinancialSourceType` n'est pas une table.
+        Jamais `budgetId` sur Project. Cartographie = overlay de lecture uniquement.
+        Ne pas inventer Application/License SI sans RFC : l'enum `FinancialSourceType`
+        n'est pas une table.
       </Callout>
     </Stack>
   );

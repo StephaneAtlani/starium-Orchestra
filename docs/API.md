@@ -3222,6 +3222,8 @@ Isolation **client actif** ; pas de `DELETE` sur tâche au MVP (effets de bord j
 - **POST /api/projects/:projectId/budget-links** — Création d’un lien (`budgetLineId`, `allocationType` : `FULL` \| `PERCENTAGE` \| **`BUDGET_PERCENTAGE`** \| `FIXED`, champs optionnels `percentage` / `amount` selon le mode). **`projects.update`**
 - **PATCH /api/project-budget-links/:id** — Mise à jour partielle (ligne, mode si un seul lien, `percentage`, `amount`). **`projects.update`**
 - **DELETE /api/project-budget-links/:id** — Suppression (204 si OK). **`projects.update`**
+- **GET /api/budget-lines/:budgetLineId/project-links** — RFC-PROJ-010-B lot A : vue inverse paginée (`limit`/`offset`). Réponse `{ imputationBasis: 'PROPORTIONAL_V1', items, total, limit, offset }` avec projet (code/name/status), mode, part allouée, consommés/engagés imputés. **`budgets.read`**
+- **GET /api/budgets/:budgetId/project-budget-kpis** — RFC-PROJ-010-B lot B : KPI agrégés par projet `{ imputationBasis, items[], totals, truncated? }` (plafond soft 500 liens). **`budgets.read`**
 
 **Erreurs :** 400 (invariant allocation, DTO), 409 (budget/exercice fermé, ligne non ACTIVE, doublon `(projectId, budgetLineId)`, suppression laissant un résidu incohérent), 404 (hors scope client).
 

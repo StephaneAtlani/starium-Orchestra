@@ -10,6 +10,11 @@ export {
 } from './budget-detail-kpi-strip';
 
 export {
+  BudgetDetailProjectsFundedSection,
+  type BudgetDetailProjectsFundedSectionProps,
+} from './budget-detail-projects-funded-section';
+
+export {
   BudgetDetailAlertsBanner,
   type BudgetDetailAlertsBannerProps,
 } from './budget-detail-alerts-banner';

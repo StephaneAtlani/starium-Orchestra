@@ -2,14 +2,20 @@
 
 ## Statut
 
-📝 **Draft** — à implémenter.
+✅ **Implémentée (MVP)** — lots A + B.
 
-Suite de [RFC-PROJ-010](./RFC-PROJ-010%20%E2%80%94%20Project%20%E2%86%94%20Budget%20Integration.md) (§8.2 et §8.3), jusqu’ici hors périmètre livré. Le sens **Projet → BudgetLine** (CRUD `ProjectBudgetLink` + UI `/projects/:id/budget`) est **live**. Cette RFC couvre le sens inverse et les KPI consolidés.
+Suite de [RFC-PROJ-010](./RFC-PROJ-010%20%E2%80%94%20Project%20%E2%86%94%20Budget%20Integration.md) (§8.2 et §8.3). Le sens **Projet → BudgetLine** (CRUD `ProjectBudgetLink` + UI `/projects/:id/budget`) était déjà live. Cette RFC livre le sens inverse et les KPI consolidés sur la **fiche budget**.
 
-| Lot | Contenu | Priorité |
+| Lot | Contenu | État |
 | --- | --- | --- |
-| **A** | API + UI « projets liés » sur une `BudgetLine` (+ impact financier) | P0 |
-| **B** | KPI cockpit consolidés (coût / consommé / dérive par projet) | P0 |
+| **A** | API + UI « projets liés » sur une `BudgetLine` (+ impact financier) | ✅ |
+| **B** | KPI cockpit consolidés (coût / consommé / dérive par projet) sur `/budgets/[budgetId]` | ✅ |
+
+**Écarts V1 assumés :**
+
+* Soft-mask `projects.read` **abandonné** : même client + `budgets.read` ⇒ libellés projet exposés. Le lien UI « Voir le projet » reste conditionné FE par `projects.read`.
+* Dashboard `/budgets/dashboard` = **hors V1** (follow-up).
+* Imputation `imputationBasis: PROPORTIONAL_V1` (heuristique FIXED / %) — pas de `FinancialEvent` PROJECT.
 
 **Hors scope :** génération de `FinancialEvent` depuis tâches / jalons / timesheet (→ suite PROJ-011 / RES-002). Aucun nouveau mouvement d’argent. Aucune modification du modèle `ProjectBudgetLink`.
 
@@ -83,13 +89,14 @@ Avec cette RFC :
 
 Critères d’acceptation (lots A+B) :
 
-* [ ] `GET` inverse paginé, scopé `clientId`, libellés projet (`code`, `name`, statut métier)
-* [ ] Onglet / section drawer ligne : loading / empty / error ; jamais d’ID brut
-* [ ] Impact : mode, part/montant alloué, engagé/consommé de la ligne (lecture), dérive vs part projet si calculable
-* [ ] Endpoint synthèses KPI par projet pour un `budgetId` (et optionnellement une `budgetLineId`)
-* [ ] Surface UI cockpit (fiche budget et/ou `/budgets/dashboard`) avec 3 KPI : coût cible projet, consommé, dérive
-* [ ] Tests isolation inter-clients + permissions
-* [ ] Mobile ≥ 320px, cibles ≥ 44px, tableau en cartes ou scroll contrôlé
+* [x] `GET` inverse paginé, scopé `clientId`, libellés projet (`code`, `name`, statut métier)
+* [x] Onglet / section drawer ligne : loading / empty / error ; jamais d’ID brut
+* [x] Impact : mode, part/montant alloué, engagé/consommé de la ligne (lecture), dérive vs part projet si calculable
+* [x] Endpoint synthèses KPI par projet pour un `budgetId`
+* [x] Surface UI cockpit (fiche budget) avec 3 KPI : coût cible projet, consommé, dérive
+* [x] Tests isolation inter-clients + permissions (controllers + service)
+* [x] Mobile ≥ 320px, cibles ≥ 44px, tableau / cartes
+* [ ] Widget dashboard `/budgets/dashboard` — hors V1
 
 ---
 

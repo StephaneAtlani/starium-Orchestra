@@ -76,6 +76,18 @@ export const budgetQueryKeys = {
   budgetLinePlanning: (clientId: string, lineId: string) =>
     ['budgets', clientId, 'budget-line', lineId, 'planning'] as const,
 
+  /** RFC-PROJ-010-B — projets liés à une ligne */
+  budgetLineProjectLinks: (
+    clientId: string,
+    budgetLineId: string,
+    filters?: object,
+  ) =>
+    ['budgets', clientId, 'budget-line-project-links', budgetLineId, filters] as const,
+
+  /** RFC-PROJ-010-B — KPI budget × projet */
+  budgetProjectBudgetKpis: (clientId: string, budgetId: string) =>
+    ['budgets', clientId, 'budget-project-budget-kpis', budgetId] as const,
+
   dashboard: (clientId: string, params?: object) =>
     ['budgets', clientId, 'dashboard', params] as const,
 

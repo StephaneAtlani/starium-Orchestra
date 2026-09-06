@@ -10,6 +10,7 @@ import { BudgetEmptyState } from '@/features/budgets/components/budget-empty-sta
 import {
   BudgetDetailHeader,
   BudgetDetailKpiStrip,
+  BudgetDetailProjectsFundedSection,
   BudgetDetailWorkspace,
 } from '@/features/budgets/components/budget-detail';
 import { useBudgetExplorer } from '@/features/budgets/hooks/use-budget-explorer';
@@ -477,6 +478,8 @@ export default function BudgetDetailPage() {
             }))
           }
         />
+
+        <BudgetDetailProjectsFundedSection budgetId={budgetId} />
 
         {isEmptyGlobal && workspace !== 'pa' ? (
           <BudgetEmptyState

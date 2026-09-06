@@ -37,9 +37,16 @@ import {
 } from '../projects/project-audit.constants';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateProjectBudgetLinkDto } from './dto/create-project-budget-link.dto';
+import { ListBudgetLineProjectLinksQueryDto } from './dto/list-budget-line-project-links.query.dto';
 import { ListProjectBudgetLinksQueryDto } from './dto/list-project-budget-links.query.dto';
 import { UpdateProjectBudgetLinkDto } from './dto/update-project-budget-link.dto';
 import { PILOTAGE_INCLUDED_LINE_STATUSES } from '../budget-management/constants/budget-aggregate-statuses';
+import {
+  computeProjectBudgetAllocation,
+  IMPUTATION_BASIS_V1,
+  PROJECT_BUDGET_KPI_LINK_CAP,
+  type ProjectBudgetAllocationMode,
+} from './project-budget-allocation.math';
 
 const PERCENTAGE_SUM_EPSILON = new Prisma.Decimal('0.01');
 
@@ -522,6 +529,238 @@ export class ProjectBudgetLinksService {
       total,
       limit,
       offset,
+    };
+  }
+
+  /**
+   * RFC-PROJ-010-B lot A — vue inverse BudgetLine → projets.
+   */
+  async listByBudgetLine(
+    clientId: string,
+    budgetLineId: string,
+    query: ListBudgetLineProjectLinksQueryDto,
+  ) {
+    const line = await this.prisma.budgetLine.findFirst({
+      where: { id: budgetLineId, clientId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        budgetId: true,
+        committedAmount: true,
+        consumedAmount: true,
+        initialAmount: true,
+      },
+    });
+    if (!line) {
+      throw new NotFoundException('Ligne budgétaire introuvable');
+    }
+
+    const limit = Math.min(query.limit ?? 20, 100);
+    const offset = query.offset ?? 0;
+    const where = { clientId, budgetLineId };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.projectBudgetLink.count({ where }),
+      this.prisma.projectBudgetLink.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: offset,
+        take: limit,
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              status: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const budgetTotals = await this.loadBudgetInitialTotals(clientId, [
+      line.budgetId,
+    ]);
+    const budgetTotalInitial = budgetTotals.get(line.budgetId) ?? null;
+    const lineCommitted = fromDecimal(line.committedAmount);
+    const lineConsumed = fromDecimal(line.consumedAmount);
+    const lineInitial = fromDecimal(line.initialAmount);
+
+    return {
+      imputationBasis: IMPUTATION_BASIS_V1,
+      items: rows.map((r) => {
+        const math = computeProjectBudgetAllocation({
+          allocationType: r.allocationType as ProjectBudgetAllocationMode,
+          percentage:
+            r.percentage != null ? fromDecimal(r.percentage) : null,
+          amount: r.amount != null ? fromDecimal(r.amount) : null,
+          lineInitial,
+          budgetTotalInitial,
+          lineCommitted,
+          lineConsumed,
+        });
+        return {
+          id: r.id,
+          allocationType: r.allocationType,
+          percentage:
+            r.percentage != null
+              ? new Prisma.Decimal(r.percentage).toDecimalPlaces(2).toString()
+              : null,
+          amount:
+            r.amount != null
+              ? new Prisma.Decimal(r.amount).toDecimalPlaces(2).toString()
+              : null,
+          projectAllocatedAmount: math.projectAllocatedAmount,
+          imputedCommittedAmount: math.imputedCommitted,
+          imputedConsumedAmount: math.imputedConsumed,
+          lineCommittedAmount: lineCommitted,
+          lineConsumedAmount: lineConsumed,
+          project: {
+            id: r.project.id,
+            code: r.project.code,
+            name: r.project.name,
+            status: r.project.status,
+          },
+        };
+      }),
+      total,
+      limit,
+      offset,
+    };
+  }
+
+  /**
+   * RFC-PROJ-010-B lot B — KPI cockpit budget × projet.
+   */
+  async getProjectBudgetKpis(clientId: string, budgetId: string) {
+    const budget = await this.prisma.budget.findFirst({
+      where: { id: budgetId, clientId },
+      select: { id: true },
+    });
+    if (!budget) {
+      throw new NotFoundException('Budget introuvable');
+    }
+
+    const budgetTotals = await this.loadBudgetInitialTotals(clientId, [
+      budgetId,
+    ]);
+    const budgetTotalInitial = budgetTotals.get(budgetId) ?? null;
+
+    const links = await this.prisma.projectBudgetLink.findMany({
+      where: {
+        clientId,
+        budgetLine: { budgetId, clientId },
+      },
+      take: PROJECT_BUDGET_KPI_LINK_CAP + 1,
+      orderBy: { createdAt: 'asc' },
+      include: {
+        project: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            status: true,
+          },
+        },
+        budgetLine: {
+          select: {
+            initialAmount: true,
+            committedAmount: true,
+            consumedAmount: true,
+          },
+        },
+      },
+    });
+
+    const truncated = links.length > PROJECT_BUDGET_KPI_LINK_CAP;
+    const capped = truncated
+      ? links.slice(0, PROJECT_BUDGET_KPI_LINK_CAP)
+      : links;
+
+    type Acc = {
+      projectId: string;
+      code: string;
+      name: string;
+      status: string;
+      targetAmount: number;
+      committedAmount: number;
+      consumedAmount: number;
+      linkCount: number;
+    };
+
+    const byProject = new Map<string, Acc>();
+    for (const link of capped) {
+      const math = computeProjectBudgetAllocation({
+        allocationType: link.allocationType as ProjectBudgetAllocationMode,
+        percentage:
+          link.percentage != null ? fromDecimal(link.percentage) : null,
+        amount: link.amount != null ? fromDecimal(link.amount) : null,
+        lineInitial: fromDecimal(link.budgetLine.initialAmount),
+        budgetTotalInitial,
+        lineCommitted: fromDecimal(link.budgetLine.committedAmount),
+        lineConsumed: fromDecimal(link.budgetLine.consumedAmount),
+      });
+      const prev = byProject.get(link.projectId) ?? {
+        projectId: link.projectId,
+        code: link.project.code,
+        name: link.project.name,
+        status: link.project.status,
+        targetAmount: 0,
+        committedAmount: 0,
+        consumedAmount: 0,
+        linkCount: 0,
+      };
+      prev.targetAmount += math.projectAllocatedAmount ?? 0;
+      prev.committedAmount += math.imputedCommitted ?? 0;
+      prev.consumedAmount += math.imputedConsumed ?? 0;
+      prev.linkCount += 1;
+      byProject.set(link.projectId, prev);
+    }
+
+    const items = [...byProject.values()]
+      .map((p) => ({
+        projectId: p.projectId,
+        project: {
+          id: p.projectId,
+          code: p.code,
+          name: p.name,
+          status: p.status,
+        },
+        targetAmount: Math.round(p.targetAmount * 100) / 100,
+        committedAmount: Math.round(p.committedAmount * 100) / 100,
+        consumedAmount: Math.round(p.consumedAmount * 100) / 100,
+        driftAmount:
+          Math.round((p.consumedAmount - p.targetAmount) * 100) / 100,
+        linkCount: p.linkCount,
+      }))
+      .sort((a, b) => b.driftAmount - a.driftAmount);
+
+    const totals = items.reduce(
+      (acc, row) => {
+        acc.targetAmount += row.targetAmount;
+        acc.committedAmount += row.committedAmount;
+        acc.consumedAmount += row.consumedAmount;
+        return acc;
+      },
+      { targetAmount: 0, committedAmount: 0, consumedAmount: 0 },
+    );
+
+    return {
+      imputationBasis: IMPUTATION_BASIS_V1,
+      items,
+      totals: {
+        targetAmount: Math.round(totals.targetAmount * 100) / 100,
+        committedAmount: Math.round(totals.committedAmount * 100) / 100,
+        consumedAmount: Math.round(totals.consumedAmount * 100) / 100,
+        driftAmount:
+          Math.round(
+            (totals.consumedAmount - totals.targetAmount) * 100,
+          ) / 100,
+        projectCount: items.length,
+      },
+      ...(truncated ? { truncated: true } : {}),
     };
   }
 
