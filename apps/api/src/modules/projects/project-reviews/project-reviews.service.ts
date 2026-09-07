@@ -53,10 +53,6 @@ import {
   requireProjectReviewReportAppBaseUrl,
   resolveProjectReviewReportAppBaseUrl,
 } from './project-review-report.builder';
-import {
-  resolveCommitteeMoodFromReviewRecord,
-  resolveCommitteeMoodWithPreviousReviews,
-} from './project-review-committee-mood.helpers';
 import { ProjectReviewEmailReportService } from './project-review-email-report.service';
 
 const reviewInclude = {
@@ -650,7 +646,9 @@ export class ProjectReviewsService {
     return {
       ...base,
       snapshotPayload:
-        row.status === 'FINALIZED' ? row.snapshotPayload : null,
+        row.status === 'FINALIZED' || row.status === 'CANCELLED'
+          ? row.snapshotPayload
+          : null,
     };
   }
 
@@ -1688,119 +1686,17 @@ export class ProjectReviewsService {
     }
   }
 
-  private async enrichSnapshotCommitteeMood(
-    clientId: string,
-    projectId: string,
-    reviewId: string,
-    snapshot: ProjectReviewSnapshotPayload,
-    currentReview?: {
-      contentPayload: unknown;
-      snapshotPayload?: unknown | null;
-    },
-  ): Promise<ProjectReviewSnapshotPayload> {
-    const fromCurrentRecord = currentReview
-      ? resolveCommitteeMoodFromReviewRecord({
-          contentPayload: currentReview.contentPayload,
-          snapshotPayload: currentReview.snapshotPayload ?? null,
-        })
-      : null;
-    const effectiveCurrent = fromCurrentRecord ?? snapshot.review.committeeMood;
-    if (effectiveCurrent) {
-      if (snapshot.review.committeeMood === effectiveCurrent) return snapshot;
-      return {
-        ...snapshot,
-        review: { ...snapshot.review, committeeMood: effectiveCurrent },
-      };
+  /** Snapshot v2 figé uniquement — pas de rebuild live, pas d’overlay météo. */
+  private requireFrozenReportSnapshot(review: {
+    snapshotPayload: unknown;
+  }): ProjectReviewSnapshotPayload {
+    const parsed = parseProjectReviewSnapshotPayload(review.snapshotPayload);
+    if (!parsed) {
+      throw new BadRequestException(
+        'Snapshot indisponible — point antérieur à la version 2',
+      );
     }
-
-    const previousReviews = await this.prisma.projectReview.findMany({
-      where: {
-        clientId,
-        projectId,
-        id: { not: reviewId },
-        status: ProjectReviewStatus.FINALIZED,
-      },
-      orderBy: [
-        { reviewDate: 'desc' },
-        { finalizedAt: 'desc' },
-        { updatedAt: 'desc' },
-      ],
-      take: 24,
-      select: { contentPayload: true, snapshotPayload: true },
-    });
-
-    const effective = resolveCommitteeMoodWithPreviousReviews(null, previousReviews);
-    if (!effective) return snapshot;
-
-    return {
-      ...snapshot,
-      review: { ...snapshot.review, committeeMood: effective },
-    };
-  }
-
-  private async resolveReportSnapshot(
-    clientId: string,
-    projectId: string,
-    review: ReviewWithChildren,
-  ): Promise<ProjectReviewSnapshotPayload> {
-    const currentReviewSource = {
-      contentPayload: review.contentPayload,
-      snapshotPayload: review.snapshotPayload,
-    };
-
-    if (review.status === ProjectReviewStatus.FINALIZED && review.snapshotPayload) {
-      const parsed = parseProjectReviewSnapshotPayload(review.snapshotPayload);
-      if (parsed) {
-        return this.enrichSnapshotCommitteeMood(
-          clientId,
-          projectId,
-          review.id,
-          parsed,
-          currentReviewSource,
-        );
-      }
-    }
-
-    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
-    const conduct = this.buildSnapshotConductData(review);
-    const agendaTitleById = new Map(
-      review.agendaItems.map((item) => [item.id, item.title]),
-    );
-    const snapshotPayload = buildProjectReviewSnapshotPayload({
-      ...ctx,
-      review,
-      facilitatorDisplayName: formatProjectReviewUserDisplayName(
-        review.facilitator,
-      ),
-      attachments: review.attachments ?? [],
-      standaloneDecisions: review.decisions,
-      standaloneActions: review.actionItems.map((a) => ({
-        id: a.id,
-        title: a.title,
-        dueDate: a.dueDate,
-        priority: a.priority,
-        responsibleDisplayName: formatProjectReviewUserDisplayName(
-          a.responsibleUser,
-        ),
-        contributors: a.contributors.map((c) => ({
-          displayName:
-            c.displayName ?? formatProjectReviewUserDisplayName(c.user),
-          roleLabel: c.roleLabel,
-        })),
-      })),
-      agendaTitleById,
-      pilotage: this.pilotage,
-      ...conduct,
-    });
-
-    const parsed = parseProjectReviewSnapshotPayload(snapshotPayload)!;
-    return this.enrichSnapshotCommitteeMood(
-      clientId,
-      projectId,
-      review.id,
-      parsed,
-      currentReviewSource,
-    );
+    return parsed;
   }
 
   private async loadReportClientOrganization(clientId: string): Promise<{
@@ -1840,15 +1736,10 @@ export class ProjectReviewsService {
       };
     }
 
-    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
+    const snapshot = this.requireFrozenReportSnapshot(review);
     const clientOrganization = await this.loadReportClientOrganization(clientId);
-    const snapshot = await this.resolveReportSnapshot(
-      clientId,
-      projectId,
-      review,
-    );
     const report = buildProjectReviewReportContent({
-      projectName: ctx.project.name,
+      projectName: snapshot.project.name,
       projectId,
       reviewId,
       snapshot,
@@ -1878,13 +1769,8 @@ export class ProjectReviewsService {
     if (!review) throw new NotFoundException('Review not found');
     this.assertReviewReportAllowed(review.status);
 
-    const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
+    const snapshot = this.requireFrozenReportSnapshot(review);
     const clientOrganization = await this.loadReportClientOrganization(clientId);
-    const snapshot = await this.resolveReportSnapshot(
-      clientId,
-      projectId,
-      review,
-    );
     let appBaseUrl: string;
     try {
       appBaseUrl = requireProjectReviewReportAppBaseUrl();
@@ -1895,7 +1781,7 @@ export class ProjectReviewsService {
       );
     }
     const report = buildProjectReviewReportContent({
-      projectName: ctx.project.name,
+      projectName: snapshot.project.name,
       projectId,
       reviewId,
       snapshot,

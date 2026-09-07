@@ -116,10 +116,12 @@ function ProjectMeteoCompact({
   project,
   badgeMerged,
   onOpenDetail,
+  progressWhen,
 }: {
   project: ProjectDetail;
   badgeMerged: MergedUiBadges;
   onOpenDetail: () => void;
+  progressWhen?: string;
 }) {
   const progressLine =
     project.progressPercent != null
@@ -146,7 +148,10 @@ function ProjectMeteoCompact({
           {progressLine ? (
             <span className="tabular-nums text-muted-foreground">
               <span className="starium-overline mr-1">{progressLine.label}</span>
-              <span className="font-semibold text-foreground">{progressLine.value}</span>
+              <span className="font-semibold text-foreground">
+                {progressLine.value}
+                {progressWhen ? ` ${progressWhen}` : ''}
+              </span>
             </span>
           ) : null}
           <span className="tabular-nums text-muted-foreground">
@@ -237,6 +242,7 @@ type Props = {
   project: ProjectDetail;
   badgeMerged: MergedUiBadges;
   previousReviewId: string | null;
+  progressWhen?: string;
 };
 
 export function ReviewConductProjectContext({
@@ -244,6 +250,7 @@ export function ReviewConductProjectContext({
   project,
   badgeMerged,
   previousReviewId,
+  progressWhen,
 }: Props) {
   const [detailState, setDetailState] = useState<ConductContextDetailState>({ kind: 'closed' });
 
@@ -337,6 +344,7 @@ export function ReviewConductProjectContext({
           <ProjectMeteoCompact
             project={project}
             badgeMerged={badgeMerged}
+            progressWhen={progressWhen}
             onOpenDetail={() =>
               setDetailState({ kind: 'meteo', project, badgeMerged })
             }

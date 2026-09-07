@@ -20,11 +20,10 @@ import {
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
-import { normalizeReviewStatus, isReviewInConduct } from '../lib/project-review-status';
+import { normalizeReviewStatus } from '../lib/project-review-status';
 import { projectReviewConduct } from '../constants/project-routes';
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
-import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
 
 const REVIEW_ROW_ICON_TONES = [
@@ -159,8 +158,6 @@ export function ProjectReviewsTab({
     : [...REVIEW_TYPES_PILOTAGE];
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editorReviewId, setEditorReviewId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   const list = useProjectReviewsQuery(projectId);
   const draftPostMortem = useMemo(
@@ -180,15 +177,9 @@ export function ProjectReviewsTab({
 
   const openEditor = useCallback(
     (id: string) => {
-      const row = list.data?.find((r) => r.id === id);
-      if (row && isReviewInConduct(row.status)) {
-        router.push(projectReviewConduct(projectId, id));
-        return;
-      }
-      setEditorReviewId(id);
-      setEditorOpen(true);
+      router.push(projectReviewConduct(projectId, id));
     },
-    [list.data, projectId, router],
+    [projectId, router],
   );
 
   /** Synthèse projet : `?createRetourExperience=1` ouvre la création ; si un brouillon REX existe, l’éditeur. */
@@ -239,7 +230,7 @@ export function ProjectReviewsTab({
     openEditor,
   ]);
 
-  /** Lien « Continuer » depuis la synthèse : `?openReview=<id>`. */
+  /** Lien invitation / météo : `?openReview=<id>` → page du point. */
   useEffect(() => {
     const id = searchParams.get('openReview');
     if (!id?.trim()) {
@@ -248,12 +239,8 @@ export function ProjectReviewsTab({
     }
     if (openedOpenReviewRef.current === id) return;
     openedOpenReviewRef.current = id;
-    openEditor(id);
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete('openReview');
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router, openEditor]);
+    router.replace(projectReviewConduct(projectId, id));
+  }, [searchParams, projectId, router]);
 
   const onPrimaryReviewAction = () => {
     if (postMortemEligible && draftPostMortem) {
@@ -369,16 +356,6 @@ export function ProjectReviewsTab({
         }}
       />
 
-      <ProjectReviewEditorDialog
-        projectId={projectId}
-        reviewId={editorReviewId}
-        open={editorOpen}
-        onOpenChange={(o) => {
-          setEditorOpen(o);
-          if (!o) setEditorReviewId(null);
-        }}
-        canEdit={canEdit}
-      />
     </div>
   );
 }

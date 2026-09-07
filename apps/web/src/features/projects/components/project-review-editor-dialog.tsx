@@ -378,10 +378,12 @@ function ProjectMeteoInline({
   project,
   badgeMerged,
   embedded = false,
+  progressWhen,
 }: {
   project: ProjectDetail;
   badgeMerged: MergedUiBadges;
   embedded?: boolean;
+  progressWhen?: string;
 }) {
   const progressLine =
     project.progressPercent != null
@@ -402,7 +404,10 @@ function ProjectMeteoInline({
         {progressLine ? (
           <span className="tabular-nums text-muted-foreground">
             <span className="starium-overline mr-1">{progressLine.label}</span>
-            <span className="font-semibold text-foreground">{progressLine.value}</span>
+            <span className="font-semibold text-foreground">
+              {progressLine.value}
+              {progressWhen ? ` ${progressWhen}` : ''}
+            </span>
           </span>
         ) : null}
         <span className="hidden h-4 w-px bg-border/70 sm:block" aria-hidden />
@@ -1545,9 +1550,7 @@ export function ProjectReviewEditorDialog({
       lastSavedSerializedRef.current = JSON.stringify(body);
       await finalize.mutateAsync(d.id);
       setConfirmFinalizeOpen(false);
-      if (isPage) {
-        onExit?.();
-      } else {
+      if (!isPage) {
         onOpenChange?.(false);
       }
     } catch {
@@ -1569,9 +1572,7 @@ export function ProjectReviewEditorDialog({
     try {
       await cancel.mutateAsync(d.id);
       setConfirmCancelOpen(false);
-      if (isPage) {
-        onExit?.();
-      } else {
+      if (!isPage) {
         onOpenChange?.(false);
       }
     } catch {
@@ -2196,6 +2197,7 @@ export function ProjectReviewEditorDialog({
             project={projectQuery.data}
             badgeMerged={badgeMerged}
             previousReviewId={previousReviewId}
+            progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
           />
         ) : null}
         {d.objective?.trim() ? (
@@ -2220,7 +2222,7 @@ export function ProjectReviewEditorDialog({
           />
           {committeeMood == null ? (
             <p className="mt-2 text-xs text-muted-foreground" role="status">
-              Aucune météo choisie — définissez-la avant de finaliser le point.
+              Météo non renseignée — elle apparaîtra ainsi dans le compte rendu.
             </p>
           ) : null}
           <Button
@@ -2692,6 +2694,7 @@ export function ProjectReviewEditorDialog({
                     project={projectQuery.data}
                     badgeMerged={badgeMerged}
                     embedded
+                    progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
                   />
                 </ReviewEditorSection>
               )}
@@ -2703,7 +2706,11 @@ export function ProjectReviewEditorDialog({
                 />
               )}
               {!isPostMortemReview && projectQuery.data && (
-                <ProjectMeteoInline project={projectQuery.data} badgeMerged={badgeMerged} />
+                <ProjectMeteoInline
+                  project={projectQuery.data}
+                  badgeMerged={badgeMerged}
+                  progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
+                />
               )}
 
               {(!!projectQuery.data?.warnings?.length ||

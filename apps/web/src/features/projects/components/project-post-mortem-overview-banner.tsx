@@ -1,20 +1,19 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef } from 'react';
 import { usePermissions } from '@/hooks/use-permissions';
-import { projectDetail } from '../constants/project-routes';
+import { projectDetail, projectReviewConduct } from '../constants/project-routes';
 import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import {
   findDraftPostMortemReview,
   hasFinalizedPostMortemReview,
   isPostMortemEligibleProjectStatus,
 } from '../lib/project-review-post-mortem';
-import { ProjectReviewEditorDialog } from './project-review-editor-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
 
 /**
- * Bandeau REX sur l’onglet Aperçu — CTA prioritaire + éditeur sans quitter la synthèse.
+ * Bandeau REX sur l’onglet Aperçu — CTA vers la page du point, pas une modale.
  */
 export function ProjectPostMortemOverviewBanner({
   projectId,
@@ -37,20 +36,10 @@ export function ProjectPostMortemOverviewBanner({
     [list.data],
   );
 
-  const [editorReviewId, setEditorReviewId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
-
   const searchParams = useSearchParams();
-  const pathname = usePathname();
   const router = useRouter();
   const openedOpenReviewRef = useRef<string | null>(null);
 
-  const openEditor = useCallback((id: string) => {
-    setEditorReviewId(id);
-    setEditorOpen(true);
-  }, []);
-
-  /** Lien direct : `?openReview=<id>` depuis l’aperçu. */
   useEffect(() => {
     if (!postMortemEligible) return;
     const id = searchParams.get('openReview');
@@ -60,18 +49,14 @@ export function ProjectPostMortemOverviewBanner({
     }
     if (openedOpenReviewRef.current === id) return;
     openedOpenReviewRef.current = id;
-    openEditor(id);
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete('openReview');
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router, openEditor, postMortemEligible]);
+    router.replace(projectReviewConduct(projectId, id));
+  }, [searchParams, router, postMortemEligible, projectId]);
 
   if (!postMortemEligible) return null;
 
   const onPrimaryAction = () => {
     if (draftPostMortem) {
-      openEditor(draftPostMortem.id);
+      router.push(projectReviewConduct(projectId, draftPostMortem.id));
       return;
     }
     router.push(`${projectDetail(projectId)}?tab=points&createRetourExperience=1`, {
@@ -80,26 +65,13 @@ export function ProjectPostMortemOverviewBanner({
   };
 
   return (
-    <>
-      <ProjectReviewsContextBanner
-        postMortemEligible
-        finalizedPostMortem={finalizedPostMortem}
-        draftPostMortem={draftPostMortem}
-        canEdit={canEdit}
-        onPrimaryAction={onPrimaryAction}
-        variant="overview"
-      />
-
-      <ProjectReviewEditorDialog
-        projectId={projectId}
-        reviewId={editorReviewId}
-        open={editorOpen}
-        onOpenChange={(o) => {
-          setEditorOpen(o);
-          if (!o) setEditorReviewId(null);
-        }}
-        canEdit={canEdit}
-      />
-    </>
+    <ProjectReviewsContextBanner
+      postMortemEligible
+      finalizedPostMortem={finalizedPostMortem}
+      draftPostMortem={draftPostMortem}
+      canEdit={canEdit}
+      onPrimaryAction={onPrimaryAction}
+      variant="overview"
+    />
   );
 }

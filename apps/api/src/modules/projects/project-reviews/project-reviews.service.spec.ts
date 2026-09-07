@@ -39,12 +39,14 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     projectRisk: { findMany: jest.Mock };
     projectMilestone: { findMany: jest.Mock };
     projectBudgetLink: { findMany: jest.Mock };
+    client: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
   let auditLogs: { create: jest.Mock };
   let projects: { getProjectForScope: jest.Mock; assertClientUser: jest.Mock };
   let pilotage: { computedHealth: jest.Mock };
   let invitations: { invite: jest.Mock };
+  let emailReport: { sendReport: jest.Mock };
 
   const clientId = 'c1';
   const projectId = 'p1';
@@ -111,6 +113,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         participantIds: ['part1'],
       }),
     };
+    emailReport = { sendReport: jest.fn() };
     prisma = {
       projectReview: {
         findMany: jest.fn(),
@@ -136,6 +139,9 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       projectRisk: { findMany: jest.fn() },
       projectMilestone: { findMany: jest.fn() },
       projectBudgetLink: { findMany: jest.fn() },
+      client: {
+        findFirst: jest.fn().mockResolvedValue({ name: 'NeoTech AI' }),
+      },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
         fn({
           projectReview: prisma.projectReview,
@@ -158,7 +164,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       pilotage as unknown as ProjectsPilotageService,
       auditLogs as unknown as AuditLogsService,
       invitations as unknown as ProjectReviewInvitationsService,
-      { sendReport: jest.fn() } as never,
+      emailReport as never,
     );
   });
 
@@ -182,6 +188,123 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       html: '<p>CR figé</p>',
     });
     expect(prisma.project.findFirst).not.toHaveBeenCalled();
+  });
+
+  const snapshotUnavailable = 'Snapshot indisponible — point antérieur à la version 2';
+
+  function frozenSnapshot(
+    committeeMood: 'GREEN' | 'ORANGE' | 'RED' | null = null,
+  ) {
+    return {
+      schemaVersion: 2,
+      review: {
+        type: 'COPIL',
+        title: 'Point figé',
+        objective: null,
+        periodStart: null,
+        periodEnd: null,
+        reviewDate: '2026-07-14T19:00:00.000Z',
+        durationMinutes: null,
+        facilitatorDisplayName: null,
+        committeeMood,
+      },
+      project: {
+        id: projectId,
+        name: 'Telephonie',
+        status: 'IN_PROGRESS',
+        health: 'ORANGE',
+        priority: 'HIGH',
+      },
+      meeting: { meetingMode: null, location: null },
+      participants: [],
+      agenda: [],
+      attachments: [],
+      decisions: [],
+      actions: [],
+      untreatedAgendaItems: [],
+      arbitration: {
+        arbitrationMetierStatus: null,
+        arbitrationComiteStatus: null,
+        arbitrationCodirStatus: null,
+        arbitrationStatus: null,
+      },
+      progress: { globalProgress: 40 },
+      tasks: { open: 0, inProgress: 0, done: 0, late: 0 },
+      risks: {
+        open: 0,
+        monitored: 0,
+        mitigated: 0,
+        closed: 0,
+        topRisks: [],
+      },
+      milestones: [],
+      budget: { links: [] },
+      nextSteps: null,
+    };
+  }
+
+  it('preview et send refusent sans snapshot v2', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.FINALIZED,
+        snapshotPayload: null,
+      }),
+    );
+
+    await expect(
+      service.getReportPreview(clientId, projectId, reviewId),
+    ).rejects.toMatchObject({ message: snapshotUnavailable });
+    await expect(
+      service.sendReport(clientId, projectId, reviewId),
+    ).rejects.toMatchObject({ message: snapshotUnavailable });
+    expect(emailReport.sendReport).not.toHaveBeenCalled();
+    expect(prisma.projectReview.update).not.toHaveBeenCalled();
+    expect(prisma.client.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('preview stocké + snapshot null : HTML stocké, send 400', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.FINALIZED,
+        snapshotPayload: null,
+        lastSentReportHtml: '<p>CR figé</p>',
+        lastSentReportText: 'CR figé',
+        lastSentReportSubject: 'Sujet figé',
+        lastSentReportTitle: 'Titre figé',
+      }),
+    );
+
+    await expect(
+      service.getReportPreview(clientId, projectId, reviewId),
+    ).resolves.toEqual({
+      subject: 'Sujet figé',
+      title: 'Titre figé',
+      text: 'CR figé',
+      html: '<p>CR figé</p>',
+    });
+    await expect(
+      service.sendReport(clientId, projectId, reviewId),
+    ).rejects.toMatchObject({ message: snapshotUnavailable });
+    expect(emailReport.sendReport).not.toHaveBeenCalled();
+    expect(prisma.projectReview.update).not.toHaveBeenCalled();
+  });
+
+  it('preview météo : snapshot null ignore contentPayload.committeeMood', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.FINALIZED,
+        snapshotPayload: frozenSnapshot(null),
+        contentPayload: { committeeMood: 'ORANGE' },
+      }),
+    );
+
+    const preview = await service.getReportPreview(clientId, projectId, reviewId);
+
+    expect(preview.html).toContain('Non renseignée');
+    expect(preview.html).not.toContain('Mitigé');
+    expect(preview.text).toContain('Non renseignée');
+    expect(preview.text).not.toContain('Mitigé');
+    expect(prisma.projectReview.findMany).not.toHaveBeenCalled();
   });
 
   it('getById lève NotFound si review hors scope', async () => {

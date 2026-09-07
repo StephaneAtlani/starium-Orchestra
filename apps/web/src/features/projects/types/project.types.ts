@@ -1158,6 +1158,7 @@ export type ProjectReviewDetail = {
   nextReviewDate: string | null;
   finalizedAt: string | null;
   finalizedByUserId: string | null;
+  cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
   participants: ProjectReviewParticipantApi[];
@@ -1165,6 +1166,6 @@ export type ProjectReviewDetail = {
   decisions: ProjectReviewDecisionApi[];
   actionItems: ProjectReviewActionItemApi[];
   attachments?: ProjectReviewAttachmentApi[];
-  /** Toujours présent ; `null` si status !== FINALIZED */
+  /** Présent si FINALIZED ou CANCELLED ; `null` sinon. */
   snapshotPayload: Record<string, unknown> | null;
 };
