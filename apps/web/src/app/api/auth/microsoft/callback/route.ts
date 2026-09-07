@@ -11,28 +11,36 @@ function internalApiBase(): string {
   return raw.replace(/\/$/, '');
 }
 
-/**
- * Le rewrite `/api/*` → Nest peut casser sur une query OAuth énorme (`code`).
- * Une 307 vers l’API duplique l’URL dans `Location` (souvent trop long → « invalid response »).
- * On **proxifie** vers l’API et on renvoie au navigateur la **302** finale (URL courte vers /login?handoff=…).
- * Plus de page HTML interstitial ni de jetons dans le fragment (anti-phishing Safe Browsing).
- */
-export async function GET(request: NextRequest) {
-  const target = `${internalApiBase()}/api/auth/microsoft/callback${request.nextUrl.search}`;
+async function proxyToApi(
+  request: NextRequest,
+  init: {
+    method: 'GET' | 'POST';
+    body?: string;
+    contentType?: string | null;
+  },
+): Promise<NextResponse> {
+  const target = `${internalApiBase()}/api/auth/microsoft/callback${
+    init.method === 'GET' ? request.nextUrl.search : ''
+  }`;
 
   let upstream: Response;
   try {
     const ctrl = new AbortController();
     const kill = setTimeout(() => ctrl.abort(), 120_000);
+    const headers: Record<string, string> = {
+      'x-forwarded-for': request.headers.get('x-forwarded-for') ?? '',
+      'x-forwarded-proto': request.headers.get('x-forwarded-proto') ?? 'http',
+      'x-request-id': request.headers.get('x-request-id') ?? '',
+    };
+    if (init.contentType) {
+      headers['content-type'] = init.contentType;
+    }
     upstream = await fetch(target, {
-      method: 'GET',
+      method: init.method,
       redirect: 'manual',
       signal: ctrl.signal,
-      headers: {
-        'x-forwarded-for': request.headers.get('x-forwarded-for') ?? '',
-        'x-forwarded-proto': request.headers.get('x-forwarded-proto') ?? 'http',
-        'x-request-id': request.headers.get('x-request-id') ?? '',
-      },
+      headers,
+      body: init.body,
     });
     clearTimeout(kill);
   } catch {
@@ -59,4 +67,26 @@ export async function GET(request: NextRequest) {
         upstream.headers.get('content-type') ?? 'text/plain; charset=utf-8',
     },
   });
+}
+
+/**
+ * Legacy `response_mode=query` : Microsoft redirige en GET avec `?code=…`.
+ * Chrome Safe Browsing flague souvent cette URL (code MSA type `M.…` en query).
+ * Flux nominal = POST form_post (voir ci-dessous).
+ */
+export async function GET(request: NextRequest) {
+  return proxyToApi(request, { method: 'GET' });
+}
+
+/**
+ * `response_mode=form_post` : Microsoft POSTe `code`/`state` en
+ * `application/x-www-form-urlencoded`. Barre d’adresse = `/callback` sans secret.
+ * On proxifie vers Nest et on renvoie la **302** finale (`/login?handoff=…`).
+ */
+export async function POST(request: NextRequest) {
+  const contentType =
+    request.headers.get('content-type') ??
+    'application/x-www-form-urlencoded';
+  const body = await request.text();
+  return proxyToApi(request, { method: 'POST', body, contentType });
 }

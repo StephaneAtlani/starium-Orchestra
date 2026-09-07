@@ -1,5 +1,9 @@
 import { IsOptional, IsString } from 'class-validator';
 
+/**
+ * Callback OAuth SSO — query (`response_mode=query`, legacy) ou body form
+ * (`response_mode=form_post`, flux recommandé anti Safe Browsing).
+ */
 export class MicrosoftCallbackQueryDto {
   @IsOptional()
   @IsString()
@@ -21,4 +25,9 @@ export class MicrosoftCallbackQueryDto {
   @IsOptional()
   @IsString()
   session_state?: string;
+
+  /** MSA / Entra form_post — ignoré. */
+  @IsOptional()
+  @IsString()
+  client_info?: string;
 }

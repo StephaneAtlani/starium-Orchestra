@@ -102,7 +102,9 @@ export class MicrosoftSsoService {
     authUrl.searchParams.set('client_id', credentials.clientId);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('response_mode', 'query');
+    // form_post : code/state en corps POST, pas en query — évite l’URL
+    // `/callback?code=M.…` (heuristique phishing Chrome Safe Browsing / MSA).
+    authUrl.searchParams.set('response_mode', 'form_post');
     authUrl.searchParams.set('scope', scopes);
     authUrl.searchParams.set('state', state);
     // Sans `prompt`, Entra réutilise la session navigateur → pas d’écran compte / mot de passe.
