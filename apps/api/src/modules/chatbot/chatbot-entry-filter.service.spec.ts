@@ -57,7 +57,7 @@ describe('ChatbotEntryFilterService', () => {
       {
         clientId: 'c1',
         permissionCodes: new Set(),
-        clientUserRole: ClientUserRole.MEMBER,
+        clientUserRole: ClientUserRole.CLIENT_USER,
         moduleOk: new Map(),
       },
     );
@@ -74,7 +74,7 @@ describe('ChatbotEntryFilterService', () => {
       {
         clientId: 'c1',
         permissionCodes: new Set(),
-        clientUserRole: ClientUserRole.MEMBER,
+        clientUserRole: ClientUserRole.CLIENT_USER,
         moduleOk: new Map(),
       },
     );
@@ -87,7 +87,7 @@ describe('ChatbotEntryFilterService', () => {
       {
         clientId: 'c1',
         permissionCodes: new Set(['budgets.read']),
-        clientUserRole: ClientUserRole.MEMBER,
+        clientUserRole: ClientUserRole.CLIENT_USER,
         moduleOk: new Map([['budgets', false]]),
       },
     );
@@ -100,7 +100,7 @@ describe('ChatbotEntryFilterService', () => {
       {
         clientId: 'c1',
         permissionCodes: new Set(['strategic_vision.read']),
-        clientUserRole: ClientUserRole.MEMBER,
+        clientUserRole: ClientUserRole.CLIENT_USER,
         moduleOk: new Map(),
       },
     );
@@ -112,7 +112,7 @@ describe('ChatbotEntryFilterService', () => {
       new Set(['budgets.read']),
     );
     (access.getClientUserRole as jest.Mock).mockResolvedValue(
-      ClientUserRole.MEMBER,
+      ClientUserRole.CLIENT_USER,
     );
     (access.isModuleEnabledForClient as jest.Mock).mockResolvedValue(true);
 
