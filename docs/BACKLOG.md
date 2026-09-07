@@ -78,6 +78,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | BUF.1 | Rédaction RFC `gap-project-event` (design only) | PROJ-010 §6 |
 | BUF.2 | Spike **RFC-RES-002** (1–2 j) | RES-002 |
 | BUF.3 | Notes dettes SC UI / sheet metrics | SC / PROJ-012 |
+| BUF.4 | **RFC-PROJ-013-3** — Lot 0+A sans comité. Note arbitrage D1–D7. Dump ops avant C6 seed. C9 → 013-4 | PROJ-013-3 |
 
 ---
 
