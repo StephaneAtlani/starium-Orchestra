@@ -4,6 +4,26 @@ import {
 } from './project-review-report.builder';
 import type { ProjectReviewSnapshotPayload } from './project-reviews-snapshot.builder';
 
+/** Figé le HTML du CR sans logos, dates ISO ni identifiants techniques. */
+function normalizeReportHtml(html: string): string {
+  return html
+    .replace(/\d{4}-\d{2}-\d{2}T[^<"']+/g, '{{DATE}}')
+    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, '{{ID}}')
+    .replace(/https?:\/\/[^"'\s]+/g, '{{URL}}')
+    .replace(/data:image\/[^"']+/g, '{{LOGO}}');
+}
+
+function buildReport(snapshot: ProjectReviewSnapshotPayload) {
+  return buildProjectReviewReportContent({
+    projectName: 'Telephonie',
+    projectId: 'p1',
+    reviewId: 'r1',
+    snapshot,
+    appBaseUrl: 'https://app.starium.test',
+    clientOrganization: { name: 'NeoTech AI', logoUrl: null },
+  });
+}
+
 const baseSnapshot: ProjectReviewSnapshotPayload = {
   schemaVersion: 2,
   review: {
@@ -170,9 +190,12 @@ describe('project-review-report.builder', () => {
     });
 
     expect(report.html).toContain('Intégral (100 % de la ligne)');
+    expect(report.html).toContain('Enveloppe complète');
     expect(report.html).not.toContain('>FULL<');
     expect(report.text).toContain('Intégral (100 % de la ligne)');
+    expect(report.text).toContain('Enveloppe complète (montant non ventilé)');
     expect(report.text).not.toContain('(FULL)');
+    expect(report.text).not.toContain(': —');
   });
 
   it('utilise la météo du comité du point avec repli sur les points précédents', () => {
@@ -236,6 +259,46 @@ describe('project-review-report.builder', () => {
     expect(report.html).not.toContain('>TO_REVIEW<');
     expect(report.text).toContain('Global : À arbitrer');
     expect(report.text).not.toContain('TO_REVIEW');
+  });
+
+  it('golden : cœur comité (ODJ, décision, action)', () => {
+    const report = buildReport(baseSnapshot);
+
+    expect(report.html).toContain('Valider la bascule');
+    expect(report.html).toContain('id="odj"');
+    expect(normalizeReportHtml(report.html)).toMatchSnapshot();
+  });
+
+  it('golden : sans ODJ, décisions ni actions — sections omises', () => {
+    const report = buildReport({
+      ...baseSnapshot,
+      agenda: [],
+      decisions: [],
+      actions: [],
+    });
+
+    expect(report.html).not.toContain('id="odj"');
+    expect(report.html).not.toContain('id="decisions"');
+    expect(normalizeReportHtml(report.html)).toMatchSnapshot();
+  });
+
+  it('golden : allocation FULL sans montant', () => {
+    const report = buildReport({
+      ...baseSnapshot,
+      budget: {
+        links: [
+          {
+            budgetLineId: 'bl1',
+            label: 'OPEX-2026 — Téléphonie',
+            allocationType: 'FULL',
+            percentage: null,
+            amount: null,
+          },
+        ],
+      },
+    });
+
+    expect(normalizeReportHtml(report.html)).toMatchSnapshot();
   });
 
   it('parseProjectReviewSnapshotPayload refuse schemaVersion != 2', () => {

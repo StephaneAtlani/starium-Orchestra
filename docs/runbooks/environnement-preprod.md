@@ -229,6 +229,12 @@ La préprod contient des **données personnelles de production**. Cadre minimal 
 
 La préprod n'est **pas** un environnement de démonstration grand public : pour une démo hors UAT, utiliser les seeds (`apps/api/prisma/seed*.ts`).
 
+**Avant tout script seed C6 (liaisons projet↔ligne budget)** — owner : responsable préprod. Aucun script seed n’est livré avec RFC-PROJ-013-3 Lot 0+A.
+
+1. Dump SQL du client démo : `project_reviews` et `project_budget_links` (filtre `clientId` du client démo uniquement).
+2. Conserver le dump hors repo (cf. règle Dumps ci-dessus) jusqu’à validation du seed.
+3. Ne pas écraser un point finalisé ou une liaison existante sans ce dump.
+
 ---
 
 ## 5. Validation avant merge vers `main`

@@ -385,8 +385,15 @@ function ProjectMeteoInline({
   badgeMerged: MergedUiBadges;
   embedded?: boolean;
 }) {
-  const av =
-    project.derivedProgressPercent ?? project.progressPercent ?? null;
+  const progressLine =
+    project.progressPercent != null
+      ? { label: 'Avancement déclaré', value: `${project.progressPercent} %` }
+      : project.derivedProgressPercent != null
+        ? {
+            label: 'Avancement calculé (tâches)',
+            value: `${project.derivedProgressPercent} %`,
+          }
+        : null;
   const content = (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-2">
@@ -394,15 +401,17 @@ function ProjectMeteoInline({
         <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 pt-3 text-xs sm:border-t-0 sm:pt-0">
-        <span className="tabular-nums text-muted-foreground">
-          <span className="starium-overline mr-1">Avancement</span>
-          <span className="font-semibold text-foreground">
-            {av != null ? `${av} %` : '—'}
+        {progressLine ? (
+          <span className="tabular-nums text-muted-foreground">
+            <span className="starium-overline mr-1">{progressLine.label}</span>
+            <span className="font-semibold text-foreground">{progressLine.value}</span>
           </span>
-        </span>
+        ) : null}
         <span className="hidden h-4 w-px bg-border/70 sm:block" aria-hidden />
-        <span className="tabular-nums text-muted-foreground" title="Tâches · Risques · Jalons en retard">
-          <span className="starium-overline mr-1">T·R·J</span>
+        <span className="tabular-nums text-muted-foreground">
+          <span className="starium-overline mr-1">
+            Tâches ouvertes · Risques ouverts · Jalons en retard
+          </span>
           <span className="font-semibold text-foreground">
             {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
           </span>
@@ -2546,26 +2555,31 @@ export function ProjectReviewEditorDialog({
                     <label htmlFor="pr-ed-type-h" className="starium-form-label">
                       Type de point
                     </label>
-                    <select
-                      id="pr-ed-type-h"
-                      className={selectFieldClass}
-                      value={reviewType}
-                      disabled={!(editable || typeEditable)}
-                      aria-describedby={
-                        typeEditable && isPilotageReviewType(reviewType)
-                          ? 'pr-ed-type-hint'
-                          : undefined
-                      }
-                      onChange={(e) =>
-                        handleReviewTypeChange(e.target.value as ProjectReviewType)
-                      }
-                    >
-                      {reviewTypeOptions.map((t) => (
-                        <option key={t} value={t}>
-                          {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                        </option>
-                      ))}
-                    </select>
+                    {editable || typeEditable ? (
+                      <select
+                        id="pr-ed-type-h"
+                        className={selectFieldClass}
+                        value={reviewType}
+                        aria-describedby={
+                          typeEditable && isPilotageReviewType(reviewType)
+                            ? 'pr-ed-type-hint'
+                            : undefined
+                        }
+                        onChange={(e) =>
+                          handleReviewTypeChange(e.target.value as ProjectReviewType)
+                        }
+                      >
+                        {reviewTypeOptions.map((t) => (
+                          <option key={t} value={t}>
+                            {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p id="pr-ed-type-h" className="min-h-11 text-sm font-medium text-foreground">
+                        {PROJECT_REVIEW_TYPE_LABEL[reviewType] ?? 'Type de point'}
+                      </p>
+                    )}
                     {typeEditable && isPilotageReviewType(reviewType) ? (
                       <p id="pr-ed-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
                         {REVIEW_TYPE_AGENDA_HINT[reviewType]}

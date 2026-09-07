@@ -121,7 +121,15 @@ function ProjectMeteoCompact({
   badgeMerged: MergedUiBadges;
   onOpenDetail: () => void;
 }) {
-  const av = project.derivedProgressPercent ?? project.progressPercent ?? null;
+  const progressLine =
+    project.progressPercent != null
+      ? { label: 'Avancement déclaré', value: `${project.progressPercent} %` }
+      : project.derivedProgressPercent != null
+        ? {
+            label: 'Avancement calculé (tâches)',
+            value: `${project.derivedProgressPercent} %`,
+          }
+        : null;
   return (
     <button
       type="button"
@@ -135,12 +143,16 @@ function ProjectMeteoCompact({
           <ProjectPortfolioBadges signals={project.signals} merged={badgeMerged} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          {progressLine ? (
+            <span className="tabular-nums text-muted-foreground">
+              <span className="starium-overline mr-1">{progressLine.label}</span>
+              <span className="font-semibold text-foreground">{progressLine.value}</span>
+            </span>
+          ) : null}
           <span className="tabular-nums text-muted-foreground">
-            <span className="starium-overline mr-1">Avancement</span>
-            <span className="font-semibold text-foreground">{av != null ? `${av} %` : '—'}</span>
-          </span>
-          <span className="tabular-nums text-muted-foreground" title="Tâches · Risques · Jalons en retard">
-            <span className="starium-overline mr-1">T·R·J</span>
+            <span className="starium-overline mr-1">
+              Tâches ouvertes · Risques ouverts · Jalons en retard
+            </span>
             <span className="font-semibold text-foreground">
               {project.openTasksCount}/{project.openRisksCount}/{project.delayedMilestonesCount}
             </span>

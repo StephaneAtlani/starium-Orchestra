@@ -64,7 +64,11 @@ export function getReviewTypeOptionsForEditor(
     ? isPostMortemEligibleProjectStatus(projectStatus)
     : false;
   if (!eligible) {
-    return [...REVIEW_TYPES_PILOTAGE];
+    const pilotage: ProjectReviewType[] = [...REVIEW_TYPES_PILOTAGE];
+    if (!pilotage.includes(currentReviewType)) {
+      return [currentReviewType, ...pilotage];
+    }
+    return pilotage;
   }
   if (currentReviewType === 'POST_MORTEM') {
     return ['POST_MORTEM'];

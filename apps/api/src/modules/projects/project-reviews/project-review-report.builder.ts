@@ -160,6 +160,17 @@ function label(map: Record<string, string>, key: string | null | undefined, fall
   return map[key] ?? key;
 }
 
+function formatBudgetAmount(b: {
+  amount: string | null;
+  percentage: string | null;
+  allocationType: string;
+}): string {
+  if (b.amount) return `${b.amount} €`;
+  if (b.percentage) return `${b.percentage} %`;
+  if (b.allocationType === 'FULL') return 'Enveloppe complète (montant non ventilé)';
+  return '—';
+}
+
 function formatDateFr(iso: string | null | undefined): string {
   if (!iso?.trim()) return '—';
   try {
@@ -422,7 +433,7 @@ export function buildProjectReviewReportContent(input: {
   if (snapshot.budget?.links.length) {
     textLines.push('', `Liaisons budget (${snapshot.budget.links.length})`);
     for (const b of snapshot.budget.links) {
-      const amt = b.amount ? `${b.amount} €` : b.percentage ? `${b.percentage} %` : '—';
+      const amt = formatBudgetAmount(b);
       textLines.push(
         `  • ${b.label} (${label(ALLOCATION_TYPE_LABEL, b.allocationType)}) : ${amt}`,
       );
@@ -658,7 +669,7 @@ export function buildProjectReviewReportContent(input: {
   if (snapshot.budget?.links.length) {
     const rows = snapshot.budget.links
       .map((b) => {
-        const amt = b.amount ? `${b.amount} €` : b.percentage ? `${b.percentage} %` : '—';
+        const amt = formatBudgetAmount(b);
         const typeLabel = label(ALLOCATION_TYPE_LABEL, b.allocationType);
         return `<tr><td style="${HTML_STYLES.td}">${escapeHtml(b.label)}</td><td style="${HTML_STYLES.td}">${escapeHtml(typeLabel)}</td><td style="${HTML_STYLES.td}">${escapeHtml(amt)}</td></tr>`;
       })
