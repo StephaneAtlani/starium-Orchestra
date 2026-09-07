@@ -594,6 +594,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-directions (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.read`) |
 | /api/strategic-directions (POST/PATCH/DELETE `:id`) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.update` **ou** `strategic_vision.manage_directions`) · DELETE → `204` sans corps si aucune stratégie de direction liée |
 | /api/strategic-vision/objectives/:objectiveId/links (POST/PATCH/DELETE) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_vision.manage_links`) |
+| /api/chatbot/* (message, conversations, explore, categories, entries, feedback) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard (isolation `clientId` + `userId` sur conversations ; pas de ModuleAccessGuard) — RFC-AI-001 |
 | /api/strategic-direction-strategies (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
 | /api/strategic-direction-strategies (POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.create`) |
 | /api/strategic-direction-strategies/:id/links (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.read`) |
@@ -1045,6 +1046,25 @@ Statuts : `DRAFT` -> `SUBMITTED` -> `APPROVED | REJECTED` ; depuis `APPROVED`, d
 - `PATCH …/:id` avec `archiveReason` pour **adapter** la stratégie courante (snapshot `ARCHIVED` auto + stratégie courante repassée en `DRAFT`).
 Le `PATCH` reste interdit en `SUBMITTED` et `ARCHIVED`.
 `statement` reste conservé en legacy (compat API), tandis que l’UI V1 pilote les contenus via `title`, `ambition`, `context`.
+
+## 5.7a Orion & Guide (chatbot) — `/api/chatbot` (RFC-AI-001)
+
+Matching **sans LLM** : réponses administrées (GLOBAL ou CLIENT). Produit UI : **Orion** (drawer chat) + **Guide** (Explorer). Isolation : `Authorization` + `X-Client-Id` ; conversations / messages scopés `clientId` + `userId` (fuite inter-client → 404). Pas d’écriture métier depuis le chat. Liens `structuredLinks` type `INTERNAL_PAGE` limités à l’allowlist (`chatbot-internal-routes.allowlist.ts`, dont `/client/...`).
+
+**Guards** : `JwtAuthGuard` → `ActiveClientGuard`.
+
+| Méthode | Route | Rôle |
+| --- | --- | --- |
+| `POST` | `/api/chatbot/message` | Matching + historique (`text`, `conversationId?`) ; `noAnswerFallbackUsed` si aucun match |
+| `GET` | `/api/chatbot/conversations` | Liste conversations du user sur le client actif |
+| `GET` | `/api/chatbot/conversations/:id/messages` | Messages (404 si hors scope) |
+| `GET` | `/api/chatbot/explore` | Knowledge base (catégories featured, articles) |
+| `GET` | `/api/chatbot/categories` | Catégories visibles |
+| `GET` | `/api/chatbot/categories/:slug/entries` | Entrées d’une catégorie |
+| `GET` | `/api/chatbot/entries/:slug` | Article public par slug |
+| `POST` | `/api/chatbot/feedback` | Feedback utilisateur |
+
+**Seed kickoff** (Vague 0) : `apps/api/prisma/seed-chatbot-guide-premiers-pas.ts` — catégorie GLOBAL featured `premiers-pas` + 3 FAQ (connexion/MFA, modules/permissions, Orion vs Guide). Pack complet 7 articles → backlog B3.1. Admin CRUD plateforme : `/api/platform/chatbot/*` (hors détail ici).
 
 ## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001, RFC-PROJ-CYCLE-002)
 

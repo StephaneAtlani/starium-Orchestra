@@ -52,6 +52,7 @@ import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-t
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
 import { ensureBudgetSnapshotsAndVersions } from "./seed-budget-snapshots-versions";
 import { ensureBudgetCockpitCompleteDemo } from "./seed-budget-cockpit-complete";
+import { seedChatbotGuidePremiersPas } from "./seed-chatbot-guide-premiers-pas";
 import { getScopedPermissionSeedRows } from "@starium-orchestra/rbac-permissions";
 
 const prisma = new PrismaClient();
@@ -4206,6 +4207,8 @@ async function main() {
   await ensureClientAdminContractsModuleRole();
 
   await ensureAlertsNotificationsBaselineRole();
+
+  await seedChatbotGuidePremiersPas(prisma);
 
   console.log("✅ Seed termine");
   if (runDemoSeed) {

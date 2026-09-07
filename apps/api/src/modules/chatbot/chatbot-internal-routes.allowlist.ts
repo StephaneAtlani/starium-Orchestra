@@ -19,6 +19,7 @@ export const CHATBOT_INTERNAL_ROUTE_PREFIXES: readonly string[] = [
   '/admin',
   '/select-client',
   '/chatbot',
+  '/client',
   '/rbac-test',
   '/notifications',
 ];

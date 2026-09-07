@@ -244,6 +244,21 @@ La préprod n'est **pas** un environnement de démonstration grand public : pour
 | Worker e-mails | Logs `[EMAIL worker]` OK ; **aucun** envoi hors sandbox |
 | Régression UI | Écrans touchés vérifiés dès 320px, états loading/empty/error |
 
+### Smoke Orion / Guide (Vague 0)
+
+Prérequis : seed exécuté (`premiers-pas` featured + 3 FAQ) ; MFA activée sur compte UAT.
+
+| # | Contrôle | Attendu |
+|---|---|---|
+| 1 | Login MFA | Connexion OK, sélection client |
+| 2 | Client A — question canonique | Orion : « Comment me connecter et choisir mon client ? » → réponse seed (slug `premiers-pas-connexion-mfa-client` / titre Connexion MFA) |
+| 3 | Question inconnue | Fallback « pas encore de réponse… » (ou message admin `system-fallback`) |
+| 4 | Historique | Après refresh, la conversation A est toujours listée pour le même user + client A |
+| 5 | Switch client B | Pas d’historique A ; Explorer affiche la catégorie featured **Premiers pas** |
+| 6 | Isolation | Aucune conversation / message croisé entre clients |
+
+Gate technique minimale Orion (CI / local) : `pnpm --filter @starium-orchestra/api test -- chatbot` + `pnpm audit:ui-ids` + `pnpm audit:modals`.
+
 Puis PR `preprod` → `main` et [passage-en-production.md](./passage-en-production.md).
 
 ---

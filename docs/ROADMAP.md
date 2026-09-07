@@ -37,12 +37,12 @@ Licences SI (037) · CMDB · GED · Cartographie · IA générative · Orchestra
 
 | Vague | Focus | Exit |
 | --- | --- | --- |
-| **0** Gel socle | Gate lint/test/audits · préprod MFA · Orion smoke · Guide kickoff · index RFC-AI-001 | Préprod bootable, zéro fuite client |
+| **0** Gel socle | **Reste** : gate lint/typecheck/test monorepo · préprod MFA + smoke Orion (runbook §5). *Déjà en place* : index RFC-AI-001, seed Guide `premiers-pas`, specs isolation/no-match | Préprod bootable, zéro fuite client |
 | **1** Argent | Smoke achats→ligne→KPI · articles Guide budget | Atterrissage + projets financés lisibles CODIR |
 | **2** Portefeuille | PROJ-014→016 + FE · FE-CAPA-001 · Guide projets/capa | Portefeuille structuré + capa quotidienne |
 | **3** UAT | Pack Guide Nouveaux clients · Orion fallback · FOU/ACL/alertes · release gate | **Go / No-Go prod** |
 
-Adoption beta (Orion + Guide) : pack « Premiers pas » (7 articles min + FAQ UAT) ; pas de LLM ; pas d’actions métier depuis le chat.
+Adoption beta (Orion + Guide, [RFC-AI-001](./RFC/RFC-AI-001%20—%20Cursor%20Starium%20Chatbot%20Core.md)) : pack « Premiers pas » (kickoff seed + 7 articles min en Vague 3) ; pas de LLM ; pas d’actions métier depuis le chat.
 
 ### Go-live (checklist)
 
@@ -50,7 +50,7 @@ Produit : isolation 2 clients · budget (exercice→PA→alertes) · projet↔li
 
 Tech : CI `preprod` · secrets/env · guards client · chatbot allowlist · pas de DCP en logs · mobile ≥ 320px cockpits.
 
-Doc : API · LIAISONS · RFC-AI-001 indexée · runbook prod · pack Guide seedable.
+Doc : `API.md` §5.7a chatbot · RFC-AI-001 indexée · runbook préprod smoke Orion · pack Guide seedable (kickoff `premiers-pas` ; pack 7 art. = B3.1).
 
 ---
 

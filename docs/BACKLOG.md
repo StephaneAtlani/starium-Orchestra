@@ -1,6 +1,6 @@
 # Backlog — reste à faire
 
-**Date** : 2026-09-06 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md).
+**Date** : 2026-09-07 · Aligné [`ROADMAP.md`](./ROADMAP.md) + [`LIAISONS-MODULES.md`](./LIAISONS-MODULES.md) + [`API.md`](./API.md) §5.7a.
 
 Liste **uniquement** du travail restant (pas de historique « fait »). Trajectoire / horizons : [`ROADMAP.md`](./ROADMAP.md).
 
@@ -23,10 +23,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | # | Item | Ref |
 | --- | --- | --- |
 | B0.2 | Gate technique : lint / typecheck / test / `audit:ui-ids` / `audit:modals` | release-gate |
-| B0.3 | Préprod bootable + smoke multi-client + MFA | runbook préprod |
-| B0.5 | **Orion** : smoke drawer (authz, no-match, historique, isolation) | AI-001 |
-| B0.6 | **Guide** : inventaire KB + kickoff pack Premiers pas | AI-001 |
-| B0.7 | Indexer **RFC-AI-001** dans `_RFC Liste` | doc |
+| B0.3 | Préprod bootable + smoke multi-client + MFA (+ smoke Orion runbook §5) | runbook préprod |
 
 ### Vague 1 — Argent & PA
 
@@ -172,7 +169,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 
 ## Ordre d’attaque
 
-1. B0.2–B0.3 · B0.5–B0.7  
+1. B0.2–B0.3 — gate monorepo + préprod MFA / smoke Orion manuel  
 2. B1.3–B1.4 → B2.* → B3.*  
 3. BUF.1–2 en parallèle (doc)  
 4. Après go-live : V11.L1 + V11.1 puis MEET  

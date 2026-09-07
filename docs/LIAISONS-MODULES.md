@@ -21,7 +21,7 @@ Les modules **ne s’appellent pas**. Un pont est toujours une table, une FK, un
 | **Table N:N** (`jonction`) | Table de liaison scopée client | `ProjectBudgetLink` (RFC-PROJ-010) |
 | **FK consommateur** | Le module aval pointe le maître | `PurchaseOrder.budgetLineId` |
 | **Polymorphe** | `sourceType` + `sourceId` | `FinancialEvent`, `CapacityAllocation`, `Alert` |
-| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Cartographie (Fin 2026), IA analyse (Fin 2026), ACL, Financial Core |
+| **Overlay / noyau** | Lecture ou socle partagé, pas de copie métier | Réunions, Cartographie (Fin 2026), **Orion/Guide** (RFC-AI-001, matching sans pont métier), IA analyse (Fin 2026), ACL, Financial Core |
 
 **Argent** : un projet n’a **pas** de `budgetId`. Il pointe des **lignes** via `ProjectBudgetLink`. Aucun `FinancialEvent` sur ce lien. L’argent bouge si un PO / une facture tombe sur la même ligne.
 

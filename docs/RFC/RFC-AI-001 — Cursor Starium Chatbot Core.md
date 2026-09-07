@@ -1,7 +1,7 @@
 # RFC-AI-001 — Cursor Starium Chatbot Core
 
 ## Statut
-- Proposé (V1 cadrage)
+- ✅ Implémentée (socle) — runtime Orion + Guide Explorer + admin plateforme live ; seed kickoff « Premiers pas » + smoke tests Vague 0 ; pack Guide complet (7 articles) → backlog B3.1
 
 ## 1) Objectif produit
 
@@ -428,4 +428,10 @@ Règle UI Starium :
 - Tests backend : RBAC, isolation client, filtrage module/permission, fallback.
 - Tests frontend : états UX, affichage valeur métier (jamais ID), routes internes contrôlées.
 - Vérification finale : zéro génération libre, zéro écriture métier, zéro fuite inter-client.
+
+## Inventaire KB (Vague 0)
+
+- Catégories **auto-module** : créées à la volée par module actif (`ensureGlobalModuleDefaultCategories`).
+- Pack kickoff **Premiers pas** : catégorie featured GLOBAL `premiers-pas` + 3 FAQ seed (`seed-chatbot-guide-premiers-pas.ts`).
+- Suite contenu : articles budget (B1.4), projets/capa (B2.6), pack Nouveaux clients 7 articles + FAQ UAT (B3.1).
 

@@ -5,6 +5,7 @@ import {
 } from '@prisma/client';
 import { ChatbotMatchingService } from './chatbot-matching.service';
 import type { ChatbotEntryWithCategory } from './chatbot-entry-filter.service';
+import { PREMIERS_PAS_ENTRIES } from './guide-premiers-pas.constants';
 
 function entry(partial: Partial<ChatbotEntryWithCategory>): ChatbotEntryWithCategory {
   return {
@@ -99,5 +100,32 @@ describe('ChatbotMatchingService', () => {
       }),
     ]);
     expect(best).toBeNull();
+  });
+
+  it('matche la question canonique seed Premiers pas (connexion)', () => {
+    const svc = new ChatbotMatchingService(config);
+    const candidates = PREMIERS_PAS_ENTRIES.map((e, i) =>
+      entry({
+        id: `seed-${i}`,
+        slug: e.slug,
+        title: e.title,
+        question: e.question,
+        answer: e.answer,
+        keywords: [...e.keywords],
+        type: ChatbotKnowledgeEntryType.FAQ,
+        priority: 100,
+      }),
+    );
+    const best = svc.matchBest(
+      'Comment me connecter et choisir mon client ?',
+      candidates,
+    );
+    expect(best?.entry.slug).toBe('premiers-pas-connexion-mfa-client');
+
+    const miss = svc.matchBest(
+      'xyzzy question totalement absurde qwerty 999',
+      candidates,
+    );
+    expect(miss).toBeNull();
   });
 });

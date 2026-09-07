@@ -33,6 +33,14 @@
 
 ---
 
+## Plateforme — Orion & Guide (chatbot)
+
+| RFC | Nom | État | Commentaire |
+| --- | --- | --- | --- |
+| **RFC-AI-001** | Cursor Starium Chatbot Core | ✅ Implémentée (socle) | Matching sans LLM ; Orion (drawer) + Guide (Explorer) ; admin `/admin/chatbot` ; seed catégorie `premiers-pas` (kickoff) ; isolation `clientId` conversations ; pack Nouveaux clients (7 articles) → B3.1 — voir [RFC](./RFC-AI-001%20%E2%80%94%20Cursor%20Starium%20Chatbot%20Core.md) |
+
+---
+
 ## Plateforme — recherche
 
 | RFC | Nom | État | Commentaire |
