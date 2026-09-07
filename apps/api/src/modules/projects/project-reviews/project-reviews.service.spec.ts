@@ -162,6 +162,28 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     );
   });
 
+  it('getReportPreview renvoie le payload stocké sans rebuild', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.FINALIZED,
+        lastSentReportHtml: '<p>CR figé</p>',
+        lastSentReportText: 'CR figé',
+        lastSentReportSubject: 'Sujet figé',
+        lastSentReportTitle: 'Titre figé',
+      }),
+    );
+
+    const preview = await service.getReportPreview(clientId, projectId, reviewId);
+
+    expect(preview).toEqual({
+      subject: 'Sujet figé',
+      title: 'Titre figé',
+      text: 'CR figé',
+      html: '<p>CR figé</p>',
+    });
+    expect(prisma.project.findFirst).not.toHaveBeenCalled();
+  });
+
   it('getById lève NotFound si review hors scope', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(null);
     await expect(

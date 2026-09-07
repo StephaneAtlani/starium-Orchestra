@@ -2551,6 +2551,13 @@ model ProjectReview {
 
   snapshotPayload Json?
 
+  /// RFC-PROJ-013-3 C7a — DCP (displayName seulement, pas d’e-mail). Rétention = vie du point ; purge = cascade client/projet.
+  lastSentReportAt      DateTime?
+  lastSentReportHtml    String?   @db.Text
+  lastSentReportText    String?   @db.Text
+  lastSentReportSubject String?
+  lastSentReportTitle   String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

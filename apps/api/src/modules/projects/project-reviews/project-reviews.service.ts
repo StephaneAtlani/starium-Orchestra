@@ -1831,6 +1831,15 @@ export class ProjectReviewsService {
     if (!review) throw new NotFoundException('Review not found');
     this.assertReviewReportAllowed(review.status);
 
+    if (review.lastSentReportHtml) {
+      return {
+        subject: review.lastSentReportSubject ?? '',
+        title: review.lastSentReportTitle ?? '',
+        text: review.lastSentReportText ?? '',
+        html: review.lastSentReportHtml,
+      };
+    }
+
     const ctx = await this.loadSnapshotContext(this.prisma, clientId, projectId);
     const clientOrganization = await this.loadReportClientOrganization(clientId);
     const snapshot = await this.resolveReportSnapshot(

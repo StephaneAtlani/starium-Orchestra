@@ -352,6 +352,36 @@ export function buildProjectReviewReportContent(input: {
   const progressColor =
     progressPct >= 75 ? C.success : progressPct >= 40 ? C.warning : C.danger;
 
+  const arbEntries = [
+    ['Métier', snapshot.arbitration.arbitrationMetierStatus],
+    ['Comité', snapshot.arbitration.arbitrationComiteStatus],
+    ['CODIR', snapshot.arbitration.arbitrationCodirStatus],
+    ['Global', snapshot.arbitration.arbitrationStatus],
+  ].filter(([, v]) => v);
+
+  const agendaDecisionCount = snapshot.agenda.reduce(
+    (n, item) => n + item.decisions.length,
+    0,
+  );
+  const horsOdjDecisions = snapshot.decisions.filter((d) => !d.agendaItemTitle);
+  const agendaActionIds = new Set(
+    snapshot.agenda.flatMap((item) => item.actionItems.map((a) => a.id)),
+  );
+  const horsOdjActions = snapshot.actions.filter((a) => !agendaActionIds.has(a.id));
+  const agendaActionCount = snapshot.agenda.reduce(
+    (n, item) => n + item.actionItems.length,
+    0,
+  );
+
+  const decisionEmptyLabel =
+    agendaDecisionCount > 0
+      ? 'Aucune décision hors ordre du jour'
+      : 'Aucune décision enregistrée';
+  const actionEmptyLabel =
+    agendaActionCount > 0
+      ? 'Aucune action hors ordre du jour'
+      : 'Aucune action enregistrée';
+
   /* ── Text version ─────────────────────────────────────────────────────── */
 
   const textLines: string[] = [
@@ -362,10 +392,7 @@ export function buildProjectReviewReportContent(input: {
     `Projet : ${projectName}`,
     `Type : ${typeLabel}`,
     `Objet : ${reviewTitle}`,
-    `Statut projet : ${label(PROJECT_STATUS_LABEL, project.status)}`,
     `${meteo.sectionLabel} : ${meteo.valueLabel}`,
-    `Priorité : ${label(PROJECT_PRIORITY_LABEL, project.priority)}`,
-    `Avancement : ${progressPct}%`,
   ];
 
   if (review.reviewDate) textLines.push(`Date du point : ${formatDateFr(review.reviewDate)}`);
@@ -377,34 +404,112 @@ export function buildProjectReviewReportContent(input: {
       `Période couverte : ${formatShortDateFr(review.periodStart)} → ${formatShortDateFr(review.periodEnd)}`,
     );
   }
+  if (review.durationMinutes) {
+    textLines.push(`Durée : ${review.durationMinutes} min`);
+  }
 
-  textLines.push('', '— Accès rapide —');
-  textLines.push(`Point : ${link(routes.review)}`);
-  textLines.push(`Projet : ${link(routes.project)}`);
-  textLines.push(`Fiche projet : ${link(routes.sheet)}`);
-  textLines.push(`Tâches : ${link(routes.tasks)}`);
-  textLines.push(`Risques : ${link(routes.risks)}`);
-  textLines.push(`Jalons : ${link(routes.milestones)}`);
-  textLines.push(`Budget : ${link(routes.budget)}`);
+  if (snapshot.meeting?.meetingMode || snapshot.meeting?.location) {
+    textLines.push('', 'Réunion');
+    if (snapshot.meeting.meetingMode) {
+      textLines.push(`Mode : ${label(MEETING_MODE_LABEL, snapshot.meeting.meetingMode)}`);
+    }
+    if (snapshot.meeting.location?.trim()) {
+      textLines.push(`Lieu : ${snapshot.meeting.location.trim()}`);
+    }
+  }
 
-  textLines.push('', '— Pilotage —');
+  textLines.push('', `Participants (${snapshot.participants.length})`);
+  if (snapshot.participants.length === 0) {
+    textLines.push('Aucun participant');
+  } else {
+    for (const p of snapshot.participants) {
+      const parts = [p.displayName?.trim() || 'Participant'];
+      if (p.roleLabel?.trim()) parts.push(p.roleLabel.trim());
+      if (p.attendanceStatus) parts.push(label(ATTENDANCE_LABEL, p.attendanceStatus));
+      textLines.push(`  • ${parts.join(' · ')}`);
+    }
+  }
+
+  if (review.objective?.trim()) {
+    textLines.push('', 'Objectif du point', review.objective.trim());
+  }
+
+  textLines.push('', `Ordre du jour (${snapshot.agenda.length})`);
+  if (snapshot.agenda.length === 0) {
+    textLines.push('Aucun sujet à l’ordre du jour');
+  } else {
+    for (const item of snapshot.agenda) {
+      textLines.push(
+        '',
+        `${item.orderIndex + 1}. ${item.title} (${label(AGENDA_STATUS_LABEL, item.status)})`,
+      );
+      if (item.notes?.trim()) textLines.push(`   Notes : ${item.notes.trim()}`);
+      if (item.decisionSummary?.trim()) {
+        textLines.push(`   Synthèse : ${item.decisionSummary.trim()}`);
+      }
+      for (const d of item.decisions) {
+        textLines.push(
+          `   ▸ Décision : ${d.title} (${label(DECISION_TYPE_LABEL, d.decisionType)} · ${label(DECISION_STATUS_LABEL, d.status)})`,
+        );
+        if (d.description?.trim()) textLines.push(`     ${d.description.trim()}`);
+        if (d.impact?.trim()) textLines.push(`     Impact : ${d.impact.trim()}`);
+      }
+      for (const a of item.actionItems) {
+        const parts = [a.title];
+        if (a.responsibleDisplayName?.trim()) parts.push(a.responsibleDisplayName.trim());
+        if (a.dueDate) parts.push(formatShortDateFr(a.dueDate));
+        if (a.priority) parts.push(label(TASK_PRIORITY_LABEL, a.priority));
+        textLines.push(`   ▸ Action : ${parts.join(' · ')}`);
+      }
+    }
+  }
+
+  if (snapshot.untreatedAgendaItems.length > 0) {
+    textLines.push('', `Points ODJ non traités (${snapshot.untreatedAgendaItems.length})`);
+    for (const item of snapshot.untreatedAgendaItems) {
+      textLines.push(`  • ${item.title} (${label(AGENDA_STATUS_LABEL, item.status)})`);
+    }
+  }
+
+  if (horsOdjDecisions.length > 0) {
+    textLines.push('', `Décisions hors ordre du jour (${horsOdjDecisions.length})`);
+    for (const d of horsOdjDecisions) {
+      textLines.push(
+        `  • ${d.title} (${label(DECISION_TYPE_LABEL, d.decisionType)} · ${label(DECISION_STATUS_LABEL, d.status)})`,
+      );
+      if (d.impact?.trim()) textLines.push(`    Impact : ${d.impact.trim()}`);
+    }
+  } else {
+    textLines.push('', decisionEmptyLabel);
+  }
+
+  if (horsOdjActions.length > 0) {
+    textLines.push('', `Actions hors ordre du jour (${horsOdjActions.length})`);
+    for (const a of horsOdjActions) {
+      const parts = [a.title];
+      if (a.responsibleDisplayName?.trim()) parts.push(a.responsibleDisplayName.trim());
+      if (a.dueDate) parts.push(formatShortDateFr(a.dueDate));
+      textLines.push(`  • ${parts.join(' · ')}`);
+    }
+  } else {
+    textLines.push('', actionEmptyLabel);
+  }
+
+  if (snapshot.nextSteps) {
+    textLines.push('', 'Prochain point', formatShortDateFr(snapshot.nextSteps));
+  }
+
+  textLines.push('', 'Annexe — contexte projet');
   textLines.push(
     `Tâches : ${snapshot.tasks.open} ouvertes · ${snapshot.tasks.inProgress} en cours · ${snapshot.tasks.done} terminées · ${snapshot.tasks.late} en retard`,
   );
   textLines.push(
     `Risques : ${snapshot.risks.open} ouverts · ${snapshot.risks.monitored} surveillés · ${snapshot.risks.mitigated} atténués · ${snapshot.risks.closed} clôturés`,
   );
+  textLines.push(`Statut projet : ${label(PROJECT_STATUS_LABEL, project.status)}`);
+  textLines.push(`Priorité : ${label(PROJECT_PRIORITY_LABEL, project.priority)}`);
+  textLines.push(`Avancement : ${progressPct}%`);
 
-  if (review.objective?.trim()) {
-    textLines.push('', 'Objectif', review.objective.trim());
-  }
-
-  const arbEntries = [
-    ['Métier', snapshot.arbitration.arbitrationMetierStatus],
-    ['Comité', snapshot.arbitration.arbitrationComiteStatus],
-    ['CODIR', snapshot.arbitration.arbitrationCodirStatus],
-    ['Global', snapshot.arbitration.arbitrationStatus],
-  ].filter(([, v]) => v);
   if (arbEntries.length > 0) {
     textLines.push('', 'Arbitrages');
     for (const [level, status] of arbEntries) {
@@ -440,81 +545,6 @@ export function buildProjectReviewReportContent(input: {
     }
   }
 
-  if (snapshot.meeting?.meetingMode || snapshot.meeting?.location) {
-    textLines.push('', 'Réunion');
-    if (snapshot.meeting.meetingMode) {
-      textLines.push(`Mode : ${label(MEETING_MODE_LABEL, snapshot.meeting.meetingMode)}`);
-    }
-    if (snapshot.meeting.location?.trim()) {
-      textLines.push(`Lieu : ${snapshot.meeting.location.trim()}`);
-    }
-  }
-
-  if (snapshot.participants.length > 0) {
-    textLines.push('', `Participants (${snapshot.participants.length})`);
-    for (const p of snapshot.participants) {
-      const parts = [p.displayName?.trim() || 'Participant'];
-      if (p.roleLabel?.trim()) parts.push(p.roleLabel.trim());
-      if (p.attendanceStatus) parts.push(label(ATTENDANCE_LABEL, p.attendanceStatus));
-      textLines.push(`  • ${parts.join(' · ')}`);
-    }
-  }
-
-  if (snapshot.agenda.length > 0) {
-    textLines.push('', `Ordre du jour (${snapshot.agenda.length})`);
-    for (const item of snapshot.agenda) {
-      textLines.push(
-        '',
-        `${item.orderIndex + 1}. ${item.title} (${label(AGENDA_STATUS_LABEL, item.status)})`,
-      );
-      if (item.notes?.trim()) textLines.push(`   Notes : ${item.notes.trim()}`);
-      if (item.decisionSummary?.trim()) {
-        textLines.push(`   Synthèse : ${item.decisionSummary.trim()}`);
-      }
-      for (const d of item.decisions) {
-        textLines.push(
-          `   ▸ Décision : ${d.title} (${label(DECISION_TYPE_LABEL, d.decisionType)} · ${label(DECISION_STATUS_LABEL, d.status)})`,
-        );
-        if (d.description?.trim()) textLines.push(`     ${d.description.trim()}`);
-        if (d.impact?.trim()) textLines.push(`     Impact : ${d.impact.trim()}`);
-      }
-      for (const a of item.actionItems) {
-        const parts = [a.title];
-        if (a.responsibleDisplayName?.trim()) parts.push(a.responsibleDisplayName.trim());
-        if (a.dueDate) parts.push(formatShortDateFr(a.dueDate));
-        if (a.priority) parts.push(label(TASK_PRIORITY_LABEL, a.priority));
-        textLines.push(`   ▸ Action : ${parts.join(' · ')}`);
-      }
-    }
-  }
-
-  if (snapshot.untreatedAgendaItems.length > 0) {
-    textLines.push('', `Points ODJ non traités (${snapshot.untreatedAgendaItems.length})`);
-    for (const item of snapshot.untreatedAgendaItems) {
-      textLines.push(`  • ${item.title} (${label(AGENDA_STATUS_LABEL, item.status)})`);
-    }
-  }
-
-  if (snapshot.decisions.length > 0) {
-    textLines.push('', `Décisions hors ODJ (${snapshot.decisions.length})`);
-    for (const d of snapshot.decisions) {
-      textLines.push(
-        `  • ${d.title} (${label(DECISION_TYPE_LABEL, d.decisionType)} · ${label(DECISION_STATUS_LABEL, d.status)})`,
-      );
-      if (d.impact?.trim()) textLines.push(`    Impact : ${d.impact.trim()}`);
-    }
-  }
-
-  if (snapshot.actions.length > 0) {
-    textLines.push('', `Actions de suivi (${snapshot.actions.length})`);
-    for (const a of snapshot.actions) {
-      const parts = [a.title];
-      if (a.responsibleDisplayName?.trim()) parts.push(a.responsibleDisplayName.trim());
-      if (a.dueDate) parts.push(formatShortDateFr(a.dueDate));
-      textLines.push(`  • ${parts.join(' · ')}`);
-    }
-  }
-
   if (snapshot.attachments.length > 0) {
     textLines.push('', `Documents & liens (${snapshot.attachments.length})`);
     for (const att of snapshot.attachments) {
@@ -524,9 +554,13 @@ export function buildProjectReviewReportContent(input: {
     }
   }
 
-  if (snapshot.nextSteps) {
-    textLines.push('', 'Prochain point', formatShortDateFr(snapshot.nextSteps));
-  }
+  textLines.push('', 'Accès rapide');
+  textLines.push(`Projet : ${link(routes.project)}`);
+  textLines.push(`Fiche projet : ${link(routes.sheet)}`);
+  textLines.push(`Tâches : ${link(routes.tasks)}`);
+  textLines.push(`Risques : ${link(routes.risks)}`);
+  textLines.push(`Jalons : ${link(routes.milestones)}`);
+  textLines.push(`Budget : ${link(routes.budget)}`);
 
   textLines.push('', '—', 'Document généré par Starium Orchestra', link(routes.review));
 
@@ -534,36 +568,31 @@ export function buildProjectReviewReportContent(input: {
 
   /* ── HTML version ─────────────────────────────────────────────────────── */
 
-  const quickLinks = [
-    { href: link(routes.review), label: 'Ouvrir le point' },
+  const annexLinks = [
     { href: link(routes.project), label: 'Projet' },
     { href: link(routes.sheet), label: 'Fiche projet' },
     { href: link(routes.tasks), label: 'Tâches' },
     { href: link(routes.risks), label: 'Risques' },
     { href: link(routes.milestones), label: 'Jalons' },
     { href: link(routes.budget), label: 'Budget' },
-    { href: link(routes.planning), label: 'Planning' },
   ];
 
-  const kpiHtml = `
+  const annexKpiHtml = `
     <table role="presentation" style="${HTML_STYLES.kpiRow}"><tr>
-      <td style="${HTML_STYLES.kpiCell}">
-        ${htmlMeteoKpiContent({ ...meteo, colors: healthColors })}
-      </td>
       <td style="${HTML_STYLES.kpiCell}">
         <p style="${HTML_STYLES.kpiValue}">${progressPct}%</p>
         <div style="${HTML_STYLES.progressTrack}">${HTML_STYLES.progressBar(progressPct, progressColor)}</div>
         <p style="${HTML_STYLES.kpiLabel}">Avancement</p>
       </td>
       <td style="${HTML_STYLES.kpiCell}">
-        <p style="${HTML_STYLES.kpiValue}">${snapshot.tasks.late > 0 ? `<span style="color:${C.danger};">${snapshot.tasks.late}</span>` : '0'}</p>
-        <p style="${HTML_STYLES.muted}">${snapshot.tasks.open} ouv. · ${snapshot.tasks.inProgress} enc.</p>
+        <p style="${HTML_STYLES.kpiValue}">${snapshot.tasks.open}</p>
+        <p style="${HTML_STYLES.muted}">${snapshot.tasks.open} ouvertes · ${snapshot.tasks.inProgress} en cours · ${snapshot.tasks.done} terminées · ${snapshot.tasks.late} en retard</p>
         <p style="${HTML_STYLES.kpiLabel}">Tâches</p>
       </td>
       <td style="${HTML_STYLES.kpiCell}">
         <p style="${HTML_STYLES.kpiValue}">${snapshot.risks.open}</p>
-        <p style="${HTML_STYLES.muted}">${snapshot.risks.topRisks.length} top · ${snapshot.risks.monitored} surv.</p>
-        <p style="${HTML_STYLES.kpiLabel}">Risques ouverts</p>
+        <p style="${HTML_STYLES.muted}">${snapshot.risks.open} ouverts · ${snapshot.risks.monitored} surveillés · ${snapshot.risks.mitigated} atténués · ${snapshot.risks.closed} clôturés</p>
+        <p style="${HTML_STYLES.kpiLabel}">Risques</p>
       </td>
     </tr></table>`;
 
@@ -579,6 +608,7 @@ export function buildProjectReviewReportContent(input: {
             <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.headerTextSoft};">Compte rendu de point projet</p>
             <h1 style="margin:8px 0 0;font-size:22px;font-weight:700;line-height:1.25;">${escapeHtml(projectName)}</h1>
             <p style="${HTML_STYLES.headerSub}">${escapeHtml(typeLabel)} · ${escapeHtml(reviewTitle)}</p>
+            <p style="${HTML_STYLES.headerSub}">${escapeHtml(meteo.sectionLabel)} : ${escapeHtml(meteo.valueLabel)}</p>
             ${review.reviewDate ? `<p style="${HTML_STYLES.headerSub}">${escapeHtml(formatDateFr(review.reviewDate))}${review.facilitatorDisplayName?.trim() ? ` · Animateur : ${escapeHtml(review.facilitatorDisplayName.trim())}` : ''}</p>` : ''}
           </td>
           <td style="width:148px;vertical-align:top;text-align:right;padding-left:12px;">
@@ -588,25 +618,49 @@ export function buildProjectReviewReportContent(input: {
       </table>
     </div>`;
 
-  const navHtml = `
-    <nav style="${HTML_STYLES.nav}" aria-label="Accès rapide">
-      <strong style="font-size:12px;color:${C.textMuted};margin-right:8px;">Accès rapide :</strong>
-      ${quickLinks.map((l) => htmlLink(l.href, l.label)).join('')}
-    </nav>`;
+  const sessionCells = [
+    review.periodStart || review.periodEnd
+      ? `<td style="${HTML_STYLES.td}"><strong>Période</strong><br/><span style="${HTML_STYLES.muted}">${escapeHtml(formatShortDateFr(review.periodStart))} → ${escapeHtml(formatShortDateFr(review.periodEnd))}</span></td>`
+      : '',
+    review.durationMinutes
+      ? `<td style="${HTML_STYLES.td}"><strong>Durée</strong><br/><span style="${HTML_STYLES.muted}">${review.durationMinutes} min</span></td>`
+      : '',
+    `<td style="${HTML_STYLES.td}">${htmlMeteoKpiContent({ ...meteo, colors: healthColors })}</td>`,
+  ].filter(Boolean);
 
-  const metaHtml = `
+  const sessionHtml = `
     <div style="padding:16px 20px;background:${C.surface};border-bottom:1px solid ${C.border};">
-      <table style="${HTML_STYLES.table}"><tr>
-        <td style="${HTML_STYLES.td}"><strong>Statut</strong><br/><span style="${HTML_STYLES.muted}">${escapeHtml(label(PROJECT_STATUS_LABEL, project.status))}</span></td>
-        <td style="${HTML_STYLES.td}"><strong>Priorité</strong><br/><span style="${HTML_STYLES.muted}">${escapeHtml(label(PROJECT_PRIORITY_LABEL, project.priority))}</span></td>
-        ${review.periodStart || review.periodEnd ? `<td style="${HTML_STYLES.td}"><strong>Période</strong><br/><span style="${HTML_STYLES.muted}">${escapeHtml(formatShortDateFr(review.periodStart))} → ${escapeHtml(formatShortDateFr(review.periodEnd))}</span></td>` : ''}
-        ${review.durationMinutes ? `<td style="${HTML_STYLES.td}"><strong>Durée</strong><br/><span style="${HTML_STYLES.muted}">${review.durationMinutes} min</span></td>` : ''}
-      </tr></table>
+      <table style="${HTML_STYLES.table}"><tr>${sessionCells.join('')}</tr></table>
     </div>`;
+
+  const meetingHtml =
+    snapshot.meeting?.meetingMode || snapshot.meeting?.location
+      ? `<div style="padding:12px 20px;background:${C.surface};border-bottom:1px solid ${C.border};">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${C.textMuted};">Réunion</p>
+          ${snapshot.meeting.meetingMode ? `<p style="margin:0;">Mode : ${escapeHtml(label(MEETING_MODE_LABEL, snapshot.meeting.meetingMode))}</p>` : ''}
+          ${snapshot.meeting.location?.trim() ? `<p style="margin:4px 0 0;">Lieu : ${escapeHtml(snapshot.meeting.location.trim())}</p>` : ''}
+        </div>`
+      : '';
 
   let bodySections = '';
 
-  bodySections += kpiHtml;
+  const participantChips =
+    snapshot.participants.length === 0
+      ? `<div style="${HTML_STYLES.card}"><p style="margin:0;">Aucun participant</p></div>`
+      : snapshot.participants
+          .map((p) => {
+            const name = p.displayName?.trim() || 'Participant';
+            const meta = [p.roleLabel?.trim(), p.attendanceStatus ? label(ATTENDANCE_LABEL, p.attendanceStatus) : null]
+              .filter(Boolean)
+              .join(' · ');
+            return `<div style="${HTML_STYLES.card}"><strong>${escapeHtml(name)}</strong>${meta ? `<br/><span style="${HTML_STYLES.muted}">${escapeHtml(meta)}</span>` : ''}</div>`;
+          })
+          .join('');
+  bodySections += htmlSection(
+    'participants',
+    `Participants (${snapshot.participants.length})`,
+    participantChips,
+  );
 
   if (review.objective?.trim()) {
     bodySections += htmlSection(
@@ -616,86 +670,13 @@ export function buildProjectReviewReportContent(input: {
     );
   }
 
-  if (arbEntries.length > 0) {
-    const rows = arbEntries
-      .map(
-        ([level, status]) =>
-          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(level as string)}</strong></td><td style="${HTML_STYLES.td}">${htmlBadge(label(ARBITRATION_STATUS_LABEL, status as string), C.surfaceMuted, C.inkMuted)}</td></tr>`,
-      )
-      .join('');
+  if (snapshot.agenda.length === 0) {
     bodySections += htmlSection(
-      'arbitrages',
-      'Arbitrages',
-      `<table style="${HTML_STYLES.table}">${rows}</table>`,
+      'odj',
+      'Ordre du jour (0)',
+      `<div style="${HTML_STYLES.card}"><p style="margin:0;">Aucun sujet à l’ordre du jour</p></div>`,
     );
-  }
-
-  if (snapshot.milestones.length > 0) {
-    const rows = snapshot.milestones
-      .map(
-        (m) =>
-          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(m.name)}</strong></td><td style="${HTML_STYLES.td}">${escapeHtml(formatShortDateFr(m.targetDate))}</td><td style="${HTML_STYLES.td}">${htmlBadge(label(MILESTONE_STATUS_LABEL, m.status), C.surfaceMuted, C.inkMuted)}</td></tr>`,
-      )
-      .join('');
-    bodySections += htmlSection(
-      'jalons',
-      `Jalons à venir (${snapshot.milestones.length})`,
-      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Jalon</th><th style="${HTML_STYLES.th}">Échéance</th><th style="${HTML_STYLES.th}">Statut</th></tr></thead><tbody>${rows}</tbody></table>
-      <p style="margin:8px 0 0;">${htmlLink(link(routes.milestones), 'Voir le planning →', HTML_STYLES.inlineLink)}</p>`,
-    );
-  }
-
-  if (snapshot.risks.topRisks.length > 0) {
-    const critColors: Record<string, { bg: string; text: string }> = {
-      LOW: { bg: C.successBg, text: C.success },
-      MEDIUM: { bg: C.warningBg, text: C.warning },
-      HIGH: { bg: C.dangerBg, text: C.danger },
-      CRITICAL: { bg: C.dangerBg, text: C.danger },
-    };
-    const rows = snapshot.risks.topRisks
-      .map((r) => {
-        const c = critColors[r.criticality] ?? critColors.MEDIUM;
-        return `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(r.title)}</strong></td><td style="${HTML_STYLES.td}">${htmlBadge(label(RISK_CRITICALITY_LABEL, r.criticality), c.bg, c.text)}</td><td style="${HTML_STYLES.td}">${escapeHtml(label(RISK_STATUS_LABEL, r.status))}</td></tr>`;
-      })
-      .join('');
-    bodySections += htmlSection(
-      'risques',
-      `Top risques (${snapshot.risks.topRisks.length})`,
-      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Risque</th><th style="${HTML_STYLES.th}">Criticité</th><th style="${HTML_STYLES.th}">Statut</th></tr></thead><tbody>${rows}</tbody></table>
-      <p style="margin:8px 0 0;">${htmlLink(link(routes.risks), 'Registre des risques →', HTML_STYLES.inlineLink)}</p>`,
-    );
-  }
-
-  if (snapshot.budget?.links.length) {
-    const rows = snapshot.budget.links
-      .map((b) => {
-        const amt = formatBudgetAmount(b);
-        const typeLabel = label(ALLOCATION_TYPE_LABEL, b.allocationType);
-        return `<tr><td style="${HTML_STYLES.td}">${escapeHtml(b.label)}</td><td style="${HTML_STYLES.td}">${escapeHtml(typeLabel)}</td><td style="${HTML_STYLES.td}">${escapeHtml(amt)}</td></tr>`;
-      })
-      .join('');
-    bodySections += htmlSection(
-      'budget',
-      `Budget projet (${snapshot.budget.links.length})`,
-      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Ligne</th><th style="${HTML_STYLES.th}">Type</th><th style="${HTML_STYLES.th}">Montant</th></tr></thead><tbody>${rows}</tbody></table>
-      <p style="margin:8px 0 0;">${htmlLink(link(routes.budget), 'Cockpit budget →', HTML_STYLES.inlineLink)}</p>`,
-    );
-  }
-
-  if (snapshot.participants.length > 0) {
-    const chips = snapshot.participants
-      .map((p) => {
-        const name = p.displayName?.trim() || 'Participant';
-        const meta = [p.roleLabel?.trim(), p.attendanceStatus ? label(ATTENDANCE_LABEL, p.attendanceStatus) : null]
-          .filter(Boolean)
-          .join(' · ');
-        return `<div style="${HTML_STYLES.card}"><strong>${escapeHtml(name)}</strong>${meta ? `<br/><span style="${HTML_STYLES.muted}">${escapeHtml(meta)}</span>` : ''}</div>`;
-      })
-      .join('');
-    bodySections += htmlSection('participants', `Participants (${snapshot.participants.length})`, chips);
-  }
-
-  if (snapshot.agenda.length > 0) {
+  } else {
     let agendaBody = '';
     for (const item of snapshot.agenda) {
       const statusColors: Record<string, { bg: string; text: string }> = {
@@ -752,18 +733,28 @@ export function buildProjectReviewReportContent(input: {
     );
   }
 
-  if (snapshot.decisions.length > 0) {
-    const cards = snapshot.decisions
+  if (horsOdjDecisions.length > 0) {
+    const cards = horsOdjDecisions
       .map(
         (d) =>
-          `<div style="${HTML_STYLES.card}"><strong>${escapeHtml(d.title)}</strong> ${htmlBadge(label(DECISION_STATUS_LABEL, d.status), C.gold050, C.gold700)}<br/><span style="${HTML_STYLES.muted}">${escapeHtml(label(DECISION_TYPE_LABEL, d.decisionType))}${d.agendaItemTitle ? ` · ${escapeHtml(d.agendaItemTitle)}` : ''}</span>${d.impact?.trim() ? `<p style="margin:8px 0 0;">Impact : ${escapeHtml(d.impact.trim())}</p>` : ''}</div>`,
+          `<div style="${HTML_STYLES.card}"><strong>${escapeHtml(d.title)}</strong> ${htmlBadge(label(DECISION_STATUS_LABEL, d.status), C.gold050, C.gold700)}<br/><span style="${HTML_STYLES.muted}">${escapeHtml(label(DECISION_TYPE_LABEL, d.decisionType))}</span>${d.impact?.trim() ? `<p style="margin:8px 0 0;">Impact : ${escapeHtml(d.impact.trim())}</p>` : ''}</div>`,
       )
       .join('');
-    bodySections += htmlSection('decisions', `Décisions (${snapshot.decisions.length})`, cards);
+    bodySections += htmlSection(
+      'decisions',
+      `Décisions hors ordre du jour (${horsOdjDecisions.length})`,
+      cards,
+    );
+  } else {
+    bodySections += htmlSection(
+      'decisions',
+      'Décisions hors ordre du jour',
+      `<div style="${HTML_STYLES.card}"><p style="margin:0;">${escapeHtml(decisionEmptyLabel)}</p></div>`,
+    );
   }
 
-  if (snapshot.actions.length > 0) {
-    const rows = snapshot.actions
+  if (horsOdjActions.length > 0) {
+    const rows = horsOdjActions
       .map((a) => {
         const meta = [
           a.responsibleDisplayName?.trim(),
@@ -777,23 +768,14 @@ export function buildProjectReviewReportContent(input: {
       .join('');
     bodySections += htmlSection(
       'actions',
-      `Actions de suivi (${snapshot.actions.length})`,
-      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Action</th><th style="${HTML_STYLES.th}">Responsable · Échéance</th></tr></thead><tbody>${rows}</tbody></table>
-      <p style="margin:8px 0 0;">${htmlLink(link(routes.tasks), 'Voir les tâches →', HTML_STYLES.inlineLink)}</p>`,
+      `Actions hors ordre du jour (${horsOdjActions.length})`,
+      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Action</th><th style="${HTML_STYLES.th}">Responsable · Échéance</th></tr></thead><tbody>${rows}</tbody></table>`,
     );
-  }
-
-  if (snapshot.attachments.length > 0) {
-    const rows = snapshot.attachments
-      .map(
-        (att) =>
-          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(att.title)}</strong></td><td style="${HTML_STYLES.td}">${escapeHtml(label(ATTACHMENT_TYPE_LABEL, att.attachmentType))}</td><td style="${HTML_STYLES.td}">${att.agendaItemTitle ? escapeHtml(att.agendaItemTitle) : '—'}</td></tr>`,
-      )
-      .join('');
+  } else {
     bodySections += htmlSection(
-      'pieces-jointes',
-      `Documents & liens (${snapshot.attachments.length})`,
-      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Titre</th><th style="${HTML_STYLES.th}">Type</th><th style="${HTML_STYLES.th}">Point ODJ</th></tr></thead><tbody>${rows}</tbody></table>`,
+      'actions',
+      'Actions hors ordre du jour',
+      `<div style="${HTML_STYLES.card}"><p style="margin:0;">${escapeHtml(actionEmptyLabel)}</p></div>`,
     );
   }
 
@@ -805,11 +787,105 @@ export function buildProjectReviewReportContent(input: {
     );
   }
 
+  let annexBody = `
+    <p style="margin:0 0 8px;"><strong>Statut projet</strong> — ${escapeHtml(label(PROJECT_STATUS_LABEL, project.status))}</p>
+    <p style="margin:0 0 8px;"><strong>Priorité</strong> — ${escapeHtml(label(PROJECT_PRIORITY_LABEL, project.priority))}</p>
+    <p style="margin:0 0 12px;"><strong>Avancement</strong> — ${progressPct}%</p>
+    ${annexKpiHtml}`;
+
+  if (arbEntries.length > 0) {
+    const rows = arbEntries
+      .map(
+        ([level, status]) =>
+          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(level as string)}</strong></td><td style="${HTML_STYLES.td}">${htmlBadge(label(ARBITRATION_STATUS_LABEL, status as string), C.surfaceMuted, C.inkMuted)}</td></tr>`,
+      )
+      .join('');
+    annexBody += htmlSection(
+      'arbitrages',
+      'Arbitrages',
+      `<table style="${HTML_STYLES.table}">${rows}</table>`,
+    );
+  }
+
+  if (snapshot.milestones.length > 0) {
+    const rows = snapshot.milestones
+      .map(
+        (m) =>
+          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(m.name)}</strong></td><td style="${HTML_STYLES.td}">${escapeHtml(formatShortDateFr(m.targetDate))}</td><td style="${HTML_STYLES.td}">${htmlBadge(label(MILESTONE_STATUS_LABEL, m.status), C.surfaceMuted, C.inkMuted)}</td></tr>`,
+      )
+      .join('');
+    annexBody += htmlSection(
+      'jalons',
+      `Jalons à venir (${snapshot.milestones.length})`,
+      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Jalon</th><th style="${HTML_STYLES.th}">Échéance</th><th style="${HTML_STYLES.th}">Statut</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="margin:8px 0 0;">${htmlLink(link(routes.milestones), 'Voir le planning →', HTML_STYLES.inlineLink)}</p>`,
+    );
+  }
+
+  if (snapshot.risks.topRisks.length > 0) {
+    const critColors: Record<string, { bg: string; text: string }> = {
+      LOW: { bg: C.successBg, text: C.success },
+      MEDIUM: { bg: C.warningBg, text: C.warning },
+      HIGH: { bg: C.dangerBg, text: C.danger },
+      CRITICAL: { bg: C.dangerBg, text: C.danger },
+    };
+    const rows = snapshot.risks.topRisks
+      .map((r) => {
+        const c = critColors[r.criticality] ?? critColors.MEDIUM;
+        return `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(r.title)}</strong></td><td style="${HTML_STYLES.td}">${htmlBadge(label(RISK_CRITICALITY_LABEL, r.criticality), c.bg, c.text)}</td><td style="${HTML_STYLES.td}">${escapeHtml(label(RISK_STATUS_LABEL, r.status))}</td></tr>`;
+      })
+      .join('');
+    annexBody += htmlSection(
+      'risques',
+      `Top risques (${snapshot.risks.topRisks.length})`,
+      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Risque</th><th style="${HTML_STYLES.th}">Criticité</th><th style="${HTML_STYLES.th}">Statut</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="margin:8px 0 0;">${htmlLink(link(routes.risks), 'Registre des risques →', HTML_STYLES.inlineLink)}</p>`,
+    );
+  }
+
+  if (snapshot.budget?.links.length) {
+    const rows = snapshot.budget.links
+      .map((b) => {
+        const amt = formatBudgetAmount(b);
+        const budgetTypeLabel = label(ALLOCATION_TYPE_LABEL, b.allocationType);
+        return `<tr><td style="${HTML_STYLES.td}">${escapeHtml(b.label)}</td><td style="${HTML_STYLES.td}">${escapeHtml(budgetTypeLabel)}</td><td style="${HTML_STYLES.td}">${escapeHtml(amt)}</td></tr>`;
+      })
+      .join('');
+    annexBody += htmlSection(
+      'budget',
+      `Budget projet (${snapshot.budget.links.length})`,
+      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Ligne</th><th style="${HTML_STYLES.th}">Type</th><th style="${HTML_STYLES.th}">Montant</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="margin:8px 0 0;">${htmlLink(link(routes.budget), 'Cockpit budget →', HTML_STYLES.inlineLink)}</p>`,
+    );
+  }
+
+  if (snapshot.attachments.length > 0) {
+    const rows = snapshot.attachments
+      .map(
+        (att) =>
+          `<tr><td style="${HTML_STYLES.td}"><strong>${escapeHtml(att.title)}</strong></td><td style="${HTML_STYLES.td}">${escapeHtml(label(ATTACHMENT_TYPE_LABEL, att.attachmentType))}</td><td style="${HTML_STYLES.td}">${att.agendaItemTitle ? escapeHtml(att.agendaItemTitle) : '—'}</td></tr>`,
+      )
+      .join('');
+    annexBody += htmlSection(
+      'pieces-jointes',
+      `Documents & liens (${snapshot.attachments.length})`,
+      `<table style="${HTML_STYLES.table}"><thead><tr><th style="${HTML_STYLES.th}">Titre</th><th style="${HTML_STYLES.th}">Type</th><th style="${HTML_STYLES.th}">Point ODJ</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
+  annexBody += `
+    <nav style="${HTML_STYLES.nav}" aria-label="Accès rapide">
+      <strong style="font-size:12px;color:${C.textMuted};margin-right:8px;">Accès rapide :</strong>
+      ${annexLinks.map((l) => htmlLink(l.href, l.label)).join('')}
+    </nav>`;
+
+  bodySections += htmlSection('annexe', 'Annexe — contexte projet', annexBody);
+
   const html = `
     <div style="${HTML_STYLES.body}">
       ${headerHtml}
-      ${navHtml}
-      ${metaHtml}
+      ${sessionHtml}
+      ${meetingHtml}
       <div style="padding:8px 16px 24px;background:${C.paper};border-radius:0 0 12px 12px;border:1px solid ${C.border};border-top:none;">
         ${bodySections}
         <div style="${HTML_STYLES.footer}">

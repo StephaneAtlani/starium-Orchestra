@@ -12,6 +12,30 @@ function addDaysUtc(base: Date, days: number): Date {
   return x;
 }
 
+/** 10:00 Europe/Paris (DST via Intl) — dates de séance uniquement, pas les échéances. */
+function addDaysAtParis10(base: Date, days: number): Date {
+  const shifted = addDaysUtc(base, days);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(shifted);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  const utcGuess = new Date(`${year}-${month}-${day}T10:00:00Z`);
+  const parisHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Paris",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(utcGuess),
+  );
+  utcGuess.setUTCHours(utcGuess.getUTCHours() + (10 - parisHour));
+  return utcGuess;
+}
+
 type Health = "OK" | "WARNING" | "CRITICAL";
 
 function demoSnapshotPayload(input: {
@@ -898,7 +922,7 @@ export async function ensureDemoProjectReviews(
 
     for (const bp of blueprints) {
       const reviewDate =
-        bp.daysFromNow != null ? addDaysUtc(now, bp.daysFromNow) : null;
+        bp.daysFromNow != null ? addDaysAtParis10(now, bp.daysFromNow) : null;
       const contentPayload: Prisma.InputJsonValue =
         bp.type === ProjectReviewType.POST_MORTEM && bp.postMortem
           ? { postMortem: bp.postMortem }
@@ -919,7 +943,7 @@ export async function ensureDemoProjectReviews(
         bp.type === ProjectReviewType.POST_MORTEM
           ? null
           : bp.nextReviewDaysFromNow != null
-            ? addDaysUtc(now, bp.nextReviewDaysFromNow)
+            ? addDaysAtParis10(now, bp.nextReviewDaysFromNow)
             : null;
 
       const snapshotPayload =
@@ -1003,7 +1027,7 @@ export async function ensureDemoProjectReviews(
       data: {
         clientId,
         projectId: proj.id,
-        reviewDate: addDaysUtc(now, -1),
+        reviewDate: addDaysAtParis10(now, -1),
         reviewType: ProjectReviewType.COPIL,
         status: ProjectReviewStatus.IN_PROGRESS,
         title: `COPIL — suivi (${proj.code})`,

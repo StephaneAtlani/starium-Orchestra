@@ -144,6 +144,16 @@ export class ProjectReviewEmailReportService {
     }
 
     if (result.emailed > 0) {
+      await this.prisma.projectReview.update({
+        where: { id: input.reviewId },
+        data: {
+          lastSentReportAt: now,
+          lastSentReportHtml: input.report.html,
+          lastSentReportText: input.report.text,
+          lastSentReportSubject: input.report.subject,
+          lastSentReportTitle: input.report.title,
+        },
+      });
       await this.auditLogs.create({
         clientId: input.clientId,
         userId: input.context?.actorUserId,

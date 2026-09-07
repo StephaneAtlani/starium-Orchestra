@@ -11,7 +11,10 @@ describe('ProjectReviewEmailReportService', () => {
     sendProjectReviewReportEmail: jest.Mock;
     isLogOnlyMode: jest.Mock;
   };
-  let prisma: { projectReviewParticipant: { update: jest.Mock } };
+  let prisma: {
+    projectReviewParticipant: { update: jest.Mock };
+    projectReview: { update: jest.Mock };
+  };
   let auditLogs: { create: jest.Mock };
 
   beforeEach(() => {
@@ -21,6 +24,7 @@ describe('ProjectReviewEmailReportService', () => {
     };
     prisma = {
       projectReviewParticipant: { update: jest.fn().mockResolvedValue({}) },
+      projectReview: { update: jest.fn().mockResolvedValue({}) },
     };
     auditLogs = { create: jest.fn().mockResolvedValue(undefined) };
     service = new ProjectReviewEmailReportService(
@@ -67,6 +71,20 @@ describe('ProjectReviewEmailReportService', () => {
         action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_REPORT_EMAILED,
       }),
     );
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'r1' },
+        data: expect.objectContaining({
+          lastSentReportHtml: '<p>Contenu CR</p>',
+          lastSentReportText: 'Contenu CR',
+          lastSentReportSubject: 'Compte rendu — COPIL',
+          lastSentReportTitle: 'Compte rendu — COPIL',
+        }),
+      }),
+    );
+    const storedHtml = prisma.projectReview.update.mock.calls[0][0].data
+      .lastSentReportHtml as string;
+    expect(storedHtml).not.toMatch(/@/);
   });
 
   it('refuse si aucun participant avec e-mail', async () => {
@@ -86,5 +104,6 @@ describe('ProjectReviewEmailReportService', () => {
         ],
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.projectReview.update).not.toHaveBeenCalled();
   });
 });

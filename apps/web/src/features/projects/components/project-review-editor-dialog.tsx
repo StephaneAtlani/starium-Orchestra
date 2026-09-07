@@ -95,12 +95,10 @@ import { ReviewInvitationsSection } from './review-invitations-section';
 import { ReviewPlannedPlanningFields } from './review-planned-planning-fields';
 import {
   ReviewDecisionsSection,
-  emptyDecisionRow,
   type ReviewDecisionFormRow,
 } from './review-decisions-section';
 import {
   ReviewActionsSection,
-  emptyActionRow,
   type ReviewActionFormRow,
 } from './review-actions-section';
 import { ReviewAttachmentsSection } from './review-attachments-section';
@@ -1124,7 +1122,7 @@ export function ProjectReviewEditorDialog({
             impact: x.impact ?? '',
             agendaItemId: x.agendaItemId ?? '',
           }))
-        : [emptyDecisionRow()],
+        : [],
     );
     setActions(
       d.actionItems.length
@@ -1144,7 +1142,7 @@ export function ProjectReviewEditorDialog({
               roleLabel: c.roleLabel ?? '',
             })),
           }))
-        : [emptyActionRow()],
+        : [],
     );
     setCommitteeMood(readCommitteeMood(d.contentPayload));
     setPostMortemForm(readPostMortemPayload(d.contentPayload));
@@ -2136,7 +2134,7 @@ export function ProjectReviewEditorDialog({
               onClick={onRequestCancelReview}
               disabled={cancel.isPending}
             >
-              {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler le point'}
+              {isPostMortemReview ? 'Annuler le brouillon' : 'Annuler la réunion'}
             </Button>
           </>
         ) : null}
@@ -3438,7 +3436,7 @@ export function ProjectReviewEditorDialog({
       title={
         reviewType === 'POST_MORTEM'
           ? 'Annuler le brouillon ?'
-          : 'Annuler le point ?'
+          : 'Annuler la réunion ?'
       }
       description={
         reviewType === 'POST_MORTEM'
@@ -3463,7 +3461,7 @@ export function ProjectReviewEditorDialog({
               ? 'Annulation…'
               : reviewType === 'POST_MORTEM'
                 ? 'Annuler le brouillon'
-                : 'Annuler le point'}
+                : 'Annuler la réunion'}
           </Button>
         </>
       }

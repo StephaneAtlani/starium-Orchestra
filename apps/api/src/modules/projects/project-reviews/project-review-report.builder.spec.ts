@@ -266,10 +266,13 @@ describe('project-review-report.builder', () => {
 
     expect(report.html).toContain('Valider la bascule');
     expect(report.html).toContain('id="odj"');
+    expect(report.html.indexOf('id="odj"')).toBeLessThan(report.html.indexOf('id="annexe"'));
+    expect(report.html).toContain('id="decisions"');
+    expect(report.html).toContain('Aucune décision hors ordre du jour');
     expect(normalizeReportHtml(report.html)).toMatchSnapshot();
   });
 
-  it('golden : sans ODJ, décisions ni actions — sections omises', () => {
+  it('golden : sans ODJ, décisions ni actions — empty states', () => {
     const report = buildReport({
       ...baseSnapshot,
       agenda: [],
@@ -277,8 +280,12 @@ describe('project-review-report.builder', () => {
       actions: [],
     });
 
-    expect(report.html).not.toContain('id="odj"');
-    expect(report.html).not.toContain('id="decisions"');
+    expect(report.html).toContain('id="odj"');
+    expect(report.html).toContain('id="decisions"');
+    expect(report.html).toContain('id="actions"');
+    expect(report.html).toContain('Aucun sujet à l’ordre du jour');
+    expect(report.html).toContain('Aucune décision enregistrée');
+    expect(report.html).toContain('Aucune action enregistrée');
     expect(normalizeReportHtml(report.html)).toMatchSnapshot();
   });
 
