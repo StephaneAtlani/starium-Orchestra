@@ -1,8 +1,8 @@
 import { BudgetImportMode } from '@prisma/client';
 
-import type { DocumentKindFilterConfig } from './document-kind-filter';
+import type { DocumentKindFilterConfig } from '../document-kind-filter';
 
-export type { DocumentKind, DocumentKindFilterConfig } from './document-kind-filter';
+export type { DocumentKind, DocumentKindFilterConfig } from '../document-kind-filter';
 
 /** Logical field name → source column name. */
 export type MappingConfigFields = Record<string, string>;
