@@ -110,6 +110,7 @@ import { ReviewAttachmentsSection } from './review-attachments-section';
 import { ReviewHistorySection } from './review-history-section';
 import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
 import {
+  canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
   canScheduleReview,
   canStartReview,
@@ -926,6 +927,7 @@ export function ProjectReviewEditorDialog({
   } | null>(null);
   const [reportPreviewError, setReportPreviewError] = useState<string | null>(null);
   const [reportPreviewLoading, setReportPreviewLoading] = useState(false);
+  const [reportPreviewSeen, setReportPreviewSeen] = useState(false);
   const [decisions, setDecisions] = useState<DecisionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
@@ -1012,6 +1014,7 @@ export function ProjectReviewEditorDialog({
       setConfirmCancelOpen(false);
       setConfirmPlanOpen(false);
       setConfirmStartOpen(false);
+      setReportPreviewSeen(false);
       setEditorTab(isPage ? 'agenda' : 'general');
     }
   }, [active, isPage]);
@@ -1024,6 +1027,7 @@ export function ProjectReviewEditorDialog({
 
   useEffect(() => {
     lastSavedSerializedRef.current = null;
+    setReportPreviewSeen(false);
   }, [reviewId]);
 
   useEffect(() => {
@@ -1048,8 +1052,10 @@ export function ProjectReviewEditorDialog({
   const invitationsSent = d ? hasReviewInvitationsSent(d.participants) : false;
   const editable = canEdit && d ? isReviewContentEditable(d.status) : false;
   const planningEditable = canEdit && d ? isReviewPlanningEditable(d.status) : false;
-  const canPreviewReport = d ? canPreviewOrSendReviewReport(d.status) : false;
-  const canSendReport = canPreviewReport && canEdit;
+  const canPreviewReport = d ? canPreviewDraftReviewReport(d.status) : false;
+  const canSendReport = d
+    ? canPreviewOrSendReviewReport(d.status) && canEdit
+    : false;
   const typeEditable =
     canEdit && d ? normalizeReviewStatus(d.status) === 'PREPARING' : false;
   const canApplyAgendaPresets = Boolean(
@@ -1381,6 +1387,11 @@ export function ProjectReviewEditorDialog({
       setConfirmNextOpen(true);
       return;
     }
+    if (!reportPreviewSeen) {
+      toast.message('Relisez le compte rendu avant de finaliser.');
+      void onPreviewReport();
+      return;
+    }
     setConfirmFinalizeOpen(true);
   };
 
@@ -1562,6 +1573,7 @@ export function ProjectReviewEditorDialog({
       await flushDraftSave();
       const preview = await reportPreview.mutateAsync(d.id);
       setReportPreviewData(preview);
+      setReportPreviewSeen(true);
     } catch {
       setReportPreviewError('Impossible de générer la prévisualisation du compte rendu.');
     } finally {
@@ -1969,6 +1981,11 @@ export function ProjectReviewEditorDialog({
                   ? "Finaliser le retour d'expérience"
                   : 'Finaliser le point'}
             </Button>
+            {!reportPreviewSeen ? (
+              <p className="basis-full text-xs text-muted-foreground" aria-live="polite">
+                Relisez le compte rendu avant de finaliser.
+              </p>
+            ) : null}
             <Button
               type="button"
               variant="outline"

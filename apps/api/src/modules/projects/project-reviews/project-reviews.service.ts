@@ -1516,37 +1516,12 @@ export class ProjectReviewsService {
         throw new BadRequestException('Only editable reviews can be finalized');
       }
 
-      const ctx = await this.loadSnapshotContext(tx, clientId, projectId);
-      const conduct = this.buildSnapshotConductData(review);
-      const agendaTitleById = new Map(
-        review.agendaItems.map((item) => [item.id, item.title]),
-      );
-      const snapshotPayload = buildProjectReviewSnapshotPayload({
-        ...ctx,
+      const snapshot = await this.buildEphemeralReportSnapshot(
+        clientId,
+        projectId,
         review,
-        facilitatorDisplayName: formatProjectReviewUserDisplayName(
-          review.facilitator,
-        ),
-        attachments: review.attachments ?? [],
-        standaloneDecisions: review.decisions,
-        standaloneActions: review.actionItems.map((a) => ({
-          id: a.id,
-          title: a.title,
-          dueDate: a.dueDate,
-          priority: a.priority,
-          responsibleDisplayName: formatProjectReviewUserDisplayName(
-            a.responsibleUser,
-          ),
-          contributors: a.contributors.map((c) => ({
-            displayName:
-              c.displayName ?? formatProjectReviewUserDisplayName(c.user),
-            roleLabel: c.roleLabel,
-          })),
-        })),
-        agendaTitleById,
-        pilotage: this.pilotage,
-        ...conduct,
-      });
+        tx,
+      );
 
       const row = await tx.projectReview.update({
         where: { id: reviewId },
@@ -1554,7 +1529,7 @@ export class ProjectReviewsService {
           status: ProjectReviewStatus.FINALIZED,
           finalizedAt: new Date(),
           finalizedByUserId: context?.actorUserId ?? null,
-          snapshotPayload,
+          snapshotPayload: snapshot,
         },
         include: reviewInclude,
       });
@@ -1686,6 +1661,14 @@ export class ProjectReviewsService {
     }
   }
 
+  private isDraftReportPreviewStatus(status: ProjectReviewStatus): boolean {
+    return (
+      status === ProjectReviewStatus.IN_PROGRESS ||
+      status === ProjectReviewStatus.IN_REVIEW ||
+      status === ProjectReviewStatus.DRAFT
+    );
+  }
+
   /** Snapshot v2 figé uniquement — pas de rebuild live, pas d’overlay météo. */
   private requireFrozenReportSnapshot(review: {
     snapshotPayload: unknown;
@@ -1694,6 +1677,57 @@ export class ProjectReviewsService {
     if (!parsed) {
       throw new BadRequestException(
         'Snapshot indisponible — point antérieur à la version 2',
+      );
+    }
+    return parsed;
+  }
+
+  /** Snapshot éphémère (aperçu brouillon) — même builder que finalize, jamais écrit en base. */
+  private async buildEphemeralReportSnapshot(
+    clientId: string,
+    projectId: string,
+    review: ReviewWithChildren,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<ProjectReviewSnapshotPayload> {
+    const ctx = await this.loadSnapshotContext(
+      tx as Prisma.TransactionClient,
+      clientId,
+      projectId,
+    );
+    const conduct = this.buildSnapshotConductData(review);
+    const agendaTitleById = new Map(
+      review.agendaItems.map((item) => [item.id, item.title]),
+    );
+    const snapshotPayload = buildProjectReviewSnapshotPayload({
+      ...ctx,
+      review,
+      facilitatorDisplayName: formatProjectReviewUserDisplayName(
+        review.facilitator,
+      ),
+      attachments: review.attachments ?? [],
+      standaloneDecisions: review.decisions,
+      standaloneActions: review.actionItems.map((a) => ({
+        id: a.id,
+        title: a.title,
+        dueDate: a.dueDate,
+        priority: a.priority,
+        responsibleDisplayName: formatProjectReviewUserDisplayName(
+          a.responsibleUser,
+        ),
+        contributors: a.contributors.map((c) => ({
+          displayName:
+            c.displayName ?? formatProjectReviewUserDisplayName(c.user),
+          roleLabel: c.roleLabel,
+        })),
+      })),
+      agendaTitleById,
+      pilotage: this.pilotage,
+      ...conduct,
+    });
+    const parsed = parseProjectReviewSnapshotPayload(snapshotPayload);
+    if (!parsed) {
+      throw new BadRequestException(
+        'Impossible de construire l’aperçu du compte rendu.',
       );
     }
     return parsed;
@@ -1725,18 +1759,47 @@ export class ProjectReviewsService {
       include: reviewInclude,
     });
     if (!review) throw new NotFoundException('Review not found');
-    this.assertReviewReportAllowed(review.status);
 
-    if (review.lastSentReportHtml) {
+    if (review.status === ProjectReviewStatus.FINALIZED) {
+      if (review.lastSentReportHtml) {
+        return {
+          subject: review.lastSentReportSubject ?? '',
+          title: review.lastSentReportTitle ?? '',
+          text: review.lastSentReportText ?? '',
+          html: review.lastSentReportHtml,
+        };
+      }
+
+      const snapshot = this.requireFrozenReportSnapshot(review);
+      const clientOrganization = await this.loadReportClientOrganization(clientId);
+      const report = buildProjectReviewReportContent({
+        projectName: snapshot.project.name,
+        projectId,
+        reviewId,
+        snapshot,
+        appBaseUrl: resolveProjectReviewReportAppBaseUrl(),
+        clientOrganization,
+      });
+
       return {
-        subject: review.lastSentReportSubject ?? '',
-        title: review.lastSentReportTitle ?? '',
-        text: review.lastSentReportText ?? '',
-        html: review.lastSentReportHtml,
+        subject: report.subject,
+        title: report.title,
+        text: report.text,
+        html: report.html,
       };
     }
 
-    const snapshot = this.requireFrozenReportSnapshot(review);
+    if (!this.isDraftReportPreviewStatus(review.status)) {
+      throw new BadRequestException(
+        'Le compte rendu brouillon est disponible pendant la conduite du point.',
+      );
+    }
+
+    const snapshot = await this.buildEphemeralReportSnapshot(
+      clientId,
+      projectId,
+      review,
+    );
     const clientOrganization = await this.loadReportClientOrganization(clientId);
     const report = buildProjectReviewReportContent({
       projectName: snapshot.project.name,

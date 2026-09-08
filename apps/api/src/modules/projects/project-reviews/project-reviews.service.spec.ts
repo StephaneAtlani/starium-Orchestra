@@ -307,6 +307,63 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     expect(prisma.projectReview.findMany).not.toHaveBeenCalled();
   });
 
+  it('getReportPreview IN_PROGRESS construit un aperçu sans écrire le snapshot', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        title: 'Point en cours',
+      }),
+    );
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'Telephonie',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 40,
+      arbitrationMetierStatus: null,
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+
+    const preview = await service.getReportPreview(clientId, projectId, reviewId);
+
+    expect(preview.html).toContain('Telephonie');
+    expect(preview.text).toContain('Telephonie');
+    expect(prisma.projectReview.update).not.toHaveBeenCalled();
+  });
+
+  it('sendReport refuse un point encore en conduite', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.IN_PROGRESS }),
+    );
+
+    await expect(
+      service.sendReport(clientId, projectId, reviewId),
+    ).rejects.toMatchObject({
+      message: 'Le compte rendu est disponible une fois le point finalisé.',
+    });
+    expect(emailReport.sendReport).not.toHaveBeenCalled();
+  });
+
+  it('getReportPreview refuse PREPARING', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.PREPARING }),
+    );
+
+    await expect(
+      service.getReportPreview(clientId, projectId, reviewId),
+    ).rejects.toMatchObject({
+      message:
+        'Le compte rendu brouillon est disponible pendant la conduite du point.',
+    });
+  });
+
   it('getById lève NotFound si review hors scope', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(null);
     await expect(

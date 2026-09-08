@@ -80,7 +80,12 @@ export function isReviewFinalizedOrCancelled(status: ProjectReviewStatus): boole
   return status === 'FINALIZED' || status === 'CANCELLED';
 }
 
-/** Compte rendu disponible (aperçu / envoi e-mail) uniquement une fois le point finalisé. */
+/** Compte rendu figé : aperçu / envoi e-mail uniquement une fois le point finalisé. */
 export function canPreviewOrSendReviewReport(status: ProjectReviewStatus): boolean {
   return status === 'FINALIZED';
+}
+
+/** Aperçu brouillon en conduite, ou aperçu figé une fois finalisé. */
+export function canPreviewDraftReviewReport(status: ProjectReviewStatus): boolean {
+  return isReviewContentEditable(status) || status === 'FINALIZED';
 }

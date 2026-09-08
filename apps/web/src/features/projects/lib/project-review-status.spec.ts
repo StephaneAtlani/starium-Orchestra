@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
   canScheduleReview,
   canStartReview,
@@ -32,6 +33,15 @@ describe('project-review-status', () => {
     expect(canPreviewOrSendReviewReport('DRAFT')).toBe(false);
     expect(canPreviewOrSendReviewReport('SCHEDULED')).toBe(false);
     expect(canPreviewOrSendReviewReport('PREPARING')).toBe(false);
+  });
+
+  it('autorise l’aperçu brouillon en conduite ou figé', () => {
+    expect(canPreviewDraftReviewReport('IN_PROGRESS')).toBe(true);
+    expect(canPreviewDraftReviewReport('IN_REVIEW')).toBe(true);
+    expect(canPreviewDraftReviewReport('DRAFT')).toBe(true);
+    expect(canPreviewDraftReviewReport('FINALIZED')).toBe(true);
+    expect(canPreviewDraftReviewReport('SCHEDULED')).toBe(false);
+    expect(canPreviewDraftReviewReport('PREPARING')).toBe(false);
   });
 
   it('détecte si des invitations ont déjà été envoyées', () => {
