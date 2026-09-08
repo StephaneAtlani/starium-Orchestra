@@ -6,6 +6,9 @@ import {
   canStartReview,
   hasReviewInvitationsSent,
   normalizeReviewStatus,
+  reviewEditorInitialTab,
+  reviewEditorPhase,
+  reviewEditorTabsForPhase,
 } from './project-review-status';
 
 describe('project-review-status', () => {
@@ -52,5 +55,46 @@ describe('project-review-status', () => {
         { lastInvitedAt: '2026-07-14T10:00:00.000Z' } as never,
       ]),
     ).toBe(true);
+  });
+
+  it('reviewEditorPhase — préparation (PREPARING / SCHEDULED)', () => {
+    expect(reviewEditorPhase('PREPARING', 'COPIL')).toBe('prepare');
+    expect(reviewEditorPhase('DRAFT', 'COPIL')).toBe('prepare');
+    expect(reviewEditorPhase('SCHEDULED', 'COMEX')).toBe('prepare');
+    expect(reviewEditorPhase('PLANNED', 'COPIL')).toBe('prepare');
+    expect(reviewEditorTabsForPhase('prepare')).toEqual([
+      'prepare',
+      'agenda',
+      'participants',
+      'attachments',
+    ]);
+    expect(reviewEditorInitialTab('prepare')).toBe('prepare');
+  });
+
+  it('reviewEditorPhase — conduite (IN_PROGRESS non-RETEX)', () => {
+    expect(reviewEditorPhase('IN_PROGRESS', 'COPIL')).toBe('conduct');
+    expect(reviewEditorPhase('IN_REVIEW', 'COMEX')).toBe('conduct');
+    expect(reviewEditorTabsForPhase('conduct')).toEqual([
+      'agenda',
+      'participants',
+      'decisions',
+      'actions',
+      'attachments',
+      'closure',
+    ]);
+    expect(reviewEditorInitialTab('conduct')).toBe('agenda');
+  });
+
+  it('reviewEditorPhase — RETEX (POST_MORTEM éditable)', () => {
+    expect(reviewEditorPhase('IN_PROGRESS', 'POST_MORTEM')).toBe('retex');
+    expect(reviewEditorPhase('DRAFT', 'POST_MORTEM')).toBe('retex');
+    expect(reviewEditorPhase('IN_REVIEW', 'POST_MORTEM')).toBe('retex');
+    expect(reviewEditorPhase('PREPARING', 'POST_MORTEM')).toBe('prepare');
+    expect(reviewEditorTabsForPhase('retex')).toEqual([
+      'prepare',
+      'participants',
+      'attachments',
+    ]);
+    expect(reviewEditorInitialTab('retex')).toBe('prepare');
   });
 });

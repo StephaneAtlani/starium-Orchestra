@@ -89,3 +89,37 @@ export function canPreviewOrSendReviewReport(status: ProjectReviewStatus): boole
 export function canPreviewDraftReviewReport(status: ProjectReviewStatus): boolean {
   return isReviewContentEditable(status) || status === 'FINALIZED';
 }
+
+/** Phase UX de l’éditeur page (RFC-PROJ-013-3 C8-unify). */
+export type ReviewEditorPhase = 'prepare' | 'conduct' | 'retex';
+
+const REVIEW_EDITOR_TABS_BY_PHASE: Record<ReviewEditorPhase, readonly string[]> = {
+  prepare: ['prepare', 'agenda', 'participants', 'attachments'],
+  conduct: ['agenda', 'participants', 'decisions', 'actions', 'attachments', 'closure'],
+  retex: ['prepare', 'participants', 'attachments'],
+};
+
+export function reviewEditorPhase(
+  status: ProjectReviewStatus,
+  reviewType: string,
+): ReviewEditorPhase {
+  if (reviewType === 'POST_MORTEM' && isReviewContentEditable(status)) {
+    return 'retex';
+  }
+  const normalized = normalizeReviewStatus(status);
+  if (normalized === 'PREPARING' || normalized === 'SCHEDULED') {
+    return 'prepare';
+  }
+  if (isReviewContentEditable(status)) {
+    return 'conduct';
+  }
+  return 'prepare';
+}
+
+export function reviewEditorTabsForPhase(phase: ReviewEditorPhase): readonly string[] {
+  return REVIEW_EDITOR_TABS_BY_PHASE[phase];
+}
+
+export function reviewEditorInitialTab(phase: ReviewEditorPhase): string {
+  return REVIEW_EDITOR_TABS_BY_PHASE[phase][0]!;
+}

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BookOpen,
@@ -13,7 +12,6 @@ import {
   CloudSun,
   FileText,
   Flag,
-  History,
   Info,
   ExternalLink,
   Eye,
@@ -29,7 +27,6 @@ import {
   Target,
   TrendingUp,
   Users,
-  XCircle,
 } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -107,7 +104,6 @@ import {
   type ReviewActionFormRow,
 } from './review-actions-section';
 import { ReviewAttachmentsSection } from './review-attachments-section';
-import { ReviewHistorySection } from './review-history-section';
 import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
 import {
   canPreviewDraftReviewReport,
@@ -116,14 +112,17 @@ import {
   canStartReview,
   hasReviewInvitationsSent,
   isReviewContentEditable,
-  isReviewInConduct,
   isReviewPlanningEditable,
   normalizeReviewStatus,
+  reviewEditorInitialTab,
+  reviewEditorPhase,
+  reviewEditorTabsForPhase,
+  type ReviewEditorPhase,
 } from '../lib/project-review-status';
 import { reviewAgendaConductProgress } from '../lib/review-agenda-utils';
 import { allStillExpected } from '../lib/review-attendance';
 import { committeeMoodDisplay } from '../lib/project-committee-mood-display';
-import { projectSheet, projectPointsTab, projectReviewConduct, projectRisks } from '../constants/project-routes';
+import { projectSheet, projectPointsTab, projectRisks } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
@@ -171,13 +170,26 @@ const textareaClass = cn(
 const selectFieldClass = 'starium-form-select min-h-11';
 
 const REVIEW_TAB_STEP_TONE: Record<string, string> = {
-  general: 'starium-dt-ti-neutral',
+  prepare: 'starium-dt-ti-neutral',
   agenda: 'starium-dt-ti-blue',
   participants: 'starium-dt-ti-purple',
   decisions: 'starium-dt-ti-gold',
   actions: 'starium-dt-ti-green',
   attachments: 'starium-dt-ti-neutral',
-  history: 'starium-dt-ti-neutral',
+  closure: 'starium-dt-ti-neutral',
+};
+
+const REVIEW_EDITOR_TAB_META: Record<
+  string,
+  { label: string; icon: ComponentType<{ className?: string }> }
+> = {
+  prepare: { label: 'Préparation', icon: ClipboardPen },
+  agenda: { label: 'Ordre du jour', icon: ListOrdered },
+  participants: { label: 'Participants', icon: Users },
+  decisions: { label: 'Décisions', icon: Scale },
+  actions: { label: 'Actions', icon: ListChecks },
+  attachments: { label: 'Documents & liens', icon: FileText },
+  closure: { label: 'Clôture', icon: CloudSun },
 };
 
 function ReviewEditorTabTrigger({
@@ -470,89 +482,6 @@ function reviewEditorStatusBadgeClass(status: string): string {
   if (normalized === 'PREPARING') return 'starium-ds-badge--neutral';
   if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
   return 'starium-ds-badge--info';
-}
-
-type ReviewStatusTone = 'success' | 'warn' | 'info' | 'neutral';
-
-function reviewEditorStatusTone(status: ProjectReviewStatus): ReviewStatusTone {
-  const badgeClass = reviewEditorStatusBadgeClass(status);
-  if (badgeClass.includes('success')) return 'success';
-  if (badgeClass.includes('warn')) return 'warn';
-  if (badgeClass.includes('info')) return 'info';
-  return 'neutral';
-}
-
-function reviewEditorStatusIcon(status: ProjectReviewStatus): ComponentType<{ className?: string; strokeWidth?: number }> {
-  const normalized = normalizeReviewStatus(status);
-  if (status === 'FINALIZED') return CheckCircle2;
-  if (normalized === 'IN_PROGRESS' || status === 'IN_REVIEW') return PlayCircle;
-  if (normalized === 'SCHEDULED' || status === 'PLANNED') return CalendarClock;
-  if (status === 'CANCELLED') return XCircle;
-  return ClipboardPen;
-}
-
-function reviewEditorStatusHint(
-  status: ProjectReviewStatus,
-  invitationsSent: boolean,
-): string {
-  const normalized = normalizeReviewStatus(status);
-  if (status === 'FINALIZED') return 'Compte rendu disponible — prévisualisation et envoi par e-mail.';
-  if (status === 'CANCELLED') return 'Point annulé — réouverture possible depuis l’historique.';
-  if (normalized === 'IN_PROGRESS' || status === 'IN_REVIEW') {
-    return 'Réunion en cours — saisissez l’ordre du jour, les décisions et actions.';
-  }
-  if (normalized === 'SCHEDULED' || status === 'PLANNED') {
-    return invitationsSent
-      ? 'Participants invités — démarrez la réunion quand vous êtes prêts.'
-      : 'Cliquez sur Planifier pour envoyer les invitations et l’ordre du jour.';
-  }
-  return 'Complétez la date, l’ordre du jour et les participants, puis planifiez.';
-}
-
-function ReviewEditorModalStatus({
-  status,
-  reviewDate,
-  invitationsSent,
-}: {
-  status: ProjectReviewStatus;
-  reviewDate: string | null;
-  invitationsSent: boolean;
-}) {
-  const label = PROJECT_REVIEW_STATUS_LABEL[status] ?? status;
-  const tone = reviewEditorStatusTone(status);
-  const Icon = reviewEditorStatusIcon(status);
-  const hint = reviewEditorStatusHint(status, invitationsSent);
-  const normalized = normalizeReviewStatus(status);
-  const showDate =
-    reviewDate &&
-    (normalized === 'SCHEDULED' || status === 'PLANNED' || normalized === 'IN_PROGRESS');
-
-  return (
-    <div className="starium-modal__status-inner">
-      <span
-        className={cn('starium-modal__status-ico', `starium-modal__status-ico--${tone}`)}
-        aria-hidden
-      >
-        <Icon className="size-4" strokeWidth={1.75} />
-      </span>
-      <div className="starium-modal__status-copy">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('starium-ds-badge shrink-0', reviewEditorStatusBadgeClass(status))}>
-            {label}
-          </span>
-          {showDate ? (
-            <time
-              dateTime={reviewDate}
-              className="text-xs font-semibold text-foreground tabular-nums"
-            >
-              {formatReviewDateTime(reviewDate)}
-            </time>
-          ) : null}
-        </div>
-        <p className="starium-modal__status-hint">{hint}</p>
-      </div>
-    </div>
-  );
 }
 
 function formatReviewDateTime(iso: string | null): string {
@@ -852,23 +781,15 @@ function ReviewConductSessionSummary({
 export function ProjectReviewEditorDialog({
   projectId,
   reviewId,
-  open = false,
-  onOpenChange,
   canEdit,
-  surface = 'modal',
   onExit,
 }: {
   projectId: string;
   reviewId: string | null;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
   canEdit: boolean;
-  surface?: 'modal' | 'page';
   onExit?: () => void;
 }) {
-  const router = useRouter();
-  const isPage = surface === 'page';
-  const active = isPage ? Boolean(reviewId) : Boolean(open);
+  const active = Boolean(reviewId);
   const detailQuery = useProjectReviewDetailQuery(projectId, reviewId);
   const projectQuery = useProjectDetailQuery(projectId);
   const { merged: badgeMerged } = useClientUiBadgeConfig();
@@ -932,16 +853,15 @@ export function ProjectReviewEditorDialog({
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
   const [postMortemForm, setPostMortemForm] = useState<PostMortemPayload>(POST_MORTEM_EMPTY);
-  const [editorTab, setEditorTab] = useState(isPage ? 'agenda' : 'general');
+  const [editorTab, setEditorTab] = useState('prepare');
   const isConductWideLayout = useMediaQuery('(min-width: 1024px)');
   const conductTabsDragScroll = useHorizontalDragScroll();
   const [conductSidebarOpen, setConductSidebarOpen] = useState(false);
   const planningDetailsRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
-    if (!isPage) return;
     setConductSidebarOpen(isConductWideLayout);
-  }, [isPage, isConductWideLayout]);
+  }, [isConductWideLayout]);
 
   const lastInitRef = useRef<string | null>(null);
   /** Snapshot JSON de `buildPatchBody()` — évite les PATCH inutiles et sert de ligne de base après init. */
@@ -1015,15 +935,9 @@ export function ProjectReviewEditorDialog({
       setConfirmPlanOpen(false);
       setConfirmStartOpen(false);
       setReportPreviewSeen(false);
-      setEditorTab(isPage ? 'agenda' : 'general');
+      setEditorTab('prepare');
     }
-  }, [active, isPage]);
-
-  useEffect(() => {
-    if (isPage && reviewId) {
-      setEditorTab('agenda');
-    }
-  }, [isPage, reviewId]);
+  }, [active]);
 
   useEffect(() => {
     lastSavedSerializedRef.current = null;
@@ -1038,14 +952,6 @@ export function ProjectReviewEditorDialog({
   }, [active, reviewId, detailQuery.data, initFromDetail]);
 
   const d = detailQuery.data;
-
-  useEffect(() => {
-    if (isPage || !open || !onOpenChange || !d) return;
-    if (isReviewInConduct(d.status)) {
-      onOpenChange(false);
-      router.push(projectReviewConduct(projectId, d.id));
-    }
-  }, [isPage, open, onOpenChange, d, projectId, router]);
 
   const canSchedule = d ? canScheduleReview(d.status) : false;
   const canStart = d ? canStartReview(d.status) : false;
@@ -1403,9 +1309,6 @@ export function ProjectReviewEditorDialog({
       lastSavedSerializedRef.current = JSON.stringify(body);
       await finalize.mutateAsync(d.id);
       setConfirmFinalizeOpen(false);
-      if (!isPage) {
-        onOpenChange?.(false);
-      }
     } catch {
       toast.error(
         reviewType === 'POST_MORTEM'
@@ -1425,9 +1328,6 @@ export function ProjectReviewEditorDialog({
     try {
       await cancel.mutateAsync(d.id);
       setConfirmCancelOpen(false);
-      if (!isPage) {
-        onOpenChange?.(false);
-      }
     } catch {
       toast.error(
         reviewType === 'POST_MORTEM'
@@ -1452,12 +1352,7 @@ export function ProjectReviewEditorDialog({
     try {
       await startReview.mutateAsync(d.id);
       setConfirmStartOpen(false);
-      if (isPage) {
-        setEditorTab('agenda');
-      } else {
-        onOpenChange?.(false);
-        router.push(projectReviewConduct(projectId, d.id));
-      }
+      setEditorTab(reviewEditorInitialTab('conduct'));
     } catch {
       toast.error('Impossible de démarrer le point.');
     }
@@ -1469,7 +1364,7 @@ export function ProjectReviewEditorDialog({
   };
 
   const openPlanningSection = () => {
-    setEditorTab('general');
+    setEditorTab('prepare');
     const details = planningDetailsRef.current;
     if (details) {
       details.open = true;
@@ -1612,9 +1507,27 @@ export function ProjectReviewEditorDialog({
   };
 
   const isPostMortemReview = reviewType === 'POST_MORTEM';
-  const normalizedStatus = d ? normalizeReviewStatus(d.status) : null;
+  const editorPhase: ReviewEditorPhase = d
+    ? reviewEditorPhase(d.status, d.reviewType)
+    : 'prepare';
+  const phaseTabs = reviewEditorTabsForPhase(editorPhase);
   const agendaProgress =
     d && !isPostMortemReview ? reviewAgendaConductProgress(d.agendaItems ?? []) : null;
+
+  const lastTabReviewIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!active || !reviewId || !d || d.id !== reviewId) return;
+    const phase = reviewEditorPhase(d.status, d.reviewType);
+    const tabs = reviewEditorTabsForPhase(phase);
+    const initial = reviewEditorInitialTab(phase);
+    const reviewChanged = lastTabReviewIdRef.current !== reviewId;
+    lastTabReviewIdRef.current = reviewId;
+    setEditorTab((current) => {
+      if (reviewChanged) return initial;
+      if (!tabs.includes(current)) return initial;
+      return current;
+    });
+  }, [active, reviewId, d?.id, d?.status, d?.reviewType]);
 
   const pointClosurePanel = !isPostMortemReview ? (
     <>
@@ -1730,61 +1643,27 @@ export function ProjectReviewEditorDialog({
   ) : null;
 
   const conductTabOptions = useMemo((): ReviewConductTabOption[] => {
-    if (!isPage || !d) return [];
-    const options: ReviewConductTabOption[] = [];
-    if (!isPostMortemReview) {
-      options.push(
-        {
-          value: 'agenda',
-          label: 'Ordre du jour',
-          step: 1,
-          icon: ListOrdered,
-          count: d.agendaItems?.length ?? 0,
-        },
-        {
-          value: 'participants',
-          label: 'Participants',
-          step: 2,
-          icon: Users,
-          count: d.participants?.length ?? 0,
-        },
-        {
-          value: 'decisions',
-          label: 'Décisions',
-          step: 3,
-          icon: Scale,
-          count: d.decisions?.length ?? 0,
-        },
-        {
-          value: 'actions',
-          label: 'Actions',
-          step: 4,
-          icon: ListChecks,
-          count: d.actionItems?.length ?? 0,
-        },
-        {
-          value: 'attachments',
-          label: 'Documents & liens',
-          step: 5,
-          icon: FileText,
-          count: d.attachments?.length ?? 0,
-        },
-        {
-          value: 'closure',
-          label: 'Clôture',
-          step: 6,
-          icon: CloudSun,
-        },
-      );
-    }
-    options.push({
-      value: 'history',
-      label: 'Historique',
-      step: isPostMortemReview ? 2 : 7,
-      icon: History,
+    if (!d) return [];
+    return phaseTabs.map((value, index) => {
+      const meta = REVIEW_EDITOR_TAB_META[value] ?? {
+        label: value,
+        icon: ClipboardPen,
+      };
+      let count: number | undefined;
+      if (value === 'agenda') count = d.agendaItems?.length ?? 0;
+      else if (value === 'participants') count = d.participants?.length ?? 0;
+      else if (value === 'decisions') count = d.decisions?.length ?? 0;
+      else if (value === 'actions') count = d.actionItems?.length ?? 0;
+      else if (value === 'attachments') count = d.attachments?.length ?? 0;
+      return {
+        value,
+        label: meta.label,
+        step: index + 1,
+        icon: meta.icon,
+        count,
+      };
     });
-    return options;
-  }, [isPage, d, isPostMortemReview]);
+  }, [d, phaseTabs]);
 
   const closeConductSidebar = useCallback(() => setConductSidebarOpen(false), []);
 
@@ -1796,13 +1675,9 @@ export function ProjectReviewEditorDialog({
     [closeConductSidebar],
   );
 
-  const reviewTabPanelClass = cn(
-    'starium-form mt-0 flex w-full min-w-0 flex-col overscroll-contain',
-    isPage ? 'min-h-0 flex-1 gap-4 overflow-y-auto' : 'min-h-0 flex-1 gap-3 overflow-y-auto',
-  );
-  const reviewTabsListClass = cn(
-    isPage ? 'w-max max-w-none shrink-0' : 'w-full min-w-0 flex-1 shrink-0',
-  );
+  const reviewTabPanelClass =
+    'starium-form mt-0 flex w-full min-w-0 flex-col overscroll-contain min-h-0 flex-1 gap-4 overflow-y-auto';
+  const reviewTabsListClass = 'w-max max-w-none shrink-0';
 
   const onConductTabsWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     const element = conductTabsDragScroll.ref.current;
@@ -1813,8 +1688,7 @@ export function ProjectReviewEditorDialog({
   }, [conductTabsDragScroll.ref]);
 
   const handleClose = () => {
-    if (isPage) onExit?.();
-    else onOpenChange?.(false);
+    onExit?.();
   };
 
   const reviewTitle =
@@ -1830,18 +1704,8 @@ export function ProjectReviewEditorDialog({
     </span>
   ) : null;
 
-  const reviewModalStatus = d ? (
-    <ReviewEditorModalStatus
-      status={d.status}
-      reviewDate={d.reviewDate}
-      invitationsSent={invitationsSent}
-    />
-  ) : null;
-
-  const footerActionClass = isPage
-    ? 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9'
-    : 'shrink-0';
-  const footerButtonSize = isPage ? undefined : ('sm' as const);
+  const footerActionClass = 'min-h-11 h-11 px-3 text-sm max-lg:flex-1 lg:min-h-9 lg:h-9';
+  const footerButtonSize = undefined;
 
   const planReviewPending =
     scheduleReview.isPending ||
@@ -1853,15 +1717,13 @@ export function ProjectReviewEditorDialog({
     <div
       className={cn(
         'flex w-full items-center justify-between gap-2',
-        isPage
-          ? 'max-lg:flex-col max-lg:items-stretch max-lg:gap-2 lg:flex-wrap lg:gap-y-0'
-          : 'flex-nowrap',
+        'max-lg:flex-col max-lg:items-stretch max-lg:gap-2 lg:flex-wrap lg:gap-y-0',
       )}
     >
       <div
         className={cn(
           'flex items-center gap-2',
-          isPage ? 'max-lg:w-full max-lg:flex-wrap' : 'shrink-0 flex-nowrap',
+          'max-lg:w-full max-lg:flex-wrap',
         )}
       >
         <Button
@@ -1871,35 +1733,21 @@ export function ProjectReviewEditorDialog({
           className={footerActionClass}
           onClick={handleClose}
         >
-          {isPage ? 'Retour aux points' : 'Fermer'}
+          Retour aux points
         </Button>
-        {editable && !isPage ? (
-          <span className="sr-only" aria-live="polite">
-            {update.isPending
-              ? 'Enregistrement…'
-              : isPostMortemReview
-                ? 'REX synchronisé automatiquement'
-                : 'Point synchronisé automatiquement'}
-          </span>
-        ) : null}
-        {editable && isPage && update.isPending ? (
+        {editable && update.isPending ? (
           <span className="text-xs text-muted-foreground" aria-live="polite">
             Enregistrement…
-          </span>
-        ) : null}
-        {!isPage && canStart && startReview.isSuccess ? (
-          <span className="sr-only" aria-live="polite">
-            Point démarré — vous pouvez saisir le compte rendu.
           </span>
         ) : null}
       </div>
       <div
         className={cn(
           'flex shrink-0 flex-nowrap items-center',
-          isPage ? 'gap-2' : 'min-w-0 gap-1.5 overflow-x-auto',
+          'gap-2',
         )}
       >
-        {!isPage && (canSchedule || canStart) && canEdit ? (
+        {(canSchedule || canStart) && canEdit ? (
           <Button
             type="button"
             variant={canStart && invitationsSent ? 'outline' : 'default'}
@@ -1917,7 +1765,7 @@ export function ProjectReviewEditorDialog({
                   : 'Planifier'}
           </Button>
         ) : null}
-        {!isPage && canStart && canEdit ? (
+        {canStart && canEdit ? (
           <Button
             type="button"
             variant={invitationsSent ? 'default' : 'outline'}
@@ -1965,7 +1813,7 @@ export function ProjectReviewEditorDialog({
               onClick={() => void onSave()}
               disabled={update.isPending}
             >
-              {update.isPending ? 'Enregistrement…' : isPage ? 'Enregistrer' : 'Enregistrer maintenant'}
+              {update.isPending ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
             <Button
               type="button"
@@ -2077,7 +1925,7 @@ export function ProjectReviewEditorDialog({
             project={projectQuery.data}
             badgeMerged={badgeMerged}
             previousReviewId={previousReviewId}
-            progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
+            progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
           />
         ) : null}
         {d.objective?.trim() ? (
@@ -2166,7 +2014,11 @@ export function ProjectReviewEditorDialog({
     ) : null;
 
   const conductSidebarAside =
-    isPage && d && isConductWideLayout && conductSidebarOpen && conductSidebarScrollContent ? (
+    editorPhase === 'conduct' &&
+    d &&
+    isConductWideLayout &&
+    conductSidebarOpen &&
+    conductSidebarScrollContent ? (
       <aside
         className="flex h-full min-h-0 flex-col gap-2 overflow-hidden"
         aria-label="Panneau latéral de conduite"
@@ -2189,7 +2041,7 @@ export function ProjectReviewEditorDialog({
     ) : null;
 
   const conductSidebarMobileSheet =
-    isPage && !isConductWideLayout && d && !isPostMortemReview ? (
+    editorPhase === 'conduct' && !isConductWideLayout && d && !isPostMortemReview ? (
       <StariumModal
         open={conductSidebarOpen}
         onOpenChange={setConductSidebarOpen}
@@ -2225,9 +2077,7 @@ export function ProjectReviewEditorDialog({
             </p>
           ) : (
             <>
-            {isPage &&
-            d.status === 'IN_PROGRESS' &&
-            d.reviewType !== 'POST_MORTEM' ? (
+            {editorPhase === 'conduct' ? (
               <div className="shrink-0 border-b border-border/70 px-1 pb-3">
                 <ReviewPreviousOpenActions
                   actions={
@@ -2244,50 +2094,16 @@ export function ProjectReviewEditorDialog({
             <Tabs
               value={editorTab}
               onValueChange={setEditorTab}
-              className={cn(
-                'flex h-full min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden',
-                isPage ? 'min-h-0' : 'h-full min-h-0',
-              )}
+              className="flex h-full min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden"
             >
-              {!isPage &&
-              normalizedStatus === 'IN_PROGRESS' &&
-              agendaProgress &&
-              agendaProgress.total > 0 ? (
-                <div
-                  className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-sm"
-                  aria-live="polite"
-                >
-                  <p className="font-medium text-foreground">
-                    Réunion en cours — ordre du jour{' '}
-                    <span className="tabular-nums">
-                      {agendaProgress.treated}/{agendaProgress.total}
-                    </span>{' '}
-                    point{agendaProgress.total > 1 ? 's' : ''} traité
-                    {agendaProgress.treated > 1 ? 's' : ''}
-                    {agendaProgress.currentNumber
-                      ? ` · point n° ${agendaProgress.currentNumber} en cours`
-                      : ''}
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="min-h-9"
-                    onClick={() => setEditorTab('agenda')}
-                  >
-                    Conduire l&apos;ordre du jour
-                  </Button>
-                </div>
-              ) : null}
-
               <div
                 className={cn(
                   'flex w-full shrink-0 items-center gap-2',
-                  isPage && !isPostMortemReview && 'border-b border-border',
-                  isPage && !isPostMortemReview && 'max-lg:gap-2',
+                  editorPhase !== 'retex' && 'border-b border-border',
+                  editorPhase !== 'retex' && 'max-lg:gap-2',
                 )}
               >
-                {isPage && conductTabOptions.length > 0 ? (
+                {conductTabOptions.length > 0 ? (
                   <div className="min-w-0 flex-1 lg:hidden">
                     <ReviewConductMobileTabSelect
                       tabs={conductTabOptions}
@@ -2296,7 +2112,7 @@ export function ProjectReviewEditorDialog({
                     />
                   </div>
                 ) : null}
-                {isPage ? (
+                {conductTabOptions.length > 0 ? (
                   <div
                     ref={conductTabsDragScroll.ref}
                     className={cn(
@@ -2317,120 +2133,31 @@ export function ProjectReviewEditorDialog({
                       variant="line"
                       className={cn(
                         reviewTabsListClass,
-                        !isPostMortemReview && 'border-b-0',
+                        editorPhase !== 'retex' && 'border-b-0',
                         'overflow-visible pb-0.5',
                       )}
                     >
-                      {!isPostMortemReview ? (
-                        <>
-                          <ReviewEditorTabTrigger
-                            step={1}
-                            value="agenda"
-                            count={d.agendaItems?.length ?? 0}
-                          >
-                            Ordre du jour
-                          </ReviewEditorTabTrigger>
-                          <ReviewEditorTabTrigger
-                            step={2}
-                            value="participants"
-                            count={d.participants?.length ?? 0}
-                          >
-                            Participants
-                          </ReviewEditorTabTrigger>
-                          <ReviewEditorTabTrigger
-                            step={3}
-                            value="decisions"
-                            count={d.decisions?.length ?? 0}
-                          >
-                            Décisions
-                          </ReviewEditorTabTrigger>
-                          <ReviewEditorTabTrigger
-                            step={4}
-                            value="actions"
-                            count={d.actionItems?.length ?? 0}
-                          >
-                            Actions
-                          </ReviewEditorTabTrigger>
-                          <ReviewEditorTabTrigger
-                            step={5}
-                            value="attachments"
-                            count={d.attachments?.length ?? 0}
-                          >
-                            Documents & liens
-                          </ReviewEditorTabTrigger>
-                          <ReviewEditorTabTrigger step={6} value="closure">
-                            Clôture
-                          </ReviewEditorTabTrigger>
-                        </>
-                      ) : null}
-                      <ReviewEditorTabTrigger
-                        step={isPostMortemReview ? 2 : 7}
-                        value="history"
-                      >
-                        Historique
-                      </ReviewEditorTabTrigger>
+                      {conductTabOptions.map((tab) => (
+                        <ReviewEditorTabTrigger
+                          key={tab.value}
+                          step={tab.step}
+                          value={tab.value}
+                          count={tab.count}
+                        >
+                          {tab.label}
+                        </ReviewEditorTabTrigger>
+                      ))}
                     </TabsList>
                   </div>
-                ) : (
-                  <TabsList variant="line" className={reviewTabsListClass}>
-                    <ReviewEditorTabTrigger step={1} value="general">
-                      Vue générale
-                    </ReviewEditorTabTrigger>
-                    {!isPostMortemReview ? (
-                      <>
-                        <ReviewEditorTabTrigger
-                          step={2}
-                          value="agenda"
-                          count={d.agendaItems?.length ?? 0}
-                        >
-                          Ordre du jour
-                        </ReviewEditorTabTrigger>
-                        <ReviewEditorTabTrigger
-                          step={3}
-                          value="participants"
-                          count={d.participants?.length ?? 0}
-                        >
-                          Participants
-                        </ReviewEditorTabTrigger>
-                        <ReviewEditorTabTrigger
-                          step={4}
-                          value="decisions"
-                          count={d.decisions?.length ?? 0}
-                        >
-                          Décisions
-                        </ReviewEditorTabTrigger>
-                        <ReviewEditorTabTrigger
-                          step={5}
-                          value="actions"
-                          count={d.actionItems?.length ?? 0}
-                        >
-                          Actions
-                        </ReviewEditorTabTrigger>
-                        <ReviewEditorTabTrigger
-                          step={6}
-                          value="attachments"
-                          count={d.attachments?.length ?? 0}
-                        >
-                          Documents & liens
-                        </ReviewEditorTabTrigger>
-                      </>
-                    ) : null}
-                    <ReviewEditorTabTrigger
-                      step={isPostMortemReview ? 2 : 7}
-                      value="history"
-                    >
-                      Historique
-                    </ReviewEditorTabTrigger>
-                  </TabsList>
-                )}
-                {isPage &&
-                !isPostMortemReview &&
+                ) : null}
+                {editorPhase === 'conduct' &&
                 (isConductWideLayout || !conductSidebarOpen)
                   ? conductSidebarToggle
                   : null}
               </div>
 
-              <TabsContent value="general" className={reviewTabPanelClass}>
+              {phaseTabs.includes('prepare') ? (
+              <TabsContent value="prepare" className={reviewTabPanelClass}>
               <ReviewEditorSection
                 sectionId="pr-ed-params"
                 title={isPostMortemReview ? 'Identification du bilan' : 'Paramètres du point'}
@@ -2585,7 +2312,7 @@ export function ProjectReviewEditorDialog({
                     project={projectQuery.data}
                     badgeMerged={badgeMerged}
                     embedded
-                    progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
+                    progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
                   />
                 </ReviewEditorSection>
               )}
@@ -2600,7 +2327,7 @@ export function ProjectReviewEditorDialog({
                 <ProjectMeteoInline
                   project={projectQuery.data}
                   badgeMerged={badgeMerged}
-                  progressWhen={isPage && d.status === 'IN_PROGRESS' ? 'aujourd’hui' : undefined}
+                  progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
                 />
               )}
 
@@ -2961,123 +2688,11 @@ export function ProjectReviewEditorDialog({
                     </div>
                   </ReviewEditorSection>
                 </>
-              ) : isPage ? null : (
-              <ReviewEditorSection
-                sectionId="pr-section-summary"
-                title="Résumé exécutif"
-                description="Faits marquants, alertes, décisions clés — ce que le comité doit retenir."
-                icon={Sparkles}
-              >
-                <div className="grid gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="pr-ed-summary">Synthèse du point</Label>
-                    <textarea
-                      id="pr-ed-summary"
-                      className={textareaClass}
-                      value={executiveSummary}
-                      disabled={!editable}
-                      onChange={(e) => setExecutiveSummary(e.target.value)}
-                      placeholder="Ce qui s’est passé, ce qui bloque, ce qu’on décide — faits marquants, alertes, décisions clés…"
-                      maxLength={20000}
-                    />
-                  </div>
-                  {projectQuery.data && (
-                    <div className="grid gap-1.5 sm:max-w-md">
-                      <Label htmlFor="pr-project-status">Changer le statut du projet</Label>
-                      <Select
-                        value={projectQuery.data.status}
-                        onValueChange={(v) => {
-                          if (v && canUpdateProject) {
-                            updateProjectStatusMutation.mutate(v);
-                          }
-                        }}
-                        disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
-                      >
-                        <SelectTrigger
-                          id="pr-project-status"
-                          size="sm"
-                          className="h-9 w-full border-border/70"
-                        >
-                          <SelectValue placeholder="Statut">
-                            {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
-                              projectQuery.data.status}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
-                            <SelectItem key={k} value={k}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!canUpdateProject ? (
-                        <p className="text-[0.7rem] text-muted-foreground">
-                          Permission « mise à jour projets » requise pour modifier le statut.
-                        </p>
-                      ) : null}
-                    </div>
-                  )}
-                  <div className="grid gap-1.5 sm:max-w-xl">
-                    <Label htmlFor="pr-ed-next">Prochain point (optionnel)</Label>
-                    <ProjectDatetimeLocalInput
-                      id="pr-ed-next"
-                      value={nextReviewDate}
-                      disabled={!editable}
-                      onChange={(v) => {
-                        setNextReviewDate(v);
-                        if (!v.trim()) {
-                          setCommittedNextReviewDate(null);
-                        }
-                      }}
-                    />
-                    {editable && needsNextPointConfirmation ? (
-                      <p className="text-[0.7rem] font-medium text-amber-700 dark:text-amber-400">
-                        Créneau saisi mais non confirmé — validez pour créer ou mettre à jour le brouillon du
-                        prochain point avec les participants ci-dessous.
-                      </p>
-                    ) : null}
-                    {editable &&
-                    !needsNextPointConfirmation &&
-                    committedNextReviewDate &&
-                    committedNextReviewDate.trim() ? (
-                      <p className="text-[0.7rem] text-emerald-700 dark:text-emerald-400">
-                        Créneau confirmé : le brouillon du prochain point sera créé ou synchronisé avec les
-                        participants de ce point à l’enregistrement.
-                      </p>
-                    ) : null}
-                    <p className="text-[0.7rem] text-muted-foreground">
-                      Après confirmation, un brouillon est créé ou mis à jour à la date choisie (participants =
-                      section Participants de ce point).
-                    </p>
-                    {editable && needsNextPointConfirmation ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="w-fit"
-                        disabled={update.isPending}
-                        onClick={() => setConfirmNextOpen(true)}
-                      >
-                        Confirmer le créneau et les participants
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </ReviewEditorSection>
-              )}
-
-              {!isPostMortemReview && !isPage && (
-              <CommitteeMoodPicker
-                value={committeeMood}
-                onChange={setCommitteeMood}
-                disabled={!editable}
-              />
-              )}
+              ) : null}
               </TabsContent>
+              ) : null}
 
-              {!isPostMortemReview ? (
-                <>
+              {phaseTabs.includes('agenda') ? (
                   <TabsContent value="agenda" className={reviewTabPanelClass}>
                     <ReviewAgendaSection
                       projectId={projectId}
@@ -3097,6 +2712,8 @@ export function ProjectReviewEditorDialog({
                       onApplyAgendaPreset={() => void applyAgendaPresetForType(reviewType)}
                     />
                   </TabsContent>
+              ) : null}
+              {phaseTabs.includes('participants') ? (
                   <TabsContent value="participants" className={reviewTabPanelClass}>
                     <ReviewParticipantsSection
                       projectId={projectId}
@@ -3106,6 +2723,8 @@ export function ProjectReviewEditorDialog({
                       canEdit={canEdit}
                     />
                   </TabsContent>
+              ) : null}
+              {phaseTabs.includes('decisions') ? (
                   <TabsContent value="decisions" className={reviewTabPanelClass}>
                     <ReviewDecisionsSection
                       decisions={decisions}
@@ -3114,6 +2733,8 @@ export function ProjectReviewEditorDialog({
                       agendaItems={d.agendaItems ?? []}
                     />
                   </TabsContent>
+              ) : null}
+              {phaseTabs.includes('actions') ? (
                   <TabsContent value="actions" className={reviewTabPanelClass}>
                     <ReviewActionsSection
                       projectId={projectId}
@@ -3123,6 +2744,8 @@ export function ProjectReviewEditorDialog({
                       editable={editable}
                     />
                   </TabsContent>
+              ) : null}
+              {phaseTabs.includes('attachments') ? (
                   <TabsContent value="attachments" className={reviewTabPanelClass}>
                     <ReviewAttachmentsSection
                       projectId={projectId}
@@ -3135,17 +2758,12 @@ export function ProjectReviewEditorDialog({
                       canEdit={canEdit}
                     />
                   </TabsContent>
-                  {isPage ? (
+              ) : null}
+              {phaseTabs.includes('closure') ? (
                     <TabsContent value="closure" className={reviewTabPanelClass}>
                       {pointClosurePanel}
                     </TabsContent>
-                  ) : null}
-                </>
               ) : null}
-
-              <TabsContent value="history" className={reviewTabPanelClass}>
-                <ReviewHistorySection status={d.status} snapshotPayload={d.snapshotPayload} />
-              </TabsContent>
             </Tabs>
             </>
           );
@@ -3450,8 +3068,7 @@ export function ProjectReviewEditorDialog({
     />
   );
 
-  if (isPage) {
-    return (
+  return (
       <>
         <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <PageHeader
@@ -3486,7 +3103,9 @@ export function ProjectReviewEditorDialog({
           <div
             className={cn(
               'grid h-0 min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden [&>*]:min-h-0',
-              isConductWideLayout && conductSidebarOpen && !isPostMortemReview
+              isConductWideLayout &&
+              conductSidebarOpen &&
+              editorPhase === 'conduct'
                 ? 'lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]'
                 : '',
             )}
@@ -3516,61 +3135,5 @@ export function ProjectReviewEditorDialog({
         {confirmStartModal}
         {reportPreviewDialog}
       </>
-    );
-  }
-
-  return (
-    <>
-    <StariumModal
-      open={open}
-      onOpenChange={onOpenChange ?? (() => {})}
-      title={
-        <div className="min-w-0 flex-1">
-          <p className="starium-overline mb-1">
-            {isPostMortemReview ? 'Clôture projet' : 'Point de pilotage'}
-          </p>
-          <span className="text-left text-lg font-semibold leading-snug">{reviewTitle}</span>
-          {d ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 text-muted-foreground">
-                <CalendarClock className="size-3.5 shrink-0" aria-hidden />
-                {formatReviewDateTime(d.reviewDate)}
-              </span>
-              {d.title ? (
-                <span className="text-muted-foreground">
-                  Objet :{' '}
-                  <span className="font-medium text-foreground">{d.title}</span>
-                </span>
-              ) : (
-                <span className="text-xs italic text-muted-foreground">
-                  {isPostMortemReview ? 'Sans titre de bilan' : 'Sans titre de séance'}
-                </span>
-              )}
-            </div>
-          ) : null}
-        </div>
-      }
-      description={
-        isPostMortemReview
-          ? "Éditeur de retour d'expérience — bilan, écarts et leçons apprises"
-          : 'Éditeur de point projet — compte rendu, décisions et actions'
-      }
-      icon={isPostMortemReview ? BookOpen : CalendarClock}
-      size="xl"
-      contentClassName="flex h-[min(92vh,900px)] max-h-[min(92vh,900px)] flex-col gap-0 overflow-hidden p-3 sm:p-4"
-      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden py-2"
-      status={reviewModalStatus}
-      footerClassName="!flex-nowrap !gap-1.5 !py-2 !px-3"
-      footer={editorFooterContent}
-    >
-      {renderEditorPanels()}
-    </StariumModal>
-    {confirmNextModal}
-    {confirmFinalizeModal}
-    {confirmCancelModal}
-    {confirmPlanModal}
-    {confirmStartModal}
-    {reportPreviewDialog}
-    </>
   );
 }
