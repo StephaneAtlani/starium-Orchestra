@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL } from '../constants/project-enum-labels';
@@ -11,13 +12,14 @@ import {
   isReviewContentEditable,
   isReviewParticipantsEditable,
 } from '../lib/project-review-status';
+import { allStillExpected, presentCount } from '../lib/review-attendance';
 import type {
   ProjectReviewParticipantApi,
   ProjectReviewParticipantAttendanceStatus,
   ProjectReviewStatus,
 } from '../types/project.types';
 import { toast } from '@/lib/toast';
-import { Mail, Trash2, UserPlus, Users } from 'lucide-react';
+import { AlertTriangle, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 
 type Props = {
   projectId: string;
@@ -64,10 +66,35 @@ export function ReviewParticipantsSection({
   const [roleLabel, setRoleLabel] = useState('');
   const [externalEmail, setExternalEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [attendanceNotice, setAttendanceNotice] = useState<string | null>(null);
+  const [markingAllPresent, setMarkingAllPresent] = useState(false);
 
   const editable = canEdit && isReviewParticipantsEditable(status);
   const markAttendance = canEdit && isReviewContentEditable(status);
+  const stillExpected = allStillExpected(participants);
+  const present = presentCount(participants);
   const isExternalForm = !userId.trim();
+
+  const onMarkAllPresent = async () => {
+    if (!markAttendance || participants.length === 0) return;
+    setMarkingAllPresent(true);
+    setAttendanceNotice(null);
+    const results = await Promise.allSettled(
+      participants.map((p) =>
+        updateParticipant.mutateAsync({
+          reviewId,
+          participantId: p.id,
+          body: { attendanceStatus: 'PRESENT' },
+        }),
+      ),
+    );
+    setMarkingAllPresent(false);
+    if (results.some((result) => result.status === 'rejected')) {
+      toast.error('Impossible d’enregistrer toutes les présences.');
+      return;
+    }
+    setAttendanceNotice('Présences enregistrées');
+  };
 
   const onAdd = async () => {
     if (!userId.trim() && !displayName.trim()) {
@@ -104,6 +131,36 @@ export function ReviewParticipantsSection({
         <Users aria-hidden />
         Parties prenantes
       </h3>
+
+      {participants.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Présents : {present} sur {participants.length}.
+        </p>
+      ) : null}
+      {markAttendance && stillExpected ? (
+        <Alert>
+          <AlertTriangle aria-hidden />
+          <AlertDescription>
+            Présences non renseignées — tous les participants sont encore attendus.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {markAttendance && stillExpected ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-11"
+          disabled={markingAllPresent}
+          onClick={() => void onMarkAllPresent()}
+        >
+          {markingAllPresent ? 'Enregistrement…' : 'Tous présents'}
+        </Button>
+      ) : null}
+      {attendanceNotice ? (
+        <p className="text-sm text-foreground" aria-live="polite">
+          {attendanceNotice}
+        </p>
+      ) : null}
 
       {participants.length === 0 ? (
         <p className="starium-form-hint">Aucun participant.</p>

@@ -10,7 +10,6 @@ import {
   ChevronRight,
   CheckCircle2,
   ClipboardPen,
-  CloudRain,
   CloudSun,
   FileText,
   Flag,
@@ -27,7 +26,6 @@ import {
   RotateCcw,
   Scale,
   Sparkles,
-  Sun,
   Target,
   TrendingUp,
   Users,
@@ -64,7 +62,6 @@ import {
   PROJECT_REVIEW_STATUS_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
   PROJECT_STATUS_LABEL,
-  TASK_STATUS_LABEL,
   projectWarningLabel,
 } from '../constants/project-enum-labels';
 import {
@@ -88,6 +85,14 @@ import type { MergedUiBadges } from '@/lib/ui/badge-registry';
 import { useClientUiBadgeConfig } from '@/features/ui/hooks/use-client-ui-badge-config';
 import { PostMortemIndicatorsBlock } from './post-mortem-indicators-block';
 import { ReviewConductProjectContext } from './review-conduct-project-context';
+import {
+  CommitteeMoodPicker,
+  type CommitteeMood,
+} from './review-committee-mood-picker';
+import {
+  normalizeActionTitle,
+  ReviewPreviousOpenActions,
+} from './review-previous-open-actions';
 import { ReviewEditorSection } from './review-editor-section';
 import { ReviewAgendaSection, ReviewMeetingInfoBlock } from './review-agenda-section';
 import { ReviewParticipantsSection } from './review-participants-section';
@@ -115,6 +120,8 @@ import {
   normalizeReviewStatus,
 } from '../lib/project-review-status';
 import { reviewAgendaConductProgress } from '../lib/review-agenda-utils';
+import { allStillExpected } from '../lib/review-attendance';
+import { committeeMoodDisplay } from '../lib/project-committee-mood-display';
 import { projectSheet, projectPointsTab, projectReviewConduct, projectRisks } from '../constants/project-routes';
 import { updateProject } from '../api/projects.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
@@ -355,8 +362,6 @@ function pickPreviousReviewId(
   return sorted[idx + 1]?.id ?? null;
 }
 
-export type CommitteeMood = 'GREEN' | 'ORANGE' | 'RED';
-
 const COMMITTEE_MOOD_KEY = 'committeeMood';
 
 function parseContentPayload(raw: unknown): Record<string, unknown> {
@@ -439,16 +444,6 @@ function ProjectMeteoInline({
       {content}
     </ReviewEditorSection>
   );
-}
-
-function classifyPrevReviewAction(
-  a: ProjectReviewActionItemApi,
-): 'done' | 'in_progress' | 'late' {
-  const done = a.status === 'DONE' || a.status === 'CANCELLED';
-  if (done) return 'done';
-  const due = a.dueDate ? new Date(a.dueDate).getTime() : null;
-  if (due != null && due < Date.now()) return 'late';
-  return 'in_progress';
 }
 
 const POST_MORTEM_NARRATIVE_FIELDS = [
@@ -577,159 +572,6 @@ function formatDateOnly(iso: string): string {
   } catch {
     return '—';
   }
-}
-
-const MOOD_CARDS: {
-  id: CommitteeMood;
-  label: string;
-  hint: string;
-  Icon: typeof Sun;
-  accent: string;
-  iconWrap: string;
-}[] = [
-  {
-    id: 'GREEN',
-    label: 'Serein',
-    hint: 'Bon alignement, dynamique positive',
-    Icon: Sun,
-    accent: 'border-l-emerald-500/80',
-    iconWrap: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  },
-  {
-    id: 'ORANGE',
-    label: 'Mitigé',
-    hint: 'Points de vigilance, sujets ouverts',
-    Icon: CloudSun,
-    accent: 'border-l-amber-500/80',
-    iconWrap: 'bg-amber-500/15 text-amber-900 dark:text-amber-300',
-  },
-  {
-    id: 'RED',
-    label: 'Difficile',
-    hint: 'Tensions fortes, risques ou blocages',
-    Icon: CloudRain,
-    accent: 'border-l-red-500/80',
-    iconWrap: 'bg-destructive/15 text-destructive',
-  },
-];
-
-function ProjectMeteoPickerButtons({
-  value,
-  onChange,
-  disabled,
-  layout = 'cards',
-}: {
-  value: CommitteeMood | null;
-  onChange: (v: CommitteeMood | null) => void;
-  disabled?: boolean;
-  layout?: 'cards' | 'compact';
-}) {
-  if (layout === 'compact') {
-    return (
-      <div className="grid grid-cols-3 gap-2">
-        {MOOD_CARDS.map(({ id, label, Icon, iconWrap }) => {
-          const selected = value === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(id)}
-              className={cn(
-                'flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg border border-border/60 p-2 text-center text-xs transition-all',
-                'hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-                disabled && 'pointer-events-none opacity-60',
-              )}
-              aria-pressed={selected}
-              aria-label={`Météo du comité : ${label}`}
-            >
-              <span
-                className={cn('flex size-9 items-center justify-center rounded-lg', iconWrap)}
-                aria-hidden
-              >
-                <Icon className="size-4" />
-              </span>
-              <span className="font-medium leading-tight">{label}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {MOOD_CARDS.map(({ id, label, hint, Icon, accent, iconWrap }) => {
-          const selected = value === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onChange(id)}
-              className={cn(
-                'flex flex-col items-start gap-2 rounded-lg border border-border/60 bg-card p-3 text-left transition-all',
-                'border-l-[3px] hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                accent,
-                selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-                disabled && 'pointer-events-none opacity-60',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex size-10 items-center justify-center rounded-lg',
-                  iconWrap,
-                )}
-              >
-                <Icon className="size-5" aria-hidden />
-              </span>
-              <span className="text-sm font-semibold text-foreground">{label}</span>
-              <span className="text-xs leading-snug text-muted-foreground">{hint}</span>
-            </button>
-          );
-        })}
-      </div>
-      {!disabled && value != null ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => onChange(null)}
-        >
-          Effacer le choix
-        </Button>
-      ) : null}
-    </>
-  );
-}
-
-function CommitteeMoodPicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: CommitteeMood | null;
-  onChange: (v: CommitteeMood | null) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <ReviewEditorSection
-      sectionId="pr-section-committee-mood"
-      title="Météo du comité"
-      description="Ressenti du comité en fin de point — soleil, nuages ou pluie. Figé à la finalisation et repris dans le compte rendu."
-      icon={CloudSun}
-    >
-      <ProjectMeteoPickerButtons
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        layout="cards"
-      />
-    </ReviewEditorSection>
-  );
 }
 
 function ArbitrationReadonlyBlock({ sheet }: { sheet: ProjectSheet }) {
@@ -2164,6 +2006,27 @@ export function ProjectReviewEditorDialog({
     setActions((prev) => [...prev.filter((item) => item.title.trim()), row]);
   }, []);
 
+  const resumePreviousAction = useCallback(
+    (action: ProjectReviewActionItemApi) => {
+      const titleKey = normalizeActionTitle(action.title);
+      if (actions.some((row) => normalizeActionTitle(row.title) === titleKey)) return;
+      appendAction({
+        title: action.title,
+        description: action.description ?? '',
+        status: action.status === 'CANCELLED' || action.status === 'DONE' ? 'TODO' : action.status,
+        priority: action.priority ?? 'MEDIUM',
+        dueDate: action.dueDate ? toLocalDatetimeInput(action.dueDate) : '',
+        linkedTaskId: '',
+        responsibleUserId: action.responsibleUserId ?? '',
+        decisionId: '',
+        agendaItemId: '',
+        contributors: [],
+      });
+      toast.success('Action reprise dans ce point');
+    },
+    [actions, appendAction],
+  );
+
   const conductSidebarToggle = (
     <Button
       type="button"
@@ -2211,15 +2074,9 @@ export function ProjectReviewEditorDialog({
           icon={CloudSun}
           defaultOpen
         >
-          <p className="mb-2 text-xs leading-snug text-muted-foreground">
-            Ressenti du comité — repris dans le compte rendu (1<sup>re</sup> colonne KPI).
+          <p className="text-sm text-foreground">
+            {committeeMoodDisplay(committeeMood)?.label ?? 'Non renseignée'}
           </p>
-          <ProjectMeteoPickerButtons
-            value={committeeMood}
-            onChange={setCommitteeMood}
-            disabled={!editable}
-            layout="compact"
-          />
           {committeeMood == null ? (
             <p className="mt-2 text-xs text-muted-foreground" role="status">
               Météo non renseignée — elle apparaîtra ainsi dans le compte rendu.
@@ -2350,6 +2207,23 @@ export function ProjectReviewEditorDialog({
               Impossible de charger ce point.
             </p>
           ) : (
+            <>
+            {isPage &&
+            d.status === 'IN_PROGRESS' &&
+            d.reviewType !== 'POST_MORTEM' ? (
+              <div className="shrink-0 border-b border-border/70 px-1 pb-3">
+                <ReviewPreviousOpenActions
+                  actions={
+                    previousReviewId ? (previousDetailQuery.data?.actionItems ?? null) : []
+                  }
+                  loading={Boolean(previousReviewId) && previousDetailQuery.isLoading}
+                  error={Boolean(previousReviewId) && (previousDetailQuery.isError || !previousDetailQuery.data)}
+                  canResume={editable}
+                  resumedTitles={actions.map((row) => row.title)}
+                  onResume={resumePreviousAction}
+                />
+              </div>
+            ) : null}
             <Tabs
               value={editorTab}
               onValueChange={setEditorTab}
@@ -2777,82 +2651,6 @@ export function ProjectReviewEditorDialog({
                   )}
                 </ReviewEditorSection>
               )}
-
-              <ReviewEditorSection
-                sectionId="pr-section-prev-actions"
-                title="Suivi des actions du point précédent"
-                description="Actions issues du dernier point enregistré (statut et échéances)."
-                icon={History}
-              >
-                {!previousReviewId ? (
-                  <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
-                    Aucun point antérieur sur ce projet — premier comité ou historique vide.
-                  </p>
-                ) : previousDetailQuery.isLoading ? (
-                  <LoadingState rows={2} />
-                ) : previousDetailQuery.error || !previousDetailQuery.data ? (
-                  <p className="text-xs text-destructive">Impossible de charger le point précédent.</p>
-                ) : previousDetailQuery.data.actionItems.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Le point précédent ne comporte pas d’actions enregistrées.
-                  </p>
-                ) : (
-                  (() => {
-                    const buckets = { done: [] as ProjectReviewActionItemApi[], in_progress: [] as ProjectReviewActionItemApi[], late: [] as ProjectReviewActionItemApi[] };
-                    for (const a of previousDetailQuery.data.actionItems) {
-                      const k = classifyPrevReviewAction(a);
-                      if (k === 'done') buckets.done.push(a);
-                      else if (k === 'late') buckets.late.push(a);
-                      else buckets.in_progress.push(a);
-                    }
-                    const Row = ({ a }: { a: ProjectReviewActionItemApi }) => (
-                      <li className="rounded-md border border-border/60 bg-background/80 px-2 py-1.5 text-xs">
-                        <span className="font-medium text-foreground">{a.title}</span>
-                        <span className="ml-2 text-muted-foreground">
-                          {TASK_STATUS_LABEL[a.status] ?? a.status}
-                          {a.dueDate
-                            ? ` · ${formatReviewDateTime(a.dueDate)}`
-                            : ''}
-                        </span>
-                      </li>
-                    );
-                    return (
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <div>
-                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
-                            Terminées ({buckets.done.length})
-                          </p>
-                          <ul className="space-y-1.5">
-                            {buckets.done.map((a) => (
-                              <Row key={a.id} a={a} />
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
-                            En cours ({buckets.in_progress.length})
-                          </p>
-                          <ul className="space-y-1.5">
-                            {buckets.in_progress.map((a) => (
-                              <Row key={a.id} a={a} />
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-300">
-                            En retard ({buckets.late.length})
-                          </p>
-                          <ul className="space-y-1.5">
-                            {buckets.late.map((a) => (
-                              <Row key={a.id} a={a} />
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    );
-                  })()
-                )}
-              </ReviewEditorSection>
 
               <ReviewEditorSection
                 sectionId="pr-section-progress"
@@ -3332,6 +3130,7 @@ export function ProjectReviewEditorDialog({
                 <ReviewHistorySection status={d.status} snapshotPayload={d.snapshotPayload} />
               </TabsContent>
             </Tabs>
+            </>
           );
 
   const confirmNextModal = (
@@ -3432,6 +3231,17 @@ export function ProjectReviewEditorDialog({
           Point concerné :{' '}
           <span className="font-medium text-foreground">{d.title.trim()}</span>
         </p>
+      ) : null}
+      {d &&
+      reviewType !== 'POST_MORTEM' &&
+      isReviewContentEditable(d.status) &&
+      allStillExpected(d.participants ?? []) ? (
+        <Alert className="mt-3">
+          <AlertTriangle aria-hidden />
+          <AlertDescription>
+            Présences non renseignées — tous les participants sont encore attendus.
+          </AlertDescription>
+        </Alert>
       ) : null}
     </StariumModal>
   );

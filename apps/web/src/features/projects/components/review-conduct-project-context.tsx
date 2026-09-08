@@ -11,7 +11,6 @@ import {
   ARBITRATION_LEVEL_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
   projectWarningLabel,
-  TASK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
 import { projectSheet } from '../constants/project-routes';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
@@ -23,7 +22,6 @@ import { riskCriticalityForRisk } from '../lib/risk-criticality';
 import type {
   ProjectDetail,
   ProjectMilestoneApi,
-  ProjectReviewActionItemApi,
   ProjectSheet,
 } from '../types/project.types';
 import { HealthBadge, ProjectPortfolioBadges } from './project-badges';
@@ -37,34 +35,11 @@ import {
   ChevronDown,
   ChevronRight,
   Flag,
-  History,
   Info,
   Scale,
   Target,
   TrendingUp,
 } from 'lucide-react';
-
-function classifyPrevReviewAction(
-  a: ProjectReviewActionItemApi,
-): 'done' | 'in_progress' | 'late' {
-  const done = a.status === 'DONE' || a.status === 'CANCELLED';
-  if (done) return 'done';
-  const due = a.dueDate ? new Date(a.dueDate).getTime() : null;
-  if (due != null && due < Date.now()) return 'late';
-  return 'in_progress';
-}
-
-function formatReviewDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString('fr-FR', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  } catch {
-    return '—';
-  }
-}
 
 function formatDateOnly(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', {
@@ -321,20 +296,6 @@ export function ReviewConductProjectContext({
 
   const hasWarnings = (project.warnings?.length ?? 0) > 0;
 
-  const previousActionBuckets = useMemo(() => {
-    const items = previousDetailQuery.data?.actionItems ?? [];
-    const buckets = {
-      done: [] as ProjectReviewActionItemApi[],
-      in_progress: [] as ProjectReviewActionItemApi[],
-      late: [] as ProjectReviewActionItemApi[],
-    };
-    for (const a of items) {
-      const k = classifyPrevReviewAction(a);
-      buckets[k].push(a);
-    }
-    return buckets;
-  }, [previousDetailQuery.data?.actionItems]);
-
   const closeDetail = () => setDetailState({ kind: 'closed' });
 
   return (
@@ -449,66 +410,6 @@ export function ReviewConductProjectContext({
             )}
           </ConductContextSection>
         ) : null}
-
-        <ConductContextSection
-          id="conduct-prev-actions"
-          title="Actions point précédent"
-          icon={History}
-          defaultOpen={previousActionBuckets.late.length > 0}
-        >
-          {!previousReviewId ? (
-            <p className="text-xs text-muted-foreground">Premier point ou historique vide.</p>
-          ) : previousDetailQuery.isLoading ? (
-            <LoadingState rows={2} />
-          ) : previousDetailQuery.error || !previousDetailQuery.data ? (
-            <p className="text-xs text-destructive">Impossible de charger le point précédent.</p>
-          ) : previousDetailQuery.data.actionItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucune action enregistrée.</p>
-          ) : (
-            <div className="space-y-3">
-              {(
-                [
-                  ['Terminées', previousActionBuckets.done, 'text-emerald-800 dark:text-emerald-300'],
-                  ['En cours', previousActionBuckets.in_progress, 'text-sky-800 dark:text-sky-300'],
-                  ['En retard', previousActionBuckets.late, 'text-amber-900 dark:text-amber-300'],
-                ] as const
-              ).map(([label, items, labelClass]) => (
-                <div key={label}>
-                  <p
-                    className={cn(
-                      'mb-1 text-[0.65rem] font-semibold uppercase tracking-wide',
-                      labelClass,
-                    )}
-                  >
-                    {label} ({items.length})
-                  </p>
-                  <ul className="space-y-1">
-                    {items.length === 0 ? (
-                      <li className="text-xs text-muted-foreground">—</li>
-                    ) : (
-                      items.slice(0, 4).map((a) => (
-                        <li key={a.id}>
-                          <button
-                            type="button"
-                            className={cn(conductContextClickableClass, 'text-xs')}
-                            onClick={() => setDetailState({ kind: 'action', action: a })}
-                            aria-label={`Voir le détail de l'action ${a.title}`}
-                          >
-                            <span className="font-medium text-foreground">{a.title}</span>
-                            <span className="mt-0.5 block text-muted-foreground">
-                              {TASK_STATUS_LABEL[a.status] ?? a.status}
-                              {a.dueDate ? ` · ${formatReviewDateTime(a.dueDate)}` : ''}
-                            </span>
-                          </button>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-        </ConductContextSection>
 
         <ConductContextSection id="conduct-progress" title="Avancement projet" icon={Target} defaultOpen={false}>
           {milestonesQuery.isLoading ? (

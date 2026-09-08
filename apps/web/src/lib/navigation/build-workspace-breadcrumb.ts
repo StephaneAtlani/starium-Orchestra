@@ -42,6 +42,7 @@ const STATIC_SEGMENT_LABELS: Record<string, string> = {
   risks: 'Risques',
   budget: 'Budget',
   reporting: 'Reporting',
+  reviews: 'Points projet',
   snapshots: 'Snapshots',
   lines: 'Lignes',
   envelopes: 'Enveloppes',

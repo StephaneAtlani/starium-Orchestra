@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,9 @@ import {
   PROJECT_REVIEW_TYPE_LABEL,
 } from '../constants/project-enum-labels';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
+import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import {
   cloneAgendaPresetRows,
@@ -284,6 +286,7 @@ export function ProjectReviewCreateDialog({
   const assignable = useProjectAssignableUsers();
   const teamForCreate = useProjectTeamQuery(projectId, { enabled: open });
   const { create, createAgendaItem } = useProjectReviewMutations(projectId);
+  const reviewsQuery = useProjectReviewsQuery(projectId, { enabled: open && !postMortemEligible });
 
   const [formDate, setFormDate] = useState('');
   const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
@@ -306,6 +309,24 @@ export function ProjectReviewCreateDialog({
   const [formLocation, setFormLocation] = useState('');
   const [formCreationMode, setFormCreationMode] =
     useState<ProjectReviewCreationMode>('PREPARING');
+  const [resumeFromLast, setResumeFromLast] = useState(false);
+
+  const lastFinalizedId = useMemo(() => {
+    const items = reviewsQuery.data ?? [];
+    const finalized = items.filter((row) => row.status === 'FINALIZED');
+    if (finalized.length === 0) return null;
+    finalized.sort((a, b) => {
+      const ta = a.reviewDate ? new Date(a.reviewDate).getTime() : 0;
+      const tb = b.reviewDate ? new Date(b.reviewDate).getTime() : 0;
+      return tb - ta || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return finalized[0]?.id ?? null;
+  }, [reviewsQuery.data]);
+
+  const lastFinalizedQuery = useProjectReviewDetailQuery(
+    projectId,
+    open && !postMortemEligible ? lastFinalizedId : null,
+  );
 
   const createFormSeededRef = useRef(false);
 
@@ -347,6 +368,7 @@ export function ProjectReviewCreateDialog({
     setFormLocation('');
     setFormCreationMode('PREPARING');
     setCreateDecisions([emptyDecisionRow()]);
+    setResumeFromLast(false);
   }, [postMortemEligible, applyAgendaPresetFromType]);
 
   useEffect(() => {
@@ -421,6 +443,37 @@ export function ProjectReviewCreateDialog({
         description: x.description.trim() || null,
         itemType: x.itemType,
       }));
+    const lastDetail = lastFinalizedQuery.data;
+    const resume =
+      resumeFromLast &&
+      !postMortemEligible &&
+      isPilotageReviewType(formType) &&
+      lastDetail != null;
+    const presetTitles = new Set(
+      agendaItems.map((item) => item.title.trim().toLocaleLowerCase('fr')),
+    );
+    const resumedAgenda = resume
+      ? (lastDetail.agendaItems ?? []).filter((item) => {
+          if (item.status !== 'TODO' && item.status !== 'SKIPPED') return false;
+          const key = item.title.trim().toLocaleLowerCase('fr');
+          return key.length > 0 && !presetTitles.has(key);
+        })
+      : [];
+    const resumedActions = resume
+      ? (lastDetail.actionItems ?? [])
+          .filter((action) => action.status === 'TODO' || action.status === 'IN_PROGRESS')
+          .map((action) => ({
+            title: action.title.trim(),
+            description: action.description?.trim() || undefined,
+            status: action.status,
+            ...(action.priority ? { priority: action.priority } : {}),
+            ...(action.dueDate ? { dueDate: action.dueDate } : {}),
+            ...(action.responsibleUserId
+              ? { responsibleUserId: action.responsibleUserId }
+              : {}),
+          }))
+          .filter((action) => action.title.length > 0)
+      : [];
 
     try {
       const created = await create.mutateAsync({
@@ -438,11 +491,20 @@ export function ProjectReviewCreateDialog({
           : {}),
         ...(participants.length > 0 ? { participants } : {}),
         ...(decisions.length > 0 ? { decisions } : {}),
+        ...(resumedActions.length > 0 ? { actionItems: resumedActions } : {}),
       });
-      if (agendaItems.length > 0) {
+      const agendaToCreate = [
+        ...agendaItems,
+        ...resumedAgenda.map((item) => ({
+          title: item.title.trim(),
+          description: item.description?.trim() || null,
+          itemType: item.itemType,
+        })),
+      ];
+      if (agendaToCreate.length > 0) {
         try {
           await Promise.all(
-            agendaItems.map((item) =>
+            agendaToCreate.map((item) =>
               createAgendaItem.mutateAsync({
                 reviewId: created.id,
                 body: item,
@@ -584,6 +646,25 @@ export function ProjectReviewCreateDialog({
                   </div>
                 </div>
               </section>
+
+              {!postMortemEligible && isPilotageReviewType(formType) && lastFinalizedId ? (
+                <div className="starium-form-field">
+                  <label className="flex min-h-11 items-start gap-3 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-1 size-4 shrink-0"
+                      checked={resumeFromLast}
+                      disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
+                      onChange={(e) => setResumeFromLast(e.target.checked)}
+                    />
+                    <span>
+                      {lastFinalizedQuery.isLoading
+                        ? 'Chargement du dernier point…'
+                        : 'Reprendre les actions ouvertes et les sujets non traités du dernier point'}
+                    </span>
+                  </label>
+                </div>
+              ) : null}
 
               {!postMortemEligible ? (
                 <>

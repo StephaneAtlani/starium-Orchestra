@@ -38,6 +38,18 @@ describe('buildWorkspaceBreadcrumb', () => {
     ]);
   });
 
+  it('mappe le segment reviews vers Points projet', () => {
+    const projectId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde';
+    const reviewId = 'b2c3d4e5-f6a7-4890-b123-456789abcdef';
+    expect(buildWorkspaceBreadcrumb(`/projects/${projectId}/reviews/${reviewId}`)).toEqual([
+      { label: 'Exécution', href: '/projects' },
+      { label: 'Projets', href: '/projects' },
+      { label: '…', href: `/projects/${projectId}` },
+      { label: 'Points projet', href: `/projects/${projectId}/reviews` },
+      { label: '…' },
+    ]);
+  });
+
   it('construit le fil sous-route projet', () => {
     const id = 'a1b2c3d4-e5f6-4789-a012-3456789abcde';
     expect(buildWorkspaceBreadcrumb(`/projects/${id}/tasks`)).toEqual([

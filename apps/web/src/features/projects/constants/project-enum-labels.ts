@@ -163,7 +163,7 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   AD_HOC: 'Point ad hoc',
   POST_MORTEM: "Retour d'expérience",
   /** RFC-PROJ-013-2 — types de rituel ajoutés en base (RFC-MEET-001 §8-9) */
-  PROJECT_REVIEW: 'Revue de projet',
+  PROJECT_REVIEW: 'Point projet',
   BUDGET_REVIEW: 'Revue budgétaire',
   ARBITRATION: 'Arbitrage',
   CRISIS_POINT: 'Point de crise',
