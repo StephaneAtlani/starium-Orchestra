@@ -35,6 +35,7 @@ import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import {
   cloneAgendaPresetRows,
+  defaultExpectedDecisionForItemType,
   getAgendaPresetForReviewType,
   isPilotageReviewType,
   REVIEW_TYPE_AGENDA_HINT,
@@ -56,15 +57,11 @@ type CreateParticipantRow = {
   isRequired: boolean;
 };
 
-type CreateDecisionRow = {
-  title: string;
-  description: string;
-};
-
 type CreateAgendaRow = {
   title: string;
   description: string;
   itemType: ProjectReviewAgendaItemType;
+  expectedDecision: string;
 };
 
 export type ProjectReviewCreateDialogProps = {
@@ -99,12 +96,11 @@ const emptyParticipantRow = (): CreateParticipantRow => ({
   isRequired: false,
 });
 
-const emptyDecisionRow = (): CreateDecisionRow => ({ title: '', description: '' });
-
 const emptyAgendaRow = (): CreateAgendaRow => ({
   title: '',
   description: '',
   itemType: 'INFORMATION',
+  expectedDecision: defaultExpectedDecisionForItemType('INFORMATION'),
 });
 
 function initialAgendaForType(reviewType: ProjectReviewType): CreateAgendaRow[] {
@@ -253,7 +249,7 @@ function OptionalBlock({
   return (
     <details
       className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
-      open={defaultOpen}
+      defaultOpen={defaultOpen}
     >
       <summary
         id={`${id}-summary`}
@@ -301,9 +297,6 @@ export function ProjectReviewCreateDialog({
   const [agendaDirty, setAgendaDirty] = useState(false);
   const [agendaPresetSourceType, setAgendaPresetSourceType] =
     useState<ProjectReviewType>('COPIL');
-  const [createDecisions, setCreateDecisions] = useState<CreateDecisionRow[]>([
-    emptyDecisionRow(),
-  ]);
   const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('');
   const [formMeetingUrl, setFormMeetingUrl] = useState('');
   const [formLocation, setFormLocation] = useState('');
@@ -367,7 +360,6 @@ export function ProjectReviewCreateDialog({
     setFormMeetingUrl('');
     setFormLocation('');
     setFormCreationMode('PREPARING');
-    setCreateDecisions([emptyDecisionRow()]);
     setResumeFromLast(false);
   }, [postMortemEligible, applyAgendaPresetFromType]);
 
@@ -430,18 +422,15 @@ export function ProjectReviewCreateDialog({
         attended: p.attended,
         isRequired: p.isRequired,
       }));
-    const decisions = createDecisions
-      .filter((x) => x.title.trim())
-      .map((x) => ({
-        title: x.title.trim(),
-        description: x.description.trim() || null,
-      }));
     const agendaItems = createAgendaItems
       .filter((x) => x.title.trim())
       .map((x) => ({
         title: x.title.trim(),
         description: x.description.trim() || null,
         itemType: x.itemType,
+        expectedDecision:
+          x.expectedDecision.trim() ||
+          defaultExpectedDecisionForItemType(x.itemType),
       }));
     const lastDetail = lastFinalizedQuery.data;
     const resume =
@@ -490,7 +479,6 @@ export function ProjectReviewCreateDialog({
             }
           : {}),
         ...(participants.length > 0 ? { participants } : {}),
-        ...(decisions.length > 0 ? { decisions } : {}),
         ...(resumedActions.length > 0 ? { actionItems: resumedActions } : {}),
       });
       const agendaToCreate = [
@@ -499,6 +487,9 @@ export function ProjectReviewCreateDialog({
           title: item.title.trim(),
           description: item.description?.trim() || null,
           itemType: item.itemType,
+          expectedDecision:
+            item.expectedDecision?.trim() ||
+            defaultExpectedDecisionForItemType(item.itemType),
         })),
       ];
       if (agendaToCreate.length > 0) {
@@ -945,10 +936,11 @@ export function ProjectReviewCreateDialog({
                 <OptionalBlock
                   id="create-pr-agenda"
                   title="Ordre du jour"
+                  defaultOpen
                   summary={
                     agendaPresetCount > 0
-                      ? `${agendaPresetCount} point(s) — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}`
-                      : 'Points structurés — complétables dans l’éditeur'
+                      ? `${agendaPresetCount} sujet(s) — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}`
+                      : 'Sujets structurés — questions à trancher par point'
                   }
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
@@ -975,7 +967,7 @@ export function ProjectReviewCreateDialog({
                       }}
                     >
                       <Plus className="size-4" aria-hidden />
-                      Ajouter un point
+                      Ajouter un sujet
                     </Button>
                   </div>
                   <ul className="space-y-2" aria-live="polite">
@@ -1002,7 +994,23 @@ export function ProjectReviewCreateDialog({
                                     const v = e.target.value as ProjectReviewAgendaItemType;
                                     markAgendaDirty();
                                     setCreateAgendaItems((prev) =>
-                                      prev.map((x, j) => (j === i ? { ...x, itemType: v } : x)),
+                                      prev.map((x, j) => {
+                                        if (j !== i) return x;
+                                        const prevDefault =
+                                          defaultExpectedDecisionForItemType(x.itemType);
+                                        const nextDefault =
+                                          defaultExpectedDecisionForItemType(v);
+                                        const keepQuestion =
+                                          x.expectedDecision.trim() &&
+                                          x.expectedDecision.trim() !== prevDefault
+                                            ? x.expectedDecision
+                                            : nextDefault;
+                                        return {
+                                          ...x,
+                                          itemType: v,
+                                          expectedDecision: keepQuestion,
+                                        };
+                                      }),
                                     );
                                   }}
                                 >
@@ -1040,6 +1048,30 @@ export function ProjectReviewCreateDialog({
                             </div>
                             <div className="starium-form-field">
                               <label
+                                htmlFor={`pr-agenda-question-${i}`}
+                                className="starium-form-label"
+                              >
+                                Question à trancher
+                              </label>
+                              <textarea
+                                id={`pr-agenda-question-${i}`}
+                                className="starium-form-textarea min-h-[64px]"
+                                value={row.expectedDecision}
+                                maxLength={1000}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  markAgendaDirty();
+                                  setCreateAgendaItems((prev) =>
+                                    prev.map((x, j) =>
+                                      j === i ? { ...x, expectedDecision: v } : x,
+                                    ),
+                                  );
+                                }}
+                                placeholder="Formulation de la décision ou du résultat attendu…"
+                              />
+                            </div>
+                            <div className="starium-form-field">
+                              <label
                                 htmlFor={`pr-agenda-desc-${i}`}
                                 className="starium-form-label"
                               >
@@ -1060,7 +1092,7 @@ export function ProjectReviewCreateDialog({
                                     prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
                                   );
                                 }}
-                                placeholder="Contexte, documents attendus, décision visée…"
+                                placeholder="Contexte, documents attendus…"
                               />
                             </div>
                           </div>
@@ -1070,7 +1102,7 @@ export function ProjectReviewCreateDialog({
                               variant="ghost"
                               size="icon"
                               className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                              aria-label={`Retirer le point ${row.title.trim() || i + 1}`}
+                              aria-label={`Retirer le sujet ${row.title.trim() || i + 1}`}
                               onClick={() => {
                                 markAgendaDirty();
                                 setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
@@ -1086,108 +1118,14 @@ export function ProjectReviewCreateDialog({
                   {agendaPresetCount > 0 ? (
                     <p className="starium-form-hint mt-2">
                       <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                      Modèle prérempli selon le type — ajustez les points ou réinitialisez si
-                      besoin.
+                      Modèle prérempli avec questions — ajustez les sujets ou réinitialisez.
                     </p>
                   ) : (
                     <p className="starium-form-hint mt-2">
                       <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                      Laissez vide si vous préférez constituer l’ordre du jour dans l’éditeur.
+                      Ajoutez des sujets ici : les décisions naîtront en séance, liées à chaque point.
                     </p>
                   )}
-                </OptionalBlock>
-
-                <OptionalBlock
-                  id="create-pr-decisions"
-                  title="Éléments à trancher"
-                  summary="Arbitrages attendus — à finaliser dans l’éditeur"
-                >
-                  <div className="mb-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-9 gap-1.5"
-                      onClick={() =>
-                        setCreateDecisions((prev) => [...prev, emptyDecisionRow()])
-                      }
-                    >
-                      <Plus className="size-4" aria-hidden />
-                      Ajouter un sujet
-                    </Button>
-                  </div>
-                  <ul className="space-y-2">
-                    {createDecisions.map((row, i) => (
-                      <li
-                        key={i}
-                        className="rounded-lg border border-border/60 bg-muted/15 p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="min-w-0 flex-1 space-y-3">
-                            <div className="starium-form-field">
-                              <label
-                                htmlFor={`pr-decision-title-${i}`}
-                                className="starium-form-label"
-                              >
-                                Sujet
-                              </label>
-                              <Input
-                                id={`pr-decision-title-${i}`}
-                                className="starium-form-input min-h-11"
-                                value={row.title}
-                                maxLength={500}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setCreateDecisions((prev) =>
-                                    prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
-                                  );
-                                }}
-                                placeholder="Ex. Valider le dépassement budgétaire"
-                              />
-                            </div>
-                            <div className="starium-form-field">
-                              <label
-                                htmlFor={`pr-decision-desc-${i}`}
-                                className="starium-form-label"
-                              >
-                                Contexte{' '}
-                                <span className="font-normal text-muted-foreground">
-                                  (optionnel)
-                                </span>
-                              </label>
-                              <textarea
-                                id={`pr-decision-desc-${i}`}
-                                className="starium-form-textarea min-h-[64px]"
-                                value={row.description}
-                                maxLength={8000}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setCreateDecisions((prev) =>
-                                    prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
-                                  );
-                                }}
-                                placeholder="Enjeux, options, recommandation…"
-                              />
-                            </div>
-                          </div>
-                          {createDecisions.length > 1 ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                              aria-label={`Retirer le sujet ${row.title.trim() || i + 1}`}
-                              onClick={() =>
-                                setCreateDecisions((prev) => prev.filter((_, j) => j !== i))
-                              }
-                            >
-                              <Trash2 className="size-4" aria-hidden />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
                 </OptionalBlock>
               </div>
             </div>

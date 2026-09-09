@@ -186,8 +186,8 @@ const REVIEW_EDITOR_TAB_META: Record<
   prepare: { label: 'Préparation', icon: ClipboardPen },
   agenda: { label: 'Ordre du jour', icon: ListOrdered },
   participants: { label: 'Participants', icon: Users },
-  decisions: { label: 'Décisions', icon: Scale },
-  actions: { label: 'Actions', icon: ListChecks },
+  decisions: { label: 'Récap décisions', icon: Scale },
+  actions: { label: 'Récap actions', icon: ListChecks },
   attachments: { label: 'Documents & liens', icon: FileText },
   closure: { label: 'Clôture', icon: CloudSun },
 };
@@ -853,11 +853,13 @@ export function ProjectReviewEditorDialog({
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [committeeMood, setCommitteeMood] = useState<CommitteeMood | null>(null);
   const [postMortemForm, setPostMortemForm] = useState<PostMortemPayload>(POST_MORTEM_EMPTY);
-  const [editorTab, setEditorTab] = useState('prepare');
+  const [editorTab, setEditorTab] = useState('agenda');
+  const [selectedAgendaItemId, setSelectedAgendaItemId] = useState<string | null>(null);
   const isConductWideLayout = useMediaQuery('(min-width: 1024px)');
   const conductTabsDragScroll = useHorizontalDragScroll();
   const [conductSidebarOpen, setConductSidebarOpen] = useState(false);
   const planningDetailsRef = useRef<HTMLDetailsElement>(null);
+  const prepareParamsDetailsRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     setConductSidebarOpen(isConductWideLayout);
@@ -935,7 +937,8 @@ export function ProjectReviewEditorDialog({
       setConfirmPlanOpen(false);
       setConfirmStartOpen(false);
       setReportPreviewSeen(false);
-      setEditorTab('prepare');
+      setEditorTab('agenda');
+      setSelectedAgendaItemId(null);
     }
   }, [active]);
 
@@ -1364,11 +1367,27 @@ export function ProjectReviewEditorDialog({
   };
 
   const openPlanningSection = () => {
-    setEditorTab('prepare');
+    const phase = d
+      ? reviewEditorPhase(d.status, d.reviewType)
+      : 'prepare';
+    if (phase === 'prepare') {
+      setEditorTab('agenda');
+      const params = prepareParamsDetailsRef.current;
+      if (params) {
+        params.open = true;
+      }
+    } else {
+      setEditorTab('prepare');
+    }
     const details = planningDetailsRef.current;
     if (details) {
       details.open = true;
       details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else if (phase === 'prepare') {
+      prepareParamsDetailsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   };
 
@@ -1657,13 +1676,16 @@ export function ProjectReviewEditorDialog({
       else if (value === 'attachments') count = d.attachments?.length ?? 0;
       return {
         value,
-        label: meta.label,
+        label:
+          editorPhase === 'prepare' && value === 'agenda'
+            ? 'Préparation'
+            : meta.label,
         step: index + 1,
         icon: meta.icon,
         count,
       };
     });
-  }, [d, phaseTabs]);
+  }, [d, phaseTabs, editorPhase]);
 
   const closeConductSidebar = useCallback(() => setConductSidebarOpen(false), []);
 
@@ -1871,6 +1893,27 @@ export function ProjectReviewEditorDialog({
     setActions((prev) => [...prev.filter((item) => item.title.trim()), row]);
   }, []);
 
+  const updateDecision = useCallback((index: number, row: ReviewDecisionFormRow) => {
+    setDecisions((prev) => prev.map((item, i) => (i === index ? row : item)));
+  }, []);
+
+  const updateAction = useCallback((index: number, row: ReviewActionFormRow) => {
+    setActions((prev) => prev.map((item, i) => (i === index ? row : item)));
+  }, []);
+
+  const removeDecision = useCallback((index: number) => {
+    setDecisions((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const removeAction = useCallback((index: number) => {
+    setActions((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const openAgendaSubject = useCallback((agendaItemId: string) => {
+    setSelectedAgendaItemId(agendaItemId);
+    setEditorTab('agenda');
+  }, []);
+
   const resumePreviousAction = useCallback(
     (action: ProjectReviewActionItemApi) => {
       const titleKey = normalizeActionTitle(action.title);
@@ -2066,6 +2109,542 @@ export function ProjectReviewEditorDialog({
       </StariumModal>
     ) : null;
 
+  const prepareMetaPanel = d ? (
+    <>
+            <ReviewEditorSection
+              sectionId="pr-ed-params"
+              title={isPostMortemReview ? 'Identification du bilan' : 'Paramètres du point'}
+              description={
+                isPostMortemReview
+                  ? 'Date de clôture, libellé du retour d’expérience.'
+                  : 'Type de point, date et titre de la séance.'
+              }
+              icon={isPostMortemReview ? BookOpen : CalendarClock}
+            >
+              <div className="starium-form-grid starium-form-grid--2">
+                <div className="starium-form-field">
+                  <label htmlFor="pr-ed-type-h" className="starium-form-label">
+                    Type de point
+                  </label>
+                  {editable || typeEditable ? (
+                    <select
+                      id="pr-ed-type-h"
+                      className={selectFieldClass}
+                      value={reviewType}
+                      aria-describedby={
+                        typeEditable && isPilotageReviewType(reviewType)
+                          ? 'pr-ed-type-hint'
+                          : undefined
+                      }
+                      onChange={(e) =>
+                        handleReviewTypeChange(e.target.value as ProjectReviewType)
+                      }
+                    >
+                      {reviewTypeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p id="pr-ed-type-h" className="min-h-11 text-sm font-medium text-foreground">
+                      {PROJECT_REVIEW_TYPE_LABEL[reviewType] ?? 'Type de point'}
+                    </p>
+                  )}
+                  {typeEditable && isPilotageReviewType(reviewType) ? (
+                    <p id="pr-ed-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                      {REVIEW_TYPE_AGENDA_HINT[reviewType]}
+                    </p>
+                  ) : null}
+                  {showAgendaPresetMismatch ? (
+                    <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                      Le type a changé — réinitialisez l’ordre du jour dans l’onglet dédié si
+                      besoin.
+                    </p>
+                  ) : null}
+                </div>
+                <div className="starium-form-field">
+                  <label htmlFor="pr-ed-date-h" className="starium-form-label">
+                    {isPostMortemReview ? 'Date du bilan' : 'Date et heure (optionnel en préparation)'}
+                  </label>
+                  <ProjectDatetimeLocalInput
+                    id="pr-ed-date-h"
+                    value={reviewDate}
+                    disabled={!editable && !planningEditable}
+                    onChange={setReviewDate}
+                  />
+                </div>
+                <div className="starium-form-field starium-form-grid--span-2">
+                  <label htmlFor="pr-ed-title-h" className="starium-form-label">
+                    {isPostMortemReview ? 'Titre du bilan' : 'Titre de la séance'}
+                  </label>
+                  <Input
+                    id="pr-ed-title-h"
+                    value={title}
+                    disabled={!editable && !planningEditable}
+                    onChange={(e) => setTitle(e.target.value)}
+                    maxLength={500}
+                    placeholder={
+                      isPostMortemReview
+                        ? 'Ex. Retour d’expérience — intégration API éditeur'
+                        : 'Ex. COPIL — arbitrage budget T2'
+                    }
+                    className="starium-form-input min-h-11"
+                  />
+                </div>
+                {!isPostMortemReview ? (
+                  <div className="starium-form-field starium-form-grid--span-2">
+                    <label htmlFor="pr-ed-objective" className="starium-form-label">
+                      Objectif du point
+                    </label>
+                    <textarea
+                      id="pr-ed-objective"
+                      className={textareaClass}
+                      value={objective}
+                      disabled={!editable && !planningEditable}
+                      onChange={(e) => setObjective(e.target.value)}
+                      placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
+                      maxLength={20000}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </ReviewEditorSection>
+
+            {!isPostMortemReview ? (
+              <details
+                ref={planningDetailsRef}
+                className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
+              >
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span>
+                    <span className="block text-sm font-semibold text-foreground">Planification</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Lieu, visio, invitations — secondaire
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                    aria-hidden
+                  />
+                </summary>
+                <div className="space-y-4 border-t border-border/60 px-4 pb-4 pt-3">
+                  <ReviewMeetingInfoBlock detail={d} />
+                  {planningEditable ? (
+                    <ReviewPlannedPlanningFields
+                      projectId={projectId}
+                      reviewId={d.id}
+                      detail={d}
+                      canEdit={planningEditable}
+                    />
+                  ) : null}
+                  <ReviewInvitationsSection
+                    projectId={projectId}
+                    reviewId={d.id}
+                    status={d.status}
+                    meetingMode={d.meetingMode}
+                    meetingUrl={d.meetingUrl}
+                    microsoftOnlineMeetingId={d.microsoftOnlineMeetingId}
+                    participants={d.participants ?? []}
+                    canEdit={canEdit}
+                  />
+                </div>
+              </details>
+            ) : (
+              <ReviewMeetingInfoBlock detail={d} />
+            )}
+
+            {isPostMortemReview && projectQuery.data && (
+              <ReviewEditorSection
+                sectionId="pr-ed-context"
+                title="Contexte à la clôture"
+                description="Indicateurs projet au moment du bilan — lecture seule."
+                icon={Target}
+              >
+                <ProjectMeteoInline
+                  project={projectQuery.data}
+                  badgeMerged={badgeMerged}
+                  embedded
+                  progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
+                />
+              </ReviewEditorSection>
+            )}
+
+            {!isPostMortemReview && projectQuery.isLoading && (
+              <div
+                className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
+                aria-hidden
+              />
+            )}
+            {!isPostMortemReview && projectQuery.data && (
+              <ProjectMeteoInline
+                project={projectQuery.data}
+                badgeMerged={badgeMerged}
+                progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
+              />
+            )}
+
+            {(!!projectQuery.data?.warnings?.length ||
+              (!isPostMortemReview && actionFormAlerts.length > 0)) && (
+              <div className="space-y-2">
+                {projectQuery.data?.warnings?.map((w) => (
+                  <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
+                    <AlertTriangle className="size-4" aria-hidden />
+                    <AlertDescription className="text-sm">
+                      {projectWarningLabel(w)}
+                    </AlertDescription>
+                  </Alert>
+                ))}
+                {actionFormAlerts.map((msg, i) => (
+                  <Alert key={`act-${i}`} className="border-border/70 bg-muted/40">
+                    <Info className="size-4 text-muted-foreground" aria-hidden />
+                    <AlertDescription className="text-xs text-muted-foreground">{msg}</AlertDescription>
+                  </Alert>
+                ))}
+              </div>
+            )}
+
+
+            {!isPostMortemReview && (
+            <>
+            {previousReviewId != null && (
+              <ReviewEditorSection
+                sectionId="pr-section-since"
+                title="Depuis le dernier point"
+                description="Indicateurs projet et activité depuis la clôture du point précédent (référence temporelle : date du point précédent)."
+                icon={TrendingUp}
+              >
+                {previousDetailQuery.isLoading || tasksQuery.isLoading ? (
+                  <LoadingState rows={2} />
+                ) : pilotageSinceLast ? (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Tâches terminées (période)
+                      </p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                        {pilotageSinceLast.tasksDoneSinceCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Risques ouverts
+                      </p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                        {pilotageSinceLast.openRisksCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+                      <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Jalons en retard (projet)
+                      </p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+                        {projectQuery.data?.delayedMilestonesCount ?? '—'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Données projet indisponibles.</p>
+                )}
+              </ReviewEditorSection>
+            )}
+
+            <ReviewEditorSection
+              sectionId="pr-section-progress"
+              title="Avancement projet"
+              description="Vue consolidée : avancement, jalons atteints / à venir / en dérive."
+              icon={Target}
+            >
+              {milestonesQuery.isLoading ? (
+                <LoadingState rows={2} />
+              ) : (
+                <div className="grid gap-3">
+                  <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm">
+                    <span className="text-muted-foreground">Avancement global (manuel / dérivé) : </span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      {projectQuery.data?.progressPercent != null
+                        ? `${projectQuery.data.progressPercent} %`
+                        : '—'}
+                      {' / '}
+                      {projectQuery.data?.derivedProgressPercent != null
+                        ? `${projectQuery.data.derivedProgressPercent} %`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div>
+                      <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Jalons atteints
+                      </p>
+                      <ul className="space-y-1 text-xs text-foreground">
+                        {(milestonesQuery.data?.items ?? [])
+                          .filter((m) => m.status === 'ACHIEVED')
+                          .slice(0, 6)
+                          .map((m) => (
+                            <li key={m.id} className="truncate">
+                              {m.name}
+                            </li>
+                          ))}
+                        {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'ACHIEVED').length ===
+                          0 && <li className="text-muted-foreground">—</li>}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Prochains jalons
+                      </p>
+                      <ul className="space-y-1 text-xs text-foreground">
+                        {(milestonesQuery.data?.items ?? [])
+                          .filter((m) => m.status === 'PLANNED')
+                          .slice(0, 6)
+                          .map((m) => (
+                            <li key={m.id} className="truncate">
+                              {m.name}
+                              {m.targetDate ? ` · ${formatDateOnly(m.targetDate)}` : ''}
+                            </li>
+                          ))}
+                        {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'PLANNED').length ===
+                          0 && <li className="text-muted-foreground">—</li>}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dérives
+                      </p>
+                      <ul className="space-y-1 text-xs text-foreground">
+                        {(milestonesQuery.data?.items ?? [])
+                          .filter((m) => m.status === 'DELAYED')
+                          .slice(0, 6)
+                          .map((m) => (
+                            <li key={m.id} className="truncate text-amber-900 dark:text-amber-200">
+                              {m.name}
+                            </li>
+                          ))}
+                        {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'DELAYED').length ===
+                          0 && <li className="text-muted-foreground">—</li>}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </ReviewEditorSection>
+
+            <ReviewEditorSection
+              sectionId="pr-section-risks"
+              title="Risques et blocages"
+              description="Risques ouverts : criticité (probabilité × impact), plan d’action."
+              icon={Flag}
+              headerAction={
+                reviewType === 'RISK_REVIEW' ? (
+                  <a
+                    href={projectRisks(projectId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: 'outline', size: 'sm' }),
+                      'min-h-11 gap-1.5',
+                    )}
+                  >
+                    <ExternalLink className="size-4 shrink-0" aria-hidden />
+                    Registre des risques
+                    <span className="sr-only"> (nouvel onglet)</span>
+                  </a>
+                ) : undefined
+              }
+            >
+              {risksQuery.isLoading ? (
+                <LoadingState rows={2} />
+              ) : !risksQuery.data?.length ? (
+                <p className="text-xs text-muted-foreground">Aucun risque enregistré sur le projet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {risksQuery.data
+                    .filter((r) => r.status === 'OPEN')
+                    .map((r) => {
+                      const crit = riskCriticalityForRisk(r);
+                      return (
+                        <li
+                          key={r.id}
+                          className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm"
+                        >
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-medium text-foreground">{r.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              Criticité : {PROJECT_CRITICALITY_LABEL[crit] ?? crit}
+                            </span>
+                          </div>
+                          {r.description ? (
+                            <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
+                          ) : null}
+                          {r.mitigationPlan ? (
+                            <p className="mt-2 border-t border-border/50 pt-2 text-xs text-foreground">
+                              <span className="font-medium">Plan d’action : </span>
+                              {r.mitigationPlan}
+                            </p>
+                          ) : (
+                            <p className="starium-text-warning-emphasis mt-2 text-xs font-semibold">
+                              Plan d’action non renseigné
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
+                  {risksQuery.data.filter((r) => r.status === 'OPEN').length === 0 && (
+                    <p className="text-xs text-muted-foreground">Aucun risque au statut ouvert.</p>
+                  )}
+                </ul>
+              )}
+            </ReviewEditorSection>
+
+            <ReviewEditorSection
+              sectionId="pr-section-arb"
+              title="Arbitrage (fiche projet)"
+              description="Lecture seule : états des trois niveaux au moment de la consultation."
+              icon={Scale}
+            >
+              <Alert className="border-border/70 bg-muted/40">
+                <Info className="size-4 text-muted-foreground" aria-hidden />
+                <AlertDescription className="text-xs text-muted-foreground">
+                  Pour modifier les statuts d’arbitrage,{' '}
+                  <Link
+                    href={projectSheet(projectId)}
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    ouvrez la fiche projet
+                  </Link>
+                  .
+                </AlertDescription>
+              </Alert>
+              {sheetQuery.isLoading ? (
+                <LoadingState rows={2} />
+              ) : sheetQuery.data ? (
+                <ArbitrationReadonlyBlock sheet={sheetQuery.data} />
+              ) : (
+                <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Fiche projet indisponible — ouvrez la fiche projet pour consulter l’arbitrage.
+                </p>
+              )}
+            </ReviewEditorSection>
+
+            </>
+            )}
+
+            {isPostMortemReview ? (
+              <>
+                <ReviewEditorSection
+                  sectionId="pr-section-rex-narrative"
+                  title="Bilan narratif"
+                  description="Structure RETEX : objectifs, résultats, écarts, causes, leçons et recommandations."
+                  icon={FileText}
+                >
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {POST_MORTEM_NARRATIVE_FIELDS.map(([key, label]) => (
+                      <div
+                        key={key}
+                        className={cn(
+                          'grid gap-1.5',
+                          (key === 'leconsApprises' || key === 'recommandations') &&
+                            'lg:col-span-2',
+                        )}
+                      >
+                        <Label className="text-xs font-medium">{label}</Label>
+                        <textarea
+                          className={textareaClass}
+                          value={postMortemForm[key]}
+                          disabled={!editable}
+                          onChange={(e) =>
+                            setPostMortemForm((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          placeholder="…"
+                          rows={key === 'leconsApprises' || key === 'recommandations' ? 4 : 3}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </ReviewEditorSection>
+
+                <ReviewEditorSection
+                  sectionId="pr-section-rex-indicators"
+                  title="Indicateurs de perception"
+                  description="Notation 0–5 sur budget, délais, qualité, communication et pilotage des risques."
+                  icon={Target}
+                >
+                  <PostMortemIndicatorsBlock
+                    indicateurs={postMortemForm.indicateurs}
+                    editable={editable}
+                    embedded
+                    onChange={(next) =>
+                      setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
+                    }
+                  />
+                </ReviewEditorSection>
+
+                <ReviewEditorSection
+                  sectionId="pr-section-summary"
+                  title="Synthèse exécutive"
+                  description="Message clé pour le CODIR — faits marquants et capitalisation."
+                  icon={Sparkles}
+                >
+                  <div className="grid gap-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="pr-ed-summary">Synthèse du bilan</Label>
+                      <textarea
+                        id="pr-ed-summary"
+                        className={textareaClass}
+                        value={executiveSummary}
+                        disabled={!editable}
+                        onChange={(e) => setExecutiveSummary(e.target.value)}
+                        placeholder="Ce que le comité doit retenir : faits marquants, écarts majeurs, leçons prioritaires…"
+                        maxLength={20000}
+                      />
+                    </div>
+                    {projectQuery.data && (
+                      <div className="grid gap-1.5 sm:max-w-md">
+                        <Label htmlFor="pr-project-status">Statut du projet</Label>
+                        <Select
+                          value={projectQuery.data.status}
+                          onValueChange={(v) => {
+                            if (v && canUpdateProject) {
+                              updateProjectStatusMutation.mutate(v);
+                            }
+                          }}
+                          disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
+                        >
+                          <SelectTrigger
+                            id="pr-project-status"
+                            size="sm"
+                            className="h-9 w-full border-border/70"
+                          >
+                            <SelectValue placeholder="Statut">
+                              {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
+                                projectQuery.data.status}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
+                              <SelectItem key={k} value={k}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!canUpdateProject ? (
+                          <p className="text-[0.7rem] text-muted-foreground">
+                            Permission « mise à jour projets » requise pour modifier le statut.
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </ReviewEditorSection>
+              </>
+            ) : null}
+    </>
+  ) : null;
+
   const renderEditorPanels = () =>
     detailQuery.isLoading || !reviewId ? (
             <div className="flex min-h-0 flex-1 items-start">
@@ -2158,559 +2737,80 @@ export function ProjectReviewEditorDialog({
 
               {phaseTabs.includes('prepare') ? (
               <TabsContent value="prepare" className={reviewTabPanelClass}>
-              <ReviewEditorSection
-                sectionId="pr-ed-params"
-                title={isPostMortemReview ? 'Identification du bilan' : 'Paramètres du point'}
-                description={
-                  isPostMortemReview
-                    ? 'Date de clôture, libellé du retour d’expérience.'
-                    : 'Type de point, date et titre de la séance.'
-                }
-                icon={isPostMortemReview ? BookOpen : CalendarClock}
-              >
-                <div className="starium-form-grid starium-form-grid--2">
-                  <div className="starium-form-field">
-                    <label htmlFor="pr-ed-type-h" className="starium-form-label">
-                      Type de point
-                    </label>
-                    {editable || typeEditable ? (
-                      <select
-                        id="pr-ed-type-h"
-                        className={selectFieldClass}
-                        value={reviewType}
-                        aria-describedby={
-                          typeEditable && isPilotageReviewType(reviewType)
-                            ? 'pr-ed-type-hint'
-                            : undefined
-                        }
-                        onChange={(e) =>
-                          handleReviewTypeChange(e.target.value as ProjectReviewType)
-                        }
-                      >
-                        {reviewTypeOptions.map((t) => (
-                          <option key={t} value={t}>
-                            {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p id="pr-ed-type-h" className="min-h-11 text-sm font-medium text-foreground">
-                        {PROJECT_REVIEW_TYPE_LABEL[reviewType] ?? 'Type de point'}
-                      </p>
-                    )}
-                    {typeEditable && isPilotageReviewType(reviewType) ? (
-                      <p id="pr-ed-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                        {REVIEW_TYPE_AGENDA_HINT[reviewType]}
-                      </p>
-                    ) : null}
-                    {showAgendaPresetMismatch ? (
-                      <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
-                        Le type a changé — réinitialisez l’ordre du jour dans l’onglet dédié si
-                        besoin.
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="starium-form-field">
-                    <label htmlFor="pr-ed-date-h" className="starium-form-label">
-                      {isPostMortemReview ? 'Date du bilan' : 'Date et heure (optionnel en préparation)'}
-                    </label>
-                    <ProjectDatetimeLocalInput
-                      id="pr-ed-date-h"
-                      value={reviewDate}
-                      disabled={!editable && !planningEditable}
-                      onChange={setReviewDate}
-                    />
-                  </div>
-                  <div className="starium-form-field starium-form-grid--span-2">
-                    <label htmlFor="pr-ed-title-h" className="starium-form-label">
-                      {isPostMortemReview ? 'Titre du bilan' : 'Titre de la séance'}
-                    </label>
-                    <Input
-                      id="pr-ed-title-h"
-                      value={title}
-                      disabled={!editable && !planningEditable}
-                      onChange={(e) => setTitle(e.target.value)}
-                      maxLength={500}
-                      placeholder={
-                        isPostMortemReview
-                          ? 'Ex. Retour d’expérience — intégration API éditeur'
-                          : 'Ex. COPIL — arbitrage budget T2'
-                      }
-                      className="starium-form-input min-h-11"
-                    />
-                  </div>
-                  {!isPostMortemReview ? (
-                    <div className="starium-form-field starium-form-grid--span-2">
-                      <label htmlFor="pr-ed-objective" className="starium-form-label">
-                        Objectif du point
-                      </label>
-                      <textarea
-                        id="pr-ed-objective"
-                        className={textareaClass}
-                        value={objective}
-                        disabled={!editable && !planningEditable}
-                        onChange={(e) => setObjective(e.target.value)}
-                        placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
-                        maxLength={20000}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </ReviewEditorSection>
-
-              {!isPostMortemReview ? (
-                <details
-                  ref={planningDetailsRef}
-                  className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
-                >
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
-                    <span>
-                      <span className="block text-sm font-semibold text-foreground">Planification</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Lieu, visio, invitations — secondaire
-                      </span>
-                    </span>
-                    <ChevronDown
-                      className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-                      aria-hidden
-                    />
-                  </summary>
-                  <div className="space-y-4 border-t border-border/60 px-4 pb-4 pt-3">
-                    <ReviewMeetingInfoBlock detail={d} />
-                    {planningEditable ? (
-                      <ReviewPlannedPlanningFields
-                        projectId={projectId}
-                        reviewId={d.id}
-                        detail={d}
-                        canEdit={planningEditable}
-                      />
-                    ) : null}
-                    <ReviewInvitationsSection
-                      projectId={projectId}
-                      reviewId={d.id}
-                      status={d.status}
-                      meetingMode={d.meetingMode}
-                      meetingUrl={d.meetingUrl}
-                      microsoftOnlineMeetingId={d.microsoftOnlineMeetingId}
-                      participants={d.participants ?? []}
-                      canEdit={canEdit}
-                    />
-                  </div>
-                </details>
-              ) : (
-                <ReviewMeetingInfoBlock detail={d} />
-              )}
-
-              {isPostMortemReview && projectQuery.data && (
-                <ReviewEditorSection
-                  sectionId="pr-ed-context"
-                  title="Contexte à la clôture"
-                  description="Indicateurs projet au moment du bilan — lecture seule."
-                  icon={Target}
-                >
-                  <ProjectMeteoInline
-                    project={projectQuery.data}
-                    badgeMerged={badgeMerged}
-                    embedded
-                    progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
-                  />
-                </ReviewEditorSection>
-              )}
-
-              {!isPostMortemReview && projectQuery.isLoading && (
-                <div
-                  className="h-24 animate-pulse rounded-xl border border-border/50 bg-muted/40"
-                  aria-hidden
-                />
-              )}
-              {!isPostMortemReview && projectQuery.data && (
-                <ProjectMeteoInline
-                  project={projectQuery.data}
-                  badgeMerged={badgeMerged}
-                  progressWhen={editorPhase === 'conduct' ? 'aujourd’hui' : undefined}
-                />
-              )}
-
-              {(!!projectQuery.data?.warnings?.length ||
-                (!isPostMortemReview && actionFormAlerts.length > 0)) && (
-                <div className="space-y-2">
-                  {projectQuery.data?.warnings?.map((w) => (
-                    <Alert key={w} variant="default" className="border-amber-300/60 bg-amber-50/90 text-foreground dark:border-amber-400/40 dark:bg-amber-100/90 dark:text-foreground">
-                      <AlertTriangle className="size-4" aria-hidden />
-                      <AlertDescription className="text-sm">
-                        {projectWarningLabel(w)}
-                      </AlertDescription>
-                    </Alert>
-                  ))}
-                  {actionFormAlerts.map((msg, i) => (
-                    <Alert key={`act-${i}`} className="border-border/70 bg-muted/40">
-                      <Info className="size-4 text-muted-foreground" aria-hidden />
-                      <AlertDescription className="text-xs text-muted-foreground">{msg}</AlertDescription>
-                    </Alert>
-                  ))}
-                </div>
-              )}
-
-
-              {!isPostMortemReview && (
-              <>
-              {previousReviewId != null && (
-                <ReviewEditorSection
-                  sectionId="pr-section-since"
-                  title="Depuis le dernier point"
-                  description="Indicateurs projet et activité depuis la clôture du point précédent (référence temporelle : date du point précédent)."
-                  icon={TrendingUp}
-                >
-                  {previousDetailQuery.isLoading || tasksQuery.isLoading ? (
-                    <LoadingState rows={2} />
-                  ) : pilotageSinceLast ? (
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Tâches terminées (période)
-                        </p>
-                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                          {pilotageSinceLast.tasksDoneSinceCount}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Risques ouverts
-                        </p>
-                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                          {pilotageSinceLast.openRisksCount}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
-                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Jalons en retard (projet)
-                        </p>
-                        <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                          {projectQuery.data?.delayedMilestonesCount ?? '—'}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Données projet indisponibles.</p>
-                  )}
-                </ReviewEditorSection>
-              )}
-
-              <ReviewEditorSection
-                sectionId="pr-section-progress"
-                title="Avancement projet"
-                description="Vue consolidée : avancement, jalons atteints / à venir / en dérive."
-                icon={Target}
-              >
-                {milestonesQuery.isLoading ? (
-                  <LoadingState rows={2} />
-                ) : (
-                  <div className="grid gap-3">
-                    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm">
-                      <span className="text-muted-foreground">Avancement global (manuel / dérivé) : </span>
-                      <span className="font-medium tabular-nums text-foreground">
-                        {projectQuery.data?.progressPercent != null
-                          ? `${projectQuery.data.progressPercent} %`
-                          : '—'}
-                        {' / '}
-                        {projectQuery.data?.derivedProgressPercent != null
-                          ? `${projectQuery.data.derivedProgressPercent} %`
-                          : '—'}
-                      </span>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <div>
-                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Jalons atteints
-                        </p>
-                        <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data?.items ?? [])
-                            .filter((m) => m.status === 'ACHIEVED')
-                            .slice(0, 6)
-                            .map((m) => (
-                              <li key={m.id} className="truncate">
-                                {m.name}
-                              </li>
-                            ))}
-                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'ACHIEVED').length ===
-                            0 && <li className="text-muted-foreground">—</li>}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Prochains jalons
-                        </p>
-                        <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data?.items ?? [])
-                            .filter((m) => m.status === 'PLANNED')
-                            .slice(0, 6)
-                            .map((m) => (
-                              <li key={m.id} className="truncate">
-                                {m.name}
-                                {m.targetDate ? ` · ${formatDateOnly(m.targetDate)}` : ''}
-                              </li>
-                            ))}
-                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'PLANNED').length ===
-                            0 && <li className="text-muted-foreground">—</li>}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="mb-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Dérives
-                        </p>
-                        <ul className="space-y-1 text-xs text-foreground">
-                          {(milestonesQuery.data?.items ?? [])
-                            .filter((m) => m.status === 'DELAYED')
-                            .slice(0, 6)
-                            .map((m) => (
-                              <li key={m.id} className="truncate text-amber-900 dark:text-amber-200">
-                                {m.name}
-                              </li>
-                            ))}
-                          {(milestonesQuery.data?.items ?? []).filter((m) => m.status === 'DELAYED').length ===
-                            0 && <li className="text-muted-foreground">—</li>}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </ReviewEditorSection>
-
-              <ReviewEditorSection
-                sectionId="pr-section-risks"
-                title="Risques et blocages"
-                description="Risques ouverts : criticité (probabilité × impact), plan d’action."
-                icon={Flag}
-                headerAction={
-                  reviewType === 'RISK_REVIEW' ? (
-                    <a
-                      href={projectRisks(projectId)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        buttonVariants({ variant: 'outline', size: 'sm' }),
-                        'min-h-11 gap-1.5',
-                      )}
-                    >
-                      <ExternalLink className="size-4 shrink-0" aria-hidden />
-                      Registre des risques
-                      <span className="sr-only"> (nouvel onglet)</span>
-                    </a>
-                  ) : undefined
-                }
-              >
-                {risksQuery.isLoading ? (
-                  <LoadingState rows={2} />
-                ) : !risksQuery.data?.length ? (
-                  <p className="text-xs text-muted-foreground">Aucun risque enregistré sur le projet.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {risksQuery.data
-                      .filter((r) => r.status === 'OPEN')
-                      .map((r) => {
-                        const crit = riskCriticalityForRisk(r);
-                        return (
-                          <li
-                            key={r.id}
-                            className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm"
-                          >
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <span className="font-medium text-foreground">{r.title}</span>
-                              <span className="text-xs text-muted-foreground">
-                                Criticité : {PROJECT_CRITICALITY_LABEL[crit] ?? crit}
-                              </span>
-                            </div>
-                            {r.description ? (
-                              <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>
-                            ) : null}
-                            {r.mitigationPlan ? (
-                              <p className="mt-2 border-t border-border/50 pt-2 text-xs text-foreground">
-                                <span className="font-medium">Plan d’action : </span>
-                                {r.mitigationPlan}
-                              </p>
-                            ) : (
-                              <p className="starium-text-warning-emphasis mt-2 text-xs font-semibold">
-                                Plan d’action non renseigné
-                              </p>
-                            )}
-                          </li>
-                        );
-                      })}
-                    {risksQuery.data.filter((r) => r.status === 'OPEN').length === 0 && (
-                      <p className="text-xs text-muted-foreground">Aucun risque au statut ouvert.</p>
-                    )}
-                  </ul>
-                )}
-              </ReviewEditorSection>
-
-              <ReviewEditorSection
-                sectionId="pr-section-arb"
-                title="Arbitrage (fiche projet)"
-                description="Lecture seule : états des trois niveaux au moment de la consultation."
-                icon={Scale}
-              >
-                <Alert className="border-border/70 bg-muted/40">
-                  <Info className="size-4 text-muted-foreground" aria-hidden />
-                  <AlertDescription className="text-xs text-muted-foreground">
-                    Pour modifier les statuts d’arbitrage,{' '}
-                    <Link
-                      href={projectSheet(projectId)}
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      ouvrez la fiche projet
-                    </Link>
-                    .
-                  </AlertDescription>
-                </Alert>
-                {sheetQuery.isLoading ? (
-                  <LoadingState rows={2} />
-                ) : sheetQuery.data ? (
-                  <ArbitrationReadonlyBlock sheet={sheetQuery.data} />
-                ) : (
-                  <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    Fiche projet indisponible — ouvrez la fiche projet pour consulter l’arbitrage.
-                  </p>
-                )}
-              </ReviewEditorSection>
-
-              </>
-              )}
-
-              {isPostMortemReview ? (
-                <>
-                  <ReviewEditorSection
-                    sectionId="pr-section-rex-narrative"
-                    title="Bilan narratif"
-                    description="Structure RETEX : objectifs, résultats, écarts, causes, leçons et recommandations."
-                    icon={FileText}
-                  >
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      {POST_MORTEM_NARRATIVE_FIELDS.map(([key, label]) => (
-                        <div
-                          key={key}
-                          className={cn(
-                            'grid gap-1.5',
-                            (key === 'leconsApprises' || key === 'recommandations') &&
-                              'lg:col-span-2',
-                          )}
-                        >
-                          <Label className="text-xs font-medium">{label}</Label>
-                          <textarea
-                            className={textareaClass}
-                            value={postMortemForm[key]}
-                            disabled={!editable}
-                            onChange={(e) =>
-                              setPostMortemForm((prev) => ({
-                                ...prev,
-                                [key]: e.target.value,
-                              }))
-                            }
-                            placeholder="…"
-                            rows={key === 'leconsApprises' || key === 'recommandations' ? 4 : 3}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </ReviewEditorSection>
-
-                  <ReviewEditorSection
-                    sectionId="pr-section-rex-indicators"
-                    title="Indicateurs de perception"
-                    description="Notation 0–5 sur budget, délais, qualité, communication et pilotage des risques."
-                    icon={Target}
-                  >
-                    <PostMortemIndicatorsBlock
-                      indicateurs={postMortemForm.indicateurs}
-                      editable={editable}
-                      embedded
-                      onChange={(next) =>
-                        setPostMortemForm((prev) => ({ ...prev, indicateurs: next }))
-                      }
-                    />
-                  </ReviewEditorSection>
-
-                  <ReviewEditorSection
-                    sectionId="pr-section-summary"
-                    title="Synthèse exécutive"
-                    description="Message clé pour le CODIR — faits marquants et capitalisation."
-                    icon={Sparkles}
-                  >
-                    <div className="grid gap-3">
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="pr-ed-summary">Synthèse du bilan</Label>
-                        <textarea
-                          id="pr-ed-summary"
-                          className={textareaClass}
-                          value={executiveSummary}
-                          disabled={!editable}
-                          onChange={(e) => setExecutiveSummary(e.target.value)}
-                          placeholder="Ce que le comité doit retenir : faits marquants, écarts majeurs, leçons prioritaires…"
-                          maxLength={20000}
-                        />
-                      </div>
-                      {projectQuery.data && (
-                        <div className="grid gap-1.5 sm:max-w-md">
-                          <Label htmlFor="pr-project-status">Statut du projet</Label>
-                          <Select
-                            value={projectQuery.data.status}
-                            onValueChange={(v) => {
-                              if (v && canUpdateProject) {
-                                updateProjectStatusMutation.mutate(v);
-                              }
-                            }}
-                            disabled={!canUpdateProject || updateProjectStatusMutation.isPending}
-                          >
-                            <SelectTrigger
-                              id="pr-project-status"
-                              size="sm"
-                              className="h-9 w-full border-border/70"
-                            >
-                              <SelectValue placeholder="Statut">
-                                {PROJECT_STATUS_LABEL[projectQuery.data.status] ??
-                                  projectQuery.data.status}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(PROJECT_STATUS_LABEL).map(([k, label]) => (
-                                <SelectItem key={k} value={k}>
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {!canUpdateProject ? (
-                            <p className="text-[0.7rem] text-muted-foreground">
-                              Permission « mise à jour projets » requise pour modifier le statut.
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  </ReviewEditorSection>
-                </>
-              ) : null}
+                {prepareMetaPanel}
               </TabsContent>
               ) : null}
 
               {phaseTabs.includes('agenda') ? (
                   <TabsContent value="agenda" className={reviewTabPanelClass}>
+                    {editorPhase === 'prepare' ? (
+                      <details
+                        ref={prepareParamsDetailsRef}
+                        className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
+                      >
+                        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                          <span>
+                            <span className="block text-sm font-semibold text-foreground">
+                              Paramètres du point
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              Type, date, titre, contexte — repliable
+                            </span>
+                          </span>
+                          <ChevronDown
+                            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                            aria-hidden
+                          />
+                        </summary>
+                        <div className="space-y-4 border-t border-border/60 px-4 pb-4 pt-3">
+                          {prepareMetaPanel}
+                        </div>
+                      </details>
+                    ) : null}
                     <ReviewAgendaSection
                       projectId={projectId}
                       reviewId={d.id}
                       status={d.status}
                       agendaItems={d.agendaItems ?? []}
                       canEdit={canEdit}
-                      reviewDecisions={d.decisions ?? []}
-                      reviewActions={d.actionItems ?? []}
                       reviewAttachments={d.attachments ?? []}
+                      formDecisions={decisions}
+                      formActions={actions}
                       onAddDecision={editable ? appendDecision : undefined}
                       onAddAction={editable ? appendAction : undefined}
+                      onUpdateDecision={editable ? updateDecision : undefined}
+                      onUpdateAction={editable ? updateAction : undefined}
+                      onRemoveDecision={editable ? removeDecision : undefined}
+                      onRemoveAction={editable ? removeAction : undefined}
+                      selectedAgendaItemId={selectedAgendaItemId}
+                      onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
                       reviewType={reviewType}
                       showAgendaPresetControls={showAgendaPresetControls}
                       agendaPresetMismatch={showAgendaPresetMismatch}
                       applyingAgendaPreset={applyingAgendaPreset}
                       onApplyAgendaPreset={() => void applyAgendaPresetForType(reviewType)}
                     />
+                    {editorPhase === 'prepare' ? (
+                      <>
+                        <ReviewParticipantsSection
+                          projectId={projectId}
+                          reviewId={d.id}
+                          status={d.status}
+                          participants={d.participants ?? []}
+                          canEdit={canEdit}
+                        />
+                        <ReviewAttachmentsSection
+                          projectId={projectId}
+                          reviewId={d.id}
+                          status={d.status}
+                          attachments={d.attachments ?? []}
+                          agendaItems={d.agendaItems ?? []}
+                          decisions={d.decisions ?? []}
+                          actionItems={d.actionItems ?? []}
+                          canEdit={canEdit}
+                        />
+                      </>
+                    ) : null}
                   </TabsContent>
               ) : null}
               {phaseTabs.includes('participants') ? (
@@ -2731,6 +2831,8 @@ export function ProjectReviewEditorDialog({
                       onChange={setDecisions}
                       editable={editable}
                       agendaItems={d.agendaItems ?? []}
+                      recapMode
+                      onOpenAgendaSubject={openAgendaSubject}
                     />
                   </TabsContent>
               ) : null}
@@ -2742,6 +2844,9 @@ export function ProjectReviewEditorDialog({
                       actions={actions}
                       onChange={setActions}
                       editable={editable}
+                      agendaItems={d.agendaItems ?? []}
+                      recapMode
+                      onOpenAgendaSubject={openAgendaSubject}
                     />
                   </TabsContent>
               ) : null}

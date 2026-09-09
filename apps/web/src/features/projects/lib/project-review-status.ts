@@ -94,7 +94,7 @@ export function canPreviewDraftReviewReport(status: ProjectReviewStatus): boolea
 export type ReviewEditorPhase = 'prepare' | 'conduct' | 'retex';
 
 const REVIEW_EDITOR_TABS_BY_PHASE: Record<ReviewEditorPhase, readonly string[]> = {
-  prepare: ['prepare', 'agenda', 'participants', 'attachments'],
+  prepare: ['agenda'],
   conduct: ['agenda', 'participants', 'decisions', 'actions', 'attachments', 'closure'],
   retex: ['prepare', 'participants', 'attachments'],
 };

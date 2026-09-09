@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   agendaRowsMatchPreset,
+  defaultExpectedDecisionForItemType,
   getAgendaPresetForReviewType,
   isPilotageReviewType,
   REVIEW_TYPE_AGENDA_HINT,
@@ -20,8 +21,17 @@ describe('project-review-agenda-presets', () => {
       const preset = getAgendaPresetForReviewType(type);
       expect(preset.length).toBeGreaterThan(0);
       expect(preset.every((row) => row.title.trim().length > 0)).toBe(true);
+      expect(
+        preset.every((row) => row.expectedDecision.trim().length > 0),
+      ).toBe(true);
       expect(REVIEW_TYPE_AGENDA_HINT[type]).toMatch(/\S/);
     }
+  });
+
+  it('defaultExpectedDecisionForItemType couvre les types clés', () => {
+    expect(defaultExpectedDecisionForItemType('BUDGET')).toMatch(/budget/i);
+    expect(defaultExpectedDecisionForItemType('RISK')).toMatch(/risque/i);
+    expect(defaultExpectedDecisionForItemType('MILESTONE')).toMatch(/GO/i);
   });
 
   it('ne propose pas de modèle ODJ pour le retour d’expérience', () => {

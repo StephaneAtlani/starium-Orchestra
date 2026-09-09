@@ -160,6 +160,7 @@
 | 14d′  | **RFC-PROJ-013-1** | Cycle de vie réunion Point projet | **Phases 1–3 ✅** : invitations in-app, email, Teams/calendrier ; cycle historique `PLANNED`/`IN_REVIEW` | ✅ Livré (cycle supersédé par 013-2) | [RFC](./RFC-PROJ-013-1%20—%20Cycle%20de%20vie%20réunion%20Point%20projet%20(planification,%20invitations,%20tenue).md) — migrations `20260704120*`, `20260705120000`, `20260705140000` |
 | 14d″  | **RFC-PROJ-013-2** | Point projet de pilotage | Cycle PREPARING→…, ODJ typé, attachments, snapshot v2, météo comité, CR e-mail, UI onglets + footer Planifier | ✅ Implémenté | [RFC](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md) — migrations `20260705180000`…`80900` |
 | 14d‴  | **RFC-PROJ-013-3** | Cohérence Point projet | 4e passe : D7 météo (c) ; legacy preview Lot C ; prêt comité. [Note D1–D7](./RFC-PROJ-013-3%20—%20Note%20arbitrage%20D1-D7.md) | 📝 Draft amendé | [RFC](./RFC-PROJ-013-3%20—%20Cohérence%20Point%20projet%20(CR,%20snapshot,%20lecture,%20UX).md) |
+| 14d⁗  | **RFC-PROJ-013-4** | Tenue ODJ-first | Création + conduite sujet-centrées ; Suites inline ; Décisions/Actions = récaps (ex-C9) | ✅ Implémenté | [RFC](./RFC-PROJ-013-4%20—%20Tenue%20ODJ-first%20(Infos,%20Questions,%20Suites,%20Récaps).md) |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |
 
 ---

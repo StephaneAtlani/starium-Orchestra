@@ -62,13 +62,8 @@ describe('project-review-status', () => {
     expect(reviewEditorPhase('DRAFT', 'COPIL')).toBe('prepare');
     expect(reviewEditorPhase('SCHEDULED', 'COMEX')).toBe('prepare');
     expect(reviewEditorPhase('PLANNED', 'COPIL')).toBe('prepare');
-    expect(reviewEditorTabsForPhase('prepare')).toEqual([
-      'prepare',
-      'agenda',
-      'participants',
-      'attachments',
-    ]);
-    expect(reviewEditorInitialTab('prepare')).toBe('prepare');
+    expect(reviewEditorTabsForPhase('prepare')).toEqual(['agenda']);
+    expect(reviewEditorInitialTab('prepare')).toBe('agenda');
   });
 
   it('reviewEditorPhase — conduite (IN_PROGRESS non-RETEX)', () => {

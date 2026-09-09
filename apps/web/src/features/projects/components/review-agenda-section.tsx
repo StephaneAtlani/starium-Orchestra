@@ -3,13 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
+import { displayLabel } from '@/lib/display-label';
 import {
+  PROJECT_PRIORITY_LABEL,
   PROJECT_REVIEW_AGENDA_ITEM_STATUS_LABEL,
   PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
+  PROJECT_REVIEW_DECISION_STATUS_LABEL,
+  PROJECT_REVIEW_DECISION_TYPE_LABEL,
   PROJECT_REVIEW_MEETING_MODE_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
+  TASK_STATUS_LABEL,
 } from '../constants/project-enum-labels';
 import { isPilotageReviewType, REVIEW_TYPE_AGENDA_HINT } from '../lib/project-review-agenda-presets';
+import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import {
   findNextOpenAgendaItemId,
@@ -26,24 +35,23 @@ import type {
   ProjectReviewAgendaItemApi,
   ProjectReviewAgendaItemType,
   ProjectReviewAttachmentApi,
-  ProjectReviewDecisionApi,
-  ProjectReviewActionItemApi,
+  ProjectReviewDecisionStatus,
+  ProjectReviewDecisionType,
   ProjectReviewDetail,
   ProjectReviewMeetingMode,
   ProjectReviewStatus,
   ProjectReviewType,
 } from '../types/project.types';
-import type { ReviewActionFormRow } from './review-actions-section';
-import type { ReviewDecisionFormRow } from './review-decisions-section';
 import {
-  ReviewAgendaAddActionModal,
-  ReviewAgendaAddAttachmentModal,
-  ReviewAgendaAddDecisionModal,
-  ReviewAgendaPointOutputs,
-  type ReviewAgendaQuickAddKind,
-} from './review-agenda-point-modals';
-import { cn } from '@/lib/utils';
-import { toast } from '@/lib/toast';
+  emptyActionRow,
+  type ReviewActionFormRow,
+} from './review-actions-section';
+import {
+  emptyDecisionRow,
+  type ReviewDecisionFormRow,
+} from './review-decisions-section';
+import { ReviewAgendaAddAttachmentModal } from './review-agenda-point-modals';
+import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import {
   CheckCircle2,
   ChevronDown,
@@ -51,9 +59,13 @@ import {
   ChevronRight,
   ChevronUp,
   ExternalLink,
+  FileText,
+  ListChecks,
   ListOrdered,
+  ListTodo,
   Play,
   RotateCcw,
+  Scale,
   SkipForward,
   Square,
   Video,
@@ -66,17 +78,57 @@ type Props = {
   status: ProjectReviewStatus;
   agendaItems: ProjectReviewAgendaItemApi[];
   canEdit: boolean;
-  reviewDecisions?: ProjectReviewDecisionApi[];
-  reviewActions?: ProjectReviewActionItemApi[];
+  /** Snapshot API (pièces jointes). */
   reviewAttachments?: ProjectReviewAttachmentApi[];
+  /** État formulaire éditeur — source de vérité Suites (live avant PATCH). */
+  formDecisions?: ReviewDecisionFormRow[];
+  formActions?: ReviewActionFormRow[];
   onAddDecision?: (row: ReviewDecisionFormRow) => void;
   onAddAction?: (row: ReviewActionFormRow) => void;
+  onUpdateDecision?: (index: number, row: ReviewDecisionFormRow) => void;
+  onUpdateAction?: (index: number, row: ReviewActionFormRow) => void;
+  onRemoveDecision?: (index: number) => void;
+  onRemoveAction?: (index: number) => void;
+  /** Sync sélection depuis les onglets récap (« Ouvrir le sujet »). */
+  selectedAgendaItemId?: string | null;
+  onSelectedAgendaItemIdChange?: (id: string | null) => void;
   reviewType?: ProjectReviewType;
   showAgendaPresetControls?: boolean;
   agendaPresetMismatch?: boolean;
   onApplyAgendaPreset?: () => void;
   applyingAgendaPreset?: boolean;
 };
+
+const DECISION_TYPES = Object.keys(
+  PROJECT_REVIEW_DECISION_TYPE_LABEL,
+) as ProjectReviewDecisionType[];
+const DECISION_STATUSES = Object.keys(
+  PROJECT_REVIEW_DECISION_STATUS_LABEL,
+) as ProjectReviewDecisionStatus[];
+
+function defaultDecisionTypeForAgenda(
+  itemType: ProjectReviewAgendaItemType,
+): ProjectReviewDecisionType {
+  switch (itemType) {
+    case 'ARBITRATION':
+      return 'ARBITRATION';
+    case 'BUDGET':
+      return 'BUDGET_VALIDATION';
+    case 'RISK':
+      return 'RISK_ACCEPTANCE';
+    default:
+      return 'OTHER';
+  }
+}
+
+function displayNameFromUser(u: {
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return name || u.email;
+}
 
 function agendaItemStatusClass(status: ProjectReviewAgendaItemApi['status']): string {
   switch (status) {
@@ -150,17 +202,408 @@ function RiskReviewRegisterLink({ projectId }: { projectId: string }) {
   );
 }
 
+type ConductSuitesPanelProps = {
+  agendaItemId: string;
+  agendaItemType: ProjectReviewAgendaItemType;
+  decisionSummary: string;
+  expectedDecision: string;
+  conductEditable: boolean;
+  formDecisions: ReviewDecisionFormRow[];
+  formActions: ReviewActionFormRow[];
+  attachments: { title: string }[];
+  onAddDecision?: (row: ReviewDecisionFormRow) => void;
+  onAddAction?: (row: ReviewActionFormRow) => void;
+  onUpdateDecision?: (index: number, row: ReviewDecisionFormRow) => void;
+  onUpdateAction?: (index: number, row: ReviewActionFormRow) => void;
+  onRemoveDecision?: (index: number) => void;
+  onRemoveAction?: (index: number) => void;
+  onAddAttachment: () => void;
+};
+
+function ConductSuitesPanel({
+  agendaItemId,
+  agendaItemType,
+  decisionSummary,
+  expectedDecision,
+  conductEditable,
+  formDecisions,
+  formActions,
+  attachments,
+  onAddDecision,
+  onAddAction,
+  onUpdateDecision,
+  onUpdateAction,
+  onRemoveDecision,
+  onRemoveAction,
+  onAddAttachment,
+}: ConductSuitesPanelProps) {
+  const assignable = useProjectAssignableUsers({ enabled: conductEditable });
+
+  const linkedDecisions = useMemo(
+    () =>
+      formDecisions
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => row.agendaItemId === agendaItemId),
+    [formDecisions, agendaItemId],
+  );
+  const linkedActions = useMemo(
+    () =>
+      formActions
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => row.agendaItemId === agendaItemId),
+    [formActions, agendaItemId],
+  );
+
+  const [decTitle, setDecTitle] = useState('');
+  const [decType, setDecType] = useState<ProjectReviewDecisionType>('OTHER');
+  const [decStatus, setDecStatus] = useState<ProjectReviewDecisionStatus>('VALIDATED');
+  const [actTitle, setActTitle] = useState('');
+  const [actPriority, setActPriority] = useState('MEDIUM');
+  const [actDue, setActDue] = useState('');
+  const [actResponsible, setActResponsible] = useState('');
+
+  useEffect(() => {
+    setDecTitle('');
+    setDecType(defaultDecisionTypeForAgenda(agendaItemType));
+    setDecStatus('VALIDATED');
+    setActTitle('');
+    setActPriority('MEDIUM');
+    setActDue('');
+    setActResponsible('');
+  }, [agendaItemId, agendaItemType]);
+
+  const submitDecision = () => {
+    if (!onAddDecision) return;
+    const title = decTitle.trim();
+    if (!title) {
+      toast.error('Le titre de la décision est obligatoire.');
+      return;
+    }
+    onAddDecision({
+      ...emptyDecisionRow(),
+      title,
+      description:
+        decisionSummary.trim() || expectedDecision.trim() || '',
+      decisionType: decType,
+      status: decStatus,
+      agendaItemId,
+    });
+    setDecTitle('');
+    setDecType(defaultDecisionTypeForAgenda(agendaItemType));
+    setDecStatus('VALIDATED');
+    toast.success('Décision ajoutée au sujet.');
+  };
+
+  const submitAction = () => {
+    if (!onAddAction) return;
+    const title = actTitle.trim();
+    if (!title) {
+      toast.error('Le libellé de l’action est obligatoire.');
+      return;
+    }
+    onAddAction({
+      ...emptyActionRow(),
+      title,
+      priority: actPriority,
+      dueDate: actDue,
+      responsibleUserId: actResponsible,
+      agendaItemId,
+    });
+    setActTitle('');
+    setActPriority('MEDIUM');
+    setActDue('');
+    setActResponsible('');
+    toast.success('Action ajoutée au sujet.');
+  };
+
+  return (
+    <fieldset className="rounded-lg border border-border/70 bg-muted/10 px-4 py-3">
+      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-foreground">
+        Suites
+      </legend>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Formalisez ici les décisions et actions rattachées à ce sujet.
+      </p>
+
+      <div className="mt-4 space-y-4">
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <ListChecks className="size-4 shrink-0" aria-hidden />
+            Décisions
+            <span className="tabular-nums text-muted-foreground">({linkedDecisions.length})</span>
+          </p>
+          {linkedDecisions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucune décision pour ce sujet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {linkedDecisions.map(({ row, index }) => (
+                <li
+                  key={`suite-dec-${index}`}
+                  className="rounded-md border border-border/60 bg-card px-3 py-2"
+                >
+                  {conductEditable && onUpdateDecision ? (
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <Input
+                        className="starium-form-input min-h-11"
+                        value={row.title}
+                        aria-label={`Titre décision ${index + 1}`}
+                        onChange={(e) =>
+                          onUpdateDecision(index, { ...row, title: e.target.value })
+                        }
+                      />
+                      {onRemoveDecision ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 text-destructive"
+                          onClick={() => onRemoveDecision(index)}
+                        >
+                          Retirer
+                        </Button>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground sm:col-span-2">
+                        {displayLabel(
+                          PROJECT_REVIEW_DECISION_TYPE_LABEL[row.decisionType],
+                          'Type',
+                        )}
+                        {' · '}
+                        {displayLabel(
+                          PROJECT_REVIEW_DECISION_STATUS_LABEL[row.status],
+                          'Statut',
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {displayLabel(row.title, 'Décision sans titre')}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {conductEditable && onAddDecision ? (
+            <div className="grid gap-2 rounded-md border border-dashed border-border/80 bg-card/80 p-3 sm:grid-cols-2">
+              <div className="starium-form-field sm:col-span-2">
+                <Label htmlFor={`suite-dec-title-${agendaItemId}`}>Nouvelle décision</Label>
+                <Input
+                  id={`suite-dec-title-${agendaItemId}`}
+                  className="starium-form-input min-h-11"
+                  value={decTitle}
+                  placeholder="Titre de la décision"
+                  onChange={(e) => setDecTitle(e.target.value)}
+                />
+              </div>
+              <div className="starium-form-field">
+                <Label htmlFor={`suite-dec-type-${agendaItemId}`}>Type</Label>
+                <select
+                  id={`suite-dec-type-${agendaItemId}`}
+                  className="starium-form-select min-h-11 w-full"
+                  value={decType}
+                  onChange={(e) =>
+                    setDecType(e.target.value as ProjectReviewDecisionType)
+                  }
+                >
+                  {DECISION_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {PROJECT_REVIEW_DECISION_TYPE_LABEL[t] ?? t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="starium-form-field">
+                <Label htmlFor={`suite-dec-status-${agendaItemId}`}>Statut</Label>
+                <select
+                  id={`suite-dec-status-${agendaItemId}`}
+                  className="starium-form-select min-h-11 w-full"
+                  value={decStatus}
+                  onChange={(e) =>
+                    setDecStatus(e.target.value as ProjectReviewDecisionStatus)
+                  }
+                >
+                  {DECISION_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {PROJECT_REVIEW_DECISION_STATUS_LABEL[s] ?? s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <Button type="button" className="min-h-11" onClick={submitDecision}>
+                  <Scale className="size-4" aria-hidden />
+                  Ajouter la décision
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <ListTodo className="size-4 shrink-0" aria-hidden />
+            Actions
+            <span className="tabular-nums text-muted-foreground">({linkedActions.length})</span>
+          </p>
+          {linkedActions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucune action pour ce sujet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {linkedActions.map(({ row, index }) => (
+                <li
+                  key={`suite-act-${index}`}
+                  className="rounded-md border border-border/60 bg-card px-3 py-2"
+                >
+                  {conductEditable && onUpdateAction ? (
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <Input
+                        className="starium-form-input min-h-11"
+                        value={row.title}
+                        aria-label={`Libellé action ${index + 1}`}
+                        onChange={(e) =>
+                          onUpdateAction(index, { ...row, title: e.target.value })
+                        }
+                      />
+                      {onRemoveAction ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 text-destructive"
+                          onClick={() => onRemoveAction(index)}
+                        >
+                          Retirer
+                        </Button>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground sm:col-span-2">
+                        {displayLabel(TASK_STATUS_LABEL[row.status], 'Statut')}
+                        {' · '}
+                        {displayLabel(PROJECT_PRIORITY_LABEL[row.priority], 'Priorité')}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-foreground">
+                      {displayLabel(row.title, 'Action sans titre')}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {conductEditable && onAddAction ? (
+            <div className="grid gap-2 rounded-md border border-dashed border-border/80 bg-card/80 p-3 sm:grid-cols-2">
+              <div className="starium-form-field sm:col-span-2">
+                <Label htmlFor={`suite-act-title-${agendaItemId}`}>Nouvelle action</Label>
+                <Input
+                  id={`suite-act-title-${agendaItemId}`}
+                  className="starium-form-input min-h-11"
+                  value={actTitle}
+                  placeholder="Libellé de l’action"
+                  onChange={(e) => setActTitle(e.target.value)}
+                />
+              </div>
+              <div className="starium-form-field">
+                <Label htmlFor={`suite-act-prio-${agendaItemId}`}>Priorité</Label>
+                <select
+                  id={`suite-act-prio-${agendaItemId}`}
+                  className="starium-form-select min-h-11 w-full"
+                  value={actPriority}
+                  onChange={(e) => setActPriority(e.target.value)}
+                >
+                  {Object.keys(PROJECT_PRIORITY_LABEL).map((p) => (
+                    <option key={p} value={p}>
+                      {PROJECT_PRIORITY_LABEL[p] ?? p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="starium-form-field">
+                <Label htmlFor={`suite-act-resp-${agendaItemId}`}>Responsable</Label>
+                <select
+                  id={`suite-act-resp-${agendaItemId}`}
+                  className="starium-form-select min-h-11 w-full"
+                  value={actResponsible}
+                  disabled={assignable.isLoading}
+                  onChange={(e) => setActResponsible(e.target.value)}
+                >
+                  <option value="">— Choisir —</option>
+                  {assignable.data?.users?.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {displayNameFromUser(u)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="starium-form-field sm:col-span-2">
+                <Label htmlFor={`suite-act-due-${agendaItemId}`}>Échéance (optionnel)</Label>
+                <ProjectDatetimeLocalInput
+                  id={`suite-act-due-${agendaItemId}`}
+                  value={actDue}
+                  onChange={setActDue}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Button type="button" className="min-h-11" onClick={submitAction}>
+                  <ListTodo className="size-4" aria-hidden />
+                  Ajouter l&apos;action
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <FileText className="size-4 shrink-0" aria-hidden />
+            Documents
+            <span className="tabular-nums text-muted-foreground">({attachments.length})</span>
+          </p>
+          {attachments.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun document pour ce sujet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {attachments.map((att, i) => (
+                <li key={`suite-att-${i}`} className="truncate text-sm text-foreground">
+                  {displayLabel(att.title, 'Document sans titre')}
+                </li>
+              ))}
+            </ul>
+          )}
+          {conductEditable ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11 gap-1.5"
+              onClick={onAddAttachment}
+            >
+              <FileText className="size-4" aria-hidden />
+              Document / lien
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
 export function ReviewAgendaSection({
   projectId,
   reviewId,
   status,
   agendaItems,
   canEdit,
-  reviewDecisions = [],
-  reviewActions = [],
   reviewAttachments = [],
+  formDecisions = [],
+  formActions = [],
   onAddDecision,
   onAddAction,
+  onUpdateDecision,
+  onUpdateAction,
+  onRemoveDecision,
+  onRemoveAction,
+  selectedAgendaItemId = null,
+  onSelectedAgendaItemIdChange,
   reviewType,
   showAgendaPresetControls = false,
   agendaPresetMismatch = false,
@@ -183,7 +626,7 @@ export function ReviewAgendaSection({
   const [decisionSummary, setDecisionSummary] = useState('');
   const [objective, setObjective] = useState('');
   const [expectedDecision, setExpectedDecision] = useState('');
-  const [quickAddKind, setQuickAddKind] = useState<ReviewAgendaQuickAddKind | null>(null);
+  const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const conductStepNavRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const sortedItems = useMemo(() => sortReviewAgendaItems(agendaItems), [agendaItems]);
@@ -203,15 +646,27 @@ export function ReviewAgendaSection({
   const selected = sortedItems.find((i) => i.id === selectedId) ?? null;
   const selectedIndex = selected ? sortedItems.findIndex((i) => i.id === selected.id) : -1;
 
-  const selectItem = useCallback((item: ProjectReviewAgendaItemApi) => {
-    setSelectedId(item.id);
-    setNotes(item.notes ?? '');
-    setDecisionSummary(item.decisionSummary ?? '');
-    setObjective(item.objective ?? '');
-    setExpectedDecision(item.expectedDecision ?? '');
-  }, []);
+  const selectItem = useCallback(
+    (item: ProjectReviewAgendaItemApi) => {
+      setSelectedId(item.id);
+      setNotes(item.notes ?? '');
+      setDecisionSummary(item.decisionSummary ?? '');
+      setObjective(item.objective ?? '');
+      setExpectedDecision(item.expectedDecision ?? '');
+      onSelectedAgendaItemIdChange?.(item.id);
+    },
+    [onSelectedAgendaItemIdChange],
+  );
 
   useEffect(() => {
+    if (selectedAgendaItemId) {
+      if (selectedAgendaItemId === selectedId) return;
+      const focused = sortedItems.find((i) => i.id === selectedAgendaItemId);
+      if (focused) {
+        selectItem(focused);
+        return;
+      }
+    }
     if (sortedItems.length === 0) {
       setSelectedId(null);
       return;
@@ -220,7 +675,7 @@ export function ReviewAgendaSection({
     const preferredId = pickPreferredAgendaItemId(sortedItems);
     const preferred = sortedItems.find((i) => i.id === preferredId);
     if (preferred) selectItem(preferred);
-  }, [sortedItems, selectedId, selectItem]);
+  }, [sortedItems, selectedId, selectedAgendaItemId, selectItem]);
 
   const onAdd = async () => {
     const title = newTitle.trim();
@@ -315,8 +770,6 @@ export function ReviewAgendaSection({
   const renderConductWorkspace = () => {
     if (!selected) return null;
 
-    const pointDecisions = reviewDecisions.filter((dec) => dec.agendaItemId === selected.id);
-    const pointActions = reviewActions.filter((act) => act.agendaItemId === selected.id);
     const pointAttachments = reviewAttachments.filter((att) => att.agendaItemId === selected.id);
     const agendaPointContext = {
       id: selected.id,
@@ -494,7 +947,7 @@ export function ReviewAgendaSection({
               <div className="mt-2 grid gap-4">
                 <div className="starium-form-field">
                   <label htmlFor="agenda-notes" className="starium-form-label">
-                    Compte-rendu de l&apos;échange
+                    Notes de séance
                   </label>
                   <p id="agenda-notes-hint" className="starium-form-hint mb-1.5">
                     Notes prises pendant la discussion (contexte, arguments, participants).
@@ -529,45 +982,30 @@ export function ReviewAgendaSection({
               </div>
             </fieldset>
 
-            <ReviewAgendaPointOutputs
+            <ConductSuitesPanel
+              agendaItemId={selected.id}
+              agendaItemType={selected.itemType}
+              decisionSummary={decisionSummary}
+              expectedDecision={expectedDecision}
               conductEditable={conductEditable}
-              linkedDecisions={pointDecisions.map((d) => ({ title: d.title }))}
-              linkedActions={pointActions.map((a) => ({ title: a.title }))}
-              linkedAttachments={pointAttachments.map((a) => ({ title: a.title }))}
-              onAddDecision={() => setQuickAddKind('decision')}
-              onAddAction={() => setQuickAddKind('action')}
-              onAddAttachment={() => setQuickAddKind('attachment')}
+              formDecisions={formDecisions}
+              formActions={formActions}
+              attachments={pointAttachments.map((a) => ({ title: a.title }))}
+              onAddDecision={onAddDecision}
+              onAddAction={onAddAction}
+              onUpdateDecision={onUpdateDecision}
+              onUpdateAction={onUpdateAction}
+              onRemoveDecision={onRemoveDecision}
+              onRemoveAction={onRemoveAction}
+              onAddAttachment={() => setAttachmentModalOpen(true)}
             />
           </div>
         </div>
 
-        {quickAddKind === 'decision' && onAddDecision ? (
-          <ReviewAgendaAddDecisionModal
-            open
-            onOpenChange={(open) => {
-              if (!open) setQuickAddKind(null);
-            }}
-            agendaPoint={agendaPointContext}
-            onSubmit={onAddDecision}
-          />
-        ) : null}
-        {quickAddKind === 'action' && onAddAction ? (
-          <ReviewAgendaAddActionModal
-            open
-            onOpenChange={(open) => {
-              if (!open) setQuickAddKind(null);
-            }}
-            agendaPoint={agendaPointContext}
-            reviewDecisions={reviewDecisions}
-            onSubmit={onAddAction}
-          />
-        ) : null}
-        {quickAddKind === 'attachment' ? (
+        {attachmentModalOpen ? (
           <ReviewAgendaAddAttachmentModal
             open
-            onOpenChange={(open) => {
-              if (!open) setQuickAddKind(null);
-            }}
+            onOpenChange={setAttachmentModalOpen}
             projectId={projectId}
             reviewId={reviewId}
             agendaPoint={agendaPointContext}
@@ -673,8 +1111,7 @@ export function ReviewAgendaSection({
                   Conduite de l&apos;ordre du jour
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
-                  Traitez chaque point ci-dessous. Ajoutez décisions, actions ou documents via les boutons du point
-                  actif.
+                  Traitez chaque sujet ci-dessous. Saisissez décisions et actions dans Suites.
                   {' '}
                   {progress.treated}/{progress.total} traité{progress.treated > 1 ? 's' : ''}
                   {progress.currentNumber ? ` · n° ${progress.currentNumber} en cours` : ''}

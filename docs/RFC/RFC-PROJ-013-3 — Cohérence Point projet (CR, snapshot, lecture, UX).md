@@ -280,18 +280,20 @@ Ne pas démarrer C8-unify « en parallèle » de la tenue.
 | **Justification vs statu quo** | Coût de maintien du monolithe modal+page > extraction progressive (déjà signalé FE-MEET-001).                                                                                                               |
 
 
-### C9 — RETIRÉ de cette RFC
+### C9 — Reporté vers RFC-PROJ-013-4
 
-Reporté. Pas de squelette rédigé ici (RFC-PROJ-014 est déjà pris). Identifiant réservé **RFC-PROJ-013-4** quand le comité le demandera. Motif : C9 réécrit la saisie dans un monolithe de ~3 700 lignes ; le faire avant l’extraction (Lot D) double le coût. Le CR (C1) peut déjà montrer décisions/actions **telles que saisies aujourd’hui**.
+**Implémentation** : [`RFC-PROJ-013-4 — Tenue ODJ-first`](./RFC-PROJ-013-4%20—%20Tenue%20ODJ-first%20(Infos,%20Questions,%20Suites,%20Récaps).md) (v10/10 : création + conduite, prepare = tab `agenda` seul, Suites inline, récaps sans ajout primaire).
 
-~~Modèle de tenue « Infos + Notes + Suites »~~ — texte d’origine conservé ci-dessous pour trace, **hors plan**.
+Motif du report hors 013-3 : C9 réécrit la saisie ; le faire avant extraction Lot D / C8-unify doublait le coût. Le CR (C1) montrait déjà décisions/actions telles que saisies.
+
+~~Modèle de tenue « Infos + Notes + Suites »~~ — texte d’origine conservé ci-dessous pour trace.
 
 
 |                   |                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Problème**      | Bazar ODJ / décisions / actions (audit + retour produit).                                                                                                                                                                                                                                                                                                                               |
-| **Solution**      | Saisie principale **depuis le sujet ODJ** : Infos (préparation), Notes (tenue), Suites (Décision ou Action en ligne courte). Onglets Décisions/Actions = **récaps**. Déprécier UI `expectedDecision` + `decisionSummary` (migration soft : `decisionSummary` → Notes si Notes vides, sinon ignorer en CR). Entités Prisma `Decision` / `ActionItem` **conservées** (compat MEET + API). |
-| **Modèle**        | Pas de breaking ; champs ODJ deviennent legacy.                                                                                                                                                                                                                                                                                                                                         |
+| **Solution**      | Saisie principale **depuis le sujet ODJ** : Infos (préparation), Notes (tenue), Suites (Décision ou Action en ligne courte). Onglets Décisions/Actions = **récaps**. `expectedDecision` = « Question à trancher » (seed presets). Entités Prisma `Decision` / `ActionItem` **conservées** (compat MEET + API). |
+| **Modèle**        | Pas de breaking.                                                                                                                                                                                                                                                                                                                                         |
 | **Risque**        | Moyen (formation utilisateurs).                                                                                                                                                                                                                                                                                                                                                         |
 | **Multi-projets** | Favorable (même structure de sujet).                                                                                                                                                                                                                                                                                                                                                    |
 
