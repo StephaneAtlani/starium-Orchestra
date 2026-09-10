@@ -20,6 +20,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_REVIEW_AGENDA_ITEM: 'project_review_agenda_item',
   PROJECT_REVIEW_PARTICIPANT: 'project_review_participant',
   PROJECT_REVIEW_ATTACHMENT: 'project_review_attachment',
+  PROJECT_REVIEW_SERIES: 'project_review_series',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
 } as const;
 
@@ -136,6 +137,13 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_TEAMS_FAILED: 'project.review.teams_failed',
   PROJECT_REVIEW_CALENDAR_EVENT_CREATED: 'project.review.calendar_event.created',
   PROJECT_REVIEW_CALENDAR_EVENT_UPDATED: 'project.review.calendar_event.updated',
+  /** RFC-PROJ-013-7 */
+  PROJECT_REVIEW_AGENDA_LOCKED: 'project.review.agenda_locked',
+  PROJECT_REVIEW_AGENDA_UNLOCKED: 'project.review.agenda_unlocked',
+  PROJECT_REVIEW_SERIES_CREATED: 'project.review.series.created',
+  PROJECT_REVIEW_SERIES_UPDATED: 'project.review.series.updated',
+  PROJECT_REVIEW_SERIES_DEACTIVATED: 'project.review.series.deactivated',
+  PROJECT_REVIEW_SERIES_GENERATED: 'project.review.series.generated',
 
   /** RFC-PROJ-DOC-001 */
   PROJECT_DOCUMENT_CREATED: 'project.document.created',

@@ -3110,19 +3110,22 @@ Règles SC-004 :
 
 Audits mutations tâches : **`project.scenario_task.created`**, **`project.scenario_task.updated`**, **`project.scenario_task.deleted`**, **`project.scenario_task.bootstrapped`** (resourceType `project_scenario_task`). Aucun audit sur les lectures ni sur `GET .../timeline-summary`.
 
-### Points projet (RFC-PROJ-013 + RFC-PROJ-013-1 + RFC-PROJ-013-2) — `/api/projects/:projectId/reviews`
+### Points projet (RFC-PROJ-013 + RFC-PROJ-013-1 + RFC-PROJ-013-2 + RFC-PROJ-013-7) — `/api/projects/:projectId/reviews`
 
 Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne suffit pas à cibler une ressource.
 
-**Statuts** (RFC-PROJ-013-2) : `PREPARING` (préparation, date optionnelle), `SCHEDULED` (planifié), `IN_PROGRESS` (tenue en cours), `FINALIZED`, `CANCELLED`. Legacy en lecture : `DRAFT`, `PLANNED`, `IN_REVIEW` (migrés en base).
+**Statuts** (RFC-PROJ-013-2) : `PREPARING` (préparation, date optionnelle), `SCHEDULED` (planifié), `IN_PROGRESS` (tenue en cours), `FINALIZED`, `CANCELLED`. Legacy en lecture : `DRAFT`, `PLANNED`, `IN_REVIEW` (migrés en base). Champs UI 013-7 : `agendaLockedAt`, `conductClosedAt`, `seriesId`.
 
 **Création** : champ métier **`creationMode`** (`PREPARING` \| `SCHEDULED` \| `IMMEDIATE`, défaut `PREPARING` ; alias legacy `PLANNED`→`SCHEDULED`). **`reviewDate`** optionnel en `PREPARING`, requis en `SCHEDULED`. Champs : `objective`, `periodStart`, `periodEnd`, `durationMinutes`, réunion (`meetingMode`, `meetingUrl`, `location`). **`autoInviteOnCreate`** (défaut `true`) : notifications in-app si `SCHEDULED` + participants internes.
 
-- **GET /api/projects/:projectId/reviews** — Liste (tri `reviewDate` desc, `createdAt` desc). **`projects.read`**
+- **GET /api/projects/:projectId/reviews** — Liste enrichie (`uiState`, signaux, cadence série…). **`projects.read`**
+- **GET /api/projects/:projectId/reviews/summary** — KPI + `countsByUiState` (RFC-PROJ-013-7). **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode`. **`projects.update`**
-- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`). `snapshotPayload` v2 si finalisé. **`projects.read`**
+- **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`, lock fields). `snapshotPayload` v2 si finalisé. **`projects.read`**
 - **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`contentPayload`** accepte notamment **`committeeMood`** (`GREEN` \| `ORANGE` \| `RED`) en tenue. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/schedule** — `PREPARING`→`SCHEDULED` ou replanification `SCHEDULED` (`reviewDate` requis). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/lock-agenda** — Fige l’ODJ (`agendaLockedAt`). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/unlock-agenda** — Réouvre l’ODJ. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**. *UI* : le CTA « Démarrer le point » n’est proposé qu’en `SCHEDULED` (voir RFC-PROJ-013-2 §15.5).
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **`projects.update`**
@@ -3131,13 +3134,19 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**
 - **POST /api/projects/:projectId/reviews/:reviewId/send-report** — Envoi async e-mail aux participants (**`FINALIZED` uniquement**). **`projects.update`**
 
+**Séries (RFC-PROJ-013-7)** — `/api/projects/:projectId/review-series` :
+
+- **GET** / **POST** — Liste / création. **`projects.read`** / **`projects.update`**
+- **GET|PATCH …/:seriesId** — Détail / MAJ (`isActive: false` = soft-désactivation).
+- **POST …/:seriesId/generate** — Occurrences `SCHEDULED` (skip collisions jour Paris).
+
 **Pièces jointes** — `/api/projects/:projectId/reviews/:reviewId/attachments` :
 
 - **POST** — `attachmentType` (`URL`, `DOCUMENT_REFERENCE`, `POWERBI_LINK`, `SHAREPOINT_LINK`, `OTHER`, `FILE` via `documentId`), `title`, liens optionnels `agendaItemId`/`decisionId`/`actionItemId`. **`projects.update`**
 - **PATCH …/:attachmentId** — **`projects.update`**
 - **DELETE …/:attachmentId** — **`projects.update`**
 
-**Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PREPARING`, `SCHEDULED` ou `IN_PROGRESS`) :
+**Ordre du jour** — `/api/projects/:projectId/reviews/:reviewId/agenda-items` (mutations si `PREPARING`, `SCHEDULED` ou `IN_PROGRESS` ; **structure refusée si `agendaLockedAt` en préparation/planifié**) :
 
 - **POST** — `title`, `itemType`, `objective?`, `expectedDecision?`, `plannedDurationMinutes?`, `ownerUserId?`. **`projects.update`**
 - **PATCH …/reorder** — `{ items: [{ id, orderIndex }] }` (déclaré avant `:agendaItemId`). **`projects.update`**

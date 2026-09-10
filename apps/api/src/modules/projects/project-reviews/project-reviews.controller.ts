@@ -40,6 +40,15 @@ export class ProjectReviewsController {
     return this.projectReviewsService.list(clientId!, projectId);
   }
 
+  @Get('summary')
+  @RequirePermissions('projects.read')
+  summary(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+  ) {
+    return this.projectReviewsService.summary(clientId!, projectId);
+  }
+
   @Get(':reviewId')
   @RequirePermissions('projects.read')
   getById(
@@ -99,6 +108,42 @@ export class ProjectReviewsController {
       projectId,
       reviewId,
       dto,
+      context,
+    );
+  }
+
+  @Post(':reviewId/lock-agenda')
+  @RequirePermissions('projects.update')
+  lockAgenda(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.lockAgenda(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
+  @Post(':reviewId/unlock-agenda')
+  @RequirePermissions('projects.update')
+  unlockAgenda(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.unlockAgenda(
+      clientId!,
+      projectId,
+      reviewId,
       context,
     );
   }

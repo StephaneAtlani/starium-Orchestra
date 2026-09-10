@@ -9,9 +9,13 @@ import type {
   ProjectReviewListResponse,
   ProjectReviewParticipantApi,
   ProjectReviewParticipantAttendanceStatus,
+  ProjectReviewsSummaryResponse,
+  ProjectReviewSeriesApi,
 } from '../types/project.types';
 
 const base = (projectId: string) => `/api/projects/${projectId}/reviews`;
+const seriesBase = (projectId: string) =>
+  `/api/projects/${projectId}/review-series`;
 
 export async function listProjectReviews(
   authFetch: AuthFetch,
@@ -20,6 +24,15 @@ export async function listProjectReviews(
   const res = await authFetch(base(projectId));
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectReviewListResponse>;
+}
+
+export async function getProjectReviewsSummary(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<ProjectReviewsSummaryResponse> {
+  const res = await authFetch(`${base(projectId)}/summary`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewsSummaryResponse>;
 }
 
 export async function getProjectReview(
@@ -369,4 +382,92 @@ export async function sendProjectReviewReport(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<SendProjectReviewReportResult>;
+}
+
+export async function lockProjectReviewAgenda(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewDetail> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/lock-agenda`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDetail>;
+}
+
+export async function unlockProjectReviewAgenda(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewDetail> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/unlock-agenda`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDetail>;
+}
+
+export async function listProjectReviewSeries(
+  authFetch: AuthFetch,
+  projectId: string,
+): Promise<{ items: ProjectReviewSeriesApi[] }> {
+  const res = await authFetch(seriesBase(projectId));
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ items: ProjectReviewSeriesApi[] }>;
+}
+
+export async function createProjectReviewSeries(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<ProjectReviewSeriesApi> {
+  const res = await authFetch(seriesBase(projectId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewSeriesApi>;
+}
+
+export async function updateProjectReviewSeries(
+  authFetch: AuthFetch,
+  projectId: string,
+  seriesId: string,
+  body: Record<string, unknown>,
+): Promise<ProjectReviewSeriesApi> {
+  const res = await authFetch(`${seriesBase(projectId)}/${seriesId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewSeriesApi>;
+}
+
+export async function generateProjectReviewSeries(
+  authFetch: AuthFetch,
+  projectId: string,
+  seriesId: string,
+  body?: { count?: number },
+): Promise<{
+  created: number;
+  skipped: number;
+  items: Array<{
+    id: string;
+    title: string | null;
+    reviewDate: string | null;
+    reviewType: string;
+    status: string;
+    seriesId: string | null;
+  }>;
+}> {
+  const res = await authFetch(`${seriesBase(projectId)}/${seriesId}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json();
 }

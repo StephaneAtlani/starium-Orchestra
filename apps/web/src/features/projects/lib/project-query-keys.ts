@@ -104,6 +104,10 @@ export const projectQueryKeys = {
   /** RFC-PROJ-013 */
   reviews: (clientId: string, projectId: string) =>
     ['project', projectId, 'reviews', clientId] as const,
+  reviewsSummary: (clientId: string, projectId: string) =>
+    ['project', projectId, 'reviews-summary', clientId] as const,
+  reviewSeries: (clientId: string, projectId: string) =>
+    ['project', projectId, 'review-series', clientId] as const,
   committeeMoodHistory: (clientId: string, projectId: string) =>
     [...projectQueryKeys.all, 'committee-mood-history', clientId, projectId] as const,
   review: (clientId: string, projectId: string, reviewId: string) =>

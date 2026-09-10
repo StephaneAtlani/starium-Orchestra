@@ -97,6 +97,8 @@ type Props = {
   agendaPresetMismatch?: boolean;
   onApplyAgendaPreset?: () => void;
   applyingAgendaPreset?: boolean;
+  /** RFC-PROJ-013-7 — structure ODJ figée (préparation / planifié). */
+  agendaStructureLocked?: boolean;
 };
 
 const DECISION_TYPES = Object.keys(
@@ -609,6 +611,7 @@ export function ReviewAgendaSection({
   agendaPresetMismatch = false,
   onApplyAgendaPreset,
   applyingAgendaPreset = false,
+  agendaStructureLocked = false,
 }: Props) {
   const {
     createAgendaItem,
@@ -632,7 +635,8 @@ export function ReviewAgendaSection({
   const sortedItems = useMemo(() => sortReviewAgendaItems(agendaItems), [agendaItems]);
   const progress = useMemo(() => reviewAgendaConductProgress(agendaItems), [agendaItems]);
 
-  const agendaEditable = canEdit && isReviewAgendaEditable(status);
+  const agendaEditable =
+    canEdit && isReviewAgendaEditable(status) && !agendaStructureLocked;
   const conductEditable = canEdit && isReviewAgendaConductEditable(status);
   const readOnly = isReviewFinalizedOrCancelled(status);
   const conductLayout = isReviewAgendaConductEditable(status);

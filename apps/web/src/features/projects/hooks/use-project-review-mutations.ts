@@ -15,6 +15,7 @@ import {
   finalizeProjectReview,
   getProjectReviewReportPreview,
   inviteProjectReview,
+  lockProjectReviewAgenda,
   reopenProjectReview,
   reorderProjectReviewAgendaItems,
   scheduleProjectReview,
@@ -22,6 +23,7 @@ import {
   skipProjectReviewAgendaItem,
   startProjectReview,
   startProjectReviewAgendaItem,
+  unlockProjectReviewAgenda,
   updateProjectReview,
   updateProjectReviewAgendaItem,
   updateProjectReviewAttachment,
@@ -42,6 +44,9 @@ export function useProjectReviewMutations(projectId: string) {
       queryKey: projectQueryKeys.reviews(clientId, projectId),
     });
     void qc.invalidateQueries({
+      queryKey: projectQueryKeys.reviewsSummary(clientId, projectId),
+    });
+    void qc.invalidateQueries({
       queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
     });
   };
@@ -49,6 +54,9 @@ export function useProjectReviewMutations(projectId: string) {
   const invalidate = () => {
     void qc.invalidateQueries({
       queryKey: projectQueryKeys.reviews(clientId, projectId),
+    });
+    void qc.invalidateQueries({
+      queryKey: projectQueryKeys.reviewsSummary(clientId, projectId),
     });
   };
 
@@ -345,6 +353,22 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const lockAgenda = useMutation({
+    mutationFn: (reviewId: string) =>
+      lockProjectReviewAgenda(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const unlockAgenda = useMutation({
+    mutationFn: (reviewId: string) =>
+      unlockProjectReviewAgenda(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
   return {
     create,
     update,
@@ -368,5 +392,7 @@ export function useProjectReviewMutations(projectId: string) {
     deleteAttachment,
     reportPreview,
     sendReport,
+    lockAgenda,
+    unlockAgenda,
   };
 }

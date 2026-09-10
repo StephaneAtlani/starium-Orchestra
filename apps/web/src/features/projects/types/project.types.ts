@@ -996,16 +996,80 @@ export type ProjectReviewListItem = {
   nextReviewDate: string | null;
   finalizedAt: string | null;
   finalizedByUserId: string | null;
+  agendaLockedAt?: string | null;
+  conductClosedAt?: string | null;
+  seriesId?: string | null;
+  seriesFrequency?: string | null;
+  uiState?:
+    | 'to_prepare'
+    | 'upcoming'
+    | 'in_progress'
+    | 'to_finalize'
+    | 'history'
+    | null;
   createdAt: string;
   updatedAt: string;
   participantsCount: number;
+  attendedCount?: number;
   decisionsCount: number;
   actionItemsCount: number;
   agendaItemsCount: number;
+  agendaDoneCount?: number;
+  openActionsWithoutOwnerOrDueCount?: number;
+  openArbitrationsWithoutVerdictCount?: number;
 };
 
 export type ProjectReviewListResponse = {
   items: ProjectReviewListItem[];
+};
+
+export type ProjectReviewsSummaryResponse = {
+  countsByUiState: {
+    to_prepare: number;
+    upcoming: number;
+    in_progress: number;
+    to_finalize: number;
+    history: number;
+  };
+  nextReview: null | {
+    id: string;
+    title: string | null;
+    reviewType: ProjectReviewType;
+    reviewDate: string;
+    uiState: 'to_prepare' | 'upcoming';
+  };
+  quarterVolume: number;
+  openActionsFromReviews: number;
+  copilDecisionsToApply: number;
+};
+
+export type ProjectReviewSeriesFrequency =
+  | 'WEEKLY'
+  | 'BIWEEKLY'
+  | 'MONTHLY'
+  | 'QUARTERLY';
+
+export type ProjectReviewSeriesApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  title: string;
+  reviewType: ProjectReviewType;
+  frequency: ProjectReviewSeriesFrequency;
+  frequencyLabel: string;
+  durationMinutes: number;
+  meetingMode: ProjectReviewMeetingMode | null;
+  location: string | null;
+  defaultObjective: string | null;
+  permanentParticipantUserIds: string[];
+  permanentParticipants: Array<{ userId: string; displayName: string }>;
+  anchorDate: string;
+  horizonCount: number;
+  isActive: boolean;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewsCount: number;
 };
 
 export type ProjectCommitteeMoodHistoryItem = {
@@ -1159,6 +1223,10 @@ export type ProjectReviewDetail = {
   finalizedAt: string | null;
   finalizedByUserId: string | null;
   cancelledAt: string | null;
+  agendaLockedAt?: string | null;
+  agendaLockedByUserId?: string | null;
+  conductClosedAt?: string | null;
+  seriesId?: string | null;
   createdAt: string;
   updatedAt: string;
   participants: ProjectReviewParticipantApi[];

@@ -39,6 +39,7 @@ import {
   isPilotageReviewType,
   REVIEW_TYPE_AGENDA_HINT,
 } from '../lib/project-review-agenda-presets';
+import { getCreateDefaultsForType } from '../lib/project-review-create-defaults';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
@@ -69,6 +70,8 @@ export type ProjectReviewCreateDialogProps = {
   projectId: string;
   postMortemEligible: boolean;
   createTypeOptions: ProjectReviewType[];
+  /** Prefill type (split création 013-7). */
+  initialReviewType?: ProjectReviewType;
   onCreated: (reviewId: string, openEditor: boolean) => void;
 };
 
@@ -278,6 +281,7 @@ export function ProjectReviewCreateDialog({
   projectId,
   postMortemEligible,
   createTypeOptions,
+  initialReviewType,
   onCreated,
 }: ProjectReviewCreateDialogProps) {
   const assignable = useProjectAssignableUsers();
@@ -286,24 +290,25 @@ export function ProjectReviewCreateDialog({
   const reviewsQuery = useProjectReviewsQuery(projectId, { enabled: open && !postMortemEligible });
 
   const [formDate, setFormDate] = useState('');
-  const [formType, setFormType] = useState<ProjectReviewType>('COPIL');
+  const [formType, setFormType] = useState<ProjectReviewType>('COPRO');
   const [formTitle, setFormTitle] = useState('');
   const [formObjective, setFormObjective] = useState('');
   const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
     emptyParticipantRow(),
   ]);
   const [createAgendaItems, setCreateAgendaItems] = useState<CreateAgendaRow[]>(() =>
-    initialAgendaForType('COPIL'),
+    initialAgendaForType('COPRO'),
   );
   const [agendaDirty, setAgendaDirty] = useState(false);
   const [agendaPresetSourceType, setAgendaPresetSourceType] =
-    useState<ProjectReviewType>('COPIL');
-  const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('');
+    useState<ProjectReviewType>('COPRO');
+  const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('HYBRID');
   const [formMeetingUrl, setFormMeetingUrl] = useState('');
   const [formLocation, setFormLocation] = useState('');
   const [formCreationMode, setFormCreationMode] =
     useState<ProjectReviewCreationMode>('PREPARING');
   const [resumeFromLast, setResumeFromLast] = useState(false);
+  const [formDurationMinutes, setFormDurationMinutes] = useState<number | ''>(60);
 
   const lastFinalizedId = useMemo(() => {
     const items = reviewsQuery.data ?? [];
@@ -340,13 +345,20 @@ export function ProjectReviewCreateDialog({
       if (!agendaDirty) {
         applyAgendaPresetFromType(nextType);
       }
+      if (!postMortemEligible) {
+        const defaults = getCreateDefaultsForType(nextType);
+        setFormDurationMinutes(defaults.durationMinutes);
+        setFormMeetingMode(defaults.meetingMode);
+      }
     },
-    [agendaDirty, applyAgendaPresetFromType],
+    [agendaDirty, applyAgendaPresetFromType, postMortemEligible],
   );
 
   const resetForm = useCallback(() => {
     setFormDate('');
-    const defaultType = postMortemEligible ? 'POST_MORTEM' : 'COPIL';
+    const defaultType = postMortemEligible
+      ? 'POST_MORTEM'
+      : (initialReviewType ?? 'COPRO');
     setFormType(defaultType);
     setFormTitle('');
     setFormObjective('');
@@ -354,15 +366,27 @@ export function ProjectReviewCreateDialog({
       setCreateAgendaItems([emptyAgendaRow()]);
       setAgendaDirty(false);
       setAgendaPresetSourceType(defaultType);
+      setFormMeetingMode('');
+      setFormDurationMinutes('');
     } else {
-      applyAgendaPresetFromType('COPIL');
+      const defaults = getCreateDefaultsForType(defaultType);
+      applyAgendaPresetFromType(defaultType);
+      setFormMeetingMode(defaults.meetingMode);
+      setFormDurationMinutes(defaults.durationMinutes);
     }
-    setFormMeetingMode('');
     setFormMeetingUrl('');
     setFormLocation('');
     setFormCreationMode('PREPARING');
     setResumeFromLast(false);
-  }, [postMortemEligible, applyAgendaPresetFromType]);
+  }, [postMortemEligible, applyAgendaPresetFromType, initialReviewType]);
+
+  useEffect(() => {
+    if (!open) {
+      createFormSeededRef.current = false;
+      return;
+    }
+    resetForm();
+  }, [open, initialReviewType]); // eslint-disable-line react-hooks/exhaustive-deps — seed on open / type change only
 
   useEffect(() => {
     if (!open) {
@@ -472,6 +496,9 @@ export function ProjectReviewCreateDialog({
         creationMode: postMortemEligible ? 'IMMEDIATE' : formCreationMode,
         title: formTitle.trim() || undefined,
         ...(objective ? { objective, executiveSummary: objective } : {}),
+        ...(typeof formDurationMinutes === 'number' && formDurationMinutes > 0
+          ? { durationMinutes: formDurationMinutes }
+          : {}),
         ...(formMeetingMode
           ? {
               meetingMode: formMeetingMode,

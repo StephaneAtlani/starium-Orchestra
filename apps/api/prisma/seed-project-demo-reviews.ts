@@ -120,6 +120,11 @@ type ReviewBlueprint = {
   finalizedDaysFromNow?: number;
   finalizedByUserId?: string | null;
   nextReviewDaysFromNow?: number | null;
+  /** RFC-PROJ-013-7 */
+  agendaLocked?: boolean;
+  conductClosed?: boolean;
+  startedDaysFromNow?: number | null;
+  withAgendaItem?: boolean;
   snapshot?: (proj: {
     id: string;
     name: string;
@@ -898,6 +903,9 @@ export async function ensureDemoProjectReviews(
   await prisma.projectReview.deleteMany({
     where: { clientId, projectId: { in: projectIds } },
   });
+  await prisma.projectReviewSeries.deleteMany({
+    where: { clientId, projectId: { in: projectIds } },
+  });
 
   const tasks = await prisma.projectTask.findMany({
     where: { clientId, projectId: { in: projectIds } },
@@ -956,6 +964,11 @@ export async function ensureDemoProjectReviews(
             })
           : undefined;
 
+      const startedAt =
+        bp.status === ProjectReviewStatus.IN_PROGRESS
+          ? addDaysAtParis10(now, bp.startedDaysFromNow ?? bp.daysFromNow ?? 0)
+          : null;
+
       await prisma.projectReview.create({
         data: {
           clientId,
@@ -971,6 +984,14 @@ export async function ensureDemoProjectReviews(
           finalizedAt,
           finalizedByUserId,
           nextReviewDate,
+          startedAt,
+          startedByUserId:
+            startedAt != null ? resolveUser("USER_A", userA, userB) : null,
+          agendaLockedAt: bp.agendaLocked ? now : null,
+          agendaLockedByUserId: bp.agendaLocked
+            ? resolveUser("USER_A", userA, userB)
+            : null,
+          conductClosedAt: bp.conductClosed ? now : null,
           ...(snapshotPayload !== undefined ? { snapshotPayload } : {}),
           participants: {
             create: bp.participants.map((p) => ({
@@ -984,6 +1005,21 @@ export async function ensureDemoProjectReviews(
               isRequired: p.isRequired,
             })),
           },
+          ...(bp.withAgendaItem || bp.agendaLocked
+            ? {
+                agendaItems: {
+                  create: [
+                    {
+                      clientId,
+                      title: "Point d’ouverture — contexte",
+                      itemType: "INFORMATION",
+                      orderIndex: 0,
+                      expectedDecision: null,
+                    },
+                  ],
+                },
+              }
+            : {}),
           ...(bp.decisions.length > 0
             ? {
                 decisions: {
@@ -1013,6 +1049,155 @@ export async function ensureDemoProjectReviews(
         },
       });
     }
+  }
+
+  // RFC-PROJ-013-7 — fixtures états UI + série sur le premier projet démo
+  const primary = projects.find((p) => seedSuffixFromProjectCode(p.code) === "01");
+  if (primary) {
+    const uiFixtures: ReviewBlueprint[] = [
+      {
+        daysFromNow: null,
+        type: ProjectReviewType.COPRO,
+        status: ProjectReviewStatus.PREPARING,
+        title: "COPROJ — préparation ODJ (À préparer)",
+        executiveSummary: "Brouillon de préparation sans ODJ figé.",
+        withAgendaItem: true,
+        participants: [
+          { userId: "USER_A", displayName: null, attended: true, isRequired: true },
+        ],
+        decisions: [],
+        actions: [],
+      },
+      {
+        daysFromNow: 7,
+        type: ProjectReviewType.COPIL,
+        status: ProjectReviewStatus.SCHEDULED,
+        title: "COPIL — séance figée (À venir)",
+        executiveSummary: "ODJ figé, prêt à démarrer.",
+        agendaLocked: true,
+        withAgendaItem: true,
+        participants: [
+          { userId: "USER_A", displayName: null, attended: true, isRequired: true },
+          { userId: "USER_B", displayName: null, attended: false, isRequired: true },
+        ],
+        decisions: [],
+        actions: [],
+      },
+      {
+        daysFromNow: 0,
+        type: ProjectReviewType.COPRO,
+        status: ProjectReviewStatus.IN_PROGRESS,
+        title: "COPROJ — conduite ouverte (En cours)",
+        executiveSummary: "Séance en cours.",
+        startedDaysFromNow: 0,
+        withAgendaItem: true,
+        participants: [
+          { userId: "USER_A", displayName: null, attended: true, isRequired: true },
+        ],
+        decisions: [],
+        actions: [],
+      },
+      {
+        daysFromNow: -1,
+        type: ProjectReviewType.COPIL,
+        status: ProjectReviewStatus.IN_PROGRESS,
+        title: "COPIL — conduite close (À finaliser)",
+        executiveSummary: "Conduite terminée, CR à diffuser.",
+        startedDaysFromNow: -1,
+        conductClosed: true,
+        withAgendaItem: true,
+        participants: [
+          { userId: "USER_B", displayName: null, attended: true, isRequired: true },
+        ],
+        decisions: [],
+        actions: [
+          {
+            title: "Action sans porteur (signal 04)",
+            status: ProjectTaskStatus.TODO,
+          },
+        ],
+      },
+    ];
+
+    for (const bp of uiFixtures) {
+      const reviewDate =
+        bp.daysFromNow != null ? addDaysAtParis10(now, bp.daysFromNow) : null;
+      const startedAt =
+        bp.status === ProjectReviewStatus.IN_PROGRESS
+          ? addDaysAtParis10(now, bp.startedDaysFromNow ?? 0)
+          : null;
+      await prisma.projectReview.create({
+        data: {
+          clientId,
+          projectId: primary.id,
+          reviewDate,
+          reviewType: bp.type,
+          status: bp.status,
+          title: bp.title,
+          objective: bp.executiveSummary,
+          executiveSummary: bp.executiveSummary,
+          contentPayload: {},
+          startedAt,
+          startedByUserId: startedAt
+            ? resolveUser("USER_A", userA, userB)
+            : null,
+          agendaLockedAt: bp.agendaLocked ? now : null,
+          agendaLockedByUserId: bp.agendaLocked
+            ? resolveUser("USER_A", userA, userB)
+            : null,
+          conductClosedAt: bp.conductClosed ? now : null,
+          participants: {
+            create: bp.participants.map((p) => ({
+              clientId,
+              userId: resolveUser(p.userId, userA, userB),
+              displayName: p.displayName ?? null,
+              attended: p.attended,
+              isRequired: p.isRequired,
+            })),
+          },
+          agendaItems: {
+            create: [
+              {
+                clientId,
+                title: "Sujet principal",
+                itemType: "INFORMATION",
+                orderIndex: 0,
+              },
+            ],
+          },
+          ...(bp.actions.length > 0
+            ? {
+                actionItems: {
+                  create: bp.actions.map((a) => ({
+                    clientId,
+                    projectId: primary.id,
+                    title: a.title,
+                    status: a.status,
+                  })),
+                },
+              }
+            : {}),
+        },
+      });
+    }
+
+    await prisma.projectReviewSeries.create({
+      data: {
+        clientId,
+        projectId: primary.id,
+        title: "Série COPROJ bihebdo",
+        reviewType: ProjectReviewType.COPRO,
+        frequency: "BIWEEKLY",
+        durationMinutes: 60,
+        meetingMode: "HYBRID",
+        location: "Salle pilotage",
+        permanentParticipantUserIds: [userA, userB],
+        anchorDate: addDaysAtParis10(now, 3),
+        horizonCount: 4,
+        isActive: true,
+        createdByUserId: userA,
+      },
+    });
   }
 
   const reviewCounts = await prisma.projectReview.groupBy({

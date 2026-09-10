@@ -6,6 +6,7 @@ import {
 import {
   Prisma,
   ProjectReviewAgendaItemStatus,
+  ProjectReviewStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
@@ -18,7 +19,9 @@ import { ProjectsService } from '../projects.service';
 import {
   assertReviewAgendaEditable,
   assertReviewConductEditable,
+  normalizeReviewStatus,
 } from './project-review-status.helpers';
+import { AGENDA_LOCKED_STRUCTURE_ERROR } from './project-review-ui-state';
 import { CreateProjectReviewAgendaItemDto } from './dto/create-agenda-item.dto';
 import { ReorderProjectReviewAgendaItemsDto } from './dto/reorder-agenda-items.dto';
 import { UpdateProjectReviewAgendaItemDto } from './dto/update-agenda-item.dto';
@@ -30,6 +33,21 @@ export class ProjectReviewAgendaService {
     private readonly projects: ProjectsService,
     private readonly auditLogs: AuditLogsService,
   ) {}
+
+  private assertAgendaStructureUnlocked(review: {
+    status: ProjectReviewStatus;
+    startedAt?: Date | null;
+    agendaLockedAt?: Date | null;
+  }) {
+    const normalized = normalizeReviewStatus(review.status, review.startedAt);
+    if (
+      review.agendaLockedAt &&
+      (normalized === ProjectReviewStatus.PREPARING ||
+        normalized === ProjectReviewStatus.SCHEDULED)
+    ) {
+      throw new BadRequestException(AGENDA_LOCKED_STRUCTURE_ERROR);
+    }
+  }
 
   private async loadReview(
     clientId: string,
@@ -75,6 +93,7 @@ export class ProjectReviewAgendaService {
   ) {
     const review = await this.loadReview(clientId, projectId, reviewId);
     assertReviewAgendaEditable(review.status);
+    this.assertAgendaStructureUnlocked(review);
 
     if (dto.ownerUserId) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
@@ -139,6 +158,18 @@ export class ProjectReviewAgendaService {
       assertReviewConductEditable(review.status);
     }
 
+    const structureTouched =
+      dto.title !== undefined ||
+      dto.description !== undefined ||
+      dto.itemType !== undefined ||
+      dto.objective !== undefined ||
+      dto.expectedDecision !== undefined ||
+      dto.plannedDurationMinutes !== undefined ||
+      dto.ownerUserId !== undefined;
+    if (structureTouched) {
+      this.assertAgendaStructureUnlocked(review);
+    }
+
     if (dto.ownerUserId) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
     }
@@ -195,6 +226,7 @@ export class ProjectReviewAgendaService {
   ) {
     const review = await this.loadReview(clientId, projectId, reviewId);
     assertReviewAgendaEditable(review.status);
+    this.assertAgendaStructureUnlocked(review);
 
     const ids = dto.items.map((i) => i.id);
     const existing = await this.prisma.projectReviewAgendaItem.findMany({

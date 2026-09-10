@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft |
+| **Statut** | ✅ Implémenté |
 | **Date** | 2026-09-10 |
 | **Parents** | RFC-PROJ-013-5 |
 | **Écrans PDF** | **01–08**, **06**, **07**, **13–17** |
@@ -65,23 +65,24 @@
 
 - Minimal L3 : `ProjectReview.agendaLockedAt DateTime?`
 - L5 : `ProjectReviewSeries` + `seriesId` nullable sur review
-- Statut `AWAITING_REPORT` **ou** `conductClosedAt` — décider avec 013-6/013-8
+- Statut `AWAITING_REPORT` **ou** `conductClosedAt` — **tranché** : `conductClosedAt` (pas de nouvel enum).
 
 ## 7. Tests
 
-- Filtres états UI (table de vérité).
-- Lock agenda : refuse mutation structure ODJ si locked (sauf admin reopen).
+- Filtres états UI (table de vérité) — `project-review-ui-state.spec.ts` (API + FE).
+- Lock agenda : refuse mutation structure ODJ si locked (sauf unlock).
 - Isolation client sur series.
 
 ## 8. Récapitulatif
 
-Socle listes + préparation + création typée du PDF ; dépendance amont de 09/11.
+**Implémenté (2026-09-10)** : sous-onglets 01–05 + KPI `GET …/summary` ; `agendaLockedAt` + lock/unlock ; création typée split ; `ProjectReviewSeries` + generate ; seed états UI + série.
 
 ## 9. Points de vigilance
 
 - Ne pas casser DocumentView FINALIZED (05/19).
-- Seed démo : données pour chaque sous-onglet.
-- Performance : KPI sans N+1.
+- Seed démo : données pour chaque sous-onglet (+ série).
+- Performance : KPI via summary agrégé.
+- Onglet 04 en prod : rempli via seed ; mutation « clôturer séance » portée par 013-6.
 
 ## 10. Conformité by design
 

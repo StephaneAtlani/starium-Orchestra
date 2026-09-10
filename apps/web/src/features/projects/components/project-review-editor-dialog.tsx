@@ -805,7 +805,7 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: active });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: active });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: active });
-  const { update, finalize, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport } =
+  const { update, finalize, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda } =
     useProjectReviewMutations(projectId);
 
   const authFetch = useAuthenticatedFetch();
@@ -962,6 +962,13 @@ export function ProjectReviewEditorDialog({
   const invitationsSent = d ? hasReviewInvitationsSent(d.participants) : false;
   const editable = canEdit && d ? isReviewContentEditable(d.status) : false;
   const planningEditable = canEdit && d ? isReviewPlanningEditable(d.status) : false;
+  const agendaLocked = Boolean(d?.agendaLockedAt);
+  const canLockAgenda =
+    canEdit &&
+    planningEditable &&
+    !agendaLocked &&
+    (d?.agendaItems.length ?? 0) >= 1;
+  const canUnlockAgenda = canEdit && planningEditable && agendaLocked;
   const canPreviewReport = d ? canPreviewDraftReviewReport(d.status) : false;
   const canSendReport = d
     ? canPreviewOrSendReviewReport(d.status) && canEdit
@@ -1786,6 +1793,50 @@ export function ProjectReviewEditorDialog({
                 : invitationsSent
                   ? 'Renvoyer les invitations'
                   : 'Planifier'}
+          </Button>
+        ) : null}
+        {canLockAgenda ? (
+          <Button
+            type="button"
+            variant="default"
+            size={footerButtonSize}
+            className={footerActionClass}
+            disabled={lockAgenda.isPending}
+            onClick={() => {
+              if (!reviewId) return;
+              lockAgenda.mutate(reviewId, {
+                onSuccess: () => toast.success('Ordre du jour figé'),
+                onError: (err) =>
+                  toast.error(
+                    (err as { message?: string })?.message ??
+                      'Impossible de figer l’ordre du jour',
+                  ),
+              });
+            }}
+          >
+            {lockAgenda.isPending ? 'Verrouillage…' : 'Figer l’ordre du jour'}
+          </Button>
+        ) : null}
+        {canUnlockAgenda ? (
+          <Button
+            type="button"
+            variant="outline"
+            size={footerButtonSize}
+            className={footerActionClass}
+            disabled={unlockAgenda.isPending}
+            onClick={() => {
+              if (!reviewId) return;
+              unlockAgenda.mutate(reviewId, {
+                onSuccess: () => toast.success('Ordre du jour réouvert'),
+                onError: (err) =>
+                  toast.error(
+                    (err as { message?: string })?.message ??
+                      'Impossible de réouvrir l’ordre du jour',
+                  ),
+              });
+            }}
+          >
+            {unlockAgenda.isPending ? 'Réouverture…' : 'Réouvrir l’ODJ'}
           </Button>
         ) : null}
         {canStart && canEdit ? (
@@ -2774,6 +2825,7 @@ export function ProjectReviewEditorDialog({
                       status={d.status}
                       agendaItems={d.agendaItems ?? []}
                       canEdit={canEdit}
+                      agendaStructureLocked={agendaLocked && planningEditable}
                       reviewAttachments={d.attachments ?? []}
                       formDecisions={decisions}
                       formActions={actions}
@@ -2786,11 +2838,19 @@ export function ProjectReviewEditorDialog({
                       selectedAgendaItemId={selectedAgendaItemId}
                       onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
                       reviewType={reviewType}
-                      showAgendaPresetControls={showAgendaPresetControls}
+                      showAgendaPresetControls={showAgendaPresetControls && !agendaLocked}
                       agendaPresetMismatch={showAgendaPresetMismatch}
                       applyingAgendaPreset={applyingAgendaPreset}
                       onApplyAgendaPreset={() => void applyAgendaPresetForType(reviewType)}
                     />
+                    {editorPhase === 'prepare' && agendaLocked ? (
+                      <div
+                        className="mt-3 rounded-[var(--radius-md)] border border-border bg-muted/30 px-4 py-3 text-sm"
+                        role="status"
+                      >
+                        L’ordre du jour est figé. Réouvrez-le pour modifier la structure.
+                      </div>
+                    ) : null}
                     {editorPhase === 'prepare' ? (
                       <>
                         <ReviewParticipantsSection

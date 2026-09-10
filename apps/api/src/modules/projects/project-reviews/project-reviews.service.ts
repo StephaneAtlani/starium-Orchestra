@@ -37,6 +37,11 @@ import {
   assertScheduledUpdatePayloadAllowed,
   normalizeReviewStatus,
 } from './project-review-status.helpers';
+import {
+  PROJECT_REVIEW_SERIES_FREQUENCY_LABEL,
+  resolveReviewUiState,
+  type ProjectReviewUiState,
+} from './project-review-ui-state';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 import {
   formatProjectReviewUserDisplayName,
@@ -79,6 +84,7 @@ const reviewInclude = {
   attachments: { orderBy: { createdAt: 'asc' as const } },
   facilitator: { select: projectReviewUserSelect },
   startedBy: { select: projectReviewUserSelect },
+  series: { select: { id: true, frequency: true, title: true } },
 } satisfies Prisma.ProjectReviewInclude;
 
 type ReviewWithChildren = Prisma.ProjectReviewGetPayload<{
@@ -93,6 +99,44 @@ const POST_MORTEM_ELIGIBLE_PROJECT_STATUSES: ProjectStatus[] = [
 
 function isPostMortemEligibleProjectStatus(status: ProjectStatus): boolean {
   return POST_MORTEM_ELIGIBLE_PROJECT_STATUSES.includes(status);
+}
+
+/** Bornes du trimestre civil courant en Europe/Paris (start inclus, end exclus). */
+function civilQuarterBoundsParis(now: Date): {
+  quarterStart: Date;
+  quarterEnd: Date;
+} {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const year = Number(parts.find((p) => p.type === 'year')?.value);
+  const month = Number(parts.find((p) => p.type === 'month')?.value);
+  const qStartMonth = Math.floor((month - 1) / 3) * 3 + 1;
+  const quarterStart = parisCivilMidnight(year, qStartMonth, 1);
+  const endMonth = qStartMonth + 3;
+  const quarterEnd =
+    endMonth > 12
+      ? parisCivilMidnight(year + 1, endMonth - 12, 1)
+      : parisCivilMidnight(year, endMonth, 1);
+  return { quarterStart, quarterEnd };
+}
+
+function parisCivilMidnight(year: number, month: number, day: number): Date {
+  const utcGuess = new Date(
+    Date.UTC(year, month - 1, day, 0, 0, 0),
+  );
+  const parisHour = Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Paris',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(utcGuess),
+  );
+  utcGuess.setUTCHours(utcGuess.getUTCHours() - parisHour);
+  return utcGuess;
 }
 
 @Injectable()
@@ -537,6 +581,39 @@ export class ProjectReviewsService {
 
   private mapReviewToListItem(row: ReviewWithChildren) {
     const objectiveFields = this.mapObjectiveResponse(row);
+    const agendaDoneCount = row.agendaItems.filter(
+      (item) => item.status === 'DONE' || item.status === 'SKIPPED',
+    ).length;
+    const decisionAgendaIds = new Set(
+      row.decisions
+        .map((d) => d.agendaItemId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    const openArbitrationsWithoutVerdictCount = row.agendaItems.filter(
+      (item) =>
+        item.itemType === 'ARBITRATION' &&
+        !(item.decisionSummary?.trim()) &&
+        !decisionAgendaIds.has(item.id),
+    ).length;
+    const openActionsWithoutOwnerOrDueCount = row.actionItems.filter((a) => {
+      const open =
+        a.status !== 'DONE' && a.status !== 'CANCELLED';
+      if (!open) return false;
+      return !a.responsibleUserId || !a.dueDate;
+    }).length;
+    const attendedCount = row.participants.filter(
+      (p) => p.attended || p.attendanceStatus === 'PRESENT',
+    ).length;
+    const uiState = resolveReviewUiState({
+      status: row.status,
+      agendaLockedAt: row.agendaLockedAt,
+      conductClosedAt: row.conductClosedAt,
+      startedAt: row.startedAt,
+    });
+    const seriesFrequency = row.series
+      ? PROJECT_REVIEW_SERIES_FREQUENCY_LABEL[row.series.frequency]
+      : null;
+
     return {
       id: row.id,
       clientId: row.clientId,
@@ -563,12 +640,21 @@ export class ProjectReviewsService {
       nextReviewDate: row.nextReviewDate?.toISOString() ?? null,
       finalizedAt: row.finalizedAt?.toISOString() ?? null,
       finalizedByUserId: row.finalizedByUserId,
+      agendaLockedAt: row.agendaLockedAt?.toISOString() ?? null,
+      conductClosedAt: row.conductClosedAt?.toISOString() ?? null,
+      seriesId: row.seriesId ?? null,
+      seriesFrequency,
+      uiState,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       participantsCount: row.participants.length,
+      attendedCount,
       decisionsCount: row.decisions.length,
       actionItemsCount: row.actionItems.length,
       agendaItemsCount: row.agendaItems.length,
+      agendaDoneCount,
+      openActionsWithoutOwnerOrDueCount,
+      openArbitrationsWithoutVerdictCount,
     };
   }
 
@@ -624,6 +710,10 @@ export class ProjectReviewsService {
       nextReviewDate: row.nextReviewDate?.toISOString() ?? null,
       finalizedAt: row.finalizedAt?.toISOString() ?? null,
       finalizedByUserId: row.finalizedByUserId,
+      agendaLockedAt: row.agendaLockedAt?.toISOString() ?? null,
+      agendaLockedByUserId: row.agendaLockedByUserId ?? null,
+      conductClosedAt: row.conductClosedAt?.toISOString() ?? null,
+      seriesId: row.seriesId ?? null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       participants: row.participants.map((p) => this.mapParticipant(p)),
@@ -662,6 +752,226 @@ export class ProjectReviewsService {
     return {
       items: rows.map((r: ReviewWithChildren) => this.mapReviewToListItem(r)),
     };
+  }
+
+  /**
+   * KPI + compteurs par état UI (RFC-PROJ-013-7).
+   * Agrégats Prisma — pas de N+1 sur children.
+   */
+  async summary(clientId: string, projectId: string) {
+    await this.projects.getProjectForScope(clientId, projectId);
+
+    const reviews = await this.prisma.projectReview.findMany({
+      where: { clientId, projectId },
+      select: {
+        id: true,
+        title: true,
+        reviewType: true,
+        status: true,
+        reviewDate: true,
+        startedAt: true,
+        agendaLockedAt: true,
+        conductClosedAt: true,
+      },
+    });
+
+    const countsByUiState: Record<ProjectReviewUiState, number> = {
+      to_prepare: 0,
+      upcoming: 0,
+      in_progress: 0,
+      to_finalize: 0,
+      history: 0,
+    };
+
+    type NextCandidate = {
+      id: string;
+      title: string | null;
+      reviewType: ProjectReviewType;
+      reviewDate: Date;
+      uiState: 'to_prepare' | 'upcoming';
+    };
+    let nextReview: NextCandidate | null = null;
+    const now = new Date();
+    const { quarterStart, quarterEnd } = civilQuarterBoundsParis(now);
+
+    let quarterVolume = 0;
+
+    for (const row of reviews) {
+      const uiState = resolveReviewUiState({
+        status: row.status,
+        agendaLockedAt: row.agendaLockedAt,
+        conductClosedAt: row.conductClosedAt,
+        startedAt: row.startedAt,
+      });
+      if (uiState) countsByUiState[uiState] += 1;
+
+      if (
+        row.reviewDate &&
+        row.reviewDate >= quarterStart &&
+        row.reviewDate < quarterEnd
+      ) {
+        quarterVolume += 1;
+      }
+
+      if (
+        row.reviewDate &&
+        row.reviewDate >= now &&
+        (uiState === 'to_prepare' || uiState === 'upcoming')
+      ) {
+        if (!nextReview || row.reviewDate < nextReview.reviewDate) {
+          nextReview = {
+            id: row.id,
+            title: row.title,
+            reviewType: row.reviewType,
+            reviewDate: row.reviewDate,
+            uiState,
+          };
+        }
+      }
+    }
+
+    const [openActionsFromReviews, copilDecisionsToApply] = await Promise.all([
+      this.prisma.projectReviewActionItem.count({
+        where: {
+          clientId,
+          projectId,
+          status: { notIn: ['DONE', 'CANCELLED'] },
+        },
+      }),
+      // Fallback documenté 013-7 : décisions VALIDATED des COPIL FINALIZED (pas de appliedAt en schéma).
+      this.prisma.projectReviewDecision.count({
+        where: {
+          clientId,
+          status: ProjectReviewDecisionStatus.VALIDATED,
+          projectReview: {
+            clientId,
+            projectId,
+            reviewType: ProjectReviewType.COPIL,
+            status: ProjectReviewStatus.FINALIZED,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      countsByUiState,
+      nextReview: nextReview
+        ? {
+            id: nextReview.id,
+            title: nextReview.title,
+            reviewType: nextReview.reviewType,
+            reviewDate: nextReview.reviewDate.toISOString(),
+            uiState: nextReview.uiState,
+          }
+        : null,
+      quarterVolume,
+      openActionsFromReviews,
+      copilDecisionsToApply,
+    };
+  }
+
+  async lockAgenda(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      include: { agendaItems: { select: { id: true } } },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const normalized = normalizeReviewStatus(review.status, review.startedAt);
+    if (
+      normalized !== ProjectReviewStatus.PREPARING &&
+      normalized !== ProjectReviewStatus.SCHEDULED
+    ) {
+      throw new BadRequestException(
+        'L’ordre du jour ne peut être figé qu’en préparation ou planifié',
+      );
+    }
+    if (review.agendaLockedAt) {
+      throw new BadRequestException('L’ordre du jour est déjà figé');
+    }
+    if (review.agendaItems.length < 1) {
+      throw new BadRequestException(
+        'Ajoutez au moins un point à l’ordre du jour avant de le figer',
+      );
+    }
+
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: {
+        agendaLockedAt: new Date(),
+        agendaLockedByUserId: context?.actorUserId ?? null,
+      },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_AGENDA_LOCKED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: reviewId,
+      newValue: { projectId, reviewId },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapReviewToDetail(updated);
+  }
+
+  async unlockAgenda(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const normalized = normalizeReviewStatus(review.status, review.startedAt);
+    if (
+      normalized !== ProjectReviewStatus.PREPARING &&
+      normalized !== ProjectReviewStatus.SCHEDULED
+    ) {
+      throw new BadRequestException(
+        'L’ordre du jour ne peut être réouvert que hors conduite / finalisation',
+      );
+    }
+    if (!review.agendaLockedAt) {
+      throw new BadRequestException('L’ordre du jour n’est pas figé');
+    }
+
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: {
+        agendaLockedAt: null,
+        agendaLockedByUserId: null,
+      },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_AGENDA_UNLOCKED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: reviewId,
+      newValue: { projectId, reviewId },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapReviewToDetail(updated);
   }
 
   async getById(clientId: string, projectId: string, reviewId: string) {

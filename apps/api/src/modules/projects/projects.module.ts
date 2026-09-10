@@ -61,6 +61,8 @@ import { ProjectReviewInvitationsService } from './project-reviews/project-revie
 import { ProjectReviewEmailInvitationsService } from './project-reviews/project-review-email-invitations.service';
 import { ProjectReviewEmailReportService } from './project-reviews/project-review-email-report.service';
 import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-review-microsoft-meeting.service';
+import { ProjectReviewSeriesController } from './project-reviews/project-review-series.controller';
+import { ProjectReviewSeriesService } from './project-reviews/project-review-series.service';
 @Module({
   imports: [
     PrismaModule,
@@ -84,6 +86,7 @@ import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
     ProjectReviewsController,
+    ProjectReviewSeriesController,
     ProjectReviewAgendaController,
     ProjectReviewParticipantsController,
     ProjectReviewAttachmentsController,
@@ -109,6 +112,7 @@ import { ProjectReviewMicrosoftMeetingService } from './project-reviews/project-
     ProjectSheetService,
     ProjectSheetDecisionSnapshotsService,
     ProjectReviewsService,
+    ProjectReviewSeriesService,
     ProjectReviewAgendaService,
     ProjectReviewParticipantsService,
     ProjectReviewAttachmentsService,

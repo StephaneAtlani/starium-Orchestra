@@ -163,7 +163,7 @@
 | 14d⁗  | **RFC-PROJ-013-4** | Tenue ODJ-first | Création + conduite sujet-centrées ; amorce Animer | ✅ Implémenté (supersédé partiel par 013-6) | [RFC](./RFC-PROJ-013-4%20—%20Tenue%20ODJ-first%20(Infos,%20Questions,%20Suites,%20Récaps).md) |
 | 14d⁵  | **RFC-PROJ-013-5** | Spec écrans Points projet | Catalogue **20 écrans** PDF (états UI, flux, découpage filles) | 📝 Draft | [RFC](./RFC-PROJ-013-5%20—%20Spécification%20fonctionnelle%20écrans%20Points%20projet%20(catalogue%2001-20).md) |
 | 14d⁶  | **RFC-PROJ-013-6** | Animer la séance (09) | Conduite live maquette : présence, ODJ, Présentation/Décision, timers | 🚧 En cours | [RFC](./RFC-PROJ-013-6%20—%20Animer%20la%20séance%20(écran%2009).md) |
-| 14d⁷  | **RFC-PROJ-013-7** | Listes / Séries / Préparation | Écrans 01–08 + création typée 13–17 ; figer ODJ | 📝 Draft | [RFC](./RFC-PROJ-013-7%20—%20Listes%20par%20état%20Séries%20et%20Préparation%20(écrans%2001-08).md) |
+| 14d⁷  | **RFC-PROJ-013-7** | Listes / Séries / Préparation | Écrans 01–08 + création typée 13–17 ; figer ODJ | ✅ | [RFC](./RFC-PROJ-013-7%20—%20Listes%20par%20état%20Séries%20et%20Préparation%20(écrans%2001-08).md) |
 | 14d⁸  | **RFC-PROJ-013-8** | Remontées / Finalisation / CR | Écrans 10, 11, 19 ; pont actions/risques | 📝 Draft | [RFC](./RFC-PROJ-013-8%20—%20Remontées%20Finalisation%20et%20CR%20(écrans%2010-11-19).md) |
 | 14d⁹  | **RFC-PROJ-013-9** | Transverse Cycles / Calendrier | Écrans 12, 18, 20 ; lien RFC-PROJ-CYCLE-* | 📝 Draft | [RFC](./RFC-PROJ-013-9%20—%20Vue%20transverse%20Cycles%20et%20Calendrier%20(écrans%2012-18-20).md) |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |

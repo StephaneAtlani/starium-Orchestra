@@ -4,144 +4,33 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
-import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
 import { usePermissions } from '@/hooks/use-permissions';
-import {
-  PROJECT_REVIEW_STATUS_LABEL,
-  PROJECT_REVIEW_TYPE_LABEL,
-} from '../constants/project-enum-labels';
 import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
-import type { ProjectReviewListItem, ProjectReviewType } from '../types/project.types';
-import { cn } from '@/lib/utils';
-import { BookOpen, Calendar, ClipboardList, Plus } from 'lucide-react';
+import { useProjectReviewsSummaryQuery } from '../hooks/use-project-reviews-summary-query';
+import { useProjectReviewSeriesQuery } from '../hooks/use-project-review-series';
+import type { ProjectReviewType } from '../types/project.types';
 import {
   findDraftPostMortemReview,
   hasFinalizedPostMortemReview,
   isPostMortemEligibleProjectStatus,
   REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
-import { normalizeReviewStatus } from '../lib/project-review-status';
 import { projectReviewConduct } from '../constants/project-routes';
-import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
-
-const REVIEW_ROW_ICON_TONES = [
-  'starium-dt-ti-blue',
-  'starium-dt-ti-purple',
-  'starium-dt-ti-gold',
-  'starium-dt-ti-green',
-] as const;
-
-function reviewStatusDsBadgeClass(status: string): string {
-  const normalized = normalizeReviewStatus(status as import('../types/project.types').ProjectReviewStatus);
-  if (status === 'FINALIZED' || normalized === 'FINALIZED') return 'starium-ds-badge--success';
-  if (
-    normalized === 'IN_PROGRESS' ||
-    status === 'IN_REVIEW' ||
-    status === 'DRAFT'
-  ) {
-    return 'starium-ds-badge--warn';
-  }
-  if (normalized === 'SCHEDULED' || status === 'PLANNED') return 'starium-ds-badge--info';
-  if (normalized === 'PREPARING') return 'starium-ds-badge--neutral';
-  if (status === 'CANCELLED') return 'starium-ds-badge--neutral';
-  return 'starium-ds-badge--info';
-}
-
-function reviewTypeDsBadgeClass(reviewType: string): string {
-  if (reviewType === 'POST_MORTEM') return 'starium-ds-badge--warn';
-  return 'starium-ds-badge--info';
-}
-
-function reviewRowIcon(reviewType: string) {
-  if (reviewType === 'POST_MORTEM') return BookOpen;
-  return ClipboardList;
-}
-
-function ReviewTableRow({
-  row,
-  index,
-  onOpen,
-}: {
-  row: ProjectReviewListItem;
-  index: number;
-  onOpen: (id: string) => void;
-}) {
-  const { shouldSuppressClick } = useStariumTablePan();
-  const RowIcon = reviewRowIcon(row.reviewType);
-  const iconTone = REVIEW_ROW_ICON_TONES[index % REVIEW_ROW_ICON_TONES.length];
-  const typeLabel = PROJECT_REVIEW_TYPE_LABEL[row.reviewType] ?? row.reviewType;
-  const statusLabel = PROJECT_REVIEW_STATUS_LABEL[row.status] ?? row.status;
-  const title = row.title?.trim() || typeLabel;
-  const actionLabel =
-    row.status === 'IN_PROGRESS' || row.status === 'IN_REVIEW' || row.status === 'DRAFT'
-      ? 'Continuer'
-      : row.status === 'SCHEDULED' || row.status === 'PLANNED' || row.status === 'PREPARING'
-        ? 'Ouvrir'
-        : 'Voir';
-
-  return (
-    <tr
-      className="cursor-pointer"
-      onClick={() => {
-        if (shouldSuppressClick()) return;
-        onOpen(row.id);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen(row.id);
-        }
-      }}
-      tabIndex={0}
-    >
-      <td>
-        <div className="starium-dt-date min-w-[10rem]">
-          <Calendar strokeWidth={1.75} aria-hidden />
-          <time dateTime={row.reviewDate ?? undefined}>
-            {row.reviewDate ? formatProjectDateTimeFr(row.reviewDate) : '—'}
-          </time>
-        </div>
-      </td>
-      <td>
-        <span className={cn('starium-ds-badge', reviewTypeDsBadgeClass(row.reviewType))}>
-          {typeLabel}
-        </span>
-      </td>
-      <td>
-        <span className={cn('starium-ds-badge', reviewStatusDsBadgeClass(row.status))}>
-          {statusLabel}
-        </span>
-      </td>
-      <td>
-        <div className="starium-dt-tname min-w-[12rem] max-w-[24rem]">
-          <div className={cn('starium-dt-tname-ico', iconTone)} aria-hidden>
-            <RowIcon strokeWidth={1.75} />
-          </div>
-          <div className="min-w-0">
-            <div className="starium-dt-cell-strong truncate">{title}</div>
-            {row.title?.trim() ? (
-              <div className="starium-dt-cell-sub truncate">{typeLabel}</div>
-            ) : null}
-          </div>
-        </div>
-      </td>
-      <td className="starium-dt__right">
-        <button
-          type="button"
-          className="starium-btn starium-btn-secondary starium-btn-sm"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen(row.id);
-          }}
-        >
-          {actionLabel}
-        </button>
-      </td>
-    </tr>
-  );
-}
+import { ProjectReviewsKpiRow } from './project-reviews-kpi-row';
+import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
+import { ProjectReviewsTable } from './project-reviews-table';
+import { ProjectReviewCreateSplitButton } from './project-review-create-split-button';
+import { ProjectReviewSeriesPanel } from './project-review-series-panel';
+import {
+  parsePointsStateParam,
+  resolveReviewUiState,
+  type ProjectReviewsTabState,
+  type ProjectReviewUiState,
+} from '../lib/project-review-ui-state';
+import type { ProjectReviewCreateMenuType } from '../lib/project-review-create-defaults';
+import { Plus } from 'lucide-react';
 
 export function ProjectReviewsTab({
   projectId,
@@ -158,8 +47,18 @@ export function ProjectReviewsTab({
     : [...REVIEW_TYPES_PILOTAGE];
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createPrefillType, setCreatePrefillType] =
+    useState<ProjectReviewCreateMenuType | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   const list = useProjectReviewsQuery(projectId);
+  const summary = useProjectReviewsSummaryQuery(projectId, {
+    enabled: !postMortemEligible,
+  });
+  const series = useProjectReviewSeriesQuery(projectId, {
+    enabled: !postMortemEligible,
+  });
+
   const draftPostMortem = useMemo(
     () => findDraftPostMortemReview(list.data),
     [list.data],
@@ -175,6 +74,21 @@ export function ProjectReviewsTab({
   const pathname = usePathname();
   const router = useRouter();
 
+  const activeTab = parsePointsStateParam(searchParams.get('pointsState'));
+
+  const setPointsState = useCallback(
+    (next: ProjectReviewsTabState, flash?: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', 'points');
+      params.set('pointsState', next);
+      if (flash) params.set('pointsFlash', flash);
+      else params.delete('pointsFlash');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   const openEditor = useCallback(
     (id: string) => {
       router.push(projectReviewConduct(projectId, id));
@@ -182,7 +96,22 @@ export function ProjectReviewsTab({
     [projectId, router],
   );
 
-  /** Synthèse projet : `?createRetourExperience=1` ouvre la création ; si un brouillon REX existe, l’éditeur. */
+  /** Flash création 1,6 s */
+  useEffect(() => {
+    const id = searchParams.get('pointsFlash');
+    if (!id?.trim()) return;
+    setFlashId(id);
+    const timer = window.setTimeout(() => {
+      setFlashId(null);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('pointsFlash');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, pathname, router]);
+
+  /** Synthèse projet : `?createRetourExperience=1` */
   useEffect(() => {
     if (searchParams.get('createRetourExperience') !== '1') {
       openedPostMortemFromQueryRef.current = false;
@@ -230,7 +159,6 @@ export function ProjectReviewsTab({
     openEditor,
   ]);
 
-  /** Lien invitation / météo : `?openReview=<id>` → page du point. */
   useEffect(() => {
     const id = searchParams.get('openReview');
     if (!id?.trim()) {
@@ -242,10 +170,56 @@ export function ProjectReviewsTab({
     router.replace(projectReviewConduct(projectId, id));
   }, [searchParams, projectId, router]);
 
+  const filteredRows = useMemo(() => {
+    if (activeTab === 'series' || !list.data) return [];
+    return list.data.filter((row) => {
+      const state =
+        row.uiState ??
+        resolveReviewUiState({
+          status: row.status,
+          agendaLockedAt: row.agendaLockedAt,
+          conductClosedAt: row.conductClosedAt,
+        });
+      return state === activeTab;
+    });
+  }, [activeTab, list.data]);
+
+  const tabCounts = useMemo(() => {
+    const fromSummary = summary.data?.countsByUiState;
+    const counts: Partial<Record<ProjectReviewUiState, number>> & {
+      series?: number;
+    } = {
+      ...(fromSummary ?? {}),
+      series: series.data?.length ?? 0,
+    };
+    if (!fromSummary && list.data) {
+      const local: Record<ProjectReviewUiState, number> = {
+        to_prepare: 0,
+        upcoming: 0,
+        in_progress: 0,
+        to_finalize: 0,
+        history: 0,
+      };
+      for (const row of list.data) {
+        const state =
+          row.uiState ??
+          resolveReviewUiState({
+            status: row.status,
+            agendaLockedAt: row.agendaLockedAt,
+            conductClosedAt: row.conductClosedAt,
+          });
+        if (state) local[state] += 1;
+      }
+      Object.assign(counts, local);
+    }
+    return counts;
+  }, [summary.data, list.data, series.data]);
+
   const onPrimaryReviewAction = () => {
     if (postMortemEligible && draftPostMortem) {
       openEditor(draftPostMortem.id);
     } else {
+      setCreatePrefillType(null);
       setCreateOpen(true);
     }
   };
@@ -259,7 +233,13 @@ export function ProjectReviewsTab({
   const showPrimaryCta =
     canEdit && !(postMortemEligible && finalizedPostMortem && !draftPostMortem);
 
-  const hasReviews = (list.data?.length ?? 0) > 0;
+  const emptyTitle: Record<ProjectReviewUiState, string> = {
+    to_prepare: 'Aucun point à préparer',
+    upcoming: 'Aucun point à venir',
+    in_progress: 'Aucun point en cours',
+    to_finalize: 'Aucun point à finaliser',
+    history: 'Aucun historique',
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -274,9 +254,33 @@ export function ProjectReviewsTab({
         />
       ) : null}
 
-      {/* Le bandeau ci-dessus porte le CTA quand le projet n'est pas clos ; ce header
-          garantit un bouton de création persistant pour les projets terminés (REX). */}
-      {postMortemEligible && showPrimaryCta && hasReviews ? (
+      {!postMortemEligible ? (
+        <ProjectReviewsKpiRow
+          summary={summary.data}
+          isLoading={summary.isLoading}
+          isError={summary.isError}
+        />
+      ) : null}
+
+      {!postMortemEligible ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <ProjectReviewsStateTabs
+            active={activeTab}
+            counts={tabCounts}
+            onChange={(next) => setPointsState(next)}
+          />
+          {canEdit && activeTab !== 'series' ? (
+            <ProjectReviewCreateSplitButton
+              onCreateType={(type) => {
+                setCreatePrefillType(type);
+                setCreateOpen(true);
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {postMortemEligible && showPrimaryCta ? (
         <div className="flex items-center justify-end">
           <button
             type="button"
@@ -290,72 +294,101 @@ export function ProjectReviewsTab({
       ) : null}
 
       <div className="starium-tablecard">
-        {list.isLoading ? (
+        {postMortemEligible ? (
+          list.isLoading ? (
+            <div className="p-6">
+              <LoadingState rows={4} />
+            </div>
+          ) : list.error ? (
+            <div className="p-6" role="alert">
+              <p className="text-sm text-destructive">
+                Impossible de charger les points projet.
+              </p>
+            </div>
+          ) : !list.data?.length ? (
+            <EmptyState
+              title="Aucun retour d'expérience"
+              description="Créez le bilan de clôture pour capitaliser objectifs, écarts et leçons apprises."
+              action={
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="starium-btn starium-btn-primary"
+                    onClick={onPrimaryReviewAction}
+                  >
+                    <Plus strokeWidth={2.5} aria-hidden />
+                    Créer un retour d&apos;expérience
+                  </button>
+                ) : undefined
+              }
+              className="py-14"
+            />
+          ) : (
+            <ProjectReviewsTable
+              uiState="history"
+              rows={list.data}
+              flashId={flashId}
+              onOpen={openEditor}
+            />
+          )
+        ) : activeTab === 'series' ? (
+          <div className="p-4">
+            <ProjectReviewSeriesPanel projectId={projectId} canEdit={canEdit} />
+          </div>
+        ) : list.isLoading ? (
           <div className="p-6">
             <LoadingState rows={4} />
           </div>
         ) : list.error ? (
           <div className="p-6" role="alert">
-            <p className="text-sm text-destructive">Impossible de charger les points projet.</p>
+            <p className="text-sm text-destructive">
+              Impossible de charger les points projet.
+            </p>
           </div>
-        ) : !list.data?.length ? (
+        ) : filteredRows.length === 0 ? (
           <EmptyState
-            title={postMortemEligible ? "Aucun retour d'expérience" : 'Aucun point projet'}
-            description={
-              postMortemEligible
-                ? 'Créez le bilan de clôture pour capitaliser objectifs, écarts et leçons apprises.'
-                : 'Planifiez un COPIL, COPRO ou une revue pour documenter arbitrages et décisions.'
-            }
+            title={emptyTitle[activeTab]}
+            description="Changez d’onglet ou créez un nouveau point."
             action={
               canEdit ? (
-                <button
-                  type="button"
-                  className="starium-btn starium-btn-primary"
-                  onClick={onPrimaryReviewAction}
-                >
-                  <Plus strokeWidth={2.5} aria-hidden />
-                  {postMortemEligible ? "Créer un retour d'expérience" : 'Créer un point projet'}
-                </button>
+                <ProjectReviewCreateSplitButton
+                  onCreateType={(type) => {
+                    setCreatePrefillType(type);
+                    setCreateOpen(true);
+                  }}
+                />
               ) : undefined
             }
             className="py-14"
           />
         ) : (
-          <StariumTableWrap scrollLabel="Historique des points projet — glisser pour faire défiler">
-            <table className="starium-dt starium-dt--wide">
-              <caption className="sr-only">Historique des points projet</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Statut</th>
-                  <th scope="col">Titre</th>
-                  <th scope="col" className="starium-dt__right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.data.map((row, index) => (
-                  <ReviewTableRow key={row.id} row={row} index={index} onOpen={openEditor} />
-                ))}
-              </tbody>
-            </table>
-          </StariumTableWrap>
+          <ProjectReviewsTable
+            uiState={activeTab}
+            rows={filteredRows}
+            flashId={flashId}
+            onOpen={openEditor}
+          />
         )}
       </div>
 
       <ProjectReviewCreateDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setCreatePrefillType(null);
+        }}
         projectId={projectId}
         postMortemEligible={postMortemEligible}
         createTypeOptions={createTypeOptions}
+        initialReviewType={createPrefillType ?? undefined}
         onCreated={(reviewId, openEditorAfterCreate) => {
-          if (openEditorAfterCreate) openEditor(reviewId);
+          if (openEditorAfterCreate) {
+            openEditor(reviewId);
+            return;
+          }
+          setPointsState('to_prepare', reviewId);
         }}
       />
-
     </div>
   );
 }

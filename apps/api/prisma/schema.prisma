@@ -314,6 +314,7 @@ model Client {
   projectRaciCells                 ProjectRaciCell[]
   projectSheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews                   ProjectReview[]
+  projectReviewSeries              ProjectReviewSeries[]
   projectReviewParticipants        ProjectReviewParticipant[]
   projectReviewDecisions           ProjectReviewDecision[]
   projectReviewActionItems         ProjectReviewActionItem[]
@@ -616,6 +617,8 @@ model User {
   createdProjectReviews                ProjectReview[]                 @relation("ProjectReviewCreatedBy")
   cancelledProjectReviews              ProjectReview[]                 @relation("ProjectReviewCancelledBy")
   microsoftOrganizedProjectReviews     ProjectReview[]                 @relation("ProjectReviewMicrosoftOrganizer")
+  agendaLockedProjectReviews           ProjectReview[]                 @relation("ProjectReviewAgendaLockedBy")
+  createdProjectReviewSeries           ProjectReviewSeries[]           @relation("ProjectReviewSeriesCreatedBy")
   ownedProjectReviewAgendaItems        ProjectReviewAgendaItem[]       @relation("ProjectReviewAgendaItemOwner")
   responsibleProjectReviewActionItems  ProjectReviewActionItem[]       @relation("ProjectReviewActionResponsible")
   decidedProjectReviewDecisions        ProjectReviewDecision[]         @relation("ProjectReviewDecisionDecidedBy")
@@ -1686,6 +1689,14 @@ enum ProjectReviewParticipantAttendanceStatus {
   EXCUSED
 }
 
+/// RFC-PROJ-013-7 — fréquence d'une série de points projet
+enum ProjectReviewSeriesFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
 /// RFC-PROJ-DOC-001 — registre métier documentaire projet (sans stockage binaire MVP)
 enum ProjectDocumentStorageType {
   STARIUM
@@ -1888,6 +1899,7 @@ model Project {
   tagAssignments            ProjectTagAssignment[]
   sheetDecisionSnapshots    ProjectSheetDecisionSnapshot[]
   projectReviews            ProjectReview[]
+  projectReviewSeries       ProjectReviewSeries[]
   projectReviewActionItems  ProjectReviewActionItem[]
   documents                 ProjectDocument[]
   resourceTimeEntries       ResourceTimeEntry[]
@@ -2558,6 +2570,14 @@ model ProjectReview {
   lastSentReportSubject String?
   lastSentReportTitle   String?
 
+  /// RFC-PROJ-013-7 — ODJ figé (état UI « À venir » si SCHEDULED)
+  agendaLockedAt       DateTime?
+  agendaLockedByUserId String?
+  /// RFC-PROJ-013-7 — conduite close (état UI « À finaliser »)
+  conductClosedAt DateTime?
+  /// RFC-PROJ-013-7 — série récurrente source
+  seriesId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2569,6 +2589,8 @@ model ProjectReview {
   createdBy   User?   @relation("ProjectReviewCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   cancelledBy User?   @relation("ProjectReviewCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
   microsoftMeetingOrganizer User? @relation("ProjectReviewMicrosoftOrganizer", fields: [microsoftMeetingOrganizerUserId], references: [id], onDelete: SetNull)
+  agendaLockedBy User? @relation("ProjectReviewAgendaLockedBy", fields: [agendaLockedByUserId], references: [id], onDelete: SetNull)
+  series      ProjectReviewSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   participants ProjectReviewParticipant[]
   decisions    ProjectReviewDecision[]
@@ -2581,8 +2603,45 @@ model ProjectReview {
 
   @@index([clientId, projectId, reviewDate])
   @@index([clientId, projectId, status])
+  @@index([clientId, projectId, agendaLockedAt])
+  @@index([clientId, projectId, conductClosedAt])
+  @@index([seriesId])
   @@index([projectId, reviewDate])
   @@index([clientId, microsoftEventId])
+}
+
+/// RFC-PROJ-013-7 — modèle de récurrence de points projet (écran Séries 06)
+model ProjectReviewSeries {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  title       String
+  reviewType  ProjectReviewType
+  frequency   ProjectReviewSeriesFrequency
+  durationMinutes Int
+  meetingMode ProjectReviewMeetingMode?
+  location    String?
+  defaultObjective String?
+
+  /// IDs User du client — jamais d’e-mail stocké ici (RGPD)
+  permanentParticipantUserIds Json
+  /// Ancre de récurrence (prochaine date de référence)
+  anchorDate   DateTime
+  /// Nb d’occurrences cibles à maintenir dans le futur (défaut 4, max 12)
+  horizonCount Int     @default(4)
+  isActive     Boolean @default(true)
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("ProjectReviewSeriesCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  reviews   ProjectReview[]
+
+  @@index([clientId, projectId, isActive])
 }
 
 model ProjectReviewParticipant {
