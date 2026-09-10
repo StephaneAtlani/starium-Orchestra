@@ -3118,7 +3118,7 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 **Création** : champ métier **`creationMode`** (`PREPARING` \| `SCHEDULED` \| `IMMEDIATE`, défaut `PREPARING` ; alias legacy `PLANNED`→`SCHEDULED`). **`reviewDate`** optionnel en `PREPARING`, requis en `SCHEDULED`. Champs : `objective`, `periodStart`, `periodEnd`, `durationMinutes`, réunion (`meetingMode`, `meetingUrl`, `location`). **`autoInviteOnCreate`** (défaut `true`) : notifications in-app si `SCHEDULED` + participants internes.
 
-- **GET /api/projects/:projectId/reviews** — Liste enrichie (`uiState`, signaux, cadence série…). **`projects.read`**
+- **GET /api/projects/:projectId/reviews** — Liste enrichie (`uiState`, signaux, cadence série, `incomingEscalationsPendingCount` pour COPIL…). **`projects.read`**
 - **GET /api/projects/:projectId/reviews/summary** — KPI + `countsByUiState` (RFC-PROJ-013-7). **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode`. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`, lock fields). `snapshotPayload` v2 si finalisé. **`projects.read`**
@@ -3130,6 +3130,10 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/close-conduct** — Clôture de conduite (`conductClosedAt = now()`), status reste `IN_PROGRESS` → UI « À finaliser » (RFC-PROJ-013-6). Refuse si hors `IN_PROGRESS` ou déjà clôturé. Audit `project.review.conduct_closed`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **Exige `conductClosedAt`** pour le pilotage ; **exempté** si `reviewType === POST_MORTEM` (REX). Body optionnel (RFC-PROJ-013-8) : `{ pushActionsToTasks?: boolean, promoteRiskNotes?: boolean }` (défaut `false`) — crée `ProjectTask` pour actions non liées / promeut notes `Risque :` vers `ProjectRisk` (skip sans riskType / doublon titre). Audits `project.review.actions_pushed` / `project.review.risks_promoted` (counts). **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId/escalations** — Remontées sortantes (COPRO) ou entrantes (COPIL). Libellés métier (titres, porteur, cible). **`projects.read`**
+- **POST /api/projects/:projectId/reviews/:reviewId/escalations** — Crée une remontée depuis un **COPRO** (`sourceAgendaItemId?`, `title?`, `summary?`, `ownerUserId?`). Résout le prochain COPIL du projet ; injecte un `agendaItem` `ESCALATION` si ODJ non figé. Audit `project.review.escalation.created` (+ `injected`). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/escalations/:escalationId/cancel** — Annule une remontée ; retire l’item ODJ cible si ODJ non verrouillé. Audit `project.review.escalation.cancelled`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/consolidate-escalations** — **COPIL** : injecte les remontées `PENDING` éligibles dans l’ODJ (silencieux côté UI). Audit `injected` si count > 0. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**

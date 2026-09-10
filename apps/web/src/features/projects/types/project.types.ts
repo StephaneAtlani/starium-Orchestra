@@ -942,7 +942,9 @@ export type ProjectReviewAgendaItemType =
   | 'ACTION_REVIEW'
   | 'BUDGET'
   | 'MILESTONE'
-  | 'OTHER';
+  | 'OTHER'
+  /** RFC-PROJ-013-8 F3 */
+  | 'ESCALATION';
 
 export type ProjectReviewAttachmentType =
   | 'URL'
@@ -1017,6 +1019,8 @@ export type ProjectReviewListItem = {
   agendaDoneCount?: number;
   openActionsWithoutOwnerOrDueCount?: number;
   openArbitrationsWithoutVerdictCount?: number;
+  /** RFC-PROJ-013-8 F3 — remontées PENDING ciblant ce COPIL */
+  incomingEscalationsPendingCount?: number;
 };
 
 export type ProjectReviewListResponse = {
@@ -1237,3 +1241,52 @@ export type ProjectReviewDetail = {
   /** Présent si FINALIZED ou CANCELLED ; `null` sinon. */
   snapshotPayload: Record<string, unknown> | null;
 };
+
+/** RFC-PROJ-013-8 F3 */
+export type ProjectReviewEscalationStatus =
+  | 'PENDING'
+  | 'INJECTED'
+  | 'CANCELLED';
+
+export type ProjectReviewEscalationApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  sourceReviewId: string;
+  sourceAgendaItemId: string | null;
+  sourceAgendaTitle: string | null;
+  title: string;
+  summary: string | null;
+  ownerUserId: string | null;
+  ownerDisplayName: string | null;
+  targetReviewId: string | null;
+  targetAgendaItemId: string | null;
+  targetReviewTitle: string | null;
+  targetReviewDate: string | null;
+  sourceReviewTitle: string;
+  sourceReviewDate: string | null;
+  status: ProjectReviewEscalationStatus;
+  statusLabel: string;
+  injectedAt: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectReviewEscalationsListResponse = {
+  items: ProjectReviewEscalationApi[];
+};
+
+export type CreateProjectReviewEscalationPayload = {
+  sourceAgendaItemId?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  ownerUserId?: string | null;
+};
+
+export type ConsolidateEscalationsResult = {
+  injected: number;
+  skippedLocked: boolean;
+  items: ProjectReviewEscalationApi[];
+};
+

@@ -111,7 +111,9 @@ import {
   ProjectReviewFinalizeChecklist,
   useFinalizeOptInDefaults,
 } from './project-review-finalize-checklist';
+import { ProjectReviewEscalationsScreen } from './project-review-escalations-screen';
 import { buildFinalizeChecklist } from '../lib/review-finalize-checklist';
+import { useProjectReviewEscalationsQuery } from '../hooks/use-project-review-escalations-query';
 import {
   canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
@@ -811,7 +813,7 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: active });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: active });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: active });
-  const { update, finalize, closeConduct, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda } =
+  const { update, finalize, closeConduct, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda, createEscalation, cancelEscalation, consolidateEscalations } =
     useProjectReviewMutations(projectId);
 
   const router = useRouter();
@@ -1620,6 +1622,41 @@ export function ProjectReviewEditorDialog({
   const phaseTabs = reviewEditorTabsForPhase(editorPhase);
   const agendaProgress =
     d && !isPostMortemReview ? reviewAgendaConductProgress(d.agendaItems ?? []) : null;
+
+  const showEscalationsScreen =
+    reviewType === 'COPRO' &&
+    Boolean(d?.conductClosedAt) &&
+    !isPostMortemReview &&
+    editorPhase === 'conduct';
+
+  const escalationsQuery = useProjectReviewEscalationsQuery(
+    projectId,
+    showEscalationsScreen && reviewId ? reviewId : null,
+    showEscalationsScreen,
+  );
+
+  const [cancellingEscalationId, setCancellingEscalationId] = useState<
+    string | null
+  >(null);
+
+  const consolidateRanForReviewRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!d || !reviewId || !active || !canUpdateProject) return;
+    if (d.reviewType !== 'COPIL') return;
+    if (d.agendaLockedAt) return;
+    if (
+      d.status !== 'PREPARING' &&
+      d.status !== 'SCHEDULED' &&
+      d.status !== 'IN_PROGRESS'
+    ) {
+      return;
+    }
+    if (consolidateRanForReviewRef.current === reviewId) return;
+    consolidateRanForReviewRef.current = reviewId;
+    void consolidateEscalations.mutateAsync(reviewId).catch(() => {
+      consolidateRanForReviewRef.current = null;
+    });
+  }, [active, canUpdateProject, consolidateEscalations, d, reviewId]);
 
   const lastTabReviewIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -2788,6 +2825,45 @@ export function ProjectReviewEditorDialog({
             </p>
           ) : (
             <>
+            {showEscalationsScreen && d ? (
+              <ProjectReviewEscalationsScreen
+                reviewTitle={d.title}
+                reviewDate={d.reviewDate}
+                agendaItems={d.agendaItems ?? []}
+                escalations={escalationsQuery.data?.items}
+                loading={escalationsQuery.isLoading}
+                error={escalationsQuery.isError}
+                onRetry={() => void escalationsQuery.refetch()}
+                canEdit={editable && canUpdateProject}
+                creating={createEscalation.isPending}
+                cancellingId={cancellingEscalationId}
+                onCreate={async (sourceAgendaItemId) => {
+                  try {
+                    await createEscalation.mutateAsync({
+                      reviewId: d.id,
+                      body: { sourceAgendaItemId },
+                    });
+                    toast.success('Sujet ajouté aux remontées');
+                  } catch {
+                    toast.error('Impossible d’ajouter la remontée');
+                  }
+                }}
+                onCancel={async (escalationId) => {
+                  setCancellingEscalationId(escalationId);
+                  try {
+                    await cancelEscalation.mutateAsync({
+                      reviewId: d.id,
+                      escalationId,
+                    });
+                    toast.success('Remontée retirée');
+                  } catch {
+                    toast.error('Impossible de retirer la remontée');
+                  } finally {
+                    setCancellingEscalationId(null);
+                  }
+                }}
+              />
+            ) : null}
             {editorPhase === 'conduct' &&
             d.conductClosedAt &&
             !isPostMortemReview ? (

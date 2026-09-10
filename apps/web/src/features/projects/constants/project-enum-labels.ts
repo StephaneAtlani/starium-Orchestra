@@ -211,6 +211,7 @@ export const PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL: Record<string, string> = {
   BUDGET: 'Budget',
   MILESTONE: 'Jalon',
   OTHER: 'Autre',
+  ESCALATION: 'Remontée',
 };
 
 export const PROJECT_REVIEW_DECISION_TYPE_LABEL: Record<string, string> = {

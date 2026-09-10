@@ -5,8 +5,10 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  ProjectReviewAgendaItemType,
   ProjectReviewDecisionStatus,
   ProjectReviewDecisionType,
+  ProjectReviewEscalationStatus,
   ProjectReviewStatus,
   ProjectReviewType,
   ProjectStatus,
@@ -27,6 +29,7 @@ import { CreateProjectReviewDto } from './dto/create-project-review.dto';
 import { FinalizeProjectReviewDto } from './dto/finalize-project-review.dto';
 import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
 import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
+import { CreateProjectReviewEscalationDto } from './dto/create-project-review-escalation.dto';
 import { ProjectReviewActionItemInputDto } from './dto/project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './dto/project-review-decision.dto';
 import {
@@ -38,6 +41,14 @@ import {
   type ActionsPushResult,
   type RisksPromoteResult,
 } from './project-review-finalize-side-effects';
+import {
+  buildEscalationAgendaDescription,
+  canInjectIntoTargetAgenda,
+  COPIL_ESCALATION_TARGET_STATUSES,
+  escalationStatusLabel,
+  resolveNextCopilTarget,
+  reviewTitleLabel,
+} from './project-review-escalations';
 import { applyCriticalityFromProbabilityImpact } from '../lib/project-risk-criticality.util';
 import {
   assertMeetingFieldsCoherence,
@@ -669,6 +680,7 @@ export class ProjectReviewsService {
       agendaDoneCount,
       openActionsWithoutOwnerOrDueCount,
       openArbitrationsWithoutVerdictCount,
+      incomingEscalationsPendingCount: 0,
     };
   }
 
@@ -763,8 +775,29 @@ export class ProjectReviewsService {
       include: reviewInclude,
       orderBy: [{ reviewDate: 'desc' }, { createdAt: 'desc' }],
     });
+    const pendingByTarget = await this.prisma.projectReviewEscalation.groupBy({
+      by: ['targetReviewId'],
+      where: {
+        clientId,
+        projectId,
+        status: ProjectReviewEscalationStatus.PENDING,
+        targetReviewId: { not: null },
+      },
+      _count: { _all: true },
+    });
+    const pendingMap = new Map(
+      pendingByTarget
+        .filter((row) => row.targetReviewId != null)
+        .map((row) => [row.targetReviewId as string, row._count._all]),
+    );
     return {
-      items: rows.map((r: ReviewWithChildren) => this.mapReviewToListItem(r)),
+      items: rows.map((r: ReviewWithChildren) => {
+        const item = this.mapReviewToListItem(r);
+        return {
+          ...item,
+          incomingEscalationsPendingCount: pendingMap.get(r.id) ?? 0,
+        };
+      }),
     };
   }
 
@@ -2456,5 +2489,614 @@ export class ProjectReviewsService {
       participants: review.participants,
       context,
     });
+  }
+
+  // --- RFC-PROJ-013-8 F3 — remontées COPRO → COPIL ---
+
+  private formatReviewDateLabel(date: Date | null | undefined): string | null {
+    if (!date) return null;
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }
+
+  private mapEscalationApi(
+    row: {
+      id: string;
+      clientId: string;
+      projectId: string;
+      sourceReviewId: string;
+      sourceAgendaItemId: string | null;
+      title: string;
+      summary: string | null;
+      ownerUserId: string | null;
+      targetReviewId: string | null;
+      targetAgendaItemId: string | null;
+      status: ProjectReviewEscalationStatus;
+      injectedAt: Date | null;
+      createdByUserId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      ownerUser?: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+      sourceReview?: {
+        title: string | null;
+        reviewType: ProjectReviewType;
+        reviewDate: Date | null;
+      } | null;
+      targetReview?: {
+        title: string | null;
+        reviewType: ProjectReviewType;
+        reviewDate: Date | null;
+      } | null;
+      sourceAgendaTitle?: string | null;
+    },
+  ) {
+    const ownerDisplayName =
+      formatProjectReviewUserDisplayName(row.ownerUser) ?? null;
+    const sourceReviewTitle = row.sourceReview
+      ? reviewTitleLabel(row.sourceReview.title, row.sourceReview.reviewType)
+      : 'COPROJ';
+    const targetReviewTitle = row.targetReview
+      ? reviewTitleLabel(row.targetReview.title, row.targetReview.reviewType)
+      : null;
+    return {
+      id: row.id,
+      clientId: row.clientId,
+      projectId: row.projectId,
+      sourceReviewId: row.sourceReviewId,
+      sourceAgendaItemId: row.sourceAgendaItemId,
+      sourceAgendaTitle: row.sourceAgendaTitle ?? null,
+      title: row.title,
+      summary: row.summary,
+      ownerUserId: row.ownerUserId,
+      ownerDisplayName,
+      targetReviewId: row.targetReviewId,
+      targetAgendaItemId: row.targetAgendaItemId,
+      targetReviewTitle,
+      targetReviewDate: row.targetReview?.reviewDate?.toISOString() ?? null,
+      sourceReviewTitle,
+      sourceReviewDate: row.sourceReview?.reviewDate?.toISOString() ?? null,
+      status: row.status,
+      statusLabel: escalationStatusLabel(row.status),
+      injectedAt: row.injectedAt?.toISOString() ?? null,
+      createdByUserId: row.createdByUserId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private async loadEscalationMapped(
+    clientId: string,
+    escalationId: string,
+  ) {
+    const row = await this.prisma.projectReviewEscalation.findFirst({
+      where: { id: escalationId, clientId },
+      include: {
+        ownerUser: { select: projectReviewUserSelect },
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+        targetReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException('Remontée introuvable');
+    let sourceAgendaTitle: string | null = null;
+    if (row.sourceAgendaItemId) {
+      const agenda = await this.prisma.projectReviewAgendaItem.findFirst({
+        where: { id: row.sourceAgendaItemId, clientId },
+        select: { title: true },
+      });
+      sourceAgendaTitle = agenda?.title ?? null;
+    }
+    return this.mapEscalationApi({ ...row, sourceAgendaTitle });
+  }
+
+  private async findNextCopilCandidate(
+    clientId: string,
+    projectId: string,
+    sourceDate: Date | null,
+    excludeReviewId?: string,
+  ) {
+    const candidates = await this.prisma.projectReview.findMany({
+      where: {
+        clientId,
+        projectId,
+        reviewType: ProjectReviewType.COPIL,
+        status: { in: COPIL_ESCALATION_TARGET_STATUSES },
+        ...(excludeReviewId ? { id: { not: excludeReviewId } } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        reviewDate: true,
+        agendaLockedAt: true,
+      },
+    });
+    return resolveNextCopilTarget(candidates, sourceDate);
+  }
+
+  private async injectEscalationIntoTarget(
+    tx: Prisma.TransactionClient,
+    escalation: {
+      id: string;
+      clientId: string;
+      projectId: string;
+      title: string;
+      summary: string | null;
+      ownerUserId: string | null;
+      sourceAgendaItemId: string | null;
+      sourceReviewId: string;
+    },
+    target: {
+      id: string;
+      agendaLockedAt: Date | null;
+      title: string | null;
+    },
+    sourceMeta: {
+      sourceReviewTitle: string;
+      sourceReviewDateLabel: string | null;
+      sourceAgendaTitle: string | null;
+    },
+  ): Promise<{ injected: boolean; targetAgendaItemId: string | null }> {
+    if (!canInjectIntoTargetAgenda(target.agendaLockedAt)) {
+      return { injected: false, targetAgendaItemId: null };
+    }
+
+    const maxOrder = await tx.projectReviewAgendaItem.aggregate({
+      where: { clientId: escalation.clientId, projectReviewId: target.id },
+      _max: { orderIndex: true },
+    });
+    const orderIndex = (maxOrder._max.orderIndex ?? -1) + 1;
+    const description = buildEscalationAgendaDescription({
+      sourceReviewTitle: sourceMeta.sourceReviewTitle,
+      sourceReviewDateLabel: sourceMeta.sourceReviewDateLabel,
+      sourceAgendaTitle: sourceMeta.sourceAgendaTitle,
+      summary: escalation.summary,
+    });
+
+    const agendaItem = await tx.projectReviewAgendaItem.create({
+      data: {
+        clientId: escalation.clientId,
+        projectReviewId: target.id,
+        title: escalation.title,
+        description,
+        itemType: ProjectReviewAgendaItemType.ESCALATION,
+        orderIndex,
+        ownerUserId: escalation.ownerUserId,
+      },
+    });
+
+    await tx.projectReviewEscalation.update({
+      where: { id: escalation.id },
+      data: {
+        targetReviewId: target.id,
+        targetAgendaItemId: agendaItem.id,
+        status: ProjectReviewEscalationStatus.INJECTED,
+        injectedAt: new Date(),
+      },
+    });
+
+    return { injected: true, targetAgendaItemId: agendaItem.id };
+  }
+
+  async listEscalations(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      select: { id: true, reviewType: true },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const where =
+      review.reviewType === ProjectReviewType.COPIL
+        ? { clientId, projectId, targetReviewId: reviewId }
+        : { clientId, projectId, sourceReviewId: reviewId };
+
+    const rows = await this.prisma.projectReviewEscalation.findMany({
+      where,
+      include: {
+        ownerUser: { select: projectReviewUserSelect },
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+        targetReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const agendaIds = rows
+      .map((r) => r.sourceAgendaItemId)
+      .filter((id): id is string => Boolean(id));
+    const agendaTitles = agendaIds.length
+      ? await this.prisma.projectReviewAgendaItem.findMany({
+          where: { clientId, id: { in: agendaIds } },
+          select: { id: true, title: true },
+        })
+      : [];
+    const agendaTitleMap = new Map(
+      agendaTitles.map((a) => [a.id, a.title] as const),
+    );
+
+    return {
+      items: rows.map((row) =>
+        this.mapEscalationApi({
+          ...row,
+          sourceAgendaTitle: row.sourceAgendaItemId
+            ? (agendaTitleMap.get(row.sourceAgendaItemId) ?? null)
+            : null,
+        }),
+      ),
+    };
+  }
+
+  async createEscalation(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    dto: CreateProjectReviewEscalationDto,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const sourceReview = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!sourceReview) throw new NotFoundException('Review not found');
+    if (sourceReview.reviewType !== ProjectReviewType.COPRO) {
+      throw new BadRequestException(
+        'Les remontées ne peuvent être créées que depuis un COPROJ',
+      );
+    }
+    if (sourceReview.status === ProjectReviewStatus.CANCELLED) {
+      throw new BadRequestException('Point annulé');
+    }
+
+    let sourceAgendaTitle: string | null = null;
+    let ownerUserId = dto.ownerUserId?.trim() || null;
+    let title = dto.title?.trim() || '';
+
+    if (dto.sourceAgendaItemId) {
+      const agenda = await this.prisma.projectReviewAgendaItem.findFirst({
+        where: {
+          id: dto.sourceAgendaItemId,
+          clientId,
+          projectReviewId: reviewId,
+        },
+      });
+      if (!agenda) {
+        throw new NotFoundException('Point d’ordre du jour introuvable');
+      }
+      const existing = await this.prisma.projectReviewEscalation.findFirst({
+        where: {
+          clientId,
+          sourceAgendaItemId: agenda.id,
+          status: { not: ProjectReviewEscalationStatus.CANCELLED },
+        },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'Ce point est déjà qualifié « à remonter »',
+        );
+      }
+      sourceAgendaTitle = agenda.title;
+      if (!title) title = agenda.title;
+      if (!ownerUserId) ownerUserId = agenda.ownerUserId;
+    }
+
+    if (!title) {
+      throw new BadRequestException('Le titre de la remontée est obligatoire');
+    }
+
+    if (ownerUserId) {
+      await this.projects.assertClientUser(clientId, ownerUserId);
+    }
+
+    const target = await this.findNextCopilCandidate(
+      clientId,
+      projectId,
+      sourceReview.reviewDate,
+      reviewId,
+    );
+
+    const sourceReviewTitle = reviewTitleLabel(
+      sourceReview.title,
+      sourceReview.reviewType,
+    );
+    const sourceReviewDateLabel = this.formatReviewDateLabel(
+      sourceReview.reviewDate,
+    );
+
+    const {
+      escalationId,
+      injected,
+    } = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.projectReviewEscalation.create({
+        data: {
+          clientId,
+          projectId,
+          sourceReviewId: reviewId,
+          sourceAgendaItemId: dto.sourceAgendaItemId?.trim() || null,
+          title,
+          summary: dto.summary?.trim() || null,
+          ownerUserId,
+          targetReviewId: target?.id ?? null,
+          status: ProjectReviewEscalationStatus.PENDING,
+          createdByUserId: context?.actorUserId ?? null,
+        },
+      });
+
+      let didInject = false;
+      if (target) {
+        const result = await this.injectEscalationIntoTarget(
+          tx,
+          {
+            id: created.id,
+            clientId,
+            projectId,
+            title: created.title,
+            summary: created.summary,
+            ownerUserId: created.ownerUserId,
+            sourceAgendaItemId: created.sourceAgendaItemId,
+            sourceReviewId: created.sourceReviewId,
+          },
+          target,
+          {
+            sourceReviewTitle,
+            sourceReviewDateLabel,
+            sourceAgendaTitle,
+          },
+        );
+        didInject = result.injected;
+      }
+
+      return { escalationId: created.id, injected: didInject };
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ESCALATION_CREATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_ESCALATION,
+      resourceId: escalationId,
+      newValue: {
+        projectId,
+        reviewId,
+        targetReviewId: target?.id ?? null,
+        injected,
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    if (injected) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ESCALATION_INJECTED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_ESCALATION,
+        resourceId: escalationId,
+        newValue: {
+          projectId,
+          reviewId,
+          targetReviewId: target?.id ?? null,
+          count: 1,
+        },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    return this.loadEscalationMapped(clientId, escalationId);
+  }
+
+  async cancelEscalation(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    escalationId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      select: { id: true, reviewType: true },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const escalation = await this.prisma.projectReviewEscalation.findFirst({
+      where: {
+        id: escalationId,
+        clientId,
+        projectId,
+        sourceReviewId: reviewId,
+      },
+    });
+    if (!escalation) throw new NotFoundException('Remontée introuvable');
+    if (escalation.status === ProjectReviewEscalationStatus.CANCELLED) {
+      throw new BadRequestException('Remontée déjà annulée');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (
+        escalation.status === ProjectReviewEscalationStatus.INJECTED &&
+        escalation.targetAgendaItemId &&
+        escalation.targetReviewId
+      ) {
+        const target = await tx.projectReview.findFirst({
+          where: {
+            id: escalation.targetReviewId,
+            clientId,
+            projectId,
+          },
+          select: { agendaLockedAt: true },
+        });
+        if (target && canInjectIntoTargetAgenda(target.agendaLockedAt)) {
+          await tx.projectReviewAgendaItem.deleteMany({
+            where: {
+              id: escalation.targetAgendaItemId,
+              clientId,
+              projectReviewId: escalation.targetReviewId,
+            },
+          });
+        }
+      }
+
+      await tx.projectReviewEscalation.update({
+        where: { id: escalationId },
+        data: {
+          status: ProjectReviewEscalationStatus.CANCELLED,
+          targetAgendaItemId: null,
+          injectedAt: null,
+        },
+      });
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ESCALATION_CANCELLED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_ESCALATION,
+      resourceId: escalationId,
+      newValue: { projectId, reviewId, escalationId },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.loadEscalationMapped(clientId, escalationId);
+  }
+
+  async consolidateEscalations(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const targetReview = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!targetReview) throw new NotFoundException('Review not found');
+    if (targetReview.reviewType !== ProjectReviewType.COPIL) {
+      throw new BadRequestException(
+        'La consolidation des remontées ne s’applique qu’à un COPIL',
+      );
+    }
+    if (!canInjectIntoTargetAgenda(targetReview.agendaLockedAt)) {
+      return { injected: 0, skippedLocked: true, items: [] as unknown[] };
+    }
+
+    const pending = await this.prisma.projectReviewEscalation.findMany({
+      where: {
+        clientId,
+        projectId,
+        status: ProjectReviewEscalationStatus.PENDING,
+        OR: [
+          { targetReviewId: reviewId },
+          { targetReviewId: null },
+        ],
+      },
+      include: {
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Ne prendre les PENDING sans cible que si ce COPIL est le prochain pour leur source.
+    const eligible: typeof pending = [];
+    for (const esc of pending) {
+      if (esc.targetReviewId === reviewId) {
+        eligible.push(esc);
+        continue;
+      }
+      const next = await this.findNextCopilCandidate(
+        clientId,
+        projectId,
+        esc.sourceReview.reviewDate,
+        esc.sourceReviewId,
+      );
+      if (next?.id === reviewId) eligible.push(esc);
+    }
+
+    let injected = 0;
+    await this.prisma.$transaction(async (tx) => {
+      for (const esc of eligible) {
+        let sourceAgendaTitle: string | null = null;
+        if (esc.sourceAgendaItemId) {
+          const agenda = await tx.projectReviewAgendaItem.findFirst({
+            where: { id: esc.sourceAgendaItemId, clientId },
+            select: { title: true },
+          });
+          sourceAgendaTitle = agenda?.title ?? null;
+        }
+        const result = await this.injectEscalationIntoTarget(
+          tx,
+          {
+            id: esc.id,
+            clientId: esc.clientId,
+            projectId: esc.projectId,
+            title: esc.title,
+            summary: esc.summary,
+            ownerUserId: esc.ownerUserId,
+            sourceAgendaItemId: esc.sourceAgendaItemId,
+            sourceReviewId: esc.sourceReviewId,
+          },
+          {
+            id: targetReview.id,
+            agendaLockedAt: targetReview.agendaLockedAt,
+            title: targetReview.title,
+          },
+          {
+            sourceReviewTitle: reviewTitleLabel(
+              esc.sourceReview.title,
+              esc.sourceReview.reviewType,
+            ),
+            sourceReviewDateLabel: this.formatReviewDateLabel(
+              esc.sourceReview.reviewDate,
+            ),
+            sourceAgendaTitle,
+          },
+        );
+        if (result.injected) injected += 1;
+      }
+    });
+
+    if (injected > 0) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ESCALATION_INJECTED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: { projectId, reviewId, count: injected },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    const listed = await this.listEscalations(clientId, projectId, reviewId);
+    return {
+      injected,
+      skippedLocked: false,
+      items: listed.items,
+    };
   }
 }

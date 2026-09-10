@@ -21,6 +21,7 @@ import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
 import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
 import { FinalizeProjectReviewDto } from './dto/finalize-project-review.dto';
 import { InviteProjectReviewDto } from './dto/invite-project-review.dto';
+import { CreateProjectReviewEscalationDto } from './dto/create-project-review-escalation.dto';
 import { ProjectReviewsService } from './project-reviews.service';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 
@@ -313,6 +314,79 @@ export class ProjectReviewsController {
   ) {
     const context: AuditContext = { actorUserId, meta };
     return this.projectReviewsService.sendReport(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
+  /** RFC-PROJ-013-8 F3 — remontées COPRO → COPIL */
+  @Get(':reviewId/escalations')
+  @RequirePermissions('projects.read')
+  listEscalations(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+  ) {
+    return this.projectReviewsService.listEscalations(
+      clientId!,
+      projectId,
+      reviewId,
+    );
+  }
+
+  @Post(':reviewId/escalations')
+  @RequirePermissions('projects.update')
+  createEscalation(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() dto: CreateProjectReviewEscalationDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.createEscalation(
+      clientId!,
+      projectId,
+      reviewId,
+      dto,
+      context,
+    );
+  }
+
+  @Post(':reviewId/escalations/:escalationId/cancel')
+  @RequirePermissions('projects.update')
+  cancelEscalation(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Param('escalationId') escalationId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.cancelEscalation(
+      clientId!,
+      projectId,
+      reviewId,
+      escalationId,
+      context,
+    );
+  }
+
+  @Post(':reviewId/consolidate-escalations')
+  @RequirePermissions('projects.update')
+  consolidateEscalations(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.consolidateEscalations(
       clientId!,
       projectId,
       reviewId,

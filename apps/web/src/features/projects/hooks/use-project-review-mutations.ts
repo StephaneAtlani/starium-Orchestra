@@ -7,10 +7,13 @@ import {
   cancelProjectReview,
   closeConductProjectReview,
   completeProjectReviewAgendaItem,
+  consolidateProjectReviewEscalations,
   createProjectReview,
   createProjectReviewAgendaItem,
   createProjectReviewAttachment,
+  createProjectReviewEscalation,
   createProjectReviewParticipant,
+  cancelProjectReviewEscalation,
   deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
@@ -32,7 +35,10 @@ import {
 } from '../api/project-reviews.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 import { notificationsKeys } from '@/features/notifications/hooks/use-notifications';
-import type { InviteProjectReviewPayload } from '../types/project.types';
+import type {
+  CreateProjectReviewEscalationPayload,
+  InviteProjectReviewPayload,
+} from '../types/project.types';
 
 export function useProjectReviewMutations(projectId: string) {
   const authFetch = useAuthenticatedFetch();
@@ -49,6 +55,9 @@ export function useProjectReviewMutations(projectId: string) {
     });
     void qc.invalidateQueries({
       queryKey: projectQueryKeys.review(clientId, projectId, reviewId),
+    });
+    void qc.invalidateQueries({
+      queryKey: projectQueryKeys.reviewEscalations(clientId, projectId, reviewId),
     });
   };
 
@@ -383,6 +392,52 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const createEscalation = useMutation({
+    mutationFn: ({
+      reviewId,
+      body,
+    }: {
+      reviewId: string;
+      body: CreateProjectReviewEscalationPayload;
+    }) => createProjectReviewEscalation(authFetch, projectId, reviewId, body),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.reviews(clientId, projectId),
+      });
+    },
+  });
+
+  const cancelEscalation = useMutation({
+    mutationFn: ({
+      reviewId,
+      escalationId,
+    }: {
+      reviewId: string;
+      escalationId: string;
+    }) =>
+      cancelProjectReviewEscalation(
+        authFetch,
+        projectId,
+        reviewId,
+        escalationId,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.reviews(clientId, projectId),
+      });
+    },
+  });
+
+  const consolidateEscalations = useMutation({
+    mutationFn: (reviewId: string) =>
+      consolidateProjectReviewEscalations(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
   return {
     create,
     update,
@@ -409,5 +464,8 @@ export function useProjectReviewMutations(projectId: string) {
     sendReport,
     lockAgenda,
     unlockAgenda,
+    createEscalation,
+    cancelEscalation,
+    consolidateEscalations,
   };
 }

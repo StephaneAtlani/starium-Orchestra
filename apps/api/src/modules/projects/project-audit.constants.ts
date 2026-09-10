@@ -21,6 +21,7 @@ export const PROJECT_AUDIT_RESOURCE_TYPE = {
   PROJECT_REVIEW_PARTICIPANT: 'project_review_participant',
   PROJECT_REVIEW_ATTACHMENT: 'project_review_attachment',
   PROJECT_REVIEW_SERIES: 'project_review_series',
+  PROJECT_REVIEW_ESCALATION: 'project_review_escalation',
   PROJECT_PORTFOLIO_CATEGORY: 'project_portfolio_category',
 } as const;
 
@@ -143,6 +144,10 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_CONDUCT_CLOSED: 'project.review.conduct_closed',
   PROJECT_REVIEW_ACTIONS_PUSHED: 'project.review.actions_pushed',
   PROJECT_REVIEW_RISKS_PROMOTED: 'project.review.risks_promoted',
+  /** RFC-PROJ-013-8 F3 */
+  PROJECT_REVIEW_ESCALATION_CREATED: 'project.review.escalation.created',
+  PROJECT_REVIEW_ESCALATION_INJECTED: 'project.review.escalation.injected',
+  PROJECT_REVIEW_ESCALATION_CANCELLED: 'project.review.escalation.cancelled',
   PROJECT_REVIEW_SERIES_CREATED: 'project.review.series.created',
   PROJECT_REVIEW_SERIES_UPDATED: 'project.review.series.updated',
   PROJECT_REVIEW_SERIES_DEACTIVATED: 'project.review.series.deactivated',

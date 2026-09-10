@@ -321,6 +321,7 @@ model Client {
   projectReviewAgendaItems         ProjectReviewAgendaItem[]
   projectReviewActionItemContributors ProjectReviewActionItemContributor[]
   projectReviewAttachments         ProjectReviewAttachment[]
+  projectReviewEscalations         ProjectReviewEscalation[]
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
@@ -625,6 +626,8 @@ model User {
   uploadedProjectReviewAttachments     ProjectReviewAttachment[]       @relation("ProjectReviewAttachmentUploadedBy")
   projectReviewActionItemContributions ProjectReviewActionItemContributor[]
   projectReviewParticipants            ProjectReviewParticipant[]
+  ownedProjectReviewEscalations        ProjectReviewEscalation[]       @relation("ProjectReviewEscalationOwner")
+  createdProjectReviewEscalations      ProjectReviewEscalation[]       @relation("ProjectReviewEscalationCreatedBy")
   emailIdentities                      UserEmailIdentity[]
   emailAddressRegistryEntries          EmailAddressRegistry[]
   emailIdentityVerificationTokens    EmailIdentityVerificationToken[] @relation("EmailIdentityTokenUser")
@@ -1649,6 +1652,15 @@ enum ProjectReviewAgendaItemType {
   BUDGET
   MILESTONE
   OTHER
+  /// RFC-PROJ-013-8 F3 — sujet remonté COPRO → COPIL
+  ESCALATION
+}
+
+/// RFC-PROJ-013-8 F3 — statut d'une remontée COPRO → COPIL
+enum ProjectReviewEscalationStatus {
+  PENDING
+  INJECTED
+  CANCELLED
 }
 
 /// RFC-PROJ-013-2 — pièce jointe / lien point projet
@@ -1901,6 +1913,7 @@ model Project {
   projectReviews            ProjectReview[]
   projectReviewSeries       ProjectReviewSeries[]
   projectReviewActionItems  ProjectReviewActionItem[]
+  projectReviewEscalations  ProjectReviewEscalation[]
   documents                 ProjectDocument[]
   resourceTimeEntries       ResourceTimeEntry[]
   governanceCycleItems      GovernanceCycleItem[]
@@ -2597,6 +2610,8 @@ model ProjectReview {
   actionItems  ProjectReviewActionItem[]
   agendaItems  ProjectReviewAgendaItem[]
   attachments  ProjectReviewAttachment[]
+  escalationsFrom ProjectReviewEscalation[] @relation("ProjectReviewEscalationSource")
+  escalationsTo   ProjectReviewEscalation[] @relation("ProjectReviewEscalationTarget")
 
   /// RFC-MEET-001 — point projet créé/lié par une réunion (pont de surcouche)
   meetingProjects MeetingProject[]
@@ -2608,6 +2623,40 @@ model ProjectReview {
   @@index([seriesId])
   @@index([projectId, reviewDate])
   @@index([clientId, microsoftEventId])
+}
+
+/// RFC-PROJ-013-8 F3 — remontée d’un sujet COPRO vers un COPIL
+model ProjectReviewEscalation {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  sourceReviewId     String
+  sourceAgendaItemId String?
+  title              String
+  summary            String?
+  ownerUserId        String?
+
+  targetReviewId     String?
+  targetAgendaItemId String?
+  status             ProjectReviewEscalationStatus @default(PENDING)
+  injectedAt         DateTime?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client             Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project            Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceReview       ProjectReview  @relation("ProjectReviewEscalationSource", fields: [sourceReviewId], references: [id], onDelete: Cascade)
+  targetReview       ProjectReview? @relation("ProjectReviewEscalationTarget", fields: [targetReviewId], references: [id], onDelete: SetNull)
+  ownerUser          User?          @relation("ProjectReviewEscalationOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy          User?          @relation("ProjectReviewEscalationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, projectId, status])
+  @@index([clientId, sourceReviewId])
+  @@index([clientId, targetReviewId, status])
+  @@index([clientId, sourceAgendaItemId])
 }
 
 /// RFC-PROJ-013-7 — modèle de récurrence de points projet (écran Séries 06)

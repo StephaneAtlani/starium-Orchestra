@@ -35,6 +35,20 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       update: jest.Mock;
     };
     projectReviewActionItemContributor: { deleteMany: jest.Mock };
+    projectReviewEscalation: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      groupBy: jest.Mock;
+    };
+    projectReviewAgendaItem: {
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      deleteMany: jest.Mock;
+      aggregate: jest.Mock;
+    };
     projectTask: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     project: { findFirst: jest.Mock };
     projectRisk: { findMany: jest.Mock; create: jest.Mock };
@@ -141,6 +155,20 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         update: jest.fn(),
       },
       projectReviewActionItemContributor: { deleteMany: jest.fn() },
+      projectReviewEscalation: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      projectReviewAgendaItem: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        deleteMany: jest.fn(),
+        aggregate: jest.fn().mockResolvedValue({ _max: { orderIndex: 0 } }),
+      },
       projectTask: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       project: { findFirst: jest.fn() },
       projectRisk: { findMany: jest.fn(), create: jest.fn() },
@@ -158,6 +186,8 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
           projectReviewActionItem: prisma.projectReviewActionItem,
           projectReviewActionItemContributor:
             prisma.projectReviewActionItemContributor,
+          projectReviewEscalation: prisma.projectReviewEscalation,
+          projectReviewAgendaItem: prisma.projectReviewAgendaItem,
           projectTask: prisma.projectTask,
           project: prisma.project,
           projectRisk: prisma.projectRisk,
@@ -1409,5 +1439,117 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     const result = await service.getById(clientId, projectId, reviewId);
     expect(result.objective).toBe('Piloter le trimestre');
     expect(result.executiveSummary).toBe('Piloter le trimestre');
+  });
+
+  describe('RFC-PROJ-013-8 F3 escalations', () => {
+    it('createEscalation refuse hors COPRO', async () => {
+      prisma.projectReview.findFirst.mockResolvedValue(
+        reviewRow({ reviewType: ProjectReviewType.COPIL }),
+      );
+      await expect(
+        service.createEscalation(clientId, projectId, reviewId, {
+          title: 'Sujet',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('createEscalation injecte dans le prochain COPIL ouvert', async () => {
+      const copilId = 'copil1';
+      prisma.projectReview.findFirst.mockResolvedValue(
+        reviewRow({
+          reviewType: ProjectReviewType.COPRO,
+          title: 'COPROJ sept',
+          reviewDate: new Date('2026-09-10'),
+        }),
+      );
+      prisma.projectReview.findMany.mockResolvedValue([
+        {
+          id: copilId,
+          title: 'COPIL oct',
+          reviewDate: new Date('2026-10-01'),
+          agendaLockedAt: null,
+        },
+      ]);
+      prisma.projectReviewEscalation.create.mockResolvedValue({
+        id: 'esc1',
+        clientId,
+        projectId,
+        sourceReviewId: reviewId,
+        sourceAgendaItemId: null,
+        title: 'Budget',
+        summary: null,
+        ownerUserId: null,
+        targetReviewId: copilId,
+        status: 'PENDING',
+      });
+      prisma.projectReviewAgendaItem.create.mockResolvedValue({
+        id: 'ag1',
+      });
+      prisma.projectReviewEscalation.update.mockResolvedValue({});
+      prisma.projectReviewEscalation.findFirst.mockResolvedValue({
+        id: 'esc1',
+        clientId,
+        projectId,
+        sourceReviewId: reviewId,
+        sourceAgendaItemId: null,
+        title: 'Budget',
+        summary: null,
+        ownerUserId: null,
+        targetReviewId: copilId,
+        targetAgendaItemId: 'ag1',
+        status: 'INJECTED',
+        injectedAt: new Date(),
+        createdByUserId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ownerUser: null,
+        sourceReview: {
+          title: 'COPROJ sept',
+          reviewType: ProjectReviewType.COPRO,
+          reviewDate: new Date('2026-09-10'),
+        },
+        targetReview: {
+          title: 'COPIL oct',
+          reviewType: ProjectReviewType.COPIL,
+          reviewDate: new Date('2026-10-01'),
+        },
+      });
+
+      const result = await service.createEscalation(
+        clientId,
+        projectId,
+        reviewId,
+        { title: 'Budget' },
+        { actorUserId: 'u1' },
+      );
+
+      expect(prisma.projectReviewAgendaItem.create).toHaveBeenCalled();
+      expect(result.status).toBe('INJECTED');
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ESCALATION_CREATED,
+        }),
+      );
+    });
+
+    it('createEscalation isole le client (404)', async () => {
+      projects.getProjectForScope.mockRejectedValue(
+        new NotFoundException('Project not found'),
+      );
+      await expect(
+        service.createEscalation(clientId, projectId, reviewId, {
+          title: 'X',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('consolidateEscalations refuse hors COPIL', async () => {
+      prisma.projectReview.findFirst.mockResolvedValue(
+        reviewRow({ reviewType: ProjectReviewType.COPRO }),
+      );
+      await expect(
+        service.consolidateEscalations(clientId, projectId, reviewId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 });

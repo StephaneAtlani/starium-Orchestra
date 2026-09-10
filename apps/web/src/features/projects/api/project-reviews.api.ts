@@ -6,6 +6,10 @@ import type {
   ProjectReviewAgendaItemApi,
   ProjectReviewAttachmentApi,
   ProjectReviewDetail,
+  ProjectReviewEscalationApi,
+  ProjectReviewEscalationsListResponse,
+  CreateProjectReviewEscalationPayload,
+  ConsolidateEscalationsResult,
   ProjectReviewListResponse,
   ProjectReviewParticipantApi,
   ProjectReviewParticipantAttendanceStatus,
@@ -485,4 +489,57 @@ export async function generateProjectReviewSeries(
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json();
+}
+
+/** RFC-PROJ-013-8 F3 */
+export async function listProjectReviewEscalations(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewEscalationsListResponse> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/escalations`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewEscalationsListResponse>;
+}
+
+export async function createProjectReviewEscalation(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  body: CreateProjectReviewEscalationPayload,
+): Promise<ProjectReviewEscalationApi> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/escalations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewEscalationApi>;
+}
+
+export async function cancelProjectReviewEscalation(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  escalationId: string,
+): Promise<ProjectReviewEscalationApi> {
+  const res = await authFetch(
+    `${base(projectId)}/${reviewId}/escalations/${escalationId}/cancel`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewEscalationApi>;
+}
+
+export async function consolidateProjectReviewEscalations(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ConsolidateEscalationsResult> {
+  const res = await authFetch(
+    `${base(projectId)}/${reviewId}/consolidate-escalations`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ConsolidateEscalationsResult>;
 }

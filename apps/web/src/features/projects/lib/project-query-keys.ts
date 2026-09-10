@@ -112,6 +112,8 @@ export const projectQueryKeys = {
     [...projectQueryKeys.all, 'committee-mood-history', clientId, projectId] as const,
   review: (clientId: string, projectId: string, reviewId: string) =>
     ['project', projectId, 'review', reviewId, clientId] as const,
+  reviewEscalations: (clientId: string, projectId: string, reviewId: string) =>
+    ['project', projectId, 'review-escalations', reviewId, clientId] as const,
 
   /** RFC-PLA-001 */
   actionPlansList: (clientId: string, params: Record<string, unknown>) =>
