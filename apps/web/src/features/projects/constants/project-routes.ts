@@ -41,8 +41,12 @@ export function projectDetail(id: string): string {
 }
 
 /** Onglet Points projet sur la fiche projet. */
-export function projectPointsTab(projectId: string): string {
-  return `${projectDetail(projectId)}?tab=points`;
+export function projectPointsTab(
+  projectId: string,
+  pointsState?: string,
+): string {
+  const base = `${projectDetail(projectId)}?tab=points`;
+  return pointsState ? `${base}&pointsState=${encodeURIComponent(pointsState)}` : base;
 }
 
 /** Conduite de réunion — point projet en cours (`IN_PROGRESS`). */

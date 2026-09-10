@@ -47,3 +47,36 @@ export function findNextOpenAgendaItemId(
   }
   return null;
 }
+
+/** RFC-PROJ-013-6 — Point suivant autorisé seulement si le point courant est clos. */
+export function canAdvanceAgendaPoint(
+  status: ProjectReviewAgendaItemApi['status'] | null | undefined,
+): boolean {
+  return status === 'DONE' || status === 'SKIPPED';
+}
+
+export function shouldTickPointTimer(
+  status: ProjectReviewAgendaItemApi['status'] | null | undefined,
+): boolean {
+  return status === 'TODO' || status === 'IN_PROGRESS';
+}
+
+export function formatConductElapsed(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mm = String(Math.floor(safe / 60)).padStart(2, '0');
+  const ss = String(safe % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
+}
+
+/** Gate shell Animer (écran 09). */
+export function shouldShowAnimateSession(opts: {
+  editorPhase: string;
+  conductClosedAt: string | null | undefined;
+  reviewType: string;
+}): boolean {
+  return (
+    opts.editorPhase === 'conduct' &&
+    !opts.conductClosedAt &&
+    opts.reviewType !== 'POST_MORTEM'
+  );
+}

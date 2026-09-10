@@ -78,6 +78,10 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       facilitatorUserId: null,
       finalizedAt: null,
       finalizedByUserId: null,
+      agendaLockedAt: null,
+      agendaLockedByUserId: null,
+      conductClosedAt: null,
+      seriesId: null,
       nextReviewDate: null,
       snapshotPayload: null,
       createdAt: new Date(),
@@ -559,10 +563,146 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     ).rejects.toThrow(/Démarrez d’abord/i);
   });
 
+  it('finalize refuse sans conductClosedAt (pilotage)', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: null,
+      }),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: { findFirst: prisma.projectReview.findFirst },
+        }),
+    );
+    await expect(
+      service.finalize(clientId, projectId, reviewId, {}),
+    ).rejects.toThrow(/Clôturez d’abord la conduite/i);
+  });
+
+  it('finalize POST_MORTEM OK sans conductClosedAt', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        reviewType: ProjectReviewType.POST_MORTEM,
+        conductClosedAt: null,
+      }),
+    );
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'P',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 50,
+      arbitrationMetierStatus: 'BROUILLON',
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(
+        reviewRow({
+          ...data,
+          reviewType: ProjectReviewType.POST_MORTEM,
+          status: ProjectReviewStatus.FINALIZED,
+        }),
+      ),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: {
+            findFirst: prisma.projectReview.findFirst,
+            update: prisma.projectReview.update,
+          },
+          project: { findFirst: prisma.project.findFirst },
+          projectTask: { findMany: prisma.projectTask.findMany },
+          projectRisk: { findMany: prisma.projectRisk.findMany },
+          projectMilestone: { findMany: prisma.projectMilestone.findMany },
+          projectBudgetLink: { findMany: prisma.projectBudgetLink.findMany },
+        }),
+    );
+    await expect(
+      service.finalize(clientId, projectId, reviewId, { actorUserId: 'u1' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('closeConduct pose conductClosedAt et garde IN_PROGRESS', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: null,
+      }),
+    );
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(
+        reviewRow({
+          status: ProjectReviewStatus.IN_PROGRESS,
+          conductClosedAt: data.conductClosedAt,
+        }),
+      ),
+    );
+
+    const detail = await service.closeConduct(clientId, projectId, reviewId, {
+      actorUserId: 'u1',
+    });
+
+    expect(prisma.projectReview.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          conductClosedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(detail.status).toBe(ProjectReviewStatus.IN_PROGRESS);
+    expect(detail.conductClosedAt).toBeTruthy();
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_CONDUCT_CLOSED,
+        resourceId: reviewId,
+      }),
+    );
+  });
+
+  it('closeConduct refuse déjà clôturé', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: new Date('2026-09-01'),
+      }),
+    );
+    await expect(
+      service.closeConduct(clientId, projectId, reviewId, {}),
+    ).rejects.toThrow(/déjà clôturée/i);
+  });
+
+  it('closeConduct refuse hors IN_PROGRESS', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({ status: ProjectReviewStatus.SCHEDULED }),
+    );
+    await expect(
+      service.closeConduct(clientId, projectId, reviewId, {}),
+    ).rejects.toThrow(/en cours/i);
+  });
+
+  it('closeConduct isole le client (404 autre client)', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(null);
+    await expect(
+      service.closeConduct(clientId, projectId, reviewId, {}),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('finalize OK depuis IN_PROGRESS avec snapshot sans meetingUrl', async () => {
     prisma.projectReview.findFirst.mockResolvedValue(
       reviewRow({
         status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: new Date('2026-09-10T10:00:00Z'),
         meetingMode: 'REMOTE',
         meetingUrl: 'https://teams.example.com/secret',
         location: 'Salle A',

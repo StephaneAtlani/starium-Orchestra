@@ -3128,7 +3128,8 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/unlock-agenda** — Réouvre l’ODJ. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/start** — `PREPARING`/`SCHEDULED`→`IN_PROGRESS`. **`projects.update`**. *UI* : le CTA « Démarrer le point » n’est proposé qu’en `SCHEDULED` (voir RFC-PROJ-013-2 §15.5).
 - **POST /api/projects/:projectId/reviews/:reviewId/start-review** — Alias rétrocompatible de `start`. **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/close-conduct** — Clôture de conduite (`conductClosedAt = now()`), status reste `IN_PROGRESS` → UI « À finaliser » (RFC-PROJ-013-6). Refuse si hors `IN_PROGRESS` ou déjà clôturé. Audit `project.review.conduct_closed`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/finalize** — `IN_PROGRESS`→`FINALIZED` ; snapshot **v2** (`schemaVersion: 2`) sans `meetingUrl` ni URL attachments. **Exige `conductClosedAt`** pour le pilotage ; **exempté** si `reviewType === POST_MORTEM` (REX). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**

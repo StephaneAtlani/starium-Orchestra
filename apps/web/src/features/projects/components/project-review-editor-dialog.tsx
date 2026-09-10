@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BookOpen,
@@ -120,7 +121,7 @@ import {
   reviewEditorTabsForPhase,
   type ReviewEditorPhase,
 } from '../lib/project-review-status';
-import { reviewAgendaConductProgress } from '../lib/review-agenda-utils';
+import { reviewAgendaConductProgress, shouldShowAnimateSession } from '../lib/review-agenda-utils';
 import { allStillExpected } from '../lib/review-attendance';
 import { committeeMoodDisplay } from '../lib/project-committee-mood-display';
 import { projectSheet, projectPointsTab, projectRisks } from '../constants/project-routes';
@@ -805,8 +806,10 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: active });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: active });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: active });
-  const { update, finalize, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda } =
+  const { update, finalize, closeConduct, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda } =
     useProjectReviewMutations(projectId);
+
+  const router = useRouter();
 
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
@@ -1361,12 +1364,38 @@ export function ProjectReviewEditorDialog({
   const onStartReview = async () => {
     if (!d || !canStart || !canEdit) return;
     try {
+      const otherOpen = (reviewsListQuery.data ?? []).some(
+        (row) =>
+          row.id !== d.id &&
+          row.uiState === 'in_progress' &&
+          !row.conductClosedAt,
+      );
+      if (otherOpen) {
+        toast.warning(
+          'Une autre conduite est déjà ouverte sur ce projet — une seule séance à la fois est recommandée.',
+        );
+      }
       await startReview.mutateAsync(d.id);
       setConfirmStartOpen(false);
       setEditorTab(reviewEditorInitialTab('conduct'));
     } catch {
       toast.error('Impossible de démarrer le point.');
     }
+  };
+
+  const onRequestCloseConduct = async () => {
+    if (!d || !editable) return;
+    try {
+      await onSave();
+      await closeConduct.mutateAsync(d.id);
+      toast.success('Conduite clôturée — finalisez le compte rendu');
+    } catch {
+      toast.error('Impossible de clôturer la conduite.');
+    }
+  };
+
+  const handleSuspendConduct = () => {
+    router.push(projectPointsTab(projectId, 'in_progress'));
   };
 
   const onRequestStartReview = () => {
@@ -2708,6 +2737,14 @@ export function ProjectReviewEditorDialog({
             </p>
           ) : (
             <>
+            {editorPhase === 'conduct' && d.conductClosedAt ? (
+              <Alert className="mb-3 shrink-0 border-border/70 bg-muted/40">
+                <CheckCircle2 className="size-4" aria-hidden />
+                <AlertDescription>
+                  Conduite clôturée — relisez le compte rendu puis finalisez le point.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             {editorPhase === 'conduct' ? (
               <div className="shrink-0 border-b border-border/70 px-1 pb-3">
                 <ReviewPreviousOpenActions
@@ -3235,7 +3272,12 @@ export function ProjectReviewEditorDialog({
   );
 
   const animateSession =
-    editorPhase === 'conduct' && d && !isPostMortemReview ? (
+    d &&
+    shouldShowAnimateSession({
+      editorPhase,
+      conductClosedAt: d.conductClosedAt,
+      reviewType: d.reviewType,
+    }) ? (
       <ProjectReviewAnimateSession
         projectId={projectId}
         detail={d}
@@ -3251,9 +3293,9 @@ export function ProjectReviewEditorDialog({
         onRemoveAction={removeAction}
         selectedAgendaItemId={selectedAgendaItemId}
         onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
-        onSuspend={handleClose}
-        onRequestCloseReport={onRequestFinalize}
-        finalizePending={finalize.isPending || update.isPending}
+        onSuspend={handleSuspendConduct}
+        onRequestCloseReport={() => void onRequestCloseConduct()}
+        finalizePending={closeConduct.isPending || update.isPending}
       />
     ) : null;
 

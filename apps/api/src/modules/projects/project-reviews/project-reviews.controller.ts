@@ -184,6 +184,24 @@ export class ProjectReviewsController {
     );
   }
 
+  @Post(':reviewId/close-conduct')
+  @RequirePermissions('projects.update')
+  closeConduct(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.closeConduct(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
+
   @Post(':reviewId/finalize')
   @RequirePermissions('projects.update')
   finalize(

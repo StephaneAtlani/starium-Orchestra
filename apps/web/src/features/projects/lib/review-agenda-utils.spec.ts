@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectReviewAgendaItemApi } from '../types/project.types';
 import {
+  canAdvanceAgendaPoint,
   findNextOpenAgendaItemId,
+  formatConductElapsed,
   pickPreferredAgendaItemId,
   reviewAgendaConductProgress,
+  shouldShowAnimateSession,
+  shouldTickPointTimer,
   sortReviewAgendaItems,
 } from './review-agenda-utils';
 
@@ -75,5 +79,55 @@ describe('review-agenda-utils', () => {
         '2',
       ),
     ).toBe('3');
+  });
+
+  it('canAdvanceAgendaPoint uniquement DONE/SKIPPED', () => {
+    expect(canAdvanceAgendaPoint('DONE')).toBe(true);
+    expect(canAdvanceAgendaPoint('SKIPPED')).toBe(true);
+    expect(canAdvanceAgendaPoint('IN_PROGRESS')).toBe(false);
+    expect(canAdvanceAgendaPoint('TODO')).toBe(false);
+  });
+
+  it('shouldTickPointTimer pour TODO et IN_PROGRESS', () => {
+    expect(shouldTickPointTimer('TODO')).toBe(true);
+    expect(shouldTickPointTimer('IN_PROGRESS')).toBe(true);
+    expect(shouldTickPointTimer('DONE')).toBe(false);
+  });
+
+  it('formatConductElapsed formate mm:ss', () => {
+    expect(formatConductElapsed(0)).toBe('00:00');
+    expect(formatConductElapsed(65)).toBe('01:05');
+    expect(formatConductElapsed(-3)).toBe('00:00');
+  });
+
+  it('shouldShowAnimateSession gate close-conduct et REX', () => {
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'conduct',
+        conductClosedAt: null,
+        reviewType: 'COPIL',
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'conduct',
+        conductClosedAt: '2026-09-10T12:00:00.000Z',
+        reviewType: 'COPIL',
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'conduct',
+        conductClosedAt: null,
+        reviewType: 'POST_MORTEM',
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'prepare',
+        conductClosedAt: null,
+        reviewType: 'COPIL',
+      }),
+    ).toBe(false);
   });
 });

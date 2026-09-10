@@ -397,6 +397,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-post-mortem-overview-banner` - `features/projects/components/project-post-mortem-overview-banner.tsx` - bandeau REX en tête de l’aperçu (projet clos ; CTA Continuer/Créer ; `?openReview=`).
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.
 - `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
+- `project-review-animate-session` - `features/projects/components/project-review-animate-session.tsx` - écran 09 Animer la séance (présence, ODJ, timers, décision V1, close-conduct).
 - `project-reviews-context-banner` - `features/projects/components/project-reviews-context-banner.tsx` - bannière contextuelle COPIL/REX (variantes `tab` | `overview`).
 - `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (sous-onglets états UI 01–05 + Séries, KPI, deep links `pointsState` / `pointsFlash` / `createRetourExperience`).
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - tablist états + compteurs (RFC-PROJ-013-7).

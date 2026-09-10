@@ -69,13 +69,12 @@ Isolation : toutes les routes valident le **client actif** + `projectId` ; RBAC 
 
 ## 7. Récapitulatif
 
-Livré L1–L5 : listes par état, KPI, figer ODJ, création typée, séries + génération, seed démo. Dépendances aval : 013-6 (close-conduct / écran 09), 013-8 (finalisation CR / 11-19).
+Livré L1–L5 : listes par état, KPI, figer ODJ, création typée, séries + génération, seed démo. Dépendances aval : 013-6 (close-conduct / écran 09 — ✅), 013-8 (finalisation CR / 11-19).
 
 ## 8. Points de vigilance
 
 - DocumentView FINALIZED non régressé.
-- Onglet 04 vide en prod jusqu’à close-conduct 013-6 (mitigé par seed).
-- COPROJ = libellé UI uniquement (`COPRO` API).
+- Onglet 04 peuplé après `close-conduct` (013-6 ✅) ; seed démo conserve des fixtures.- COPROJ = libellé UI uniquement (`COPRO` API).
 - Generate ne mute jamais historiques / IN_PROGRESS / CANCELLED.
 
 ## 9. Conformité by design

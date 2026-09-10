@@ -5,6 +5,7 @@ import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
 import {
   cancelProjectReview,
+  closeConductProjectReview,
   completeProjectReviewAgendaItem,
   createProjectReview,
   createProjectReviewAgendaItem,
@@ -105,6 +106,14 @@ export function useProjectReviewMutations(projectId: string) {
   const finalize = useMutation({
     mutationFn: (reviewId: string) =>
       finalizeProjectReview(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const closeConduct = useMutation({
+    mutationFn: (reviewId: string) =>
+      closeConductProjectReview(authFetch, projectId, reviewId),
     onSuccess: (_, reviewId) => {
       invalidateReview(reviewId);
     },
@@ -375,6 +384,7 @@ export function useProjectReviewMutations(projectId: string) {
     scheduleReview,
     startReview,
     finalize,
+    closeConduct,
     cancel,
     reopen,
     inviteReview,

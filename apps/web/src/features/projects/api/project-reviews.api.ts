@@ -113,6 +113,18 @@ export async function finalizeProjectReview(
   return res.json() as Promise<ProjectReviewDetail>;
 }
 
+export async function closeConductProjectReview(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewDetail> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/close-conduct`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDetail>;
+}
+
 export async function cancelProjectReview(
   authFetch: AuthFetch,
   projectId: string,

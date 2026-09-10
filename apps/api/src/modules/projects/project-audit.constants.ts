@@ -140,6 +140,7 @@ export const PROJECT_AUDIT_ACTION = {
   /** RFC-PROJ-013-7 */
   PROJECT_REVIEW_AGENDA_LOCKED: 'project.review.agenda_locked',
   PROJECT_REVIEW_AGENDA_UNLOCKED: 'project.review.agenda_unlocked',
+  PROJECT_REVIEW_CONDUCT_CLOSED: 'project.review.conduct_closed',
   PROJECT_REVIEW_SERIES_CREATED: 'project.review.series.created',
   PROJECT_REVIEW_SERIES_UPDATED: 'project.review.series.updated',
   PROJECT_REVIEW_SERIES_DEACTIVATED: 'project.review.series.deactivated',

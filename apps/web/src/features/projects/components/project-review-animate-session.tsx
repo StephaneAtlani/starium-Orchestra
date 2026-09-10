@@ -1,19 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
+  ListOrdered,
   Mic,
   Scale,
+  SkipForward,
+  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/feedback/empty-state';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -24,9 +29,12 @@ import {
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import {
+  canAdvanceAgendaPoint,
   findNextOpenAgendaItemId,
+  formatConductElapsed,
   pickPreferredAgendaItemId,
   reviewAgendaConductProgress,
+  shouldTickPointTimer,
   sortReviewAgendaItems,
 } from '../lib/review-agenda-utils';
 import { presentCount } from '../lib/review-attendance';
@@ -62,13 +70,6 @@ type Props = {
   onRequestCloseReport: () => void;
   finalizePending?: boolean;
 };
-
-function formatElapsed(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds));
-  const mm = String(Math.floor(safe / 60)).padStart(2, '0');
-  const ss = String(safe % 60).padStart(2, '0');
-  return `${mm}:${ss}`;
-}
 
 function formatReviewDateTime(iso: string | null): string {
   if (!iso) return '—';
@@ -161,10 +162,22 @@ export function ProjectReviewAnimateSession({
     createAttachment,
     startAgendaItem,
     completeAgendaItem,
+    skipAgendaItem,
   } = useProjectReviewMutations(projectId);
   const assignable = useProjectAssignableUsers({ enabled: canEdit });
+  const isWideLayout = useMediaQuery('(min-width: 1024px)');
+  const [contextDrawerOpen, setContextDrawerOpen] = useState(false);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [pointSecondsById, setPointSecondsById] = useState<Record<string, number>>({});
+  const [pointTick, setPointTick] = useState(0);
+  const [pointLiveLabel, setPointLiveLabel] = useState('');
+  const activePointStartedAtRef = useRef<number | null>(null);
+  const activePointIdRef = useRef<string | null>(null);
+  const autoStartDoneRef = useRef<string | null>(null);
+  const sessionAnchorRef = useRef(
+    detail.startedAt ? new Date(detail.startedAt).getTime() : Date.now(),
+  );
   const [pointMode, setPointMode] = useState<PointMode>('presentation');
   const [noteDraft, setNoteDraft] = useState('');
   const [docUrl, setDocUrl] = useState('');
@@ -199,12 +212,72 @@ export function ProjectReviewAnimateSession({
   const selectedIndex = selected ? agendaItems.findIndex((i) => i.id === selected.id) : -1;
 
   useEffect(() => {
-    const started = Date.now();
+    sessionAnchorRef.current = detail.startedAt
+      ? new Date(detail.startedAt).getTime()
+      : sessionAnchorRef.current;
     const id = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - started) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - sessionAnchorRef.current) / 1000));
     }, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [detail.startedAt]);
+
+  useEffect(() => {
+    const prevId = activePointIdRef.current;
+    const prevStarted = activePointStartedAtRef.current;
+    if (prevId && prevStarted != null && prevId !== selected?.id) {
+      const delta = Math.max(0, Math.floor((Date.now() - prevStarted) / 1000));
+      setPointSecondsById((prev) => ({
+        ...prev,
+        [prevId]: (prev[prevId] ?? 0) + delta,
+      }));
+    }
+
+    activePointIdRef.current = selected?.id ?? null;
+    activePointStartedAtRef.current =
+      selected && shouldTickPointTimer(selected.status) ? Date.now() : null;
+
+    if (selected) {
+      const base = pointSecondsById[selected.id] ?? 0;
+      setPointLiveLabel(`Point · ${formatConductElapsed(base)}`);
+    } else {
+      setPointLiveLabel('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- freeze on point switch only
+  }, [selected?.id, selected?.status]);
+
+  useEffect(() => {
+    if (!selected || !shouldTickPointTimer(selected.status)) return;
+    const id = window.setInterval(() => {
+      setPointTick((t) => t + 1);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [selected?.id, selected?.status]);
+
+  useEffect(() => {
+    if (!selected || pointTick === 0) return;
+    if (pointTick % 10 !== 0) return;
+    const base = pointSecondsById[selected.id] ?? 0;
+    const running =
+      activePointStartedAtRef.current != null
+        ? Math.floor((Date.now() - activePointStartedAtRef.current) / 1000)
+        : 0;
+    setPointLiveLabel(`Point · ${formatConductElapsed(base + running)}`);
+  }, [pointTick, selected, pointSecondsById]);
+
+  const displayedPointSeconds = useMemo(() => {
+    if (!selected) return 0;
+    const base = pointSecondsById[selected.id] ?? 0;
+    if (
+      shouldTickPointTimer(selected.status) &&
+      activePointStartedAtRef.current != null
+    ) {
+      return (
+        base + Math.max(0, Math.floor((Date.now() - activePointStartedAtRef.current) / 1000))
+      );
+    }
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pointTick refreshes display
+  }, [selected, pointSecondsById, pointTick]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -226,6 +299,25 @@ export function ProjectReviewAnimateSession({
     setActResponsible('');
     setRiskDraft('');
   }, [selected?.id, selected?.itemType]);
+
+  useEffect(() => {
+    if (!canEdit || autoStartDoneRef.current === detail.id) return;
+    autoStartDoneRef.current = detail.id;
+    const preferredId = pickPreferredAgendaItemId(agendaItems);
+    const preferred = preferredId
+      ? agendaItems.find((i) => i.id === preferredId)
+      : null;
+    if (!preferred || preferred.status !== 'TODO') return;
+    void startAgendaItem
+      .mutateAsync({ reviewId: detail.id, agendaItemId: preferred.id })
+      .then(() => {
+        onSelectedAgendaItemIdChange(preferred.id);
+      })
+      .catch(() => {
+        toast.error('Impossible de démarrer le premier point.');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per reviewId
+  }, [detail.id, canEdit]);
 
   const subtitle = useMemo(() => {
     const titleOrDate =
@@ -262,6 +354,7 @@ export function ProjectReviewAnimateSession({
 
   const selectAgendaItem = async (item: ProjectReviewAgendaItemApi) => {
     onSelectedAgendaItemIdChange(item.id);
+    if (!isWideLayout) setContextDrawerOpen(false);
     if (!canEdit) return;
     if (item.status === 'TODO') {
       try {
@@ -273,6 +366,21 @@ export function ProjectReviewAnimateSession({
         toast.error('Impossible de démarrer le point.');
       }
     }
+  };
+
+  const onGoNextPoint = async () => {
+    if (!selected || !canEdit) return;
+    if (!canAdvanceAgendaPoint(selected.status)) {
+      toast.error('Clôturez ou ignorez le point avant de passer au suivant');
+      return;
+    }
+    const nextId = findNextOpenAgendaItemId(agendaItems, selected.id);
+    if (!nextId) {
+      toast.message('Dernier point traité');
+      return;
+    }
+    const next = agendaItems.find((i) => i.id === nextId);
+    if (next) await selectAgendaItem(next);
   };
 
   const onTogglePresence = async (participantId: string, presentNow: boolean) => {
@@ -346,11 +454,22 @@ export function ProjectReviewAnimateSession({
         reviewId: detail.id,
         agendaItemId: selected.id,
       });
-      const nextId = findNextOpenAgendaItemId(agendaItems, selected.id);
-      if (nextId) onSelectedAgendaItemIdChange(nextId);
       toast.success('Point clôturé.');
     } catch {
       toast.error('Impossible de clôturer le point.');
+    }
+  };
+
+  const onSkipPoint = async () => {
+    if (!selected || !canEdit) return;
+    try {
+      await skipAgendaItem.mutateAsync({
+        reviewId: detail.id,
+        agendaItemId: selected.id,
+      });
+      toast.success('Point ignoré.');
+    } catch {
+      toast.error('Impossible d’ignorer le point.');
     }
   };
 
@@ -429,16 +548,149 @@ export function ProjectReviewAnimateSession({
         body: { notes: next },
       });
       setRiskDraft('');
-      toast.success('Risque consigné.');
+      toast.message('Note risque enregistrée — registre projet en 013-8');
     } catch {
       toast.error('Impossible de consigner le risque.');
     }
+  };
+
+  const assignableUsers = assignable.data?.users ?? [];
+  const responsibleLabel = (userId: string) => {
+    const u = assignableUsers.find((row) => row.id === userId);
+    if (!u) return 'Responsable non renseigné';
+    return (
+      [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
+      displayLabel(u.email, 'Responsable')
+    );
   };
 
   const goldBtnClass =
     'min-h-11 shrink-0 bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)] hover:bg-[color:var(--brand-gold-600)]';
 
   const pointNumber = selectedIndex >= 0 ? selectedIndex + 1 : 0;
+  const stripPointIndex = progress.currentNumber ?? (pointNumber || null);
+
+  const contextPanels = (
+    <>
+      <section aria-labelledby="animate-presence-title">
+        <h2
+          id="animate-presence-title"
+          className="starium-overline mb-2 text-[color:var(--brand-gold-700)]"
+        >
+          Présence
+        </h2>
+        {participants.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun participant.</p>
+        ) : (
+          <ul className="space-y-2">
+            {participants.map((p) => {
+              const name = displayLabel(p.displayName, 'Participant');
+              const isPresent = p.attendanceStatus === 'PRESENT';
+              return (
+                <li
+                  key={p.id}
+                  className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 px-2.5 py-2"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <UserInitialsAvatar displayName={name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                      {p.roleLabel ? (
+                        <p className="truncate text-xs text-muted-foreground">{p.roleLabel}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      {isPresent ? 'Présent' : 'Attendu'}
+                    </span>
+                    <Switch
+                      checked={isPresent}
+                      disabled={!canEdit || updateParticipant.isPending}
+                      aria-label={
+                        isPresent
+                          ? `Marquer ${name} comme attendu`
+                          : `Marquer ${name} comme présent`
+                      }
+                      onCheckedChange={(next) => void onTogglePresence(p.id, next)}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="animate-agenda-title">
+        <h2
+          id="animate-agenda-title"
+          className="starium-overline mb-2 text-[color:var(--brand-gold-700)]"
+        >
+          Ordre du jour
+        </h2>
+        {agendaItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun point à l’ordre du jour.</p>
+        ) : (
+          <ol className="space-y-1.5">
+            {agendaItems.map((item, index) => {
+              const active = item.id === selected?.id;
+              const badge = shortAgendaTypeBadge(item.itemType);
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex w-full min-h-11 items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                      active
+                        ? 'border-[color:var(--brand-gold-700)] bg-[color:color-mix(in_srgb,var(--brand-gold)_14%,transparent)]'
+                        : 'border-border/70 bg-background/60 hover:bg-muted/40',
+                    )}
+                    aria-current={active ? 'true' : undefined}
+                    onClick={() => void selectAgendaItem(item)}
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums',
+                        active
+                          ? 'bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)]'
+                          : 'bg-muted text-foreground',
+                      )}
+                      aria-hidden
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium leading-snug text-foreground">
+                        {displayLabel(item.title, 'Sujet sans titre')}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'rounded-full px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
+                            badge === 'DÉC'
+                              ? 'bg-[color:var(--brand-gold-100)] text-[color:var(--brand-gold-700)]'
+                              : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {badge}
+                        </span>
+                        {item.plannedDurationMinutes ? (
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {item.plannedDurationMinutes} min
+                          </span>
+                        ) : null}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
+    </>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
@@ -457,22 +709,33 @@ export function ProjectReviewAnimateSession({
             <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-11 shrink-0"
-          aria-label="Fermer"
-          onClick={onSuspend}
-        >
-          <X className="size-5" aria-hidden />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          {!isWideLayout ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 gap-2"
+              onClick={() => setContextDrawerOpen(true)}
+            >
+              <Users className="size-4" aria-hidden />
+              <ListOrdered className="size-4" aria-hidden />
+              <span className="max-sm:sr-only">Présence & ODJ</span>
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Fermer"
+            onClick={onSuspend}
+          >
+            <X className="size-5" aria-hidden />
+          </Button>
+        </div>
       </header>
 
-      <div
-        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/70 bg-card px-3 py-2.5 sm:px-4"
-        aria-live="polite"
-      >
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/70 bg-card px-3 py-2.5 sm:px-4">
         <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[color:var(--state-danger-bg)] px-3 text-xs font-bold uppercase tracking-wide text-[color:var(--state-danger)]">
           <span
             className="size-2 shrink-0 rounded-full bg-[color:var(--state-danger)]"
@@ -481,7 +744,7 @@ export function ProjectReviewAnimateSession({
           En séance
         </span>
         <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-          {formatElapsed(elapsedSeconds)}
+          {formatConductElapsed(elapsedSeconds)}
         </span>
         <span className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground tabular-nums">
@@ -492,135 +755,29 @@ export function ProjectReviewAnimateSession({
         <span className="text-sm text-muted-foreground">
           Point{' '}
           <span className="font-medium text-foreground tabular-nums">
-            {progress.currentNumber ?? (pointNumber || '—')}
+            {stripPointIndex ?? '—'}
           </span>
           /{progress.total || '—'}
           {' · '}
           <span className="font-medium text-foreground tabular-nums">{progress.treated}</span>{' '}
           traité{progress.treated > 1 ? 's' : ''}
         </span>
+        {selected ? (
+          <span
+            className="font-mono text-sm font-semibold tabular-nums text-foreground"
+            aria-live="polite"
+          >
+            {pointLiveLabel || `Point · ${formatConductElapsed(displayedPointSeconds)}`}
+          </span>
+        ) : null}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-b border-border/70 bg-card p-3 sm:p-4 lg:border-b-0 lg:border-r">
-          <section aria-labelledby="animate-presence-title">
-            <h2
-              id="animate-presence-title"
-              className="starium-overline mb-2 text-[color:var(--brand-gold-700)]"
-            >
-              Présence
-            </h2>
-            {participants.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun participant.</p>
-            ) : (
-              <ul className="space-y-2">
-                {participants.map((p) => {
-                  const name = displayLabel(p.displayName, 'Participant');
-                  const isPresent = p.attendanceStatus === 'PRESENT';
-                  return (
-                    <li
-                      key={p.id}
-                      className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-border/70 bg-background/60 px-2.5 py-2"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <UserInitialsAvatar displayName={name} size="sm" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{name}</p>
-                          {p.roleLabel ? (
-                            <p className="truncate text-xs text-muted-foreground">{p.roleLabel}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="hidden text-xs text-muted-foreground sm:inline">
-                          {isPresent ? 'Présent' : 'Attendu'}
-                        </span>
-                        <Switch
-                          checked={isPresent}
-                          disabled={!canEdit || updateParticipant.isPending}
-                          aria-label={
-                            isPresent
-                              ? `Marquer ${name} comme attendu`
-                              : `Marquer ${name} comme présent`
-                          }
-                          onCheckedChange={(next) => void onTogglePresence(p.id, next)}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          <section aria-labelledby="animate-agenda-title">
-            <h2
-              id="animate-agenda-title"
-              className="starium-overline mb-2 text-[color:var(--brand-gold-700)]"
-            >
-              Ordre du jour
-            </h2>
-            {agendaItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun point à l’ordre du jour.</p>
-            ) : (
-              <ol className="space-y-1.5">
-                {agendaItems.map((item, index) => {
-                  const active = item.id === selected?.id;
-                  const badge = shortAgendaTypeBadge(item.itemType);
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={cn(
-                          'flex w-full min-h-11 items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors',
-                          active
-                            ? 'border-[color:var(--brand-gold-700)] bg-[color:color-mix(in_srgb,var(--brand-gold)_14%,transparent)]'
-                            : 'border-border/70 bg-background/60 hover:bg-muted/40',
-                        )}
-                        aria-current={active ? 'true' : undefined}
-                        onClick={() => void selectAgendaItem(item)}
-                      >
-                        <span
-                          className={cn(
-                            'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums',
-                            active
-                              ? 'bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)]'
-                              : 'bg-muted text-foreground',
-                          )}
-                          aria-hidden
-                        >
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium leading-snug text-foreground">
-                            {displayLabel(item.title, 'Sujet sans titre')}
-                          </span>
-                          <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'rounded-full px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
-                                badge === 'DÉC'
-                                  ? 'bg-[color:var(--brand-gold-100)] text-[color:var(--brand-gold-700)]'
-                                  : 'bg-muted text-muted-foreground',
-                              )}
-                            >
-                              {badge}
-                            </span>
-                            {item.plannedDurationMinutes ? (
-                              <span className="text-xs text-muted-foreground tabular-nums">
-                                {item.plannedDurationMinutes} min
-                              </span>
-                            ) : null}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-          </section>
-        </aside>
+        {isWideLayout ? (
+          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-b border-border/70 bg-card p-3 sm:p-4 lg:border-b-0 lg:border-r">
+            {contextPanels}
+          </aside>
+        ) : null}
 
         <main className="flex min-h-0 flex-col overflow-hidden bg-background">
           {selected ? (
@@ -640,19 +797,35 @@ export function ProjectReviewAnimateSession({
                         PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[selected.itemType],
                         'Type',
                       )}
+                      {' · '}
+                      <span className="font-mono tabular-nums text-foreground">
+                        {formatConductElapsed(displayedPointSeconds)}
+                      </span>
                     </p>
                   </div>
-                  {canEdit && selected.status === 'IN_PROGRESS' ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="min-h-11"
-                      onClick={() => void onCompletePoint()}
-                      disabled={completeAgendaItem.isPending}
-                    >
-                      <CheckCircle2 className="size-4" aria-hidden />
-                      Clôturer le point
-                    </Button>
+                  {canEdit &&
+                  (selected.status === 'IN_PROGRESS' || selected.status === 'TODO') ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => void onCompletePoint()}
+                        disabled={completeAgendaItem.isPending}
+                      >
+                        <CheckCircle2 className="size-4" aria-hidden />
+                        Clôturer le point
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="min-h-11"
+                        onClick={() => void onSkipPoint()}
+                        disabled={skipAgendaItem.isPending}
+                      >
+                        Ignorer
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
 
@@ -948,7 +1121,7 @@ export function ProjectReviewAnimateSession({
                                 '!border-[color:var(--state-danger)] !bg-[color:var(--state-danger-bg)] !text-[color:var(--state-danger)]',
                             },
                             {
-                              value: 'DRAFT' as const,
+                              value: 'SUPERSEDED' as const,
                               label: 'Reporté',
                               activeClass:
                                 '!border-[color:var(--state-warning)] !bg-[color:var(--state-warning-bg)] !text-[color:var(--state-warning)]',
@@ -1050,7 +1223,7 @@ export function ProjectReviewAnimateSession({
                               onChange={(e) => setActTitle(e.target.value)}
                             />
                           </div>
-                          <div className="starium-form-field w-full lg:w-36">
+                          <div className="starium-form-field w-full lg:w-48">
                             <Label htmlFor="animate-act-owner" className="sr-only">
                               Responsable
                             </Label>
@@ -1060,20 +1233,14 @@ export function ProjectReviewAnimateSession({
                               value={actResponsible}
                               onChange={(e) => setActResponsible(e.target.value)}
                             >
-                              <option value="">Resp.</option>
-                              {(assignable.data?.users ?? []).map((u) => {
+                              <option value="">Responsable</option>
+                              {assignableUsers.map((u) => {
                                 const label =
                                   [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
-                                  u.email;
-                                const initials = label
-                                  .split(/\s+/)
-                                  .filter(Boolean)
-                                  .slice(0, 2)
-                                  .map((p) => p[0]?.toUpperCase() ?? '')
-                                  .join('');
+                                  displayLabel(u.email, 'Utilisateur');
                                 return (
                                   <option key={u.id} value={u.id}>
-                                    {initials || label}
+                                    {label}
                                   </option>
                                 );
                               })}
@@ -1110,8 +1277,15 @@ export function ProjectReviewAnimateSession({
                               key={`plan-${index}`}
                               className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
                             >
-                              <span className="text-sm font-medium text-foreground">
-                                {displayLabel(row.title, 'Action')}
+                              <span className="min-w-0">
+                                <span className="block text-sm font-medium text-foreground">
+                                  {displayLabel(row.title, 'Action')}
+                                </span>
+                                {row.responsibleUserId ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {responsibleLabel(row.responsibleUserId)}
+                                  </span>
+                                ) : null}
                               </span>
                               {canEdit ? (
                                 <Button
@@ -1203,24 +1377,53 @@ export function ProjectReviewAnimateSession({
         </main>
       </div>
 
-      <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-card px-3 py-3 sm:px-4">
+      {!isWideLayout ? (
+        <StariumModal
+          open={contextDrawerOpen}
+          onOpenChange={(open) => {
+            setContextDrawerOpen(open);
+          }}
+          title="Présence & ordre du jour"
+          sidePanel
+          showCloseButton
+          contentClassName="gap-0 p-0"
+        >
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {contextPanels}
+          </div>
+        </StariumModal>
+      ) : null}
+
+      <footer className="flex shrink-0 flex-col gap-2 border-t border-border/70 bg-card px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
         <Button
           type="button"
           variant="outline"
-          className="min-h-11 max-sm:flex-1"
+          className="min-h-11 w-full sm:w-auto"
           onClick={onSuspend}
         >
           Suspendre
         </Button>
-        <Button
-          type="button"
-          variant="default"
-          className="min-h-11 max-sm:flex-1"
-          onClick={onRequestCloseReport}
-          disabled={!canEdit || finalizePending}
-        >
-          {finalizePending ? 'Finalisation…' : 'Clôturer & générer le CR'}
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={() => void onGoNextPoint()}
+            disabled={!canEdit || !selected}
+          >
+            <SkipForward className="size-4" aria-hidden />
+            Point suivant
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            className="min-h-11 w-full sm:w-auto"
+            onClick={onRequestCloseReport}
+            disabled={!canEdit || finalizePending}
+          >
+            {finalizePending ? 'Clôture…' : 'Clôturer & générer le CR'}
+          </Button>
+        </div>
       </footer>
     </div>
   );

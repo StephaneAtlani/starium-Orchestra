@@ -1797,6 +1797,56 @@ export class ProjectReviewsService {
     return this.start(clientId, projectId, reviewId, context);
   }
 
+  /**
+   * RFC-PROJ-013-6 — clôture de conduite → état UI « À finaliser ».
+   * Status reste IN_PROGRESS ; seul `conductClosedAt` est posé.
+   */
+  async closeConduct(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const normalized = normalizeReviewStatus(review.status, review.startedAt);
+    if (
+      normalized !== ProjectReviewStatus.IN_PROGRESS &&
+      review.status !== ProjectReviewStatus.IN_REVIEW
+    ) {
+      throw new BadRequestException(
+        'La conduite ne peut être clôturée que sur un point en cours',
+      );
+    }
+    if (review.conductClosedAt) {
+      throw new BadRequestException('La conduite est déjà clôturée');
+    }
+
+    const updated = await this.prisma.projectReview.update({
+      where: { id: reviewId },
+      data: { conductClosedAt: new Date() },
+      include: reviewInclude,
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_CONDUCT_CLOSED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+      resourceId: reviewId,
+      newValue: { projectId, reviewId },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.mapReviewToDetail(updated);
+  }
+
   async finalize(
     clientId: string,
     projectId: string,
@@ -1824,6 +1874,16 @@ export class ProjectReviewsService {
         review.status !== ProjectReviewStatus.DRAFT
       ) {
         throw new BadRequestException('Only editable reviews can be finalized');
+      }
+
+      // RFC-PROJ-013-6 — pilotage : exiger close-conduct ; REX (POST_MORTEM) exempté.
+      if (
+        review.reviewType !== ProjectReviewType.POST_MORTEM &&
+        !review.conductClosedAt
+      ) {
+        throw new BadRequestException(
+          'Clôturez d’abord la conduite (Clôturer & générer le CR).',
+        );
       }
 
       const snapshot = await this.buildEphemeralReportSnapshot(
