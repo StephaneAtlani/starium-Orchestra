@@ -280,9 +280,11 @@ Ne pas démarrer C8-unify « en parallèle » de la tenue.
 | **Justification vs statu quo** | Coût de maintien du monolithe modal+page > extraction progressive (déjà signalé FE-MEET-001).                                                                                                               |
 
 
-### C9 — Reporté vers RFC-PROJ-013-4
+### C9 — Reporté vers RFC-PROJ-013-4 puis catalogue 013-5+
 
-**Implémentation** : [`RFC-PROJ-013-4 — Tenue ODJ-first`](./RFC-PROJ-013-4%20—%20Tenue%20ODJ-first%20(Infos,%20Questions,%20Suites,%20Récaps).md) (v10/10 : création + conduite, prepare = tab `agenda` seul, Suites inline, récaps sans ajout primaire).
+**Implémentation ODJ-first** : [`RFC-PROJ-013-4`](./RFC-PROJ-013-4%20—%20Tenue%20ODJ-first%20(Infos,%20Questions,%20Suites,%20Récaps).md).
+
+**Cadre produit 20 écrans** (PDF spécification fonctionnelle, sept. 2026) : [`RFC-PROJ-013-5`](./RFC-PROJ-013-5%20—%20Spécification%20fonctionnelle%20écrans%20Points%20projet%20(catalogue%2001-20).md) et filles **013-6** (Animer 09), **013-7** (listes/préparation), **013-8** (remontées/CR), **013-9** (transverse).
 
 Motif du report hors 013-3 : C9 réécrit la saisie ; le faire avant extraction Lot D / C8-unify doublait le coût. Le CR (C1) montrait déjà décisions/actions telles que saisies.
 

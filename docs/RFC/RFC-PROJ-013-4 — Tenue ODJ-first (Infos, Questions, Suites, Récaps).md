@@ -2,9 +2,10 @@
 
 | | |
 | --- | --- |
-| **Statut** | ✅ Implémenté (UI ODJ-first v10/10) |
+| **Statut** | ✅ Implémenté (UI ODJ-first v10/10) — **conduite live poursuivie dans [RFC-PROJ-013-6](./RFC-PROJ-013-6%20—%20Animer%20la%20séance%20(écran%2009).md)** |
 | **Date** | 2026-09-09 |
 | **Parents** | RFC-PROJ-013-2, RFC-PROJ-013-3 (ex-C9) |
+| **Suite produit** | [RFC-PROJ-013-5](./RFC-PROJ-013-5%20—%20Spécification%20fonctionnelle%20écrans%20Points%20projet%20(catalogue%2001-20).md) (catalogue 20 écrans) |
 | **Scope** | Création + préparation + conduite Point projet — saisie sujet-centrée |
 
 ## 1. Analyse de l’existant
