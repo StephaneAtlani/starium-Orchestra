@@ -105,6 +105,7 @@ import {
 } from './review-actions-section';
 import { ReviewAttachmentsSection } from './review-attachments-section';
 import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
+import { ProjectReviewAnimateSession } from './project-review-animate-session';
 import {
   canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
@@ -613,7 +614,7 @@ function ReviewConductSessionSummary({
   agendaTotal,
   decisionsCount,
   actionsCount,
-  attachmentsCount,
+  participantsCount,
   onNavigate,
   embedded = false,
 }: {
@@ -622,7 +623,7 @@ function ReviewConductSessionSummary({
   agendaTotal: number;
   decisionsCount: number;
   actionsCount: number;
-  attachmentsCount: number;
+  participantsCount: number;
   onNavigate: (tab: string) => void;
   embedded?: boolean;
 }) {
@@ -642,31 +643,31 @@ function ReviewConductSessionSummary({
     },
     {
       id: 'decisions',
-      tab: 'decisions',
-      label: 'Décisions',
+      tab: 'agenda',
+      label: 'Décisions (Suites)',
       count: decisionsCount,
-      hint: decisionsCount > 0 ? 'À valider en séance' : 'À capturer',
+      hint: decisionsCount > 0 ? 'Saisies dans le sujet actif' : 'À capturer dans Suites',
       icon: Scale,
       iconBg: 'color-mix(in srgb, var(--brand-gold-700) 12%, transparent)',
       iconColor: 'var(--brand-gold-700)',
     },
     {
       id: 'actions',
-      tab: 'actions',
-      label: 'Actions',
+      tab: 'agenda',
+      label: 'Actions (Suites)',
       count: actionsCount,
-      hint: actionsCount > 0 ? 'Suivi actif' : 'À planifier',
+      hint: actionsCount > 0 ? 'Saisies dans le sujet actif' : 'À planifier dans Suites',
       icon: ListChecks,
       iconBg: 'var(--state-success-bg)',
       iconColor: 'var(--state-success)',
     },
     {
-      id: 'attachments',
-      tab: 'attachments',
-      label: 'Documents',
-      count: attachmentsCount,
-      hint: attachmentsCount > 0 ? 'Pièces jointes' : 'À rattacher',
-      icon: FileText,
+      id: 'participants',
+      tab: 'participants',
+      label: 'Participants',
+      count: participantsCount,
+      hint: 'Présence & invitations',
+      icon: Users,
       iconBg: 'var(--neutral-100)',
       iconColor: 'var(--neutral-600)',
     },
@@ -2048,7 +2049,7 @@ export function ProjectReviewEditorDialog({
             agendaTotal={agendaProgress?.total ?? 0}
             decisionsCount={d.decisions?.length ?? 0}
             actionsCount={d.actionItems?.length ?? 0}
-            attachmentsCount={d.attachments?.length ?? 0}
+            participantsCount={d.participants?.length ?? 0}
             onNavigate={navigateConductTab}
             embedded
           />
@@ -3173,8 +3174,36 @@ export function ProjectReviewEditorDialog({
     />
   );
 
+  const animateSession =
+    editorPhase === 'conduct' && d && !isPostMortemReview ? (
+      <ProjectReviewAnimateSession
+        projectId={projectId}
+        detail={d}
+        reviewTypeLabel={PROJECT_REVIEW_TYPE_LABEL[d.reviewType] ?? d.reviewType}
+        canEdit={editable}
+        formDecisions={decisions}
+        formActions={actions}
+        onAppendDecision={appendDecision}
+        onAppendAction={appendAction}
+        onUpdateDecision={updateDecision}
+        onUpdateAction={updateAction}
+        onRemoveDecision={removeDecision}
+        onRemoveAction={removeAction}
+        selectedAgendaItemId={selectedAgendaItemId}
+        onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
+        onSuspend={handleClose}
+        onRequestCloseReport={onRequestFinalize}
+        finalizePending={finalize.isPending || update.isPending}
+      />
+    ) : null;
+
   return (
       <>
+        {animateSession ? (
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            {animateSession}
+          </div>
+        ) : (
         <div className="flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden">
           <PageHeader
             className="shrink-0 max-lg:gap-1 max-lg:px-3 max-lg:py-2"
@@ -3208,11 +3237,6 @@ export function ProjectReviewEditorDialog({
           <div
             className={cn(
               'grid h-0 min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden [&>*]:min-h-0',
-              isConductWideLayout &&
-              conductSidebarOpen &&
-              editorPhase === 'conduct'
-                ? 'lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]'
-                : '',
             )}
           >
             <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card p-2 sm:p-4">
@@ -3220,11 +3244,6 @@ export function ProjectReviewEditorDialog({
                 {renderEditorPanels()}
               </div>
             </div>
-            {conductSidebarAside ? (
-              <div id="review-conduct-sidebar" className="hidden h-full min-h-0 overflow-hidden lg:block">
-                {conductSidebarAside}
-              </div>
-            ) : null}
           </div>
           {editorFooterContent ? (
             <footer className="shrink-0 border-t border-border/70 bg-card/95 px-2 py-2 sm:px-3">
@@ -3232,7 +3251,8 @@ export function ProjectReviewEditorDialog({
             </footer>
           ) : null}
         </div>
-        {conductSidebarMobileSheet}
+        )}
+        {animateSession ? null : conductSidebarMobileSheet}
         {confirmNextModal}
         {confirmFinalizeModal}
         {confirmCancelModal}

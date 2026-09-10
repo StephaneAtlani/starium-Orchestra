@@ -72,9 +72,6 @@ describe('project-review-status', () => {
     expect(reviewEditorTabsForPhase('conduct')).toEqual([
       'agenda',
       'participants',
-      'decisions',
-      'actions',
-      'attachments',
       'closure',
     ]);
     expect(reviewEditorInitialTab('conduct')).toBe('agenda');

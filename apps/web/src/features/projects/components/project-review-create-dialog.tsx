@@ -20,7 +20,6 @@ import {
   RotateCcw,
   Trash2,
   UserPlus,
-  Users,
   Video,
 } from 'lucide-react';
 import {
@@ -246,10 +245,12 @@ function OptionalBlock({
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <details
       className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
-      defaultOpen={defaultOpen}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary
         id={`${id}-summary`}
@@ -566,569 +567,557 @@ export function ProjectReviewCreateDialog({
     >
       <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
         <div className="starium-form gap-4">
-              {/* Essentiel */}
-              <section
-                className="starium-form-section border-border/60"
-                aria-labelledby="create-pr-essential"
-              >
-                <h3 id="create-pr-essential" className="starium-form-section-title">
-                  <ClipboardPen aria-hidden />
-                  Essentiel
+          {/* 1. Essentiel */}
+          <section
+            className="starium-form-section border-border/60"
+            aria-labelledby="create-pr-essential"
+          >
+            <h3 id="create-pr-essential" className="starium-form-section-title">
+              <ClipboardPen aria-hidden />
+              Essentiel
+            </h3>
+            <div className="starium-form-grid starium-form-grid--2">
+              <div className="starium-form-field">
+                <label htmlFor="pr-date" className="starium-form-label">
+                  Date et heure{' '}
+                  <span className="font-normal text-muted-foreground">(optionnel)</span>
+                </label>
+                <ProjectDatetimeLocalInput
+                  id="pr-date"
+                  value={formDate}
+                  onChange={setFormDate}
+                />
+              </div>
+              <div className="starium-form-field">
+                <label htmlFor="pr-type" className="starium-form-label">
+                  Type de point
+                </label>
+                <select
+                  id="pr-type"
+                  className="starium-form-select min-h-11"
+                  value={formType}
+                  aria-describedby={
+                    isPilotageReviewType(formType) ? 'pr-type-hint' : undefined
+                  }
+                  onChange={(e) =>
+                    handleReviewTypeChange(e.target.value as ProjectReviewType)
+                  }
+                  disabled={postMortemEligible && createTypeOptions.length === 1}
+                >
+                  {createTypeOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
+                    </option>
+                  ))}
+                </select>
+                {isPilotageReviewType(formType) ? (
+                  <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                    {REVIEW_TYPE_AGENDA_HINT[formType]}
+                  </p>
+                ) : null}
+                {showAgendaPresetMismatch ? (
+                  <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                    Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
+                    {PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}. Vous pouvez le
+                    réinitialiser ci-dessous.
+                  </p>
+                ) : null}
+              </div>
+              <div className="starium-form-field starium-form-grid--span-2">
+                <label htmlFor="pr-title" className="starium-form-label">
+                  Titre <span className="font-normal text-muted-foreground">(optionnel)</span>
+                </label>
+                <Input
+                  id="pr-title"
+                  className="starium-form-input min-h-11"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  maxLength={500}
+                  placeholder="Ex. COPIL mensuel — arbitrage budget Q3"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* 2. Reprise du dernier point */}
+          {!postMortemEligible && isPilotageReviewType(formType) && lastFinalizedId ? (
+            <div className="starium-form-field">
+              <label className="flex min-h-11 items-start gap-3 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 shrink-0"
+                  checked={resumeFromLast}
+                  disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
+                  onChange={(e) => setResumeFromLast(e.target.checked)}
+                />
+                <span>
+                  {lastFinalizedQuery.isLoading
+                    ? 'Chargement du dernier point…'
+                    : 'Reprendre les actions ouvertes et les sujets non traités du dernier point'}
+                </span>
+              </label>
+            </div>
+          ) : null}
+
+          {/* 3. Ordre du jour — section primaire, toujours ouverte */}
+          <section
+            className="starium-form-section border-border/60"
+            aria-labelledby="create-pr-agenda"
+          >
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 id="create-pr-agenda" className="starium-form-section-title mb-0">
+                  <ListOrdered aria-hidden />
+                  Ordre du jour
                 </h3>
-                <div className="starium-form-grid starium-form-grid--2">
-                  <div className="starium-form-field">
-                    <label htmlFor="pr-date" className="starium-form-label">
-                      Date et heure{' '}
-                      <span className="font-normal text-muted-foreground">(optionnel)</span>
-                    </label>
-                    <ProjectDatetimeLocalInput
-                      id="pr-date"
-                      value={formDate}
-                      onChange={setFormDate}
-                    />
-                  </div>
-                  <div className="starium-form-field">
-                    <label htmlFor="pr-type" className="starium-form-label">
-                      Type de point
-                    </label>
-                    <select
-                      id="pr-type"
-                      className="starium-form-select min-h-11"
-                      value={formType}
-                      aria-describedby={
-                        isPilotageReviewType(formType) ? 'pr-type-hint' : undefined
-                      }
-                      onChange={(e) =>
-                        handleReviewTypeChange(e.target.value as ProjectReviewType)
-                      }
-                      disabled={postMortemEligible && createTypeOptions.length === 1}
-                    >
-                      {createTypeOptions.map((t) => (
-                        <option key={t} value={t}>
-                          {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                        </option>
-                      ))}
-                    </select>
-                    {isPilotageReviewType(formType) ? (
-                      <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                        {REVIEW_TYPE_AGENDA_HINT[formType]}
-                      </p>
-                    ) : null}
-                    {showAgendaPresetMismatch ? (
-                      <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
-                        Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
-                        {PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}. Vous pouvez le
-                        réinitialiser ci-dessous.
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="starium-form-field starium-form-grid--span-2">
-                    <label htmlFor="pr-title" className="starium-form-label">
-                      Titre <span className="font-normal text-muted-foreground">(optionnel)</span>
-                    </label>
-                    <Input
-                      id="pr-title"
-                      className="starium-form-input min-h-11"
-                      value={formTitle}
-                      onChange={(e) => setFormTitle(e.target.value)}
-                      maxLength={500}
-                      placeholder="Ex. COPIL mensuel — arbitrage budget Q3"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {!postMortemEligible && isPilotageReviewType(formType) && lastFinalizedId ? (
-                <div className="starium-form-field">
-                  <label className="flex min-h-11 items-start gap-3 text-sm text-foreground">
-                    <input
-                      type="checkbox"
-                      className="mt-1 size-4 shrink-0"
-                      checked={resumeFromLast}
-                      disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
-                      onChange={(e) => setResumeFromLast(e.target.checked)}
-                    />
-                    <span>
-                      {lastFinalizedQuery.isLoading
-                        ? 'Chargement du dernier point…'
-                        : 'Reprendre les actions ouvertes et les sujets non traités du dernier point'}
-                    </span>
-                  </label>
-                </div>
-              ) : null}
-
-              {!postMortemEligible ? (
-                <>
-                  {/* Intention */}
-                  <section
-                    className="starium-form-section border-border/60"
-                    aria-labelledby="create-pr-intent"
-                  >
-                    <h3 id="create-pr-intent" className="starium-form-section-title">
-                      <CalendarClock aria-hidden />
-                      Intention
-                    </h3>
-                    <fieldset>
-                      <legend className="sr-only">Mode de création du point</legend>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {CREATION_MODE_OPTIONS.map((opt) => (
-                          <FormChoiceTile
-                            key={opt.value}
-                            name="pr-creation-mode"
-                            value={opt.value}
-                            checked={formCreationMode === opt.value}
-                            onChange={() => setFormCreationMode(opt.value)}
-                            title={opt.title}
-                            description={opt.description}
-                            icon={opt.icon}
-                          />
-                        ))}
-                      </div>
-                    </fieldset>
-                  </section>
-
-                  {/* Tenue */}
-                  <section
-                    className="starium-form-section border-border/60"
-                    aria-labelledby="create-pr-meeting"
-                  >
-                    <h3 id="create-pr-meeting" className="starium-form-section-title">
-                      <Video aria-hidden />
-                      Tenue de la réunion
-                    </h3>
-                    <fieldset className="space-y-4">
-                      <legend className="starium-form-label mb-2 block">Format</legend>
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        {MEETING_MODE_OPTIONS.map(({ value, icon }) => (
-                          <FormChoiceTile
-                            key={value}
-                            name="pr-meeting-mode"
-                            value={value}
-                            checked={formMeetingMode === value}
-                            onChange={() => setFormMeetingMode(value)}
-                            title={PROJECT_REVIEW_MEETING_MODE_LABEL[value] ?? value}
-                            icon={icon}
-                            className="sm:min-h-[4.5rem]"
-                          />
-                        ))}
-                      </div>
-                      <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                        <input
-                          type="radio"
-                          name="pr-meeting-mode"
-                          checked={formMeetingMode === ''}
-                          onChange={() => setFormMeetingMode('')}
-                          className="size-4 rounded-full border border-input"
-                        />
-                        À définir plus tard
-                      </label>
-
-                      {(showMeetingUrl || showLocation) && (
-                        <div className="starium-form-grid starium-form-grid--2 rounded-lg border border-border/60 bg-muted/20 p-3">
-                          {showMeetingUrl ? (
-                            <div
-                              className={cn(
-                                'starium-form-field',
-                                showLocation ? '' : 'starium-form-grid--span-2',
-                              )}
-                            >
-                              <label htmlFor="pr-meeting-url" className="starium-form-label">
-                                <Link2 className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                                Lien de réunion
-                              </label>
-                              <Input
-                                id="pr-meeting-url"
-                                type="url"
-                                className="starium-form-input min-h-11"
-                                value={formMeetingUrl}
-                                onChange={(e) => setFormMeetingUrl(e.target.value)}
-                                placeholder="https://teams.microsoft.com/…"
-                              />
-                            </div>
-                          ) : null}
-                          {showLocation ? (
-                            <div
-                              className={cn(
-                                'starium-form-field',
-                                showMeetingUrl ? '' : 'starium-form-grid--span-2',
-                              )}
-                            >
-                              <label htmlFor="pr-location" className="starium-form-label">
-                                <MapPin className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                                Lieu
-                              </label>
-                              <Input
-                                id="pr-location"
-                                className="starium-form-input min-h-11"
-                                value={formLocation}
-                                onChange={(e) => setFormLocation(e.target.value)}
-                                maxLength={300}
-                                placeholder="Salle, étage, adresse…"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      )}
-                    </fieldset>
-                  </section>
-                </>
-              ) : null}
-
-              {/* Participants */}
-              <section
-                className="starium-form-section border-border/60"
-                aria-labelledby="create-pr-participants"
-              >
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3
-                    id="create-pr-participants"
-                    className="starium-form-section-title mb-0 min-w-0 flex-1"
-                  >
-                    <Users aria-hidden />
-                    Parties prenantes
-                  </h3>
+                <p className="starium-form-hint mt-1" id="create-pr-agenda-hint">
+                  {postMortemEligible
+                    ? 'Sujets optionnels pour cadrer le REX — la grille détaillée se complète dans l’éditeur.'
+                    : agendaPresetCount > 0
+                      ? `${agendaPresetCount} sujet(s) préremplis avec questions à trancher — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}.`
+                      : 'Sujets structurés — chaque point porte une question à trancher.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {showAgendaPresetReset ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="min-h-9 shrink-0 gap-1.5"
-                    onClick={() =>
-                      setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
-                    }
+                    className="min-h-9 gap-1.5"
+                    onClick={() => applyAgendaPresetFromType(formType)}
                   >
-                    <UserPlus className="size-4" aria-hidden />
-                    Ajouter
+                    <RotateCcw className="size-4" aria-hidden />
+                    Réinitialiser selon le type
                   </Button>
-                </div>
-                <p className="starium-form-hint mb-3" aria-live="polite">
-                  {teamForCreate.isLoading
-                    ? 'Chargement de l’équipe projet…'
-                    : `${createParticipants.length} participant${createParticipants.length > 1 ? 's' : ''} — équipe préremplie, ajustez si besoin.`}
-                </p>
-                {assignable.isLoading ? (
-                  <p className="starium-form-hint mb-3">Chargement des membres du client…</p>
                 ) : null}
-                <ul className="space-y-2">
-                  {createParticipants.map((row, i) => (
-                    <li
-                      key={i}
-                      className="rounded-lg border border-border/60 bg-muted/15 p-3"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-                          aria-hidden
-                        >
-                          {participantInitials(row.displayName, i)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-end gap-3">
-                            <div className="starium-form-field min-w-0 flex-1 basis-48">
-                              <label htmlFor={`pr-part-user-${i}`} className="starium-form-label">
-                                Membre client
-                              </label>
-                              <select
-                                id={`pr-part-user-${i}`}
-                                className="starium-form-select min-h-11 w-full"
-                                disabled={assignable.isLoading}
-                                value={row.userId}
-                                onChange={(e) => {
-                                  const id = e.target.value;
-                                  const u = assignable.data?.users?.find((x) => x.id === id);
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) =>
-                                      j === i
-                                        ? {
-                                            ...p,
-                                            userId: id,
-                                            displayName: u
-                                              ? displayNameFromUser(u)
-                                              : '',
-                                          }
-                                        : p,
-                                    ),
-                                  );
-                                }}
-                              >
-                                <option value="">— Choisir —</option>
-                                {assignable.data?.users?.map((u) => (
-                                  <option key={u.id} value={u.id}>
-                                    {displayNameFromUser(u)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 pb-0.5">
-                              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                                <input
-                                  type="checkbox"
-                                  className="size-4 rounded border border-input"
-                                  checked={row.attended}
-                                  onChange={(e) => {
-                                    const v = e.target.checked;
-                                    setCreateParticipants((prev) =>
-                                      prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
-                                    );
-                                  }}
-                                />
-                                Présent
-                              </label>
-                              <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                                <input
-                                  type="checkbox"
-                                  className="size-4 rounded border border-input"
-                                  checked={row.isRequired}
-                                  onChange={(e) => {
-                                    const v = e.target.checked;
-                                    setCreateParticipants((prev) =>
-                                      prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
-                                    );
-                                  }}
-                                />
-                                Requis
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                        {createParticipants.length > 1 ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                            aria-label={`Retirer ${row.displayName.trim() || `participant ${i + 1}`}`}
-                            onClick={() =>
-                              setCreateParticipants((prev) => prev.filter((_, j) => j !== i))
-                            }
-                          >
-                            <Trash2 className="size-4" aria-hidden />
-                          </Button>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              {/* Optionnel — replié par défaut */}
-              <div className="flex flex-col gap-2">
-                <OptionalBlock
-                  id="create-pr-framing"
-                  title="Objectif du point"
-                  summary="Cadrage de la séance — optionnel"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-9 gap-1.5"
+                  onClick={() => {
+                    markAgendaDirty();
+                    setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
+                  }}
                 >
-                  <div className="starium-form-field">
-                    <label htmlFor="pr-objective" className="starium-form-label">
-                      Objectif principal
-                    </label>
-                    <textarea
-                      id="pr-objective"
-                      className="starium-form-textarea min-h-[72px]"
-                      value={formObjective}
-                      onChange={(e) => setFormObjective(e.target.value)}
-                      maxLength={20000}
-                      rows={3}
-                      placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
-                    />
-                  </div>
-                </OptionalBlock>
-
-                <OptionalBlock
-                  id="create-pr-agenda"
-                  title="Ordre du jour"
-                  defaultOpen
-                  summary={
-                    agendaPresetCount > 0
-                      ? `${agendaPresetCount} sujet(s) — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}`
-                      : 'Sujets structurés — questions à trancher par point'
-                  }
-                >
-                  <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                    {showAgendaPresetReset ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="min-h-9 gap-1.5"
-                        onClick={() => applyAgendaPresetFromType(formType)}
-                      >
-                        <RotateCcw className="size-4" aria-hidden />
-                        Réinitialiser selon le type
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-9 gap-1.5"
-                      onClick={() => {
-                        markAgendaDirty();
-                        setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
-                      }}
-                    >
-                      <Plus className="size-4" aria-hidden />
-                      Ajouter un sujet
-                    </Button>
-                  </div>
-                  <ul className="space-y-2" aria-live="polite">
-                    {createAgendaItems.map((row, i) => (
-                      <li
-                        key={i}
-                        className="rounded-lg border border-border/60 bg-muted/15 p-3"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="min-w-0 flex-1 space-y-3">
-                            <div className="starium-form-grid starium-form-grid--2">
-                              <div className="starium-form-field">
-                                <label
-                                  htmlFor={`pr-agenda-type-${i}`}
-                                  className="starium-form-label"
-                                >
-                                  Type
-                                </label>
-                                <select
-                                  id={`pr-agenda-type-${i}`}
-                                  className="starium-form-select min-h-11"
-                                  value={row.itemType}
-                                  onChange={(e) => {
-                                    const v = e.target.value as ProjectReviewAgendaItemType;
-                                    markAgendaDirty();
-                                    setCreateAgendaItems((prev) =>
-                                      prev.map((x, j) => {
-                                        if (j !== i) return x;
-                                        const prevDefault =
-                                          defaultExpectedDecisionForItemType(x.itemType);
-                                        const nextDefault =
-                                          defaultExpectedDecisionForItemType(v);
-                                        const keepQuestion =
-                                          x.expectedDecision.trim() &&
-                                          x.expectedDecision.trim() !== prevDefault
-                                            ? x.expectedDecision
-                                            : nextDefault;
-                                        return {
-                                          ...x,
-                                          itemType: v,
-                                          expectedDecision: keepQuestion,
-                                        };
-                                      }),
-                                    );
-                                  }}
-                                >
-                                  {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(
-                                    ([k, label]) => (
-                                      <option key={k} value={k}>
-                                        {label}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
-                              </div>
-                              <div className="starium-form-field">
-                                <label
-                                  htmlFor={`pr-agenda-title-${i}`}
-                                  className="starium-form-label"
-                                >
-                                  Titre
-                                </label>
-                                <Input
-                                  id={`pr-agenda-title-${i}`}
-                                  className="starium-form-input min-h-11"
-                                  value={row.title}
-                                  maxLength={500}
-                                  onChange={(e) => {
-                                    const v = e.target.value;
-                                    markAgendaDirty();
-                                    setCreateAgendaItems((prev) =>
-                                      prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
-                                    );
-                                  }}
-                                  placeholder="Ex. Arbitrage dépassement budget"
-                                />
-                              </div>
-                            </div>
-                            <div className="starium-form-field">
-                              <label
-                                htmlFor={`pr-agenda-question-${i}`}
-                                className="starium-form-label"
-                              >
-                                Question à trancher
-                              </label>
-                              <textarea
-                                id={`pr-agenda-question-${i}`}
-                                className="starium-form-textarea min-h-[64px]"
-                                value={row.expectedDecision}
-                                maxLength={1000}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  markAgendaDirty();
-                                  setCreateAgendaItems((prev) =>
-                                    prev.map((x, j) =>
-                                      j === i ? { ...x, expectedDecision: v } : x,
-                                    ),
-                                  );
-                                }}
-                                placeholder="Formulation de la décision ou du résultat attendu…"
-                              />
-                            </div>
-                            <div className="starium-form-field">
-                              <label
-                                htmlFor={`pr-agenda-desc-${i}`}
-                                className="starium-form-label"
-                              >
-                                Description{' '}
-                                <span className="font-normal text-muted-foreground">
-                                  (optionnel)
-                                </span>
-                              </label>
-                              <textarea
-                                id={`pr-agenda-desc-${i}`}
-                                className="starium-form-textarea min-h-[64px]"
-                                value={row.description}
-                                maxLength={8000}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  markAgendaDirty();
-                                  setCreateAgendaItems((prev) =>
-                                    prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
-                                  );
-                                }}
-                                placeholder="Contexte, documents attendus…"
-                              />
-                            </div>
-                          </div>
-                          {createAgendaItems.length > 1 ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                              aria-label={`Retirer le sujet ${row.title.trim() || i + 1}`}
-                              onClick={() => {
-                                markAgendaDirty();
-                                setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
-                              }}
-                            >
-                              <Trash2 className="size-4" aria-hidden />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {agendaPresetCount > 0 ? (
-                    <p className="starium-form-hint mt-2">
-                      <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                      Modèle prérempli avec questions — ajustez les sujets ou réinitialisez.
-                    </p>
-                  ) : (
-                    <p className="starium-form-hint mt-2">
-                      <ListOrdered className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                      Ajoutez des sujets ici : les décisions naîtront en séance, liées à chaque point.
-                    </p>
-                  )}
-                </OptionalBlock>
+                  <Plus className="size-4" aria-hidden />
+                  Ajouter un sujet
+                </Button>
               </div>
             </div>
+            <ul className="space-y-2" aria-live="polite" aria-describedby="create-pr-agenda-hint">
+              {createAgendaItems.map((row, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-border/60 bg-muted/15 p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1 space-y-3">
+                      <div className="starium-form-grid starium-form-grid--2">
+                        <div className="starium-form-field">
+                          <label
+                            htmlFor={`pr-agenda-type-${i}`}
+                            className="starium-form-label"
+                          >
+                            Type
+                          </label>
+                          <select
+                            id={`pr-agenda-type-${i}`}
+                            className="starium-form-select min-h-11"
+                            value={row.itemType}
+                            onChange={(e) => {
+                              const v = e.target.value as ProjectReviewAgendaItemType;
+                              markAgendaDirty();
+                              setCreateAgendaItems((prev) =>
+                                prev.map((x, j) => {
+                                  if (j !== i) return x;
+                                  const prevDefault =
+                                    defaultExpectedDecisionForItemType(x.itemType);
+                                  const nextDefault =
+                                    defaultExpectedDecisionForItemType(v);
+                                  const keepQuestion =
+                                    x.expectedDecision.trim() &&
+                                    x.expectedDecision.trim() !== prevDefault
+                                      ? x.expectedDecision
+                                      : nextDefault;
+                                  return {
+                                    ...x,
+                                    itemType: v,
+                                    expectedDecision: keepQuestion,
+                                  };
+                                }),
+                              );
+                            }}
+                          >
+                            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(
+                              ([k, label]) => (
+                                <option key={k} value={k}>
+                                  {label}
+                                </option>
+                              ),
+                            )}
+                          </select>
+                        </div>
+                        <div className="starium-form-field">
+                          <label
+                            htmlFor={`pr-agenda-title-${i}`}
+                            className="starium-form-label"
+                          >
+                            Titre
+                          </label>
+                          <Input
+                            id={`pr-agenda-title-${i}`}
+                            className="starium-form-input min-h-11"
+                            value={row.title}
+                            maxLength={500}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              markAgendaDirty();
+                              setCreateAgendaItems((prev) =>
+                                prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
+                              );
+                            }}
+                            placeholder="Ex. Arbitrage dépassement budget"
+                          />
+                        </div>
+                      </div>
+                      <div className="starium-form-field">
+                        <label
+                          htmlFor={`pr-agenda-question-${i}`}
+                          className="starium-form-label"
+                        >
+                          Question à trancher
+                        </label>
+                        <textarea
+                          id={`pr-agenda-question-${i}`}
+                          className="starium-form-textarea min-h-[64px]"
+                          value={row.expectedDecision}
+                          maxLength={1000}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            markAgendaDirty();
+                            setCreateAgendaItems((prev) =>
+                              prev.map((x, j) =>
+                                j === i ? { ...x, expectedDecision: v } : x,
+                              ),
+                            );
+                          }}
+                          placeholder="Formulation de la décision ou du résultat attendu…"
+                        />
+                      </div>
+                      <div className="starium-form-field">
+                        <label
+                          htmlFor={`pr-agenda-desc-${i}`}
+                          className="starium-form-label"
+                        >
+                          Description{' '}
+                          <span className="font-normal text-muted-foreground">
+                            (optionnel)
+                          </span>
+                        </label>
+                        <textarea
+                          id={`pr-agenda-desc-${i}`}
+                          className="starium-form-textarea min-h-[64px]"
+                          value={row.description}
+                          maxLength={8000}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            markAgendaDirty();
+                            setCreateAgendaItems((prev) =>
+                              prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
+                            );
+                          }}
+                          placeholder="Contexte, documents attendus…"
+                        />
+                      </div>
+                    </div>
+                    {createAgendaItems.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Retirer le sujet ${row.title.trim() || i + 1}`}
+                        onClick={() => {
+                          markAgendaDirty();
+                          setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
+                        }}
+                      >
+                        <Trash2 className="size-4" aria-hidden />
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* 4. Modalités + 5. Participants — OptionalBlocks repliés */}
+          <div className="flex flex-col gap-2">
+            <OptionalBlock
+              id="create-pr-modalities"
+              title="Modalités"
+              defaultOpen={false}
+              summary={
+                postMortemEligible
+                  ? 'Objectif du point — optionnel'
+                  : 'Intention, tenue de réunion, objectif — optionnel'
+              }
+            >
+              {!postMortemEligible ? (
+                <div className="space-y-5">
+                  <fieldset>
+                    <legend className="starium-form-label mb-2 flex items-center gap-1.5">
+                      <CalendarClock className="size-3.5 opacity-70" aria-hidden />
+                      Intention
+                    </legend>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {CREATION_MODE_OPTIONS.map((opt) => (
+                        <FormChoiceTile
+                          key={opt.value}
+                          name="pr-creation-mode"
+                          value={opt.value}
+                          checked={formCreationMode === opt.value}
+                          onChange={() => setFormCreationMode(opt.value)}
+                          title={opt.title}
+                          description={opt.description}
+                          icon={opt.icon}
+                        />
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset className="space-y-4">
+                    <legend className="starium-form-label mb-2 flex items-center gap-1.5">
+                      <Video className="size-3.5 opacity-70" aria-hidden />
+                      Tenue de la réunion
+                    </legend>
+                    <p className="starium-form-label mb-2">Format</p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {MEETING_MODE_OPTIONS.map(({ value, icon }) => (
+                        <FormChoiceTile
+                          key={value}
+                          name="pr-meeting-mode"
+                          value={value}
+                          checked={formMeetingMode === value}
+                          onChange={() => setFormMeetingMode(value)}
+                          title={PROJECT_REVIEW_MEETING_MODE_LABEL[value] ?? value}
+                          icon={icon}
+                          className="sm:min-h-[4.5rem]"
+                        />
+                      ))}
+                    </div>
+                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                      <input
+                        type="radio"
+                        name="pr-meeting-mode"
+                        checked={formMeetingMode === ''}
+                        onChange={() => setFormMeetingMode('')}
+                        className="size-4 rounded-full border border-input"
+                      />
+                      À définir plus tard
+                    </label>
+
+                    {(showMeetingUrl || showLocation) && (
+                      <div className="starium-form-grid starium-form-grid--2 rounded-lg border border-border/60 bg-muted/20 p-3">
+                        {showMeetingUrl ? (
+                          <div
+                            className={cn(
+                              'starium-form-field',
+                              showLocation ? '' : 'starium-form-grid--span-2',
+                            )}
+                          >
+                            <label htmlFor="pr-meeting-url" className="starium-form-label">
+                              <Link2 className="mr-1 inline size-3.5 opacity-70" aria-hidden />
+                              Lien de réunion
+                            </label>
+                            <Input
+                              id="pr-meeting-url"
+                              type="url"
+                              className="starium-form-input min-h-11"
+                              value={formMeetingUrl}
+                              onChange={(e) => setFormMeetingUrl(e.target.value)}
+                              placeholder="https://teams.microsoft.com/…"
+                            />
+                          </div>
+                        ) : null}
+                        {showLocation ? (
+                          <div
+                            className={cn(
+                              'starium-form-field',
+                              showMeetingUrl ? '' : 'starium-form-grid--span-2',
+                            )}
+                          >
+                            <label htmlFor="pr-location" className="starium-form-label">
+                              <MapPin className="mr-1 inline size-3.5 opacity-70" aria-hidden />
+                              Lieu
+                            </label>
+                            <Input
+                              id="pr-location"
+                              className="starium-form-input min-h-11"
+                              value={formLocation}
+                              onChange={(e) => setFormLocation(e.target.value)}
+                              maxLength={300}
+                              placeholder="Salle, étage, adresse…"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </fieldset>
+                </div>
+              ) : null}
+
+              <div className={cn('starium-form-field', !postMortemEligible && 'mt-5')}>
+                <label htmlFor="pr-objective" className="starium-form-label">
+                  Objectif du point
+                </label>
+                <textarea
+                  id="pr-objective"
+                  className="starium-form-textarea min-h-[72px]"
+                  value={formObjective}
+                  onChange={(e) => setFormObjective(e.target.value)}
+                  maxLength={20000}
+                  rows={3}
+                  placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
+                />
+              </div>
+            </OptionalBlock>
+
+            <OptionalBlock
+              id="create-pr-participants"
+              title="Participants"
+              defaultOpen={false}
+              summary={
+                teamForCreate.isLoading
+                  ? 'Chargement de l’équipe projet…'
+                  : `${createParticipants.length} participant${createParticipants.length > 1 ? 's' : ''} — équipe préremplie`
+              }
+            >
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-9 shrink-0 gap-1.5"
+                  onClick={() =>
+                    setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
+                  }
+                >
+                  <UserPlus className="size-4" aria-hidden />
+                  Ajouter
+                </Button>
+              </div>
+              <p className="starium-form-hint mb-3" aria-live="polite">
+                {teamForCreate.isLoading
+                  ? 'Chargement de l’équipe projet…'
+                  : 'Ajustez la liste si besoin — présents et requis par participant.'}
+              </p>
+              {assignable.isLoading ? (
+                <p className="starium-form-hint mb-3">Chargement des membres du client…</p>
+              ) : null}
+              <ul className="space-y-2">
+                {createParticipants.map((row, i) => (
+                  <li
+                    key={i}
+                    className="rounded-lg border border-border/60 bg-muted/15 p-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                        aria-hidden
+                      >
+                        {participantInitials(row.displayName, i)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="starium-form-field min-w-0 flex-1 basis-48">
+                            <label htmlFor={`pr-part-user-${i}`} className="starium-form-label">
+                              Membre client
+                            </label>
+                            <select
+                              id={`pr-part-user-${i}`}
+                              className="starium-form-select min-h-11 w-full"
+                              disabled={assignable.isLoading}
+                              value={row.userId}
+                              onChange={(e) => {
+                                const id = e.target.value;
+                                const u = assignable.data?.users?.find((x) => x.id === id);
+                                setCreateParticipants((prev) =>
+                                  prev.map((p, j) =>
+                                    j === i
+                                      ? {
+                                          ...p,
+                                          userId: id,
+                                          displayName: u ? displayNameFromUser(u) : '',
+                                        }
+                                      : p,
+                                  ),
+                                );
+                              }}
+                            >
+                              <option value="">— Choisir —</option>
+                              {assignable.data?.users?.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {displayNameFromUser(u)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 pb-0.5">
+                            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                              <input
+                                type="checkbox"
+                                className="size-4 rounded border border-input"
+                                checked={row.attended}
+                                onChange={(e) => {
+                                  const v = e.target.checked;
+                                  setCreateParticipants((prev) =>
+                                    prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
+                                  );
+                                }}
+                              />
+                              Présent
+                            </label>
+                            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
+                              <input
+                                type="checkbox"
+                                className="size-4 rounded border border-input"
+                                checked={row.isRequired}
+                                onChange={(e) => {
+                                  const v = e.target.checked;
+                                  setCreateParticipants((prev) =>
+                                    prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
+                                  );
+                                }}
+                              />
+                              Requis
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      {createParticipants.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                          aria-label={`Retirer ${row.displayName.trim() || `participant ${i + 1}`}`}
+                          onClick={() =>
+                            setCreateParticipants((prev) => prev.filter((_, j) => j !== i))
+                          }
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </OptionalBlock>
+          </div>
+        </div>
       </form>
     </StariumModal>
   );

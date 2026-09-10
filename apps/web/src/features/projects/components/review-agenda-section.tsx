@@ -317,12 +317,12 @@ function ConductSuitesPanel({
   };
 
   return (
-    <fieldset className="rounded-lg border border-border/70 bg-muted/10 px-4 py-3">
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-foreground">
-        Suites
+    <fieldset className="rounded-xl border-2 border-[color:var(--brand-gold-700)]/50 bg-[color:var(--brand-gold-50,var(--muted))]/40 px-4 py-4 shadow-sm">
+      <legend className="px-1.5 text-sm font-bold uppercase tracking-wide text-foreground">
+        Suites — décisions &amp; actions
       </legend>
       <p className="mt-1 text-sm text-muted-foreground">
-        Formalisez ici les décisions et actions rattachées à ce sujet.
+        C’est ici que vous formalisez le résultat du sujet (pas dans un autre onglet).
       </p>
 
       <div className="mt-4 space-y-4">
