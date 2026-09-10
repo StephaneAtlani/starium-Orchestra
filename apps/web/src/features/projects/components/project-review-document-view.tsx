@@ -2,13 +2,25 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Eye, Mail, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CloudSun,
+  Eye,
+  ListTodo,
+  Mail,
+  RotateCcw,
+  ShieldAlert,
+  Target,
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { KpiCard } from '@/components/ui/kpi-card';
+import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { PROJECT_REVIEW_TYPE_LABEL } from '../constants/project-enum-labels';
 import { projectPointsTab } from '../constants/project-routes';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import { committeeMoodDisplay } from '../lib/project-committee-mood-display';
 import { canPreviewOrSendReviewReport } from '../lib/project-review-status';
 import { readPostMortemPayload } from '../lib/project-post-mortem-payload';
 import { formatProjectDateLong } from '../lib/projects-list-display';
@@ -16,12 +28,6 @@ import type { ProjectReviewDetail, ProjectReviewType } from '../types/project.ty
 import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
 
 const SNAPSHOT_UNAVAILABLE = 'Snapshot indisponible — point antérieur à la version 2';
-
-const MOOD_LABEL: Record<string, string> = {
-  GREEN: 'Ensoleillé',
-  ORANGE: 'Mitigé',
-  RED: 'Difficile',
-};
 
 const POST_MORTEM_TEXT: Array<[string, string]> = [
   ['objectifs', 'Objectifs'],
@@ -40,12 +46,24 @@ const INDICATEUR_LABEL: Record<string, string> = {
   pilotageRisques: 'Pilotage des risques',
 };
 
+const ATTENDANCE_LABEL: Record<string, string> = {
+  PRESENT: 'Présent',
+  EXPECTED: 'Attendu',
+  ABSENT: 'Absent',
+};
+
 type SnapshotAgendaItem = {
   title?: string;
   notes?: string | null;
   decisionSummary?: string | null;
   decisions?: Array<{ title?: string }>;
   actionItems?: Array<{ id?: string; title?: string }>;
+};
+
+type SnapshotParticipant = {
+  displayName?: string | null;
+  attendanceStatus?: string | null;
+  roleLabel?: string | null;
 };
 
 type SnapshotView = {
@@ -56,7 +74,7 @@ type SnapshotView = {
     objective?: string | null;
     committeeMood?: string | null;
   };
-  participants: Array<{ displayName?: string | null }>;
+  participants: SnapshotParticipant[];
   agenda: SnapshotAgendaItem[];
   decisions: Array<{ title?: string; agendaItemTitle?: string | null }>;
   actions: Array<{ id?: string; title?: string }>;
@@ -265,9 +283,13 @@ function DocumentBody({
   snapshot: SnapshotView;
   datedSuffix: string | null;
 }) {
-  const mood = snapshot.review.committeeMood
-    ? MOOD_LABEL[snapshot.review.committeeMood] ?? 'Non renseignée'
-    : 'Non renseignée';
+  const moodKey = snapshot.review.committeeMood;
+  const moodDisplay = committeeMoodDisplay(
+    moodKey === 'GREEN' || moodKey === 'ORANGE' || moodKey === 'RED'
+      ? moodKey
+      : null,
+  );
+  const moodLabel = moodDisplay?.label ?? 'Non renseignée';
   const progress = snapshot.progress.globalProgress;
   const horsDecisions = snapshot.decisions.filter((d) => !d.agendaItemTitle);
   const agendaActionIds = new Set(
@@ -286,28 +308,92 @@ function DocumentBody({
     ? Object.entries(postMortem.indicateurs).filter(([, score]) => score != null)
     : [];
 
+  let presentCount = 0;
+  let expectedCount = 0;
+  let absentCount = 0;
+  for (const p of snapshot.participants) {
+    const status = p.attendanceStatus ?? 'EXPECTED';
+    if (status === 'PRESENT') presentCount += 1;
+    else if (status === 'ABSENT') absentCount += 1;
+    else expectedCount += 1;
+  }
+
   return (
     <div className="mt-6 space-y-8">
-      <section aria-labelledby="doc-indicateurs">
+      <section className="starium-module" aria-labelledby="doc-indicateurs">
         <h2 id="doc-indicateurs" className="text-base font-semibold text-foreground">
           Indicateurs
         </h2>
-        <ul className="mt-2 space-y-1 text-sm text-foreground">
-          <li>
-            Avancement
-            {progress != null ? ` ${progress} %` : ' —'}
-            {datedSuffix ? ` ${datedSuffix}` : ''}
-          </li>
-          <li>
-            Tâches : {snapshot.tasks.open ?? 0} ouvertes · {snapshot.tasks.inProgress ?? 0} en cours ·{' '}
-            {snapshot.tasks.done ?? 0} terminées · {snapshot.tasks.late ?? 0} en retard
-          </li>
-          <li>
-            Risques : {snapshot.risks.open ?? 0} ouverts · {snapshot.risks.monitored ?? 0} surveillés ·{' '}
-            {snapshot.risks.mitigated ?? 0} atténués · {snapshot.risks.closed ?? 0} clôturés
-          </li>
-          <li>Météo du comité : {mood}</li>
-        </ul>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard
+            variant="dense"
+            title="Avancement"
+            value={progress != null ? `${progress} %` : '—'}
+            footer={datedSuffix ?? undefined}
+            icon={<Target className="size-4" aria-hidden />}
+          />
+          <KpiCard
+            variant="dense"
+            title="Tâches ouvertes"
+            value={String(snapshot.tasks.open ?? 0)}
+            footer={`${snapshot.tasks.inProgress ?? 0} en cours · ${snapshot.tasks.done ?? 0} terminées`}
+            icon={<ListTodo className="size-4" aria-hidden />}
+          />
+          <KpiCard
+            variant="dense"
+            title="Risques ouverts"
+            value={String(snapshot.risks.open ?? 0)}
+            footer={`${snapshot.risks.monitored ?? 0} surveillés · ${snapshot.risks.closed ?? 0} clôturés`}
+            icon={<ShieldAlert className="size-4" aria-hidden />}
+          />
+          <KpiCard
+            variant="dense"
+            title="Météo du comité"
+            value={moodLabel}
+            icon={<CloudSun className="size-4" aria-hidden />}
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="doc-presence">
+        <h2 id="doc-presence" className="text-base font-semibold text-foreground">
+          Présence
+        </h2>
+        {snapshot.participants.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">Aucun participant enregistré</p>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">{presentCount}</span>{' '}
+              présents ·{' '}
+              <span className="font-medium text-foreground tabular-nums">{expectedCount}</span>{' '}
+              attendus ·{' '}
+              <span className="font-medium text-foreground tabular-nums">{absentCount}</span>{' '}
+              absents
+            </p>
+            <ul className="mt-3 space-y-2">
+              {snapshot.participants.map((p, i) => {
+                const name = displayLabel(p.displayName, 'Participant');
+                const status = p.attendanceStatus ?? 'EXPECTED';
+                const statusLabel =
+                  ATTENDANCE_LABEL[status] ?? ATTENDANCE_LABEL.EXPECTED;
+                return (
+                  <li
+                    key={`${name}-${i}`}
+                    className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium text-foreground">{name}</span>
+                    <span className="text-muted-foreground">
+                      {p.roleLabel?.trim()
+                        ? `${displayLabel(p.roleLabel, 'Rôle')} · ${statusLabel}`
+                        : statusLabel}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
       </section>
 
       {snapshot.review.objective?.trim() ? (
@@ -318,23 +404,6 @@ function DocumentBody({
           <p className="mt-2 text-sm text-foreground">{snapshot.review.objective.trim()}</p>
         </section>
       ) : null}
-
-      <section aria-labelledby="doc-participants">
-        <h2 id="doc-participants" className="text-base font-semibold text-foreground">
-          Participants
-        </h2>
-        {snapshot.participants.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">Aucun participant</p>
-        ) : (
-          <ul className="mt-2 space-y-1 text-sm text-foreground">
-            {snapshot.participants.map((p, index) => (
-              <li key={`${p.displayName ?? 'participant'}-${index}`}>
-                {p.displayName?.trim() || 'Participant'}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       <section aria-labelledby="doc-odj">
         <h2 id="doc-odj" className="text-base font-semibold text-foreground">

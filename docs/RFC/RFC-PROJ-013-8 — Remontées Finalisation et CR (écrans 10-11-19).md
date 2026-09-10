@@ -2,86 +2,66 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft |
+| **Statut** | ✅ Implémenté (F2/F4/F5) · 📝 F3 reporté |
 | **Date** | 2026-09-10 |
-| **Parents** | RFC-PROJ-013-5 ; 013-3 (CR/snapshot) ; 013-6 (conduite) |
-| **Écrans PDF** | **10** Sujets à remonter · **11** Finalisation · **19** CR consulté |
-| **Scope** | Articulation COPROJ↔COPIL ; contrôles de complétude ; diffusion & verrouillage ; pont plan d’action / registre risques |
+| **Parents** | RFC-PROJ-013-5 ; 013-3 (CR/snapshot) ; 013-6 (conduite) ; 013-7 (listes / `conductClosedAt`) |
+| **Écrans PDF** | **10** Sujets à remonter (reporté) · **11** Finalisation · **19** CR consulté |
+| **Scope V1** | Checklist soft 11 ; finalize opt-in push tâches/risques ; DocumentView KPI + présence |
 
 ## 1. Analyse de l’existant
 
-- Snapshot + DocumentView + preview/send CR : 013-3.
-- Finalize API : `FINALIZED` + snapshot ; pas d’étape « À finaliser » distincte ni checklist arbitrages/actions.
-- Remontées inter-niveaux : absentes (pas de lien review→review / cycle item).
-- Actions review → tâches projet / risques : partiel ou manuel.
+- Close-conduct + `to_finalize` : 013-6 / 013-7.
+- Snapshot + preview / send CR : 013-3.
+- Remontées inter-niveaux : absentes (F3).
 
-## 2. Hypothèses
+## 2. Décisions V1 livrées
 
-1. Un sujet « à remonter » = agenda item (ou décision) tagué `escalation` vers un `ProjectReview` COPIL cible (ou instance CYCLE).
-2. Finalisation 11 = relecture du snapshot live + gates soft (arbitrages sans verdict, actions sans porteur/échéance) puis diffusion (email existant 013-2).
-3. Après diffusion : contenu immutable (déjà DocumentView) ; actions poussées plan d’action ; risques vers registre.
-4. Descente COPIL → COPROJ = reprise décisions non appliquées (déjà partiel en création / C10).
+1. Écran 11 = même URL review post-`conductClosedAt` + panneau checklist (pas de route dédiée).
+2. Gates **soft only** — finalize non bloqué.
+3. Side-effects **opt-in** via body finalize `{ pushActionsToTasks?, promoteRiskNotes? }` (défaut API `false`).
+4. REX (`POST_MORTEM`) ignore les flags push.
+5. F3 remontées / Prisma escalation : **hors V1**.
 
-## 3. Cible fonctionnelle
+## 3. Implémentation
 
-### 10 — Sujets à remonter
-- Qualifier depuis conduite (09) ou écran dédié.
-- Alimente ODJ du prochain COPIL (préparation 08/18).
-- Conserve contexte : point d’origine, séance, date, porteur.
+| Lot | Contenu | État |
+| --- | --- | --- |
+| F1 | Flags À finaliser | ✅ 013-7 |
+| F2 | Checklist soft + cases opt-in | ✅ |
+| F3 | Remontées COPROJ→COPIL | 📝 Reporté |
+| F4 | Push Task / promote Risk au finalize | ✅ |
+| F5 | DocumentView KPI + présence | ✅ |
 
-### 11 — Finalisation
-- CR généré depuis saisie live (pas de retape).
-- Contrôles complétude signalés (bloquants configurables V2).
-- Diffusion → notifie participants + verrouille + archive Historique.
-- Side-effects : actions → plan projet ; risques → registre.
+### API
 
-### 19 — CR consulté
-- Synthèse chiffrée ; décisions ; actions ; présence ; docs.
-- Lecture seule (DocumentView actuel à enrichir KPI tête).
+- `POST …/reviews/:id/finalize` accepte `FinalizeProjectReviewDto`.
+- Audits : `project.review.actions_pushed`, `project.review.risks_promoted` (counts).
+- Helpers : `project-review-finalize-side-effects.ts`.
 
-## 4. Fichiers
+### FE
 
-| Zone | Exemples |
-| --- | --- |
-| FE | DocumentView ; écran finalisation ; UI remontées |
-| API | finalize / distribute ; escalate ; push actions/risks |
-| Prisma | `escalation` fields / table pont ; flags diffusion |
+- `ProjectReviewFinalizeChecklist` + `buildFinalizeChecklist`.
+- `ProjectReviewDocumentView` : `KpiCard` + section Présence (`attendanceStatus`).
 
-## 5. Lots
+## 4. Prisma
 
-| Lot | Contenu |
-| --- | --- |
-| F1 | État/flags À finaliser + UI 04/11 minimale |
-| F2 | Checklist complétude (arbitrages / actions) |
-| F3 | Remontées 10 (modèle + ODJ COPIL) |
-| F4 | Pont actions → tâches / risques → ProjectRisk |
-| F5 | Enrichir 19 (KPI tête CR) |
+Aucune migration V1.
 
-## 6. Prisma
+## 5. Tests
 
-- Pont remontée : `ProjectReviewEscalation` (`fromReviewId`, `fromAgendaItemId`, `toReviewId?`, `toCycleInstanceId?`, `status`) — détail à trancher vs CYCLE.
-- `reportDistributedAt` si distinct de `FINALIZED`.
+- Helper side-effects + finalize flags (Jest).
+- Vitest `review-finalize-checklist.spec.ts`.
 
-## 7. Tests
+## 6. Hors scope / suite
 
-- Escalade isolée client ; pas de fuite inter-projets non autorisée.
-- Finalize refuse si gates hard activés.
-- DocumentView readonly post-diffusion.
+- F3 : `ProjectReviewEscalation`, UI écran 10, ODJ COPIL / CYCLE.
+- Gates hard configurables ; `reportDistributedAt` distinct.
+- Mapping responsable → Resource.
 
-## 8. Récapitulatif
+## 7. Conformité by design
 
-Ferme la boucle gouvernance après la conduite : opposabilité des décisions + continuité COPROJ/COPIL.
-
-## 9. Points de vigilance
-
-- Double écriture Meeting / CYCLE / Review — lire `docs/LIAISONS-MODULES.md`.
-- Idempotence diffusion email.
-- RGPD : listes de diffusion.
-
-## 10. Conformité by design
-
-- **RGPD** : CR = export ; droit d’accès ; pas d’emails en clair dans logs.
-- **RGAA** : checklist erreurs liées champs ; lecture CR structurée titres.
-- **Design System** : DocumentView ; Alert destructive pour gaps.
-- **Sécurité** : permission diffusion ; audit who/when.
-- **Mobile** : finalisation en sections empilées.
+- **RGPD** : audits counts ; pas d’email en clair ; Task/Risk scopés client.
+- **RGAA** : checklist Alert + liens focus ; checkbox labellisés ; titres DocumentView.
+- **DS** : `KpiCard`, `Alert`, tokens.
+- **Sécurité** : `projects.update` ; DTO validé ; isolation create.
+- **Mobile** : checklist empilée ; KPI wrap ; cibles ≥ 44px.

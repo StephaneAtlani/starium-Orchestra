@@ -108,6 +108,11 @@ import { ReviewAttachmentsSection } from './review-attachments-section';
 import { ReviewReportPreviewDialog } from './review-report-preview-dialog';
 import { ProjectReviewAnimateSession } from './project-review-animate-session';
 import {
+  ProjectReviewFinalizeChecklist,
+  useFinalizeOptInDefaults,
+} from './project-review-finalize-checklist';
+import { buildFinalizeChecklist } from '../lib/review-finalize-checklist';
+import {
   canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
   canScheduleReview,
@@ -1294,6 +1299,29 @@ export function ProjectReviewEditorDialog({
     return msgs;
   }, [actions, editable]);
 
+  const finalizeChecklist = useMemo(
+    () =>
+      buildFinalizeChecklist({
+        agendaItems: d?.agendaItems ?? [],
+        decisions: decisions.map((row) => ({ agendaItemId: row.agendaItemId })),
+        actions: actions.map((row) => ({
+          title: row.title,
+          status: row.status,
+          dueDate: row.dueDate,
+          responsibleUserId: row.responsibleUserId,
+          linkedTaskId: row.linkedTaskId,
+        })),
+      }),
+    [d?.agendaItems, decisions, actions],
+  );
+
+  const {
+    pushActionsToTasks,
+    promoteRiskNotes,
+    setPushActionsToTasks,
+    setPromoteRiskNotes,
+  } = useFinalizeOptInDefaults(finalizeChecklist);
+
   const onSave = async () => {
     if (!d || !editable) return;
     const body = buildPatchBody();
@@ -1321,8 +1349,31 @@ export function ProjectReviewEditorDialog({
       const body = buildPatchBody();
       await update.mutateAsync({ reviewId: d.id, body });
       lastSavedSerializedRef.current = JSON.stringify(body);
-      await finalize.mutateAsync(d.id);
+      const sideEffects =
+        reviewType === 'POST_MORTEM'
+          ? {}
+          : {
+              pushActionsToTasks,
+              promoteRiskNotes,
+            };
+      await finalize.mutateAsync({ reviewId: d.id, body: sideEffects });
       setConfirmFinalizeOpen(false);
+      if (reviewType !== 'POST_MORTEM') {
+        const parts: string[] = [];
+        if (pushActionsToTasks && finalizeChecklist.eligibleActionTitles.length > 0) {
+          parts.push(
+            `${finalizeChecklist.eligibleActionTitles.length} action(s) poussée(s) au plan`,
+          );
+        }
+        if (promoteRiskNotes && finalizeChecklist.riskNoteTitles.length > 0) {
+          parts.push(
+            `${finalizeChecklist.riskNoteTitles.length} risque(s) promu(s)`,
+          );
+        }
+        if (parts.length > 0) {
+          toast.success('Point finalisé', { description: parts.join(' · ') });
+        }
+      }
     } catch {
       toast.error(
         reviewType === 'POST_MORTEM'
@@ -2737,7 +2788,18 @@ export function ProjectReviewEditorDialog({
             </p>
           ) : (
             <>
-            {editorPhase === 'conduct' && d.conductClosedAt ? (
+            {editorPhase === 'conduct' &&
+            d.conductClosedAt &&
+            !isPostMortemReview ? (
+              <ProjectReviewFinalizeChecklist
+                checklist={finalizeChecklist}
+                pushActionsToTasks={pushActionsToTasks}
+                promoteRiskNotes={promoteRiskNotes}
+                onPushActionsChange={setPushActionsToTasks}
+                onPromoteRisksChange={setPromoteRiskNotes}
+                onFocusTab={(tab) => setEditorTab(tab)}
+              />
+            ) : editorPhase === 'conduct' && d.conductClosedAt ? (
               <Alert className="mb-3 shrink-0 border-border/70 bg-muted/40">
                 <CheckCircle2 className="size-4" aria-hidden />
                 <AlertDescription>
