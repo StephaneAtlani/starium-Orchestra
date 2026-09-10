@@ -67,22 +67,22 @@
 
 ## 4. Mapping statut API (proposition)
 
-| État UI PDF | Condition proposée (V1) |
+| État UI PDF | Condition V1 (tranché RFC-PROJ-013-7) |
 | --- | --- |
 | À préparer | `PREPARING` ou `SCHEDULED` **et** ODJ non figé (`agendaLockedAt = null`) |
 | À venir | `SCHEDULED` **et** ODJ figé |
-| En cours | `IN_PROGRESS` (aliases `IN_REVIEW`) |
-| À finaliser | `IN_PROGRESS` avec conduite terminée **ou** nouveau statut `AWAITING_REPORT` — **à arbitrer** (défaut recommandé : `AWAITING_REPORT` après « Clôturer séance » avant diffusion) |
-| Historique | `FINALIZED` (et éventuellement `CANCELLED` en sous-filtre) |
+| En cours | `IN_PROGRESS` et `conductClosedAt = null` (aliases `IN_REVIEW`) |
+| À finaliser | `IN_PROGRESS` et `conductClosedAt != null` — **pas** d’enum `AWAITING_REPORT` |
+| Historique | `FINALIZED` (+ `CANCELLED` dans le même onglet) |
 
-Champ Prisma minimal à prévoir si retenu : `agendaLockedAt DateTime?`, éventuellement `conductClosedAt`, `reportDistributedAt` — détail dans RFC-PROJ-013-7.
+Champs Prisma livrés dans 013-7 : `agendaLockedAt`, `conductClosedAt`, `seriesId` + modèle `ProjectReviewSeries`. Close-conduct (écriture de `conductClosedAt`) = RFC-PROJ-013-6.
 
 ## 5. Découpage RFC filles
 
 | RFC | Périmètre écrans | Priorité |
 | --- | --- | --- |
 | **RFC-PROJ-013-6** | **09** Animer la séance (+ amorce 10 routing) | P0 |
-| **RFC-PROJ-013-7** | **01–08**, **06** Séries, création typée **07/13–17** | P0 |
+| **RFC-PROJ-013-7** | **01–08**, **06** Séries, création typée **07/13–17** | P0 — ✅ implémenté |
 | **RFC-PROJ-013-8** | **10** Remontées COPROJ↔COPIL ; **11/19** Finalisation & CR ; pont actions/risques projet | P1 |
 | **RFC-PROJ-013-9** | **12, 18, 20** Vue transverse / calendrier (lien CYCLE) | P2 |
 

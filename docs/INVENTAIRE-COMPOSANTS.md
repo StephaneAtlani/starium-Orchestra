@@ -398,7 +398,12 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.
 - `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
 - `project-reviews-context-banner` - `features/projects/components/project-reviews-context-banner.tsx` - bannière contextuelle COPIL/REX (variantes `tab` | `overview`).
-- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (liste `starium-dt`, création, deep links `?createRetourExperience=`).
+- `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (sous-onglets états UI 01–05 + Séries, KPI, deep links `pointsState` / `pointsFlash` / `createRetourExperience`).
+- `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - tablist états + compteurs (RFC-PROJ-013-7).
+- `project-reviews-kpi-row` - `features/projects/components/project-reviews-kpi-row.tsx` - 4 `KpiCard` tête (summary API).
+- `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - table colonnes/CTA par état UI.
+- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - split création typée (défaut COPROJ).
+- `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.
 - `project-sheet-view` - `features/projects/components/project-sheet-view.tsx` - affiche la vue de projet fiche.

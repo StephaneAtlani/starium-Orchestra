@@ -55,7 +55,7 @@
 
 ## 6. Prisma
 
-- Pas de breaking V1 si À finaliser = flag `conductClosedAt` (sinon statut dédié — voir 013-5 §4 / 013-7).
+- Pas de breaking V1 si À finaliser = flag `conductClosedAt` (**tranché dans RFC-PROJ-013-7** ; pas d’enum `AWAITING_REPORT`).
 - Remontées (écran 10) : modèle léger `escalationToReviewId` / table pont — **013-8**.
 
 ## 7. Tests
