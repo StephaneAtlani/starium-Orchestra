@@ -70,7 +70,7 @@ export type ProjectReviewCreateDialogProps = {
   projectId: string;
   postMortemEligible: boolean;
   createTypeOptions: ProjectReviewType[];
-  /** Prefill type (split création 013-7). */
+  /** Prefill type (défaut COPRO / COPROJ — modifiable dans la modale). */
   initialReviewType?: ProjectReviewType;
   onCreated: (reviewId: string, openEditor: boolean) => void;
 };

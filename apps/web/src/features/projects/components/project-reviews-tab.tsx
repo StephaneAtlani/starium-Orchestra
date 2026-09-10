@@ -271,8 +271,8 @@ export function ProjectReviewsTab({
           />
           {canEdit && activeTab !== 'series' ? (
             <ProjectReviewCreateSplitButton
-              onCreateType={(type) => {
-                setCreatePrefillType(type);
+              onCreate={() => {
+                setCreatePrefillType('COPRO');
                 setCreateOpen(true);
               }}
             />
@@ -352,8 +352,8 @@ export function ProjectReviewsTab({
             action={
               canEdit ? (
                 <ProjectReviewCreateSplitButton
-                  onCreateType={(type) => {
-                    setCreatePrefillType(type);
+                  onCreate={() => {
+                    setCreatePrefillType('COPRO');
                     setCreateOpen(true);
                   }}
                 />

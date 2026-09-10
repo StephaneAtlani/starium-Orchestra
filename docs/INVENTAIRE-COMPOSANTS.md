@@ -406,7 +406,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - tablist états + compteurs (RFC-PROJ-013-7).
 - `project-reviews-kpi-row` - `features/projects/components/project-reviews-kpi-row.tsx` - 4 `KpiCard` tête (summary API).
 - `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - table colonnes/CTA par état UI.
-- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - split création typée (défaut COPROJ).
+- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - CTA « Créer un point » (type choisi dans la modale).
 - `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.
