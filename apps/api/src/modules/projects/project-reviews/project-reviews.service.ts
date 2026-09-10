@@ -1872,10 +1872,12 @@ export class ProjectReviewsService {
 
     const pushActions = dto?.pushActionsToTasks === true;
     const promoteRisks = dto?.promoteRiskNotes === true;
-    let actionsPush: ActionsPushResult | null = null;
-    let risksPromote: RisksPromoteResult | null = null;
 
-    const finalized = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const {
+      finalized,
+      actionsPush,
+      risksPromote,
+    } = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let review = await tx.projectReview.findFirst({
         where: { id: reviewId, clientId, projectId },
         include: reviewInclude,
@@ -1906,10 +1908,13 @@ export class ProjectReviewsService {
         );
       }
 
+      let actionsPushResult: ActionsPushResult | null = null;
+      let risksPromoteResult: RisksPromoteResult | null = null;
+
       // RFC-PROJ-013-8 — side-effects opt-in (ignorés pour REX).
       if (review.reviewType !== ProjectReviewType.POST_MORTEM) {
         if (pushActions) {
-          actionsPush = await this.pushActionsToTasksInTx(
+          actionsPushResult = await this.pushActionsToTasksInTx(
             tx,
             clientId,
             projectId,
@@ -1917,7 +1922,7 @@ export class ProjectReviewsService {
           );
         }
         if (promoteRisks) {
-          risksPromote = await this.promoteRiskNotesInTx(
+          risksPromoteResult = await this.promoteRiskNotesInTx(
             tx,
             clientId,
             projectId,
@@ -1952,7 +1957,11 @@ export class ProjectReviewsService {
         include: reviewInclude,
       });
 
-      return row;
+      return {
+        finalized: row,
+        actionsPush: actionsPushResult,
+        risksPromote: risksPromoteResult,
+      };
     });
 
     const meta = {
