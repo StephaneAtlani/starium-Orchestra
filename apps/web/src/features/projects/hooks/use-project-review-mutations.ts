@@ -104,9 +104,14 @@ export function useProjectReviewMutations(projectId: string) {
   });
 
   const finalize = useMutation({
-    mutationFn: (reviewId: string) =>
-      finalizeProjectReview(authFetch, projectId, reviewId),
-    onSuccess: (_, reviewId) => {
+    mutationFn: ({
+      reviewId,
+      body,
+    }: {
+      reviewId: string;
+      body?: { pushActionsToTasks?: boolean; promoteRiskNotes?: boolean };
+    }) => finalizeProjectReview(authFetch, projectId, reviewId, body),
+    onSuccess: (_, { reviewId }) => {
       invalidateReview(reviewId);
     },
   });

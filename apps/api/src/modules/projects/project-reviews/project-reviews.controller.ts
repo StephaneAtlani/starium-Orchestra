@@ -19,6 +19,7 @@ import type { AuditContext } from '../../budget-management/types/audit-context';
 import { CreateProjectReviewDto } from './dto/create-project-review.dto';
 import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
 import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
+import { FinalizeProjectReviewDto } from './dto/finalize-project-review.dto';
 import { InviteProjectReviewDto } from './dto/invite-project-review.dto';
 import { ProjectReviewsService } from './project-reviews.service';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
@@ -208,6 +209,7 @@ export class ProjectReviewsController {
     @ActiveClientId() clientId: string | undefined,
     @Param('projectId') projectId: string,
     @Param('reviewId') reviewId: string,
+    @Body() body: FinalizeProjectReviewDto,
     @RequestUserId() actorUserId: string | undefined,
     @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
   ) {
@@ -217,6 +219,7 @@ export class ProjectReviewsController {
       projectId,
       reviewId,
       context,
+      body ?? {},
     );
   }
 

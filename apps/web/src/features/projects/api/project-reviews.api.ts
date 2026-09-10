@@ -105,9 +105,12 @@ export async function finalizeProjectReview(
   authFetch: AuthFetch,
   projectId: string,
   reviewId: string,
+  body?: { pushActionsToTasks?: boolean; promoteRiskNotes?: boolean },
 ): Promise<ProjectReviewDetail> {
   const res = await authFetch(`${base(projectId)}/${reviewId}/finalize`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body ?? {}),
   });
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectReviewDetail>;

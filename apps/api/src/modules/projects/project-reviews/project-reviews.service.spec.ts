@@ -32,11 +32,13 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       deleteMany: jest.Mock;
       createMany: jest.Mock;
       create: jest.Mock;
+      update: jest.Mock;
     };
     projectReviewActionItemContributor: { deleteMany: jest.Mock };
-    projectTask: { findFirst: jest.Mock; findMany: jest.Mock };
+    projectTask: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     project: { findFirst: jest.Mock };
-    projectRisk: { findMany: jest.Mock };
+    projectRisk: { findMany: jest.Mock; create: jest.Mock };
+    riskType: { findFirst: jest.Mock };
     projectMilestone: { findMany: jest.Mock };
     projectBudgetLink: { findMany: jest.Mock };
     client: { findFirst: jest.Mock };
@@ -136,11 +138,13 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         deleteMany: jest.fn(),
         createMany: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       projectReviewActionItemContributor: { deleteMany: jest.fn() },
-      projectTask: { findFirst: jest.fn(), findMany: jest.fn() },
+      projectTask: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       project: { findFirst: jest.fn() },
-      projectRisk: { findMany: jest.fn() },
+      projectRisk: { findMany: jest.fn(), create: jest.fn() },
+      riskType: { findFirst: jest.fn() },
       projectMilestone: { findMany: jest.fn() },
       projectBudgetLink: { findMany: jest.fn() },
       client: {
@@ -157,6 +161,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
           projectTask: prisma.projectTask,
           project: prisma.project,
           projectRisk: prisma.projectRisk,
+          riskType: prisma.riskType,
           projectMilestone: prisma.projectMilestone,
           projectBudgetLink: prisma.projectBudgetLink,
         }),
@@ -754,6 +759,362 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     );
     expect(JSON.stringify(snapshot)).not.toMatch(/meetingUrl/i);
     expect(JSON.stringify(snapshot)).not.toMatch(/"url"/);
+  });
+
+  it('finalize sans flags ne crée ni tâche ni risque', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: new Date(),
+        actionItems: [
+          {
+            id: 'a1',
+            title: 'Action A',
+            description: null,
+            status: ProjectTaskStatus.TODO,
+            priority: null,
+            dueDate: null,
+            linkedTaskId: null,
+            responsibleUserId: null,
+            agendaItemId: null,
+            decisionId: null,
+            contributors: [],
+          },
+        ],
+        agendaItems: [
+          {
+            id: 'ag1',
+            title: 'Sujet',
+            notes: 'Risque : Fuite',
+            itemType: 'INFORMATION',
+            status: 'DONE',
+            orderIndex: 0,
+          },
+        ],
+      }),
+    );
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'P',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 50,
+      arbitrationMetierStatus: 'BROUILLON',
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(reviewRow({ ...data, status: ProjectReviewStatus.FINALIZED })),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: {
+            findFirst: prisma.projectReview.findFirst,
+            update: prisma.projectReview.update,
+          },
+          project: { findFirst: prisma.project.findFirst },
+          projectTask: {
+            findMany: prisma.projectTask.findMany,
+            create: prisma.projectTask.create,
+          },
+          projectRisk: {
+            findMany: prisma.projectRisk.findMany,
+            create: prisma.projectRisk.create,
+          },
+          riskType: { findFirst: prisma.riskType.findFirst },
+          projectReviewActionItem: { update: prisma.projectReviewActionItem.update },
+          projectMilestone: { findMany: prisma.projectMilestone.findMany },
+          projectBudgetLink: { findMany: prisma.projectBudgetLink.findMany },
+        }),
+    );
+
+    await service.finalize(clientId, projectId, reviewId, { actorUserId: 'u1' }, {});
+    expect(prisma.projectTask.create).not.toHaveBeenCalled();
+    expect(prisma.projectRisk.create).not.toHaveBeenCalled();
+  });
+
+  it('finalize pushActionsToTasks crée tâche et lie l’action', async () => {
+    const base = reviewRow({
+      status: ProjectReviewStatus.IN_PROGRESS,
+      conductClosedAt: new Date(),
+      actionItems: [
+        {
+          id: 'a1',
+          title: 'Action A',
+          description: null,
+          status: ProjectTaskStatus.TODO,
+          priority: null,
+          dueDate: null,
+          linkedTaskId: null,
+          responsibleUserId: 'u2',
+          agendaItemId: null,
+          decisionId: null,
+          contributors: [],
+        },
+        {
+          id: 'a2',
+          title: 'Déjà liée',
+          description: null,
+          status: ProjectTaskStatus.TODO,
+          priority: null,
+          dueDate: null,
+          linkedTaskId: 't-existing',
+          responsibleUserId: null,
+          agendaItemId: null,
+          decisionId: null,
+          contributors: [],
+        },
+      ],
+    });
+    prisma.projectReview.findFirst.mockResolvedValue(base);
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'P',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 50,
+      arbitrationMetierStatus: 'BROUILLON',
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+    prisma.projectTask.create.mockResolvedValue({ id: 't-new' });
+    prisma.projectReviewActionItem.update.mockResolvedValue({});
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(reviewRow({ ...data, status: ProjectReviewStatus.FINALIZED })),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: {
+            findFirst: prisma.projectReview.findFirst,
+            update: prisma.projectReview.update,
+          },
+          project: { findFirst: prisma.project.findFirst },
+          projectTask: {
+            findMany: prisma.projectTask.findMany,
+            create: prisma.projectTask.create,
+          },
+          projectRisk: { findMany: prisma.projectRisk.findMany },
+          projectReviewActionItem: { update: prisma.projectReviewActionItem.update },
+          projectMilestone: { findMany: prisma.projectMilestone.findMany },
+          projectBudgetLink: { findMany: prisma.projectBudgetLink.findMany },
+        }),
+    );
+
+    await service.finalize(
+      clientId,
+      projectId,
+      reviewId,
+      { actorUserId: 'u1' },
+      { pushActionsToTasks: true },
+    );
+
+    expect(prisma.projectTask.create).toHaveBeenCalledTimes(1);
+    expect(prisma.projectTask.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: 'Action A',
+          ownerUserId: 'u2',
+          status: ProjectTaskStatus.TODO,
+        }),
+      }),
+    );
+    expect(prisma.projectReviewActionItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'a1' },
+        data: { linkedTaskId: 't-new' },
+      }),
+    );
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ACTIONS_PUSHED,
+        newValue: expect.objectContaining({ created: 1, skippedLinked: 1 }),
+      }),
+    );
+  });
+
+  it('finalize promoteRiskNotes crée risque et skip sans riskType', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        conductClosedAt: new Date(),
+        agendaItems: [
+          {
+            id: 'ag1',
+            title: 'Sujet',
+            notes: 'Risque : Fuite données\nAutre note',
+            itemType: 'RISK',
+            status: 'DONE',
+            orderIndex: 0,
+          },
+        ],
+      }),
+    );
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'P',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 50,
+      arbitrationMetierStatus: 'BROUILLON',
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+    prisma.riskType.findFirst.mockResolvedValue(null);
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(reviewRow({ ...data, status: ProjectReviewStatus.FINALIZED })),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: {
+            findFirst: prisma.projectReview.findFirst,
+            update: prisma.projectReview.update,
+          },
+          project: { findFirst: prisma.project.findFirst },
+          projectTask: { findMany: prisma.projectTask.findMany },
+          projectRisk: {
+            findMany: prisma.projectRisk.findMany,
+            create: prisma.projectRisk.create,
+          },
+          riskType: { findFirst: prisma.riskType.findFirst },
+          projectMilestone: { findMany: prisma.projectMilestone.findMany },
+          projectBudgetLink: { findMany: prisma.projectBudgetLink.findMany },
+        }),
+    );
+
+    await service.finalize(
+      clientId,
+      projectId,
+      reviewId,
+      { actorUserId: 'u1' },
+      { promoteRiskNotes: true },
+    );
+    expect(prisma.projectRisk.create).not.toHaveBeenCalled();
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_RISKS_PROMOTED,
+        newValue: expect.objectContaining({
+          created: 0,
+          skippedNoRiskType: true,
+        }),
+      }),
+    );
+
+    prisma.riskType.findFirst.mockResolvedValue({ id: 'rt1' });
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectRisk.create.mockResolvedValue({ id: 'risk1' });
+    await service.finalize(
+      clientId,
+      projectId,
+      reviewId,
+      { actorUserId: 'u1' },
+      { promoteRiskNotes: true },
+    );
+    expect(prisma.projectRisk.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          title: 'Fuite données',
+          riskTypeId: 'rt1',
+          code: 'R-001',
+        }),
+      }),
+    );
+  });
+
+  it('finalize POST_MORTEM ignore flags push', async () => {
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        reviewType: ProjectReviewType.POST_MORTEM,
+        conductClosedAt: null,
+        actionItems: [
+          {
+            id: 'a1',
+            title: 'Action A',
+            description: null,
+            status: ProjectTaskStatus.TODO,
+            priority: null,
+            dueDate: null,
+            linkedTaskId: null,
+            responsibleUserId: null,
+            agendaItemId: null,
+            decisionId: null,
+            contributors: [],
+          },
+        ],
+      }),
+    );
+    prisma.project.findFirst.mockResolvedValue({
+      id: projectId,
+      clientId,
+      name: 'P',
+      status: ProjectStatus.IN_PROGRESS,
+      priority: 'HIGH',
+      progressPercent: 50,
+      arbitrationMetierStatus: 'BROUILLON',
+      arbitrationComiteStatus: null,
+      arbitrationCodirStatus: null,
+      arbitrationStatus: null,
+    });
+    prisma.projectTask.findMany.mockResolvedValue([]);
+    prisma.projectRisk.findMany.mockResolvedValue([]);
+    prisma.projectMilestone.findMany.mockResolvedValue([]);
+    prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+    prisma.projectReview.update.mockImplementation(({ data }) =>
+      Promise.resolve(
+        reviewRow({
+          ...data,
+          reviewType: ProjectReviewType.POST_MORTEM,
+          status: ProjectReviewStatus.FINALIZED,
+        }),
+      ),
+    );
+    prisma.$transaction.mockImplementation(
+      async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        fn({
+          projectReview: {
+            findFirst: prisma.projectReview.findFirst,
+            update: prisma.projectReview.update,
+          },
+          project: { findFirst: prisma.project.findFirst },
+          projectTask: {
+            findMany: prisma.projectTask.findMany,
+            create: prisma.projectTask.create,
+          },
+          projectRisk: { findMany: prisma.projectRisk.findMany },
+          projectMilestone: { findMany: prisma.projectMilestone.findMany },
+          projectBudgetLink: { findMany: prisma.projectBudgetLink.findMany },
+        }),
+    );
+
+    await service.finalize(
+      clientId,
+      projectId,
+      reviewId,
+      { actorUserId: 'u1' },
+      { pushActionsToTasks: true, promoteRiskNotes: true },
+    );
+    expect(prisma.projectTask.create).not.toHaveBeenCalled();
   });
 
   it('meetingUrl javascript: refusé à la création', async () => {

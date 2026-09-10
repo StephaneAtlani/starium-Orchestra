@@ -10,6 +10,9 @@ import {
   ProjectReviewStatus,
   ProjectReviewType,
   ProjectStatus,
+  ProjectTaskPriority,
+  ProjectTaskStatus,
+  ProjectRiskTreatmentStrategy,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
@@ -21,10 +24,21 @@ import {
 import { ProjectsPilotageService } from '../projects-pilotage.service';
 import { ProjectsService } from '../projects.service';
 import { CreateProjectReviewDto } from './dto/create-project-review.dto';
+import { FinalizeProjectReviewDto } from './dto/finalize-project-review.dto';
 import { UpdateProjectReviewDto } from './dto/update-project-review.dto';
 import { ScheduleProjectReviewDto } from './dto/schedule-project-review.dto';
 import { ProjectReviewActionItemInputDto } from './dto/project-review-action-item.dto';
 import { ProjectReviewDecisionInputDto } from './dto/project-review-decision.dto';
+import {
+  actionsEligibleForTaskPush,
+  extractRiskNoteTitles,
+  isDuplicateRiskTitle,
+  nextRiskCodeFromExisting,
+  PROMOTED_RISK_DEFAULTS,
+  type ActionsPushResult,
+  type RisksPromoteResult,
+} from './project-review-finalize-side-effects';
+import { applyCriticalityFromProbabilityImpact } from '../lib/project-risk-criticality.util';
 import {
   assertMeetingFieldsCoherence,
   assertValidMeetingUrl,
@@ -1852,11 +1866,17 @@ export class ProjectReviewsService {
     projectId: string,
     reviewId: string,
     context?: AuditContext,
+    dto?: FinalizeProjectReviewDto,
   ) {
     await this.projects.getProjectForScope(clientId, projectId);
 
+    const pushActions = dto?.pushActionsToTasks === true;
+    const promoteRisks = dto?.promoteRiskNotes === true;
+    let actionsPush: ActionsPushResult | null = null;
+    let risksPromote: RisksPromoteResult | null = null;
+
     const finalized = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const review = await tx.projectReview.findFirst({
+      let review = await tx.projectReview.findFirst({
         where: { id: reviewId, clientId, projectId },
         include: reviewInclude,
       });
@@ -1884,6 +1904,34 @@ export class ProjectReviewsService {
         throw new BadRequestException(
           'Clôturez d’abord la conduite (Clôturer & générer le CR).',
         );
+      }
+
+      // RFC-PROJ-013-8 — side-effects opt-in (ignorés pour REX).
+      if (review.reviewType !== ProjectReviewType.POST_MORTEM) {
+        if (pushActions) {
+          actionsPush = await this.pushActionsToTasksInTx(
+            tx,
+            clientId,
+            projectId,
+            review.actionItems,
+          );
+        }
+        if (promoteRisks) {
+          risksPromote = await this.promoteRiskNotesInTx(
+            tx,
+            clientId,
+            projectId,
+            review.agendaItems,
+          );
+        }
+        if (pushActions || promoteRisks) {
+          const reloaded = await tx.projectReview.findFirst({
+            where: { id: reviewId, clientId, projectId },
+            include: reviewInclude,
+          });
+          if (!reloaded) throw new NotFoundException('Review not found');
+          review = reloaded;
+        }
       }
 
       const snapshot = await this.buildEphemeralReportSnapshot(
@@ -1922,7 +1970,173 @@ export class ProjectReviewsService {
       ...meta,
     });
 
+    if (actionsPush && actionsPush.created > 0) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_ACTIONS_PUSHED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: {
+          projectId,
+          reviewId,
+          created: actionsPush.created,
+          skippedLinked: actionsPush.skippedLinked,
+        },
+        ...meta,
+      });
+    }
+
+    if (
+      risksPromote &&
+      (risksPromote.created > 0 || risksPromote.skippedNoRiskType)
+    ) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_RISKS_PROMOTED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: {
+          projectId,
+          reviewId,
+          created: risksPromote.created,
+          skippedDuplicate: risksPromote.skippedDuplicate,
+          ...(risksPromote.skippedNoRiskType
+            ? { skippedNoRiskType: true }
+            : {}),
+        },
+        ...meta,
+      });
+    }
+
     return this.mapReviewToDetail(finalized);
+  }
+
+  private async pushActionsToTasksInTx(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    projectId: string,
+    actionItems: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      status: ProjectTaskStatus;
+      priority: ProjectTaskPriority | null;
+      dueDate: Date | null;
+      linkedTaskId: string | null;
+      responsibleUserId: string | null;
+    }>,
+  ): Promise<ActionsPushResult> {
+    const eligible = actionsEligibleForTaskPush(actionItems);
+    const skippedLinked = actionItems.filter(
+      (a) =>
+        a.linkedTaskId &&
+        a.title?.trim() &&
+        a.status !== ProjectTaskStatus.DONE &&
+        a.status !== ProjectTaskStatus.CANCELLED,
+    ).length;
+    let created = 0;
+    for (const action of eligible) {
+      const task = await tx.projectTask.create({
+        data: {
+          clientId,
+          projectId,
+          name: action.title.trim(),
+          description: action.description?.trim() || null,
+          status: ProjectTaskStatus.TODO,
+          priority: action.priority ?? ProjectTaskPriority.MEDIUM,
+          plannedEndDate: action.dueDate,
+          ownerUserId: action.responsibleUserId,
+        },
+      });
+      await tx.projectReviewActionItem.update({
+        where: { id: action.id },
+        data: { linkedTaskId: task.id },
+      });
+      created += 1;
+    }
+    return { created, skippedLinked };
+  }
+
+  private async promoteRiskNotesInTx(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    projectId: string,
+    agendaItems: Array<{ notes: string | null }>,
+  ): Promise<RisksPromoteResult> {
+    const titles: string[] = [];
+    const seen = new Set<string>();
+    for (const item of agendaItems) {
+      for (const title of extractRiskNoteTitles(item.notes)) {
+        const key = title.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        titles.push(title);
+      }
+    }
+    if (titles.length === 0) {
+      return { created: 0, skippedDuplicate: 0, skippedNoRiskType: false };
+    }
+
+    const riskType = await tx.riskType.findFirst({
+      where: { clientId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (!riskType) {
+      return { created: 0, skippedDuplicate: 0, skippedNoRiskType: true };
+    }
+
+    const existingRisks = await tx.projectRisk.findMany({
+      where: {
+        clientId,
+        projectId,
+        status: { not: 'CLOSED' },
+      },
+      select: { title: true, code: true },
+    });
+    const existingTitles = existingRisks.map((r) => r.title);
+    let codes = existingRisks.map((r) => r.code);
+    let created = 0;
+    let skippedDuplicate = 0;
+    const { criticalityScore, criticalityLevel } =
+      applyCriticalityFromProbabilityImpact(
+        PROMOTED_RISK_DEFAULTS.probability,
+        PROMOTED_RISK_DEFAULTS.impact,
+      );
+
+    for (const title of titles) {
+      if (isDuplicateRiskTitle(existingTitles, title)) {
+        skippedDuplicate += 1;
+        continue;
+      }
+      const code = nextRiskCodeFromExisting(codes);
+      codes = [...codes, code];
+      await tx.projectRisk.create({
+        data: {
+          clientId,
+          projectId,
+          riskTypeId: riskType.id,
+          code,
+          title,
+          description: PROMOTED_RISK_DEFAULTS.description,
+          fearedEvent: PROMOTED_RISK_DEFAULTS.fearedEvent,
+          threatSource: PROMOTED_RISK_DEFAULTS.threatSource,
+          businessImpact: PROMOTED_RISK_DEFAULTS.businessImpact,
+          probability: PROMOTED_RISK_DEFAULTS.probability,
+          impact: PROMOTED_RISK_DEFAULTS.impact,
+          criticalityScore,
+          criticalityLevel,
+          status: PROMOTED_RISK_DEFAULTS.status,
+          treatmentStrategy: ProjectRiskTreatmentStrategy.REDUCE,
+        },
+      });
+      existingTitles.push(title);
+      created += 1;
+    }
+
+    return { created, skippedDuplicate, skippedNoRiskType: false };
   }
 
   async cancel(
