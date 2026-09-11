@@ -5,9 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@/components/feedback/empty-state';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { usePermissions } from '@/hooks/use-permissions';
+import { toast } from '@/lib/toast';
 import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectReviewsSummaryQuery } from '../hooks/use-project-reviews-summary-query';
 import { useProjectReviewSeriesQuery } from '../hooks/use-project-review-series';
+import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import type { ProjectReviewType } from '../types/project.types';
 import {
   findDraftPostMortemReview,
@@ -62,6 +64,7 @@ export function ProjectReviewsTab({
   const series = useProjectReviewSeriesQuery(projectId, {
     enabled: !postMortemEligible,
   });
+  const { cancel: cancelReview } = useProjectReviewMutations(projectId);
 
   const draftPostMortem = useMemo(
     () => findDraftPostMortemReview(list.data),
@@ -403,12 +406,36 @@ export function ProjectReviewsTab({
         postMortemEligible={postMortemEligible}
         createTypeOptions={createTypeOptions}
         initialReviewType={createPrefillType ?? undefined}
-        onCreated={(reviewId, openEditorAfterCreate) => {
+        onCreated={(reviewId, openEditorAfterCreate, meta) => {
           if (openEditorAfterCreate) {
             openEditor(reviewId);
             return;
           }
           setPointsState('to_prepare', reviewId);
+          const title = meta?.title?.trim() || 'Point projet';
+          toast.success(`${title} créé.`, {
+            duration: 6000,
+            actions: [
+              {
+                label: 'Préparer',
+                onClick: () => openEditor(reviewId),
+              },
+              {
+                label: 'Annuler la création',
+                tone: 'danger',
+                onClick: () => {
+                  void cancelReview
+                    .mutateAsync(reviewId)
+                    .then(() => {
+                      toast.message('Création annulée.');
+                    })
+                    .catch(() => {
+                      toast.error("Impossible d'annuler la création.");
+                    });
+                },
+              },
+            ],
+          });
         }}
       />
     </div>

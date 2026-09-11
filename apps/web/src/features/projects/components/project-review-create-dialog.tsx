@@ -1,66 +1,50 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ClipboardPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { toast } from '@/lib/toast';
+import { displayLabel } from '@/lib/display-label';
 import type { ApiFormError } from '@/features/budgets/api/types';
-import {
-  ChevronDown,
-  ClipboardPen,
-  Info,
-  Link2,
-  MapPin,
-  Monitor,
-  Plus,
-  RotateCcw,
-  Trash2,
-  UserPlus,
-  Video,
-} from 'lucide-react';
-import {
-  PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
-  PROJECT_REVIEW_MEETING_MODE_LABEL,
-} from '../constants/project-enum-labels';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
-import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
-import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
+import { useProjectReviewSeriesQuery } from '../hooks/use-project-review-series';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import {
   cloneAgendaPresetRows,
-  defaultExpectedDecisionForItemType,
   getAgendaPresetForReviewType,
-  isPilotageReviewType,
 } from '../lib/project-review-agenda-presets';
 import {
+  agendaModelLabelForType,
+  datetimeFromDateOnlyAndType,
   defaultCreateDatetimeForType,
+  defaultCreateTitleForType,
   getCreateDefaultsForType,
+  objectivePlaceholderForType,
   PROJECT_REVIEW_CREATE_DEFAULTS,
+  titlePlaceholderForType,
 } from '../lib/project-review-create-defaults';
-import { displayLabel } from '@/lib/display-label';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
   ProjectReviewAgendaItemType,
   ProjectReviewMeetingMode,
+  ProjectReviewSeriesApi,
   ProjectReviewType,
   ProjectTeamMemberApi,
 } from '../types/project.types';
 
-function typeOptionLabel(t: ProjectReviewType): string {
-  if (t === 'POST_MORTEM') return 'Retour d’expérience';
-  return getCreateDefaultsForType(t).menuLabel;
-}
+const TYPE_CHANGE_CONFIRM =
+  "Changer de type réinitialise l'intitulé, l'horaire, les participants et l'ordre du jour. Continuer ?";
 
-function typeOptionHint(t: ProjectReviewType): string | null {
-  if (t === 'POST_MORTEM') return null;
-  const found = PROJECT_REVIEW_CREATE_DEFAULTS.find((d) => d.reviewType === t);
-  return found?.menuHint ?? null;
-}
+const MSG_TITLE_REQUIRED = 'Donnez un intitulé à la séance.';
+const MSG_DATE_PAST =
+  'La date de séance est déjà passée. Choisissez une date à venir.';
+const MSG_NO_PARTICIPANT = 'Convoquez au moins un participant.';
+const MSG_NO_AGENDA =
+  "Un point projet a besoin d'au moins une ligne à l'ordre du jour.";
 
 type CreateParticipantRow = {
   displayName: string;
@@ -84,58 +68,28 @@ export type ProjectReviewCreateDialogProps = {
   createTypeOptions: ProjectReviewType[];
   /** Prefill type (défaut COPRO / COPROJ — modifiable dans la modale). */
   initialReviewType?: ProjectReviewType;
-  onCreated: (reviewId: string, openEditor: boolean) => void;
+  onCreated: (
+    reviewId: string,
+    openEditor: boolean,
+    meta?: { title: string },
+  ) => void;
 };
+
+function typeOptionLabel(t: ProjectReviewType): string {
+  if (t === 'POST_MORTEM') return 'Retour d’expérience';
+  return getCreateDefaultsForType(t).menuLabel;
+}
 
 function displayNameFromUser(u: ProjectAssignableUser): string {
   const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   return name || u.email;
 }
 
-function participantInitials(displayName: string, index: number): string {
-  const trimmed = displayName.trim();
-  if (!trimmed) return String(index + 1);
-  const parts = trimmed.split(/\s+/).filter(Boolean);
-  const letters =
-    parts.length >= 2
-      ? `${parts[0][0]}${parts[parts.length - 1][0]}`
-      : trimmed.slice(0, 2);
-  return letters.toUpperCase();
-}
-
-const emptyParticipantRow = (): CreateParticipantRow => ({
-  displayName: '',
-  userId: '',
-  attended: true,
-  isRequired: false,
-});
-
-const emptyAgendaRow = (): CreateAgendaRow => ({
-  title: '',
-  description: '',
-  itemType: 'INFORMATION',
-  expectedDecision: defaultExpectedDecisionForItemType('INFORMATION'),
-});
-
-function initialAgendaForType(reviewType: ProjectReviewType): CreateAgendaRow[] {
-  const preset = getAgendaPresetForReviewType(reviewType);
-  return preset.length > 0 ? cloneAgendaPresetRows(preset) : [emptyAgendaRow()];
-}
-
-function isApiFormError(e: unknown): e is ApiFormError {
-  return (
-    typeof e === 'object' &&
-    e !== null &&
-    'message' in e &&
-    typeof (e as ApiFormError).message === 'string'
-  );
-}
-
-function createParticipantsFromProjectTeam(
+function participantsFromTeam(
   team: ProjectTeamMemberApi[],
   assignable: ProjectAssignableUser[] | undefined,
 ): CreateParticipantRow[] {
-  if (!team.length) return [emptyParticipantRow()];
+  if (!team.length) return [];
   return team.map((m) => {
     const uid = m.userId?.trim() ?? '';
     if (uid && assignable?.length) {
@@ -156,115 +110,44 @@ function createParticipantsFromProjectTeam(
   });
 }
 
-const MEETING_MODE_OPTIONS: {
-  value: ProjectReviewMeetingMode;
-  icon: typeof Video;
-}[] = [
-  { value: 'REMOTE', icon: Video },
-  { value: 'ONSITE', icon: MapPin },
-  { value: 'HYBRID', icon: Monitor },
-];
+function participantsFromSeries(
+  series: ProjectReviewSeriesApi,
+): CreateParticipantRow[] {
+  return (series.permanentParticipants ?? []).map((p) => ({
+    userId: p.userId,
+    displayName: p.displayName,
+    attended: true,
+    isRequired: true,
+  }));
+}
 
-function FormChoiceTile({
-  name,
-  value,
-  checked,
-  onChange,
-  title,
-  description,
-  icon: Icon,
-  className,
-}: {
-  name: string;
-  value: string;
-  checked: boolean;
-  onChange: () => void;
-  title: string;
-  description?: string;
-  icon?: typeof Video;
-  className?: string;
-}) {
+function agendaForType(reviewType: ProjectReviewType): CreateAgendaRow[] {
+  const preset = getAgendaPresetForReviewType(reviewType);
+  return preset.length > 0 ? cloneAgendaPresetRows(preset) : [];
+}
+
+function isApiFormError(e: unknown): e is ApiFormError {
   return (
-    <label
-      className={cn(
-        'relative flex min-h-11 cursor-pointer flex-col gap-1 rounded-lg border border-border/70 bg-muted/20 p-3 text-left transition-[border-color,background-color,box-shadow]',
-        'hover:border-border hover:bg-muted/35',
-        'has-[:checked]:border-primary/55 has-[:checked]:bg-primary/5 has-[:checked]:shadow-sm',
-        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2',
-        className,
-      )}
-    >
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        onChange={onChange}
-        className="sr-only"
-      />
-      <span className="flex items-start gap-2.5">
-        {Icon ? (
-          <span
-            className={cn(
-              'flex size-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/80 text-muted-foreground',
-              checked && 'border-primary/40 text-primary',
-            )}
-            aria-hidden
-          >
-            <Icon className="size-4" strokeWidth={1.75} />
-          </span>
-        ) : null}
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-foreground">{title}</span>
-          {description ? (
-            <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
-              {description}
-            </span>
-          ) : null}
-        </span>
-      </span>
-    </label>
+    typeof e === 'object' &&
+    e !== null &&
+    'message' in e &&
+    typeof (e as ApiFormError).message === 'string'
   );
 }
 
-function OptionalBlock({
-  id,
-  title,
-  summary,
-  defaultOpen = false,
-  children,
-}: {
-  id: string;
-  title: string;
-  summary: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <details
-      className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-    >
-      <summary
-        id={`${id}-summary`}
-        className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold text-foreground">{title}</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">{summary}</span>
-        </span>
-        <ChevronDown
-          className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-          aria-hidden
-        />
-      </summary>
-      <div className="border-t border-border/60 px-4 pb-4 pt-3" aria-labelledby={`${id}-summary`}>
-        {children}
-      </div>
-    </details>
-  );
+function startOfTodayLocal(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isDateOnlyPast(dateOnly: string): boolean {
+  if (!dateOnly.trim()) return false;
+  const [y, m, day] = dateOnly.split('-').map(Number);
+  if (!y || !m || !day) return false;
+  const picked = new Date(y, m - 1, day);
+  picked.setHours(0, 0, 0, 0);
+  return picked.getTime() < startOfTodayLocal().getTime();
 }
 
 export function ProjectReviewCreateDialog({
@@ -276,895 +159,521 @@ export function ProjectReviewCreateDialog({
   initialReviewType,
   onCreated,
 }: ProjectReviewCreateDialogProps) {
-  const assignable = useProjectAssignableUsers();
-  const teamForCreate = useProjectTeamQuery(projectId, { enabled: open });
   const { create, createAgendaItem } = useProjectReviewMutations(projectId);
-  const reviewsQuery = useProjectReviewsQuery(projectId, { enabled: open && !postMortemEligible });
+  const teamQuery = useProjectTeamQuery(projectId, { enabled: open });
+  const assignable = useProjectAssignableUsers({ enabled: open });
+  const seriesQuery = useProjectReviewSeriesQuery(projectId, {
+    enabled: open && !postMortemEligible,
+  });
 
-  const [formDate, setFormDate] = useState('');
-  const [formType, setFormType] = useState<ProjectReviewType>('COPRO');
+  const defaultType = useMemo(() => {
+    if (initialReviewType && createTypeOptions.includes(initialReviewType)) {
+      return initialReviewType;
+    }
+    return createTypeOptions[0] ?? 'COPRO';
+  }, [createTypeOptions, initialReviewType]);
+
+  const [formType, setFormType] = useState<ProjectReviewType>(defaultType);
   const [formTitle, setFormTitle] = useState('');
-  const [formObjective, setFormObjective] = useState('');
-  const [createParticipants, setCreateParticipants] = useState<CreateParticipantRow[]>([
-    emptyParticipantRow(),
-  ]);
-  const [createAgendaItems, setCreateAgendaItems] = useState<CreateAgendaRow[]>(() =>
-    initialAgendaForType('COPRO'),
-  );
-  const [agendaDirty, setAgendaDirty] = useState(false);
-  const [agendaPresetSourceType, setAgendaPresetSourceType] =
-    useState<ProjectReviewType>('COPRO');
-  const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('HYBRID');
-  const [formMeetingUrl, setFormMeetingUrl] = useState('');
-  const [formLocation, setFormLocation] = useState('');
-  const [resumeFromLast, setResumeFromLast] = useState(true);
-  const [formDurationMinutes, setFormDurationMinutes] = useState<number | ''>(45);
+  const [objective, setObjective] = useState('');
+  const [dateOnly, setDateOnly] = useState('');
+  const [seriesId, setSeriesId] = useState('');
+  const [formTouched, setFormTouched] = useState(false);
+  const [titleBlurred, setTitleBlurred] = useState(false);
+  const [dateBlurred, setDateBlurred] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const baselineRef = useRef({
+    title: '',
+    objective: '',
+    dateOnly: '',
+    seriesId: '',
+    type: defaultType as ProjectReviewType,
+  });
 
-  const lastFinalizedId = useMemo(() => {
-    const items = reviewsQuery.data ?? [];
-    const finalized = items.filter((row) => row.status === 'FINALIZED');
-    if (finalized.length === 0) return null;
-    finalized.sort((a, b) => {
-      const ta = a.reviewDate ? new Date(a.reviewDate).getTime() : 0;
-      const tb = b.reviewDate ? new Date(b.reviewDate).getTime() : 0;
-      return tb - ta || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-    return finalized[0]?.id ?? null;
-  }, [reviewsQuery.data]);
+  const seriesForType = useMemo(() => {
+    const items = seriesQuery.data ?? [];
+    return items.filter(
+      (s) => s.isActive && (s.reviewType === formType || !formType),
+    );
+  }, [seriesQuery.data, formType]);
 
-  const lastFinalizedQuery = useProjectReviewDetailQuery(
-    projectId,
-    open && !postMortemEligible ? lastFinalizedId : null,
+  const selectedSeries = useMemo(
+    () => seriesForType.find((s) => s.id === seriesId) ?? null,
+    [seriesForType, seriesId],
   );
 
-  const createFormSeededRef = useRef(false);
+  const agendaItems = useMemo(() => agendaForType(formType), [formType]);
 
-  const applyAgendaPresetFromType = useCallback((reviewType: ProjectReviewType) => {
-    setCreateAgendaItems(initialAgendaForType(reviewType));
-    setAgendaDirty(false);
-    setAgendaPresetSourceType(reviewType);
-  }, []);
-
-  const markAgendaDirty = useCallback(() => {
-    setAgendaDirty(true);
-  }, []);
-
-  const handleReviewTypeChange = useCallback(
-    (nextType: ProjectReviewType) => {
-      setFormType(nextType);
-      if (!agendaDirty) {
-        applyAgendaPresetFromType(nextType);
-      }
-      if (!postMortemEligible) {
-        const defaults = getCreateDefaultsForType(nextType);
-        setFormDurationMinutes(defaults.durationMinutes);
-        setFormMeetingMode(defaults.meetingMode);
-        setFormDate(defaultCreateDatetimeForType(nextType));
-      }
-    },
-    [agendaDirty, applyAgendaPresetFromType, postMortemEligible],
-  );
-
-  const resetForm = useCallback(() => {
-    const defaultType = postMortemEligible
-      ? 'POST_MORTEM'
-      : (initialReviewType ?? 'COPRO');
-    setFormType(defaultType);
-    setFormTitle('');
-    setFormObjective('');
-    if (postMortemEligible) {
-      setFormDate('');
-      setCreateAgendaItems([emptyAgendaRow()]);
-      setAgendaDirty(false);
-      setAgendaPresetSourceType(defaultType);
-      setFormMeetingMode('');
-      setFormDurationMinutes('');
-    } else {
-      const defaults = getCreateDefaultsForType(defaultType);
-      setFormDate(defaultCreateDatetimeForType(defaultType));
-      applyAgendaPresetFromType(defaultType);
-      setFormMeetingMode(defaults.meetingMode);
-      setFormDurationMinutes(defaults.durationMinutes);
+  const resolvedParticipants = useMemo(() => {
+    if (selectedSeries && selectedSeries.permanentParticipants.length > 0) {
+      return participantsFromSeries(selectedSeries);
     }
-    setFormMeetingUrl('');
-    setFormLocation('');
-    setResumeFromLast(Boolean(!postMortemEligible));
-  }, [postMortemEligible, applyAgendaPresetFromType, initialReviewType]);
+    return participantsFromTeam(teamQuery.data ?? [], assignable.data?.users);
+  }, [selectedSeries, teamQuery.data, assignable.data?.users]);
+
+  const meetingDefaults = useMemo(() => {
+    if (selectedSeries) {
+      return {
+        durationMinutes: selectedSeries.durationMinutes,
+        meetingMode: (selectedSeries.meetingMode ??
+          getCreateDefaultsForType(formType).meetingMode) as ProjectReviewMeetingMode,
+        location: selectedSeries.location?.trim() || undefined,
+      };
+    }
+    const d = getCreateDefaultsForType(formType);
+    return {
+      durationMinutes: d.durationMinutes,
+      meetingMode: d.meetingMode,
+      location: undefined as string | undefined,
+    };
+  }, [selectedSeries, formType]);
+
+  const applyTypeDefaults = (type: ProjectReviewType, keepSeries = false) => {
+    const title =
+      type === 'POST_MORTEM'
+        ? 'Retour d’expérience'
+        : defaultCreateTitleForType(type);
+    const objectiveValue = '';
+    setFormType(type);
+    setFormTitle(title);
+    setObjective(objectiveValue);
+    setDateOnly('');
+    if (!keepSeries) setSeriesId('');
+    baselineRef.current = {
+      title,
+      objective: objectiveValue,
+      dateOnly: '',
+      seriesId: keepSeries ? seriesId : '',
+      type,
+    };
+    setFormTouched(false);
+    setTitleBlurred(false);
+    setDateBlurred(false);
+    setSubmitError(null);
+  };
 
   useEffect(() => {
-    if (!open) {
-      createFormSeededRef.current = false;
-      return;
-    }
-    resetForm();
-  }, [open, initialReviewType]); // eslint-disable-line react-hooks/exhaustive-deps — seed on open / type change only
+    if (!open) return;
+    applyTypeDefaults(defaultType);
+    // Focus titre + présélection (CDC p.7)
+    const t = window.setTimeout(() => {
+      const el = titleRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    }, 50);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open / prefill
+  }, [open, defaultType]);
 
+  // Auto-sélection série unique du type
   useEffect(() => {
-    if (!open) {
-      createFormSeededRef.current = false;
-      return;
+    if (!open || postMortemEligible) return;
+    if (seriesId) return;
+    const match = seriesForType[0];
+    if (seriesForType.length === 1 && match) {
+      setSeriesId(match.id);
+      baselineRef.current = { ...baselineRef.current, seriesId: match.id };
     }
-    if (createFormSeededRef.current) return;
-    if (teamForCreate.isLoading) return;
+  }, [open, postMortemEligible, seriesForType, seriesId]);
 
-    if (teamForCreate.isError) {
-      createFormSeededRef.current = true;
-      setCreateParticipants([emptyParticipantRow()]);
-      return;
+  const isDirty =
+    formTitle !== baselineRef.current.title ||
+    objective !== baselineRef.current.objective ||
+    dateOnly !== baselineRef.current.dateOnly ||
+    seriesId !== baselineRef.current.seriesId ||
+    formType !== baselineRef.current.type ||
+    formTouched;
+
+  const titleError =
+    titleBlurred && !formTitle.trim() ? MSG_TITLE_REQUIRED : null;
+  const dateError =
+    dateBlurred && isDateOnlyPast(dateOnly) ? MSG_DATE_PAST : null;
+  const participantError =
+    !postMortemEligible &&
+    resolvedParticipants.filter((p) => p.displayName.trim().length > 0).length ===
+      0
+      ? MSG_NO_PARTICIPANT
+      : null;
+  const agendaError =
+    !postMortemEligible && agendaItems.length === 0 ? MSG_NO_AGENDA : null;
+
+  const canSubmit =
+    formTitle.trim().length > 0 &&
+    !isDateOnlyPast(dateOnly) &&
+    !participantError &&
+    !agendaError &&
+    !submitting;
+
+  const markDirty = () => setFormTouched(true);
+
+  const requestTypeChange = (next: ProjectReviewType) => {
+    if (next === formType) return;
+    if (isDirty) {
+      const ok = window.confirm(TYPE_CHANGE_CONFIRM);
+      if (!ok) return;
     }
-    if (!teamForCreate.isSuccess) return;
-
-    const team = teamForCreate.data ?? [];
-    if (team.length === 0) {
-      createFormSeededRef.current = true;
-      setCreateParticipants([emptyParticipantRow()]);
-      return;
-    }
-
-    const needsAssignable = team.some((m) => (m.userId?.trim() ?? '') !== '');
-    if (needsAssignable && assignable.isLoading) return;
-
-    createFormSeededRef.current = true;
-    setCreateParticipants(createParticipantsFromProjectTeam(team, assignable.data?.users));
-  }, [
-    open,
-    teamForCreate.isLoading,
-    teamForCreate.isSuccess,
-    teamForCreate.isError,
-    teamForCreate.data,
-    assignable.isLoading,
-    assignable.data,
-  ]);
+    applyTypeDefaults(next);
+    window.setTimeout(() => {
+      titleRef.current?.focus();
+      titleRef.current?.select();
+    }, 0);
+  };
 
   const handleOpenChange = (next: boolean) => {
-    if (next) resetForm();
+    if (!next && submitting) return;
+    if (!next && isDirty) {
+      const ok = window.confirm(
+        'Des modifications non enregistrées seront perdues. Fermer ?',
+      );
+      if (!ok) return;
+    }
     onOpenChange(next);
   };
 
-  const submitLabelRex = 'Créer le retour d’expérience';
+  const submit = async (openPrepare: boolean) => {
+    setTitleBlurred(true);
+    setDateBlurred(true);
+    if (!canSubmit) return;
 
-  const onSubmit = async (openPrepare: boolean) => {
-    const reviewDate = formDate.trim() ? new Date(formDate).toISOString() : undefined;
-    const objective = formObjective.trim();
-    const participants = createParticipants
-      .filter((p) => p.displayName.trim() || p.userId.trim())
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const reviewDate = dateOnly.trim()
+      ? datetimeFromDateOnlyAndType(dateOnly.trim(), formType)
+      : selectedSeries
+        ? defaultCreateDatetimeForType(formType)
+        : defaultCreateDatetimeForType(formType);
+
+    const participants = resolvedParticipants
+      .filter((p) => p.displayName.trim().length > 0)
       .map((p) => ({
-        userId: p.userId.trim() || null,
-        displayName: p.displayName.trim() || null,
+        displayName: p.displayName.trim(),
+        ...(p.userId ? { userId: p.userId } : {}),
         attended: p.attended,
         isRequired: p.isRequired,
       }));
-    const agendaItems = createAgendaItems
-      .filter((x) => x.title.trim())
-      .map((x) => ({
-        title: x.title.trim(),
-        description: x.description.trim() || null,
-        itemType: x.itemType,
-        expectedDecision:
-          x.expectedDecision.trim() ||
-          defaultExpectedDecisionForItemType(x.itemType),
-      }));
-    const lastDetail = lastFinalizedQuery.data;
-    const resume =
-      resumeFromLast &&
-      !postMortemEligible &&
-      isPilotageReviewType(formType) &&
-      lastDetail != null;
-    const presetTitles = new Set(
-      agendaItems.map((item) => item.title.trim().toLocaleLowerCase('fr')),
-    );
-    const resumedAgenda = resume
-      ? (lastDetail.agendaItems ?? []).filter((item) => {
-          if (item.status !== 'TODO' && item.status !== 'SKIPPED') return false;
-          const key = item.title.trim().toLocaleLowerCase('fr');
-          return key.length > 0 && !presetTitles.has(key);
-        })
-      : [];
-    const resumedActions = resume
-      ? (lastDetail.actionItems ?? [])
-          .filter((action) => action.status === 'TODO' || action.status === 'IN_PROGRESS')
-          .map((action) => ({
-            title: action.title.trim(),
-            description: action.description?.trim() || undefined,
-            status: action.status,
-            ...(action.priority ? { priority: action.priority } : {}),
-            ...(action.dueDate ? { dueDate: action.dueDate } : {}),
-            ...(action.responsibleUserId
-              ? { responsibleUserId: action.responsibleUserId }
-              : {}),
-          }))
-          .filter((action) => action.title.length > 0)
-      : [];
 
     try {
       const created = await create.mutateAsync({
-        ...(reviewDate ? { reviewDate } : {}),
+        reviewDate,
         reviewType: formType,
         creationMode: postMortemEligible ? 'IMMEDIATE' : 'PREPARING',
-        title: formTitle.trim() || undefined,
-        ...(objective ? { objective, executiveSummary: objective } : {}),
-        ...(typeof formDurationMinutes === 'number' && formDurationMinutes > 0
-          ? { durationMinutes: formDurationMinutes }
+        title: formTitle.trim(),
+        ...(objective.trim()
+          ? { objective: objective.trim(), executiveSummary: objective.trim() }
           : {}),
-        ...(formMeetingMode
-          ? {
-              meetingMode: formMeetingMode,
-              ...(formMeetingUrl.trim() ? { meetingUrl: formMeetingUrl.trim() } : {}),
-              ...(formLocation.trim() ? { location: formLocation.trim() } : {}),
-            }
+        durationMinutes: meetingDefaults.durationMinutes,
+        meetingMode: meetingDefaults.meetingMode,
+        ...(meetingDefaults.location
+          ? { location: meetingDefaults.location }
           : {}),
         ...(participants.length > 0 ? { participants } : {}),
-        ...(resumedActions.length > 0 ? { actionItems: resumedActions } : {}),
       });
-      const agendaToCreate = [
-        ...agendaItems,
-        ...resumedAgenda.map((item) => ({
-          title: item.title.trim(),
-          description: item.description?.trim() || null,
-          itemType: item.itemType,
-          expectedDecision:
-            item.expectedDecision?.trim() ||
-            defaultExpectedDecisionForItemType(item.itemType),
-        })),
-      ];
-      if (agendaToCreate.length > 0) {
+
+      if (!postMortemEligible && agendaItems.length > 0) {
         try {
           await Promise.all(
-            agendaToCreate.map((item) =>
+            agendaItems.map((item) =>
               createAgendaItem.mutateAsync({
                 reviewId: created.id,
-                body: item,
+                body: {
+                  title: item.title,
+                  description: item.description || null,
+                  itemType: item.itemType,
+                  expectedDecision: item.expectedDecision,
+                },
               }),
             ),
           );
         } catch {
-          toast.error(
-            'Point créé, mais certains éléments d’ordre du jour n’ont pas pu être ajoutés.',
+          setSubmitError(
+            "Point créé, mais certains éléments d'ordre du jour n'ont pas pu être ajoutés.",
           );
         }
       }
-      onOpenChange(false);
-      const openEditorAfterCreate = postMortemEligible || openPrepare;
-      onCreated(created.id, openEditorAfterCreate);
-      toast.success(
-        postMortemEligible
-          ? 'Retour d’expérience créé'
-          : openPrepare
-            ? 'Point créé — préparation ouverte'
-            : 'Point créé',
-        {
-          description: displayLabel(
-            created.title ?? formTitle,
-            typeOptionLabel(formType),
-          ),
-        },
+
+      const titleLabel = displayLabel(
+        created.title ?? formTitle,
+        typeOptionLabel(formType),
       );
+      onOpenChange(false);
+      onCreated(created.id, postMortemEligible || openPrepare, {
+        title: titleLabel,
+      });
     } catch (err) {
-      const msg = isApiFormError(err) ? err.message : 'Création du point impossible.';
-      toast.error(msg);
+      const msg = isApiFormError(err)
+        ? err.message
+        : 'Création du point impossible.';
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const showMeetingUrl = formMeetingMode === 'REMOTE' || formMeetingMode === 'HYBRID';
-  const showLocation = formMeetingMode === 'ONSITE' || formMeetingMode === 'HYBRID';
-  const agendaPresetCount = createAgendaItems.filter((row) => row.title.trim()).length;
-  const showAgendaPresetMismatch =
-    !postMortemEligible && agendaDirty && formType !== agendaPresetSourceType;
-  const showAgendaPresetReset =
-    !postMortemEligible &&
-    isPilotageReviewType(formType) &&
-    (agendaDirty || formType !== agendaPresetSourceType);
+  const agendaModelLabel = agendaModelLabelForType(
+    formType,
+    Math.max(agendaItems.length, 0),
+  );
+
+  const typePills = postMortemEligible
+    ? (['POST_MORTEM'] as ProjectReviewType[])
+    : PROJECT_REVIEW_CREATE_DEFAULTS.map((d) => d.reviewType).filter((t) =>
+        createTypeOptions.includes(t),
+      );
 
   return (
     <StariumModal
       open={open}
       onOpenChange={handleOpenChange}
-      title={postMortemEligible ? "Retour d'expérience" : 'Nouveau point projet'}
+      title={
+        postMortemEligible
+          ? 'Créer un retour d’expérience'
+          : 'Créer un point projet'
+      }
       description={
         postMortemEligible
-          ? "Bilan de clôture : date, équipe, puis grille REX dans l'éditeur."
-          : "Planifiez ou lancez un point de pilotage — le détail se complète dans l'éditeur."
+          ? 'Bilan de clôture du projet.'
+          : "La préparation détaillée s'ouvre après la création."
       }
       icon={ClipboardPen}
-      accent="amber"
-      size="xl"
-      bodyClassName="min-h-0 flex-1 py-4"
+      size="lg"
       footer={
         <>
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
-            onClick={() => onOpenChange(false)}
-            disabled={create.isPending}
+            className="min-h-11 sm:min-h-9"
+            disabled={submitting}
+            onClick={() => handleOpenChange(false)}
           >
             Annuler
           </Button>
-          {postMortemEligible ? (
+          {!postMortemEligible ? (
             <Button
               type="button"
-              className="min-h-11"
-              onClick={() => void onSubmit(true)}
-              disabled={create.isPending}
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              disabled={!canSubmit}
+              onClick={() => void submit(false)}
             >
-              {create.isPending ? 'Création…' : submitLabelRex}
+              Créer
             </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="min-h-11"
-                onClick={() => void onSubmit(false)}
-                disabled={create.isPending}
-              >
-                {create.isPending ? 'Création…' : 'Créer'}
-              </Button>
-              <Button
-                type="button"
-                className="min-h-11"
-                onClick={() => void onSubmit(true)}
-                disabled={create.isPending}
-              >
-                {create.isPending ? 'Création…' : 'Créer et préparer'}
-              </Button>
-            </>
-          )}
+          ) : null}
+          <Button
+            type="button"
+            className="min-h-11 sm:min-h-9"
+            disabled={!canSubmit}
+            onClick={() => void submit(true)}
+          >
+            {postMortemEligible ? 'Créer' : 'Créer et préparer'}
+          </Button>
         </>
       }
     >
-      <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
-        <div className="starium-form gap-4">
-          {/* 1. Essentiel — Type → Date → Titre */}
-          <section
-            className="starium-form-section border-border/60"
-            aria-labelledby="create-pr-essential"
+      <div className="starium-form flex flex-col gap-4">
+        {submitError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Création impossible</AlertTitle>
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {/* Zone 2 — Type */}
+        <div className="starium-form-field">
+          <span className="starium-form-label" id="create-review-type-label">
+            Type d&apos;instance
+            {!postMortemEligible ? (
+              <span className="text-[color:var(--brand-gold)]" aria-hidden>
+                {' '}
+                *
+              </span>
+            ) : null}
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="create-review-type-label"
+            className="flex flex-wrap gap-2"
           >
-            <h3 id="create-pr-essential" className="starium-form-section-title">
-              <ClipboardPen aria-hidden />
-              Essentiel
-            </h3>
-            <div className="starium-form-grid starium-form-grid--2">
-              <div className="starium-form-field starium-form-grid--span-2">
-                <label htmlFor="pr-type" className="starium-form-label">
-                  Type de point
+            {typePills.map((t) => {
+              const selected = formType === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={submitting || typePills.length === 1}
+                  className={cn(
+                    'min-h-11 rounded-[var(--control-radius)] border px-3.5 text-sm font-medium transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    selected
+                      ? 'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold)]/15 text-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-muted/40',
+                  )}
+                  onClick={() => requestTypeChange(t)}
+                >
+                  {typeOptionLabel(t)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Zone 3 — Titre */}
+        <div className="starium-form-field">
+          <label className="starium-form-label" htmlFor="create-review-title">
+            Titre
+          </label>
+          <Input
+            ref={titleRef}
+            id="create-review-title"
+            value={formTitle}
+            placeholder={titlePlaceholderForType(formType)}
+            aria-invalid={!!titleError}
+            aria-describedby={titleError ? 'create-review-title-err' : undefined}
+            disabled={submitting}
+            className={cn(titleError && 'border-destructive')}
+            onChange={(e) => {
+              setFormTitle(e.target.value);
+              markDirty();
+            }}
+            onBlur={() => setTitleBlurred(true)}
+          />
+          {titleError ? (
+            <p
+              id="create-review-title-err"
+              className="mt-1 text-xs text-destructive"
+              role="alert"
+            >
+              {titleError}
+            </p>
+          ) : null}
+        </div>
+
+        {!postMortemEligible ? (
+          <>
+            {/* Zone 4 — Objectif */}
+            <div className="starium-form-field">
+              <label
+                className="starium-form-label"
+                htmlFor="create-review-objective"
+              >
+                Objectif de la séance
+              </label>
+              <Input
+                id="create-review-objective"
+                value={objective}
+                placeholder={objectivePlaceholderForType(formType)}
+                disabled={submitting}
+                onChange={(e) => {
+                  setObjective(e.target.value);
+                  markDirty();
+                }}
+              />
+            </div>
+
+            {/* Zone 5 — Série + Date */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="starium-form-field">
+                <label
+                  className="starium-form-label"
+                  htmlFor="create-review-series"
+                >
+                  Équipe ou série
                 </label>
                 <select
-                  id="pr-type"
-                  className="starium-form-select min-h-11"
-                  value={formType}
-                  aria-describedby={
-                    typeOptionHint(formType) ? 'pr-type-hint' : undefined
-                  }
-                  onChange={(e) =>
-                    handleReviewTypeChange(e.target.value as ProjectReviewType)
-                  }
-                  disabled={postMortemEligible && createTypeOptions.length === 1}
+                  id="create-review-series"
+                  className="starium-form-select min-h-11 w-full"
+                  value={seriesId}
+                  disabled={submitting || seriesQuery.isLoading}
+                  onChange={(e) => {
+                    setSeriesId(e.target.value);
+                    markDirty();
+                  }}
                 >
-                  {createTypeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {typeOptionLabel(t)}
+                  <option value="">Équipe projet (sans série)</option>
+                  {seriesForType.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {displayLabel(s.title, 'Série')}
+                      {s.frequencyLabel ? ` · ${s.frequencyLabel}` : ''}
                     </option>
                   ))}
                 </select>
-                {typeOptionHint(formType) ? (
-                  <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                    {typeOptionHint(formType)}
-                  </p>
-                ) : null}
-                {showAgendaPresetMismatch ? (
-                  <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
-                    Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
-                    {typeOptionLabel(formType)}. Ouvrez l’ordre du jour pour le
-                    réinitialiser.
-                  </p>
-                ) : null}
               </div>
               <div className="starium-form-field">
-                <label htmlFor="pr-date" className="starium-form-label">
-                  Date et heure
-                </label>
-                <ProjectDatetimeLocalInput
-                  id="pr-date"
-                  value={formDate}
-                  onChange={setFormDate}
-                />
-              </div>
-              <div className="starium-form-field">
-                <label htmlFor="pr-duration" className="starium-form-label">
-                  Durée (min)
+                <label
+                  className="starium-form-label"
+                  htmlFor="create-review-date"
+                >
+                  Date (facultative)
                 </label>
                 <Input
-                  id="pr-duration"
-                  type="number"
-                  min={15}
-                  step={15}
-                  className="starium-form-input min-h-11"
-                  value={formDurationMinutes === '' ? '' : formDurationMinutes}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (!raw.trim()) {
-                      setFormDurationMinutes('');
-                      return;
-                    }
-                    const n = Number(raw);
-                    setFormDurationMinutes(Number.isFinite(n) ? n : '');
-                  }}
-                />
-              </div>
-              <div className="starium-form-field starium-form-grid--span-2">
-                <label htmlFor="pr-title" className="starium-form-label">
-                  Titre <span className="font-normal text-muted-foreground">(optionnel)</span>
-                </label>
-                <Input
-                  id="pr-title"
-                  className="starium-form-input min-h-11"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  maxLength={500}
-                  placeholder={`Ex. ${typeOptionLabel(formType)} — ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* 2. Reprise du dernier point — bandeau PDF 14 */}
-          {!postMortemEligible && isPilotageReviewType(formType) && lastFinalizedId ? (
-            <Alert className="border-border/70 bg-muted/30">
-              <Info className="size-4 text-[color:var(--brand-gold)]" aria-hidden />
-              <AlertTitle>Reprise du dernier point</AlertTitle>
-              <AlertDescription>
-                <label className="mt-2 flex min-h-11 cursor-pointer items-start gap-3 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    className="mt-1 size-4 shrink-0"
-                    checked={resumeFromLast}
-                    disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
-                    onChange={(e) => setResumeFromLast(e.target.checked)}
-                  />
-                  <span>
-                    {lastFinalizedQuery.isLoading
-                      ? 'Chargement du dernier point…'
-                      : 'Reporter automatiquement les actions ouvertes et les sujets non traités'}
-                  </span>
-                </label>
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {/* 3. Ordre du jour — ouvert par défaut (PDF 14) */}
-          <OptionalBlock
-            key={open ? `agenda-open-${formType}` : 'agenda-closed'}
-            id="create-pr-agenda"
-            title="Ordre du jour"
-            defaultOpen
-            summary={
-              postMortemEligible
-                ? 'Sujets optionnels pour cadrer le REX'
-                : agendaPresetCount > 0
-                  ? `${agendaPresetCount} sujet(s) préremplis (modèle ${typeOptionLabel(formType)})`
-                  : 'Aucun sujet — ajouter dans le bloc'
-            }
-          >
-            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-              {showAgendaPresetReset ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-9 gap-1.5"
-                  onClick={() => applyAgendaPresetFromType(formType)}
-                >
-                  <RotateCcw className="size-4" aria-hidden />
-                  Réinitialiser selon le type
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="min-h-9 gap-1.5"
-                onClick={() => {
-                  markAgendaDirty();
-                  setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
-                }}
-              >
-                <Plus className="size-4" aria-hidden />
-                Ajouter un sujet
-              </Button>
-            </div>
-            <ul className="space-y-2" aria-live="polite">
-              {createAgendaItems.map((row, i) => (
-                <li
-                  key={i}
-                  className="rounded-lg border border-border/60 bg-muted/15 p-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1 space-y-3">
-                      <div className="starium-form-grid starium-form-grid--2">
-                        <div className="starium-form-field">
-                          <label
-                            htmlFor={`pr-agenda-type-${i}`}
-                            className="starium-form-label"
-                          >
-                            Type
-                          </label>
-                          <select
-                            id={`pr-agenda-type-${i}`}
-                            className="starium-form-select min-h-11"
-                            value={row.itemType}
-                            onChange={(e) => {
-                              const v = e.target.value as ProjectReviewAgendaItemType;
-                              markAgendaDirty();
-                              setCreateAgendaItems((prev) =>
-                                prev.map((x, j) => {
-                                  if (j !== i) return x;
-                                  const prevDefault =
-                                    defaultExpectedDecisionForItemType(x.itemType);
-                                  const nextDefault =
-                                    defaultExpectedDecisionForItemType(v);
-                                  const keepQuestion =
-                                    x.expectedDecision.trim() &&
-                                    x.expectedDecision.trim() !== prevDefault
-                                      ? x.expectedDecision
-                                      : nextDefault;
-                                  return {
-                                    ...x,
-                                    itemType: v,
-                                    expectedDecision: keepQuestion,
-                                  };
-                                }),
-                              );
-                            }}
-                          >
-                            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL)
-                              .filter(([k]) => k !== 'ESCALATION' && k !== 'DECISION_DESCENT')
-                              .map(([k, label]) => (
-                                <option key={k} value={k}>
-                                  {label}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                        <div className="starium-form-field">
-                          <label
-                            htmlFor={`pr-agenda-title-${i}`}
-                            className="starium-form-label"
-                          >
-                            Titre
-                          </label>
-                          <Input
-                            id={`pr-agenda-title-${i}`}
-                            className="starium-form-input min-h-11"
-                            value={row.title}
-                            maxLength={500}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              markAgendaDirty();
-                              setCreateAgendaItems((prev) =>
-                                prev.map((x, j) => (j === i ? { ...x, title: v } : x)),
-                              );
-                            }}
-                            placeholder="Ex. Arbitrage dépassement budget"
-                          />
-                        </div>
-                      </div>
-                      <div className="starium-form-field">
-                        <label
-                          htmlFor={`pr-agenda-question-${i}`}
-                          className="starium-form-label"
-                        >
-                          Question à trancher
-                        </label>
-                        <textarea
-                          id={`pr-agenda-question-${i}`}
-                          className="starium-form-textarea min-h-[64px]"
-                          value={row.expectedDecision}
-                          maxLength={1000}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            markAgendaDirty();
-                            setCreateAgendaItems((prev) =>
-                              prev.map((x, j) =>
-                                j === i ? { ...x, expectedDecision: v } : x,
-                              ),
-                            );
-                          }}
-                          placeholder="Formulation de la décision ou du résultat attendu…"
-                        />
-                      </div>
-                      <div className="starium-form-field">
-                        <label
-                          htmlFor={`pr-agenda-desc-${i}`}
-                          className="starium-form-label"
-                        >
-                          Description{' '}
-                          <span className="font-normal text-muted-foreground">
-                            (optionnel)
-                          </span>
-                        </label>
-                        <textarea
-                          id={`pr-agenda-desc-${i}`}
-                          className="starium-form-textarea min-h-[64px]"
-                          value={row.description}
-                          maxLength={8000}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            markAgendaDirty();
-                            setCreateAgendaItems((prev) =>
-                              prev.map((x, j) => (j === i ? { ...x, description: v } : x)),
-                            );
-                          }}
-                          placeholder="Contexte, documents attendus…"
-                        />
-                      </div>
-                    </div>
-                    {createAgendaItems.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                        aria-label={`Retirer le sujet ${displayLabel(row.title, `sujet ${i + 1}`)}`}
-                        onClick={() => {
-                          markAgendaDirty();
-                          setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
-                        }}
-                      >
-                        <Trash2 className="size-4" aria-hidden />
-                      </Button>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </OptionalBlock>
-
-          {/* 4. Modalités + 5. Participants — OptionalBlocks repliés */}
-          <div className="flex flex-col gap-2">
-            <OptionalBlock
-              id="create-pr-modalities"
-              title="Modalités"
-              defaultOpen={false}
-              summary={
-                postMortemEligible
-                  ? 'Objectif du point — optionnel'
-                  : 'Intention, tenue de réunion, objectif — optionnel'
-              }
-            >
-              {!postMortemEligible ? (
-                <div className="space-y-5">
-                  <fieldset className="space-y-4">
-                    <legend className="starium-form-label mb-2 flex items-center gap-1.5">
-                      <Video className="size-3.5 opacity-70" aria-hidden />
-                      Tenue de la réunion
-                    </legend>
-                    <p className="starium-form-label mb-2">Format</p>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {MEETING_MODE_OPTIONS.map(({ value, icon }) => (
-                        <FormChoiceTile
-                          key={value}
-                          name="pr-meeting-mode"
-                          value={value}
-                          checked={formMeetingMode === value}
-                          onChange={() => setFormMeetingMode(value)}
-                          title={PROJECT_REVIEW_MEETING_MODE_LABEL[value] ?? value}
-                          icon={icon}
-                          className="sm:min-h-[4.5rem]"
-                        />
-                      ))}
-                    </div>
-                    <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                      <input
-                        type="radio"
-                        name="pr-meeting-mode"
-                        checked={formMeetingMode === ''}
-                        onChange={() => setFormMeetingMode('')}
-                        className="size-4 rounded-full border border-input"
-                      />
-                      À définir plus tard
-                    </label>
-
-                    {(showMeetingUrl || showLocation) && (
-                      <div className="starium-form-grid starium-form-grid--2 rounded-lg border border-border/60 bg-muted/20 p-3">
-                        {showMeetingUrl ? (
-                          <div
-                            className={cn(
-                              'starium-form-field',
-                              showLocation ? '' : 'starium-form-grid--span-2',
-                            )}
-                          >
-                            <label htmlFor="pr-meeting-url" className="starium-form-label">
-                              <Link2 className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                              Lien de réunion
-                            </label>
-                            <Input
-                              id="pr-meeting-url"
-                              type="url"
-                              className="starium-form-input min-h-11"
-                              value={formMeetingUrl}
-                              onChange={(e) => setFormMeetingUrl(e.target.value)}
-                              placeholder="https://teams.microsoft.com/…"
-                            />
-                          </div>
-                        ) : null}
-                        {showLocation ? (
-                          <div
-                            className={cn(
-                              'starium-form-field',
-                              showMeetingUrl ? '' : 'starium-form-grid--span-2',
-                            )}
-                          >
-                            <label htmlFor="pr-location" className="starium-form-label">
-                              <MapPin className="mr-1 inline size-3.5 opacity-70" aria-hidden />
-                              Lieu
-                            </label>
-                            <Input
-                              id="pr-location"
-                              className="starium-form-input min-h-11"
-                              value={formLocation}
-                              onChange={(e) => setFormLocation(e.target.value)}
-                              maxLength={300}
-                              placeholder="Salle, étage, adresse…"
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </fieldset>
-                </div>
-              ) : null}
-
-              <div className={cn('starium-form-field', !postMortemEligible && 'mt-5')}>
-                <label htmlFor="pr-objective" className="starium-form-label">
-                  Objectif du point
-                </label>
-                <textarea
-                  id="pr-objective"
-                  className="starium-form-textarea min-h-[72px]"
-                  value={formObjective}
-                  onChange={(e) => setFormObjective(e.target.value)}
-                  maxLength={20000}
-                  rows={3}
-                  placeholder="Pourquoi ce point, quels arbitrages ou décisions attendus…"
-                />
-              </div>
-            </OptionalBlock>
-
-            <OptionalBlock
-              id="create-pr-participants"
-              title="Participants"
-              defaultOpen={false}
-              summary={
-                teamForCreate.isLoading
-                  ? 'Chargement de l’équipe projet…'
-                  : `${createParticipants.length} participant${createParticipants.length > 1 ? 's' : ''} — équipe préremplie`
-              }
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-9 shrink-0 gap-1.5"
-                  onClick={() =>
-                    setCreateParticipants((prev) => [...prev, emptyParticipantRow()])
+                  id="create-review-date"
+                  type="date"
+                  value={dateOnly}
+                  aria-invalid={!!dateError}
+                  aria-describedby={
+                    dateError ? 'create-review-date-err' : undefined
                   }
-                >
-                  <UserPlus className="size-4" aria-hidden />
-                  Ajouter
-                </Button>
-              </div>
-              <p className="starium-form-hint mb-3" aria-live="polite">
-                {teamForCreate.isLoading
-                  ? 'Chargement de l’équipe projet…'
-                  : 'Ajustez la liste si besoin — présents et requis par participant.'}
-              </p>
-              {assignable.isLoading ? (
-                <p className="starium-form-hint mb-3">Chargement des membres du client…</p>
-              ) : null}
-              <ul className="space-y-2">
-                {createParticipants.map((row, i) => (
-                  <li
-                    key={i}
-                    className="rounded-lg border border-border/60 bg-muted/15 p-3"
+                  disabled={submitting}
+                  className={cn(dateError && 'border-destructive')}
+                  onChange={(e) => {
+                    setDateOnly(e.target.value);
+                    markDirty();
+                  }}
+                  onBlur={() => setDateBlurred(true)}
+                />
+                {dateError ? (
+                  <p
+                    id="create-review-date-err"
+                    className="mt-1 text-xs text-destructive"
+                    role="alert"
                   >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-                        aria-hidden
-                      >
-                        {participantInitials(row.displayName, i)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-end gap-3">
-                          <div className="starium-form-field min-w-0 flex-1 basis-48">
-                            <label htmlFor={`pr-part-user-${i}`} className="starium-form-label">
-                              Membre client
-                            </label>
-                            <select
-                              id={`pr-part-user-${i}`}
-                              className="starium-form-select min-h-11 w-full"
-                              disabled={assignable.isLoading}
-                              value={row.userId}
-                              onChange={(e) => {
-                                const id = e.target.value;
-                                const u = assignable.data?.users?.find((x) => x.id === id);
-                                setCreateParticipants((prev) =>
-                                  prev.map((p, j) =>
-                                    j === i
-                                      ? {
-                                          ...p,
-                                          userId: id,
-                                          displayName: u ? displayNameFromUser(u) : '',
-                                        }
-                                      : p,
-                                  ),
-                                );
-                              }}
-                            >
-                              <option value="">— Choisir —</option>
-                              {assignable.data?.users?.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {displayNameFromUser(u)}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 pb-0.5">
-                            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                              <input
-                                type="checkbox"
-                                className="size-4 rounded border border-input"
-                                checked={row.attended}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) => (j === i ? { ...p, attended: v } : p)),
-                                  );
-                                }}
-                              />
-                              Présent
-                            </label>
-                            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 text-sm transition-colors has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10">
-                              <input
-                                type="checkbox"
-                                className="size-4 rounded border border-input"
-                                checked={row.isRequired}
-                                onChange={(e) => {
-                                  const v = e.target.checked;
-                                  setCreateParticipants((prev) =>
-                                    prev.map((p, j) => (j === i ? { ...p, isRequired: v } : p)),
-                                  );
-                                }}
-                              />
-                              Requis
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      {createParticipants.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                          aria-label={`Retirer ${row.displayName.trim() || `participant ${i + 1}`}`}
-                          onClick={() =>
-                            setCreateParticipants((prev) => prev.filter((_, j) => j !== i))
-                          }
-                        >
-                          <Trash2 className="size-4" aria-hidden />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </OptionalBlock>
-          </div>
-        </div>
-      </form>
+                    {dateError}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sans date, prochaine occurrence du type
+                    {selectedSeries ? ' / de la série' : ''}.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Zone 6 — Modèle ODJ */}
+            <div className="starium-form-field">
+              <label
+                className="starium-form-label"
+                htmlFor="create-review-agenda-model"
+              >
+                Modèle d&apos;ordre du jour
+              </label>
+              <select
+                id="create-review-agenda-model"
+                className="starium-form-select min-h-11 w-full"
+                value="standard"
+                disabled
+                aria-readonly="true"
+              >
+                <option value="standard">{agendaModelLabel}</option>
+              </select>
+              {agendaError ? (
+                <p className="mt-1 text-xs text-destructive" role="alert">
+                  {agendaError}
+                </p>
+              ) : null}
+              {participantError ? (
+                <p className="mt-1 text-xs text-destructive" role="alert">
+                  {participantError}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
     </StariumModal>
   );
 }

@@ -259,13 +259,22 @@ export function isPilotageReviewType(
   return (REVIEW_TYPES_PILOTAGE as readonly string[]).includes(reviewType);
 }
 
+/** Mappe types menu création (Revue / Ad hoc) vers presets pilotage. */
+function resolvePresetKey(
+  reviewType: ProjectReviewType,
+): PilotageReviewType | null {
+  if (reviewType === 'PROJECT_REVIEW') return 'MILESTONE_REVIEW';
+  if (reviewType === 'OTHER') return 'AD_HOC';
+  if (isPilotageReviewType(reviewType)) return reviewType;
+  return null;
+}
+
 export function getAgendaPresetForReviewType(
   reviewType: ProjectReviewType,
 ): ReviewAgendaPresetRow[] {
-  if (!isPilotageReviewType(reviewType)) {
-    return [];
-  }
-  return AGENDA_PRESETS[reviewType].map((row) => ({ ...row }));
+  const key = resolvePresetKey(reviewType);
+  if (!key) return [];
+  return AGENDA_PRESETS[key].map((row) => ({ ...row }));
 }
 
 export function cloneAgendaPresetRows(

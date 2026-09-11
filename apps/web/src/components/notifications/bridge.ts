@@ -30,6 +30,7 @@ export function enqueueToast(input: ShowToastInput): string {
       variant: input.variant,
       title: input.title,
       description: input.description,
+      actions: input.actions,
     },
   ]);
 

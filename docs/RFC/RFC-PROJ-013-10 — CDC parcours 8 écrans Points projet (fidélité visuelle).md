@@ -159,17 +159,17 @@ Alignement 013-8 : édition live, diffusion, verrouillage. R08.*
 - [x] Publier RFC-PROJ-013-10 + index `_RFC Liste`
 - [ ] Pointer 013-5 / 013-7 vers cette RFC comme source active parcours
 
-### Phase P1 — 02 Créer (fidélité modale) ← **prochaine**
+### Phase P1 — 02 Créer (fidélité modale)
 
-1. Refondre `project-review-create-dialog.tsx` zone par zone (pastilles type, titre, objectif, série/date, modèle ODJ, participants si retenus).  
-2. Defaults par type déjà dans `project-review-create-defaults.ts` — étendre modèles ODJ.  
-3. Validations messages exacts CDC.  
-4. Toast « … créé » + action Préparer + Annuler 6 s (API soft-delete / cancel draft).  
-5. Tests service create + Vitest ouverture modale / labels.
+- [x] Refondre `project-review-create-dialog.tsx` zone par zone (pastilles type, titre, objectif, série/date, modèle ODJ).
+- [x] Defaults / placeholders / libellés modèle ODJ dans `project-review-create-defaults.ts`.
+- [x] Validations messages exacts CDC.
+- [x] Toast « … créé. » + actions Préparer / Annuler la création 6 s (cancel API).
+- [x] Tests Vitest helpers + mapping presets Revue / Ad hoc.
 
-**Prisma** : éventuellement `agendaTemplateId` ou seed templates par type — seulement si modèle ODJ n’est pas dérivable du type.
+**Prisma** : templates code V1 (presets) — pas de migration P1.
 
-### Phase P2 — 03 Préparer + chaîne figer → 04
+### Phase P2 — 03 Préparer + chaîne figer → 04 ← **prochaine**
 
 1. UI préparation = zones CDC (bandeau, ODJ, supports, arbitrages, reprise interne).  
 2. Compteur durée cumulée.  

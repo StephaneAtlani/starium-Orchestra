@@ -408,7 +408,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - liste cartes PDF (date block, badges, avatars, CTA Préparer).
 - `project-reviews-continuity-panel` - `features/projects/components/project-reviews-continuity-panel.tsx` - panneau « Continuité du pilotage » (PDF 01/02).
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - sous-onglets états + badges compteurs.
-- `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale création PDF 14–16 (defaults type, ODJ ouvert, bandeau reprise, CTAs Créer / Créer et préparer).
+- `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale CDC 02 (zones 1–7 : pastilles type, titre, objectif, série/date, modèle ODJ ; CTAs Annuler / Créer / Créer et préparer ; toast undo 6 s).
 - `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - PDF 13 : clic = COPROJ ; chevron = menu typé (cadence + ponctuel).
 - `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.

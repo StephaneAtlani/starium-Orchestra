@@ -3,7 +3,7 @@ import type { ShowToastInput } from '@/components/notifications/types';
 
 export { NOTIFICATION_DEFAULT_DURATION_MS } from '../components/notifications/constants';
 
-type ToastOptions = Pick<ShowToastInput, 'description' | 'duration'>;
+type ToastOptions = Pick<ShowToastInput, 'description' | 'duration' | 'actions'>;
 
 function show(variant: ShowToastInput['variant'], title: string, options?: ToastOptions) {
   enqueueToast({
@@ -11,6 +11,7 @@ function show(variant: ShowToastInput['variant'], title: string, options?: Toast
     title,
     description: options?.description,
     duration: options?.duration,
+    actions: options?.actions,
   });
 }
 
@@ -26,6 +27,7 @@ type ToastModule = ToastCallable & {
 /**
  * Notifications non bloquantes (pile en haut à droite, durée + animations CSS).
  * @example toast.success('Enregistré'); toast.error('Échec', { description: detail, duration: 6000 });
+ * @example toast.success('Créé.', { duration: 6000, actions: [{ label: 'Préparer', onClick }] });
  */
 export const toast: ToastModule = Object.assign(
   ((title: string, options?: ToastOptions) => show('default', title, options)) as ToastCallable,

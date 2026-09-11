@@ -84,6 +84,70 @@ export function getCreateDefaultsForType(
   );
 }
 
+/** Placeholder titre (CDC zone 3) — adapté au type. */
+export function titlePlaceholderForType(reviewType: ProjectReviewType): string {
+  const label = getCreateDefaultsForType(reviewType).menuLabel;
+  if (reviewType === 'OTHER') return `Ex : ${label} — décision urgente`;
+  if (reviewType === 'PROJECT_REVIEW') return `Ex : ${label} — jalon Q2`;
+  if (reviewType === 'CODIR_REVIEW') return `Ex : ${label} — synthèse Q2`;
+  if (reviewType === 'COPIL') return `Ex : ${label} — Avril`;
+  return `Ex : ${label} — Semaine 22`;
+}
+
+/** Placeholder objectif (CDC zone 4). */
+export function objectivePlaceholderForType(
+  reviewType: ProjectReviewType,
+): string {
+  switch (reviewType) {
+    case 'COPIL':
+      return 'Ex : arbitrages budget et risques du mois';
+    case 'CODIR_REVIEW':
+      return 'Ex : message clé et enjeux pour la direction';
+    case 'PROJECT_REVIEW':
+      return 'Ex : revue de jalon et critères GO / NO GO';
+    case 'OTHER':
+      return 'Ex : décision ciblée hors cadence';
+    default:
+      return 'Ex : suivi hebdomadaire des chantiers et blocages';
+  }
+}
+
+/** Titre prérempli à l’ouverture / changement de type (présélectionné). */
+export function defaultCreateTitleForType(
+  reviewType: ProjectReviewType,
+  now = new Date(),
+): string {
+  const label = getCreateDefaultsForType(reviewType).menuLabel;
+  if (reviewType === 'OTHER') return `${label} — décision urgente`;
+  if (reviewType === 'PROJECT_REVIEW') return `${label} — revue`;
+  if (reviewType === 'CODIR_REVIEW') {
+    const q = Math.floor(now.getMonth() / 3) + 1;
+    return `${label} — Q${q} ${now.getFullYear()}`;
+  }
+  if (reviewType === 'COPIL') {
+    return `${label} — ${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+  }
+  const week = isoWeekNumber(now);
+  return `${label} — Semaine ${week}`;
+}
+
+function isoWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+/** Libellé CDC « Modèle {badge} standard (N points) ». */
+export function agendaModelLabelForType(
+  reviewType: ProjectReviewType,
+  pointCount: number,
+): string {
+  const badge = getCreateDefaultsForType(reviewType).menuLabel;
+  return `Modèle ${badge} standard (${pointCount} point${pointCount > 1 ? 's' : ''})`;
+}
+
 /** Prochaine occurrence locale à l’horaire type (si l’heure du jour est passée → lendemain). */
 export function defaultCreateDatetimeForType(
   reviewType: ProjectReviewType,
@@ -95,6 +159,27 @@ export function defaultCreateDatetimeForType(
   if (d.getTime() <= Date.now()) {
     d.setDate(d.getDate() + 1);
   }
+  return formatProjectDatetimeLocal(roundDateToProjectDatetimeStep(d));
+}
+
+/** Date seule (YYYY-MM-DD) pour input type=date — optionnelle côté CDC. */
+export function defaultCreateDateOnlyForType(
+  reviewType: ProjectReviewType,
+): string {
+  return defaultCreateDatetimeForType(reviewType).slice(0, 10);
+}
+
+/** Combine date YYYY-MM-DD + horaire type → datetime-local. */
+export function datetimeFromDateOnlyAndType(
+  dateOnly: string,
+  reviewType: ProjectReviewType,
+): string {
+  const defaults = getCreateDefaultsForType(reviewType);
+  const hh = String(defaults.defaultHour).padStart(2, '0');
+  const mm = String(defaults.defaultMinute).padStart(2, '0');
+  const raw = `${dateOnly}T${hh}:${mm}`;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return defaultCreateDatetimeForType(reviewType);
   return formatProjectDatetimeLocal(roundDateToProjectDatetimeStep(d));
 }
 

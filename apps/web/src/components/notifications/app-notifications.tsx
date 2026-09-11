@@ -36,6 +36,29 @@ function ToastCard({ t }: { t: ToastRecord }) {
         {t.description ? (
           <p className="mt-1 text-xs leading-relaxed opacity-90">{t.description}</p>
         ) : null}
+        {t.actions && t.actions.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {t.actions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                className={cn(
+                  'min-h-9 rounded-[var(--control-radius)] px-2.5 text-xs font-semibold underline-offset-2',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  action.tone === 'danger'
+                    ? 'text-destructive hover:underline'
+                    : 'text-foreground hover:underline',
+                )}
+                onClick={() => {
+                  requestCloseAnimated(t.id);
+                  action.onClick();
+                }}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
       <button
         type="button"

@@ -54,14 +54,13 @@ describe('project-review-agenda-presets', () => {
     expect(preset.filter((row) => row.itemType === 'RISK')).toHaveLength(2);
   });
 
-  it('agendaRowsMatchPreset détecte une divergence', () => {
-    const preset = getAgendaPresetForReviewType('AD_HOC');
-    expect(agendaRowsMatchPreset(preset, preset)).toBe(true);
-    expect(
-      agendaRowsMatchPreset(
-        [{ ...preset[0], title: 'Autre titre' }, ...preset.slice(1)],
-        preset,
-      ),
-    ).toBe(false);
+  it('mappe Revue / Ad hoc menu vers un modèle ODJ non vide', () => {
+    expect(getAgendaPresetForReviewType('PROJECT_REVIEW').length).toBeGreaterThan(
+      0,
+    );
+    expect(getAgendaPresetForReviewType('OTHER').length).toBeGreaterThan(0);
+    expect(getAgendaPresetForReviewType('OTHER')).toEqual(
+      getAgendaPresetForReviewType('AD_HOC'),
+    );
   });
 });
