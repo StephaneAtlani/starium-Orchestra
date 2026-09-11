@@ -203,7 +203,7 @@ function ReviewListCard({
       ref={cardRef}
       tabIndex={0}
       className={cn(
-        'flex min-h-11 cursor-pointer flex-col gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card p-3 shadow-[var(--shadow-1)] transition-shadow hover:shadow-[var(--ds-card-shadow-hover)] sm:flex-row sm:items-stretch sm:gap-4 sm:p-4',
+        'flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card p-3 shadow-[var(--shadow-1)] transition-shadow hover:shadow-[var(--ds-card-shadow-hover)] sm:gap-4 sm:p-4',
         flash && 'ring-2 ring-[color:var(--brand-gold)]/50 bg-[color:var(--brand-gold)]/10',
       )}
       onClick={() => onOpen(row.id)}
@@ -216,7 +216,7 @@ function ReviewListCard({
       aria-label={`${title} — ${actionLabel}`}
     >
       <div
-        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--brand-gold)]/15 text-center sm:h-auto sm:min-h-[4.5rem] sm:w-[3.25rem]"
+        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center self-stretch rounded-[var(--radius-md)] bg-[color:var(--brand-gold)]/15 text-center sm:min-h-[4.5rem] sm:w-[3.25rem]"
         aria-hidden
       >
         <span className="text-xl font-extrabold leading-none tabular-nums text-foreground">
@@ -229,14 +229,14 @@ function ReviewListCard({
         ) : null}
       </div>
 
-      <div className="min-w-0 flex-1 space-y-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-bold text-foreground sm:text-base">
+          <h3 className="min-w-0 max-w-full truncate text-sm font-bold text-foreground sm:text-base">
             {title}
           </h3>
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold',
               typeBadgeTone(row.reviewType),
             )}
           >
@@ -247,7 +247,7 @@ function ReviewListCard({
             {typeBadge}
           </span>
           {(uiState === 'to_prepare' || uiState === 'upcoming') && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               <span
                 className="size-1.5 rounded-full bg-muted-foreground/70"
                 aria-hidden
@@ -310,19 +310,17 @@ function ReviewListCard({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center sm:pl-2">
-        <button
-          type="button"
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-[color:var(--brand-gold-700)] hover:underline sm:min-h-9"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen(row.id);
-          }}
-        >
-          {actionLabel}
-          <ChevronRight className="size-4" aria-hidden strokeWidth={2.25} />
-        </button>
-      </div>
+      <button
+        type="button"
+        className="inline-flex min-h-11 shrink-0 items-center gap-1 self-center text-sm font-semibold text-[color:var(--brand-gold-700)] hover:underline sm:min-h-9"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen(row.id);
+        }}
+      >
+        {actionLabel}
+        <ChevronRight className="size-4" aria-hidden strokeWidth={2.25} />
+      </button>
     </article>
   );
 }
