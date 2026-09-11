@@ -54,9 +54,11 @@ import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { displayLabel } from '@/lib/display-label';
 import {
   ARBITRATION_LEVEL_STATUS_LABEL,
   PROJECT_CRITICALITY_LABEL,
+  PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
   PROJECT_REVIEW_STATUS_LABEL,
   PROJECT_REVIEW_TYPE_LABEL,
   PROJECT_STATUS_LABEL,
@@ -1504,6 +1506,39 @@ export function ProjectReviewEditorDialog({
     setConfirmPlanOpen(true);
   };
 
+  /** PDF 08 — figer ODJ + passer en « À venir » (SCHEDULED + lock). */
+  const onLockAgendaForUpcoming = async () => {
+    if (!d || !reviewId || !canLockAgenda) return;
+    try {
+      await flushPlanningSave();
+      const wasPreparing = d.status === 'PREPARING';
+      if (wasPreparing) {
+        if (!reviewDate.trim()) {
+          toast.error(
+            'Renseignez la date et l’heure avant de figer — le point passera en « À venir ».',
+          );
+          openPlanningSection();
+          return;
+        }
+        await scheduleReview.mutateAsync({
+          reviewId: d.id,
+          reviewDate: fromLocalDatetimeInput(reviewDate),
+        });
+      }
+      await lockAgenda.mutateAsync(reviewId);
+      toast.success(
+        wasPreparing
+          ? 'Ordre du jour figé — point en « À venir »'
+          : 'Ordre du jour figé',
+      );
+    } catch (err) {
+      toast.error(
+        (err as { message?: string })?.message ??
+          'Impossible de figer l’ordre du jour',
+      );
+    }
+  };
+
   const onPlanReview = async () => {
     if (!d || !canEdit || (!canSchedule && !canStart)) return;
     if (!reviewDate.trim()) {
@@ -1959,20 +1994,14 @@ export function ProjectReviewEditorDialog({
             variant="default"
             size={footerButtonSize}
             className={footerActionClass}
-            disabled={lockAgenda.isPending}
-            onClick={() => {
-              if (!reviewId) return;
-              lockAgenda.mutate(reviewId, {
-                onSuccess: () => toast.success('Ordre du jour figé'),
-                onError: (err) =>
-                  toast.error(
-                    (err as { message?: string })?.message ??
-                      'Impossible de figer l’ordre du jour',
-                  ),
-              });
-            }}
+            disabled={lockAgenda.isPending || scheduleReview.isPending}
+            onClick={() => void onLockAgendaForUpcoming()}
           >
-            {lockAgenda.isPending ? 'Verrouillage…' : 'Figer l’ordre du jour'}
+            {lockAgenda.isPending || scheduleReview.isPending
+              ? 'Verrouillage…'
+              : d?.status === 'PREPARING'
+                ? 'Figer et passer à venir'
+                : 'Figer l’ordre du jour'}
           </Button>
         ) : null}
         {canUnlockAgenda ? (
@@ -2943,17 +2972,51 @@ export function ProjectReviewEditorDialog({
                 </AlertDescription>
               </Alert>
             ) : null}
-            {editorPhase === 'conduct' ? (
+            {editorPhase === 'prepare' || editorPhase === 'conduct' ? (
               <div className="shrink-0 border-b border-border/70 px-1 pb-3">
                 <ReviewPreviousOpenActions
                   actions={
-                    previousReviewId ? (previousDetailQuery.data?.actionItems ?? null) : []
+                    previousReviewId
+                      ? (previousDetailQuery.data?.actionItems ?? null)
+                      : []
                   }
-                  loading={Boolean(previousReviewId) && previousDetailQuery.isLoading}
-                  error={Boolean(previousReviewId) && (previousDetailQuery.isError || !previousDetailQuery.data)}
-                  canResume={editable}
-                  resumedTitles={actions.map((row) => row.title)}
-                  onResume={resumePreviousAction}
+                  loading={
+                    Boolean(previousReviewId) && previousDetailQuery.isLoading
+                  }
+                  error={
+                    Boolean(previousReviewId) &&
+                    (previousDetailQuery.isError || !previousDetailQuery.data)
+                  }
+                  canResume={
+                    editorPhase === 'prepare'
+                      ? planningEditable && !agendaLocked
+                      : editable
+                  }
+                  resumedTitles={
+                    editorPhase === 'prepare'
+                      ? (d.agendaItems ?? []).map((row) => row.title)
+                      : actions.map((row) => row.title)
+                  }
+                  onResume={
+                    editorPhase === 'prepare'
+                      ? async (action) => {
+                          try {
+                            await createAgendaItem.mutateAsync({
+                              reviewId: d.id,
+                              body: {
+                                title: action.title.trim(),
+                                itemType: 'ACTION_REVIEW',
+                                description:
+                                  action.description?.trim() || null,
+                              },
+                            });
+                            toast.success('Sujet ajouté à l’ordre du jour');
+                          } catch {
+                            toast.error('Impossible d’ajouter le sujet');
+                          }
+                        }
+                      : resumePreviousAction
+                  }
                 />
               </div>
             ) : null}
@@ -3095,6 +3158,98 @@ export function ProjectReviewEditorDialog({
                           participants={d.participants ?? []}
                           canEdit={canEdit}
                         />
+                        <section
+                          className="starium-form-section border-border/60"
+                          aria-labelledby="prepare-brief-title"
+                        >
+                          <h3
+                            id="prepare-brief-title"
+                            className="starium-form-section-title"
+                          >
+                            Brief de préparation
+                          </h3>
+                          <p className="mb-3 text-sm text-muted-foreground">
+                            Synthèse diffusée aux participants avant la séance
+                            (PDF 08).
+                          </p>
+                          {(d.agendaItems ?? []).length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              Ajoutez des points d’ordre du jour pour constituer
+                              le brief.
+                            </p>
+                          ) : (
+                            <ol className="mb-3 space-y-2">
+                              {(d.agendaItems ?? []).map((item, index) => (
+                                <li
+                                  key={item.id}
+                                  className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-sm"
+                                >
+                                  <span className="font-medium text-foreground">
+                                    {index + 1}.{' '}
+                                    {displayLabel(item.title, 'Point sans titre')}
+                                  </span>
+                                  <span className="mt-1 flex flex-wrap gap-1.5">
+                                    <span className="starium-ds-badge starium-ds-badge--neutral">
+                                      {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[
+                                        item.itemType
+                                      ] ?? item.itemType}
+                                    </span>
+                                    {item.plannedDurationMinutes ? (
+                                      <span className="starium-ds-badge starium-ds-badge--neutral">
+                                        {item.plannedDurationMinutes} min
+                                      </span>
+                                    ) : null}
+                                    {item.ownerDisplayName ? (
+                                      <span className="starium-ds-badge starium-ds-badge--neutral">
+                                        {displayLabel(
+                                          item.ownerDisplayName,
+                                          'Porteur',
+                                        )}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </li>
+                              ))}
+                            </ol>
+                          )}
+                          {canEdit && d.status === 'SCHEDULED' ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="min-h-11"
+                              disabled={inviteReview.isPending}
+                              onClick={() => {
+                                void inviteReview
+                                  .mutateAsync({
+                                    reviewId: d.id,
+                                    body: { channels: ['in_app', 'email'] },
+                                  })
+                                  .then((result) => {
+                                    const summary = formatPlanInviteToast(result);
+                                    toast.success(
+                                      summary
+                                        ? `Brief diffusé — ${summary}`
+                                        : 'Invitations envoyées',
+                                    );
+                                  })
+                                  .catch(() =>
+                                    toast.error(
+                                      'Impossible de diffuser le brief',
+                                    ),
+                                  );
+                              }}
+                            >
+                              {inviteReview.isPending
+                                ? 'Envoi…'
+                                : 'Diffuser le brief aux participants'}
+                            </Button>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Figez l’ordre du jour (point « À venir ») pour
+                              diffuser le brief aux participants.
+                            </p>
+                          )}
+                        </section>
                         <ReviewAttachmentsSection
                           projectId={projectId}
                           reviewId={d.id}

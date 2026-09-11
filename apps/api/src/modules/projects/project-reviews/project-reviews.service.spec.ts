@@ -33,6 +33,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       createMany: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      count: jest.Mock;
     };
     projectReviewActionItemContributor: { deleteMany: jest.Mock };
     projectReviewEscalation: {
@@ -41,6 +42,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       create: jest.Mock;
       update: jest.Mock;
       groupBy: jest.Mock;
+      count: jest.Mock;
     };
     projectReviewDescent: {
       findMany: jest.Mock;
@@ -56,6 +58,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       create: jest.Mock;
       deleteMany: jest.Mock;
       aggregate: jest.Mock;
+      count: jest.Mock;
     };
     projectTask: { findFirst: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     project: { findFirst: jest.Mock };
@@ -161,6 +164,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         createMany: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       projectReviewActionItemContributor: { deleteMany: jest.fn() },
       projectReviewEscalation: {
@@ -169,6 +173,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         create: jest.fn(),
         update: jest.fn(),
         groupBy: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
       },
       projectReviewDescent: {
         findMany: jest.fn(),
@@ -184,6 +189,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         create: jest.fn(),
         deleteMany: jest.fn(),
         aggregate: jest.fn().mockResolvedValue({ _max: { orderIndex: 0 } }),
+        count: jest.fn().mockResolvedValue(0),
       },
       projectTask: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       project: { findFirst: jest.fn() },
@@ -1710,6 +1716,82 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       await expect(
         service.listDescents(clientId, projectId, reviewId),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('summary (PDF 01 KPI)', () => {
+    it('agrège nextReview, volume trimestre par type, actions ouvertes/retard et descentes', async () => {
+      const now = new Date('2026-09-10T12:00:00.000Z');
+      jest.useFakeTimers({ now });
+
+      prisma.projectReview.findMany.mockResolvedValue([
+        {
+          id: 'n1',
+          title: 'Hebdo',
+          reviewType: ProjectReviewType.COPRO,
+          status: ProjectReviewStatus.SCHEDULED,
+          reviewDate: new Date('2026-09-12T08:00:00.000Z'),
+          startedAt: null,
+          agendaLockedAt: new Date('2026-09-01T10:00:00.000Z'),
+          conductClosedAt: null,
+        },
+        {
+          id: 'q1',
+          title: null,
+          reviewType: ProjectReviewType.COPRO,
+          status: ProjectReviewStatus.FINALIZED,
+          reviewDate: new Date('2026-08-01T10:00:00.000Z'),
+          startedAt: null,
+          agendaLockedAt: new Date('2026-07-20T10:00:00.000Z'),
+          conductClosedAt: new Date('2026-08-01T12:00:00.000Z'),
+        },
+        {
+          id: 'q2',
+          title: null,
+          reviewType: ProjectReviewType.COPIL,
+          status: ProjectReviewStatus.FINALIZED,
+          reviewDate: new Date('2026-07-15T10:00:00.000Z'),
+          startedAt: null,
+          agendaLockedAt: new Date('2026-07-01T10:00:00.000Z'),
+          conductClosedAt: new Date('2026-07-15T12:00:00.000Z'),
+        },
+      ]);
+      prisma.projectReviewActionItem.count
+        .mockResolvedValueOnce(8)
+        .mockResolvedValueOnce(2);
+      prisma.projectReviewAgendaItem.count.mockResolvedValue(2);
+      prisma.projectReviewDescent.count.mockResolvedValue(3);
+      prisma.projectReviewEscalation.count.mockResolvedValue(2);
+
+      const result = await service.summary(clientId, projectId);
+
+      expect(result.nextReview).toEqual(
+        expect.objectContaining({
+          id: 'n1',
+          reviewType: ProjectReviewType.COPRO,
+          uiState: 'upcoming',
+        }),
+      );
+      expect(result.quarterVolume).toBe(3);
+      expect(result.quarterVolumeByType).toEqual({
+        COPRO: 2,
+        COPIL: 1,
+      });
+      expect(result.openActionsFromReviews).toBe(8);
+      expect(result.overdueActionsFromReviews).toBe(2);
+      expect(result.deferredAgendaItemsCount).toBe(2);
+      expect(result.copilDecisionsToApply).toBe(3);
+      expect(result.escalationsPendingCount).toBe(2);
+      expect(prisma.projectReviewActionItem.count).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: expect.objectContaining({
+            dueDate: { lt: now },
+          }),
+        }),
+      );
+
+      jest.useRealTimers();
     });
   });
 });

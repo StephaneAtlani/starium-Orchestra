@@ -25,10 +25,11 @@ describe('project-review-ui-state (RFC-PROJ-013-7)', () => {
   });
 
   it('CTA labels', () => {
-    expect(ctaLabelForUiState('in_progress')).toBe('Reprendre la conduite');
+    expect(ctaLabelForUiState('in_progress')).toBe('Animer');
     expect(ctaLabelForUiState('to_finalize')).toBe('Finaliser');
     expect(ctaLabelForUiState('history')).toBe('Consulter');
-    expect(ctaLabelForUiState('to_prepare')).toBe('Ouvrir');
+    expect(ctaLabelForUiState('to_prepare')).toBe('Préparer');
+    expect(ctaLabelForUiState('upcoming')).toBe('Préparer');
   });
 
   it('parsePointsStateParam defaults', () => {

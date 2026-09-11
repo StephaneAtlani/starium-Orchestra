@@ -680,6 +680,13 @@ export class ProjectReviewsService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       participantsCount: row.participants.length,
+      participantsPreview: row.participants.slice(0, 4).map((p) => {
+        const mapped = this.mapParticipant(p);
+        return {
+          id: mapped.id,
+          displayName: mapped.displayName?.trim() || 'Participant',
+        };
+      }),
       attendedCount,
       decisionsCount: row.decisions.length,
       actionItemsCount: row.actionItems.length,
@@ -867,6 +874,7 @@ export class ProjectReviewsService {
     const { quarterStart, quarterEnd } = civilQuarterBoundsParis(now);
 
     let quarterVolume = 0;
+    const quarterVolumeByType: Partial<Record<ProjectReviewType, number>> = {};
 
     for (const row of reviews) {
       const uiState = resolveReviewUiState({
@@ -883,6 +891,8 @@ export class ProjectReviewsService {
         row.reviewDate < quarterEnd
       ) {
         quarterVolume += 1;
+        quarterVolumeByType[row.reviewType] =
+          (quarterVolumeByType[row.reviewType] ?? 0) + 1;
       }
 
       if (
@@ -902,12 +912,34 @@ export class ProjectReviewsService {
       }
     }
 
-    const [openActionsFromReviews, copilDecisionsToApply] = await Promise.all([
+    const openActionWhere = {
+      clientId,
+      projectId,
+      status: { notIn: [ProjectTaskStatus.DONE, ProjectTaskStatus.CANCELLED] },
+    };
+
+    const [
+      openActionsFromReviews,
+      overdueActionsFromReviews,
+      deferredAgendaItemsCount,
+      copilDecisionsToApply,
+      escalationsPendingCount,
+    ] = await Promise.all([
+      this.prisma.projectReviewActionItem.count({
+        where: openActionWhere,
+      }),
       this.prisma.projectReviewActionItem.count({
         where: {
+          ...openActionWhere,
+          dueDate: { lt: now },
+        },
+      }),
+      // Sujets reportés (PDF continuité) — points ODJ SKIPPED encore visibles sur le projet.
+      this.prisma.projectReviewAgendaItem.count({
+        where: {
           clientId,
-          projectId,
-          status: { notIn: ['DONE', 'CANCELLED'] },
+          projectReview: { clientId, projectId },
+          status: 'SKIPPED',
         },
       }),
       // RFC-PROJ-013-8 F3.1 — décisions COPIL encore à appliquer (descentes actives).
@@ -921,6 +953,13 @@ export class ProjectReviewsService {
               ProjectReviewDescentStatus.INJECTED,
             ],
           },
+        },
+      }),
+      this.prisma.projectReviewEscalation.count({
+        where: {
+          clientId,
+          projectId,
+          status: ProjectReviewEscalationStatus.PENDING,
         },
       }),
     ]);
@@ -937,8 +976,12 @@ export class ProjectReviewsService {
           }
         : null,
       quarterVolume,
+      quarterVolumeByType,
       openActionsFromReviews,
+      overdueActionsFromReviews,
+      deferredAgendaItemsCount,
       copilDecisionsToApply,
+      escalationsPendingCount,
     };
   }
 

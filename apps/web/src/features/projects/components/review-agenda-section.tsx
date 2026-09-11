@@ -629,6 +629,8 @@ export function ReviewAgendaSection({
   const [decisionSummary, setDecisionSummary] = useState('');
   const [objective, setObjective] = useState('');
   const [expectedDecision, setExpectedDecision] = useState('');
+  const [ownerUserId, setOwnerUserId] = useState('');
+  const [plannedDurationMinutes, setPlannedDurationMinutes] = useState<string>('');
   const [attachmentModalOpen, setAttachmentModalOpen] = useState(false);
   const conductStepNavRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -640,6 +642,18 @@ export function ReviewAgendaSection({
   const conductEditable = canEdit && isReviewAgendaConductEditable(status);
   const readOnly = isReviewFinalizedOrCancelled(status);
   const conductLayout = isReviewAgendaConductEditable(status);
+  const prepareLayout = !conductLayout && !readOnly;
+  const assignable = useProjectAssignableUsers({
+    enabled: agendaEditable || conductEditable || prepareLayout,
+  });
+
+  const PREPARE_ITEM_TYPES = useMemo(
+    () =>
+      (
+        Object.keys(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL) as ProjectReviewAgendaItemType[]
+      ).filter((k) => k !== 'ESCALATION' && k !== 'DECISION_DESCENT'),
+    [],
+  );
 
   useEffect(() => {
     if (!selectedId || !conductLayout) return;
@@ -657,6 +671,12 @@ export function ReviewAgendaSection({
       setDecisionSummary(item.decisionSummary ?? '');
       setObjective(item.objective ?? '');
       setExpectedDecision(item.expectedDecision ?? '');
+      setOwnerUserId(item.ownerUserId ?? '');
+      setPlannedDurationMinutes(
+        item.plannedDurationMinutes != null
+          ? String(item.plannedDurationMinutes)
+          : '',
+      );
       onSelectedAgendaItemIdChange?.(item.id);
     },
     [onSelectedAgendaItemIdChange],
@@ -725,6 +745,41 @@ export function ReviewAgendaSection({
       });
     } catch {
       toast.error('Enregistrement impossible.');
+    }
+  };
+
+  const savePrepareFields = async (
+    patch?: Partial<{
+      itemType: ProjectReviewAgendaItemType;
+      ownerUserId: string | null;
+      plannedDurationMinutes: number | null;
+      objective: string | null;
+      expectedDecision: string | null;
+      title: string;
+    }>,
+  ) => {
+    if (!selected || !agendaEditable) return;
+    const durationRaw = plannedDurationMinutes.trim();
+    const duration =
+      durationRaw === ''
+        ? null
+        : Number.isFinite(Number(durationRaw))
+          ? Math.max(0, Math.round(Number(durationRaw)))
+          : null;
+    try {
+      await updateAgendaItem.mutateAsync({
+        reviewId,
+        agendaItemId: selected.id,
+        body: {
+          objective: objective.trim() || null,
+          expectedDecision: expectedDecision.trim() || null,
+          ownerUserId: ownerUserId.trim() || null,
+          plannedDurationMinutes: duration,
+          ...patch,
+        },
+      });
+    } catch {
+      toast.error('Enregistrement du point impossible.');
     }
   };
 
@@ -1060,6 +1115,11 @@ export function ReviewAgendaSection({
                         {item.plannedDurationMinutes} min
                       </span>
                     ) : null}
+                    {item.ownerDisplayName ? (
+                      <span className="starium-ds-badge starium-ds-badge--neutral">
+                        {displayLabel(item.ownerDisplayName, 'Porteur')}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
                 {item.description ? (
@@ -1098,6 +1158,179 @@ export function ReviewAgendaSection({
       })}
     </ol>
   );
+
+  const renderPrepareDetail = () => {
+    if (!selected) {
+      return (
+        <p className="rounded-lg border border-dashed border-border/70 bg-muted/15 px-4 py-6 text-sm text-muted-foreground">
+          Sélectionnez un point pour qualifier porteur, durée, type et documents.
+        </p>
+      );
+    }
+    const pointAttachments = reviewAttachments.filter(
+      (att) => att.agendaItemId === selected.id,
+    );
+    const agendaPointContext = {
+      id: selected.id,
+      title: selected.title,
+      itemType: selected.itemType,
+      decisionSummary,
+      expectedDecision,
+    };
+    return (
+      <article
+        className="rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5"
+        aria-labelledby="prepare-agenda-point-title"
+      >
+        <h4
+          id="prepare-agenda-point-title"
+          className="text-base font-semibold text-foreground"
+        >
+          {displayLabel(selected.title, 'Point sans titre')}
+        </h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Qualité du comité — chaque sujet avant figer l’ordre du jour.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="starium-form-field">
+            <Label htmlFor="prepare-agenda-type" className="starium-form-label">
+              Type
+            </Label>
+            <select
+              id="prepare-agenda-type"
+              className="starium-form-select min-h-11"
+              value={selected.itemType}
+              disabled={!agendaEditable}
+              onChange={(e) => {
+                const next = e.target.value as ProjectReviewAgendaItemType;
+                void savePrepareFields({ itemType: next });
+              }}
+            >
+              {PREPARE_ITEM_TYPES.map((k) => (
+                <option key={k} value={k}>
+                  {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[k] ?? k}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="starium-form-field">
+            <Label htmlFor="prepare-agenda-duration" className="starium-form-label">
+              Durée cible (min)
+            </Label>
+            <Input
+              id="prepare-agenda-duration"
+              type="number"
+              min={5}
+              step={5}
+              className="starium-form-input min-h-11"
+              value={plannedDurationMinutes}
+              disabled={!agendaEditable}
+              onChange={(e) => setPlannedDurationMinutes(e.target.value)}
+              onBlur={() => void savePrepareFields()}
+            />
+          </div>
+          <div className="starium-form-field sm:col-span-2">
+            <Label htmlFor="prepare-agenda-owner" className="starium-form-label">
+              Porteur
+            </Label>
+            <select
+              id="prepare-agenda-owner"
+              className="starium-form-select min-h-11"
+              value={ownerUserId}
+              disabled={!agendaEditable || assignable.isLoading}
+              onChange={(e) => {
+                const next = e.target.value;
+                setOwnerUserId(next);
+                void savePrepareFields({ ownerUserId: next.trim() || null });
+              }}
+            >
+              <option value="">Non assigné</option>
+              {assignable.data?.users?.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {displayNameFromUser(u)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="starium-form-field">
+            <Label htmlFor="prepare-agenda-objective" className="starium-form-label">
+              Objectif du point
+            </Label>
+            <textarea
+              id="prepare-agenda-objective"
+              className="starium-form-textarea min-h-[88px]"
+              value={objective}
+              disabled={!agendaEditable}
+              onChange={(e) => setObjective(e.target.value)}
+              onBlur={() => void savePrepareFields()}
+            />
+          </div>
+          <div className="starium-form-field">
+            <Label htmlFor="prepare-agenda-expected" className="starium-form-label">
+              Question à trancher
+            </Label>
+            <textarea
+              id="prepare-agenda-expected"
+              className="starium-form-textarea min-h-[88px]"
+              value={expectedDecision}
+              disabled={!agendaEditable}
+              onChange={(e) => setExpectedDecision(e.target.value)}
+              onBlur={() => void savePrepareFields()}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h5 className="text-sm font-semibold text-foreground">
+              Documents du point
+            </h5>
+            {agendaEditable ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => setAttachmentModalOpen(true)}
+              >
+                <FileText className="size-4" aria-hidden />
+                Ajouter un document
+              </Button>
+            ) : null}
+          </div>
+          {pointAttachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucun document rattaché à ce sujet.
+            </p>
+          ) : (
+            <ul className="space-y-1.5" aria-label="Documents du point">
+              {pointAttachments.map((att) => (
+                <li
+                  key={att.id}
+                  className="flex min-h-11 items-center gap-2 rounded-lg border border-border/60 bg-muted/15 px-3 text-sm"
+                >
+                  <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 truncate font-medium">
+                    {displayLabel(att.title, 'Document')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {attachmentModalOpen ? (
+          <ReviewAgendaAddAttachmentModal
+            open
+            onOpenChange={setAttachmentModalOpen}
+            projectId={projectId}
+            reviewId={reviewId}
+            agendaPoint={agendaPointContext}
+          />
+        ) : null}
+      </article>
+    );
+  };
 
   return (
     <section
@@ -1269,6 +1502,21 @@ export function ReviewAgendaSection({
 
           {sortedItems.length === 0 ? (
             <p className="starium-form-hint">Aucun point d’ordre du jour.</p>
+          ) : prepareLayout ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ordre du jour
+                </p>
+                {renderPlanningList()}
+              </div>
+              <div className="min-w-0 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Qualifier le point
+                </p>
+                {renderPrepareDetail()}
+              </div>
+            </div>
           ) : (
             renderPlanningList()
           )}
@@ -1285,9 +1533,9 @@ export function ReviewAgendaSection({
             aria-label="Type de point"
             onChange={(e) => setNewItemType(e.target.value as ProjectReviewAgendaItemType)}
           >
-            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(([k, label]) => (
+            {PREPARE_ITEM_TYPES.map((k) => (
               <option key={k} value={k}>
-                {label}
+                {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[k] ?? k}
               </option>
             ))}
           </select>

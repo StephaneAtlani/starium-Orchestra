@@ -22,10 +22,12 @@ import { projectReviewConduct } from '../constants/project-routes';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
 import { ProjectReviewsKpiRow } from './project-reviews-kpi-row';
+import { ProjectReviewsContinuityPanel } from './project-reviews-continuity-panel';
 import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
 import { ProjectReviewsTable } from './project-reviews-table';
 import { ProjectReviewCreateSplitButton } from './project-review-create-split-button';
 import { ProjectReviewSeriesPanel } from './project-review-series-panel';
+import { cn } from '@/lib/utils';
 import {
   parsePointsStateParam,
   resolveReviewUiState,
@@ -221,7 +223,7 @@ export function ProjectReviewsTab({
     if (postMortemEligible && draftPostMortem) {
       openEditor(draftPostMortem.id);
     } else {
-      setCreatePrefillType(null);
+      setCreatePrefillType(postMortemEligible ? null : 'COPRO');
       setCreateOpen(true);
     }
   };
@@ -273,8 +275,8 @@ export function ProjectReviewsTab({
           />
           {canEdit && activeTab !== 'series' ? (
             <ProjectReviewCreateSplitButton
-              onCreate={() => {
-                setCreatePrefillType('COPRO');
+              onCreateType={(reviewType) => {
+                setCreatePrefillType(reviewType);
                 setCreateOpen(true);
               }}
             />
@@ -295,9 +297,9 @@ export function ProjectReviewsTab({
         </div>
       ) : null}
 
-      <div className="starium-tablecard">
-        {postMortemEligible ? (
-          list.isLoading ? (
+      {postMortemEligible ? (
+        <div className="starium-tablecard">
+          {list.isLoading ? (
             <div className="p-6">
               <LoadingState rows={4} />
             </div>
@@ -326,52 +328,70 @@ export function ProjectReviewsTab({
               className="py-14"
             />
           ) : (
-            <ProjectReviewsTable
-              uiState="history"
-              rows={list.data}
-              flashId={flashId}
-              onOpen={openEditor}
-            />
-          )
-        ) : activeTab === 'series' ? (
-          <div className="p-4">
-            <ProjectReviewSeriesPanel projectId={projectId} canEdit={canEdit} />
-          </div>
-        ) : list.isLoading ? (
-          <div className="p-6">
-            <LoadingState rows={4} />
-          </div>
-        ) : list.error ? (
-          <div className="p-6" role="alert">
-            <p className="text-sm text-destructive">
-              Impossible de charger les points projet.
-            </p>
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <EmptyState
-            title={emptyTitle[activeTab]}
-            description="Changez d’onglet ou créez un nouveau point."
-            action={
-              canEdit ? (
-                <ProjectReviewCreateSplitButton
-                  onCreate={() => {
-                    setCreatePrefillType('COPRO');
-                    setCreateOpen(true);
-                  }}
+            <div className="p-3 sm:p-4">
+              <ProjectReviewsTable
+                uiState="history"
+                rows={list.data}
+                flashId={flashId}
+                onOpen={openEditor}
+              />
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'series' ? (
+        <div className="starium-tablecard p-4">
+          <ProjectReviewSeriesPanel projectId={projectId} canEdit={canEdit} />
+        </div>
+      ) : (
+        <div
+          className={cn(
+            'grid gap-4',
+            'lg:grid-cols-[minmax(0,1fr)_minmax(15rem,18.5rem)] lg:items-start',
+          )}
+        >
+          <div className="min-w-0">
+            {list.isLoading ? (
+              <LoadingState rows={4} />
+            ) : list.error ? (
+              <div role="alert">
+                <p className="text-sm text-destructive">
+                  Impossible de charger les points projet.
+                </p>
+              </div>
+            ) : filteredRows.length === 0 ? (
+              <div className="starium-tablecard">
+                <EmptyState
+                  title={emptyTitle[activeTab]}
+                  description="Changez d’onglet ou créez un nouveau point."
+                  action={
+                    canEdit ? (
+                      <ProjectReviewCreateSplitButton
+                        onCreateType={(reviewType) => {
+                          setCreatePrefillType(reviewType);
+                          setCreateOpen(true);
+                        }}
+                      />
+                    ) : undefined
+                  }
+                  className="py-14"
                 />
-              ) : undefined
-            }
-            className="py-14"
+              </div>
+            ) : (
+              <ProjectReviewsTable
+                uiState={activeTab}
+                rows={filteredRows}
+                flashId={flashId}
+                onOpen={openEditor}
+              />
+            )}
+          </div>
+          <ProjectReviewsContinuityPanel
+            summary={summary.data}
+            isLoading={summary.isLoading}
+            isError={summary.isError}
           />
-        ) : (
-          <ProjectReviewsTable
-            uiState={activeTab}
-            rows={filteredRows}
-            flashId={flashId}
-            onOpen={openEditor}
-          />
-        )}
-      </div>
+        </div>
+      )}
 
       <ProjectReviewCreateDialog
         open={createOpen}

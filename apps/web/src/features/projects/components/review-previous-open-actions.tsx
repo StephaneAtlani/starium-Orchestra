@@ -26,7 +26,7 @@ export function ReviewPreviousOpenActions({
   error: boolean;
   canResume: boolean;
   resumedTitles: string[];
-  onResume: (action: ProjectReviewActionItemApi) => void;
+  onResume: (action: ProjectReviewActionItemApi) => void | Promise<void>;
 }) {
   const openActions = (actions ?? []).filter(isOpenPreviousAction);
   const resumed = new Set(resumedTitles.map(normalizeActionTitle));
@@ -66,7 +66,7 @@ export function ReviewPreviousOpenActions({
                     variant="outline"
                     className="min-h-11 shrink-0"
                     disabled={already}
-                    onClick={() => onResume(action)}
+                    onClick={() => void onResume(action)}
                   >
                     {already ? 'Déjà reprise' : 'Reprendre dans ce point'}
                   </Button>

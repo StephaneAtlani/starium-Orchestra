@@ -139,6 +139,21 @@ assert_generated_client_has_email_body_html() {
   echo "[api-dev] client Prisma OK (emailBodyHtml présent sous .prisma/client)"
 }
 
+assert_generated_client_has_review_descent() {
+  found=0
+  for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+    if [ -d "$d" ] && grep -rq 'projectReviewDescent' "$d" 2>/dev/null; then
+      found=1
+      break
+    fi
+  done
+  if [ "$found" != 1 ]; then
+    echo "[api-dev] ERREUR: client Prisma généré sans projectReviewDescent (F3.1 — restart api-dev après migration)." >&2
+    exit 1
+  fi
+  echo "[api-dev] client Prisma OK (projectReviewDescent présent sous .prisma/client)"
+}
+
 assert_rbac_package_present
 echo "[api-dev] pnpm install (sync workspace deps)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
@@ -151,6 +166,7 @@ pnpm --filter @starium-orchestra/api exec prisma migrate deploy --schema="$SCHEM
 api_prisma_generate
 assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
+assert_generated_client_has_review_descent
 build_rbac_permissions
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
@@ -169,5 +185,6 @@ pnpm exec nest build
 api_prisma_generate
 assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
+assert_generated_client_has_review_descent
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev

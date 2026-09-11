@@ -3131,7 +3131,8 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 **Création** : champ métier **`creationMode`** (`PREPARING` \| `SCHEDULED` \| `IMMEDIATE`, défaut `PREPARING` ; alias legacy `PLANNED`→`SCHEDULED`). **`reviewDate`** optionnel en `PREPARING`, requis en `SCHEDULED`. Champs : `objective`, `periodStart`, `periodEnd`, `durationMinutes`, réunion (`meetingMode`, `meetingUrl`, `location`). **`autoInviteOnCreate`** (défaut `true`) : notifications in-app si `SCHEDULED` + participants internes.
 
 - **GET /api/projects/:projectId/reviews** — Liste enrichie (`uiState`, signaux, cadence série, `incomingEscalationsPendingCount` pour COPIL…). **`projects.read`**
-- **GET /api/projects/:projectId/reviews/summary** — KPI + `countsByUiState` (RFC-PROJ-013-7). **`projects.read`**
+- **GET /api/projects/:projectId/reviews/summary** — KPI PDF 01 + `countsByUiState` (RFC-PROJ-013-7) : `nextReview`, `quarterVolume`, `quarterVolumeByType`, `openActionsFromReviews`, `overdueActionsFromReviews`, `deferredAgendaItemsCount`, `copilDecisionsToApply`, `escalationsPendingCount`. **`projects.read`**
+- **GET /api/projects/:projectId/reviews** — liste : + `participantsPreview` (max 4 libellés) pour avatars carte PDF. **`projects.read`**
 - **POST /api/projects/:projectId/reviews** — Crée selon `creationMode`. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId** — Détail (+ `agendaItems`, `attachments`, `decisions` enrichies, `actionItems`, lock fields). `snapshotPayload` v2 si finalisé. **`projects.read`**
 - **PATCH /api/projects/:projectId/reviews/:reviewId** — Éditabilité selon statut (`PREPARING`/`SCHEDULED` : préparation ; `IN_PROGRESS` : tenue). **`contentPayload`** accepte notamment **`committeeMood`** (`GREEN` \| `ORANGE` \| `RED`) en tenue. **`projects.update`**

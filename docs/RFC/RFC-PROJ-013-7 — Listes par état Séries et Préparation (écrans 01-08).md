@@ -21,7 +21,7 @@
 2. KPI tête via **`GET /api/projects/:projectId/reviews/summary`** (agrégats, pas de N+1 FE).
 3. Séries = `ProjectReviewSeries` (scopé `clientId` + `projectId`) + `POST …/generate`.
 4. À finaliser = `conductClosedAt` (pas d’enum `AWAITING_REPORT`). Mutation « clôturer séance » = **RFC-PROJ-013-6** (hors scope) ; seed démo renseigne le champ.
-5. Menu création : CTA unique « Créer un point » ; type choisi **dans** la modale (`PROJECT_REVIEW_CREATE_DEFAULTS` : `menuLabel` / `menuHint`) — COPROJ→`COPRO`, COPIL, CODIR→`CODIR_REVIEW`, Revue→`PROJECT_REVIEW`, Ad hoc→`OTHER` — **pas de COTECH** V1. Essentiel mince (Type → Date → Titre) ; ODJ en bloc optionnel replié.
+5. Menu création (PDF 13) : split « Créer un COPROJ » + chevron (cadence / ponctuel Ad hoc) ; modale préremplie (horaire, durée, ODJ ouvert) ; CTAs « Créer » / « Créer et préparer ». Types : COPROJ→`COPRO`, COPIL, CODIR→`CODIR_REVIEW`, Revue→`PROJECT_REVIEW`, Ad hoc→`OTHER` — **pas de COTECH** V1.
 6. `lock-agenda` ne change pas le status API ; `SCHEDULED` + lock → « À venir » ; generate → `SCHEDULED` + `agendaLockedAt = null` → « À préparer ».
 
 ## 3. Mapping états UI (table de vérité)
@@ -56,8 +56,10 @@ Isolation : toutes les routes valident le **client actif** + `projectId` ; RBAC 
 
 ## 5. API (rappel)
 
-- `GET …/reviews` — items : `uiState`, `agendaLockedAt`, `conductClosedAt`, `seriesId`, `seriesFrequency`, `agendaDoneCount`, `attendedCount`, signaux 04
-- `GET …/reviews/summary` — `countsByUiState`, `nextReview`, `quarterVolume`, `openActionsFromReviews`, `copilDecisionsToApply` (V1 : décisions `VALIDATED` des COPIL `FINALIZED`)
+- `GET …/reviews` — items : `uiState`, `agendaLockedAt`, `conductClosedAt`, `seriesId`, `seriesFrequency`, `agendaDoneCount`, `attendedCount`, `participantsPreview`, signaux 04
+- `GET …/reviews/summary` — `countsByUiState`, `nextReview`, `quarterVolume`, `quarterVolumeByType`, `openActionsFromReviews`, `overdueActionsFromReviews`, `deferredAgendaItemsCount`, `copilDecisionsToApply`, `escalationsPendingCount` (descentes `PENDING|INJECTED`, RFC-PROJ-013-8 F3.1)
+- KPI UI (PDF 01) : 4 × `KpiCard` dense (pastilles) — « Prochain point » (valeur = badge type COPROJ…), « Points ce trimestre », « Actions issues des points », « Décisions COPIL à appliquer »
+- Liste UI (PDF 01–04) : cartes séance (date block / badges / meta / avatars / CTA « Préparer > ») + panneau « Continuité du pilotage »
 - `POST …/reviews/:id/lock-agenda` \| `unlock-agenda`
 - `GET|POST …/review-series` ; `GET|PATCH …/review-series/:id` ; `POST …/review-series/:id/generate`
 
@@ -69,7 +71,7 @@ Isolation : toutes les routes valident le **client actif** + `projectId` ; RBAC 
 
 ## 7. Récapitulatif
 
-Livré L1–L5 : listes par état, KPI, figer ODJ, création typée (modale Essentiel + ODJ replié), séries + génération, seed démo. Dépendances aval : 013-6 (close-conduct / écran 09 — ✅), 013-8 (finalisation CR / 10-11-19 — ✅ F1–F5 + F3.1), 013-9 C1 (calendrier transverse — ✅).
+Livré L1–L5 : listes par état, KPI, figer ODJ, création typée (split PDF 13 + modale 14–16), séries + génération, seed démo. **Écran 08** : atelier ODJ (porteur / durée / type / docs par point), « Figer et passer à venir », reprise actions → ODJ, brief + diffusion. Dépendances aval : 013-6 (close-conduct / écran 09 — ✅), 013-8 (finalisation CR / 10-11-19 — ✅ F1–F5 + F3.1), 013-9 C1 (calendrier transverse — ✅).
 
 ## 8. Points de vigilance
 

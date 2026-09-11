@@ -427,7 +427,7 @@ html.dark {
   color: var(--state-danger);
 }
 
-/* Boutons refonte portail — référence visuelle : starium-ov-btn */
+/* Boutons refonte portail — secondaire / Modifier : bordure neutre (PDF), pas or. */
 .starium-btn-gold,
 .starium-btn,
 .starium-btn-secondary,
@@ -441,7 +441,7 @@ html.dark {
   justify-content: center;
   gap: 6px;
   padding: 10px;
-  border: 1.5px solid var(--brand-gold-100);
+  border: 1.5px solid var(--control-border, var(--neutral-200, var(--border)));
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
   font-size: 13px;
@@ -490,13 +490,13 @@ html.dark {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1.5px solid var(--brand-gold-100);
+  border: 1.5px solid var(--control-border, var(--neutral-200, var(--border)));
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
   color: var(--brand-gold-700);
   cursor: pointer;
   list-style: none;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 .starium-btn-icon:hover,
 .starium-form-icon-btn:hover {
@@ -646,7 +646,7 @@ html.dark {
   align-items: center;
   min-height: 43px;
   padding: 0 28px 0 13px;
-  border: 1.5px solid var(--brand-gold-100);
+  border: 1.5px solid var(--control-border, var(--neutral-200, var(--border)));
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
 }
@@ -1551,7 +1551,7 @@ button.starium-risk-attention-title:focus-visible {
   justify-content: center;
   border-radius: var(--radius-md, 10px);
   background: var(--neutral-0, var(--card));
-  border: 1.5px solid var(--brand-gold-100);
+  border: 1.5px solid var(--control-border, var(--neutral-200, var(--border)));
   color: var(--brand-gold-700);
   box-shadow: var(--shadow-1);
 }

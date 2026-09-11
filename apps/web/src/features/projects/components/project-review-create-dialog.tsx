@@ -8,13 +8,12 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import type { ApiFormError } from '@/features/budgets/api/types';
 import {
-  CalendarClock,
   ChevronDown,
   ClipboardPen,
+  Info,
   Link2,
   MapPin,
   Monitor,
-  PenLine,
   Plus,
   RotateCcw,
   Trash2,
@@ -36,13 +35,17 @@ import {
   getAgendaPresetForReviewType,
   isPilotageReviewType,
 } from '../lib/project-review-agenda-presets';
-import { getCreateDefaultsForType, PROJECT_REVIEW_CREATE_DEFAULTS } from '../lib/project-review-create-defaults';
+import {
+  defaultCreateDatetimeForType,
+  getCreateDefaultsForType,
+  PROJECT_REVIEW_CREATE_DEFAULTS,
+} from '../lib/project-review-create-defaults';
 import { displayLabel } from '@/lib/display-label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
   ProjectReviewAgendaItemType,
-  ProjectReviewCreationMode,
   ProjectReviewMeetingMode,
   ProjectReviewType,
   ProjectTeamMemberApi,
@@ -160,26 +163,6 @@ const MEETING_MODE_OPTIONS: {
   { value: 'REMOTE', icon: Video },
   { value: 'ONSITE', icon: MapPin },
   { value: 'HYBRID', icon: Monitor },
-];
-
-const CREATION_MODE_OPTIONS: {
-  value: ProjectReviewCreationMode;
-  title: string;
-  description: string;
-  icon: typeof PenLine;
-}[] = [
-  {
-    value: 'PREPARING',
-    title: 'Préparer',
-    description: 'Crée un point en préparation — date optionnelle, à planifier ensuite.',
-    icon: ClipboardPen,
-  },
-  {
-    value: 'IMMEDIATE',
-    title: 'Saisir maintenant',
-    description: 'Ouvre l’éditeur pour rédiger le compte rendu dès la création.',
-    icon: PenLine,
-  },
 ];
 
 function FormChoiceTile({
@@ -314,10 +297,8 @@ export function ProjectReviewCreateDialog({
   const [formMeetingMode, setFormMeetingMode] = useState<ProjectReviewMeetingMode | ''>('HYBRID');
   const [formMeetingUrl, setFormMeetingUrl] = useState('');
   const [formLocation, setFormLocation] = useState('');
-  const [formCreationMode, setFormCreationMode] =
-    useState<ProjectReviewCreationMode>('PREPARING');
-  const [resumeFromLast, setResumeFromLast] = useState(false);
-  const [formDurationMinutes, setFormDurationMinutes] = useState<number | ''>(60);
+  const [resumeFromLast, setResumeFromLast] = useState(true);
+  const [formDurationMinutes, setFormDurationMinutes] = useState<number | ''>(45);
 
   const lastFinalizedId = useMemo(() => {
     const items = reviewsQuery.data ?? [];
@@ -358,13 +339,13 @@ export function ProjectReviewCreateDialog({
         const defaults = getCreateDefaultsForType(nextType);
         setFormDurationMinutes(defaults.durationMinutes);
         setFormMeetingMode(defaults.meetingMode);
+        setFormDate(defaultCreateDatetimeForType(nextType));
       }
     },
     [agendaDirty, applyAgendaPresetFromType, postMortemEligible],
   );
 
   const resetForm = useCallback(() => {
-    setFormDate('');
     const defaultType = postMortemEligible
       ? 'POST_MORTEM'
       : (initialReviewType ?? 'COPRO');
@@ -372,6 +353,7 @@ export function ProjectReviewCreateDialog({
     setFormTitle('');
     setFormObjective('');
     if (postMortemEligible) {
+      setFormDate('');
       setCreateAgendaItems([emptyAgendaRow()]);
       setAgendaDirty(false);
       setAgendaPresetSourceType(defaultType);
@@ -379,14 +361,14 @@ export function ProjectReviewCreateDialog({
       setFormDurationMinutes('');
     } else {
       const defaults = getCreateDefaultsForType(defaultType);
+      setFormDate(defaultCreateDatetimeForType(defaultType));
       applyAgendaPresetFromType(defaultType);
       setFormMeetingMode(defaults.meetingMode);
       setFormDurationMinutes(defaults.durationMinutes);
     }
     setFormMeetingUrl('');
     setFormLocation('');
-    setFormCreationMode('PREPARING');
-    setResumeFromLast(false);
+    setResumeFromLast(Boolean(!postMortemEligible));
   }, [postMortemEligible, applyAgendaPresetFromType, initialReviewType]);
 
   useEffect(() => {
@@ -439,13 +421,9 @@ export function ProjectReviewCreateDialog({
     onOpenChange(next);
   };
 
-  const submitLabel = postMortemEligible
-    ? 'Créer le retour d’expérience'
-    : formCreationMode === 'PREPARING'
-      ? 'Créer le point'
-      : 'Créer et ouvrir l’éditeur';
+  const submitLabelRex = 'Créer le retour d’expérience';
 
-  const onSubmit = async () => {
+  const onSubmit = async (openPrepare: boolean) => {
     const reviewDate = formDate.trim() ? new Date(formDate).toISOString() : undefined;
     const objective = formObjective.trim();
     const participants = createParticipants
@@ -502,7 +480,7 @@ export function ProjectReviewCreateDialog({
       const created = await create.mutateAsync({
         ...(reviewDate ? { reviewDate } : {}),
         reviewType: formType,
-        creationMode: postMortemEligible ? 'IMMEDIATE' : formCreationMode,
+        creationMode: postMortemEligible ? 'IMMEDIATE' : 'PREPARING',
         title: formTitle.trim() || undefined,
         ...(objective ? { objective, executiveSummary: objective } : {}),
         ...(typeof formDurationMinutes === 'number' && formDurationMinutes > 0
@@ -546,9 +524,21 @@ export function ProjectReviewCreateDialog({
         }
       }
       onOpenChange(false);
-      const openEditorAfterCreate =
-        postMortemEligible || formCreationMode === 'IMMEDIATE';
+      const openEditorAfterCreate = postMortemEligible || openPrepare;
       onCreated(created.id, openEditorAfterCreate);
+      toast.success(
+        postMortemEligible
+          ? 'Retour d’expérience créé'
+          : openPrepare
+            ? 'Point créé — préparation ouverte'
+            : 'Point créé',
+        {
+          description: displayLabel(
+            created.title ?? formTitle,
+            typeOptionLabel(formType),
+          ),
+        },
+      );
     } catch (err) {
       const msg = isApiFormError(err) ? err.message : 'Création du point impossible.';
       toast.error(msg);
@@ -590,14 +580,36 @@ export function ProjectReviewCreateDialog({
           >
             Annuler
           </Button>
-          <Button
-            type="button"
-            className="min-h-11"
-            onClick={() => void onSubmit()}
-            disabled={create.isPending}
-          >
-            {create.isPending ? 'Création…' : submitLabel}
-          </Button>
+          {postMortemEligible ? (
+            <Button
+              type="button"
+              className="min-h-11"
+              onClick={() => void onSubmit(true)}
+              disabled={create.isPending}
+            >
+              {create.isPending ? 'Création…' : submitLabelRex}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => void onSubmit(false)}
+                disabled={create.isPending}
+              >
+                {create.isPending ? 'Création…' : 'Créer'}
+              </Button>
+              <Button
+                type="button"
+                className="min-h-11"
+                onClick={() => void onSubmit(true)}
+                disabled={create.isPending}
+              >
+                {create.isPending ? 'Création…' : 'Créer et préparer'}
+              </Button>
+            </>
+          )}
         </>
       }
     >
@@ -650,8 +662,7 @@ export function ProjectReviewCreateDialog({
               </div>
               <div className="starium-form-field">
                 <label htmlFor="pr-date" className="starium-form-label">
-                  Date et heure{' '}
-                  <span className="font-normal text-muted-foreground">(optionnel)</span>
+                  Date et heure
                 </label>
                 <ProjectDatetimeLocalInput
                   id="pr-date"
@@ -660,6 +671,28 @@ export function ProjectReviewCreateDialog({
                 />
               </div>
               <div className="starium-form-field">
+                <label htmlFor="pr-duration" className="starium-form-label">
+                  Durée (min)
+                </label>
+                <Input
+                  id="pr-duration"
+                  type="number"
+                  min={15}
+                  step={15}
+                  className="starium-form-input min-h-11"
+                  value={formDurationMinutes === '' ? '' : formDurationMinutes}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (!raw.trim()) {
+                      setFormDurationMinutes('');
+                      return;
+                    }
+                    const n = Number(raw);
+                    setFormDurationMinutes(Number.isFinite(n) ? n : '');
+                  }}
+                />
+              </div>
+              <div className="starium-form-field starium-form-grid--span-2">
                 <label htmlFor="pr-title" className="starium-form-label">
                   Titre <span className="font-normal text-muted-foreground">(optionnel)</span>
                 </label>
@@ -669,37 +702,42 @@ export function ProjectReviewCreateDialog({
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   maxLength={500}
-                  placeholder="Ex. COPIL mensuel — arbitrage budget Q3"
+                  placeholder={`Ex. ${typeOptionLabel(formType)} — ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}
                 />
               </div>
             </div>
           </section>
 
-          {/* 2. Reprise du dernier point */}
+          {/* 2. Reprise du dernier point — bandeau PDF 14 */}
           {!postMortemEligible && isPilotageReviewType(formType) && lastFinalizedId ? (
-            <div className="starium-form-field">
-              <label className="flex min-h-11 items-start gap-3 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0"
-                  checked={resumeFromLast}
-                  disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
-                  onChange={(e) => setResumeFromLast(e.target.checked)}
-                />
-                <span>
-                  {lastFinalizedQuery.isLoading
-                    ? 'Chargement du dernier point…'
-                    : 'Reprendre les actions ouvertes et les sujets non traités du dernier point'}
-                </span>
-              </label>
-            </div>
+            <Alert className="border-border/70 bg-muted/30">
+              <Info className="size-4 text-[color:var(--brand-gold)]" aria-hidden />
+              <AlertTitle>Reprise du dernier point</AlertTitle>
+              <AlertDescription>
+                <label className="mt-2 flex min-h-11 cursor-pointer items-start gap-3 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 shrink-0"
+                    checked={resumeFromLast}
+                    disabled={lastFinalizedQuery.isLoading || lastFinalizedQuery.isError}
+                    onChange={(e) => setResumeFromLast(e.target.checked)}
+                  />
+                  <span>
+                    {lastFinalizedQuery.isLoading
+                      ? 'Chargement du dernier point…'
+                      : 'Reporter automatiquement les actions ouvertes et les sujets non traités'}
+                  </span>
+                </label>
+              </AlertDescription>
+            </Alert>
           ) : null}
 
-          {/* 3. Ordre du jour — replié par défaut */}
+          {/* 3. Ordre du jour — ouvert par défaut (PDF 14) */}
           <OptionalBlock
+            key={open ? `agenda-open-${formType}` : 'agenda-closed'}
             id="create-pr-agenda"
             title="Ordre du jour"
-            defaultOpen={false}
+            defaultOpen
             summary={
               postMortemEligible
                 ? 'Sujets optionnels pour cadrer le REX'
@@ -896,27 +934,6 @@ export function ProjectReviewCreateDialog({
             >
               {!postMortemEligible ? (
                 <div className="space-y-5">
-                  <fieldset>
-                    <legend className="starium-form-label mb-2 flex items-center gap-1.5">
-                      <CalendarClock className="size-3.5 opacity-70" aria-hidden />
-                      Intention
-                    </legend>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {CREATION_MODE_OPTIONS.map((opt) => (
-                        <FormChoiceTile
-                          key={opt.value}
-                          name="pr-creation-mode"
-                          value={opt.value}
-                          checked={formCreationMode === opt.value}
-                          onChange={() => setFormCreationMode(opt.value)}
-                          title={opt.title}
-                          description={opt.description}
-                          icon={opt.icon}
-                        />
-                      ))}
-                    </div>
-                  </fieldset>
-
                   <fieldset className="space-y-4">
                     <legend className="starium-form-label mb-2 flex items-center gap-1.5">
                       <Video className="size-3.5 opacity-70" aria-hidden />

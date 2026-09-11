@@ -405,9 +405,11 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (sous-onglets états UI 01–05 + Séries, KPI, deep links `pointsState` / `pointsFlash` / `createRetourExperience`).
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - tablist états + compteurs (RFC-PROJ-013-7).
 - `project-reviews-kpi-row` - `features/projects/components/project-reviews-kpi-row.tsx` - 4 `KpiCard` tête (summary API).
-- `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - table colonnes/CTA par état UI.
-- `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale création (Essentiel Type→Date→Titre ; ODJ `OptionalBlock` replié ; 5 types `menuLabel`/`menuHint`).
-- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - CTA « Créer un point » (type choisi dans la modale).
+- `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - liste cartes PDF (date block, badges, avatars, CTA Préparer).
+- `project-reviews-continuity-panel` - `features/projects/components/project-reviews-continuity-panel.tsx` - panneau « Continuité du pilotage » (PDF 01/02).
+- `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - sous-onglets états + badges compteurs.
+- `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale création PDF 14–16 (defaults type, ODJ ouvert, bandeau reprise, CTAs Créer / Créer et préparer).
+- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - PDF 13 : clic = COPROJ ; chevron = menu typé (cadence + ponctuel).
 - `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.

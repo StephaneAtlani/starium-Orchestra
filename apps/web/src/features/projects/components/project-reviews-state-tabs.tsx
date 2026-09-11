@@ -26,7 +26,9 @@ export function ProjectReviewsStateTabs({
       {PROJECT_REVIEWS_TAB_ORDER.map((key) => {
         const selected = active === key;
         const count =
-          key === 'series' ? counts.series : (counts[key as ProjectReviewUiState] ?? 0);
+          key === 'series'
+            ? (counts.series ?? 0)
+            : (counts[key as ProjectReviewUiState] ?? 0);
         return (
           <button
             key={key}
@@ -38,7 +40,17 @@ export function ProjectReviewsStateTabs({
             onClick={() => onChange(key)}
           >
             {PROJECT_REVIEWS_TAB_LABEL[key]}
-            <span className="ml-1.5 tabular-nums text-muted-foreground">({count})</span>
+            <span
+              className={cn(
+                'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                selected
+                  ? 'bg-[color:var(--brand-gold)]/20 text-[color:var(--brand-gold-700)]'
+                  : 'bg-muted text-muted-foreground',
+              )}
+              aria-label={`${count} élément${count > 1 ? 's' : ''}`}
+            >
+              {count}
+            </span>
           </button>
         );
       })}

@@ -1014,6 +1014,8 @@ export type ProjectReviewListItem = {
   createdAt: string;
   updatedAt: string;
   participantsCount: number;
+  /** Aperçu avatars liste PDF (max 4, libellés métier). */
+  participantsPreview?: Array<{ id: string; displayName: string }>;
   attendedCount?: number;
   decisionsCount: number;
   actionItemsCount: number;
@@ -1045,8 +1047,16 @@ export type ProjectReviewsSummaryResponse = {
     uiState: 'to_prepare' | 'upcoming';
   };
   quarterVolume: number;
+  /** Répartition des points datés du trimestre civil (clés = enum API). */
+  quarterVolumeByType?: Partial<Record<ProjectReviewType, number>>;
   openActionsFromReviews: number;
+  /** Actions ouvertes hors DONE/CANCELLED avec échéance dépassée. */
+  overdueActionsFromReviews?: number;
+  /** Points ODJ SKIPPED (sujets reportés — panneau Continuité PDF). */
+  deferredAgendaItemsCount?: number;
   copilDecisionsToApply: number;
+  /** Remontées COPRO→COPIL encore PENDING. */
+  escalationsPendingCount?: number;
 };
 
 export type ProjectReviewSeriesFrequency =

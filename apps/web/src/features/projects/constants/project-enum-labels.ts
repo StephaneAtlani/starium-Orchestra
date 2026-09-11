@@ -170,6 +170,29 @@ export const PROJECT_REVIEW_TYPE_LABEL: Record<string, string> = {
   OTHER: 'Autre point',
 };
 
+/**
+ * Badge KPI / tableau (PDF 01) — code métier court.
+ * `COPRO` API → libellé UI **COPROJ** (jamais l’enum brute seule hors ce mapping).
+ */
+export const PROJECT_REVIEW_TYPE_BADGE: Record<string, string> = {
+  COPIL: 'COPIL',
+  COPRO: 'COPROJ',
+  CODIR_REVIEW: 'CODIR',
+  RISK_REVIEW: 'Risques',
+  MILESTONE_REVIEW: 'Jalons',
+  AD_HOC: 'Ad hoc',
+  POST_MORTEM: 'REX',
+  PROJECT_REVIEW: 'Revue',
+  BUDGET_REVIEW: 'Budget',
+  ARBITRATION: 'Arbitrage',
+  CRISIS_POINT: 'Crise',
+  OTHER: 'Ad hoc',
+};
+
+export function projectReviewTypeBadge(reviewType: string): string {
+  return PROJECT_REVIEW_TYPE_BADGE[reviewType] ?? 'Point';
+}
+
 export const PROJECT_REVIEW_STATUS_LABEL: Record<string, string> = {
   PREPARING: 'En préparation',
   SCHEDULED: 'Planifié',

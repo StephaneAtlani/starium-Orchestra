@@ -1,33 +1,21 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { StariumTableWrap, useStariumTablePan } from '@/components/ui/starium-table-wrap';
+import { CheckCircle2, ChevronRight, Pencil } from 'lucide-react';
+import { UserInitialsAvatarStack } from '@/components/ui/user-initials-avatar';
 import { cn } from '@/lib/utils';
-import { BookOpen, Calendar, ClipboardList } from 'lucide-react';
+import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import {
+  PROJECT_REVIEW_MEETING_MODE_LABEL,
   PROJECT_REVIEW_STATUS_LABEL,
-  PROJECT_REVIEW_TYPE_LABEL,
+  projectReviewTypeBadge,
 } from '../constants/project-enum-labels';
 import type { ProjectReviewListItem } from '../types/project.types';
-import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import {
   ctaLabelForUiState,
   resolveReviewUiState,
   type ProjectReviewUiState,
 } from '../lib/project-review-ui-state';
-import { displayLabel } from '@/lib/display-label';
-
-const REVIEW_ROW_ICON_TONES = [
-  'starium-dt-ti-blue',
-  'starium-dt-ti-purple',
-  'starium-dt-ti-gold',
-  'starium-dt-ti-green',
-] as const;
-
-function reviewRowIcon(reviewType: string) {
-  if (reviewType === 'POST_MORTEM') return BookOpen;
-  return ClipboardList;
-}
 
 function rowUiState(row: ProjectReviewListItem): ProjectReviewUiState | null {
   return (
@@ -40,164 +28,302 @@ function rowUiState(row: ProjectReviewListItem): ProjectReviewUiState | null {
   );
 }
 
-function ReviewTableRow({
+function dateParts(iso: string | null | undefined): { day: string; month: string } {
+  if (!iso) return { day: '—', month: '' };
+  try {
+    const d = new Date(iso);
+    return {
+      day: d.toLocaleDateString('fr-FR', { day: '2-digit' }),
+      month: d
+        .toLocaleDateString('fr-FR', { month: 'short' })
+        .replace(/\./g, '')
+        .toUpperCase(),
+    };
+  } catch {
+    return { day: '—', month: '' };
+  }
+}
+
+function formatTimeRangeFr(
+  iso: string | null | undefined,
+  durationMinutes: number | null | undefined,
+): string | null {
+  if (!iso) return null;
+  try {
+    const start = new Date(iso);
+    if (Number.isNaN(start.getTime())) return null;
+    const fmt = (d: Date) =>
+      d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    if (durationMinutes == null || durationMinutes <= 0) return fmt(start);
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    return `${fmt(start)} – ${fmt(end)}`;
+  } catch {
+    return null;
+  }
+}
+
+function placeLine(row: ProjectReviewListItem): string | null {
+  const mode = row.meetingMode
+    ? PROJECT_REVIEW_MEETING_MODE_LABEL[row.meetingMode]
+    : null;
+  const location = row.location?.trim() || null;
+  if (location && mode) return `${location} / ${mode}`;
+  return location ?? mode;
+}
+
+function cadenceLabel(row: ProjectReviewListItem): string {
+  return firstDisplayLabel(
+    [row.seriesFrequency?.trim() || null, row.nextReviewDate ? 'Planifié' : null],
+    'Ponctuel',
+  );
+}
+
+function prepFooter(uiState: ProjectReviewUiState, row: ProjectReviewListItem) {
+  if (uiState === 'to_prepare') {
+    return {
+      Icon: Pencil,
+      label: 'Préparation ouverte',
+      tone: 'muted' as const,
+    };
+  }
+  if (uiState === 'upcoming') {
+    return {
+      Icon: CheckCircle2,
+      label: row.agendaLockedAt
+        ? 'Ordre du jour figé'
+        : 'Ordre du jour à consolider',
+      tone: row.agendaLockedAt ? ('success' as const) : ('warning' as const),
+    };
+  }
+  if (uiState === 'in_progress') {
+    return {
+      Icon: CheckCircle2,
+      label: `ODJ ${row.agendaDoneCount ?? 0}/${row.agendaItemsCount} · présence ${row.attendedCount ?? 0}/${row.participantsCount}`,
+      tone: 'info' as const,
+    };
+  }
+  if (uiState === 'to_finalize') {
+    const signals: string[] = [];
+    if ((row.openArbitrationsWithoutVerdictCount ?? 0) > 0) {
+      signals.push(
+        `${row.openArbitrationsWithoutVerdictCount} arbitrage${(row.openArbitrationsWithoutVerdictCount ?? 0) > 1 ? 's' : ''}`,
+      );
+    }
+    if ((row.openActionsWithoutOwnerOrDueCount ?? 0) > 0) {
+      signals.push(
+        `${row.openActionsWithoutOwnerOrDueCount} action${(row.openActionsWithoutOwnerOrDueCount ?? 0) > 1 ? 's' : ''} incomplète${(row.openActionsWithoutOwnerOrDueCount ?? 0) > 1 ? 's' : ''}`,
+      );
+    }
+    return {
+      Icon: Pencil,
+      label: signals.length > 0 ? signals.join(' · ') : 'Prêt à finaliser',
+      tone: signals.length > 0 ? ('warning' as const) : ('success' as const),
+    };
+  }
+  return {
+    Icon: CheckCircle2,
+    label: displayLabel(
+      PROJECT_REVIEW_STATUS_LABEL[row.status],
+      'Point clôturé',
+    ),
+    tone: 'muted' as const,
+  };
+}
+
+function typeBadgeTone(reviewType: string): string {
+  if (reviewType === 'COPIL') {
+    return 'bg-[color:var(--state-warning)]/12 text-[color:var(--state-warning)]';
+  }
+  if (reviewType === 'COPRO') {
+    return 'bg-sky-500/12 text-sky-800 dark:text-sky-300';
+  }
+  if (reviewType === 'CODIR_REVIEW') {
+    return 'bg-violet-500/12 text-violet-800 dark:text-violet-300';
+  }
+  return 'bg-muted text-muted-foreground';
+}
+
+function ReviewListCard({
   row,
-  index,
   uiState,
   flash,
   onOpen,
 }: {
   row: ProjectReviewListItem;
-  index: number;
   uiState: ProjectReviewUiState;
   flash: boolean;
   onOpen: (id: string) => void;
 }) {
-  const { shouldSuppressClick } = useStariumTablePan();
-  const rowRef = useRef<HTMLTableRowElement>(null);
-  const RowIcon = reviewRowIcon(row.reviewType);
-  const iconTone = REVIEW_ROW_ICON_TONES[index % REVIEW_ROW_ICON_TONES.length];
-  const typeLabel = PROJECT_REVIEW_TYPE_LABEL[row.reviewType] ?? row.reviewType;
-  const title = displayLabel(row.title?.trim() || null, typeLabel);
+  const cardRef = useRef<HTMLElement>(null);
+  const typeBadge = projectReviewTypeBadge(row.reviewType);
+  const title = firstDisplayLabel(
+    [row.title?.trim() || null, `${typeBadge}`],
+    'Point projet',
+  );
+  const iso =
+    uiState === 'in_progress' || uiState === 'to_finalize'
+      ? (row.startedAt ?? row.reviewDate)
+      : row.reviewDate;
+  const { day, month } = dateParts(iso);
+  const timeRange = formatTimeRangeFr(iso, row.durationMinutes);
+  const place = placeLine(row);
+  const agendaCount = row.agendaItemsCount;
+  const metaParts = [
+    timeRange,
+    place,
+    agendaCount > 0
+      ? `${agendaCount} point${agendaCount > 1 ? 's' : ''}`
+      : null,
+    uiState === 'to_prepare' || uiState === 'upcoming'
+      ? row.agendaLockedAt
+        ? 'brief de préparation prêt'
+        : 'brief à préparer'
+      : null,
+    uiState === 'history'
+      ? `${row.decisionsCount} décision${row.decisionsCount > 1 ? 's' : ''} · ${row.actionItemsCount} action${row.actionItemsCount > 1 ? 's' : ''}`
+      : null,
+  ].filter(Boolean) as string[];
+
+  const footer = prepFooter(uiState, row);
+  const FooterIcon = footer.Icon;
   const actionLabel = ctaLabelForUiState(uiState);
+  const preview = (row.participantsPreview ?? []).filter((p) =>
+    p.displayName?.trim(),
+  );
+  const extraParticipants = Math.max(0, row.participantsCount - preview.length);
 
   useEffect(() => {
-    if (flash && rowRef.current) {
-      rowRef.current.focus();
+    if (flash && cardRef.current) {
+      cardRef.current.focus();
     }
   }, [flash]);
 
   return (
-    <tr
-      ref={rowRef}
+    <article
+      ref={cardRef}
       tabIndex={0}
       className={cn(
-        'cursor-pointer transition-colors',
-        flash && 'bg-[color:var(--brand-gold)]/15',
+        'flex min-h-11 cursor-pointer flex-col gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-card p-3 shadow-[var(--shadow-1)] transition-shadow hover:shadow-[var(--ds-card-shadow-hover)] sm:flex-row sm:items-stretch sm:gap-4 sm:p-4',
+        flash && 'ring-2 ring-[color:var(--brand-gold)]/50 bg-[color:var(--brand-gold)]/10',
       )}
-      onClick={() => {
-        if (shouldSuppressClick()) return;
-        onOpen(row.id);
-      }}
+      onClick={() => onOpen(row.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onOpen(row.id);
         }
       }}
+      aria-label={`${title} — ${actionLabel}`}
     >
-      <td>
-        <div className="starium-dt-date min-w-[10rem]">
-          <Calendar strokeWidth={1.75} aria-hidden />
-          <time
-            dateTime={
-              uiState === 'in_progress' || uiState === 'to_finalize'
-                ? (row.startedAt ?? row.reviewDate ?? undefined)
-                : (row.reviewDate ?? undefined)
-            }
+      <div
+        className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-[var(--radius-md)] bg-[color:var(--brand-gold)]/15 text-center sm:h-auto sm:min-h-[4.5rem] sm:w-[3.25rem]"
+        aria-hidden
+      >
+        <span className="text-xl font-extrabold leading-none tabular-nums text-foreground">
+          {day}
+        </span>
+        {month ? (
+          <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--state-warning)]">
+            {month}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h3 className="truncate text-sm font-bold text-foreground sm:text-base">
+            {title}
+          </h3>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold',
+              typeBadgeTone(row.reviewType),
+            )}
           >
-            {uiState === 'in_progress' || uiState === 'to_finalize'
-              ? row.startedAt
-                ? formatProjectDateTimeFr(row.startedAt)
-                : row.reviewDate
-                  ? formatProjectDateTimeFr(row.reviewDate)
-                  : '—'
-              : row.reviewDate
-                ? formatProjectDateTimeFr(row.reviewDate)
-                : '—'}
-          </time>
-        </div>
-      </td>
-      <td>
-        <span className="starium-ds-badge starium-ds-badge--info">{typeLabel}</span>
-      </td>
-      {(uiState === 'to_prepare' || uiState === 'upcoming') && (
-        <>
-          <td className="text-sm text-muted-foreground">
-            {row.seriesFrequency ?? (row.nextReviewDate ? 'Planifié' : '—')}
-          </td>
-          <td className="tabular-nums text-sm">{row.participantsCount}</td>
-          <td>
             <span
-              className={cn(
-                'starium-ds-badge',
-                row.agendaLockedAt
-                  ? 'starium-ds-badge--success'
-                  : 'starium-ds-badge--neutral',
-              )}
-            >
-              {row.agendaLockedAt ? 'ODJ figé' : 'À figer'}
+              className="size-1.5 rounded-full bg-current opacity-80"
+              aria-hidden
+            />
+            {typeBadge}
+          </span>
+          {(uiState === 'to_prepare' || uiState === 'upcoming') && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <span
+                className="size-1.5 rounded-full bg-muted-foreground/70"
+                aria-hidden
+              />
+              {cadenceLabel(row)}
             </span>
-          </td>
-        </>
-      )}
-      {uiState === 'in_progress' && (
-        <>
-          <td className="tabular-nums text-sm">
-            {row.agendaDoneCount ?? 0}/{row.agendaItemsCount}
-          </td>
-          <td className="tabular-nums text-sm">
-            {row.attendedCount ?? 0}/{row.participantsCount}
-          </td>
-        </>
-      )}
-      {uiState === 'to_finalize' && (
-        <td>
-          <div className="flex flex-wrap gap-1">
-            {(row.openArbitrationsWithoutVerdictCount ?? 0) > 0 ? (
-              <span className="starium-ds-badge starium-ds-badge--warn">
-                {row.openArbitrationsWithoutVerdictCount} arbitrage
-                {(row.openArbitrationsWithoutVerdictCount ?? 0) > 1 ? 's' : ''}
-              </span>
-            ) : null}
-            {(row.openActionsWithoutOwnerOrDueCount ?? 0) > 0 ? (
-              <span className="starium-ds-badge starium-ds-badge--warn">
-                {row.openActionsWithoutOwnerOrDueCount} action
-                {(row.openActionsWithoutOwnerOrDueCount ?? 0) > 1 ? 's' : ''} incomplète
-                {(row.openActionsWithoutOwnerOrDueCount ?? 0) > 1 ? 's' : ''}
-              </span>
-            ) : null}
-            {(row.openArbitrationsWithoutVerdictCount ?? 0) === 0 &&
-            (row.openActionsWithoutOwnerOrDueCount ?? 0) === 0 ? (
-              <span className="text-sm text-muted-foreground">Prêt à finaliser</span>
-            ) : null}
-          </div>
-        </td>
-      )}
-      {uiState === 'history' && (
-        <>
-          <td>
-            <span className="starium-ds-badge starium-ds-badge--neutral">
-              {PROJECT_REVIEW_STATUS_LABEL[row.status] ?? row.status}
-            </span>
-          </td>
-          <td className="tabular-nums text-sm">{row.decisionsCount}</td>
-          <td className="tabular-nums text-sm">{row.actionItemsCount}</td>
-        </>
-      )}
-      <td>
-        <div className="starium-dt-tname min-w-[12rem] max-w-[24rem]">
-          <div className={cn('starium-dt-tname-ico', iconTone)} aria-hidden>
-            <RowIcon strokeWidth={1.75} />
-          </div>
-          <div className="min-w-0">
-            <div className="starium-dt-cell-strong truncate">{title}</div>
-          </div>
+          )}
         </div>
-      </td>
-      <td className="starium-dt__right">
+
+        {metaParts.length > 0 ? (
+          <p className="starium-text-muted text-xs leading-snug sm:text-[13px]">
+            {metaParts.join(' · ')}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {preview.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <UserInitialsAvatarStack
+                members={preview.map((p) => ({
+                  id: p.id,
+                  displayName: p.displayName,
+                }))}
+                max={4}
+                size="sm"
+                className="!justify-start [&_li+li]:-ml-2"
+                listLabel={`${row.participantsCount} participants`}
+              />
+              {extraParticipants > 0 ? (
+                <span className="text-xs font-medium text-muted-foreground">
+                  +{extraParticipants}
+                </span>
+              ) : null}
+            </div>
+          ) : row.participantsCount > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              {row.participantsCount} participant
+              {row.participantsCount > 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Aucun participant
+            </span>
+          )}
+
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 text-xs font-medium',
+              footer.tone === 'success' &&
+                'text-emerald-700 dark:text-emerald-400',
+              footer.tone === 'warning' &&
+                'text-[color:var(--state-warning)]',
+              footer.tone === 'info' && 'text-sky-700 dark:text-sky-400',
+              footer.tone === 'muted' && 'text-muted-foreground',
+            )}
+          >
+            <FooterIcon className="size-3.5 shrink-0" aria-hidden strokeWidth={1.75} />
+            {footer.label}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center sm:pl-2">
         <button
           type="button"
-          className="starium-btn starium-btn-secondary starium-btn-sm min-h-11 sm:min-h-9"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-[color:var(--brand-gold-700)] hover:underline sm:min-h-9"
           onClick={(event) => {
             event.stopPropagation();
             onOpen(row.id);
           }}
         >
           {actionLabel}
+          <ChevronRight className="size-4" aria-hidden strokeWidth={2.25} />
         </button>
-      </td>
-    </tr>
+      </div>
+    </article>
   );
 }
 
@@ -221,60 +347,25 @@ export function ProjectReviewsTable({
   }[uiState];
 
   return (
-    <StariumTableWrap scrollLabel={`${caption} — glisser pour faire défiler`}>
-      <table className="starium-dt starium-dt--wide">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">
-              {uiState === 'in_progress' || uiState === 'to_finalize'
-                ? 'Démarrage'
-                : 'Date'}
-            </th>
-            <th scope="col">Type</th>
-            {(uiState === 'to_prepare' || uiState === 'upcoming') && (
-              <>
-                <th scope="col">Cadence</th>
-                <th scope="col">Participants</th>
-                <th scope="col">Préparation</th>
-              </>
-            )}
-            {uiState === 'in_progress' && (
-              <>
-                <th scope="col">Avancement ODJ</th>
-                <th scope="col">Présence</th>
-              </>
-            )}
-            {uiState === 'to_finalize' && <th scope="col">Signaux</th>}
-            {uiState === 'history' && (
-              <>
-                <th scope="col">Statut</th>
-                <th scope="col">Décisions</th>
-                <th scope="col">Actions</th>
-              </>
-            )}
-            <th scope="col">Titre</th>
-            <th scope="col" className="starium-dt__right">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => {
-            const state = rowUiState(row) ?? uiState;
-            return (
-              <ReviewTableRow
-                key={row.id}
-                row={row}
-                index={index}
-                uiState={state}
-                flash={flashId === row.id}
-                onOpen={onOpen}
-              />
-            );
-          })}
-        </tbody>
-      </table>
-    </StariumTableWrap>
+    <div
+      className="flex flex-col gap-3"
+      role="list"
+      aria-label={caption}
+      data-testid="project-reviews-list"
+    >
+      {rows.map((row) => {
+        const state = rowUiState(row) ?? uiState;
+        return (
+          <div key={row.id} role="listitem">
+            <ReviewListCard
+              row={row}
+              uiState={state}
+              flash={flashId === row.id}
+              onOpen={onOpen}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }

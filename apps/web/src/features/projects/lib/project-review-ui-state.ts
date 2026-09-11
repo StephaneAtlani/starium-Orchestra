@@ -89,8 +89,11 @@ export function parsePointsStateParam(
 
 export function ctaLabelForUiState(uiState: ProjectReviewUiState): string {
   switch (uiState) {
+    case 'to_prepare':
+    case 'upcoming':
+      return 'Préparer';
     case 'in_progress':
-      return 'Reprendre la conduite';
+      return 'Animer';
     case 'to_finalize':
       return 'Finaliser';
     case 'history':
