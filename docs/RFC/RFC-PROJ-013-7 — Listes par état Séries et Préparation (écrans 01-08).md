@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| **Statut** | ✅ Implémenté |
-| **Date** | 2026-09-10 |
-| **Parents** | RFC-PROJ-013-5 |
-| **Écrans PDF** | **01–08**, **06**, **07**, **13–17** |
+| **Statut** | ✅ Socle livré — **écarts UX/comportement vs CDC 8 écrans** → [RFC-PROJ-013-10](./RFC-PROJ-013-10%20—%20CDC%20parcours%208%20écrans%20Points%20projet%20(fidélité%20visuelle).md) (plan P1–P6) |
+| **Date** | 2026-09-10 (amendé 2026-09-11) |
+| **Parents** | RFC-PROJ-013-5 · **parcours actif** : RFC-PROJ-013-10 |
+| **Écrans PDF** | Catalogue 20 : **01–08**, **06**, **07**, **13–17** · CDC 8 : dashboard / créer / préparer (alignement 013-10) |
 | **Scope** | Sous-onglets À préparer / À venir / En cours / À finaliser / Historique / Séries ; KPI ; création typée ; préparation + figer ODJ |
 
 ## 1. Analyse de l’existant (avant livraison)

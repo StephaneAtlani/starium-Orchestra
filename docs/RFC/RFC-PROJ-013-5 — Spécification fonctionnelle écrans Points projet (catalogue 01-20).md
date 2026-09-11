@@ -2,10 +2,10 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft |
-| **Date** | 2026-09-10 |
+| **Statut** | 📝 Draft — **catalogue 20 écrans historique** ; parcours linéaire instance → **[RFC-PROJ-013-10](./RFC-PROJ-013-10%20—%20CDC%20parcours%208%20écrans%20Points%20projet%20(fidélité%20visuelle).md)** |
+| **Date** | 2026-09-10 (amendé 2026-09-11) |
 | **Parents** | RFC-PROJ-013 → 013-4 ; RFC-PROJ-CYCLE-* (vue transverse) |
-| **Source produit** | [*Spec fonctionnelle écrans Points projet* (PDF, 10 sept. 2026)](./_sources/Spec-fonctionnelle-ecrans-Points-projet-2026-09-10.pdf) — 23 p. / 20 écrans |
+| **Source produit** | [*Spec fonctionnelle écrans Points projet* (PDF, 10 sept. 2026)](./_sources/Spec-fonctionnelle-ecrans-Points-projet-2026-09-10.pdf) — 23 p. / 20 écrans · **CDC parcours 8 écrans** : [`Point_projet-CDC-ecrans.pdf`](./_sources/Point_projet-CDC-ecrans.pdf) → **RFC-PROJ-013-10** |
 | **Scope** | Cadre produit unique : inventaire des écrans, états UI, sorties, écarts vs code, découpage en RFC filles |
 
 ## 1. Analyse de l’existant
@@ -79,12 +79,13 @@ Champs Prisma livrés dans 013-7 : `agendaLockedAt`, `conductClosedAt`, `seriesI
 
 ## 5. Découpage RFC filles
 
-| RFC | Périmètre écrans | Priorité |
+| RFC | Périmètre | Statut |
 | --- | --- | --- |
-| **RFC-PROJ-013-6** | **09** Animer la séance (+ amorce 10 routing) | P0 |
-| **RFC-PROJ-013-7** | **01–08**, **06** Séries, création typée **07/13–17** | P0 — ✅ implémenté |
-| **RFC-PROJ-013-8** | **10** Articulation (remontées + descentes) ; **11/19** Finalisation & CR ; pont actions/risques | P1 — ✅ F1–F5 + F3.1 |
-| **RFC-PROJ-013-9** | **12, 18, 20** Vue transverse / calendrier (lien CYCLE) | P2 — ✅ C1 · 📝 T2/T4 |
+| **RFC-PROJ-013-10** | **CDC 8 écrans** (parcours instance, fidélité visuelle) — **pilote actif** | 📝 Draft |
+| RFC-PROJ-013-6 | Animer / close-conduct (CDC 06) | ✅ |
+| RFC-PROJ-013-7 | Listes / séries / socle prépa | ✅ socle · alignement via 013-10 |
+| RFC-PROJ-013-8 | Remontées / finalisation / CR (CDC 08) | ✅ F1–F5 + F3.1 |
+| RFC-PROJ-013-9 | Cycles / calendrier (hors CDC §24) | ✅ C1 · 📝 T2/T4 |
 
 ## 6. Fichiers (doc)
 
