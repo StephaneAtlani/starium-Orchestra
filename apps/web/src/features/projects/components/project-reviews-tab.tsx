@@ -22,12 +22,12 @@ import {
 } from '../lib/project-review-create-defaults';
 import { projectReviewConduct } from '../constants/project-routes';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
+import { ProjectReviewPrepareDialog } from './project-review-prepare-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
 import { ProjectReviewsKpiRow } from './project-reviews-kpi-row';
 import { ProjectReviewsContinuityPanel } from './project-reviews-continuity-panel';
 import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
 import { ProjectReviewsTable } from './project-reviews-table';
-import { ProjectReviewCreateSplitButton } from './project-review-create-split-button';
 import { ProjectReviewSeriesPanel } from './project-review-series-panel';
 import { cn } from '@/lib/utils';
 import {
@@ -55,6 +55,7 @@ export function ProjectReviewsTab({
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefillType, setCreatePrefillType] =
     useState<ProjectReviewCreateMenuType | null>(null);
+  const [prepareReviewId, setPrepareReviewId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
 
   const list = useProjectReviewsQuery(projectId);
@@ -101,6 +102,32 @@ export function ProjectReviewsTab({
       router.push(projectReviewConduct(projectId, id));
     },
     [projectId, router],
+  );
+
+  /** CDC 03 — Préparer = modale sur le dashboard (pas la page pleine). */
+  const openPrepare = useCallback((id: string) => {
+    setPrepareReviewId(id);
+  }, []);
+
+  const openReviewFromList = useCallback(
+    (id: string) => {
+      const row = list.data?.find((r) => r.id === id);
+      const state =
+        row?.uiState ??
+        (row
+          ? resolveReviewUiState({
+              status: row.status,
+              agendaLockedAt: row.agendaLockedAt,
+              conductClosedAt: row.conductClosedAt,
+            })
+          : null);
+      if (state === 'to_prepare') {
+        openPrepare(id);
+        return;
+      }
+      openEditor(id);
+    },
+    [list.data, openEditor, openPrepare],
   );
 
   /** Flash création 1,6 s */
@@ -235,7 +262,7 @@ export function ProjectReviewsTab({
     ? draftPostMortem
       ? "Continuer le retour d'expérience"
       : "Créer un retour d'expérience"
-    : 'Nouveau point projet';
+    : 'Créer un point';
 
   const showPrimaryCta =
     canEdit && !(postMortemEligible && finalizedPostMortem && !draftPostMortem);
@@ -277,12 +304,14 @@ export function ProjectReviewsTab({
             onChange={(next) => setPointsState(next)}
           />
           {canEdit && activeTab !== 'series' ? (
-            <ProjectReviewCreateSplitButton
-              onCreateType={(reviewType) => {
-                setCreatePrefillType(reviewType);
-                setCreateOpen(true);
-              }}
-            />
+            <button
+              type="button"
+              className="starium-btn starium-btn-primary min-h-11"
+              onClick={onPrimaryReviewAction}
+            >
+              <Plus strokeWidth={2.5} aria-hidden />
+              Créer un point
+            </button>
           ) : null}
         </div>
       ) : null}
@@ -368,12 +397,14 @@ export function ProjectReviewsTab({
                   description="Changez d’onglet ou créez un nouveau point."
                   action={
                     canEdit ? (
-                      <ProjectReviewCreateSplitButton
-                        onCreateType={(reviewType) => {
-                          setCreatePrefillType(reviewType);
-                          setCreateOpen(true);
-                        }}
-                      />
+                      <button
+                        type="button"
+                        className="starium-btn starium-btn-primary min-h-11"
+                        onClick={onPrimaryReviewAction}
+                      >
+                        <Plus strokeWidth={2.5} aria-hidden />
+                        Créer un point
+                      </button>
                     ) : undefined
                   }
                   className="py-14"
@@ -384,7 +415,7 @@ export function ProjectReviewsTab({
                 uiState={activeTab}
                 rows={filteredRows}
                 flashId={flashId}
-                onOpen={openEditor}
+                onOpen={openReviewFromList}
               />
             )}
           </div>
@@ -408,7 +439,8 @@ export function ProjectReviewsTab({
         initialReviewType={createPrefillType ?? undefined}
         onCreated={(reviewId, openEditorAfterCreate, meta) => {
           if (openEditorAfterCreate) {
-            openEditor(reviewId);
+            setPointsState('to_prepare', reviewId);
+            openPrepare(reviewId);
             return;
           }
           setPointsState('to_prepare', reviewId);
@@ -418,7 +450,7 @@ export function ProjectReviewsTab({
             actions: [
               {
                 label: 'Préparer',
-                onClick: () => openEditor(reviewId),
+                onClick: () => openPrepare(reviewId),
               },
               {
                 label: 'Annuler la création',
@@ -437,6 +469,15 @@ export function ProjectReviewsTab({
             ],
           });
         }}
+      />
+      <ProjectReviewPrepareDialog
+        open={!!prepareReviewId}
+        onOpenChange={(open) => {
+          if (!open) setPrepareReviewId(null);
+        }}
+        projectId={projectId}
+        reviewId={prepareReviewId}
+        canEdit={canEdit}
       />
     </div>
   );

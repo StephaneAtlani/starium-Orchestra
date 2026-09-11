@@ -16,6 +16,7 @@ import {
   createProjectReviewParticipant,
   cancelProjectReviewEscalation,
   cancelProjectReviewDescent,
+  deleteProjectReviewAgendaItem,
   deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
@@ -183,6 +184,25 @@ export function useProjectReviewMutations(projectId: string) {
         reviewId,
         agendaItemId,
         body,
+      ),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+    },
+  });
+
+  const deleteAgendaItem = useMutation({
+    mutationFn: ({
+      reviewId,
+      agendaItemId,
+    }: {
+      reviewId: string;
+      agendaItemId: string;
+    }) =>
+      deleteProjectReviewAgendaItem(
+        authFetch,
+        projectId,
+        reviewId,
+        agendaItemId,
       ),
     onSuccess: (_, { reviewId }) => {
       invalidateReview(reviewId);
@@ -480,6 +500,7 @@ export function useProjectReviewMutations(projectId: string) {
     inviteReview,
     createAgendaItem,
     updateAgendaItem,
+    deleteAgendaItem,
     reorderAgendaItems,
     startAgendaItem,
     completeAgendaItem,

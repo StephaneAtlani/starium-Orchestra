@@ -99,6 +99,13 @@ import { ReviewParticipantsSection } from './review-participants-section';
 import { ReviewInvitationsSection } from './review-invitations-section';
 import { ReviewPlannedPlanningFields } from './review-planned-planning-fields';
 import {
+  prepareLockIssuesFromDetail,
+  ProjectReviewPrepareCdcPanel,
+} from './project-review-prepare-cdc-panel';
+import { ProjectReviewConvocationDialog } from './project-review-convocation-dialog';
+import { canFreezePrepare } from '../lib/project-review-prepare-guards';
+import type { PrepareLockFocusTarget } from '../lib/project-review-prepare-guards';
+import {
   ReviewDecisionsSection,
   type ReviewDecisionFormRow,
 } from './review-decisions-section';
@@ -853,6 +860,7 @@ export function ProjectReviewEditorDialog({
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [confirmPlanOpen, setConfirmPlanOpen] = useState(false);
   const [confirmStartOpen, setConfirmStartOpen] = useState(false);
+  const [convocationOpen, setConvocationOpen] = useState(false);
   const [reportPreviewOpen, setReportPreviewOpen] = useState(false);
   const [reportPreviewData, setReportPreviewData] = useState<{
     subject: string;
@@ -874,6 +882,9 @@ export function ProjectReviewEditorDialog({
   const [conductSidebarOpen, setConductSidebarOpen] = useState(false);
   const planningDetailsRef = useRef<HTMLDetailsElement>(null);
   const prepareParamsDetailsRef = useRef<HTMLDetailsElement>(null);
+  const prepareDurationCounterRef = useRef<HTMLElement | null>(null);
+  const prepareParticipantsRef = useRef<HTMLElement | null>(null);
+  const prepareAgendaListRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setConductSidebarOpen(isConductWideLayout);
@@ -981,6 +992,30 @@ export function ProjectReviewEditorDialog({
     planningEditable &&
     !agendaLocked &&
     (d?.agendaItems.length ?? 0) >= 1;
+  const prepareLockIssues = useMemo(
+    () => (d ? prepareLockIssuesFromDetail(d) : []),
+    [d],
+  );
+  const prepareReadyToFreeze = useMemo(
+    () =>
+      d
+        ? canFreezePrepare({
+            agendaItems: (d.agendaItems ?? []).map((item) => ({
+              id: item.id,
+              title: item.title,
+              itemType: item.itemType,
+              plannedDurationMinutes: item.plannedDurationMinutes,
+              ownerUserId: item.ownerUserId,
+            })),
+            participantCount: (d.participants ?? []).length,
+            sessionDurationMinutes: d.durationMinutes,
+            attachments: (d.attachments ?? []).map((a) => ({
+              agendaItemId: a.agendaItemId,
+            })),
+          })
+        : false,
+    [d],
+  );
   const canUnlockAgenda = canEdit && planningEditable && agendaLocked;
   const canPreviewReport = d ? canPreviewDraftReviewReport(d.status) : false;
   const canSendReport = d
@@ -1506,38 +1541,51 @@ export function ProjectReviewEditorDialog({
     setConfirmPlanOpen(true);
   };
 
-  /** PDF 08 — figer ODJ + passer en « À venir » (SCHEDULED + lock). */
+  /** CDC P2 — figer ouvre la coquille convocation 04 (lock+invite à l’envoi). */
   const onLockAgendaForUpcoming = async () => {
     if (!d || !reviewId || !canLockAgenda) return;
     try {
       await flushPlanningSave();
-      const wasPreparing = d.status === 'PREPARING';
-      if (wasPreparing) {
-        if (!reviewDate.trim()) {
-          toast.error(
-            'Renseignez la date et l’heure avant de figer — le point passera en « À venir ».',
-          );
-          openPlanningSection();
-          return;
-        }
-        await scheduleReview.mutateAsync({
-          reviewId: d.id,
-          reviewDate: fromLocalDatetimeInput(reviewDate),
-        });
+      if (d.status === 'PREPARING' && !reviewDate.trim()) {
+        toast.error(
+          'Renseignez la date et l’heure avant de figer l’ordre du jour.',
+        );
+        openPlanningSection();
+        return;
       }
-      await lockAgenda.mutateAsync(reviewId);
-      toast.success(
-        wasPreparing
-          ? 'Ordre du jour figé — point en « À venir »'
-          : 'Ordre du jour figé',
-      );
+      if (prepareLockIssues.length > 0) {
+        toast.error(prepareLockIssues[0]!.message);
+        return;
+      }
+      setConvocationOpen(true);
     } catch (err) {
       toast.error(
         (err as { message?: string })?.message ??
-          'Impossible de figer l’ordre du jour',
+          'Impossible de préparer la convocation',
       );
     }
   };
+
+  const focusPrepareIssue = useCallback((focus: PrepareLockFocusTarget) => {
+    if (focus.kind === 'duration-overrun') {
+      prepareDurationCounterRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return;
+    }
+    if (focus.kind === 'participants') {
+      prepareParticipantsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return;
+    }
+    prepareAgendaListRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+    });
+  }, []);
 
   const onPlanReview = async () => {
     if (!d || !canEdit || (!canSchedule && !canStart)) return;
@@ -1970,6 +2018,79 @@ export function ProjectReviewEditorDialog({
           'gap-2',
         )}
       >
+        {editorPhase === 'prepare' && canEdit ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size={footerButtonSize}
+              className={footerActionClass}
+              disabled={update.isPending}
+              onClick={() => {
+                void flushPlanningSave().then(() =>
+                  toast.success('Brouillon enregistré'),
+                );
+              }}
+            >
+              Enregistrer le brouillon
+            </Button>
+            {canStart ? (
+              <Button
+                type="button"
+                variant="outline"
+                size={footerButtonSize}
+                className={footerActionClass}
+                onClick={() => void onRequestStartReview()}
+                disabled={startReview.isPending}
+              >
+                {startReview.isPending ? 'Démarrage…' : 'Démarrer la séance'}
+              </Button>
+            ) : null}
+            {canLockAgenda ? (
+              <Button
+                type="button"
+                size={footerButtonSize}
+                className={cn(
+                  footerActionClass,
+                  prepareReadyToFreeze &&
+                    'border-[color:var(--brand-gold)] bg-[color:var(--brand-gold)] text-foreground hover:bg-[color:var(--brand-gold)]/90',
+                )}
+                disabled={!prepareReadyToFreeze}
+                onClick={() => void onLockAgendaForUpcoming()}
+              >
+                Figer l’ordre du jour
+              </Button>
+            ) : null}
+            {canUnlockAgenda ? (
+              <Button
+                type="button"
+                variant="outline"
+                size={footerButtonSize}
+                className={footerActionClass}
+                disabled={unlockAgenda.isPending}
+                onClick={() => {
+                  if (!reviewId) return;
+                  unlockAgenda.mutate(reviewId, {
+                    onSuccess: () =>
+                      toast.success(
+                        'Ordre du jour réouvert — les participants seront renotifiés à la prochaine convocation',
+                      ),
+                    onError: (err) =>
+                      toast.error(
+                        (err as { message?: string })?.message ??
+                          'Impossible de réouvrir l’ordre du jour',
+                      ),
+                  });
+                }}
+              >
+                {unlockAgenda.isPending
+                  ? 'Réouverture…'
+                  : 'Rouvrir l’ordre du jour'}
+              </Button>
+            ) : null}
+          </>
+        ) : (
+          <>
         {(canSchedule || canStart) && canEdit ? (
           <Button
             type="button"
@@ -1997,11 +2118,7 @@ export function ProjectReviewEditorDialog({
             disabled={lockAgenda.isPending || scheduleReview.isPending}
             onClick={() => void onLockAgendaForUpcoming()}
           >
-            {lockAgenda.isPending || scheduleReview.isPending
-              ? 'Verrouillage…'
-              : d?.status === 'PREPARING'
-                ? 'Figer et passer à venir'
-                : 'Figer l’ordre du jour'}
+            Figer l’ordre du jour
           </Button>
         ) : null}
         {canUnlockAgenda ? (
@@ -2038,6 +2155,8 @@ export function ProjectReviewEditorDialog({
             {startReview.isPending ? 'Démarrage…' : 'Démarrer le point'}
           </Button>
         ) : null}
+          </>
+        )}
         {canPreviewReport ? (
           <Button
             type="button"
@@ -2972,7 +3091,7 @@ export function ProjectReviewEditorDialog({
                 </AlertDescription>
               </Alert>
             ) : null}
-            {editorPhase === 'prepare' || editorPhase === 'conduct' ? (
+            {editorPhase === 'conduct' ? (
               <div className="shrink-0 border-b border-border/70 px-1 pb-3">
                 <ReviewPreviousOpenActions
                   actions={
@@ -2987,36 +3106,9 @@ export function ProjectReviewEditorDialog({
                     Boolean(previousReviewId) &&
                     (previousDetailQuery.isError || !previousDetailQuery.data)
                   }
-                  canResume={
-                    editorPhase === 'prepare'
-                      ? planningEditable && !agendaLocked
-                      : editable
-                  }
-                  resumedTitles={
-                    editorPhase === 'prepare'
-                      ? (d.agendaItems ?? []).map((row) => row.title)
-                      : actions.map((row) => row.title)
-                  }
-                  onResume={
-                    editorPhase === 'prepare'
-                      ? async (action) => {
-                          try {
-                            await createAgendaItem.mutateAsync({
-                              reviewId: d.id,
-                              body: {
-                                title: action.title.trim(),
-                                itemType: 'ACTION_REVIEW',
-                                description:
-                                  action.description?.trim() || null,
-                              },
-                            });
-                            toast.success('Sujet ajouté à l’ordre du jour');
-                          } catch {
-                            toast.error('Impossible d’ajouter le sujet');
-                          }
-                        }
-                      : resumePreviousAction
-                  }
+                  canResume={editable}
+                  resumedTitles={actions.map((row) => row.title)}
+                  onResume={resumePreviousAction}
                 />
               </div>
             ) : null}
@@ -3094,174 +3186,101 @@ export function ProjectReviewEditorDialog({
               {phaseTabs.includes('agenda') ? (
                   <TabsContent value="agenda" className={reviewTabPanelClass}>
                     {editorPhase === 'prepare' ? (
-                      <details
-                        ref={prepareParamsDetailsRef}
-                        className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
-                      >
-                        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
-                          <span>
-                            <span className="block text-sm font-semibold text-foreground">
-                              Paramètres du point
-                            </span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              Type, date, titre, contexte — repliable
-                            </span>
-                          </span>
-                          <ChevronDown
-                            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-                            aria-hidden
-                          />
-                        </summary>
-                        <div className="space-y-4 border-t border-border/60 px-4 pb-4 pt-3">
-                          {prepareMetaPanel}
-                        </div>
-                      </details>
-                    ) : null}
-                    <ReviewAgendaSection
-                      projectId={projectId}
-                      reviewId={d.id}
-                      status={d.status}
-                      agendaItems={d.agendaItems ?? []}
-                      canEdit={canEdit}
-                      agendaStructureLocked={agendaLocked && planningEditable}
-                      reviewAttachments={d.attachments ?? []}
-                      formDecisions={decisions}
-                      formActions={actions}
-                      onAddDecision={editable ? appendDecision : undefined}
-                      onAddAction={editable ? appendAction : undefined}
-                      onUpdateDecision={editable ? updateDecision : undefined}
-                      onUpdateAction={editable ? updateAction : undefined}
-                      onRemoveDecision={editable ? removeDecision : undefined}
-                      onRemoveAction={editable ? removeAction : undefined}
-                      selectedAgendaItemId={selectedAgendaItemId}
-                      onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
-                      reviewType={reviewType}
-                      showAgendaPresetControls={showAgendaPresetControls && !agendaLocked}
-                      agendaPresetMismatch={showAgendaPresetMismatch}
-                      applyingAgendaPreset={applyingAgendaPreset}
-                      onApplyAgendaPreset={() => void applyAgendaPresetForType(reviewType)}
-                    />
-                    {editorPhase === 'prepare' && agendaLocked ? (
-                      <div
-                        className="mt-3 rounded-[var(--radius-md)] border border-border bg-muted/30 px-4 py-3 text-sm"
-                        role="status"
-                      >
-                        L’ordre du jour est figé. Réouvrez-le pour modifier la structure.
-                      </div>
-                    ) : null}
-                    {editorPhase === 'prepare' ? (
                       <>
-                        <ReviewParticipantsSection
-                          projectId={projectId}
-                          reviewId={d.id}
-                          status={d.status}
-                          participants={d.participants ?? []}
-                          canEdit={canEdit}
-                        />
-                        <section
-                          className="starium-form-section border-border/60"
-                          aria-labelledby="prepare-brief-title"
+                        <details
+                          ref={prepareParamsDetailsRef}
+                          className="group rounded-lg border border-border/70 bg-muted/15 open:bg-card open:shadow-sm"
                         >
-                          <h3
-                            id="prepare-brief-title"
-                            className="starium-form-section-title"
-                          >
-                            Brief de préparation
-                          </h3>
-                          <p className="mb-3 text-sm text-muted-foreground">
-                            Synthèse diffusée aux participants avant la séance
-                            (PDF 08).
-                          </p>
-                          {(d.agendaItems ?? []).length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              Ajoutez des points d’ordre du jour pour constituer
-                              le brief.
-                            </p>
-                          ) : (
-                            <ol className="mb-3 space-y-2">
-                              {(d.agendaItems ?? []).map((item, index) => (
-                                <li
-                                  key={item.id}
-                                  className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2 text-sm"
-                                >
-                                  <span className="font-medium text-foreground">
-                                    {index + 1}.{' '}
-                                    {displayLabel(item.title, 'Point sans titre')}
-                                  </span>
-                                  <span className="mt-1 flex flex-wrap gap-1.5">
-                                    <span className="starium-ds-badge starium-ds-badge--neutral">
-                                      {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[
-                                        item.itemType
-                                      ] ?? item.itemType}
-                                    </span>
-                                    {item.plannedDurationMinutes ? (
-                                      <span className="starium-ds-badge starium-ds-badge--neutral">
-                                        {item.plannedDurationMinutes} min
-                                      </span>
-                                    ) : null}
-                                    {item.ownerDisplayName ? (
-                                      <span className="starium-ds-badge starium-ds-badge--neutral">
-                                        {displayLabel(
-                                          item.ownerDisplayName,
-                                          'Porteur',
-                                        )}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                </li>
-                              ))}
-                            </ol>
-                          )}
-                          {canEdit && d.status === 'SCHEDULED' ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="min-h-11"
-                              disabled={inviteReview.isPending}
-                              onClick={() => {
-                                void inviteReview
-                                  .mutateAsync({
-                                    reviewId: d.id,
-                                    body: { channels: ['in_app', 'email'] },
-                                  })
-                                  .then((result) => {
-                                    const summary = formatPlanInviteToast(result);
-                                    toast.success(
-                                      summary
-                                        ? `Brief diffusé — ${summary}`
-                                        : 'Invitations envoyées',
-                                    );
-                                  })
-                                  .catch(() =>
-                                    toast.error(
-                                      'Impossible de diffuser le brief',
-                                    ),
-                                  );
-                              }}
-                            >
-                              {inviteReview.isPending
-                                ? 'Envoi…'
-                                : 'Diffuser le brief aux participants'}
-                            </Button>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Figez l’ordre du jour (point « À venir ») pour
-                              diffuser le brief aux participants.
-                            </p>
-                          )}
-                        </section>
-                        <ReviewAttachmentsSection
+                          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+                            <span>
+                              <span className="block text-sm font-semibold text-foreground">
+                                Paramètres du point
+                              </span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">
+                                Type, date, titre, contexte — repliable
+                              </span>
+                            </span>
+                            <ChevronDown
+                              className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                              aria-hidden
+                            />
+                          </summary>
+                          <div className="space-y-4 border-t border-border/60 px-4 pb-4 pt-3">
+                            {prepareMetaPanel}
+                          </div>
+                        </details>
+                        <ProjectReviewPrepareCdcPanel
                           projectId={projectId}
-                          reviewId={d.id}
-                          status={d.status}
-                          attachments={d.attachments ?? []}
-                          agendaItems={d.agendaItems ?? []}
-                          decisions={d.decisions ?? []}
-                          actionItems={d.actionItems ?? []}
+                          detail={d}
                           canEdit={canEdit}
+                          agendaLocked={agendaLocked}
+                          previousActions={
+                            previousReviewId
+                              ? (previousDetailQuery.data?.actionItems ?? null)
+                              : []
+                          }
+                          previousLoading={
+                            Boolean(previousReviewId) &&
+                            previousDetailQuery.isLoading
+                          }
+                          previousError={
+                            Boolean(previousReviewId) &&
+                            (previousDetailQuery.isError ||
+                              !previousDetailQuery.data)
+                          }
+                          onResumeAction={async (action) => {
+                            try {
+                              await createAgendaItem.mutateAsync({
+                                reviewId: d.id,
+                                body: {
+                                  title: action.title.trim(),
+                                  itemType: 'ACTION_REVIEW',
+                                  description:
+                                    action.description?.trim() || null,
+                                },
+                              });
+                              toast.success('Sujet ajouté à l’ordre du jour');
+                            } catch {
+                              toast.error('Impossible d’ajouter le sujet');
+                            }
+                          }}
+                          lockIssues={prepareLockIssues}
+                          onFocusIssue={focusPrepareIssue}
+                          agendaListRef={prepareAgendaListRef}
+                          durationCounterRef={prepareDurationCounterRef}
+                          participantsRef={prepareParticipantsRef}
                         />
                       </>
-                    ) : null}
+                    ) : (
+                      <ReviewAgendaSection
+                        projectId={projectId}
+                        reviewId={d.id}
+                        status={d.status}
+                        agendaItems={d.agendaItems ?? []}
+                        canEdit={canEdit}
+                        agendaStructureLocked={agendaLocked && planningEditable}
+                        reviewAttachments={d.attachments ?? []}
+                        formDecisions={decisions}
+                        formActions={actions}
+                        onAddDecision={editable ? appendDecision : undefined}
+                        onAddAction={editable ? appendAction : undefined}
+                        onUpdateDecision={editable ? updateDecision : undefined}
+                        onUpdateAction={editable ? updateAction : undefined}
+                        onRemoveDecision={editable ? removeDecision : undefined}
+                        onRemoveAction={editable ? removeAction : undefined}
+                        selectedAgendaItemId={selectedAgendaItemId}
+                        onSelectedAgendaItemIdChange={setSelectedAgendaItemId}
+                        reviewType={reviewType}
+                        showAgendaPresetControls={
+                          showAgendaPresetControls && !agendaLocked
+                        }
+                        agendaPresetMismatch={showAgendaPresetMismatch}
+                        applyingAgendaPreset={applyingAgendaPreset}
+                        onApplyAgendaPreset={() =>
+                          void applyAgendaPresetForType(reviewType)
+                        }
+                      />
+                    )}
                   </TabsContent>
               ) : null}
               {phaseTabs.includes('participants') ? (
@@ -3714,6 +3733,19 @@ export function ProjectReviewEditorDialog({
         {confirmPlanModal}
         {confirmStartModal}
         {reportPreviewDialog}
+        {d ? (
+          <ProjectReviewConvocationDialog
+            open={convocationOpen}
+            onOpenChange={setConvocationOpen}
+            projectId={projectId}
+            detail={d}
+            scheduleReviewDateIso={
+              reviewDate.trim()
+                ? fromLocalDatetimeInput(reviewDate)
+                : d.reviewDate
+            }
+          />
+        ) : null}
       </>
   );
 }

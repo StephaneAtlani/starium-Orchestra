@@ -208,6 +208,20 @@ export async function updateProjectReviewAgendaItem(
   return res.json() as Promise<ProjectReviewAgendaItemApi>;
 }
 
+export async function deleteProjectReviewAgendaItem(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  agendaItemId: string,
+): Promise<{ ok: boolean }> {
+  const res = await authFetch(
+    `${agendaBase(projectId, reviewId)}/${agendaItemId}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ ok: boolean }>;
+}
+
 export async function reorderProjectReviewAgendaItems(
   authFetch: AuthFetch,
   projectId: string,

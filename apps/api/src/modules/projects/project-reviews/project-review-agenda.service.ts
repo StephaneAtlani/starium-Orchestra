@@ -217,6 +217,40 @@ export class ProjectReviewAgendaService {
     return updated;
   }
 
+  async remove(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    agendaItemId: string,
+    context?: AuditContext,
+  ) {
+    const review = await this.loadReview(clientId, projectId, reviewId);
+    assertReviewAgendaEditable(review.status);
+    this.assertAgendaStructureUnlocked(review);
+    const existing = await this.loadAgendaItem(
+      clientId,
+      projectId,
+      reviewId,
+      agendaItemId,
+    );
+
+    await this.prisma.projectReviewAgendaItem.delete({
+      where: { id: existing.id },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_AGENDA_ITEM_DELETED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_AGENDA_ITEM,
+      resourceId: existing.id,
+      oldValue: { projectId, reviewId, title: existing.title },
+      ...this.auditMeta(context),
+    });
+
+    return { ok: true as const };
+  }
+
   async reorder(
     clientId: string,
     projectId: string,

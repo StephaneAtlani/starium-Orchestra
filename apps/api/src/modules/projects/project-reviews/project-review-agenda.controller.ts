@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Param,
   Patch,
   Post,
@@ -83,6 +84,26 @@ export class ProjectReviewAgendaController {
       reviewId,
       agendaItemId,
       dto,
+      context,
+    );
+  }
+
+  @Delete(':agendaItemId')
+  @RequirePermissions('projects.update')
+  remove(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Param('agendaItemId') agendaItemId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.agendaService.remove(
+      clientId!,
+      projectId,
+      reviewId,
+      agendaItemId,
       context,
     );
   }

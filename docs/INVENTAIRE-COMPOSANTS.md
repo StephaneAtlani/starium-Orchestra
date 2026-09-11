@@ -396,7 +396,10 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-pilotage-attention-panel` - `features/projects/components/project-pilotage-attention-panel.tsx` - panneau points d’attention pilotage sur l’aperçu projet (warnings API, libellés métier, CTA fiche).
 - `project-post-mortem-overview-banner` - `features/projects/components/project-post-mortem-overview-banner.tsx` - bandeau REX en tête de l’aperçu (projet clos ; CTA Continuer/Créer ; `?openReview=`).
 - `project-retroplan-macro-dialog` - `features/projects/components/project-retroplan-macro-dialog.tsx` - ouvre un dialogue pour projet retroplan macro.
-- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
+- `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX ; phase prepare = panneau CDC 03 + pied figer → 04.
+- `project-review-prepare-dialog` - `features/projects/components/project-review-prepare-dialog.tsx` - CDC 03 modale « Préparer l'instance » (dashboard overlay).
+- `project-review-prepare-cdc-panel` - `features/projects/components/project-review-prepare-cdc-panel.tsx` - zones CDC 03 (bandeau, ODJ, supports, arbitrages, reprise, compteur durée).
+- `project-review-convocation-dialog` - `features/projects/components/project-review-convocation-dialog.tsx` - coquille 04 envoi convocations (aperçu 2 volets = P3).
 - `project-review-animate-session` - `features/projects/components/project-review-animate-session.tsx` - écran 09 Animer la séance (présence, ODJ, timers, décision V1, close-conduct).
 - `project-review-finalize-checklist` - `features/projects/components/project-review-finalize-checklist.tsx` - contrôles soft finalisation (écran 11) + cases opt-in push tâches/risques.
 - `project-review-escalations-screen` - `features/projects/components/project-review-escalations-screen.tsx` - écran 10 articulation (remontées COPRO→COPIL + décisions COPIL→COPROJ F3.1).
@@ -409,7 +412,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-reviews-continuity-panel` - `features/projects/components/project-reviews-continuity-panel.tsx` - panneau « Continuité du pilotage » (PDF 01/02).
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - sous-onglets états + badges compteurs.
 - `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale CDC 02 (zones 1–7 : pastilles type, titre, objectif, série/date, modèle ODJ ; CTAs Annuler / Créer / Créer et préparer ; toast undo 6 s).
-- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - PDF 13 : clic = COPROJ ; chevron = menu typé (cadence + ponctuel).
+- `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - **déprécié** (CDC 01 : CTA unique « Créer un point » ; type choisi dans la modale 02).
 - `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
 - `project-risks-view` - `features/projects/components/project-risks-view.tsx` - affiche la vue de projet risques.

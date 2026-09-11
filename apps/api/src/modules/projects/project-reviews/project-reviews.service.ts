@@ -74,6 +74,7 @@ import {
   resolveReviewUiState,
   type ProjectReviewUiState,
 } from './project-review-ui-state';
+import { firstPrepareLockError } from './project-review-prepare-guards';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
 import {
   formatProjectReviewUserDisplayName,
@@ -994,7 +995,19 @@ export class ProjectReviewsService {
     await this.projects.getProjectForScope(clientId, projectId);
     const review = await this.prisma.projectReview.findFirst({
       where: { id: reviewId, clientId, projectId },
-      include: { agendaItems: { select: { id: true } } },
+      include: {
+        agendaItems: {
+          select: {
+            id: true,
+            title: true,
+            itemType: true,
+            plannedDurationMinutes: true,
+            ownerUserId: true,
+          },
+        },
+        participants: { select: { id: true } },
+        attachments: { select: { agendaItemId: true } },
+      },
     });
     if (!review) throw new NotFoundException('Review not found');
 
@@ -1010,10 +1023,23 @@ export class ProjectReviewsService {
     if (review.agendaLockedAt) {
       throw new BadRequestException('L’ordre du jour est déjà figé');
     }
-    if (review.agendaItems.length < 1) {
-      throw new BadRequestException(
-        'Ajoutez au moins un point à l’ordre du jour avant de le figer',
-      );
+
+    const lockError = firstPrepareLockError({
+      agendaItems: review.agendaItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        itemType: item.itemType,
+        plannedDurationMinutes: item.plannedDurationMinutes,
+        ownerUserId: item.ownerUserId,
+      })),
+      participantCount: review.participants.length,
+      sessionDurationMinutes: review.durationMinutes,
+      attachments: review.attachments.map((a) => ({
+        agendaItemId: a.agendaItemId,
+      })),
+    });
+    if (lockError) {
+      throw new BadRequestException(lockError);
     }
 
     const updated = await this.prisma.projectReview.update({

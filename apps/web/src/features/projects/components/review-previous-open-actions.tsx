@@ -20,6 +20,7 @@ export function ReviewPreviousOpenActions({
   canResume,
   resumedTitles,
   onResume,
+  emptyMessage = 'Aucune action ouverte sur le point précédent.',
 }: {
   actions: ProjectReviewActionItemApi[] | null;
   loading: boolean;
@@ -27,6 +28,7 @@ export function ReviewPreviousOpenActions({
   canResume: boolean;
   resumedTitles: string[];
   onResume: (action: ProjectReviewActionItemApi) => void | Promise<void>;
+  emptyMessage?: string;
 }) {
   const openActions = (actions ?? []).filter(isOpenPreviousAction);
   const resumed = new Set(resumedTitles.map(normalizeActionTitle));
@@ -43,9 +45,7 @@ export function ReviewPreviousOpenActions({
           Impossible de charger le point précédent.
         </p>
       ) : openActions.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Aucune action ouverte sur le point précédent.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
         <ul className="mt-2 space-y-2">
           {openActions.map((action) => {

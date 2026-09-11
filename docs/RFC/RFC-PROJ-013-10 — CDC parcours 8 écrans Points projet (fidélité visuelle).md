@@ -169,15 +169,15 @@ Alignement 013-8 : édition live, diffusion, verrouillage. R08.*
 
 **Prisma** : templates code V1 (presets) — pas de migration P1.
 
-### Phase P2 — 03 Préparer + chaîne figer → 04 ← **prochaine**
+### Phase P2 — 03 Préparer + chaîne figer → 04
 
-1. UI préparation = zones CDC (bandeau, ODJ, supports, arbitrages, reprise interne).  
-2. Compteur durée cumulée.  
-3. Contrôles bloquants avant figer.  
-4. CTA « Figer l’ordre du jour » → ouvre 04 (ne plus seulement « passer à venir » silencieux).  
-5. Tests lock + garde porteur.
+- [x] UI préparation = zones CDC (bandeau, ODJ, supports, arbitrages, reprise).
+- [x] Compteur durée cumulée (ambre si dépassement).
+- [x] Contrôles bloquants avant figer (FE + `lockAgenda` API).
+- [x] CTA « Figer l’ordre du jour » → coquille 04 (schedule + lock + invite à l’envoi).
+- [x] Tests guards Vitest / Jest + DELETE agenda item.
 
-### Phase P3 — 04 Convocation
+### Phase P3 — 04 Convocation ← **prochaine**
 
 1. Modale 2 volets aperçu vivant.  
 2. Envoi = lock + invitations + passage À venir.  

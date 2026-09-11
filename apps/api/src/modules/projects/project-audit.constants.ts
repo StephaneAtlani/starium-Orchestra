@@ -114,6 +114,7 @@ export const PROJECT_AUDIT_ACTION = {
   PROJECT_REVIEW_STARTED: 'project.review.started',
   PROJECT_REVIEW_AGENDA_ITEM_CREATED: 'project.review.agenda_item.created',
   PROJECT_REVIEW_AGENDA_ITEM_UPDATED: 'project.review.agenda_item.updated',
+  PROJECT_REVIEW_AGENDA_ITEM_DELETED: 'project.review.agenda_item.deleted',
   PROJECT_REVIEW_AGENDA_ITEM_REORDERED: 'project.review.agenda_item.reordered',
   PROJECT_REVIEW_AGENDA_ITEM_STARTED: 'project.review.agenda_item.started',
   PROJECT_REVIEW_AGENDA_ITEM_COMPLETED: 'project.review.agenda_item.completed',
