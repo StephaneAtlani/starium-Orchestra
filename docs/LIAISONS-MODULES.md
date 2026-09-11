@@ -117,8 +117,11 @@ flowchart LR
   CYC -->|GovernanceCycleItem| PROJ
   CYC --> BUD
   CYC --> RISK
+  CYC -->|calendar-events| PROJ
   MEET[Réunions] -->|MeetingProject / instance| PROJ
   MEET --> CYC
+  PROJ -->|Escalation COPRO→COPIL| PROJ
+  PROJ -->|Descent COPIL→COPRO| PROJ
 ```
 
 ---
@@ -142,6 +145,9 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `cycle-objective` | Cycles | Vision | FK | `GovernanceCycleItem.strategicObjectiveId` | RFC-PROJ-CYCLE-001 |
 | `meet-project` | Réunions | Projets | Overlay | `MeetingProject` (+ `ProjectReview`) | RFC-MEET-001 |
 | `meet-cycle` | Réunions | Cycles | Overlay | `Meeting.governanceCycleInstanceId` | RFC-MEET-001 |
+| `review-escalation` | Projets (COPRO) | Projets (COPIL) | Overlay | `ProjectReviewEscalation` + ODJ `ESCALATION` | RFC-PROJ-013-8 F3 |
+| `review-descent` | Projets (COPIL) | Projets (COPRO) | Overlay | `ProjectReviewDescent` + ODJ `DECISION_DESCENT` | RFC-PROJ-013-8 F3.1 |
+| `cycle-calendar-reviews` | Cycles | Projets | Agrégat | `GET …/governance-cycles/calendar-events` (reviews + instances, ACL projets) | RFC-PROJ-013-9 C1 |
 | `meet-risk` | Réunions | Risques | Overlay | `MeetingBlocker.riskId` | RFC-MEET-001 |
 | `meet-attendee` | Réunions | RH | FK | `MeetingAttendee.resourceId` | RFC-MEET-001 |
 | `compliance-risk` | Conformité | Risques | FK | `ProjectRisk.complianceRequirementId` | RFC-PROJ-RISK-001 |

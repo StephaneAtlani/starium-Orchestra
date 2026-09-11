@@ -42,6 +42,14 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       update: jest.Mock;
       groupBy: jest.Mock;
     };
+    projectReviewDescent: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      groupBy: jest.Mock;
+      count: jest.Mock;
+    };
     projectReviewAgendaItem: {
       findFirst: jest.Mock;
       findMany: jest.Mock;
@@ -162,6 +170,14 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
         update: jest.fn(),
         groupBy: jest.fn().mockResolvedValue([]),
       },
+      projectReviewDescent: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        groupBy: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
       projectReviewAgendaItem: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -187,6 +203,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
           projectReviewActionItemContributor:
             prisma.projectReviewActionItemContributor,
           projectReviewEscalation: prisma.projectReviewEscalation,
+          projectReviewDescent: prisma.projectReviewDescent,
           projectReviewAgendaItem: prisma.projectReviewAgendaItem,
           projectTask: prisma.projectTask,
           project: prisma.project,
@@ -1550,6 +1567,149 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       await expect(
         service.consolidateEscalations(clientId, projectId, reviewId),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('RFC-PROJ-013-8 F3.1 descents', () => {
+    it('finalize COPIL crée une descente et injecte dans le prochain COPRO', async () => {
+      const coproId = 'copro1';
+      const decisionId = 'dec1';
+      const base = reviewRow({
+        status: ProjectReviewStatus.IN_PROGRESS,
+        reviewType: ProjectReviewType.COPIL,
+        title: 'COPIL sept',
+        conductClosedAt: new Date('2026-09-10'),
+        decisions: [
+          {
+            id: decisionId,
+            title: 'Go budget',
+            description: 'Validé en séance',
+            agendaItemId: null,
+            decisionType: 'GO',
+            status: 'VALIDATED',
+            decidedByUserId: 'u2',
+            decidedAt: new Date(),
+            impact: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      });
+      prisma.projectReview.findFirst.mockResolvedValue(base);
+      prisma.project.findFirst.mockResolvedValue({
+        id: projectId,
+        clientId,
+        name: 'P',
+        status: ProjectStatus.IN_PROGRESS,
+        priority: 'HIGH',
+        progressPercent: 50,
+        arbitrationMetierStatus: 'BROUILLON',
+        arbitrationComiteStatus: null,
+        arbitrationCodirStatus: null,
+        arbitrationStatus: null,
+      });
+      prisma.projectTask.findMany.mockResolvedValue([]);
+      prisma.projectRisk.findMany.mockResolvedValue([]);
+      prisma.projectMilestone.findMany.mockResolvedValue([]);
+      prisma.projectBudgetLink.findMany.mockResolvedValue([]);
+      prisma.projectReview.update.mockImplementation(({ data }) =>
+        Promise.resolve(
+          reviewRow({
+            ...base,
+            ...data,
+            status: ProjectReviewStatus.FINALIZED,
+          }),
+        ),
+      );
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+          fn({
+            projectReview: {
+              findFirst: prisma.projectReview.findFirst,
+              update: prisma.projectReview.update,
+            },
+            project: { findFirst: prisma.project.findFirst },
+            projectTask: prisma.projectTask,
+            projectRisk: prisma.projectRisk,
+            projectMilestone: prisma.projectMilestone,
+            projectBudgetLink: prisma.projectBudgetLink,
+            projectReviewDescent: prisma.projectReviewDescent,
+            projectReviewAgendaItem: prisma.projectReviewAgendaItem,
+          }),
+      );
+
+      // findNextCoproCandidate
+      prisma.projectReview.findMany.mockResolvedValue([
+        {
+          id: coproId,
+          title: 'COPROJ oct',
+          reviewDate: new Date('2026-10-01'),
+          agendaLockedAt: null,
+        },
+      ]);
+      prisma.projectReviewDescent.findFirst.mockResolvedValue(null);
+      prisma.projectReviewDescent.create.mockResolvedValue({
+        id: 'des1',
+        clientId,
+        projectId,
+        sourceReviewId: reviewId,
+        sourceDecisionId: decisionId,
+        title: 'Go budget',
+        summary: 'Validé en séance',
+        ownerUserId: 'u2',
+        targetReviewId: coproId,
+        status: 'PENDING',
+      });
+      prisma.projectReviewAgendaItem.create.mockResolvedValue({ id: 'ag-d1' });
+      prisma.projectReviewDescent.update.mockResolvedValue({});
+
+      await service.finalize(clientId, projectId, reviewId, {
+        actorUserId: 'u1',
+      });
+
+      expect(prisma.projectReviewDescent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sourceDecisionId: decisionId,
+            title: 'Go budget',
+          }),
+        }),
+      );
+      expect(prisma.projectReviewAgendaItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            itemType: 'DECISION_DESCENT',
+            projectReviewId: coproId,
+          }),
+        }),
+      );
+      expect(auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_DESCENT_CREATED,
+          newValue: expect.objectContaining({
+            created: 1,
+            injected: 1,
+          }),
+        }),
+      );
+    });
+
+    it('consolidateDescents refuse hors COPRO', async () => {
+      prisma.projectReview.findFirst.mockResolvedValue(
+        reviewRow({ reviewType: ProjectReviewType.COPIL }),
+      );
+      await expect(
+        service.consolidateDescents(clientId, projectId, reviewId),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('listDescents isole le client (404)', async () => {
+      projects.getProjectForScope.mockRejectedValue(
+        new NotFoundException('Project not found'),
+      );
+      await expect(
+        service.listDescents(clientId, projectId, reviewId),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

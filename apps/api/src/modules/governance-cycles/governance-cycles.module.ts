@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { AccessDecisionModule } from '../access-decision/access-decision.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { GovernanceCalendarService } from './governance-calendar.service';
 import { GovernanceCycleInstancesController } from './governance-cycle-instances.controller';
 import { GovernanceCycleInstancesService } from './governance-cycle-instances.service';
 import { GovernanceCyclePropagationService } from './governance-cycle-propagation.service';
@@ -9,13 +11,14 @@ import { GovernanceCyclesController } from './governance-cycles.controller';
 import { GovernanceCyclesService } from './governance-cycles.service';
 
 @Module({
-  imports: [PrismaModule, AuditLogsModule],
+  imports: [PrismaModule, AuditLogsModule, AccessDecisionModule],
   controllers: [GovernanceCyclesController, GovernanceCycleInstancesController],
   providers: [
     GovernanceCyclesService,
     GovernanceCycleInstancesService,
     GovernanceCycleReadinessService,
     GovernanceCyclePropagationService,
+    GovernanceCalendarService,
   ],
   exports: [GovernanceCyclesService, GovernanceCycleInstancesService],
 })

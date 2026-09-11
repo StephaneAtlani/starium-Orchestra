@@ -8,12 +8,14 @@ import {
   closeConductProjectReview,
   completeProjectReviewAgendaItem,
   consolidateProjectReviewEscalations,
+  consolidateProjectReviewDescents,
   createProjectReview,
   createProjectReviewAgendaItem,
   createProjectReviewAttachment,
   createProjectReviewEscalation,
   createProjectReviewParticipant,
   cancelProjectReviewEscalation,
+  cancelProjectReviewDescent,
   deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
   finalizeProjectReview,
@@ -58,6 +60,9 @@ export function useProjectReviewMutations(projectId: string) {
     });
     void qc.invalidateQueries({
       queryKey: projectQueryKeys.reviewEscalations(clientId, projectId, reviewId),
+    });
+    void qc.invalidateQueries({
+      queryKey: projectQueryKeys.reviewDescents(clientId, projectId, reviewId),
     });
   };
 
@@ -438,6 +443,31 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const cancelDescent = useMutation({
+    mutationFn: ({
+      reviewId,
+      descentId,
+    }: {
+      reviewId: string;
+      descentId: string;
+    }) =>
+      cancelProjectReviewDescent(authFetch, projectId, reviewId, descentId),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.reviews(clientId, projectId),
+      });
+    },
+  });
+
+  const consolidateDescents = useMutation({
+    mutationFn: (reviewId: string) =>
+      consolidateProjectReviewDescents(authFetch, projectId, reviewId),
+    onSuccess: (_, reviewId) => {
+      invalidateReview(reviewId);
+    },
+  });
+
   return {
     create,
     update,
@@ -467,5 +497,7 @@ export function useProjectReviewMutations(projectId: string) {
     createEscalation,
     cancelEscalation,
     consolidateEscalations,
+    cancelDescent,
+    consolidateDescents,
   };
 }

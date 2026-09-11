@@ -8,6 +8,7 @@ import {
   ProjectReviewAgendaItemType,
   ProjectReviewDecisionStatus,
   ProjectReviewDecisionType,
+  ProjectReviewDescentStatus,
   ProjectReviewEscalationStatus,
   ProjectReviewStatus,
   ProjectReviewType,
@@ -49,6 +50,12 @@ import {
   resolveNextCopilTarget,
   reviewTitleLabel,
 } from './project-review-escalations';
+import {
+  buildDescentAgendaDescription,
+  COPRO_DESCENT_TARGET_STATUSES,
+  descentStatusLabel,
+  resolveNextCoproTarget,
+} from './project-review-descents';
 import { applyCriticalityFromProbabilityImpact } from '../lib/project-risk-criticality.util';
 import {
   assertMeetingFieldsCoherence,
@@ -681,6 +688,7 @@ export class ProjectReviewsService {
       openActionsWithoutOwnerOrDueCount,
       openArbitrationsWithoutVerdictCount,
       incomingEscalationsPendingCount: 0,
+      incomingDescentsPendingCount: 0,
     };
   }
 
@@ -790,12 +798,29 @@ export class ProjectReviewsService {
         .filter((row) => row.targetReviewId != null)
         .map((row) => [row.targetReviewId as string, row._count._all]),
     );
+    const pendingDescentsByTarget =
+      await this.prisma.projectReviewDescent.groupBy({
+        by: ['targetReviewId'],
+        where: {
+          clientId,
+          projectId,
+          status: ProjectReviewDescentStatus.PENDING,
+          targetReviewId: { not: null },
+        },
+        _count: { _all: true },
+      });
+    const pendingDescentsMap = new Map(
+      pendingDescentsByTarget
+        .filter((row) => row.targetReviewId != null)
+        .map((row) => [row.targetReviewId as string, row._count._all]),
+    );
     return {
       items: rows.map((r: ReviewWithChildren) => {
         const item = this.mapReviewToListItem(r);
         return {
           ...item,
           incomingEscalationsPendingCount: pendingMap.get(r.id) ?? 0,
+          incomingDescentsPendingCount: pendingDescentsMap.get(r.id) ?? 0,
         };
       }),
     };
@@ -885,16 +910,16 @@ export class ProjectReviewsService {
           status: { notIn: ['DONE', 'CANCELLED'] },
         },
       }),
-      // Fallback documenté 013-7 : décisions VALIDATED des COPIL FINALIZED (pas de appliedAt en schéma).
-      this.prisma.projectReviewDecision.count({
+      // RFC-PROJ-013-8 F3.1 — décisions COPIL encore à appliquer (descentes actives).
+      this.prisma.projectReviewDescent.count({
         where: {
           clientId,
-          status: ProjectReviewDecisionStatus.VALIDATED,
-          projectReview: {
-            clientId,
-            projectId,
-            reviewType: ProjectReviewType.COPIL,
-            status: ProjectReviewStatus.FINALIZED,
+          projectId,
+          status: {
+            in: [
+              ProjectReviewDescentStatus.PENDING,
+              ProjectReviewDescentStatus.INJECTED,
+            ],
           },
         },
       }),
@@ -2052,6 +2077,48 @@ export class ProjectReviewsService {
       });
     }
 
+    // RFC-PROJ-013-8 F3.1 — descentes COPIL → COPRO pour décisions VALIDATED
+    if (finalized.reviewType === ProjectReviewType.COPIL) {
+      const descentCounts = await this.createDescentsFromFinalizedCopil(
+        clientId,
+        projectId,
+        finalized,
+        context,
+      );
+      if (descentCounts.created > 0) {
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_DESCENT_CREATED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+          resourceId: reviewId,
+          newValue: {
+            projectId,
+            reviewId,
+            created: descentCounts.created,
+            injected: descentCounts.injected,
+            skippedExisting: descentCounts.skippedExisting,
+          },
+          ...meta,
+        });
+      }
+      if (descentCounts.injected > 0) {
+        await this.auditLogs.create({
+          clientId,
+          userId: context?.actorUserId,
+          action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_DESCENT_INJECTED,
+          resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+          resourceId: reviewId,
+          newValue: {
+            projectId,
+            reviewId,
+            count: descentCounts.injected,
+          },
+          ...meta,
+        });
+      }
+    }
+
     return this.mapReviewToDetail(finalized);
   }
 
@@ -3093,6 +3160,481 @@ export class ProjectReviewsService {
     }
 
     const listed = await this.listEscalations(clientId, projectId, reviewId);
+    return {
+      injected,
+      skippedLocked: false,
+      items: listed.items,
+    };
+  }
+
+  // --- RFC-PROJ-013-8 F3.1 — descentes COPIL → COPRO ---
+
+  private mapDescentApi(
+    row: {
+      id: string;
+      clientId: string;
+      projectId: string;
+      sourceReviewId: string;
+      sourceDecisionId: string;
+      title: string;
+      summary: string | null;
+      ownerUserId: string | null;
+      targetReviewId: string | null;
+      targetAgendaItemId: string | null;
+      status: ProjectReviewDescentStatus;
+      injectedAt: Date | null;
+      createdByUserId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      ownerUser?: {
+        firstName: string | null;
+        lastName: string | null;
+        email: string;
+      } | null;
+      sourceReview?: {
+        title: string | null;
+        reviewType: ProjectReviewType;
+        reviewDate: Date | null;
+      } | null;
+      targetReview?: {
+        title: string | null;
+        reviewType: ProjectReviewType;
+        reviewDate: Date | null;
+      } | null;
+    },
+  ) {
+    const ownerDisplayName =
+      formatProjectReviewUserDisplayName(row.ownerUser) ?? null;
+    const sourceReviewTitle = row.sourceReview
+      ? reviewTitleLabel(row.sourceReview.title, row.sourceReview.reviewType)
+      : 'COPIL';
+    const targetReviewTitle = row.targetReview
+      ? reviewTitleLabel(row.targetReview.title, row.targetReview.reviewType)
+      : null;
+    return {
+      id: row.id,
+      clientId: row.clientId,
+      projectId: row.projectId,
+      sourceReviewId: row.sourceReviewId,
+      sourceDecisionId: row.sourceDecisionId,
+      title: row.title,
+      summary: row.summary,
+      ownerUserId: row.ownerUserId,
+      ownerDisplayName,
+      targetReviewId: row.targetReviewId,
+      targetAgendaItemId: row.targetAgendaItemId,
+      targetReviewTitle,
+      targetReviewDate: row.targetReview?.reviewDate?.toISOString() ?? null,
+      sourceReviewTitle,
+      sourceReviewDate: row.sourceReview?.reviewDate?.toISOString() ?? null,
+      status: row.status,
+      statusLabel: descentStatusLabel(row.status),
+      injectedAt: row.injectedAt?.toISOString() ?? null,
+      createdByUserId: row.createdByUserId,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private async loadDescentMapped(clientId: string, descentId: string) {
+    const row = await this.prisma.projectReviewDescent.findFirst({
+      where: { id: descentId, clientId },
+      include: {
+        ownerUser: { select: projectReviewUserSelect },
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+        targetReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException('Descente introuvable');
+    return this.mapDescentApi(row);
+  }
+
+  private async findNextCoproCandidate(
+    clientId: string,
+    projectId: string,
+    sourceDate: Date | null,
+    excludeReviewId?: string,
+  ) {
+    const candidates = await this.prisma.projectReview.findMany({
+      where: {
+        clientId,
+        projectId,
+        reviewType: ProjectReviewType.COPRO,
+        status: { in: COPRO_DESCENT_TARGET_STATUSES },
+        ...(excludeReviewId ? { id: { not: excludeReviewId } } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        reviewDate: true,
+        agendaLockedAt: true,
+      },
+    });
+    return resolveNextCoproTarget(candidates, sourceDate);
+  }
+
+  private async injectDescentIntoTarget(
+    tx: Prisma.TransactionClient,
+    descent: {
+      id: string;
+      clientId: string;
+      projectId: string;
+      title: string;
+      summary: string | null;
+      ownerUserId: string | null;
+      sourceReviewId: string;
+    },
+    target: {
+      id: string;
+      agendaLockedAt: Date | null;
+      title: string | null;
+    },
+    sourceMeta: {
+      sourceReviewTitle: string;
+      sourceReviewDateLabel: string | null;
+    },
+  ): Promise<{ injected: boolean; targetAgendaItemId: string | null }> {
+    if (!canInjectIntoTargetAgenda(target.agendaLockedAt)) {
+      return { injected: false, targetAgendaItemId: null };
+    }
+
+    const maxOrder = await tx.projectReviewAgendaItem.aggregate({
+      where: { clientId: descent.clientId, projectReviewId: target.id },
+      _max: { orderIndex: true },
+    });
+    const orderIndex = (maxOrder._max.orderIndex ?? -1) + 1;
+    const description = buildDescentAgendaDescription({
+      sourceReviewTitle: sourceMeta.sourceReviewTitle,
+      sourceReviewDateLabel: sourceMeta.sourceReviewDateLabel,
+      summary: descent.summary,
+    });
+
+    const agendaItem = await tx.projectReviewAgendaItem.create({
+      data: {
+        clientId: descent.clientId,
+        projectReviewId: target.id,
+        title: descent.title,
+        description,
+        itemType: ProjectReviewAgendaItemType.DECISION_DESCENT,
+        orderIndex,
+        ownerUserId: descent.ownerUserId,
+      },
+    });
+
+    await tx.projectReviewDescent.update({
+      where: { id: descent.id },
+      data: {
+        targetReviewId: target.id,
+        targetAgendaItemId: agendaItem.id,
+        status: ProjectReviewDescentStatus.INJECTED,
+        injectedAt: new Date(),
+      },
+    });
+
+    return { injected: true, targetAgendaItemId: agendaItem.id };
+  }
+
+  private async createDescentsFromFinalizedCopil(
+    clientId: string,
+    projectId: string,
+    finalized: ReviewWithChildren,
+    context?: AuditContext,
+  ): Promise<{ created: number; injected: number; skippedExisting: number }> {
+    const validated = finalized.decisions.filter(
+      (d) => d.status === ProjectReviewDecisionStatus.VALIDATED,
+    );
+    if (validated.length === 0) {
+      return { created: 0, injected: 0, skippedExisting: 0 };
+    }
+
+    const sourceReviewTitle = reviewTitleLabel(
+      finalized.title,
+      finalized.reviewType,
+    );
+    const sourceReviewDateLabel = this.formatReviewDateLabel(
+      finalized.reviewDate,
+    );
+    const target = await this.findNextCoproCandidate(
+      clientId,
+      projectId,
+      finalized.reviewDate,
+      finalized.id,
+    );
+
+    let created = 0;
+    let injected = 0;
+    let skippedExisting = 0;
+
+    for (const decision of validated) {
+      const existing = await this.prisma.projectReviewDescent.findFirst({
+        where: { clientId, sourceDecisionId: decision.id },
+        select: { id: true },
+      });
+      if (existing) {
+        skippedExisting += 1;
+        continue;
+      }
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.projectReviewDescent.create({
+          data: {
+            clientId,
+            projectId,
+            sourceReviewId: finalized.id,
+            sourceDecisionId: decision.id,
+            title: decision.title,
+            summary: decision.description,
+            ownerUserId: decision.decidedByUserId,
+            targetReviewId: target?.id ?? null,
+            status: ProjectReviewDescentStatus.PENDING,
+            createdByUserId: context?.actorUserId ?? null,
+          },
+        });
+
+        let didInject = false;
+        if (target) {
+          const injectResult = await this.injectDescentIntoTarget(
+            tx,
+            {
+              id: row.id,
+              clientId,
+              projectId,
+              title: row.title,
+              summary: row.summary,
+              ownerUserId: row.ownerUserId,
+              sourceReviewId: row.sourceReviewId,
+            },
+            target,
+            { sourceReviewTitle, sourceReviewDateLabel },
+          );
+          didInject = injectResult.injected;
+        }
+
+        return { didInject };
+      });
+
+      created += 1;
+      if (result.didInject) injected += 1;
+    }
+
+    return { created, injected, skippedExisting };
+  }
+
+  async listDescents(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      select: { id: true, reviewType: true },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const where =
+      review.reviewType === ProjectReviewType.COPRO
+        ? { clientId, projectId, targetReviewId: reviewId }
+        : { clientId, projectId, sourceReviewId: reviewId };
+
+    const rows = await this.prisma.projectReviewDescent.findMany({
+      where,
+      include: {
+        ownerUser: { select: projectReviewUserSelect },
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+        targetReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      items: rows.map((row) => this.mapDescentApi(row)),
+    };
+  }
+
+  async cancelDescent(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    descentId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const review = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+      select: { id: true, reviewType: true },
+    });
+    if (!review) throw new NotFoundException('Review not found');
+
+    const descent = await this.prisma.projectReviewDescent.findFirst({
+      where: {
+        id: descentId,
+        clientId,
+        projectId,
+        OR: [{ sourceReviewId: reviewId }, { targetReviewId: reviewId }],
+      },
+    });
+    if (!descent) throw new NotFoundException('Descente introuvable');
+    if (descent.status === ProjectReviewDescentStatus.CANCELLED) {
+      throw new BadRequestException('Descente déjà annulée');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (
+        descent.status === ProjectReviewDescentStatus.INJECTED &&
+        descent.targetAgendaItemId &&
+        descent.targetReviewId
+      ) {
+        const target = await tx.projectReview.findFirst({
+          where: {
+            id: descent.targetReviewId,
+            clientId,
+            projectId,
+          },
+          select: { agendaLockedAt: true },
+        });
+        if (target && canInjectIntoTargetAgenda(target.agendaLockedAt)) {
+          await tx.projectReviewAgendaItem.deleteMany({
+            where: {
+              id: descent.targetAgendaItemId,
+              clientId,
+              projectReviewId: descent.targetReviewId,
+            },
+          });
+        }
+      }
+
+      await tx.projectReviewDescent.update({
+        where: { id: descentId },
+        data: {
+          status: ProjectReviewDescentStatus.CANCELLED,
+          targetAgendaItemId: null,
+          injectedAt: null,
+        },
+      });
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_DESCENT_CANCELLED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_DESCENT,
+      resourceId: descentId,
+      newValue: { projectId, reviewId, descentId },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return this.loadDescentMapped(clientId, descentId);
+  }
+
+  async consolidateDescents(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    context?: AuditContext,
+  ) {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const targetReview = await this.prisma.projectReview.findFirst({
+      where: { id: reviewId, clientId, projectId },
+    });
+    if (!targetReview) throw new NotFoundException('Review not found');
+    if (targetReview.reviewType !== ProjectReviewType.COPRO) {
+      throw new BadRequestException(
+        'La consolidation des descentes ne s’applique qu’à un COPROJ',
+      );
+    }
+    if (!canInjectIntoTargetAgenda(targetReview.agendaLockedAt)) {
+      return { injected: 0, skippedLocked: true, items: [] as unknown[] };
+    }
+
+    const pending = await this.prisma.projectReviewDescent.findMany({
+      where: {
+        clientId,
+        projectId,
+        status: ProjectReviewDescentStatus.PENDING,
+        OR: [{ targetReviewId: reviewId }, { targetReviewId: null }],
+      },
+      include: {
+        sourceReview: {
+          select: { title: true, reviewType: true, reviewDate: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const eligible: typeof pending = [];
+    for (const descent of pending) {
+      if (descent.targetReviewId === reviewId) {
+        eligible.push(descent);
+        continue;
+      }
+      const next = await this.findNextCoproCandidate(
+        clientId,
+        projectId,
+        descent.sourceReview.reviewDate,
+        descent.sourceReviewId,
+      );
+      if (next?.id === reviewId) eligible.push(descent);
+    }
+
+    let injected = 0;
+    await this.prisma.$transaction(async (tx) => {
+      for (const descent of eligible) {
+        const result = await this.injectDescentIntoTarget(
+          tx,
+          {
+            id: descent.id,
+            clientId: descent.clientId,
+            projectId: descent.projectId,
+            title: descent.title,
+            summary: descent.summary,
+            ownerUserId: descent.ownerUserId,
+            sourceReviewId: descent.sourceReviewId,
+          },
+          {
+            id: targetReview.id,
+            agendaLockedAt: targetReview.agendaLockedAt,
+            title: targetReview.title,
+          },
+          {
+            sourceReviewTitle: reviewTitleLabel(
+              descent.sourceReview.title,
+              descent.sourceReview.reviewType,
+            ),
+            sourceReviewDateLabel: this.formatReviewDateLabel(
+              descent.sourceReview.reviewDate,
+            ),
+          },
+        );
+        if (result.injected) injected += 1;
+      }
+    });
+
+    if (injected > 0) {
+      await this.auditLogs.create({
+        clientId,
+        userId: context?.actorUserId,
+        action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_DESCENT_INJECTED,
+        resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW,
+        resourceId: reviewId,
+        newValue: { projectId, reviewId, count: injected },
+        ipAddress: context?.meta?.ipAddress,
+        userAgent: context?.meta?.userAgent,
+        requestId: context?.meta?.requestId,
+      });
+    }
+
+    const listed = await this.listDescents(clientId, projectId, reviewId);
     return {
       injected,
       skippedLocked: false,

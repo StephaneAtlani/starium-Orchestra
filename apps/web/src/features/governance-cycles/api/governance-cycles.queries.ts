@@ -8,6 +8,7 @@ import {
   getGovernanceCycle,
   getGovernanceCycleSummary,
   getGovernanceCyclesByProject,
+  listGovernanceCalendarEvents,
   listGovernanceCycleItems,
   listGovernanceCycles,
 } from './governance-cycles.api';
@@ -16,6 +17,7 @@ import type {
   ListGovernanceCycleItemsParams,
   ListGovernanceCyclesParams,
 } from '../types/governance-cycle.types';
+import type { ListGovernanceCalendarEventsParams } from '../types/governance-calendar.types';
 
 export function useGovernanceCyclesReadContext(options?: {
   enabled?: boolean;
@@ -152,5 +154,19 @@ export function useGovernanceCyclePendingItemsForIdsQuery(
       enabled,
       retry: false,
     })),
+  });
+}
+
+/** RFC-PROJ-013-9 C1 — événements calendrier transverse (client actif). */
+export function useGovernanceCalendarEventsQuery(
+  params: ListGovernanceCalendarEventsParams,
+  options?: { enabled?: boolean },
+) {
+  const { authFetch, clientId, readEnabled } = useGovernanceCyclesReadContext(options);
+
+  return useQuery({
+    queryKey: governanceCyclesKeys.calendarEvents(clientId, params.from, params.to),
+    queryFn: () => listGovernanceCalendarEvents(authFetch, params),
+    enabled: readEnabled && Boolean(params.from) && Boolean(params.to),
   });
 }

@@ -212,6 +212,7 @@ export const PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL: Record<string, string> = {
   MILESTONE: 'Jalon',
   OTHER: 'Autre',
   ESCALATION: 'Remontée',
+  DECISION_DESCENT: 'Décision COPIL',
 };
 
 export const PROJECT_REVIEW_DECISION_TYPE_LABEL: Record<string, string> = {

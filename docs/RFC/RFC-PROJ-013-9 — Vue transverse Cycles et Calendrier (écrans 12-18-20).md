@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft |
+| **Statut** | ✅ C1 (12 glue + 20) · 📝 T2/T4 |
 | **Date** | 2026-09-10 |
 | **Parents** | RFC-PROJ-013-5 ; RFC-PROJ-CYCLE-001…003 |
 | **Écrans PDF** | **12** Cycles de pilotage · **18** Préparation depuis cycles · **20** Calendrier |
@@ -44,30 +44,45 @@
 
 ## 5. Lots
 
-| Lot | Contenu |
-| --- | --- |
-| T1 | Shell 12 + segment + lien création |
-| T2 | KPI / rail décisions en attente |
-| T3 | Calendrier 20 |
-| T4 | Préparation 18 branchée consolidation |
+| Lot | Contenu | État |
+| --- | --- | --- |
+| T1 / **C1** | Shell 12 + lien calendrier `/cycles/calendar` + CTA « Créer un point » → liste projets + feed `GET …/calendar-events` + écran 20 | ✅ |
+| T2 | KPI / rail décisions en attente | 📝 hors V1 C1 |
+| T3 | (fusionné C1) Calendrier 20 | ✅ (dans C1) |
+| T4 | Préparation 18 branchée consolidation | 📝 hors V1 C1 |
+
+### Implémentation C1 (livré)
+
+**API**
+- `GET /api/governance-cycles/calendar-events?from=&to=` — `governance_cycles.read` ; `clientId` actif ; reviews ≠ `CANCELLED` filtrées ACL projets ; instances CYCLE scopées client.
+- Fichiers : `governance-calendar.service.ts`, `list-governance-calendar-events-query.dto.ts`, util + specs Jest.
+
+**FE**
+- Route `/cycles/calendar` → `governance-cycles-calendar-page.tsx` (grille ≥`sm`, liste mobile, légende kind/type, loading/empty/error).
+- Shell 12 (`governance-cycles-page.tsx`) : lien Calendrier + CTA « Créer un point » (permission `projects.update`).
+
+**Doc**
+- `docs/API.md`, `docs/INVENTAIRE-COMPOSANTS.md`, `docs/LIAISONS-MODULES.md` (`cycle-calendar-reviews`).
 
 ## 6. Prisma
 
-Aucun modèle nouveau si agrégation suffit. Sinon vues matérialisées / tables de cache — justifier.
+Aucun modèle nouveau — agrégation `ProjectReview` + `GovernanceCycleInstance`.
 
 ## 7. Tests
 
-- Aucune fuite inter-client sur agrégats.
-- Permissions : utilisateur multi-projets ne voit que projets autorisés.
+- Isolation client + ACL projets (Jest service / controller).
+- Query keys scopées `clientId` (Vitest).
+- Render shell : CTAs Calendrier / Créer un point.
 
 ## 8. Récapitulatif
 
-Couche transverse du PDF ; s’appuie sur CYCLE + 013-7/013-8.
+C1 livré (12 glue + 20). T2 KPI et T4 préparation 18 restent à planifier ; s’appuie sur CYCLE + 013-7/013-8.
 
 ## 9. Points de vigilance
 
 - Risque de double UI « séance » CYCLE vs Review — message produit clair.
 - Perf calendrier multi-projets.
+- Ne pas confondre feed calendrier (lecture) et préparation consolidée 18 (T4).
 
 ## 10. Conformité by design
 

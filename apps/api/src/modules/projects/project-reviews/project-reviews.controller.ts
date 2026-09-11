@@ -393,4 +393,57 @@ export class ProjectReviewsController {
       context,
     );
   }
+
+  /** RFC-PROJ-013-8 F3.1 — descentes COPIL → COPRO */
+  @Get(':reviewId/descents')
+  @RequirePermissions('projects.read')
+  listDescents(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+  ) {
+    return this.projectReviewsService.listDescents(
+      clientId!,
+      projectId,
+      reviewId,
+    );
+  }
+
+  @Post(':reviewId/descents/:descentId/cancel')
+  @RequirePermissions('projects.update')
+  cancelDescent(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Param('descentId') descentId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.cancelDescent(
+      clientId!,
+      projectId,
+      reviewId,
+      descentId,
+      context,
+    );
+  }
+
+  @Post(':reviewId/consolidate-descents')
+  @RequirePermissions('projects.update')
+  consolidateDescents(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.projectReviewsService.consolidateDescents(
+      clientId!,
+      projectId,
+      reviewId,
+      context,
+    );
+  }
 }

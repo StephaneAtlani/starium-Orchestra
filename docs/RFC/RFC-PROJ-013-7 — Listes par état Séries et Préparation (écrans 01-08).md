@@ -21,7 +21,7 @@
 2. KPI tête via **`GET /api/projects/:projectId/reviews/summary`** (agrégats, pas de N+1 FE).
 3. Séries = `ProjectReviewSeries` (scopé `clientId` + `projectId`) + `POST …/generate`.
 4. À finaliser = `conductClosedAt` (pas d’enum `AWAITING_REPORT`). Mutation « clôturer séance » = **RFC-PROJ-013-6** (hors scope) ; seed démo renseigne le champ.
-5. Menu création : COPROJ→`COPRO`, COPIL, CODIR→`CODIR_REVIEW`, Revue→`PROJECT_REVIEW`, Ad hoc→`OTHER` — **pas de COTECH** V1.
+5. Menu création : CTA unique « Créer un point » ; type choisi **dans** la modale (`PROJECT_REVIEW_CREATE_DEFAULTS` : `menuLabel` / `menuHint`) — COPROJ→`COPRO`, COPIL, CODIR→`CODIR_REVIEW`, Revue→`PROJECT_REVIEW`, Ad hoc→`OTHER` — **pas de COTECH** V1. Essentiel mince (Type → Date → Titre) ; ODJ en bloc optionnel replié.
 6. `lock-agenda` ne change pas le status API ; `SCHEDULED` + lock → « À venir » ; generate → `SCHEDULED` + `agendaLockedAt = null` → « À préparer ».
 
 ## 3. Mapping états UI (table de vérité)
@@ -69,7 +69,7 @@ Isolation : toutes les routes valident le **client actif** + `projectId` ; RBAC 
 
 ## 7. Récapitulatif
 
-Livré L1–L5 : listes par état, KPI, figer ODJ, création typée, séries + génération, seed démo. Dépendances aval : 013-6 (close-conduct / écran 09 — ✅), 013-8 (finalisation CR / 11-19).
+Livré L1–L5 : listes par état, KPI, figer ODJ, création typée (modale Essentiel + ODJ replié), séries + génération, seed démo. Dépendances aval : 013-6 (close-conduct / écran 09 — ✅), 013-8 (finalisation CR / 10-11-19 — ✅ F1–F5 + F3.1), 013-9 C1 (calendrier transverse — ✅).
 
 ## 8. Points de vigilance
 

@@ -83,8 +83,8 @@ Champs Prisma livrés dans 013-7 : `agendaLockedAt`, `conductClosedAt`, `seriesI
 | --- | --- | --- |
 | **RFC-PROJ-013-6** | **09** Animer la séance (+ amorce 10 routing) | P0 |
 | **RFC-PROJ-013-7** | **01–08**, **06** Séries, création typée **07/13–17** | P0 — ✅ implémenté |
-| **RFC-PROJ-013-8** | **10** Remontées COPROJ↔COPIL ; **11/19** Finalisation & CR ; pont actions/risques projet | P1 |
-| **RFC-PROJ-013-9** | **12, 18, 20** Vue transverse / calendrier (lien CYCLE) | P2 |
+| **RFC-PROJ-013-8** | **10** Articulation (remontées + descentes) ; **11/19** Finalisation & CR ; pont actions/risques | P1 — ✅ F1–F5 + F3.1 |
+| **RFC-PROJ-013-9** | **12, 18, 20** Vue transverse / calendrier (lien CYCLE) | P2 — ✅ C1 · 📝 T2/T4 |
 
 ## 6. Fichiers (doc)
 

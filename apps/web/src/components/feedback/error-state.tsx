@@ -21,7 +21,12 @@ export function ErrorState({
       <AlertDescription>{message}</AlertDescription>
       {onRetry && (
         <div className="mt-3">
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={onRetry}
+          >
             Réessayer
           </Button>
         </div>

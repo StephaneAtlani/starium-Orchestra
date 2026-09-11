@@ -18,7 +18,7 @@ Modèles (`apps/api/prisma/schema.prisma`) :
 | **ProjectMilestone** | Jalon sans durée (`targetDate`, `achievedDate`, lien tâche optionnel `linkedTaskId`, statut dont `ACHIEVED`, `DELAYED`) — **RFC-PROJ-011**. |
 | **ProjectActivity** | Activité dérivée d’une tâche source, `projectId` obligatoire (MVP), hors payload Gantt — **RFC-PROJ-011**. |
 | **ProjectBudgetLink** | Liaison projet ↔ ligne budgétaire (`clientId`, mode d’allocation FULL / PERCENTAGE / **BUDGET_PERCENTAGE** / FIXED) — RFC-PROJ-010. |
-| **ProjectReview** (+ participants, décisions, action items, **attachments**) | Point projet (RFC-PROJ-013 / **013-2**) : types `COPIL` / `COPRO` / … / **`POST_MORTEM`** ; cycle **`PREPARING` → `SCHEDULED` → `IN_PROGRESS` → `FINALIZED` \| `CANCELLED`** ; `objective`, `reviewDate` nullable ; ODJ typé ; **`contentPayload.committeeMood`** (météo comité, `GREEN`/`ORANGE`/`RED`) ; décisions enrichies ; `snapshotPayload` **v2** à la finalisation (incl. `review.committeeMood` figé) ; isolation `clientId` + `projectId`. |
+| **ProjectReview** (+ participants, décisions, action items, **attachments**, **escalations**, **descents**) | Point projet (RFC-PROJ-013 / **013-2** / **013-8**) : types `COPIL` / `COPRO` / … / **`POST_MORTEM`** ; cycle **`PREPARING` → `SCHEDULED` → `IN_PROGRESS` → `FINALIZED` \| `CANCELLED`** ; `objective`, `reviewDate` nullable ; ODJ typé (dont `ESCALATION`, `DECISION_DESCENT`) ; `ProjectReviewEscalation` / `ProjectReviewDescent` ; `contentPayload.committeeMood` ; snapshot **v2** ; isolation `clientId` + `projectId`. |
 
 **Non persisté au MVP** : `computedHealth`, `signals`, `warnings`, `derivedProgressPercent` (calculs à la lecture dans `projects-pilotage.service.ts`).
 
@@ -34,7 +34,7 @@ Enums principaux : `ProjectStatus` (dont actifs : `PLANNED`, `IN_PROGRESS`, `ON_
   - `projects.service.ts` — CRUD projet, liste enrichie (pilotage), `getPortfolioSummary`
   - `projects-pilotage.service.ts` — `computedHealth`, signaux, warnings, compteurs, `derivedProgressPercent` comme **moyenne des `progress`** sur les tâches non annulées (RFC-PROJ-011), criticité risque (scores 1–9 ; **HIGH = scores 7–9**)
   - `project-tasks.service.ts`, `project-risks.service.ts`, `project-milestones.service.ts`, `project-activities.service.ts`, `project-gantt.service.ts` — sous-ressources (RFC-PROJ-011 pour tâches/jalons enrichis, activités, Gantt-ready)
-  - `project-reviews.service.ts` — points projet (RFC-PROJ-013 / 013-1 / **013-2**), cycle `PREPARING`/`SCHEDULED`/`IN_PROGRESS`, attachments, snapshot v2, compte rendu e-mail, audit `project.review.*`
+  - `project-reviews.service.ts` — points projet (RFC-PROJ-013 / 013-1 / **013-2** / **013-8**), cycle `PREPARING`/`SCHEDULED`/`IN_PROGRESS`, attachments, snapshot v2, remontées/descentes, compte rendu e-mail, audit `project.review.*`
   - `project-review-committee-mood.helpers.ts` — météo du comité (dernière valeur par projet, priorité `contentPayload` sur snapshot)
   - `project-review-email-report.service.ts` — envoi async compte rendu HTML (`project_review_report`)
   - `project-review-invitations.service.ts` — notifications in-app / email / Teams (RFC-PROJ-013-1)
@@ -79,9 +79,11 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | POST | `/projects/:projectId/reviews/:reviewId/schedule` | `projects.update` — planification / replanification (RFC-PROJ-013-2) |
 | POST | `/projects/:projectId/reviews/:reviewId/start` | `projects.update` — `→ IN_PROGRESS` |
 | POST | `/projects/:projectId/reviews/:reviewId/start-review` | `projects.update` — alias `start` (rétrocompat) |
-| POST | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` — finalisation + snapshot v2 |
+| POST | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` — finalisation + snapshot v2 (+ descentes COPIL→COPRO si décisions `VALIDATED`, RFC-PROJ-013-8 F3.1) |
 | POST | `/projects/:projectId/reviews/:reviewId/cancel` | `projects.update` — annulation |
 | POST | `/projects/:projectId/reviews/:reviewId/invite` | `projects.update` — invitations (revue `SCHEDULED`) — voir [API.md](../API.md) §21 |
+| GET/POST | `…/reviews/:reviewId/escalations` (+ cancel / consolidate) | remontées COPRO→COPIL (RFC-PROJ-013-8 F3) |
+| GET | `…/reviews/:reviewId/descents` (+ cancel / consolidate) | descentes COPIL→COPRO (RFC-PROJ-013-8 F3.1) |
 | POST/PATCH/DELETE | `…/reviews/:reviewId/attachments` | pièces jointes (RFC-PROJ-013-2) |
 | POST/PATCH/… | `/projects/:projectId/reviews/:reviewId/agenda-items` | `projects.update` — ordre du jour (RFC-PROJ-013-1) |
 | POST/PATCH/DELETE | `/projects/:projectId/reviews/:reviewId/participants` | `projects.update` — participants (`attendanceStatus`, `externalEmail` externes) |

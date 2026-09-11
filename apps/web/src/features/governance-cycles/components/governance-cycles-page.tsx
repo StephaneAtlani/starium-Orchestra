@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -23,8 +23,8 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/use-permissions';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
 import {
+  CalendarPlus,
   CalendarRange,
   ChevronDown,
   ChevronLeft,
@@ -72,6 +72,7 @@ import {
   GovernanceCyclesCockpitSidebar,
   type PendingDecisionRow,
 } from './governance-cycles-cockpit-sidebar';
+import { projectsList } from '@/features/projects/constants/project-routes';
 
 const PAGE_SIZE = 20;
 const COCKPIT_CYCLE_LIMIT = 50;
@@ -242,10 +243,6 @@ export function GovernanceCyclesPage() {
     [archiveMutation],
   );
 
-  const scrollToInstances = useCallback(() => {
-    document.getElementById('cycles-instances')?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
-
   const cycleColumns = useMemo<DataTableColumn<GovernanceCycleResponseDto>[]>(() => {
     return [
       {
@@ -405,22 +402,35 @@ export function GovernanceCyclesPage() {
         title="Cycles de pilotage"
         description="Cadence de gouvernance : comités, instances de décision et revues de portefeuille."
         actions={
-          <div className="flex w-full items-stretch gap-2 sm:w-auto sm:items-center">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-11 flex-1 gap-1.5 sm:min-h-0 sm:flex-initial"
-              onClick={scrollToInstances}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Link
+              href="/cycles/calendar"
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'sm' }),
+                'min-h-11 justify-center gap-1.5 sm:min-h-0 sm:flex-initial',
+              )}
             >
               <CalendarRange className="size-4" aria-hidden />
               Calendrier
-            </Button>
+            </Link>
+            <PermissionGate permission="projects.update">
+              <Link
+                href={projectsList()}
+                className={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'min-h-11 justify-center gap-1.5 sm:min-h-0 sm:flex-initial',
+                )}
+                title="Choisissez un projet pour créer un point"
+              >
+                <CalendarPlus className="size-4" aria-hidden />
+                Créer un point
+              </Link>
+            </PermissionGate>
             <PermissionGate permission="governance_cycles.create">
               <Button
                 type="button"
                 size="sm"
-                className="min-h-11 flex-1 gap-1.5 sm:min-h-0 sm:flex-initial"
+                className="min-h-11 gap-1.5 sm:min-h-0 sm:flex-initial"
                 onClick={() => setPlanOpen(true)}
               >
                 <PlusCircle className="size-4" aria-hidden />

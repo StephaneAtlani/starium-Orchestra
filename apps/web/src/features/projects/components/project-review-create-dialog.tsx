@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ClipboardPen,
   Link2,
-  ListOrdered,
   MapPin,
   Monitor,
   PenLine,
@@ -25,7 +24,6 @@ import {
 import {
   PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL,
   PROJECT_REVIEW_MEETING_MODE_LABEL,
-  PROJECT_REVIEW_TYPE_LABEL,
 } from '../constants/project-enum-labels';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewDetailQuery } from '../hooks/use-project-review-detail-query';
@@ -37,9 +35,9 @@ import {
   defaultExpectedDecisionForItemType,
   getAgendaPresetForReviewType,
   isPilotageReviewType,
-  REVIEW_TYPE_AGENDA_HINT,
 } from '../lib/project-review-agenda-presets';
-import { getCreateDefaultsForType } from '../lib/project-review-create-defaults';
+import { getCreateDefaultsForType, PROJECT_REVIEW_CREATE_DEFAULTS } from '../lib/project-review-create-defaults';
+import { displayLabel } from '@/lib/display-label';
 import { ProjectDatetimeLocalInput } from './project-datetime-local-input';
 import type {
   ProjectAssignableUser,
@@ -49,6 +47,17 @@ import type {
   ProjectReviewType,
   ProjectTeamMemberApi,
 } from '../types/project.types';
+
+function typeOptionLabel(t: ProjectReviewType): string {
+  if (t === 'POST_MORTEM') return 'Retour d’expérience';
+  return getCreateDefaultsForType(t).menuLabel;
+}
+
+function typeOptionHint(t: ProjectReviewType): string | null {
+  if (t === 'POST_MORTEM') return null;
+  const found = PROJECT_REVIEW_CREATE_DEFAULTS.find((d) => d.reviewType === t);
+  return found?.menuHint ?? null;
+}
 
 type CreateParticipantRow = {
   displayName: string;
@@ -594,7 +603,7 @@ export function ProjectReviewCreateDialog({
     >
       <form onSubmit={(e) => e.preventDefault()} className="flex min-h-0 flex-1 flex-col">
         <div className="starium-form gap-4">
-          {/* 1. Essentiel */}
+          {/* 1. Essentiel — Type → Date → Titre */}
           <section
             className="starium-form-section border-border/60"
             aria-labelledby="create-pr-essential"
@@ -604,6 +613,41 @@ export function ProjectReviewCreateDialog({
               Essentiel
             </h3>
             <div className="starium-form-grid starium-form-grid--2">
+              <div className="starium-form-field starium-form-grid--span-2">
+                <label htmlFor="pr-type" className="starium-form-label">
+                  Type de point
+                </label>
+                <select
+                  id="pr-type"
+                  className="starium-form-select min-h-11"
+                  value={formType}
+                  aria-describedby={
+                    typeOptionHint(formType) ? 'pr-type-hint' : undefined
+                  }
+                  onChange={(e) =>
+                    handleReviewTypeChange(e.target.value as ProjectReviewType)
+                  }
+                  disabled={postMortemEligible && createTypeOptions.length === 1}
+                >
+                  {createTypeOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {typeOptionLabel(t)}
+                    </option>
+                  ))}
+                </select>
+                {typeOptionHint(formType) ? (
+                  <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
+                    {typeOptionHint(formType)}
+                  </p>
+                ) : null}
+                {showAgendaPresetMismatch ? (
+                  <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
+                    Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
+                    {typeOptionLabel(formType)}. Ouvrez l’ordre du jour pour le
+                    réinitialiser.
+                  </p>
+                ) : null}
+              </div>
               <div className="starium-form-field">
                 <label htmlFor="pr-date" className="starium-form-label">
                   Date et heure{' '}
@@ -616,41 +660,6 @@ export function ProjectReviewCreateDialog({
                 />
               </div>
               <div className="starium-form-field">
-                <label htmlFor="pr-type" className="starium-form-label">
-                  Type de point
-                </label>
-                <select
-                  id="pr-type"
-                  className="starium-form-select min-h-11"
-                  value={formType}
-                  aria-describedby={
-                    isPilotageReviewType(formType) ? 'pr-type-hint' : undefined
-                  }
-                  onChange={(e) =>
-                    handleReviewTypeChange(e.target.value as ProjectReviewType)
-                  }
-                  disabled={postMortemEligible && createTypeOptions.length === 1}
-                >
-                  {createTypeOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {PROJECT_REVIEW_TYPE_LABEL[t] ?? t}
-                    </option>
-                  ))}
-                </select>
-                {isPilotageReviewType(formType) ? (
-                  <p id="pr-type-hint" className="mt-1.5 text-xs leading-snug text-muted-foreground">
-                    {REVIEW_TYPE_AGENDA_HINT[formType]}
-                  </p>
-                ) : null}
-                {showAgendaPresetMismatch ? (
-                  <p className="mt-1.5 text-xs text-[color:var(--state-warn)]" role="status">
-                    Le type a changé — l’ordre du jour ne correspond plus au modèle{' '}
-                    {PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}. Vous pouvez le
-                    réinitialiser ci-dessous.
-                  </p>
-                ) : null}
-              </div>
-              <div className="starium-form-field starium-form-grid--span-2">
                 <label htmlFor="pr-title" className="starium-form-label">
                   Titre <span className="font-normal text-muted-foreground">(optionnel)</span>
                 </label>
@@ -686,54 +695,47 @@ export function ProjectReviewCreateDialog({
             </div>
           ) : null}
 
-          {/* 3. Ordre du jour — section primaire, toujours ouverte */}
-          <section
-            className="starium-form-section border-border/60"
-            aria-labelledby="create-pr-agenda"
+          {/* 3. Ordre du jour — replié par défaut */}
+          <OptionalBlock
+            id="create-pr-agenda"
+            title="Ordre du jour"
+            defaultOpen={false}
+            summary={
+              postMortemEligible
+                ? 'Sujets optionnels pour cadrer le REX'
+                : agendaPresetCount > 0
+                  ? `${agendaPresetCount} sujet(s) préremplis (modèle ${typeOptionLabel(formType)})`
+                  : 'Aucun sujet — ajouter dans le bloc'
+            }
           >
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 id="create-pr-agenda" className="starium-form-section-title mb-0">
-                  <ListOrdered aria-hidden />
-                  Ordre du jour
-                </h3>
-                <p className="starium-form-hint mt-1" id="create-pr-agenda-hint">
-                  {postMortemEligible
-                    ? 'Sujets optionnels pour cadrer le REX — la grille détaillée se complète dans l’éditeur.'
-                    : agendaPresetCount > 0
-                      ? `${agendaPresetCount} sujet(s) préremplis avec questions à trancher — modèle ${PROJECT_REVIEW_TYPE_LABEL[formType] ?? formType}.`
-                      : 'Sujets structurés — chaque point porte une question à trancher.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {showAgendaPresetReset ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="min-h-9 gap-1.5"
-                    onClick={() => applyAgendaPresetFromType(formType)}
-                  >
-                    <RotateCcw className="size-4" aria-hidden />
-                    Réinitialiser selon le type
-                  </Button>
-                ) : null}
+            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+              {showAgendaPresetReset ? (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="min-h-9 gap-1.5"
-                  onClick={() => {
-                    markAgendaDirty();
-                    setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
-                  }}
+                  onClick={() => applyAgendaPresetFromType(formType)}
                 >
-                  <Plus className="size-4" aria-hidden />
-                  Ajouter un sujet
+                  <RotateCcw className="size-4" aria-hidden />
+                  Réinitialiser selon le type
                 </Button>
-              </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-9 gap-1.5"
+                onClick={() => {
+                  markAgendaDirty();
+                  setCreateAgendaItems((prev) => [...prev, emptyAgendaRow()]);
+                }}
+              >
+                <Plus className="size-4" aria-hidden />
+                Ajouter un sujet
+              </Button>
             </div>
-            <ul className="space-y-2" aria-live="polite" aria-describedby="create-pr-agenda-hint">
+            <ul className="space-y-2" aria-live="polite">
               {createAgendaItems.map((row, i) => (
                 <li
                   key={i}
@@ -777,13 +779,13 @@ export function ProjectReviewCreateDialog({
                               );
                             }}
                           >
-                            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL).map(
-                              ([k, label]) => (
+                            {Object.entries(PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL)
+                              .filter(([k]) => k !== 'ESCALATION' && k !== 'DECISION_DESCENT')
+                              .map(([k, label]) => (
                                 <option key={k} value={k}>
                                   {label}
                                 </option>
-                              ),
-                            )}
+                              ))}
                           </select>
                         </div>
                         <div className="starium-form-field">
@@ -865,7 +867,7 @@ export function ProjectReviewCreateDialog({
                         variant="ghost"
                         size="icon"
                         className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-                        aria-label={`Retirer le sujet ${row.title.trim() || i + 1}`}
+                        aria-label={`Retirer le sujet ${displayLabel(row.title, `sujet ${i + 1}`)}`}
                         onClick={() => {
                           markAgendaDirty();
                           setCreateAgendaItems((prev) => prev.filter((_, j) => j !== i));
@@ -878,7 +880,7 @@ export function ProjectReviewCreateDialog({
                 </li>
               ))}
             </ul>
-          </section>
+          </OptionalBlock>
 
           {/* 4. Modalités + 5. Participants — OptionalBlocks repliés */}
           <div className="flex flex-col gap-2">

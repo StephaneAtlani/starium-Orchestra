@@ -399,13 +399,14 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX (sections COPIL ou flux POST_MORTEM dédié).
 - `project-review-animate-session` - `features/projects/components/project-review-animate-session.tsx` - écran 09 Animer la séance (présence, ODJ, timers, décision V1, close-conduct).
 - `project-review-finalize-checklist` - `features/projects/components/project-review-finalize-checklist.tsx` - contrôles soft finalisation (écran 11) + cases opt-in push tâches/risques.
-- `project-review-escalations-screen` - `features/projects/components/project-review-escalations-screen.tsx` - écran 10 sujets à remonter (COPRO→COPIL).
+- `project-review-escalations-screen` - `features/projects/components/project-review-escalations-screen.tsx` - écran 10 articulation (remontées COPRO→COPIL + décisions COPIL→COPROJ F3.1).
 - `project-review-document-view` - `features/projects/components/project-review-document-view.tsx` - lecture CR figé (écran 19) : KPI snapshot + présence.
 - `project-reviews-context-banner` - `features/projects/components/project-reviews-context-banner.tsx` - bannière contextuelle COPIL/REX (variantes `tab` | `overview`).
 - `project-reviews-tab` - `features/projects/components/project-reviews-tab.tsx` - onglet Points projet (sous-onglets états UI 01–05 + Séries, KPI, deep links `pointsState` / `pointsFlash` / `createRetourExperience`).
 - `project-reviews-state-tabs` - `features/projects/components/project-reviews-state-tabs.tsx` - tablist états + compteurs (RFC-PROJ-013-7).
 - `project-reviews-kpi-row` - `features/projects/components/project-reviews-kpi-row.tsx` - 4 `KpiCard` tête (summary API).
 - `project-reviews-table` - `features/projects/components/project-reviews-table.tsx` - table colonnes/CTA par état UI.
+- `project-review-create-dialog` - `features/projects/components/project-review-create-dialog.tsx` - modale création (Essentiel Type→Date→Titre ; ODJ `OptionalBlock` replié ; 5 types `menuLabel`/`menuHint`).
 - `project-review-create-split-button` - `features/projects/components/project-review-create-split-button.tsx` - CTA « Créer un point » (type choisi dans la modale).
 - `project-review-series-panel` - `features/projects/components/project-review-series-panel.tsx` - onglet Séries 06 (CRUD `StariumModal` + generate).
 - `project-risk-ebios-dialog` - `features/projects/components/project-risk-ebios-dialog.tsx` - ouvre un dialogue pour projet risque ebios.
@@ -507,3 +508,8 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `team-sync-preview-table` - `features/team-sync/components/team-sync-preview-table.tsx` - affiche un tableau pour equipe synchronisation apercu.
 - `team-sync-run-panel` - `features/team-sync/components/team-sync-run-panel.tsx` - affiche un panneau pour equipe synchronisation execution.
 - `team-sync-settings` - `features/team-sync/components/team-sync-settings.tsx` - gere l'interface de equipe synchronisation settings.
+
+## Cycles de gouvernance (RFC-PROJ-013-9)
+
+- `governance-cycles-calendar-page` - `features/governance-cycles/components/governance-cycles-calendar-page.tsx` - calendrier mensuel transverse (points projet + instances) ; liste mobile ; légende kind/type.
+- Route `/cycles/calendar` — `app/(protected)/cycles/calendar/page.tsx`.

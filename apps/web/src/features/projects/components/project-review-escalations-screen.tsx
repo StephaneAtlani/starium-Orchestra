@@ -18,6 +18,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import type {
   ProjectReviewAgendaItemApi,
+  ProjectReviewDescentApi,
   ProjectReviewEscalationApi,
 } from '../types/project.types';
 
@@ -37,14 +38,20 @@ type Props = {
   reviewDate: string | null;
   agendaItems: ProjectReviewAgendaItemApi[];
   escalations: ProjectReviewEscalationApi[] | undefined;
+  descents?: ProjectReviewDescentApi[] | undefined;
+  descentsLoading?: boolean;
+  descentsError?: boolean;
+  onRetryDescents?: () => void;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
   canEdit: boolean;
   creating: boolean;
   cancellingId: string | null;
+  cancellingDescentId?: string | null;
   onCreate: (sourceAgendaItemId: string) => Promise<void>;
   onCancel: (escalationId: string) => Promise<void>;
+  onCancelDescent?: (descentId: string) => Promise<void>;
 };
 
 export function ProjectReviewEscalationsScreen({
@@ -52,14 +59,20 @@ export function ProjectReviewEscalationsScreen({
   reviewDate,
   agendaItems,
   escalations,
+  descents,
+  descentsLoading = false,
+  descentsError = false,
+  onRetryDescents,
   loading,
   error,
   onRetry,
   canEdit,
   creating,
   cancellingId,
+  cancellingDescentId = null,
   onCreate,
   onCancel,
+  onCancelDescent,
 }: Props) {
   const [selectedAgendaId, setSelectedAgendaId] = useState<string>('');
 
@@ -67,8 +80,15 @@ export function ProjectReviewEscalationsScreen({
     () => (escalations ?? []).filter((e) => e.status !== 'CANCELLED'),
     [escalations],
   );
+  const activeDescents = useMemo(
+    () => (descents ?? []).filter((e) => e.status !== 'CANCELLED'),
+    [descents],
+  );
   const pendingCount = activeEscalations.filter((e) => e.status === 'PENDING')
     .length;
+  const pendingDescentsCount = activeDescents.filter(
+    (e) => e.status === 'PENDING',
+  ).length;
   const usedAgendaIds = useMemo(
     () =>
       new Set(
@@ -83,7 +103,9 @@ export function ProjectReviewEscalationsScreen({
     () =>
       agendaItems.filter(
         (item) =>
-          item.itemType !== 'ESCALATION' && !usedAgendaIds.has(item.id),
+          item.itemType !== 'ESCALATION' &&
+          item.itemType !== 'DECISION_DESCENT' &&
+          !usedAgendaIds.has(item.id),
       ),
     [agendaItems, usedAgendaIds],
   );
@@ -108,30 +130,47 @@ export function ProjectReviewEscalationsScreen({
             className="size-4 shrink-0 text-[color:var(--brand-gold)]"
             aria-hidden
           />
-          Sujets à remonter
+          Articulation niveaux
         </h2>
         <p className="text-sm text-muted-foreground">
-          Qualifiez les sujets qui alimentent l’ordre du jour du prochain COPIL.
-          Contexte conservé : séance, date, point d’origine, porteur.
+          Remontées vers le COPIL et décisions COPIL à appliquer — une seule
+          surface (écran 10).
         </p>
       </div>
 
-      {pendingCount > 0 ? (
+      <div className="space-y-2 border-b border-border/60 pb-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          Sujets à remonter
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Qualifiez les sujets qui alimentent l’ordre du jour du prochain COPIL.
+        </p>
+      </div>
+
+      {pendingCount > 0 || pendingDescentsCount > 0 ? (
         <Alert className="border-[color:var(--state-warning)]/50 bg-[color:var(--state-warning-bg)]">
           <AlertTriangle
             className="size-4 text-[color:var(--state-warning)]"
             aria-hidden
           />
-          <AlertTitle>Remontées en attente</AlertTitle>
+          <AlertTitle>Articulation en attente</AlertTitle>
           <AlertDescription>
-            {pendingCount} sujet{pendingCount > 1 ? 's' : ''} en attente du
-            prochain COPIL (finalisation non bloquée).
+            {pendingCount > 0
+              ? `${pendingCount} remontée(s) en attente du prochain COPIL. `
+              : null}
+            {pendingDescentsCount > 0
+              ? `${pendingDescentsCount} décision(s) COPIL en attente d’injection ODJ.`
+              : null}{' '}
+            Finalisation non bloquée.
           </AlertDescription>
         </Alert>
       ) : null}
 
       {loading ? (
-        <LoadingState rows={3} />
+        <div role="status" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Chargement des remontées…</span>
+          <LoadingState rows={3} />
+        </div>
       ) : error ? (
         <ErrorState
           message="Impossible de charger les remontées"
@@ -139,6 +178,7 @@ export function ProjectReviewEscalationsScreen({
         />
       ) : activeEscalations.length === 0 ? (
         <EmptyState
+          className="px-2 py-6"
           title="Aucun sujet à remonter"
           description="Sélectionnez un point d’ordre du jour pour le faire remonter au COPIL."
         />
@@ -250,6 +290,97 @@ export function ProjectReviewEscalationsScreen({
           ) : null}
         </div>
       ) : null}
+
+      <div className="space-y-2 border-t border-border/60 pt-3">
+        <h3 className="text-sm font-semibold text-foreground">
+          Décisions COPIL à appliquer
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Décisions validées du COPIL injectées (ou en attente) dans l’ODJ de
+          ce COPROJ.
+        </p>
+
+        {descentsLoading ? (
+          <div role="status" aria-live="polite" aria-busy="true">
+            <span className="sr-only">Chargement des décisions COPIL…</span>
+            <LoadingState rows={2} />
+          </div>
+        ) : descentsError ? (
+          onRetryDescents ? (
+            <ErrorState
+              message="Impossible de charger les décisions COPIL"
+              onRetry={onRetryDescents}
+            />
+          ) : (
+            <ErrorState message="Impossible de charger les décisions COPIL" />
+          )
+        ) : activeDescents.length === 0 ? (
+          <EmptyState
+            className="px-2 py-6"
+            title="Aucune décision COPIL"
+            description="Les décisions validées du COPIL apparaîtront ici après finalisation."
+          />
+        ) : (
+          <ul
+            className="space-y-2"
+            aria-label="Liste des décisions COPIL à appliquer"
+          >
+            {activeDescents.map((row) => {
+              const sourceTitle = displayLabel(
+                row.sourceReviewTitle,
+                'COPIL source',
+              );
+              const sourceDate = formatDateLabel(row.sourceReviewDate);
+              const owner = displayLabel(
+                row.ownerDisplayName,
+                'Porteur non assigné',
+              );
+              return (
+                <li
+                  key={row.id}
+                  className="rounded-lg border border-border/60 bg-background/60 p-3"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <p className="font-medium text-foreground">
+                        {displayLabel(row.title, 'Décision sans titre')}
+                      </p>
+                      {row.summary ? (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {row.summary}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        Source : {sourceTitle}
+                        {sourceDate ? ` (${sourceDate})` : ''}
+                        {' · '}
+                        Porteur : {owner}
+                        {' · '}
+                        {displayLabel(row.statusLabel, 'Statut inconnu')}
+                      </p>
+                    </div>
+                    {canEdit &&
+                    onCancelDescent &&
+                    row.status !== 'CANCELLED' ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 shrink-0"
+                        disabled={cancellingDescentId === row.id}
+                        onClick={() => void onCancelDescent(row.id)}
+                      >
+                        {cancellingDescentId === row.id
+                          ? 'Annulation…'
+                          : 'Retirer'}
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

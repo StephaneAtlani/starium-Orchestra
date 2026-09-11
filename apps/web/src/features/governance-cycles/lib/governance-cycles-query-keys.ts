@@ -25,4 +25,6 @@ export const governanceCyclesKeys = {
     ] as const,
   instanceDetail: (clientId: string, cycleId: string, instanceId: string) =>
     ['governance-cycles', clientId, 'instances', cycleId, instanceId] as const,
+  calendarEvents: (clientId: string, from: string, to: string) =>
+    ['governance-cycles', clientId, 'calendar-events', from, to] as const,
 };

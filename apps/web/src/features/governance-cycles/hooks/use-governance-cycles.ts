@@ -7,6 +7,7 @@ export {
   useGovernanceCyclePendingItemsForIdsQuery,
   useGovernanceCyclesByProjectQuery,
   useGovernanceCyclesReadContext,
+  useGovernanceCalendarEventsQuery,
 } from '../api/governance-cycles.queries';
 
 export {

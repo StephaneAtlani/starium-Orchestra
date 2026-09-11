@@ -944,7 +944,9 @@ export type ProjectReviewAgendaItemType =
   | 'MILESTONE'
   | 'OTHER'
   /** RFC-PROJ-013-8 F3 */
-  | 'ESCALATION';
+  | 'ESCALATION'
+  /** RFC-PROJ-013-8 F3.1 */
+  | 'DECISION_DESCENT';
 
 export type ProjectReviewAttachmentType =
   | 'URL'
@@ -1288,5 +1290,45 @@ export type ConsolidateEscalationsResult = {
   injected: number;
   skippedLocked: boolean;
   items: ProjectReviewEscalationApi[];
+};
+
+/** RFC-PROJ-013-8 F3.1 */
+export type ProjectReviewDescentStatus =
+  | 'PENDING'
+  | 'INJECTED'
+  | 'CANCELLED';
+
+export type ProjectReviewDescentApi = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  sourceReviewId: string;
+  sourceDecisionId: string;
+  title: string;
+  summary: string | null;
+  ownerUserId: string | null;
+  ownerDisplayName: string | null;
+  targetReviewId: string | null;
+  targetAgendaItemId: string | null;
+  targetReviewTitle: string | null;
+  targetReviewDate: string | null;
+  sourceReviewTitle: string;
+  sourceReviewDate: string | null;
+  status: ProjectReviewDescentStatus;
+  statusLabel: string;
+  injectedAt: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectReviewDescentsListResponse = {
+  items: ProjectReviewDescentApi[];
+};
+
+export type ConsolidateDescentsResult = {
+  injected: number;
+  skippedLocked: boolean;
+  items: ProjectReviewDescentApi[];
 };
 

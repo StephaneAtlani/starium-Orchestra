@@ -36,5 +36,15 @@ describe('governanceCyclesKeys', () => {
       { includeArchived: true },
     ]);
     expect(governanceCyclesKeys.instanceDetail(c1, 'cycle-1', 'inst-1')).toContain('inst-1');
+    expect(governanceCyclesKeys.calendarEvents(c1, '2026-09-01', '2026-09-30')).toEqual([
+      'governance-cycles',
+      c1,
+      'calendar-events',
+      '2026-09-01',
+      '2026-09-30',
+    ]);
+    expect(governanceCyclesKeys.calendarEvents(c1, 'a', 'b')).not.toEqual(
+      governanceCyclesKeys.calendarEvents(c2, 'a', 'b'),
+    );
   });
 });

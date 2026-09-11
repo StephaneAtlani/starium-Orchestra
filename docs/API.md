@@ -608,6 +608,7 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 | /api/strategic-direction-strategies/:id/archive | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.update`) |
 | /api/strategic-direction-strategies/:id/review | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`strategic_direction_strategy.review`) |
 | /api/governance-cycles (GET, POST) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.create`) — module `governance_cycles` |
+| /api/governance-cycles/calendar-events (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | `governance_cycles.read` — agrégat calendrier points projet + instances (RFC-PROJ-013-9 C1) ; `from`/`to` ISO ; isolation client + projets autorisés |
 | /api/governance-cycles/by-project/:projectId (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — présence projet dans les cycles (RFC-PROJ-CYCLE-002) ; **404** si projet hors client |
 | /api/governance-cycles/:id (GET, PATCH) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read` / `governance_cycles.update`) |
 | /api/governance-cycles/:id/summary (GET) | `Authorization: Bearer <accessToken>`, `X-Client-Id` | JwtAuthGuard → ActiveClientGuard → ModuleAccessGuard → PermissionsGuard (`governance_cycles.read`) — KPI global `GovernanceCycleGlobalSummaryDto` ; isolation `clientId` |
@@ -1068,7 +1069,7 @@ Matching **sans LLM** : réponses administrées (GLOBAL ou CLIENT). Produit UI :
 
 ## 5.8 Governance cycles — `/api/governance-cycles` (RFC-PROJ-CYCLE-001, RFC-PROJ-CYCLE-002)
 
-Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + KPI global `GET …/:id/summary` (B7) + audits / transitions `TO_ARBITRATE` / `CLOSED` (B8) + intégration projet `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002 / B9).
+Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cycles (B4) + CRUD items (B5) + scoring `priorityScore` (B6) + KPI global `GET …/:id/summary` (B7) + audits / transitions `TO_ARBITRATE` / `CLOSED` (B8) + intégration projet `GET …/by-project/:projectId` (RFC-PROJ-CYCLE-002 / B9) + calendrier transverse `GET …/calendar-events` (RFC-PROJ-013-9 C1).
 
 **Headers** : `Authorization: Bearer <accessToken>`, **`X-Client-Id`** (client actif). Aucun `clientId` dans les corps write.
 
@@ -1144,6 +1145,17 @@ Couche transverse d’arbitrage CODIR (cycles de pilotage). **Livré** : CRUD cy
 - `periodLabel` : format FR stable (util `buildGovernanceCyclePeriodLabel`, aligné UI)
 - Pas de pagination (au plus une ligne par cycle — contrainte unique `cycleId` + `projectId` sur l’item)
 - **Ne modifie pas** `Project.status`
+
+### GET /api/governance-cycles/calendar-events (RFC-PROJ-013-9 C1)
+
+- **Permission** : `governance_cycles.read`
+- **Route** : déclarée **avant** `GET …/:id` (segment littéral `calendar-events`)
+- **Query** : `from` (ISO), `to` (ISO) — fenêtre inclusive ; **400** si `from` > `to`
+- **Agrégat** (client actif uniquement) :
+  1. `ProjectReview` datés dans la fenêtre, statut ≠ `CANCELLED`, filtrés aux projets lisibles par l’utilisateur (`AccessDecision` intent `list`)
+  2. `GovernanceCycleInstance` avec `scheduledDecisionAt` dans la fenêtre (`instance.clientId` + `cycle.clientId`)
+- **Réponse 200** : `{ items: GovernanceCalendarEventDto[] }` — `kind` = `PROJECT_REVIEW` | `CYCLE_INSTANCE` ; libellés métier (`title`, `reviewTypeLabel`, `projectName`, `cycleName`) ; `href` optionnel vers `/projects/…/reviews/…` ou `/cycles/…`
+- UI : `/cycles/calendar`
 
 ### GET /api/governance-cycles/:id
 
@@ -3134,6 +3146,10 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/escalations** — Crée une remontée depuis un **COPRO** (`sourceAgendaItemId?`, `title?`, `summary?`, `ownerUserId?`). Résout le prochain COPIL du projet ; injecte un `agendaItem` `ESCALATION` si ODJ non figé. Audit `project.review.escalation.created` (+ `injected`). **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/escalations/:escalationId/cancel** — Annule une remontée ; retire l’item ODJ cible si ODJ non verrouillé. Audit `project.review.escalation.cancelled`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/consolidate-escalations** — **COPIL** : injecte les remontées `PENDING` éligibles dans l’ODJ (silencieux côté UI). Audit `injected` si count > 0. **`projects.update`**
+- **GET /api/projects/:projectId/reviews/:reviewId/descents** — Descentes sortantes (COPIL) ou entrantes (COPRO). Libellés métier. **`projects.read`** (RFC-PROJ-013-8 F3.1)
+- **POST /api/projects/:projectId/reviews/:reviewId/descents/:descentId/cancel** — Annule une descente (source ou cible) ; retire l’item ODJ `DECISION_DESCENT` si ODJ non verrouillé. Audit `project.review.descent.cancelled`. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/consolidate-descents** — **COPRO** : injecte les descentes `PENDING` éligibles dans l’ODJ. Audit `injected` si count > 0. **`projects.update`**
+- Finalize **COPIL** : crée auto les `ProjectReviewDescent` pour décisions `VALIDATED` vers le prochain COPRO (injection si cible + ODJ ouvert).
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
 - **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**

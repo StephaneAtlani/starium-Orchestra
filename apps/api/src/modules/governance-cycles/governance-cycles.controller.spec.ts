@@ -8,6 +8,7 @@ import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateGovernanceCycleDto } from './dto/create-governance-cycle.dto';
+import { GovernanceCalendarService } from './governance-calendar.service';
 import { GovernanceCyclesController } from './governance-cycles.controller';
 import { GovernanceCyclesService } from './governance-cycles.service';
 
@@ -28,11 +29,17 @@ describe('GovernanceCyclesController', () => {
     updateItem: jest.fn(),
     deleteItem: jest.fn(),
   };
+  const calendarMock = {
+    listCalendarEvents: jest.fn(),
+  };
 
   beforeEach(async () => {
     await Test.createTestingModule({
       controllers: [GovernanceCyclesController],
-      providers: [{ provide: GovernanceCyclesService, useValue: serviceMock }],
+      providers: [
+        { provide: GovernanceCyclesService, useValue: serviceMock },
+        { provide: GovernanceCalendarService, useValue: calendarMock },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue(passGuard)
@@ -80,6 +87,12 @@ describe('GovernanceCyclesController', () => {
     expect(
       Reflect.getMetadata(
         REQUIRE_PERMISSIONS_KEY,
+        GovernanceCyclesController.prototype.listCalendarEvents,
+      ),
+    ).toEqual(['governance_cycles.read']);
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_PERMISSIONS_KEY,
         GovernanceCyclesController.prototype.listCyclesByProject,
       ),
     ).toEqual(['governance_cycles.read']);
@@ -107,7 +120,7 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('listCycles transmet clientId et query au service', async () => {
-    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService);
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     serviceMock.listCycles.mockResolvedValue({
       items: [],
       total: 0,
@@ -130,14 +143,33 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('listCyclesByProject délègue au service', async () => {
-    const controller = new GovernanceCyclesController(
-      serviceMock as unknown as GovernanceCyclesService,
-    );
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     serviceMock.listCyclesByProject.mockResolvedValue({ items: [] });
 
     const result = await controller.listCyclesByProject('client-a', 'proj-1');
 
     expect(serviceMock.listCyclesByProject).toHaveBeenCalledWith('client-a', 'proj-1');
+    expect(result).toEqual({ items: [] });
+  });
+
+  it('listCalendarEvents délègue au service calendrier', async () => {
+    const controller = new GovernanceCyclesController(
+      serviceMock as unknown as GovernanceCyclesService,
+      calendarMock as never,
+    );
+    calendarMock.listCalendarEvents.mockResolvedValue({ items: [] });
+    const query = {
+      from: '2026-09-01T00:00:00.000Z',
+      to: '2026-09-30T23:59:59.999Z',
+    };
+
+    const result = await controller.listCalendarEvents('client-a', 'user-1', query);
+
+    expect(calendarMock.listCalendarEvents).toHaveBeenCalledWith(
+      'client-a',
+      'user-1',
+      query,
+    );
     expect(result).toEqual({ items: [] });
   });
 
@@ -152,9 +184,7 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('updateCycle délègue au service avec actorUserId et meta', async () => {
-    const controller = new GovernanceCyclesController(
-      serviceMock as unknown as GovernanceCyclesService,
-    );
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     const dto = { status: 'TO_ARBITRATE' as const };
     const meta = { requestId: 'req-1' };
     serviceMock.updateCycle.mockResolvedValue({ id: 'cycle-1' });
@@ -200,7 +230,7 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('deleteItem délègue au service (204)', async () => {
-    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService);
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     serviceMock.deleteItem.mockResolvedValue(undefined);
 
     const result = await controller.deleteItem(
@@ -221,7 +251,7 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('archiveCycle délègue au service (DELETE → 204 No Content côté controller)', async () => {
-    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService);
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     serviceMock.archiveCycle.mockResolvedValue(undefined);
 
     const result = await controller.archiveCycle('client-a', 'cycle-1', 'user-1', {});
@@ -241,9 +271,7 @@ describe('GovernanceCyclesController', () => {
   });
 
   it('getCycleSummary délègue au service et retourne le DTO KPI', async () => {
-    const controller = new GovernanceCyclesController(
-      serviceMock as unknown as GovernanceCyclesService,
-    );
+    const controller = new GovernanceCyclesController(serviceMock as unknown as GovernanceCyclesService, calendarMock as never);
     const mockSummary = {
       cycleId: 'cycle-1',
       totalItems: 10,

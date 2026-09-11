@@ -114,6 +114,7 @@ import {
 import { ProjectReviewEscalationsScreen } from './project-review-escalations-screen';
 import { buildFinalizeChecklist } from '../lib/review-finalize-checklist';
 import { useProjectReviewEscalationsQuery } from '../hooks/use-project-review-escalations-query';
+import { useProjectReviewDescentsQuery } from '../hooks/use-project-review-descents-query';
 import {
   canPreviewDraftReviewReport,
   canPreviewOrSendReviewReport,
@@ -813,7 +814,7 @@ export function ProjectReviewEditorDialog({
   const milestonesQuery = useProjectMilestonesQuery(projectId, { enabled: active });
   const risksQuery = useProjectRisksQuery(projectId, { enabled: active });
   const tasksQuery = useProjectTasksQuery(projectId, { enabled: active });
-  const { update, finalize, closeConduct, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda, createEscalation, cancelEscalation, consolidateEscalations } =
+  const { update, finalize, closeConduct, cancel, reopen, startReview, scheduleReview, inviteReview, createAgendaItem, updateAgendaItem, reportPreview, sendReport, lockAgenda, unlockAgenda, createEscalation, cancelEscalation, consolidateEscalations, cancelDescent, consolidateDescents } =
     useProjectReviewMutations(projectId);
 
   const router = useRouter();
@@ -1372,8 +1373,20 @@ export function ProjectReviewEditorDialog({
             `${finalizeChecklist.riskNoteTitles.length} risque(s) promu(s)`,
           );
         }
+        if (reviewType === 'COPIL') {
+          const validatedCount = (d.decisions ?? []).filter(
+            (row) => row.status === 'VALIDATED',
+          ).length;
+          if (validatedCount > 0) {
+            parts.push(
+              `${validatedCount} décision(s) transmise(s) au COPROJ suivant`,
+            );
+          }
+        }
         if (parts.length > 0) {
           toast.success('Point finalisé', { description: parts.join(' · ') });
+        } else {
+          toast.success('Point finalisé');
         }
       }
     } catch {
@@ -1635,9 +1648,18 @@ export function ProjectReviewEditorDialog({
     showEscalationsScreen,
   );
 
+  const descentsQuery = useProjectReviewDescentsQuery(
+    projectId,
+    showEscalationsScreen && reviewId ? reviewId : null,
+    showEscalationsScreen,
+  );
+
   const [cancellingEscalationId, setCancellingEscalationId] = useState<
     string | null
   >(null);
+  const [cancellingDescentId, setCancellingDescentId] = useState<string | null>(
+    null,
+  );
 
   const consolidateRanForReviewRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1657,6 +1679,25 @@ export function ProjectReviewEditorDialog({
       consolidateRanForReviewRef.current = null;
     });
   }, [active, canUpdateProject, consolidateEscalations, d, reviewId]);
+
+  const consolidateDescentsRanForReviewRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!d || !reviewId || !active || !canUpdateProject) return;
+    if (d.reviewType !== 'COPRO') return;
+    if (d.agendaLockedAt) return;
+    if (
+      d.status !== 'PREPARING' &&
+      d.status !== 'SCHEDULED' &&
+      d.status !== 'IN_PROGRESS'
+    ) {
+      return;
+    }
+    if (consolidateDescentsRanForReviewRef.current === reviewId) return;
+    consolidateDescentsRanForReviewRef.current = reviewId;
+    void consolidateDescents.mutateAsync(reviewId).catch(() => {
+      consolidateDescentsRanForReviewRef.current = null;
+    });
+  }, [active, canUpdateProject, consolidateDescents, d, reviewId]);
 
   const lastTabReviewIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -2831,12 +2872,17 @@ export function ProjectReviewEditorDialog({
                 reviewDate={d.reviewDate}
                 agendaItems={d.agendaItems ?? []}
                 escalations={escalationsQuery.data?.items}
+                descents={descentsQuery.data?.items}
+                descentsLoading={descentsQuery.isLoading}
+                descentsError={descentsQuery.isError}
+                onRetryDescents={() => void descentsQuery.refetch()}
                 loading={escalationsQuery.isLoading}
                 error={escalationsQuery.isError}
                 onRetry={() => void escalationsQuery.refetch()}
                 canEdit={editable && canUpdateProject}
                 creating={createEscalation.isPending}
                 cancellingId={cancellingEscalationId}
+                cancellingDescentId={cancellingDescentId}
                 onCreate={async (sourceAgendaItemId) => {
                   try {
                     await createEscalation.mutateAsync({
@@ -2860,6 +2906,20 @@ export function ProjectReviewEditorDialog({
                     toast.error('Impossible de retirer la remontée');
                   } finally {
                     setCancellingEscalationId(null);
+                  }
+                }}
+                onCancelDescent={async (descentId) => {
+                  setCancellingDescentId(descentId);
+                  try {
+                    await cancelDescent.mutateAsync({
+                      reviewId: d.id,
+                      descentId,
+                    });
+                    toast.success('Décision COPIL retirée');
+                  } catch {
+                    toast.error('Impossible de retirer la décision');
+                  } finally {
+                    setCancellingDescentId(null);
                   }
                 }}
               />

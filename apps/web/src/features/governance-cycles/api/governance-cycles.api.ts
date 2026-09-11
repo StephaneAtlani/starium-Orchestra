@@ -10,6 +10,7 @@ import type {
   ListGovernanceCycleItemsParams,
   ListGovernanceCyclesParams,
 } from '../types/governance-cycle.types';
+import type { GovernanceCalendarEventsResponseDto } from '../types/governance-calendar.types';
 import type {
   CreateGovernanceCycleFormValues,
   PatchGovernanceCycleItemArbitrationFormValues,
@@ -226,6 +227,16 @@ export async function deleteGovernanceCycleItem(
 ): Promise<void> {
   const res = await authFetch(`${BASE}/${cycleId}/items/${itemId}`, { method: 'DELETE' });
   if (!res.ok) throw await parseApiFormError(res);
+}
+
+export async function listGovernanceCalendarEvents(
+  authFetch: AuthFetch,
+  params: { from: string; to: string },
+): Promise<GovernanceCalendarEventsResponseDto> {
+  const qs = buildQueryString(params);
+  const res = await authFetch(`${BASE}/calendar-events${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<GovernanceCalendarEventsResponseDto>;
 }
 
 export type { ApiFormError } from '@/features/budgets/api/types';

@@ -10,6 +10,9 @@ import type {
   ProjectReviewEscalationsListResponse,
   CreateProjectReviewEscalationPayload,
   ConsolidateEscalationsResult,
+  ProjectReviewDescentApi,
+  ProjectReviewDescentsListResponse,
+  ConsolidateDescentsResult,
   ProjectReviewListResponse,
   ProjectReviewParticipantApi,
   ProjectReviewParticipantAttendanceStatus,
@@ -542,4 +545,42 @@ export async function consolidateProjectReviewEscalations(
   );
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ConsolidateEscalationsResult>;
+}
+
+/** RFC-PROJ-013-8 F3.1 */
+export async function listProjectReviewDescents(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ProjectReviewDescentsListResponse> {
+  const res = await authFetch(`${base(projectId)}/${reviewId}/descents`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDescentsListResponse>;
+}
+
+export async function cancelProjectReviewDescent(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  descentId: string,
+): Promise<ProjectReviewDescentApi> {
+  const res = await authFetch(
+    `${base(projectId)}/${reviewId}/descents/${descentId}/cancel`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewDescentApi>;
+}
+
+export async function consolidateProjectReviewDescents(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+): Promise<ConsolidateDescentsResult> {
+  const res = await authFetch(
+    `${base(projectId)}/${reviewId}/consolidate-descents`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ConsolidateDescentsResult>;
 }

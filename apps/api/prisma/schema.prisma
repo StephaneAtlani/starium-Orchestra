@@ -322,6 +322,7 @@ model Client {
   projectReviewActionItemContributors ProjectReviewActionItemContributor[]
   projectReviewAttachments         ProjectReviewAttachment[]
   projectReviewEscalations         ProjectReviewEscalation[]
+  projectReviewDescents            ProjectReviewDescent[]
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
@@ -628,6 +629,8 @@ model User {
   projectReviewParticipants            ProjectReviewParticipant[]
   ownedProjectReviewEscalations        ProjectReviewEscalation[]       @relation("ProjectReviewEscalationOwner")
   createdProjectReviewEscalations      ProjectReviewEscalation[]       @relation("ProjectReviewEscalationCreatedBy")
+  ownedProjectReviewDescents           ProjectReviewDescent[]          @relation("ProjectReviewDescentOwner")
+  createdProjectReviewDescents         ProjectReviewDescent[]          @relation("ProjectReviewDescentCreatedBy")
   emailIdentities                      UserEmailIdentity[]
   emailAddressRegistryEntries          EmailAddressRegistry[]
   emailIdentityVerificationTokens    EmailIdentityVerificationToken[] @relation("EmailIdentityTokenUser")
@@ -1654,10 +1657,19 @@ enum ProjectReviewAgendaItemType {
   OTHER
   /// RFC-PROJ-013-8 F3 — sujet remonté COPRO → COPIL
   ESCALATION
+  /// RFC-PROJ-013-8 F3.1 — décision COPIL injectée dans un COPRO
+  DECISION_DESCENT
 }
 
 /// RFC-PROJ-013-8 F3 — statut d'une remontée COPRO → COPIL
 enum ProjectReviewEscalationStatus {
+  PENDING
+  INJECTED
+  CANCELLED
+}
+
+/// RFC-PROJ-013-8 F3.1 — statut d'une descente COPIL → COPRO
+enum ProjectReviewDescentStatus {
   PENDING
   INJECTED
   CANCELLED
@@ -1914,6 +1926,7 @@ model Project {
   projectReviewSeries       ProjectReviewSeries[]
   projectReviewActionItems  ProjectReviewActionItem[]
   projectReviewEscalations  ProjectReviewEscalation[]
+  projectReviewDescents     ProjectReviewDescent[]
   documents                 ProjectDocument[]
   resourceTimeEntries       ResourceTimeEntry[]
   governanceCycleItems      GovernanceCycleItem[]
@@ -2612,6 +2625,8 @@ model ProjectReview {
   attachments  ProjectReviewAttachment[]
   escalationsFrom ProjectReviewEscalation[] @relation("ProjectReviewEscalationSource")
   escalationsTo   ProjectReviewEscalation[] @relation("ProjectReviewEscalationTarget")
+  descentsFrom    ProjectReviewDescent[]    @relation("ProjectReviewDescentSource")
+  descentsTo      ProjectReviewDescent[]    @relation("ProjectReviewDescentTarget")
 
   /// RFC-MEET-001 — point projet créé/lié par une réunion (pont de surcouche)
   meetingProjects MeetingProject[]
@@ -2657,6 +2672,41 @@ model ProjectReviewEscalation {
   @@index([clientId, sourceReviewId])
   @@index([clientId, targetReviewId, status])
   @@index([clientId, sourceAgendaItemId])
+}
+
+/// RFC-PROJ-013-8 F3.1 — descente d’une décision COPIL vers un COPRO
+model ProjectReviewDescent {
+  id        String @id @default(cuid())
+  clientId  String
+  projectId String
+
+  sourceReviewId   String
+  sourceDecisionId String
+  title            String
+  summary          String?
+  ownerUserId      String?
+
+  targetReviewId     String?
+  targetAgendaItemId String?
+  status             ProjectReviewDescentStatus @default(PENDING)
+  injectedAt         DateTime?
+
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceReview ProjectReview  @relation("ProjectReviewDescentSource", fields: [sourceReviewId], references: [id], onDelete: Cascade)
+  targetReview ProjectReview? @relation("ProjectReviewDescentTarget", fields: [targetReviewId], references: [id], onDelete: SetNull)
+  ownerUser    User?          @relation("ProjectReviewDescentOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy    User?          @relation("ProjectReviewDescentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, sourceDecisionId])
+  @@index([clientId, projectId, status])
+  @@index([clientId, sourceReviewId])
+  @@index([clientId, targetReviewId, status])
+  @@index([clientId, sourceDecisionId])
 }
 
 /// RFC-PROJ-013-7 — modèle de récurrence de points projet (écran Séries 06)

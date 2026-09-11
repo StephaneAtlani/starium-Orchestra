@@ -9,8 +9,22 @@ vi.mock('@/components/layout/page-container', () => ({
 }));
 
 vi.mock('@/components/layout/page-header', () => ({
-  PageHeader: ({ title, description }: { title: React.ReactNode; description?: React.ReactNode }) =>
-    React.createElement('div', null, React.createElement('h1', null, title), description),
+  PageHeader: ({
+    title,
+    description,
+    actions,
+  }: {
+    title: React.ReactNode;
+    description?: React.ReactNode;
+    actions?: React.ReactNode;
+  }) =>
+    React.createElement(
+      'div',
+      null,
+      React.createElement('h1', null, title),
+      description,
+      actions,
+    ),
 }));
 
 vi.mock('@/components/feedback/loading-state', () => ({
@@ -122,6 +136,7 @@ vi.mock('../hooks/use-governance-cycles', () => ({
   useGovernanceCycleSummariesForIdsQuery: () => [],
   useGovernanceCyclePendingItemsForIdsQuery: () => [],
   useArchiveGovernanceCycleMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  getApiErrorMessage: (error: unknown) => String(error),
 }));
 
 vi.mock('../api/governance-cycle-instances.queries', () => ({
@@ -149,6 +164,8 @@ describe('GovernanceCyclesPage render', () => {
     expect(html).toContain('Décisions en attente');
     expect(html).toContain('Cadence des cycles');
     expect(html).toContain('CODIR-T2');
+    expect(html).toContain('href="/cycles/calendar"');
+    expect(html).toContain('Créer un point');
     expect(html).not.toMatch(/>\s*cycle-hidden-id\s*</);
   });
 });

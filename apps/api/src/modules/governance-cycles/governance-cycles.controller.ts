@@ -22,11 +22,13 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateGovernanceCycleDto } from './dto/create-governance-cycle.dto';
 import { CreateGovernanceCycleItemDto } from './dto/create-governance-cycle-item.dto';
+import { ListGovernanceCalendarEventsQueryDto } from './dto/list-governance-calendar-events-query.dto';
 import { ListGovernanceCycleItemsQueryDto } from './dto/list-governance-cycle-items-query.dto';
 import { ListGovernanceCyclesQueryDto } from './dto/list-governance-cycles-query.dto';
 import { UpdateGovernanceCycleDto } from './dto/update-governance-cycle.dto';
 import { UpdateGovernanceCycleItemDto } from './dto/update-governance-cycle-item.dto';
 import { SubmitProjectToCycleDto } from './dto/submit-project-to-cycle.dto';
+import { GovernanceCalendarService } from './governance-calendar.service';
 import { GovernanceCyclesService } from './governance-cycles.service';
 
 type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
@@ -39,7 +41,10 @@ type AuditMeta = { ipAddress?: string; userAgent?: string; requestId?: string };
 )
 @Controller()
 export class GovernanceCyclesController {
-  constructor(private readonly service: GovernanceCyclesService) {}
+  constructor(
+    private readonly service: GovernanceCyclesService,
+    private readonly calendar: GovernanceCalendarService,
+  ) {}
 
   @Get('governance-cycles')
   @RequirePermissions('governance_cycles.read')
@@ -48,6 +53,17 @@ export class GovernanceCyclesController {
     @Query() query: ListGovernanceCyclesQueryDto,
   ) {
     return this.service.listCycles(clientId!, query);
+  }
+
+  /** RFC-PROJ-013-9 C1 — agrégat calendrier (points projet + instances). Avant `:id`. */
+  @Get('governance-cycles/calendar-events')
+  @RequirePermissions('governance_cycles.read')
+  listCalendarEvents(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() userId: string | undefined,
+    @Query() query: ListGovernanceCalendarEventsQueryDto,
+  ) {
+    return this.calendar.listCalendarEvents(clientId!, userId!, query);
   }
 
   @Post('governance-cycles')

@@ -13,8 +13,11 @@ import {
   findDraftPostMortemReview,
   hasFinalizedPostMortemReview,
   isPostMortemEligibleProjectStatus,
-  REVIEW_TYPES_PILOTAGE,
 } from '../lib/project-review-post-mortem';
+import {
+  PROJECT_REVIEW_CREATE_DEFAULTS,
+  type ProjectReviewCreateMenuType,
+} from '../lib/project-review-create-defaults';
 import { projectReviewConduct } from '../constants/project-routes';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
@@ -29,7 +32,6 @@ import {
   type ProjectReviewsTabState,
   type ProjectReviewUiState,
 } from '../lib/project-review-ui-state';
-import type { ProjectReviewCreateMenuType } from '../lib/project-review-create-defaults';
 import { Plus } from 'lucide-react';
 
 export function ProjectReviewsTab({
@@ -44,7 +46,7 @@ export function ProjectReviewsTab({
   const postMortemEligible = isPostMortemEligibleProjectStatus(projectStatus);
   const createTypeOptions: ProjectReviewType[] = postMortemEligible
     ? ['POST_MORTEM']
-    : [...REVIEW_TYPES_PILOTAGE];
+    : PROJECT_REVIEW_CREATE_DEFAULTS.map((d) => d.reviewType);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createPrefillType, setCreatePrefillType] =
