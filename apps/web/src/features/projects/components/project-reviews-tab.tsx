@@ -23,7 +23,6 @@ import {
 import { projectReviewConduct } from '../constants/project-routes';
 import { ProjectReviewCreateDialog } from './project-review-create-dialog';
 import { ProjectReviewPrepareDialog } from './project-review-prepare-dialog';
-import { ProjectReviewsContextBanner } from './project-reviews-context-banner';
 import { ProjectReviewsKpiRow } from './project-reviews-kpi-row';
 import { ProjectReviewsContinuityPanel } from './project-reviews-continuity-panel';
 import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
@@ -277,17 +276,6 @@ export function ProjectReviewsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {!postMortemEligible ? (
-        <ProjectReviewsContextBanner
-          postMortemEligible={false}
-          finalizedPostMortem={false}
-          draftPostMortem={null}
-          canEdit={canEdit}
-          onPrimaryAction={onPrimaryReviewAction}
-          variant="tab"
-        />
-      ) : null}
-
       {!postMortemEligible ? (
         <ProjectReviewsKpiRow
           summary={summary.data}
