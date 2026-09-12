@@ -117,6 +117,7 @@ export class ProjectReviewAgendaService {
         orderIndex,
         plannedDurationMinutes: dto.plannedDurationMinutes ?? null,
         ownerUserId: dto.ownerUserId ?? null,
+        notes: dto.notes?.trim() ?? null,
       },
     });
 

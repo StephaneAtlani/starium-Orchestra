@@ -167,6 +167,35 @@ export function canFreezePrepare(
   return collectPrepareLockIssues(input).length === 0;
 }
 
+/** Adapter détail review → issues de verrouillage prepare. */
+export function prepareLockIssuesFromDetail(detail: {
+  agendaItems?: Array<{
+    id: string;
+    title: string;
+    itemType: string;
+    plannedDurationMinutes: number | null;
+    ownerUserId: string | null;
+  }>;
+  participants?: unknown[];
+  durationMinutes: number | null;
+  attachments?: Array<{ agendaItemId: string | null }>;
+}): PrepareLockIssue[] {
+  return collectPrepareLockIssues({
+    agendaItems: (detail.agendaItems ?? []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      itemType: item.itemType,
+      plannedDurationMinutes: item.plannedDurationMinutes,
+      ownerUserId: item.ownerUserId,
+    })),
+    participantCount: (detail.participants ?? []).length,
+    sessionDurationMinutes: detail.durationMinutes,
+    attachments: (detail.attachments ?? []).map((a) => ({
+      agendaItemId: a.agendaItemId,
+    })),
+  });
+}
+
 export function firstPrepareLockError(
   input: Parameters<typeof collectPrepareLockIssues>[0],
 ): string | null {

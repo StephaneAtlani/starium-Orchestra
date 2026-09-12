@@ -33,4 +33,9 @@ export class CreateProjectReviewAgendaItemDto {
   @IsString()
   @MaxLength(8000)
   expectedDecision?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  notes?: string | null;
 }

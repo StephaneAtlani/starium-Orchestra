@@ -61,7 +61,7 @@ Le corps de modale doit **montrer** qu’il y a plus de contenu — tout le mond
 
 | Mécanisme | Où |
 |-----------|-----|
-| Scrollbar fine stylée (track + thumb tokens) | **Souris** : masquée au repos, **visible au survol** (`:hover` / `data-scroll-hover`, largeur 0→12px). **Tactile** : fine toujours visible. Corps + `.starium-scroll` + `.overflow-y-auto` sous dialog |
+| Scrollbar fine stylée (track + thumb tokens) | **Souris** : masquée au repos, **visible au survol** (`:hover` / `data-scroll-hover` / `data-starium-scroll`, largeur 0→12px). **Tactile** : fine toujours visible. Corps + `.starium-scroll` + `.overflow-y-auto` + `.prepare-workspace__col` + `[data-starium-scroll]` sous dialog |
 | `scrollbar-gutter: stable` | Même périmètre — évite le jump de layout |
 | Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
 
@@ -212,7 +212,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Inputs bruts `border-input` hors `.starium-form-*` | Classes formulaire DS |
 | `Statement`, UUID, IDs en UI | Libellés métier français |
 | Scroll sur `DialogContent` | Scroll uniquement sur `DialogBody` |
-| Scrollbar invisible / overlay sans indice | **`StariumScrollArea`** (rail HTML custom) sur les panneaux scrollables denses ; sinon scrollbar native au survol |
+| Scrollbar invisible / overlay sans indice | **`StariumScrollArea`** (rail HTML custom) sur les panneaux scrollables denses (ex. atelier Préparer 3 col) ; sinon scrollbar native au survol |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---

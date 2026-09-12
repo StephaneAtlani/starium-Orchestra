@@ -116,6 +116,8 @@ export const projectQueryKeys = {
     ['project', projectId, 'review-escalations', reviewId, clientId] as const,
   reviewDescents: (clientId: string, projectId: string, reviewId: string) =>
     ['project', projectId, 'review-descents', reviewId, clientId] as const,
+  prepareTemplates: (clientId: string, projectId: string, typeCode: string) =>
+    ['project', projectId, 'prepare-templates', typeCode, clientId] as const,
 
   /** RFC-PLA-001 */
   actionPlansList: (clientId: string, params: Record<string, unknown>) =>

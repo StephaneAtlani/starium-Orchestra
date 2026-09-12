@@ -151,6 +151,7 @@ export function StariumScrollArea({
             showRail
               ? 'pointer-events-auto opacity-100'
               : 'pointer-events-none opacity-0',
+            /* Toujours en DOM dès overflow — opacity gère le reveal au survol */
           )}
           onPointerDown={onRailPointerDown}
         >

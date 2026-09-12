@@ -12,13 +12,11 @@ import { useProjectReviewsQuery } from '../hooks/use-project-reviews-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import {
   canFreezePrepare,
+  prepareLockIssuesFromDetail,
   type PrepareLockFocusTarget,
 } from '../lib/project-review-prepare-guards';
 import { canStartReview } from '../lib/project-review-status';
-import {
-  prepareLockIssuesFromDetail,
-  ProjectReviewPrepareCdcPanel,
-} from './project-review-prepare-cdc-panel';
+import { ProjectReviewPrepareWorkspace } from './project-review-prepare-workspace';
 import { ProjectReviewConvocationDialog } from './project-review-convocation-dialog';
 import { projectReviewConduct } from '../constants/project-routes';
 
@@ -30,7 +28,16 @@ export type ProjectReviewPrepareDialogProps = {
   canEdit: boolean;
 };
 
-/** CDC 03 — modale « Préparer l'instance » (capture p.8). */
+function apiErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+/** CDC — modale « Préparer l'instance » (atelier 3 colonnes). */
 export function ProjectReviewPrepareDialog({
   open,
   onOpenChange,
@@ -46,8 +53,7 @@ export function ProjectReviewPrepareDialog({
   const listQuery = useProjectReviewsQuery(projectId, {
     enabled: open && !!reviewId,
   });
-  const { createAgendaItem, update, startReview } =
-    useProjectReviewMutations(projectId);
+  const { update, startReview } = useProjectReviewMutations(projectId);
 
   const [convocationOpen, setConvocationOpen] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -55,6 +61,7 @@ export function ProjectReviewPrepareDialog({
   const durationRef = useRef<HTMLElement | null>(null);
   const participantsRef = useRef<HTMLElement | null>(null);
   const agendaRef = useRef<HTMLElement | null>(null);
+  const flushPrepRef = useRef<(() => Promise<void>) | null>(null);
 
   const detail = detailQuery.data;
   const agendaLocked = Boolean(detail?.agendaLockedAt);
@@ -125,16 +132,20 @@ export function ProjectReviewPrepareDialog({
     if (!detail || !canEdit) return;
     setSavingDraft(true);
     try {
-      await update.mutateAsync({
-        reviewId: detail.id,
-        body: {
-          title: detail.title,
-          objective: detail.objective,
-        },
-      });
+      if (flushPrepRef.current) {
+        await flushPrepRef.current();
+      } else {
+        await update.mutateAsync({
+          reviewId: detail.id,
+          body: {
+            title: detail.title,
+            objective: detail.objective,
+          },
+        });
+      }
       toast.success('Brouillon enregistré');
-    } catch {
-      toast.error('Enregistrement impossible');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Enregistrement impossible'));
     } finally {
       setSavingDraft(false);
     }
@@ -147,9 +158,7 @@ export function ProjectReviewPrepareDialog({
       onOpenChange(false);
       router.push(projectReviewConduct(projectId, detail.id));
     } catch (err) {
-      toast.error(
-        (err as { message?: string })?.message ?? 'Démarrage impossible',
-      );
+      toast.error(apiErrorMessage(err, 'Démarrage impossible'));
     }
   };
 
@@ -174,10 +183,11 @@ export function ProjectReviewPrepareDialog({
           onOpenChange(next);
         }}
         title="Préparer l'instance"
-        description="Ordre du jour, supports et points à arbitrer"
+        description="Ordre du jour, participants et points à reprendre"
         icon={ClipboardPen}
         size="xl"
-        contentClassName="sm:max-w-3xl"
+        contentClassName="h-[min(92dvh,calc(100dvh-2rem))] sm:max-w-[min(1400px,96vw)]"
+        bodyClassName="!p-0 !overflow-hidden flex min-h-0 flex-1 flex-col"
         footer={
           detail ? (
             <>
@@ -198,7 +208,7 @@ export function ProjectReviewPrepareDialog({
                 onClick={() => void onStart()}
               >
                 <Play className="size-4" aria-hidden />
-                Démarrer la séance
+                Ouvrir le point
               </Button>
               {!agendaLocked ? (
                 <Button
@@ -225,53 +235,41 @@ export function ProjectReviewPrepareDialog({
         }
       >
         {!reviewId || detailQuery.isLoading ? (
-          <LoadingState rows={6} />
+          <div className="p-4">
+            <LoadingState rows={6} />
+          </div>
         ) : detailQuery.isError || !detail ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="p-4 text-sm text-destructive" role="alert">
             Impossible de charger la préparation.
           </p>
         ) : (
-          <ProjectReviewPrepareCdcPanel
-            projectId={projectId}
-            detail={detail}
-            canEdit={canEdit}
-            agendaLocked={agendaLocked}
-            hideChromeHeader
-            revealLockIssues={revealLockIssues}
-            previousActions={
-              previousReviewId
-                ? (previousDetailQuery.data?.actionItems ?? null)
-                : []
-            }
-            previousLoading={
-              Boolean(previousReviewId) && previousDetailQuery.isLoading
-            }
-            previousError={
-              Boolean(previousReviewId) &&
-              (previousDetailQuery.isError || !previousDetailQuery.data)
-            }
-            onResumeAction={async (action) => {
-              try {
-                await createAgendaItem.mutateAsync({
-                  reviewId: detail.id,
-                  body: {
-                    title: action.title.trim(),
-                    itemType: 'ACTION_REVIEW',
-                    description: action.description?.trim() || null,
-                    plannedDurationMinutes: 10,
-                  },
-                });
-                toast.success('Sujet ajouté à l’ordre du jour');
-              } catch {
-                toast.error('Impossible d’ajouter le sujet');
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ProjectReviewPrepareWorkspace
+              projectId={projectId}
+              detail={detail}
+              canEdit={canEdit}
+              agendaLocked={agendaLocked}
+              revealLockIssues={revealLockIssues}
+              previousDetail={
+                previousReviewId ? previousDetailQuery.data : null
               }
-            }}
-            lockIssues={lockIssues}
-            onFocusIssue={focusIssue}
-            agendaListRef={agendaRef}
-            durationCounterRef={durationRef}
-            participantsRef={participantsRef}
-          />
+              previousLoading={
+                Boolean(previousReviewId) && previousDetailQuery.isLoading
+              }
+              previousError={
+                Boolean(previousReviewId) &&
+                (previousDetailQuery.isError || !previousDetailQuery.data)
+              }
+              lockIssues={lockIssues}
+              onFocusIssue={focusIssue}
+              agendaListRef={agendaRef}
+              durationCounterRef={durationRef}
+              participantsRef={participantsRef}
+              onRegisterFlush={(fn) => {
+                flushPrepRef.current = fn;
+              }}
+            />
+          </div>
         )}
       </StariumModal>
 

@@ -324,6 +324,7 @@ model Client {
   projectReviewAttachments         ProjectReviewAttachment[]
   projectReviewEscalations         ProjectReviewEscalation[]
   projectReviewDescents            ProjectReviewDescent[]
+  projectReviewPrepareTemplates    ProjectReviewPrepareTemplate[]
   projectActivities                ProjectActivity[]
   projectTags                      ProjectTag[]
   projectTagAssignments            ProjectTagAssignment[]
@@ -2654,6 +2655,24 @@ model ProjectReview {
   @@index([seriesId])
   @@index([projectId, reviewDate])
   @@index([clientId, microsoftEventId])
+}
+
+/// Atelier Préparer — modèles ODJ par client (kit prep-workspace).
+model ProjectReviewPrepareTemplate {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  /// Code kit (COPIL, COPROJ, REVUE, …)
+  typeCode  String
+  /// { mode, selectedBlockIds, customBlocks?, sections? }
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, typeCode])
+  @@map("project_review_prepare_templates")
 }
 
 /// RFC-PROJ-013-8 F3 — remontée d’un sujet COPRO vers un COPIL

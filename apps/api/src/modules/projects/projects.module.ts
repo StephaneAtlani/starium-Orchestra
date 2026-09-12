@@ -21,6 +21,8 @@ import { ProjectReviewsController } from './project-reviews/project-reviews.cont
 import { ProjectReviewsService } from './project-reviews/project-reviews.service';
 import { ProjectReviewAgendaController } from './project-reviews/project-review-agenda.controller';
 import { ProjectReviewAgendaService } from './project-reviews/project-review-agenda.service';
+import { ProjectReviewPrepareTemplatesController } from './project-reviews/project-review-prepare-templates.controller';
+import { ProjectReviewPrepareTemplatesService } from './project-reviews/project-review-prepare-templates.service';
 import { ProjectReviewParticipantsController } from './project-reviews/project-review-participants.controller';
 import { ProjectReviewParticipantsService } from './project-reviews/project-review-participants.service';
 import { ProjectReviewAttachmentsController } from './project-reviews/project-review-attachments.controller';
@@ -85,6 +87,7 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     /** Routes `projects/:id/...` (ex. project-sheet) avant `projects/:id` pour éviter les collisions de matching. */
     ProjectSheetController,
     ProjectSheetDecisionSnapshotsController,
+    ProjectReviewPrepareTemplatesController,
     ProjectReviewsController,
     ProjectReviewSeriesController,
     ProjectReviewAgendaController,
@@ -115,6 +118,7 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     ProjectReviewsService,
     ProjectReviewSeriesService,
     ProjectReviewAgendaService,
+    ProjectReviewPrepareTemplatesService,
     ProjectReviewParticipantsService,
     ProjectReviewAttachmentsService,
     ProjectReviewInvitationsService,

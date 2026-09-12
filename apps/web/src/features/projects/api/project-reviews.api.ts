@@ -625,3 +625,77 @@ export async function consolidateProjectReviewDescents(
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ConsolidateDescentsResult>;
 }
+
+export type ProjectReviewPrepareTemplateApi = {
+  id: string;
+  name: string;
+  typeCode: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const prepareTemplatesBase = (projectId: string) =>
+  `${base(projectId)}/prepare-templates`;
+
+export async function listProjectReviewPrepareTemplates(
+  authFetch: AuthFetch,
+  projectId: string,
+  typeCode?: string,
+): Promise<{ items: ProjectReviewPrepareTemplateApi[] }> {
+  const qs = typeCode
+    ? `?typeCode=${encodeURIComponent(typeCode)}`
+    : '';
+  const res = await authFetch(`${prepareTemplatesBase(projectId)}${qs}`);
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ items: ProjectReviewPrepareTemplateApi[] }>;
+}
+
+export async function createProjectReviewPrepareTemplate(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: {
+    name: string;
+    typeCode: string;
+    payload: Record<string, unknown>;
+  },
+): Promise<ProjectReviewPrepareTemplateApi> {
+  const res = await authFetch(prepareTemplatesBase(projectId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewPrepareTemplateApi>;
+}
+
+export async function updateProjectReviewPrepareTemplate(
+  authFetch: AuthFetch,
+  projectId: string,
+  templateId: string,
+  body: { name?: string; payload?: Record<string, unknown> },
+): Promise<ProjectReviewPrepareTemplateApi> {
+  const res = await authFetch(
+    `${prepareTemplatesBase(projectId)}/${templateId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectReviewPrepareTemplateApi>;
+}
+
+export async function deleteProjectReviewPrepareTemplate(
+  authFetch: AuthFetch,
+  projectId: string,
+  templateId: string,
+): Promise<{ ok: boolean }> {
+  const res = await authFetch(
+    `${prepareTemplatesBase(projectId)}/${templateId}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<{ ok: boolean }>;
+}
