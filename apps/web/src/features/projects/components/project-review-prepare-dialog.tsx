@@ -177,7 +177,7 @@ export function ProjectReviewPrepareDialog({
         description="Ordre du jour, supports et points à arbitrer"
         icon={ClipboardPen}
         size="xl"
-        contentClassName="sm:max-w-4xl"
+        contentClassName="sm:max-w-3xl"
         footer={
           detail ? (
             <>
