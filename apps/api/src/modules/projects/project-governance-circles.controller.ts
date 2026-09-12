@@ -20,6 +20,7 @@ import {
   CreateProjectTeamDto,
   UpdateProjectTeamDto,
 } from './dto/create-project-governance-circle.dto';
+import { InviteProjectTeamDirectoryPersonDto } from './dto/invite-project-team-directory-person.dto';
 import { ProjectGovernanceCirclesService } from './project-governance-circles.service';
 
 const guards = [JwtAuthGuard, ActiveClientGuard, ModuleAccessGuard, PermissionsGuard] as const;
@@ -36,6 +37,16 @@ export class ProjectTeamsController {
     @Param('projectId') projectId: string,
   ) {
     return this.circles.list(clientId!, projectId);
+  }
+
+  @Post('directory-people')
+  @RequirePermissions('projects.update')
+  inviteDirectoryPerson(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Body() dto: InviteProjectTeamDirectoryPersonDto,
+  ) {
+    return this.circles.inviteDirectoryPerson(clientId!, projectId, dto);
   }
 
   @Get(':teamId')

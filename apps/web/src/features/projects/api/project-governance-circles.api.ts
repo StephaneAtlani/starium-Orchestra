@@ -110,4 +110,26 @@ export async function deleteProjectGovernanceCircle(
 
 export const deleteProjectTeam = deleteProjectGovernanceCircle;
 
+export type InviteProjectTeamDirectoryPersonBody = {
+  firstName: string;
+  lastName: string;
+  companyName?: string | null;
+  email: string;
+};
+
+/** Upsert Resource HUMAN EXTERNAL + retourne le membre prêt à ajouter à l’équipe. */
+export async function inviteProjectTeamDirectoryPerson(
+  authFetch: AuthFetch,
+  projectId: string,
+  body: InviteProjectTeamDirectoryPersonBody,
+): Promise<ProjectTeamMemberRefApi> {
+  const res = await authFetch(`${BASE}/${projectId}/teams/directory-people`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectTeamMemberRefApi>;
+}
+
 export type { ProjectTeamMemberRefApi };

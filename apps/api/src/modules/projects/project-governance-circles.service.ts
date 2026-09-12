@@ -291,6 +291,51 @@ export class ProjectGovernanceCirclesService {
     }
   }
 
+  async inviteDirectoryPerson(
+    clientId: string,
+    projectId: string,
+    dto: {
+      firstName: string;
+      lastName: string;
+      companyName?: string | null;
+      email: string;
+    },
+  ): Promise<ProjectTeamMemberResponse> {
+    await this.projects.getProjectForScope(clientId, projectId);
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName.trim();
+    const email = dto.email.trim().toLowerCase();
+    if (!firstName || !lastName) {
+      throw new BadRequestException('Prénom et nom sont obligatoires');
+    }
+    if (!email) {
+      throw new BadRequestException('E-mail requis');
+    }
+
+    const resource = await this.resources.ensureExternalHuman(clientId, {
+      firstName,
+      name: lastName,
+      email,
+      companyName: dto.companyName,
+    });
+
+    const displayName =
+      [resource.firstName, resource.name].filter(Boolean).join(' ').trim() ||
+      email;
+
+    return {
+      identityKey: `r:${resource.id}`,
+      userId: null,
+      resourceId: resource.id,
+      displayName,
+      firstName: resource.firstName,
+      lastName: resource.name,
+      companyName: resource.companyName,
+      email: resource.email,
+      sortOrder: 0,
+    };
+  }
+
   /**
    * Externes sans compte → upsert Resource HUMAN EXTERNAL + identityKey `r:<id>`.
    */

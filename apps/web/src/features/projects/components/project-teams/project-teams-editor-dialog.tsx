@@ -1,10 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Users, X } from 'lucide-react';
+import { BookUser, Plus, Search, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
@@ -14,7 +21,6 @@ import { useProjectTeamsQuery } from '../../hooks/use-project-governance-circles
 import { useProjectTeamQuery } from '../../hooks/use-project-team-queries';
 import { useProjectTeamsMutations } from '../../hooks/use-project-teams-mutations';
 import {
-  freePersonIdentityKey,
   PROJECT_TEAM_COLOR_LABEL,
   PROJECT_TEAM_COLOR_SWATCH,
   PROJECT_TEAM_COLOR_TOKENS,
@@ -26,6 +32,7 @@ import type {
   ProjectTeamColorToken,
   ProjectTeamMemberRefApi,
 } from '../../types/project.types';
+import { ProjectTeamDirectoryPersonDialog } from './project-team-directory-person-dialog';
 
 const CREATE_DRAFT_ID = '__create__';
 
@@ -112,10 +119,6 @@ function parseInviteInput(raw: string): {
   };
 }
 
-function composeDisplayName(firstName: string, lastName: string): string {
-  return [firstName.trim(), lastName.trim()].filter(Boolean).join(' ').trim();
-}
-
 function teamToDraft(team: ProjectGovernanceCircleApi): DraftTeam {
   const members = (team.members ?? []).map((m, i) => ({
     identityKey: m.identityKey,
@@ -179,13 +182,7 @@ export function ProjectTeamsEditorDialog({
   const [selectedId, setSelectedId] = useState<string>(CREATE_DRAFT_ID);
   const [draft, setDraft] = useState<DraftTeam>(emptyDraft());
   const [personQuery, setPersonQuery] = useState('');
-  const [inviteFirstName, setInviteFirstName] = useState('');
-  const [inviteLastName, setInviteLastName] = useState('');
-  const [inviteCompany, setInviteCompany] = useState('');
-  const [externalEmail, setExternalEmail] = useState('');
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [forceExternalForm, setForceExternalForm] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -212,13 +209,7 @@ export function ProjectTeamsEditorDialog({
 
   const resetInviteForm = useCallback(() => {
     setPersonQuery('');
-    setInviteFirstName('');
-    setInviteLastName('');
-    setInviteCompany('');
-    setExternalEmail('');
-    setEmailError(null);
-    setNameError(null);
-    setForceExternalForm(false);
+    setDirectoryOpen(false);
   }, []);
 
   useEffect(() => {
@@ -382,52 +373,19 @@ export function ProjectTeamsEditorDialog({
       addMember(exactDirectoryMatch);
       return;
     }
-
-    const parsed = parseInviteInput(personQuery);
-    const firstName = (inviteFirstName.trim() || parsed.firstName).trim();
-    const lastName = (inviteLastName.trim() || parsed.lastName).trim();
-    const companyName = inviteCompany.trim() || null;
-    const emailCandidate = (
-      externalEmail.trim() ||
-      parsed.email ||
-      ''
-    ).toLowerCase();
-
-    if (!firstName || !lastName) {
-      setNameError('Prénom et nom sont obligatoires pour une personne externe.');
-      return;
+    if (personQuery.trim()) {
+      setDirectoryOpen(true);
     }
-    setNameError(null);
-
-    if (!emailCandidate) {
-      setEmailError(
-        'Indiquez un e-mail pour cette personne externe (convocations).',
-      );
-      return;
-    }
-    if (!isValidEmail(emailCandidate)) {
-      setEmailError('Adresse e-mail invalide.');
-      return;
-    }
-
-    const displayName = composeDisplayName(firstName, lastName);
-    const identityKey = freePersonIdentityKey(displayName);
-    if (selectedKeys.has(identityKey)) {
-      toast.error('Cette personne est déjà dans l’équipe.');
-      return;
-    }
-    addMember({
-      identityKey,
-      userId: null,
-      resourceId: null,
-      displayName,
-      firstName,
-      lastName,
-      companyName,
-      email: emailCandidate,
-      sortOrder: draft.members.length,
-    });
   };
+
+  const directoryPrefill = useMemo(() => {
+    const parsed = parseInviteInput(personQuery);
+    return {
+      email: parsed.email ?? (isValidEmail(personQuery) ? personQuery.trim() : ''),
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+    };
+  }, [personQuery]);
 
   const onSave = async () => {
     if (!canEdit) return;
@@ -523,25 +481,9 @@ export function ProjectTeamsEditorDialog({
   };
 
   const readOnly = !canEdit;
-  const showExternalInviteForm =
-    canEdit &&
-    !exactDirectoryMatch?.userId &&
-    (forceExternalForm ||
-      personQuery.trim().length > 0 ||
-      inviteFirstName.trim().length > 0 ||
-      inviteLastName.trim().length > 0 ||
-      inviteCompany.trim().length > 0 ||
-      externalEmail.trim().length > 0);
-
-  const canSubmitInvite =
-    Boolean(exactDirectoryMatch) ||
-    Boolean(
-      inviteFirstName.trim() &&
-        inviteLastName.trim() &&
-        (externalEmail.trim() || isValidEmail(personQuery.trim())),
-    );
 
   return (
+    <>
     <StariumModal
       open={open}
       onOpenChange={onOpenChange}
@@ -549,6 +491,7 @@ export function ProjectTeamsEditorDialog({
       description="COPIL, COPROJ, COTECH… Composez les instances du projet une fois ; elles se retrouvent dans la préparation de chaque point."
       icon={Users}
       size="xl"
+      contentClassName="sm:max-w-5xl"
       bodyClassName="!p-0"
       footer={
         <>
@@ -586,7 +529,7 @@ export function ProjectTeamsEditorDialog({
         </>
       }
     >
-      <div className="grid max-h-[min(70vh,640px)] grid-cols-1 md:grid-cols-[minmax(12rem,15rem)_1fr]">
+      <div className="grid max-h-[min(78vh,720px)] grid-cols-1 md:grid-cols-[minmax(13rem,16rem)_1fr]">
         <aside className="flex flex-col border-b border-border/70 md:border-b-0 md:border-r">
           <ul
             className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3"
@@ -814,42 +757,27 @@ export function ProjectTeamsEditorDialog({
             </div>
 
             {canEdit ? (
-              <div className="mt-3 space-y-3">
-                <div className="space-y-2">
-                  <label
-                    htmlFor="team-search-person"
-                    className="starium-form-label"
-                  >
-                    Rechercher ou inviter
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="mt-3 space-y-2">
+                <label
+                  htmlFor="team-search-person"
+                  className="starium-form-label"
+                >
+                  Rechercher un membre
+                </label>
+                <TooltipProvider>
+                  <div className="flex items-center gap-1.5">
                     <div className="relative min-w-0 flex-1">
                       <Search
-                        className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+                        className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground"
                         aria-hidden
                       />
                       <Input
                         id="team-search-person"
-                        className="starium-form-input !h-11 !min-h-11 !py-0 !pl-10 !pr-3"
+                        className="starium-form-input !h-9 !min-h-9 !py-0 !pl-8 !pr-2.5 text-sm"
                         value={personQuery}
-                        placeholder="Rechercher un compte ou commencer une invitation…"
+                        placeholder="Nom ou e-mail déjà connu…"
                         autoComplete="off"
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setPersonQuery(value);
-                          setEmailError(null);
-                          setNameError(null);
-                          const parsed = parseInviteInput(value);
-                          if (parsed.email) {
-                            setExternalEmail(parsed.email);
-                          }
-                          if (parsed.firstName && !inviteFirstName) {
-                            setInviteFirstName(parsed.firstName);
-                          }
-                          if (parsed.lastName && !inviteLastName) {
-                            setInviteLastName(parsed.lastName);
-                          }
-                        }}
+                        onChange={(e) => setPersonQuery(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault();
@@ -858,154 +786,52 @@ export function ProjectTeamsEditorDialog({
                         }}
                       />
                     </div>
-                    <Button
-                      type="button"
-                      className="h-11 min-h-11 shrink-0 bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)] hover:bg-[color:var(--brand-gold-600)]"
-                      onClick={onAddPersonSubmit}
-                      disabled={!canSubmitInvite}
-                    >
-                      <Plus className="size-4" aria-hidden />
-                      Ajouter
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span className="inline-flex shrink-0">
+                            <IconButton
+                              type="button"
+                              size="icon-sm"
+                              className="!size-9"
+                              aria-label="Ajouter"
+                              disabled={!exactDirectoryMatch}
+                              onClick={onAddPersonSubmit}
+                            >
+                              <Plus className="size-4" aria-hidden />
+                            </IconButton>
+                          </span>
+                        }
+                      />
+                      <TooltipContent side="bottom">Ajouter</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span className="inline-flex shrink-0">
+                            <IconButton
+                              type="button"
+                              size="icon-sm"
+                              variant="outline"
+                              className="!size-9"
+                              aria-label="Ajouter à l’annuaire"
+                              onClick={() => setDirectoryOpen(true)}
+                            >
+                              <BookUser className="size-4" aria-hidden />
+                            </IconButton>
+                          </span>
+                        }
+                      />
+                      <TooltipContent side="bottom">
+                        Ajouter à l’annuaire
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  {!forceExternalForm && !personQuery.trim() ? (
-                    <button
-                      type="button"
-                      className="text-left text-xs font-medium text-[color:var(--brand-gold-700)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
-                      onClick={() => setForceExternalForm(true)}
-                    >
-                      Inviter une personne externe (prénom, nom, entreprise, e-mail)
-                    </button>
-                  ) : null}
-                </div>
-
-                {showExternalInviteForm ? (
-                  <div
-                    className="space-y-2 rounded-[var(--radius-md)] border border-border/70 bg-muted/15 p-3"
-                    aria-label="Invitation externe"
-                  >
-                    <p className="text-xs font-semibold text-foreground">
-                      Personne externe (sans compte)
-                    </p>
-                    <div className="starium-form-grid starium-form-grid--2">
-                      <div className="starium-form-field !mb-0">
-                        <label
-                          htmlFor="team-invite-firstname"
-                          className="starium-form-label"
-                        >
-                          Prénom
-                        </label>
-                        <Input
-                          id="team-invite-firstname"
-                          className="starium-form-input !h-11 !min-h-11"
-                          value={inviteFirstName}
-                          autoComplete="given-name"
-                          aria-invalid={nameError ? true : undefined}
-                          onChange={(e) => {
-                            setInviteFirstName(e.target.value);
-                            setNameError(null);
-                          }}
-                        />
-                      </div>
-                      <div className="starium-form-field !mb-0">
-                        <label
-                          htmlFor="team-invite-lastname"
-                          className="starium-form-label"
-                        >
-                          Nom
-                        </label>
-                        <Input
-                          id="team-invite-lastname"
-                          className="starium-form-input !h-11 !min-h-11"
-                          value={inviteLastName}
-                          autoComplete="family-name"
-                          aria-invalid={nameError ? true : undefined}
-                          onChange={(e) => {
-                            setInviteLastName(e.target.value);
-                            setNameError(null);
-                          }}
-                        />
-                      </div>
-                      <div className="starium-form-field !mb-0">
-                        <label
-                          htmlFor="team-invite-company"
-                          className="starium-form-label"
-                        >
-                          Entreprise
-                        </label>
-                        <Input
-                          id="team-invite-company"
-                          className="starium-form-input !h-11 !min-h-11"
-                          value={inviteCompany}
-                          autoComplete="organization"
-                          placeholder="Organisation"
-                          onChange={(e) => setInviteCompany(e.target.value)}
-                        />
-                      </div>
-                      <div className="starium-form-field !mb-0">
-                        <label
-                          htmlFor="team-external-email"
-                          className="starium-form-label"
-                        >
-                          E-mail
-                        </label>
-                        <Input
-                          id="team-external-email"
-                          type="email"
-                          className="starium-form-input !h-11 !min-h-11"
-                          value={externalEmail}
-                          placeholder="nom@entreprise.com"
-                          autoComplete="email"
-                          aria-invalid={emailError ? true : undefined}
-                          aria-describedby={
-                            emailError
-                              ? 'team-external-email-error'
-                              : 'team-external-email-hint'
-                          }
-                          onChange={(e) => {
-                            setExternalEmail(e.target.value);
-                            setEmailError(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              onAddPersonSubmit();
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {nameError ? (
-                      <p className="text-sm text-destructive" role="alert">
-                        {nameError}
-                      </p>
-                    ) : null}
-                    {emailError ? (
-                      <p
-                        id="team-external-email-error"
-                        className="text-sm text-destructive"
-                        role="alert"
-                      >
-                        {emailError}
-                      </p>
-                    ) : (
-                      <p
-                        id="team-external-email-hint"
-                        className="starium-form-hint"
-                      >
-                        À l’enregistrement, une fiche{' '}
-                        <strong>Ressource humaine externe</strong> est créée (ou
-                        réutilisée via l’e-mail) dans le catalogue RH du client —
-                        puis rattachée à cette équipe. L’e-mail sert aussi aux
-                        convocations de points projet.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
+                </TooltipProvider>
 
                 {filteredSuggestions.length > 0 ? (
                   <div
-                    className="flex flex-wrap gap-2"
+                    className="flex flex-wrap gap-2 pt-1"
                     aria-label="Suggestions de personnes"
                   >
                     {filteredSuggestions.map((p) => {
@@ -1015,7 +841,7 @@ export function ProjectTeamsEditorDialog({
                           key={p.identityKey}
                           type="button"
                           onClick={() => addMember(p)}
-                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-muted/20 px-2 py-1.5 text-left opacity-80 transition-[border-color,background-color,opacity] hover:border-border hover:bg-card hover:opacity-100 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-card px-2.5 py-1.5 text-left transition-[border-color,box-shadow,background-color] hover:border-border hover:shadow-[var(--shadow-1)] focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
                         >
                           <UserInitialsAvatar
                             displayName={name}
@@ -1024,7 +850,9 @@ export function ProjectTeamsEditorDialog({
                             className="size-7 rounded-full border-0"
                           />
                           <span className="min-w-0">
-                            <span className="block truncate text-sm">{name}</span>
+                            <span className="block truncate text-sm font-medium">
+                              {name}
+                            </span>
                             {p.subtitle ? (
                               <span className="block truncate text-[10px] text-muted-foreground">
                                 {p.subtitle}
@@ -1035,14 +863,14 @@ export function ProjectTeamsEditorDialog({
                       );
                     })}
                   </div>
-                ) : personQuery.trim() && !showExternalInviteForm ? (
+                ) : personQuery.trim() ? (
                   <p
                     className="text-xs text-muted-foreground"
                     role="status"
                     aria-live="polite"
                   >
-                    Aucun compte trouvé — renseignez prénom, nom, entreprise et
-                    e-mail ci-dessus.
+                    Aucun compte trouvé — utilisez « Ajouter à l’annuaire » pour
+                    créer une ressource humaine externe.
                   </p>
                 ) : null}
               </div>
@@ -1056,5 +884,29 @@ export function ProjectTeamsEditorDialog({
         </div>
       </div>
     </StariumModal>
+
+      <ProjectTeamDirectoryPersonDialog
+        projectId={projectId}
+        open={directoryOpen}
+        onOpenChange={setDirectoryOpen}
+        initialEmail={directoryPrefill.email}
+        initialFirstName={directoryPrefill.firstName}
+        initialLastName={directoryPrefill.lastName}
+        onCreated={(member) => {
+          addMember({
+            identityKey: member.identityKey,
+            userId: member.userId,
+            resourceId: member.resourceId ?? null,
+            displayName: member.displayName,
+            firstName: member.firstName ?? null,
+            lastName: member.lastName ?? null,
+            companyName: member.companyName ?? null,
+            email: member.email ?? null,
+            sortOrder: draft.members.length,
+          });
+          setPersonQuery('');
+        }}
+      />
+    </>
   );
 }
