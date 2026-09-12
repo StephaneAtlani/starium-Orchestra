@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectBudget, projectScenarioWorkspace } from '../constants/project-routes';
+import { projectBudget, projectEquipesTab, projectScenarioWorkspace } from '../constants/project-routes';
 import { deriveScenariosScreenState } from '../components/project-scenarios-view';
 import {
   deriveProjectWorkspaceTabState,
@@ -33,6 +33,14 @@ describe('Scenarios navigation and screen states', () => {
     expect(state.isSynth).toBe(false);
     expect(getActiveWorkspaceTabId(state)).toBe('budget');
     expect(projectBudget('p1')).toBe('/projects/p1/budget');
+  });
+
+  it('active le tab Équipes via ?tab=equipes', () => {
+    const state = deriveProjectWorkspaceTabState('/projects/p1', 'equipes');
+    expect(state.isEquipes).toBe(true);
+    expect(state.isSynth).toBe(false);
+    expect(getActiveWorkspaceTabId(state)).toBe('equipes');
+    expect(projectEquipesTab('p1')).toBe('/projects/p1?tab=equipes');
   });
 
   it('active le tab Historique sur la route dédiée', () => {

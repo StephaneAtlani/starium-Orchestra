@@ -1,0 +1,1060 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Search, Users, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
+import { displayLabel } from '@/lib/display-label';
+import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import { useProjectAssignableUsers } from '../../hooks/use-project-assignable-users';
+import { useProjectTeamsQuery } from '../../hooks/use-project-governance-circles-query';
+import { useProjectTeamQuery } from '../../hooks/use-project-team-queries';
+import { useProjectTeamsMutations } from '../../hooks/use-project-teams-mutations';
+import {
+  freePersonIdentityKey,
+  PROJECT_TEAM_COLOR_LABEL,
+  PROJECT_TEAM_COLOR_SWATCH,
+  PROJECT_TEAM_COLOR_TOKENS,
+  resolveTeamColorToken,
+  userIdentityKey,
+} from '../../lib/project-team-color';
+import type {
+  ProjectGovernanceCircleApi,
+  ProjectTeamColorToken,
+  ProjectTeamMemberRefApi,
+} from '../../types/project.types';
+
+const CREATE_DRAFT_ID = '__create__';
+
+type DraftMember = {
+  identityKey: string;
+  userId: string | null;
+  resourceId: string | null;
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  email: string | null;
+  sortOrder: number;
+};
+
+type DraftTeam = {
+  id: string;
+  name: string;
+  label: string;
+  colorToken: ProjectTeamColorToken;
+  pilotIdentityKey: string | null;
+  members: DraftMember[];
+  isNew: boolean;
+};
+
+type DirectoryPerson = {
+  identityKey: string;
+  userId: string | null;
+  displayName: string;
+  subtitle?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  companyName?: string | null;
+  email?: string | null;
+};
+
+type Props = {
+  projectId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  initialTeamId?: string | null;
+  startInCreate?: boolean;
+  canEdit?: boolean;
+};
+
+function formatAssignableUser(u: {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+}): string {
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return name || u.email;
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+/** Parse « Nom », « email@x.com » ou « Nom <email@x.com> ». */
+function parseInviteInput(raw: string): {
+  firstName: string;
+  lastName: string;
+  email: string | null;
+} {
+  const t = raw.trim();
+  const angled = t.match(/^(.+?)\s*<([^<>\s]+)>$/);
+  if (angled) {
+    const parts = angled[1].trim().split(/\s+/);
+    return {
+      firstName: parts[0] ?? '',
+      lastName: parts.slice(1).join(' '),
+      email: angled[2].trim(),
+    };
+  }
+  if (isValidEmail(t)) {
+    return { firstName: '', lastName: '', email: t.toLowerCase() };
+  }
+  const parts = t.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? '',
+    lastName: parts.slice(1).join(' '),
+    email: null,
+  };
+}
+
+function composeDisplayName(firstName: string, lastName: string): string {
+  return [firstName.trim(), lastName.trim()].filter(Boolean).join(' ').trim();
+}
+
+function teamToDraft(team: ProjectGovernanceCircleApi): DraftTeam {
+  const members = (team.members ?? []).map((m, i) => ({
+    identityKey: m.identityKey,
+    userId: m.userId,
+    resourceId: m.resourceId ?? null,
+    displayName: displayLabel(m.displayName, 'Membre'),
+    firstName: m.firstName?.trim() || null,
+    lastName: m.lastName?.trim() || null,
+    companyName: m.companyName?.trim() || null,
+    email: m.email?.trim() || null,
+    sortOrder: m.sortOrder ?? i,
+  }));
+  return {
+    id: team.id,
+    name: team.name,
+    label: team.label ?? '',
+    colorToken: resolveTeamColorToken(team.colorToken),
+    pilotIdentityKey: team.pilotIdentityKey ?? null,
+    members,
+    isNew: false,
+  };
+}
+
+function emptyDraft(colorToken: ProjectTeamColorToken = 'GREEN'): DraftTeam {
+  return {
+    id: CREATE_DRAFT_ID,
+    name: 'Nouvelle équipe',
+    label: '',
+    colorToken,
+    pilotIdentityKey: null,
+    members: [],
+    isNew: true,
+  };
+}
+
+function memberCountLabel(n: number): string {
+  if (n === 0) return '0 membre';
+  if (n === 1) return '1 membre';
+  return `${n} membres`;
+}
+
+export function ProjectTeamsEditorDialog({
+  projectId,
+  open,
+  onOpenChange,
+  initialTeamId = null,
+  startInCreate = false,
+  canEdit = true,
+}: Props) {
+  const teamsQuery = useProjectTeamsQuery(projectId, { enabled: open });
+  const rosterQuery = useProjectTeamQuery(projectId, { enabled: open });
+  const assignable = useProjectAssignableUsers({ enabled: open });
+  const { createTeam, updateTeam, deleteTeam } =
+    useProjectTeamsMutations(projectId);
+
+  const teams = useMemo(
+    () => teamsQuery.data?.items ?? [],
+    [teamsQuery.data?.items],
+  );
+
+  const [selectedId, setSelectedId] = useState<string>(CREATE_DRAFT_ID);
+  const [draft, setDraft] = useState<DraftTeam>(emptyDraft());
+  const [personQuery, setPersonQuery] = useState('');
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
+  const [inviteCompany, setInviteCompany] = useState('');
+  const [externalEmail, setExternalEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [forceExternalForm, setForceExternalForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const syncFromProps = useCallback(() => {
+    if (startInCreate || !initialTeamId) {
+      setSelectedId(CREATE_DRAFT_ID);
+      setDraft(emptyDraft());
+      return;
+    }
+    const found = teams.find((t) => t.id === initialTeamId);
+    if (found) {
+      setSelectedId(found.id);
+      setDraft(teamToDraft(found));
+      return;
+    }
+    if (teams[0]) {
+      setSelectedId(teams[0].id);
+      setDraft(teamToDraft(teams[0]));
+      return;
+    }
+    setSelectedId(CREATE_DRAFT_ID);
+    setDraft(emptyDraft());
+  }, [initialTeamId, startInCreate, teams]);
+
+  const resetInviteForm = useCallback(() => {
+    setPersonQuery('');
+    setInviteFirstName('');
+    setInviteLastName('');
+    setInviteCompany('');
+    setExternalEmail('');
+    setEmailError(null);
+    setNameError(null);
+    setForceExternalForm(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmDelete(false);
+      resetInviteForm();
+      return;
+    }
+    syncFromProps();
+  }, [open, syncFromProps, resetInviteForm]);
+
+  const directory = useMemo(() => {
+    const map = new Map<string, DirectoryPerson>();
+
+    for (const u of assignable.data?.users ?? []) {
+      const displayName = formatAssignableUser(u);
+      const identityKey = userIdentityKey(u.id);
+      map.set(identityKey, {
+        identityKey,
+        userId: u.id,
+        displayName,
+        subtitle: u.email,
+        email: u.email,
+      });
+    }
+
+    for (const fp of assignable.data?.freePersons ?? []) {
+      if (map.has(fp.identityKey)) continue;
+      map.set(fp.identityKey, {
+        identityKey: fp.identityKey,
+        userId: null,
+        displayName: displayLabel(fp.label, 'Personne'),
+      });
+    }
+
+    for (const m of rosterQuery.data ?? []) {
+      if (map.has(m.identityKey)) continue;
+      map.set(m.identityKey, {
+        identityKey: m.identityKey,
+        userId: m.userId,
+        displayName: displayLabel(m.displayName, 'Personne'),
+        subtitle: m.email || m.roleName || null,
+        email: m.email || null,
+      });
+    }
+
+    for (const team of teams) {
+      for (const m of team.members ?? []) {
+        if (map.has(m.identityKey)) continue;
+        map.set(m.identityKey, {
+          identityKey: m.identityKey,
+          userId: m.userId,
+          displayName: displayLabel(m.displayName, 'Personne'),
+          subtitle: m.companyName || m.email || null,
+          firstName: m.firstName ?? null,
+          lastName: m.lastName ?? null,
+          companyName: m.companyName ?? null,
+          email: m.email ?? null,
+        });
+      }
+    }
+
+    return [...map.values()].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName, 'fr'),
+    );
+  }, [assignable.data?.users, assignable.data?.freePersons, rosterQuery.data, teams]);
+
+  const selectedKeys = useMemo(
+    () => new Set(draft.members.map((m) => m.identityKey)),
+    [draft.members],
+  );
+
+  const filteredSuggestions = useMemo(() => {
+    const q = personQuery.trim().toLowerCase();
+    const available = directory.filter((p) => !selectedKeys.has(p.identityKey));
+    if (!q) return available.slice(0, 12);
+    return available
+      .filter(
+        (p) =>
+          p.displayName.toLowerCase().includes(q) ||
+          (p.subtitle?.toLowerCase().includes(q) ?? false) ||
+          (p.email?.toLowerCase().includes(q) ?? false),
+      )
+      .slice(0, 12);
+  }, [directory, selectedKeys, personQuery]);
+
+  const exactDirectoryMatch = useMemo(() => {
+    const q = personQuery.trim().toLowerCase();
+    if (!q) return null;
+    return (
+      directory.find(
+        (p) =>
+          !selectedKeys.has(p.identityKey) &&
+          (p.displayName.toLowerCase() === q ||
+            p.email?.toLowerCase() === q ||
+            p.subtitle?.toLowerCase() === q),
+      ) ?? null
+    );
+  }, [directory, personQuery, selectedKeys]);
+
+  const selectExisting = (team: ProjectGovernanceCircleApi) => {
+    setConfirmDelete(false);
+    setSelectedId(team.id);
+    setDraft(teamToDraft(team));
+  };
+
+  const startCreate = () => {
+    setConfirmDelete(false);
+    setSelectedId(CREATE_DRAFT_ID);
+    setDraft(emptyDraft());
+  };
+
+  const addMember = (person: DirectoryPerson | DraftMember) => {
+    if (!canEdit) return;
+    if (selectedKeys.has(person.identityKey)) return;
+    setDraft((prev) => ({
+      ...prev,
+      members: [
+        ...prev.members,
+        {
+          identityKey: person.identityKey,
+          userId: person.userId,
+          resourceId:
+            'resourceId' in person ? person.resourceId?.trim() || null : null,
+          displayName: displayLabel(person.displayName, 'Membre'),
+          firstName: person.userId
+            ? null
+            : ('firstName' in person ? person.firstName?.trim() || null : null),
+          lastName: person.userId
+            ? null
+            : ('lastName' in person ? person.lastName?.trim() || null : null),
+          companyName: person.userId
+            ? null
+            : ('companyName' in person
+                ? person.companyName?.trim() || null
+                : null),
+          email: person.userId
+            ? null
+            : ('email' in person ? person.email?.trim() || null : null),
+          sortOrder: prev.members.length,
+        },
+      ],
+    }));
+    resetInviteForm();
+  };
+
+  const removeMember = (identityKey: string) => {
+    if (!canEdit) return;
+    setDraft((prev) => ({
+      ...prev,
+      members: prev.members
+        .filter((m) => m.identityKey !== identityKey)
+        .map((m, i) => ({ ...m, sortOrder: i })),
+      pilotIdentityKey:
+        prev.pilotIdentityKey === identityKey ? null : prev.pilotIdentityKey,
+    }));
+  };
+
+  const onAddPersonSubmit = () => {
+    if (exactDirectoryMatch) {
+      addMember(exactDirectoryMatch);
+      return;
+    }
+
+    const parsed = parseInviteInput(personQuery);
+    const firstName = (inviteFirstName.trim() || parsed.firstName).trim();
+    const lastName = (inviteLastName.trim() || parsed.lastName).trim();
+    const companyName = inviteCompany.trim() || null;
+    const emailCandidate = (
+      externalEmail.trim() ||
+      parsed.email ||
+      ''
+    ).toLowerCase();
+
+    if (!firstName || !lastName) {
+      setNameError('Prénom et nom sont obligatoires pour une personne externe.');
+      return;
+    }
+    setNameError(null);
+
+    if (!emailCandidate) {
+      setEmailError(
+        'Indiquez un e-mail pour cette personne externe (convocations).',
+      );
+      return;
+    }
+    if (!isValidEmail(emailCandidate)) {
+      setEmailError('Adresse e-mail invalide.');
+      return;
+    }
+
+    const displayName = composeDisplayName(firstName, lastName);
+    const identityKey = freePersonIdentityKey(displayName);
+    if (selectedKeys.has(identityKey)) {
+      toast.error('Cette personne est déjà dans l’équipe.');
+      return;
+    }
+    addMember({
+      identityKey,
+      userId: null,
+      resourceId: null,
+      displayName,
+      firstName,
+      lastName,
+      companyName,
+      email: emailCandidate,
+      sortOrder: draft.members.length,
+    });
+  };
+
+  const onSave = async () => {
+    if (!canEdit) return;
+    const name = draft.name.trim();
+    if (name.length < 2) {
+      toast.error('Donnez un nom à l’équipe — deux caractères au minimum.');
+      return;
+    }
+    if (name.length > 24) {
+      toast.error('Le nom de l’équipe est limité à 24 caractères.');
+      return;
+    }
+
+    const members: ProjectTeamMemberRefApi[] = draft.members.map((m, i) => ({
+      identityKey: m.identityKey,
+      userId: m.userId,
+      resourceId: m.userId ? null : m.resourceId,
+      displayName: m.displayName,
+      firstName: m.userId ? null : m.firstName,
+      lastName: m.userId ? null : m.lastName,
+      companyName: m.userId ? null : m.companyName,
+      email: m.userId ? null : m.email,
+      sortOrder: i,
+    }));
+
+    const body = {
+      name,
+      label: draft.label.trim() || null,
+      colorToken: draft.colorToken,
+      pilotIdentityKey: draft.pilotIdentityKey,
+      members: members.map((m) => ({
+        identityKey: m.identityKey,
+        userId: m.userId,
+        resourceId: m.resourceId,
+        displayName: m.displayName,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        companyName: m.companyName,
+        email: m.email,
+        sortOrder: m.sortOrder,
+      })),
+    };
+
+    setSaving(true);
+    try {
+      if (draft.isNew) {
+        const created = await createTeam.mutateAsync(body);
+        toast.success(`Équipe ${displayLabel(created.name, 'équipe')} enregistrée.`);
+        setSelectedId(created.id);
+        setDraft(teamToDraft(created));
+      } else {
+        const updated = await updateTeam.mutateAsync({
+          teamId: draft.id,
+          body,
+        });
+        toast.success(`Équipe ${displayLabel(updated.name, 'équipe')} enregistrée.`);
+        setDraft(teamToDraft(updated));
+      }
+      if (draft.pilotIdentityKey) {
+        const pilot = draft.members.find((m) => m.identityKey === draft.pilotIdentityKey);
+        toast.message(
+          `Suggestion RASCI : affectez R ou A à ${displayLabel(pilot?.displayName, 'le pilote')} sur la fiche — non appliqué automatiquement.`,
+        );
+      }
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Enregistrement impossible.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (!canEdit || draft.isNew) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setSaving(true);
+    try {
+      const result = await deleteTeam.mutateAsync(draft.id);
+      toast.success(
+        result.message ??
+          `Équipe ${displayLabel(result.name, 'supprimée')} · les points déjà convoqués ne sont pas modifiés`,
+      );
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Suppression impossible.');
+    } finally {
+      setSaving(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const readOnly = !canEdit;
+  const showExternalInviteForm =
+    canEdit &&
+    !exactDirectoryMatch?.userId &&
+    (forceExternalForm ||
+      personQuery.trim().length > 0 ||
+      inviteFirstName.trim().length > 0 ||
+      inviteLastName.trim().length > 0 ||
+      inviteCompany.trim().length > 0 ||
+      externalEmail.trim().length > 0);
+
+  const canSubmitInvite =
+    Boolean(exactDirectoryMatch) ||
+    Boolean(
+      inviteFirstName.trim() &&
+        inviteLastName.trim() &&
+        (externalEmail.trim() || isValidEmail(personQuery.trim())),
+    );
+
+  return (
+    <StariumModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Équipes du projet"
+      description="COPIL, COPROJ, COTECH… Composez les instances du projet une fois ; elles se retrouvent dans la préparation de chaque point."
+      icon={Users}
+      size="xl"
+      bodyClassName="!p-0"
+      footer={
+        <>
+          {!draft.isNew && canEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9 mr-auto"
+              disabled={saving || deleteTeam.isPending}
+              onClick={() => void onDelete()}
+            >
+              {confirmDelete ? 'Confirmer la suppression' : 'Supprimer l’équipe'}
+            </Button>
+          ) : (
+            <span className="mr-auto" />
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 sm:min-h-9"
+            onClick={() => onOpenChange(false)}
+          >
+            Annuler
+          </Button>
+          {canEdit ? (
+            <Button
+              type="button"
+              className="min-h-11 sm:min-h-9"
+              disabled={saving || createTeam.isPending || updateTeam.isPending}
+              onClick={() => void onSave()}
+            >
+              Enregistrer
+            </Button>
+          ) : null}
+        </>
+      }
+    >
+      <div className="grid max-h-[min(70vh,640px)] grid-cols-1 md:grid-cols-[minmax(12rem,15rem)_1fr]">
+        <aside className="flex flex-col border-b border-border/70 md:border-b-0 md:border-r">
+          <ul
+            className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3"
+            role="listbox"
+            aria-label="Liste des équipes"
+          >
+            {teams.map((team) => {
+              const active = selectedId === team.id;
+              const color = resolveTeamColorToken(team.colorToken);
+              const count = team.memberCount ?? team.members?.length ?? 0;
+              const teamName = displayLabel(team.name, 'Équipe');
+              const teamLabel = team.label?.trim() || null;
+              return (
+                <li key={team.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => selectExisting(team)}
+                    className={cn(
+                      'flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      'min-h-11 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]',
+                      active
+                        ? 'bg-muted/60 ring-1 ring-border/70'
+                        : 'hover:bg-muted/40',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-1.5 size-2.5 shrink-0 rounded-full',
+                        PROJECT_TEAM_COLOR_SWATCH[color],
+                      )}
+                      aria-hidden
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">
+                        {teamName}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {memberCountLabel(count)}
+                        {teamLabel ? ` · ${teamLabel}` : ''}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {selectedId === CREATE_DRAFT_ID ? (
+              <li>
+                <div
+                  className="flex w-full items-start gap-2 rounded-lg bg-muted/60 px-2.5 py-2 ring-1 ring-border/70"
+                  aria-current="true"
+                >
+                  <span
+                    className={cn(
+                      'mt-1.5 size-2.5 shrink-0 rounded-full',
+                      PROJECT_TEAM_COLOR_SWATCH[draft.colorToken],
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">
+                      {displayLabel(draft.name, 'Nouvelle équipe')}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {memberCountLabel(draft.members.length)}
+                      {draft.label.trim() ? ` · ${draft.label.trim()}` : ''}
+                    </span>
+                  </span>
+                </div>
+              </li>
+            ) : null}
+          </ul>
+          {canEdit ? (
+            <div className="border-t border-border/70 p-3">
+              <button
+                type="button"
+                onClick={startCreate}
+                className="flex min-h-11 w-full items-center justify-center rounded-lg border border-dashed border-border/80 text-sm font-medium text-[color:var(--brand-gold-700)] transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+              >
+                + Nouvelle équipe
+              </button>
+            </div>
+          ) : null}
+        </aside>
+
+        <div className="starium-form min-h-0 overflow-y-auto p-4 sm:p-5">
+          <div className="starium-form-field">
+            <label htmlFor="team-name" className="starium-form-label">
+              Nom de l’équipe
+            </label>
+            <Input
+              id="team-name"
+              className="starium-form-input !h-11 !min-h-11"
+              value={draft.name}
+              maxLength={24}
+              disabled={readOnly}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, name: e.target.value }))
+              }
+            />
+          </div>
+
+          <div className="starium-form-field">
+            <label htmlFor="team-label" className="starium-form-label">
+              Libellé
+            </label>
+            <Input
+              id="team-label"
+              className="starium-form-input !h-11 !min-h-11"
+              value={draft.label}
+              maxLength={200}
+              placeholder="Comité de pilotage"
+              disabled={readOnly}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, label: e.target.value }))
+              }
+            />
+          </div>
+
+          <div
+            className="starium-form-field"
+            role="group"
+            aria-labelledby="team-color-label"
+          >
+            <p id="team-color-label" className="starium-form-label">
+              Couleur
+            </p>
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="radiogroup"
+              aria-label="Couleur de l’équipe"
+            >
+              {PROJECT_TEAM_COLOR_TOKENS.map((token) => {
+                const selected = draft.colorToken === token;
+                return (
+                  <button
+                    key={token}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={PROJECT_TEAM_COLOR_LABEL[token]}
+                    disabled={readOnly}
+                    onClick={() =>
+                      setDraft((prev) => ({ ...prev, colorToken: token }))
+                    }
+                    className={cn(
+                      'size-9 shrink-0 rounded-full transition-shadow focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]',
+                      PROJECT_TEAM_COLOR_SWATCH[token],
+                      selected
+                        ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground'
+                        : 'ring-1 ring-border/60',
+                    )}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="starium-form-field">
+            <p className="starium-form-label">
+              Membres ({draft.members.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {draft.members.map((m) => {
+                const name = displayLabel(m.displayName, 'Membre');
+                const isPilot = draft.pilotIdentityKey === m.identityKey;
+                return (
+                  <div
+                    key={m.identityKey}
+                    className={cn(
+                      'inline-flex max-w-full items-center gap-2 rounded-full border border-border/70 bg-card px-2 py-1.5',
+                      isPilot && 'ring-1 ring-[color:var(--brand-gold)]',
+                    )}
+                  >
+                    <UserInitialsAvatar
+                      displayName={name}
+                      seed={m.identityKey}
+                      size="sm"
+                      className="size-7 rounded-full border-0"
+                    />
+                    <button
+                      type="button"
+                      className="min-w-0 text-left text-sm"
+                      disabled={readOnly}
+                      title={
+                        canEdit
+                          ? isPilot
+                            ? 'Pilote actuel'
+                            : 'Définir comme pilote'
+                          : undefined
+                      }
+                      onClick={() => {
+                        if (!canEdit) return;
+                        setDraft((prev) => ({
+                          ...prev,
+                          pilotIdentityKey: isPilot ? null : m.identityKey,
+                        }));
+                      }}
+                    >
+                      <span className="block truncate font-medium">{name}</span>
+                      {isPilot ? (
+                        <span className="block text-[10px] text-muted-foreground">
+                          Pilote
+                        </span>
+                      ) : m.companyName || m.email ? (
+                        <span className="block truncate text-[10px] text-muted-foreground">
+                          {[m.companyName, m.email].filter(Boolean).join(' · ')}
+                        </span>
+                      ) : null}
+                    </button>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-destructive"
+                        aria-label={`Retirer ${name}`}
+                        onClick={() => removeMember(m.identityKey)}
+                      >
+                        <X className="size-3.5" aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            {canEdit ? (
+              <div className="mt-3 space-y-3">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="team-search-person"
+                    className="starium-form-label"
+                  >
+                    Rechercher ou inviter
+                  </label>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="relative min-w-0 flex-1">
+                      <Search
+                        className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+                        aria-hidden
+                      />
+                      <Input
+                        id="team-search-person"
+                        className="starium-form-input !h-11 !min-h-11 !py-0 !pl-10 !pr-3"
+                        value={personQuery}
+                        placeholder="Rechercher un compte ou commencer une invitation…"
+                        autoComplete="off"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setPersonQuery(value);
+                          setEmailError(null);
+                          setNameError(null);
+                          const parsed = parseInviteInput(value);
+                          if (parsed.email) {
+                            setExternalEmail(parsed.email);
+                          }
+                          if (parsed.firstName && !inviteFirstName) {
+                            setInviteFirstName(parsed.firstName);
+                          }
+                          if (parsed.lastName && !inviteLastName) {
+                            setInviteLastName(parsed.lastName);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            onAddPersonSubmit();
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      className="h-11 min-h-11 shrink-0 bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)] hover:bg-[color:var(--brand-gold-600)]"
+                      onClick={onAddPersonSubmit}
+                      disabled={!canSubmitInvite}
+                    >
+                      <Plus className="size-4" aria-hidden />
+                      Ajouter
+                    </Button>
+                  </div>
+                  {!forceExternalForm && !personQuery.trim() ? (
+                    <button
+                      type="button"
+                      className="text-left text-xs font-medium text-[color:var(--brand-gold-700)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+                      onClick={() => setForceExternalForm(true)}
+                    >
+                      Inviter une personne externe (prénom, nom, entreprise, e-mail)
+                    </button>
+                  ) : null}
+                </div>
+
+                {showExternalInviteForm ? (
+                  <div
+                    className="space-y-2 rounded-[var(--radius-md)] border border-border/70 bg-muted/15 p-3"
+                    aria-label="Invitation externe"
+                  >
+                    <p className="text-xs font-semibold text-foreground">
+                      Personne externe (sans compte)
+                    </p>
+                    <div className="starium-form-grid starium-form-grid--2">
+                      <div className="starium-form-field !mb-0">
+                        <label
+                          htmlFor="team-invite-firstname"
+                          className="starium-form-label"
+                        >
+                          Prénom
+                        </label>
+                        <Input
+                          id="team-invite-firstname"
+                          className="starium-form-input !h-11 !min-h-11"
+                          value={inviteFirstName}
+                          autoComplete="given-name"
+                          aria-invalid={nameError ? true : undefined}
+                          onChange={(e) => {
+                            setInviteFirstName(e.target.value);
+                            setNameError(null);
+                          }}
+                        />
+                      </div>
+                      <div className="starium-form-field !mb-0">
+                        <label
+                          htmlFor="team-invite-lastname"
+                          className="starium-form-label"
+                        >
+                          Nom
+                        </label>
+                        <Input
+                          id="team-invite-lastname"
+                          className="starium-form-input !h-11 !min-h-11"
+                          value={inviteLastName}
+                          autoComplete="family-name"
+                          aria-invalid={nameError ? true : undefined}
+                          onChange={(e) => {
+                            setInviteLastName(e.target.value);
+                            setNameError(null);
+                          }}
+                        />
+                      </div>
+                      <div className="starium-form-field !mb-0">
+                        <label
+                          htmlFor="team-invite-company"
+                          className="starium-form-label"
+                        >
+                          Entreprise
+                        </label>
+                        <Input
+                          id="team-invite-company"
+                          className="starium-form-input !h-11 !min-h-11"
+                          value={inviteCompany}
+                          autoComplete="organization"
+                          placeholder="Organisation"
+                          onChange={(e) => setInviteCompany(e.target.value)}
+                        />
+                      </div>
+                      <div className="starium-form-field !mb-0">
+                        <label
+                          htmlFor="team-external-email"
+                          className="starium-form-label"
+                        >
+                          E-mail
+                        </label>
+                        <Input
+                          id="team-external-email"
+                          type="email"
+                          className="starium-form-input !h-11 !min-h-11"
+                          value={externalEmail}
+                          placeholder="nom@entreprise.com"
+                          autoComplete="email"
+                          aria-invalid={emailError ? true : undefined}
+                          aria-describedby={
+                            emailError
+                              ? 'team-external-email-error'
+                              : 'team-external-email-hint'
+                          }
+                          onChange={(e) => {
+                            setExternalEmail(e.target.value);
+                            setEmailError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              onAddPersonSubmit();
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    {nameError ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        {nameError}
+                      </p>
+                    ) : null}
+                    {emailError ? (
+                      <p
+                        id="team-external-email-error"
+                        className="text-sm text-destructive"
+                        role="alert"
+                      >
+                        {emailError}
+                      </p>
+                    ) : (
+                      <p
+                        id="team-external-email-hint"
+                        className="starium-form-hint"
+                      >
+                        À l’enregistrement, une fiche{' '}
+                        <strong>Ressource humaine externe</strong> est créée (ou
+                        réutilisée via l’e-mail) dans le catalogue RH du client —
+                        puis rattachée à cette équipe. L’e-mail sert aussi aux
+                        convocations de points projet.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
+                {filteredSuggestions.length > 0 ? (
+                  <div
+                    className="flex flex-wrap gap-2"
+                    aria-label="Suggestions de personnes"
+                  >
+                    {filteredSuggestions.map((p) => {
+                      const name = displayLabel(p.displayName, 'Personne');
+                      return (
+                        <button
+                          key={p.identityKey}
+                          type="button"
+                          onClick={() => addMember(p)}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-muted/20 px-2 py-1.5 text-left opacity-80 transition-[border-color,background-color,opacity] hover:border-border hover:bg-card hover:opacity-100 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+                        >
+                          <UserInitialsAvatar
+                            displayName={name}
+                            seed={p.identityKey}
+                            size="sm"
+                            className="size-7 rounded-full border-0"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm">{name}</span>
+                            {p.subtitle ? (
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {p.subtitle}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : personQuery.trim() && !showExternalInviteForm ? (
+                  <p
+                    className="text-xs text-muted-foreground"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Aucun compte trouvé — renseignez prénom, nom, entreprise et
+                    e-mail ci-dessus.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <p className="starium-form-hint">
+            Cette équipe est proposée dans la préparation de chaque point projet
+            : un clic convoque tous ses membres.
+          </p>
+        </div>
+      </div>
+    </StariumModal>
+  );
+}

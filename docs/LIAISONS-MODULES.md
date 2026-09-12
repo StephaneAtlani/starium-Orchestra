@@ -178,6 +178,8 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | `org-human` | Organisation | RH | FK | `ClientUser.resourceId` | RFC-ORG-002 |
 | `parent-project` | Projets | Dashboard | FK | `Project.parentProjectId` | RFC-PROJ-019 |
 | `directory-ad` | Microsoft 365 | RH | Overlay | `DirectoryConnection` | RFC-TEAM-001 |
+| `project-teams` | Projets | Projets (points) | Overlay | `ProjectGovernanceCircle` + `ProjectReviewTeamConvocation` ; `POST …/participants/convene-team` | RFC-PROJ-023 |
+| `project-raci-person` | Projets | RH / roster | Overlay | `ProjectRaciCell.identityKey` (colonnes personnes ; legacy `roleId`) | RFC-PROJ-023 |
 
 ### 4.2 Alertes / notifications (RFC-038) — tous les modules
 

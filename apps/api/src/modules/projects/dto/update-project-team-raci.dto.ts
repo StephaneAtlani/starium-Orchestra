@@ -1,12 +1,19 @@
 import { ProjectRaciKind } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 
 export class UpdateProjectTeamRaciDto {
   @IsString()
   actionId!: string;
 
+  /** RFC-PROJ-023 R1 — acteur personne. */
   @IsString()
-  roleId!: string;
+  @MinLength(1)
+  identityKey!: string;
+
+  /** Legacy optionnel (ignoré si identityKey présent). */
+  @IsOptional()
+  @IsString()
+  roleId?: string;
 
   /** `null` ou absent après validation métier = effacer la cellule. */
   @IsOptional()

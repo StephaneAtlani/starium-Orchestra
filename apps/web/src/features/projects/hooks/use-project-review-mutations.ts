@@ -16,6 +16,7 @@ import {
   createProjectReviewParticipant,
   cancelProjectReviewEscalation,
   cancelProjectReviewDescent,
+  conveneProjectReviewTeam,
   deleteProjectReviewAgendaItem,
   deleteProjectReviewAttachment,
   deleteProjectReviewParticipant,
@@ -323,6 +324,22 @@ export function useProjectReviewMutations(projectId: string) {
     },
   });
 
+  const conveneTeam = useMutation({
+    mutationFn: ({
+      reviewId,
+      teamId,
+    }: {
+      reviewId: string;
+      teamId: string;
+    }) => conveneProjectReviewTeam(authFetch, projectId, reviewId, { teamId }),
+    onSuccess: (_, { reviewId }) => {
+      invalidateReview(reviewId);
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.governanceCircles(clientId, projectId),
+      });
+    },
+  });
+
   const inviteReview = useMutation({
     mutationFn: ({
       reviewId,
@@ -508,6 +525,7 @@ export function useProjectReviewMutations(projectId: string) {
     createParticipant,
     updateParticipant,
     deleteParticipant,
+    conveneTeam,
     createAttachment,
     updateAttachment,
     deleteAttachment,

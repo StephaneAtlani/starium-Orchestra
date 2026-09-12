@@ -49,6 +49,11 @@ export function projectPointsTab(
   return pointsState ? `${base}&pointsState=${encodeURIComponent(pointsState)}` : base;
 }
 
+/** Onglet Équipes projet (RFC-PROJ-023). */
+export function projectEquipesTab(projectId: string): string {
+  return `${projectDetail(projectId)}?tab=equipes`;
+}
+
 /** Conduite de réunion — point projet en cours (`IN_PROGRESS`). */
 export function projectReviewConduct(projectId: string, reviewId: string): string {
   return `/projects/${projectId}/reviews/${reviewId}`;

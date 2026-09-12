@@ -2932,21 +2932,26 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **PATCH /api/projects/:id** — Mise à jour partielle (`parentProjectId` nullable pour détacher). Audits dédiés `project.parent.assigned` / `detached` / `changed` si le parent change. Permission **`projects.update`** (+ décision d’accès intent `write` sur le projet).
 - **DELETE /api/projects/:id** — Suppression. Refus **`409`** si le projet a des enfants directs. Permission **`projects.delete`**.
 
-### Équipe projet et matrice RASCI — `/api/projects/:projectId/team*`, `team-raci`, `raci-actions`
+### Équipe projet et matrice RASCI — `/api/projects/:projectId/team*`, `team-raci`, `raci-actions`, `teams`
 
-Matrice **actions × rôles équipe** (une lettre max par cellule). Modèles : `ProjectRaciAction`, `ProjectRaciCell`, enum `ProjectRaciKind` (`RESPONSIBLE`, `ACCOUNTABLE`, `SUPPORT`, `CONSULTED`, `INFORMED`). Règle serveur : **au plus un `ACCOUNTABLE` par action** (les autres A de la même action sont retirés à l’upsert).
+**Roster / rôles** (fiche) : `ProjectTeamRole`, `ProjectTeamMember`.  
+**Équipes convocables** (RFC-PROJ-023) : `ProjectGovernanceCircle` + memberships — façade **`/api/projects/:projectId/teams`** (alias `governance-circles`).  
+**Matrice RASCI** : **actions × personnes** (`identityKey` `u:…` / `n:…`). Modèles : `ProjectRaciAction`, `ProjectRaciCell`, enum `ProjectRaciKind` (`RESPONSIBLE`, `ACCOUNTABLE`, `SUPPORT`, `CONSULTED`, `INFORMED`). Règle serveur : **au plus un `ACCOUNTABLE` par action** (les autres A de la même action sont retirés à l’upsert). Acteurs = union roster ∪ membres des équipes du projet.
 
 - **GET /api/projects/team-roles** — Rôles équipe du client (Sponsor / Responsable système + rôles personnalisés). **`projects.read`**
 - **POST /api/projects/team-roles** / **PATCH|DELETE /api/projects/team-roles/:roleId** — CRUD rôles (renommage interdit sur rôles système). **`projects.update`**
 - **GET /api/projects/:projectId/team** — Rôles + membres affectés (dont membres virtuels Sponsor / Responsable). **`projects.read`**
-- **GET /api/projects/:projectId/team-raci** — `{ actions, actors, cells }` ; provisionne **8 actions BPM par défaut** si le projet n’en a encore aucune. **`projects.read`**
-- **PATCH /api/projects/:projectId/team-raci** — Body `{ actionId, roleId, kind }` ; `kind: null` efface la cellule ; réponse = matrice complète. **`projects.update`**
+- **GET|POST /api/projects/:projectId/teams** — Liste / création d’équipes convocables (nom 2–24, `label`, `colorToken`, `pilotIdentityKey`, `members[]`). **`projects.read`** / **`projects.update`**
+- **PATCH|DELETE /api/projects/:projectId/teams/:teamId** — Mise à jour / suppression (y compris seed `systemKind`). **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/participants/convene-team** — Body `{ teamId }` ; fusion anti-doublon des membres dans les participants du point ; refuse équipe vide ; trace `ProjectReviewTeamConvocation`. **`projects.update`**
+- **GET /api/projects/:projectId/team-raci** — `{ actions, actors, cells }` ; `actors[].id` = `identityKey` ; cellules `{ actionId, identityKey, kind }` ; provisionne **8 actions BPM par défaut** si le projet n’en a encore aucune. **`projects.read`**
+- **PATCH /api/projects/:projectId/team-raci** — Body `{ actionId, identityKey, kind }` ; `kind: null` efface la cellule ; réponse = matrice complète. **`projects.update`**
 - **POST /api/projects/:projectId/raci-actions** — Body `{ label, sortOrder? }`. **`projects.update`**
 - **DELETE /api/projects/:projectId/raci-actions/:actionId** — Supprime une action (cascade cellules). **`projects.update`**
 
 **Verrouillage fiche** : si le projet est `COMPLETED`, `CANCELLED` ou `ARCHIVED`, les écritures ci-dessus (et mutations `…/team*`) sont refusées (`400`) — voir § « Fiche projet » ci-dessous.
 
-**UI** : `ProjectTeamMatrix` + `ProjectRaciMatrix` sur `ProjectSheetView` ; libellés rôles et actions uniquement (pas d’ID en affichage).
+**UI** : onglet **Équipes** (`ProjectTeamsTab`) + `ProjectTeamMatrix` + `ProjectRaciMatrix` (colonnes personnes) sur `ProjectSheetView` ; libellés métier uniquement (pas d’ID en affichage).
 
 ### Fiche projet décisionnelle (RFC-PROJ-012) — `/api/projects/:id/project-sheet`
 

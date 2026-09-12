@@ -15,6 +15,7 @@ import {
   Lock,
   Settings,
   Split,
+  Users,
 } from 'lucide-react';
 import {
   WorkspaceTabBar,
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 import {
   projectBudget,
   projectDetail,
+  projectEquipesTab,
   projectHistory,
   projectPlanning,
   projectTasks,
@@ -40,6 +42,7 @@ export type WorkspaceTabId =
   | 'planning'
   | 'risks'
   | 'budget'
+  | 'equipes'
   | 'points'
   | 'scenarios'
   | 'history'
@@ -70,6 +73,7 @@ export type ProjectWorkspaceTabState = {
   isBudget: boolean;
   isScenarios: boolean;
   isOptions: boolean;
+  isEquipes: boolean;
   isPoints: boolean;
   isSynth: boolean;
 };
@@ -86,12 +90,14 @@ export function deriveProjectWorkspaceTabState(
   const isBudget = Boolean(pathname?.includes('/budget'));
   const isScenarios = Boolean(pathname?.includes('/scenarios'));
   const isOptions = Boolean(pathname?.includes('/options'));
+  const isEquipes = tab === 'equipes';
   const isPoints = tab === 'points';
   const isSynth =
     !isSheet &&
     !isHistory &&
     !isTasks &&
     !isRisks &&
+    !isEquipes &&
     !isPoints &&
     !isPlanning &&
     !isBudget &&
@@ -106,6 +112,7 @@ export function deriveProjectWorkspaceTabState(
     isBudget,
     isScenarios,
     isOptions,
+    isEquipes,
     isPoints,
     isSynth,
   };
@@ -117,6 +124,7 @@ export function getActiveWorkspaceTabId(tabState: ProjectWorkspaceTabState): Wor
   if (tabState.isPlanning) return 'planning';
   if (tabState.isRisks) return 'risks';
   if (tabState.isBudget) return 'budget';
+  if (tabState.isEquipes) return 'equipes';
   if (tabState.isPoints) return 'points';
   if (tabState.isScenarios) return 'scenarios';
   if (tabState.isHistory) return 'history';
@@ -138,7 +146,6 @@ function buildWorkspaceTabs(
   detailHref: string,
   scenariosReadOnly: boolean,
 ): WorkspaceTabDef[] {
-  const pointsHref = `${detailHref}?tab=points`;
   const ScenariosIcon = scenariosReadOnly ? Lock : Split;
 
   return [
@@ -185,9 +192,16 @@ function buildWorkspaceTabs(
       isActive: (s) => s.isBudget,
     },
     {
+      id: 'equipes',
+      label: 'Équipes',
+      href: projectEquipesTab(projectId),
+      icon: Users,
+      isActive: (s) => s.isEquipes,
+    },
+    {
       id: 'points',
       label: 'Points projet',
-      href: pointsHref,
+      href: `${detailHref}?tab=points`,
       icon: ClipboardList,
       isActive: (s) => s.isPoints,
     },

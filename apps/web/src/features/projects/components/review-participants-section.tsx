@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PROJECT_REVIEW_PARTICIPANT_ATTENDANCE_LABEL } from '../constants/project-enum-labels';
 import { formatProjectDateTimeFr } from '../lib/projects-list-display';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
+import { useProjectTeamsQuery } from '../hooks/use-project-governance-circles-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import {
   isReviewContentEditable,
@@ -18,6 +19,8 @@ import type {
   ProjectReviewParticipantAttendanceStatus,
   ProjectReviewStatus,
 } from '../types/project.types';
+import { ProjectTeamsEditorDialog } from './project-teams/project-teams-editor-dialog';
+import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { AlertTriangle, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 
@@ -50,6 +53,45 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function participantIdentityKeys(participants: ProjectReviewParticipantApi[]) {
+  const userIds = new Set(
+    participants.map((p) => p.userId).filter((id): id is string => Boolean(id)),
+  );
+  const names = new Set(
+    participants
+      .map((p) => (p.displayName ?? '').trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return { userIds, names };
+}
+
+function teamCoverage(
+  team: {
+    members?: {
+      userId: string | null;
+      displayName: string;
+    }[];
+  },
+  participants: ProjectReviewParticipantApi[],
+): { total: number; present: number; complete: boolean } {
+  const members = team.members ?? [];
+  const { userIds, names } = participantIdentityKeys(participants);
+  let present = 0;
+  for (const m of members) {
+    const userId = m.userId;
+    const displayName = m.displayName?.trim().toLowerCase();
+    if (userId && userIds.has(userId)) {
+      present += 1;
+      continue;
+    }
+    if (!userId && displayName && names.has(displayName)) {
+      present += 1;
+    }
+  }
+  const total = members.length;
+  return { total, present, complete: total > 0 && present >= total };
+}
+
 export function ReviewParticipantsSection({
   projectId,
   reviewId,
@@ -57,9 +99,10 @@ export function ReviewParticipantsSection({
   participants,
   canEdit,
 }: Props) {
-  const { createParticipant, updateParticipant, deleteParticipant } =
+  const { createParticipant, updateParticipant, deleteParticipant, conveneTeam } =
     useProjectReviewMutations(projectId);
   const assignable = useProjectAssignableUsers();
+  const teamsQuery = useProjectTeamsQuery(projectId, { enabled: canEdit });
 
   const [userId, setUserId] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -68,12 +111,37 @@ export function ReviewParticipantsSection({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [attendanceNotice, setAttendanceNotice] = useState<string | null>(null);
   const [markingAllPresent, setMarkingAllPresent] = useState(false);
+  const [conveneTeamId, setConveneTeamId] = useState('');
+  const [lastConvenedTeamId, setLastConvenedTeamId] = useState<string | null>(
+    null,
+  );
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorTeamId, setEditorTeamId] = useState<string | null>(null);
 
   const editable = canEdit && isReviewParticipantsEditable(status);
   const markAttendance = canEdit && isReviewContentEditable(status);
   const stillExpected = allStillExpected(participants);
   const present = presentCount(participants);
   const isExternalForm = !userId.trim();
+
+  const teams = useMemo(
+    () => teamsQuery.data?.items ?? [],
+    [teamsQuery.data?.items],
+  );
+
+  const activeConveneTeam = useMemo(() => {
+    const id = lastConvenedTeamId || conveneTeamId;
+    if (!id) return null;
+    return teams.find((t) => t.id === id) ?? null;
+  }, [conveneTeamId, lastConvenedTeamId, teams]);
+
+  const coverage = useMemo(
+    () =>
+      activeConveneTeam
+        ? teamCoverage(activeConveneTeam, participants)
+        : null,
+    [activeConveneTeam, participants],
+  );
 
   const onMarkAllPresent = async () => {
     if (!markAttendance || participants.length === 0) return;
@@ -125,6 +193,36 @@ export function ReviewParticipantsSection({
     }
   };
 
+  const onConvene = async (teamId: string) => {
+    if (!teamId) return;
+    const team = teams.find((t) => t.id === teamId);
+    const memberCount = team?.memberCount ?? team?.members?.length ?? 0;
+    if (!team || memberCount === 0) {
+      toast.error('Équipe sans membre — complétez-la avant de la convoquer.');
+      setEditorTeamId(teamId);
+      setEditorOpen(true);
+      return;
+    }
+    try {
+      const result = await conveneTeam.mutateAsync({ reviewId, teamId });
+      setLastConvenedTeamId(teamId);
+      setConveneTeamId(teamId);
+      toast.success(
+        result.message ||
+          `Équipe ${displayLabel(result.teamName, 'convoquée')}`,
+      );
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Convocation de l’équipe impossible.',
+      );
+    }
+  };
+
+  const openManageTeam = (teamId: string) => {
+    setEditorTeamId(teamId);
+    setEditorOpen(true);
+  };
+
   return (
     <section className="starium-form-section border-border/60" aria-labelledby="review-participants-title">
       <h3 id="review-participants-title" className="starium-form-section-title">
@@ -160,6 +258,77 @@ export function ReviewParticipantsSection({
         <p className="text-sm text-foreground" aria-live="polite">
           {attendanceNotice}
         </p>
+      ) : null}
+
+      {editable ? (
+        <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+          <label htmlFor="rp-convene-team" className="starium-form-label">
+            Convoquer une équipe
+          </label>
+          <select
+            id="rp-convene-team"
+            className="starium-form-select min-h-11"
+            value={conveneTeamId}
+            disabled={conveneTeam.isPending || teamsQuery.isLoading}
+            onChange={(e) => {
+              const next = e.target.value;
+              setConveneTeamId(next);
+              if (!next) return;
+              const team = teams.find((t) => t.id === next);
+              const count = team?.memberCount ?? team?.members?.length ?? 0;
+              if (!team || count === 0) {
+                toast.error(
+                  'Équipe sans membre — complétez-la avant de la convoquer.',
+                );
+                openManageTeam(next);
+                return;
+              }
+              void onConvene(next);
+            }}
+          >
+            <option value="">Convoquer une équipe…</option>
+            {teams.map((team) => {
+              const name = displayLabel(team.name, 'Équipe');
+              const count = team.memberCount ?? team.members?.length ?? 0;
+              const empty = count === 0;
+              return (
+                <option key={team.id} value={team.id}>
+                  {empty
+                    ? `${name} — vide (à compléter)`
+                    : `${name} — ${count} membre${count > 1 ? 's' : ''}`}
+                </option>
+              );
+            })}
+          </select>
+          {activeConveneTeam && coverage ? (
+            <div className="flex flex-wrap items-center gap-2" aria-live="polite">
+              {coverage.complete ? (
+                <span className="starium-ds-badge starium-ds-badge--success">
+                  Équipe {displayLabel(activeConveneTeam.name, 'sélectionnée')} au
+                  complet
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => void onConvene(activeConveneTeam.id)}
+                  disabled={conveneTeam.isPending}
+                >
+                  Compléter l’équipe
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 sm:min-h-9"
+                onClick={() => openManageTeam(activeConveneTeam.id)}
+              >
+                Gérer
+              </Button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {participants.length === 0 ? (
@@ -364,6 +533,15 @@ export function ReviewParticipantsSection({
           </Button>
         </div>
       ) : null}
+
+      <ProjectTeamsEditorDialog
+        projectId={projectId}
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        initialTeamId={editorTeamId}
+        startInCreate={false}
+        canEdit={canEdit}
+      />
     </section>
   );
 }

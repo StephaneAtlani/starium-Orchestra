@@ -330,6 +330,33 @@ export async function deleteProjectReviewParticipant(
   return res.json() as Promise<{ ok: boolean }>;
 }
 
+export type ConveneTeamParticipantsResponse = {
+  teamId: string;
+  teamName: string;
+  addedCount: number;
+  added: ProjectReviewParticipantApi[];
+  message: string;
+};
+
+/** RFC-PROJ-023 — convoquer une équipe dans les participants du point. */
+export async function conveneProjectReviewTeam(
+  authFetch: AuthFetch,
+  projectId: string,
+  reviewId: string,
+  body: { teamId: string },
+): Promise<ConveneTeamParticipantsResponse> {
+  const res = await authFetch(
+    `${participantsBase(projectId, reviewId)}/convene-team`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ConveneTeamParticipantsResponse>;
+}
+
 export type { ProjectReviewParticipantAttendanceStatus };
 
 const attachmentsBase = (projectId: string, reviewId: string) =>

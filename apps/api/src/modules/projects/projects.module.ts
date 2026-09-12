@@ -30,7 +30,7 @@ import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
 import { ProjectTaskBucketsController } from './project-task-buckets.controller';
 import { ProjectTaskBucketsService } from './project-task-buckets.service';
-import { ProjectGovernanceCirclesController } from './project-governance-circles.controller';
+import { ProjectGovernanceCirclesController, ProjectTeamsController } from './project-governance-circles.controller';
 import { ProjectGovernanceCirclesService } from './project-governance-circles.service';
 import { ProjectTaskLabelsController } from './project-task-labels.controller';
 import { ProjectTaskLabelsService } from './project-task-labels.service';
@@ -95,6 +95,7 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     ProjectDocumentsController,
     ProjectTaskBucketsController,
     ProjectGovernanceCirclesController,
+    ProjectTeamsController,
     ProjectTaskLabelsController,
     ProjectTaskPhasesController,
     ProjectTasksController,

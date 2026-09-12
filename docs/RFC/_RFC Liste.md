@@ -167,7 +167,7 @@
 | 14d⁸  | **RFC-PROJ-013-8** | Remontées / Finalisation / CR | Écrans 10+11+19 (F3 + F3.1 descentes, checklist, push Task/Risk opt-in, DocumentView) | ✅ F1–F5 + F3.1 | [RFC](./RFC-PROJ-013-8%20—%20Remontées%20Finalisation%20et%20CR%20(écrans%2010-11-19).md) |
 | 14d⁹  | **RFC-PROJ-013-9** | Transverse Cycles / Calendrier | Écrans 12, 18, 20 ; lien RFC-PROJ-CYCLE-* | ✅ C1 (12 glue + 20) · 📝 T2/T4 | [RFC](./RFC-PROJ-013-9%20—%20Vue%20transverse%20Cycles%20et%20Calendrier%20(écrans%2012-18-20).md) |
 | 14d¹⁰ | **RFC-PROJ-013-10** | CDC parcours 8 écrans | Fidélité visuelle create→CR ; plan P0–P6 ; source [`Point_projet-CDC-ecrans.pdf`](./_sources/Point_projet-CDC-ecrans.pdf) | 📝 Draft · **active** | [RFC](./RFC-PROJ-013-10%20—%20CDC%20parcours%208%20écrans%20Points%20projet%20(fidélité%20visuelle).md) |
-| 14d¹¹ | **RFC-PROJ-023** | Équipes projet (convocables) | Onglet Équipes + éditeur DS + convocation ; **adaptation RASCI** (colonnes personnes) ; CDC HTML + maquettes DS | 📝 Draft · **active** | [RFC](./RFC-PROJ-023%20—%20Équipes%20projet%20(groupes%20de%20pilotage%20convocables).md) — ≠ WorkTeam ; RASCI §5.4 |
+| 14d¹¹ | **RFC-PROJ-023** | Équipes projet (convocables) | Onglet Équipes + éditeur DS + convocation ; **RASCI colonnes personnes** ; CDC HTML + maquettes DS | ✅ Implémentée | [RFC](./RFC-PROJ-023%20—%20Équipes%20projet%20(groupes%20de%20pilotage%20convocables).md) — ≠ WorkTeam ; RASCI §5.4 |
 | —     | *(future)*       | Project ↔ Supplier | Lier projets aux fournisseurs                  | ❌ À faire  | futur module            |
 
 ---

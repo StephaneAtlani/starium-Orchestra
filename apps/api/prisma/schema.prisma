@@ -316,6 +316,7 @@ model Client {
   projectReviews                   ProjectReview[]
   projectReviewSeries              ProjectReviewSeries[]
   projectReviewParticipants        ProjectReviewParticipant[]
+  projectReviewTeamConvocations    ProjectReviewTeamConvocation[]
   projectReviewDecisions           ProjectReviewDecision[]
   projectReviewActionItems         ProjectReviewActionItem[]
   projectReviewAgendaItems         ProjectReviewAgendaItem[]
@@ -610,6 +611,7 @@ model User {
   updatedProjectActivities             ProjectActivity[]               @relation("ProjectActivityUpdatedBy")
   ownedProjectRisks                    ProjectRisk[]
   projectTeamMembers                   ProjectTeamMember[]
+  projectTeamGovernanceMemberships     ProjectTeamGovernanceMembership[]
   createdProjectSheetDecisionSnapshots ProjectSheetDecisionSnapshot[]  @relation("ProjectSheetDecisionSnapshotCreatedBy")
   selectedProjectScenarios             ProjectScenario[]               @relation("ProjectScenarioSelectedBy")
   archivedProjectScenarios             ProjectScenario[]               @relation("ProjectScenarioArchivedBy")
@@ -1164,6 +1166,7 @@ model Resource {
   stewardedSuppliers               Supplier[]                        @relation("SupplierStewardResource")
   stewardedSupplierContracts       SupplierContract[]                @relation("SupplierContractStewardResource")
   stewardedStrategicObjectives     StrategicObjective[]              @relation("StrategicObjectiveStewardResource")
+  projectTeamGovernanceMemberships ProjectTeamGovernanceMembership[]
 
   @@unique([clientId, id])
   @@unique([clientId, email])
@@ -1586,6 +1589,16 @@ enum ProjectGovernanceCircleSystemKind {
   COPROJ
 }
 
+/// RFC-PROJ-023 — jetons couleur Design System (équipes convocables).
+enum ProjectTeamColorToken {
+  BROWN
+  BLUE
+  VIOLET
+  TEAL
+  GREEN
+  RED
+}
+
 /// Dimension RASCI (matrice acteur × action) — gouvernance fiche projet.
 enum ProjectRaciKind {
   RESPONSIBLE
@@ -1927,6 +1940,7 @@ model Project {
   projectReviewActionItems  ProjectReviewActionItem[]
   projectReviewEscalations  ProjectReviewEscalation[]
   projectReviewDescents     ProjectReviewDescent[]
+  projectReviewTeamConvocations ProjectReviewTeamConvocation[]
   documents                 ProjectDocument[]
   resourceTimeEntries       ResourceTimeEntry[]
   governanceCycleItems      GovernanceCycleItem[]
@@ -2627,6 +2641,8 @@ model ProjectReview {
   escalationsTo   ProjectReviewEscalation[] @relation("ProjectReviewEscalationTarget")
   descentsFrom    ProjectReviewDescent[]    @relation("ProjectReviewDescentSource")
   descentsTo      ProjectReviewDescent[]    @relation("ProjectReviewDescentTarget")
+  /// RFC-PROJ-023 — traces de convocation d’équipes (compteur points)
+  teamConvocations ProjectReviewTeamConvocation[]
 
   /// RFC-MEET-001 — point projet créé/lié par une réunion (pont de surcouche)
   meetingProjects MeetingProject[]
@@ -2967,14 +2983,17 @@ model ProjectRaciAction {
   @@index([projectId])
 }
 
-/// Cellule RACI : une lettre par intersection action × acteur (rôle équipe).
+/// Cellule RACI : une lettre par intersection action × personne (RFC-PROJ-023 R1).
 model ProjectRaciCell {
-  id        String          @id @default(cuid())
-  clientId  String
-  projectId String
-  actionId  String
-  roleId    String
-  kind      ProjectRaciKind
+  id          String          @id @default(cuid())
+  clientId    String
+  projectId   String
+  actionId    String
+  /// Legacy — cellule avant migration personnes (nullable).
+  roleId      String?
+  /// Acteur = personne (`u:…` / `n:…`).
+  identityKey String          @db.VarChar(150)
+  kind        ProjectRaciKind
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2982,13 +3001,14 @@ model ProjectRaciCell {
   client  Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
   project Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   action  ProjectRaciAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  role    ProjectTeamRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role    ProjectTeamRole?  @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
-  @@unique([projectId, actionId, roleId])
+  @@unique([projectId, actionId, identityKey])
   @@index([clientId])
   @@index([projectId])
   @@index([actionId])
   @@index([roleId])
+  @@index([identityKey])
 }
 
 /// Membre d’équipe projet : utilisateur plateforme ou nom libre (prestataire / contact externe).
@@ -3019,13 +3039,19 @@ model ProjectTeamMember {
   @@index([roleId])
 }
 
-/// Cercle de gouvernance d’un projet (COPIL / COPROJ par défaut + cercles personnalisés).
+/// Cercle / équipe de pilotage convocable (RFC-PROJ-023) — COPIL / COPROJ seed + custom.
 model ProjectGovernanceCircle {
   id         String                            @id @default(cuid())
   clientId   String
   projectId  String
-  name       String                            @db.VarChar(200)
-  /// Renseigné pour les cercles système (non supprimables).
+  /// Nom court affiché (ex. COPROJ) — 2–24 car. côté API.
+  name       String                            @db.VarChar(24)
+  /// Intitulé long sous le nom.
+  label      String?                           @db.VarChar(200)
+  colorToken ProjectTeamColorToken             @default(BROWN)
+  /// Pilote affiché (H9) — identityKey membre, aucun ACL.
+  pilotIdentityKey String?                     @db.VarChar(150)
+  /// Renseigné pour les cercles seed (supprimables depuis RFC-PROJ-023 H8).
   systemKind ProjectGovernanceCircleSystemKind?
   sortOrder  Int                               @default(0)
 
@@ -3035,6 +3061,7 @@ model ProjectGovernanceCircle {
   client      Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   project     Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   memberships ProjectTeamGovernanceMembership[]
+  reviewConvocations ProjectReviewTeamConvocation[]
 
   @@unique([projectId, systemKind])
   @@unique([projectId, name])
@@ -3042,25 +3069,65 @@ model ProjectGovernanceCircle {
   @@index([clientId, projectId])
 }
 
-/// Appartenance d’une personne (identityKey) à un ou plusieurs cercles de gouvernance sur un projet.
+/// Appartenance d’une personne (identityKey) à une équipe de pilotage — ordre d’ajout conservé.
 model ProjectTeamGovernanceMembership {
   id          String @id @default(cuid())
   clientId    String
   projectId   String
-  /// `u:<userId>` ou `n:<nom normalisé>` — aligné sur ProjectTeamMember.identityKey.
+  /// `u:<userId>`, `r:<resourceId>` (RH catalogue) ou `n:<nom>` legacy.
   identityKey String @db.VarChar(150)
   circleId    String
+  /// Ordre d’ajout (avatars / émargement).
+  sortOrder   Int    @default(0)
+  displayName String? @db.VarChar(200)
+  /// DCP — prénom (externe sans compte / miroir Resource).
+  firstName   String? @db.VarChar(100)
+  /// DCP — nom (externe sans compte / miroir Resource).
+  lastName    String? @db.VarChar(100)
+  /// Organisation / société (externe).
+  companyName String? @db.VarChar(200)
+  /// DCP — e-mail externe (invitation) si pas de compte Starium.
+  email       String? @db.VarChar(320)
+  userId      String?
+  /// Fiche catalogue RH (HUMAN) — externes créés à l’invitation d’équipe.
+  resourceId  String?
 
   createdAt DateTime @default(now())
 
-  client  Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  circle  ProjectGovernanceCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  client   Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  circle   ProjectGovernanceCircle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user     User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  resource Resource?               @relation(fields: [resourceId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, identityKey, circleId])
   @@index([clientId])
   @@index([clientId, projectId])
   @@index([circleId])
+  @@index([userId])
+  @@index([resourceId])
+}
+
+/// RFC-PROJ-023 — trace « équipe convoquée sur ce point » (compteur carte ; pas de cascade participants).
+model ProjectReviewTeamConvocation {
+  id              String   @id @default(cuid())
+  clientId        String
+  projectId       String
+  projectReviewId String
+  teamId          String?
+  teamNameSnapshot String  @db.VarChar(24)
+  convenedAt      DateTime @default(now())
+
+  client        Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project       Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectReview ProjectReview            @relation(fields: [projectReviewId], references: [id], onDelete: Cascade)
+  team          ProjectGovernanceCircle? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([projectReviewId, teamId])
+  @@index([clientId])
+  @@index([clientId, projectId])
+  @@index([teamId])
+  @@index([projectReviewId])
 }
 
 model ProjectBudgetLink {

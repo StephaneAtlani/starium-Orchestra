@@ -60,6 +60,7 @@ export type ProjectRaciActionResponse = {
 };
 
 export type ProjectRaciActorResponse = {
+  /** identityKey de la personne */
   id: string;
   name: string;
   sortOrder: number;
@@ -67,7 +68,9 @@ export type ProjectRaciActorResponse = {
 
 export type ProjectRaciCellResponse = {
   actionId: string;
-  roleId: string;
+  identityKey: string;
+  /** Legacy — présent si cellule migrée depuis un rôle */
+  roleId?: string | null;
   kind: ProjectRaciKind;
 };
 
@@ -988,19 +991,64 @@ export class ProjectTeamService {
       await this.ensureDefaultRaciActions(tx, clientId, projectId);
     });
 
-    const [actions, roles, cells] = await Promise.all([
+    const [actions, rosterMembers, teamMemberships, cells] = await Promise.all([
       this.prisma.projectRaciAction.findMany({
         where: { clientId, projectId },
         orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
       }),
-      this.prisma.projectTeamRole.findMany({
-        where: { clientId },
-        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      this.prisma.projectTeamMember.findMany({
+        where: { clientId, projectId },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+        },
+      }),
+      this.prisma.projectTeamGovernanceMembership.findMany({
+        where: { clientId, projectId },
+        orderBy: { sortOrder: 'asc' },
       }),
       this.prisma.projectRaciCell.findMany({
         where: { clientId, projectId },
       }),
     ]);
+
+    const actorsMap = new Map<string, { id: string; name: string; sortOrder: number }>();
+    let sort = 0;
+    for (const m of rosterMembers) {
+      const name =
+        m.freeLabel?.trim() ||
+        [m.user?.firstName, m.user?.lastName].filter(Boolean).join(' ').trim() ||
+        m.user?.email ||
+        'Membre';
+      if (!actorsMap.has(m.identityKey)) {
+        actorsMap.set(m.identityKey, {
+          id: m.identityKey,
+          name,
+          sortOrder: sort++,
+        });
+      }
+    }
+    for (const m of teamMemberships) {
+      if (actorsMap.has(m.identityKey)) continue;
+      const name =
+        m.displayName?.trim() ||
+        (m.identityKey.startsWith('n:') ? m.identityKey.slice(2) : 'Membre');
+      actorsMap.set(m.identityKey, {
+        id: m.identityKey,
+        name,
+        sortOrder: sort++,
+      });
+    }
+    for (const cell of cells) {
+      if (actorsMap.has(cell.identityKey)) continue;
+      if (cell.identityKey.startsWith('legacy-role:')) continue;
+      actorsMap.set(cell.identityKey, {
+        id: cell.identityKey,
+        name: cell.identityKey.startsWith('n:')
+          ? cell.identityKey.slice(2)
+          : 'Acteur',
+        sortOrder: sort++,
+      });
+    }
 
     return {
       actions: actions.map((action) => ({
@@ -1008,16 +1056,15 @@ export class ProjectTeamService {
         label: action.label,
         sortOrder: action.sortOrder,
       })),
-      actors: roles.map((role) => ({
-        id: role.id,
-        name: role.name,
-        sortOrder: role.sortOrder,
-      })),
-      cells: cells.map((cell) => ({
-        actionId: cell.actionId,
-        roleId: cell.roleId,
-        kind: cell.kind,
-      })),
+      actors: [...actorsMap.values()].sort((a, b) => a.sortOrder - b.sortOrder),
+      cells: cells
+        .filter((cell) => !cell.identityKey.startsWith('legacy-role:'))
+        .map((cell) => ({
+          actionId: cell.actionId,
+          identityKey: cell.identityKey,
+          roleId: cell.roleId,
+          kind: cell.kind,
+        })),
     };
   }
 
@@ -1025,7 +1072,7 @@ export class ProjectTeamService {
     clientId: string,
     projectId: string,
     actionId: string,
-    roleId: string,
+    identityKey: string,
     kind: ProjectRaciKind | null | undefined,
   ): Promise<ProjectRaciMatrixResponse> {
     await this.getProjectOrThrow(clientId, projectId);
@@ -1037,16 +1084,14 @@ export class ProjectTeamService {
       throw new NotFoundException('Action RACI introuvable');
     }
 
-    const role = await this.prisma.projectTeamRole.findFirst({
-      where: { id: roleId, clientId },
-    });
-    if (!role) {
-      throw new NotFoundException('Rôle équipe introuvable');
+    const key = identityKey.trim();
+    if (!key) {
+      throw new BadRequestException('identityKey requis');
     }
 
     if (kind == null) {
       await this.prisma.projectRaciCell.deleteMany({
-        where: { clientId, projectId, actionId, roleId },
+        where: { clientId, projectId, actionId, identityKey: key },
       });
     } else {
       await this.prisma.$transaction(async (tx) => {
@@ -1057,15 +1102,25 @@ export class ProjectTeamService {
               projectId,
               actionId,
               kind: ProjectRaciKind.ACCOUNTABLE,
-              roleId: { not: roleId },
+              identityKey: { not: key },
             },
           });
         }
         await tx.projectRaciCell.upsert({
           where: {
-            projectId_actionId_roleId: { projectId, actionId, roleId },
+            projectId_actionId_identityKey: {
+              projectId,
+              actionId,
+              identityKey: key,
+            },
           },
-          create: { clientId, projectId, actionId, roleId, kind },
+          create: {
+            clientId,
+            projectId,
+            actionId,
+            identityKey: key,
+            kind,
+          },
           update: { kind },
         });
       });

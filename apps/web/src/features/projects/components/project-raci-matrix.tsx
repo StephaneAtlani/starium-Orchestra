@@ -56,17 +56,19 @@ import { normalizeProjectRaciMatrix } from '../lib/normalize-project-raci-matrix
 import { useProjectTeamRaciQuery } from '../hooks/use-project-team-queries';
 import type { ProjectRaciKind, ProjectRaciMatrixApi } from '../types/project.types';
 
-function raciCellKey(actionId: string, roleId: string) {
-  return `${actionId}:${roleId}`;
+function raciCellKey(actionId: string, identityKey: string) {
+  return `${actionId}:${identityKey}`;
 }
 
 function cellKindFor(
   matrix: ProjectRaciMatrixApi,
   actionId: string,
-  roleId: string,
+  identityKey: string,
 ): ProjectRaciKind | null {
   return (
-    matrix.cells.find((c) => c.actionId === actionId && c.roleId === roleId)?.kind ?? null
+    matrix.cells.find(
+      (c) => c.actionId === actionId && c.identityKey === identityKey,
+    )?.kind ?? null
   );
 }
 
@@ -117,8 +119,8 @@ function ProjectRaciHelpTrigger() {
 type PendingAccountable = {
   cellKey: string;
   actionId: string;
-  roleId: string;
-  displacedRoleName: string;
+  identityKey: string;
+  displacedActorName: string;
   timerId: ReturnType<typeof setTimeout>;
 };
 
@@ -180,17 +182,17 @@ export function ProjectRaciMatrix({
   const cellMutation = useMutation({
     mutationFn: (payload: {
       actionId: string;
-      roleId: string;
+      identityKey: string;
       kind: ProjectRaciKind | null;
     }) =>
       updateProjectTeamRaci(authFetch, projectId, {
         actionId: payload.actionId,
-        roleId: payload.roleId,
+        identityKey: payload.identityKey,
         kind: payload.kind,
       }),
     onSuccess: (data, variables) => {
       setMatrixCache(data);
-      const key = raciCellKey(variables.actionId, variables.roleId);
+      const key = raciCellKey(variables.actionId, variables.identityKey);
       setCellPreview((prev) => {
         if (!(key in prev)) return prev;
         const next = { ...prev };
@@ -202,18 +204,23 @@ export function ProjectRaciMatrix({
   });
 
   const commitCell = useCallback(
-    (actionId: string, roleId: string, kind: ProjectRaciKind | null) => {
-      cellMutation.mutate({ actionId, roleId, kind });
+    (actionId: string, identityKey: string, kind: ProjectRaciKind | null) => {
+      cellMutation.mutate({ actionId, identityKey, kind });
     },
     [cellMutation],
   );
 
   const handleCellCycle = useCallback(
-    (actionId: string, roleId: string, actorName: string, actionLabel: string) => {
+    (
+      actionId: string,
+      identityKey: string,
+      actorName: string,
+      actionLabel: string,
+    ) => {
       if (!canEdit || cellMutation.isPending) return;
 
-      const key = raciCellKey(actionId, roleId);
-      const persistedKind = cellKindFor(matrix, actionId, roleId);
+      const key = raciCellKey(actionId, identityKey);
+      const persistedKind = cellKindFor(matrix, actionId, identityKey);
       const currentKind = key in cellPreview ? cellPreview[key] : persistedKind;
       const next = cycleProjectRaciKind(currentKind);
 
@@ -228,7 +235,7 @@ export function ProjectRaciMatrix({
           delete updated[key];
           return updated;
         });
-        commitCell(actionId, roleId, next);
+        commitCell(actionId, identityKey, next);
         return;
       }
 
@@ -236,18 +243,18 @@ export function ProjectRaciMatrix({
         (c) =>
           c.actionId === actionId &&
           c.kind === 'ACCOUNTABLE' &&
-          c.roleId !== roleId,
+          c.identityKey !== identityKey,
       );
 
       if (next === 'ACCOUNTABLE' && otherAccountable) {
-        const displacedRoleName =
-          matrix.actors.find((a) => a.id === otherAccountable.roleId)?.name ??
+        const displacedActorName =
+          matrix.actors.find((a) => a.id === otherAccountable.identityKey)?.name ??
           'un autre acteur';
 
         setCellPreview((prev) => ({ ...prev, [key]: 'ACCOUNTABLE' }));
         setPendingAccountableKey(key);
         setPendingHint(
-          `A provisoire sur « ${actionLabel} » — recliquez sous ${Math.round(PROJECT_RASCI_ACCOUNTABLE_CONFIRM_MS / 1000)} s pour passer à S et conserver ${displacedRoleName} comme Approbateur.`,
+          `A provisoire sur « ${actionLabel} » — recliquez sous ${Math.round(PROJECT_RASCI_ACCOUNTABLE_CONFIRM_MS / 1000)} s pour passer à S et conserver ${displacedActorName} comme Approbateur.`,
         );
 
         const timerId = setTimeout(() => {
@@ -259,17 +266,17 @@ export function ProjectRaciMatrix({
             delete updated[key];
             return updated;
           });
-          commitCell(actionId, roleId, 'ACCOUNTABLE');
+          commitCell(actionId, identityKey, 'ACCOUNTABLE');
           toast.message(
-            `Approbateur confirmé pour ${actorName} — l’ancien A (${displacedRoleName}) a été retiré sur cette ligne.`,
+            `Approbateur confirmé pour ${actorName} — l’ancien A (${displacedActorName}) a été retiré sur cette ligne.`,
           );
         }, PROJECT_RASCI_ACCOUNTABLE_CONFIRM_MS);
 
         pendingAccountableRef.current = {
           cellKey: key,
           actionId,
-          roleId,
-          displacedRoleName,
+          identityKey,
+          displacedActorName,
           timerId,
         };
         return;
@@ -281,7 +288,7 @@ export function ProjectRaciMatrix({
         delete updated[key];
         return updated;
       });
-      commitCell(actionId, roleId, next);
+      commitCell(actionId, identityKey, next);
     },
     [canEdit, cellMutation.isPending, cellPreview, matrix, clearPendingAccountable, commitCell],
   );
@@ -325,10 +332,10 @@ export function ProjectRaciMatrix({
   );
 
   const displayKind = useCallback(
-    (actionId: string, roleId: string): ProjectRaciKind | null => {
-      const key = raciCellKey(actionId, roleId);
+    (actionId: string, identityKey: string): ProjectRaciKind | null => {
+      const key = raciCellKey(actionId, identityKey);
       if (key in cellPreview) return cellPreview[key];
-      return cellKindFor(matrix, actionId, roleId);
+      return cellKindFor(matrix, actionId, identityKey);
     },
     [cellPreview, matrix],
   );
@@ -358,8 +365,8 @@ export function ProjectRaciMatrix({
                 <ProjectRaciHelpTrigger />
               </div>
               <CardDescription className="text-xs leading-relaxed text-muted-foreground">
-                <strong>Actions</strong> en lignes, <strong>acteurs</strong> (rôles équipe) en
-                colonnes — une lettre R, A, S, C ou I par intersection (voir légende).
+                <strong>Actions</strong> en lignes, <strong>personnes</strong> (roster et équipes)
+                en colonnes — une lettre R, A, S, C ou I par intersection (voir légende).
               </CardDescription>
             </div>
           </div>
@@ -387,8 +394,7 @@ export function ProjectRaciMatrix({
             </Alert>
           ) : sortedActors.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucun acteur — configurez les rôles dans la composition de l&apos;équipe en haut de
-              fiche.
+              Aucun acteur — ajoutez des membres au roster ou à une équipe du projet.
             </p>
           ) : sortedActions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune action RASCI.</p>

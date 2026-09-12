@@ -1067,7 +1067,7 @@ export async function getProjectTeamRaci(
 
 export type UpdateProjectTeamRaciPayload = {
   actionId: string;
-  roleId: string;
+  identityKey: string;
   kind: ProjectRaciKind | null;
 };
 

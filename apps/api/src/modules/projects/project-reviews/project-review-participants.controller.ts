@@ -18,6 +18,7 @@ import { RequestMeta } from '../../../common/decorators/request-meta.decorator';
 import type { AuditContext } from '../../budget-management/types/audit-context';
 import { CreateProjectReviewParticipantDto } from './dto/create-participant.dto';
 import { UpdateProjectReviewParticipantDto } from './dto/update-participant.dto';
+import { ConveneTeamParticipantsDto } from './dto/convene-team-participants.dto';
 import { ProjectReviewParticipantsService } from './project-review-participants.service';
 
 @Controller('projects/:projectId/reviews/:reviewId/participants')
@@ -26,6 +27,26 @@ export class ProjectReviewParticipantsController {
   constructor(
     private readonly participantsService: ProjectReviewParticipantsService,
   ) {}
+
+  @Post('convene-team')
+  @RequirePermissions('projects.update')
+  conveneTeam(
+    @ActiveClientId() clientId: string | undefined,
+    @Param('projectId') projectId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() dto: ConveneTeamParticipantsDto,
+    @RequestUserId() actorUserId: string | undefined,
+    @RequestMeta() meta: { ipAddress?: string; userAgent?: string; requestId?: string },
+  ) {
+    const context: AuditContext = { actorUserId, meta };
+    return this.participantsService.conveneTeam(
+      clientId!,
+      projectId,
+      reviewId,
+      dto,
+      context,
+    );
+  }
 
   @Post()
   @RequirePermissions('projects.update')

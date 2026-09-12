@@ -665,6 +665,33 @@ export type ProjectTeamMemberAffiliationApi = 'INTERNAL' | 'EXTERNAL';
 
 export type ProjectGovernanceCircleSystemKindApi = 'COPIL' | 'COPROJ';
 
+/** Jetons couleur équipe projet (RFC-PROJ-023). */
+export type ProjectTeamColorToken =
+  | 'BROWN'
+  | 'BLUE'
+  | 'VIOLET'
+  | 'TEAL'
+  | 'GREEN'
+  | 'RED';
+
+export type ProjectTeamMemberRefApi = {
+  identityKey: string;
+  userId: string | null;
+  /** Fiche Resource HUMAN (externe catalogue RH). */
+  resourceId?: string | null;
+  displayName: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  companyName?: string | null;
+  /** E-mail externe pour convocations (sans compte). */
+  email?: string | null;
+  sortOrder: number;
+};
+
+/**
+ * Équipe / cercle de gouvernance projet.
+ * Champs enrichis RFC-PROJ-023 optionnels pour rétrocompat consommateurs anciens.
+ */
 export type ProjectGovernanceCircleApi = {
   id: string;
   clientId: string;
@@ -673,7 +700,17 @@ export type ProjectGovernanceCircleApi = {
   systemKind: ProjectGovernanceCircleSystemKindApi | null;
   sortOrder: number;
   isSystem: boolean;
+  label?: string | null;
+  colorToken?: ProjectTeamColorToken;
+  pilotIdentityKey?: string | null;
+  pilotDisplayName?: string | null;
+  memberCount?: number;
+  reviewConvocationCount?: number;
+  members?: ProjectTeamMemberRefApi[];
 };
+
+/** Alias produit « équipe » (même payload que le cercle). */
+export type ProjectTeamApi = ProjectGovernanceCircleApi;
 
 export type ProjectTeamMemberGovernanceCircleRefApi = {
   id: string;
@@ -717,7 +754,10 @@ export type ProjectRaciActorApi = {
 
 export type ProjectRaciCellApi = {
   actionId: string;
-  roleId: string;
+  /** Clé personne (`u:…` / `n:…`) — colonnes RASCI = personnes (RFC-PROJ-023 R1). */
+  identityKey: string;
+  /** Legacy éventuel après migration rôle → personne. */
+  roleId?: string | null;
   kind: ProjectRaciKind;
 };
 

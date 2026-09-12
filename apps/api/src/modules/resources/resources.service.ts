@@ -458,6 +458,88 @@ export class ResourcesService {
     }
   }
 
+  /**
+   * Upsert une fiche HUMAN EXTERNAL pour invitation équipe projet (RFC-PROJ-023).
+   * Réutilise l’email unique client ; crée le collaborateur MANUAL si besoin.
+   */
+  async ensureExternalHuman(
+    clientId: string,
+    input: {
+      firstName: string | null;
+      name: string;
+      email: string;
+      companyName?: string | null;
+    },
+  ): Promise<Resource> {
+    const email = input.email.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException('E-mail requis pour une ressource humaine externe');
+    }
+    const name = input.name.trim();
+    if (!name) {
+      throw new BadRequestException('Nom requis pour une ressource humaine externe');
+    }
+    const firstName = input.firstName?.trim() || null;
+    const companyName = input.companyName?.trim() || null;
+
+    const existing = await this.prisma.resource.findFirst({
+      where: { clientId, type: ResourceType.HUMAN, email },
+    });
+    if (existing) {
+      const updated = await this.prisma.resource.update({
+        where: { id: existing.id },
+        data: {
+          firstName: firstName ?? existing.firstName,
+          name: name || existing.name,
+          affiliation: ResourceAffiliation.EXTERNAL,
+          companyName: companyName ?? existing.companyName,
+        },
+      });
+      await this.syncCollaboratorAfterHumanResource(clientId, updated);
+      return updated;
+    }
+
+    try {
+      const created = await this.prisma.resource.create({
+        data: {
+          clientId,
+          type: ResourceType.HUMAN,
+          affiliation: ResourceAffiliation.EXTERNAL,
+          name,
+          firstName,
+          email,
+          companyName,
+        },
+      });
+      await this.auditLogs.create({
+        clientId,
+        action: 'resource.created',
+        resourceType: 'resource',
+        resourceId: created.id,
+        newValue: {
+          name: created.name,
+          type: created.type,
+          affiliation: created.affiliation,
+          source: 'project_team_invite',
+        },
+      });
+      await this.syncCollaboratorAfterHumanResource(clientId, created);
+      return created;
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        const raced = await this.prisma.resource.findFirst({
+          where: { clientId, type: ResourceType.HUMAN, email },
+        });
+        if (raced) return raced;
+      }
+      this.rethrowUnique(e);
+      throw e;
+    }
+  }
+
   private rethrowUnique(e: unknown): void {
     if (
       e instanceof Prisma.PrismaClientKnownRequestError &&

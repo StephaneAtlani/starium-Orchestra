@@ -1,7 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { DEFAULT_PROJECT_GOVERNANCE_CIRCLES } from './project-governance-circles.defaults';
+import {
+  DEFAULT_COTECH_TEAM,
+  DEFAULT_PROJECT_GOVERNANCE_CIRCLES,
+} from './project-governance-circles.defaults';
 
 export async function ensureDefaultGovernanceCirclesForProject(
   db: PrismaService,
@@ -19,6 +22,8 @@ export async function ensureDefaultGovernanceCirclesForProject(
           clientId,
           projectId,
           name: def.name,
+          label: def.label,
+          colorToken: def.colorToken,
           systemKind: def.systemKind,
           sortOrder: def.sortOrder,
         },
@@ -31,6 +36,38 @@ export async function ensureDefaultGovernanceCirclesForProject(
         continue;
       }
       throw e;
+    }
+  }
+
+  const cotech = await db.projectGovernanceCircle.findFirst({
+    where: {
+      projectId,
+      clientId,
+      name: { equals: DEFAULT_COTECH_TEAM.name, mode: 'insensitive' },
+    },
+  });
+  if (!cotech) {
+    try {
+      await db.projectGovernanceCircle.create({
+        data: {
+          clientId,
+          projectId,
+          name: DEFAULT_COTECH_TEAM.name,
+          label: DEFAULT_COTECH_TEAM.label,
+          colorToken: DEFAULT_COTECH_TEAM.colorToken,
+          systemKind: null,
+          sortOrder: DEFAULT_COTECH_TEAM.sortOrder,
+        },
+      });
+    } catch (e) {
+      if (
+        !(
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === 'P2002'
+        )
+      ) {
+        throw e;
+      }
     }
   }
 }

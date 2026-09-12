@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useActiveClient } from '@/hooks/use-active-client';
-import { listProjectGovernanceCircles } from '../api/project-governance-circles.api';
+import { listProjectTeams } from '../api/project-governance-circles.api';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
 export function useProjectGovernanceCirclesQuery(
@@ -16,7 +16,10 @@ export function useProjectGovernanceCirclesQuery(
 
   return useQuery({
     queryKey: projectQueryKeys.governanceCircles(clientId, projectId),
-    queryFn: () => listProjectGovernanceCircles(authFetch, projectId),
+    queryFn: () => listProjectTeams(authFetch, projectId),
     enabled: Boolean(clientId && projectId) && (options?.enabled ?? true),
   });
 }
+
+/** Alias RFC-PROJ-023. */
+export const useProjectTeamsQuery = useProjectGovernanceCirclesQuery;

@@ -17,6 +17,7 @@ import { assertReviewParticipantsEditable } from './project-review-status.helper
 import { CreateProjectReviewParticipantDto } from './dto/create-participant.dto';
 import { UpdateProjectReviewParticipantDto } from './dto/update-participant.dto';
 import { normalizeExternalEmail } from './project-review-invitation-privacy.helpers';
+import type { ConveneTeamParticipantsDto } from './dto/convene-team-participants.dto';
 
 function syncLegacyAttended(
   attendanceStatus: ProjectReviewParticipantAttendanceStatus,
@@ -166,6 +167,149 @@ export class ProjectReviewParticipantsService {
     });
 
     return this.mapParticipant(created);
+  }
+
+  /**
+   * RFC-PROJ-023 — convoquer une équipe : copie les membres absents en fin de liste.
+   * N’écrit pas de lien vivant ; trace ProjectReviewTeamConvocation.
+   */
+  async conveneTeam(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+    dto: ConveneTeamParticipantsDto,
+    context?: AuditContext,
+  ) {
+    const review = await this.loadReview(clientId, projectId, reviewId);
+    assertReviewParticipantsEditable(review.status);
+
+    const team = await this.prisma.projectGovernanceCircle.findFirst({
+      where: { id: dto.teamId, clientId, projectId },
+      include: {
+        memberships: { orderBy: { sortOrder: 'asc' } },
+      },
+    });
+    if (!team) {
+      throw new NotFoundException('Équipe introuvable');
+    }
+    if (team.memberships.length === 0) {
+      throw new BadRequestException(
+        'Équipe sans membre — complétez-la avant de la convoquer',
+      );
+    }
+
+    const existing = await this.prisma.projectReviewParticipant.findMany({
+      where: { clientId, projectReviewId: reviewId },
+      include: { user: true },
+    });
+    const existingUserIds = new Set(
+      existing.map((p) => p.userId).filter((id): id is string => Boolean(id)),
+    );
+    const existingNames = new Set(
+      existing
+        .map((p) => (p.displayName ?? '').trim().toLowerCase())
+        .filter(Boolean),
+    );
+
+    const added: ReturnType<ProjectReviewParticipantsService['mapParticipant']>[] =
+      [];
+
+    for (const m of team.memberships) {
+      const userId =
+        m.userId ||
+        (m.identityKey.startsWith('u:') ? m.identityKey.slice(2) : null);
+      const displayName =
+        m.displayName?.trim() ||
+        (m.identityKey.startsWith('n:') ? m.identityKey.slice(2) : null);
+
+      if (userId && existingUserIds.has(userId)) continue;
+      if (
+        !userId &&
+        displayName &&
+        existingNames.has(displayName.toLowerCase())
+      ) {
+        continue;
+      }
+      if (!userId && !displayName) continue;
+
+      if (userId) {
+        try {
+          await this.projects.assertClientUser(clientId, userId);
+        } catch {
+          continue;
+        }
+      }
+
+      const created = await this.prisma.projectReviewParticipant.create({
+        data: {
+          clientId,
+          projectReviewId: reviewId,
+          userId: userId || null,
+          displayName: userId ? null : displayName,
+          roleLabel: `Membre ${team.name}`,
+          externalEmail:
+            userId || !m.email?.trim()
+              ? null
+              : m.email.trim().toLowerCase(),
+          attendanceStatus:
+            ProjectReviewParticipantAttendanceStatus.EXPECTED,
+          attended: syncLegacyAttended(
+            ProjectReviewParticipantAttendanceStatus.EXPECTED,
+          ),
+        },
+        include: { user: true },
+      });
+      if (userId) existingUserIds.add(userId);
+      if (displayName) existingNames.add(displayName.toLowerCase());
+      added.push(this.mapParticipant(created));
+    }
+
+    await this.prisma.projectReviewTeamConvocation.upsert({
+      where: {
+        projectReviewId_teamId: {
+          projectReviewId: reviewId,
+          teamId: team.id,
+        },
+      },
+      create: {
+        clientId,
+        projectId,
+        projectReviewId: reviewId,
+        teamId: team.id,
+        teamNameSnapshot: team.name,
+      },
+      update: {
+        convenedAt: new Date(),
+        teamNameSnapshot: team.name,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context?.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_PARTICIPANT_ADDED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_REVIEW_PARTICIPANT,
+      resourceId: reviewId,
+      newValue: {
+        projectId,
+        reviewId,
+        teamId: team.id,
+        teamName: team.name,
+        addedCount: added.length,
+      },
+      ...this.auditMeta(context),
+    });
+
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      addedCount: added.length,
+      added,
+      message:
+        added.length > 0
+          ? `${team.name} convoquée · ${added.length} participant${added.length > 1 ? 's' : ''} ajouté${added.length > 1 ? 's' : ''}`
+          : `Équipe ${team.name} au complet`,
+    };
   }
 
   async update(

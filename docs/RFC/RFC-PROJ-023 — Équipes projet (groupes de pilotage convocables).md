@@ -2,13 +2,13 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft — **source produit active** pour l’onglet Équipes + convocation |
+| **Statut** | ✅ Implémentée (MVP équipes + convene + RASCI personnes) |
 | **Date** | 2026-09-12 |
 | **Parents** | RFC-PROJ-012 (fiche / roster / RASCI) ; RFC-PROJ-013-2 / **013-10** (points projet) |
 | **Source produit** | **CDC** (= *cahier des charges*) HTML [*Équipes projet*](./_sources/Design%20system%20et%20CDC/Equipes%20projet%20-%20Cahier%20des%20charges.html) (règles métier + recette) |
 | **Source visuelle** | Maquettes Design System (sept. 2026) — **prioritaires pour le rendu UI** : [`docs/design-system/maquettes/equipes-projet/`](../design-system/maquettes/equipes-projet/) |
 | **Règle UX** | **Fidélité visuelle = maquettes DS**. Comportements / messages / recette R01–R03 = CDC HTML, sauf divergences tranchées §6.0. Modales via `StariumModal`. |
-| **Glossaire** | **CDC** = cahier des charges. **Équipe** (cette RFC) = groupe de pilotage convocable. **Roster** = membres / rôles fiche. **RASCI** = matrice R/A/S/C/I de la fiche (à adapter, §5.4). |
+| **Glossaire** | **CDC** = cahier des charges. **Équipe** (cette RFC) = groupe de pilotage convocable. **Roster** = membres / rôles fiche. **RASCI** = matrice R/A/S/C/I de la fiche (colonnes personnes, §5.4). |
 
 ---
 
@@ -362,7 +362,7 @@ Couvrir **R01.1–5**, **R02.1–7**, **R03.1–6** (18 critères) + checklist R
 | --- | --- |
 | Produit | Source de vérité **projet** pour groupes convocables ; RASCI recentrée sur les **personnes** |
 | Technique | Enrichir cercles + API teams + convene ; RASCI R1 (`identityKey`) ; UI onglet + modale DS + matrice |
-| Statut | Draft — à implémenter |
+| Statut | ✅ Implémentée (Vague A + Vague B) |
 ---
 
 ## 11. Points de vigilance

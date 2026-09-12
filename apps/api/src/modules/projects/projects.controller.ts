@@ -243,7 +243,7 @@ export class ProjectsController {
       clientId!,
       projectId,
       dto.actionId,
-      dto.roleId,
+      dto.identityKey,
       dto.kind,
     );
   }
