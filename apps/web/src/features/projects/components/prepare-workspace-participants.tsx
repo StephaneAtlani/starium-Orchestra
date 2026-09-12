@@ -1,8 +1,7 @@
 'use client';
 
 import { useMemo, useState, type Ref } from 'react';
-import { Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Users, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -10,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { displayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
 import { useProjectTeamsQuery } from '../hooks/use-project-governance-circles-query';
@@ -95,7 +95,7 @@ export function PrepareWorkspaceParticipants({
         {canEdit ? (
           <button
             type="button"
-            className="ml-auto text-[11.5px] font-bold normal-case tracking-normal text-[color:var(--brand-gold-700)] underline-offset-2 hover:underline"
+            className="prepare-workspace__link ml-auto"
             onClick={() => {
               setEditorTeamId(null);
               setEditorOpen(true);
@@ -107,7 +107,7 @@ export function PrepareWorkspaceParticipants({
       </div>
 
       {canEdit ? (
-        <div className="mb-2 space-y-1.5">
+        <div className="mb-3 space-y-1.5">
           {teams.length === 0 ? (
             <div className="prepare-workspace__empty">
               Aucune équipe sur le projet — créez-en une via Gérer
@@ -143,7 +143,7 @@ export function PrepareWorkspaceParticipants({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11.5px] font-semibold text-muted-foreground">
+              <p className="text-xs font-semibold text-muted-foreground">
                 Choisir une équipe du projet convoque tous ses membres
               </p>
             </>
@@ -154,41 +154,46 @@ export function PrepareWorkspaceParticipants({
       {sorted.length === 0 ? (
         <div className="prepare-workspace__empty">Aucun participant convoqué</div>
       ) : (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Liste des participants">
-          {sorted.map((p) => (
-            <li key={p.id} className="prepare-workspace__chip">
-              <span className="inline-flex size-7 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
-                {displayLabel(p.displayName, '?')
-                  .split(/\s+/)
-                  .map((w) => w[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </span>
-              <span className="truncate">
-                {displayLabel(p.displayName, 'Participant')}
-              </span>
-              {canEdit ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0"
-                  aria-label={`Retirer ${displayLabel(p.displayName, 'le participant')}`}
-                  onClick={() => {
-                    void deleteParticipant
-                      .mutateAsync({ reviewId, participantId: p.id })
-                      .then(() => toast.success('Participant retiré'))
-                      .catch((err) =>
-                        toast.error(apiErrorMessage(err, 'Retrait impossible')),
-                      );
-                  }}
-                >
-                  ×
-                </Button>
-              ) : null}
-            </li>
-          ))}
+        <ul className="prepare-workspace__parts" aria-label="Liste des participants">
+          {sorted.map((p) => {
+            const name = displayLabel(p.displayName, 'Participant');
+            const role = p.roleLabel?.trim() || null;
+            return (
+              <li key={p.id} className="prepare-workspace__part">
+                <UserInitialsAvatar
+                  displayName={name}
+                  seed={p.userId ?? p.id}
+                  size="sm"
+                  className="prepare-workspace__part-av"
+                />
+                <span className="prepare-workspace__part-body">
+                  <span className="prepare-workspace__part-name">{name}</span>
+                  {role ? (
+                    <span className="prepare-workspace__part-role">{role}</span>
+                  ) : null}
+                </span>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="prepare-workspace__part-x"
+                    aria-label={`Retirer ${name}`}
+                    onClick={() => {
+                      void deleteParticipant
+                        .mutateAsync({ reviewId, participantId: p.id })
+                        .then(() => toast.success('Participant retiré'))
+                        .catch((err) =>
+                          toast.error(
+                            apiErrorMessage(err, 'Retrait impossible'),
+                          ),
+                        );
+                    }}
+                  >
+                    <X className="size-2.5" aria-hidden strokeWidth={2.5} />
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
 

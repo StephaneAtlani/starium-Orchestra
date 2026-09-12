@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Flag,
+  GanttChart,
   Link2,
   ListChecks,
   Paperclip,
@@ -12,21 +13,28 @@ import {
   X,
 } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
+import type { ProjectGanttPayload } from '../api/projects.api';
 import { useProjectMilestonesQuery } from '../hooks/use-project-milestones-query';
 import { useProjectRisksQuery } from '../hooks/use-project-risks-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import {
+  parsePwBlockIdFromNotes,
+  type PrepPlanningPayload,
+} from '../lib/prepare-workspace-types';
 import type {
   ProjectReviewAgendaItemApi,
   ProjectReviewAttachmentApi,
   ProjectReviewDetail,
 } from '../types/project.types';
 import { ReviewAgendaAddAttachmentModal } from './review-agenda-point-modals';
+import { PrepareWorkspacePlanningPanel } from './prepare-workspace-planning-panel';
 
 type Props = {
   open: boolean;
@@ -36,6 +44,11 @@ type Props = {
   agendaItem: ProjectReviewAgendaItemApi | null;
   canEdit: boolean;
   pointIndex: number | null;
+  planning?: PrepPlanningPayload;
+  onPlanningChange?: (next: PrepPlanningPayload) => void;
+  gantt?: ProjectGanttPayload;
+  ganttLoading?: boolean;
+  ganttError?: boolean;
 };
 
 type RefCat =
@@ -135,6 +148,11 @@ export function PrepareWorkspacePointDialog({
   agendaItem,
   canEdit,
   pointIndex,
+  planning,
+  onPlanningChange,
+  gantt,
+  ganttLoading = false,
+  ganttError = false,
 }: Props) {
   const { updateAgendaItem } = useProjectReviewMutations(projectId);
   const risksQuery = useProjectRisksQuery(projectId, { enabled: open });
@@ -439,6 +457,20 @@ export function PrepareWorkspacePointDialog({
 
   if (!agendaItem) return null;
 
+  const blockId = parsePwBlockIdFromNotes(agendaItem.notes);
+  const isPlanning = blockId === 'planning' && !!planning && !!onPlanningChange;
+
+  const planningSubtitle = (() => {
+    if (!isPlanning || !planning) return '';
+    const n = planning.selectedMilestoneIds.length;
+    const parts = [
+      `${n} jalon${n > 1 ? 's' : ''} présenté${n > 1 ? 's' : ''} en séance`,
+    ];
+    if (pointIndex != null) parts.unshift(`Point n° ${pointIndex}`);
+    parts.push('Enregistrement automatique');
+    return parts.join(' · ');
+  })();
+
   return (
     <>
       <StariumModal
@@ -448,12 +480,12 @@ export function PrepareWorkspacePointDialog({
           else onOpenChange(next);
         }}
         title={displayLabel(agendaItem.title, 'Point sans titre')}
-        description={subtitleParts.join(' · ')}
-        icon={Paperclip}
-        size="lg"
+        description={isPlanning ? planningSubtitle : subtitleParts.join(' · ')}
+        icon={isPlanning ? GanttChart : Paperclip}
+        size={isPlanning ? 'xl' : 'lg'}
         overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
-        contentClassName="!z-[101] sm:max-w-[620px] max-h-[min(92dvh,720px)]"
-        bodyClassName="overflow-y-auto starium-scroll"
+        contentClassName={`!z-[101] ${isPlanning ? 'sm:max-w-[min(960px,94vw)] max-h-[min(92dvh,860px)] h-[min(92dvh,860px)]' : 'sm:max-w-[620px] max-h-[min(92dvh,720px)]'}`}
+        bodyClassName="!overflow-hidden flex min-h-0 flex-1 flex-col !p-0"
         footer={
           <Button
             type="button"
@@ -464,6 +496,21 @@ export function PrepareWorkspacePointDialog({
           </Button>
         }
       >
+        <StariumScrollArea
+          className="min-h-0 h-full w-full flex-1"
+          viewportClassName="px-[var(--ds-modal-pad-x,1.25rem)] py-3 sm:px-5"
+          reveal="hover"
+        >
+        {isPlanning && planning && onPlanningChange ? (
+          <PrepareWorkspacePlanningPanel
+            gantt={gantt}
+            loading={ganttLoading}
+            error={ganttError}
+            value={planning}
+            canEdit={canEdit}
+            onChange={onPlanningChange}
+          />
+        ) : (
         <div className="prepare-point">
           <p className="prepare-point__grp">Informations</p>
           <Textarea
@@ -610,6 +657,8 @@ export function PrepareWorkspacePointDialog({
             </>
           ) : null}
         </div>
+        )}
+        </StariumScrollArea>
       </StariumModal>
 
       <ReviewAgendaAddAttachmentModal

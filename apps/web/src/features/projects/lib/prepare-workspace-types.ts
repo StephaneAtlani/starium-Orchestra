@@ -8,6 +8,15 @@ export type PrepWorkspaceCustomBlock = {
   defaultMin: number;
 };
 
+export type PrepPlanningMode = 'macro' | 'detail';
+
+export type PrepPlanningPayload = {
+  mode: PrepPlanningMode;
+  /** Jalons cochés à présenter en séance. */
+  selectedMilestoneIds: string[];
+  note?: string;
+};
+
 export type PrepWorkspacePayload = {
   mode: PrepWorkspaceMode;
   selectedBlockIds: string[];
@@ -18,6 +27,8 @@ export type PrepWorkspacePayload = {
   goal?: string;
   /** Durées custom des blocs standards (minutes). */
   blockDurations?: Record<string, number>;
+  /** Préparation du bloc « Le planning ». */
+  planning?: PrepPlanningPayload;
 };
 
 export const PREP_TYPE_CODE = {
@@ -146,6 +157,18 @@ export function parsePrepWorkspace(
       }
     }
   }
+  let planning: PrepPlanningPayload | undefined;
+  if (o.planning && typeof o.planning === 'object' && !Array.isArray(o.planning)) {
+    const p = o.planning as Record<string, unknown>;
+    const selectedMilestoneIds = Array.isArray(p.selectedMilestoneIds)
+      ? p.selectedMilestoneIds.filter((id): id is string => typeof id === 'string')
+      : [];
+    planning = {
+      mode: p.mode === 'detail' ? 'detail' : 'macro',
+      selectedMilestoneIds,
+      note: typeof p.note === 'string' ? p.note : '',
+    };
+  }
   return {
     mode,
     selectedBlockIds,
@@ -154,6 +177,7 @@ export function parsePrepWorkspace(
     templateEditorOpen: o.templateEditorOpen === true,
     goal,
     blockDurations,
+    planning,
   };
 }
 

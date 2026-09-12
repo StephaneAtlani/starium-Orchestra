@@ -16,6 +16,7 @@ import {
 } from '../api/project-reviews.api';
 import { blocksForTypeCode } from '../lib/prepare-workspace-blocks';
 import type { PrepTypeCode } from '../lib/prepare-workspace-types';
+import { typeCodeLabel } from '../lib/prepare-workspace-types';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
 type Props = {
@@ -65,7 +66,7 @@ export function PrepareTemplateEditorDialog({
     setName(
       mode === 'edit' && initialName?.trim()
         ? initialName.trim()
-        : `Modèle ${typeCode}`,
+        : `Modèle ${typeCodeLabel(typeCode)}`,
     );
     setSelected(initialSelectedBlockIds);
   }, [open, mode, typeCode, initialSelectedBlockIds, initialName]);
@@ -126,7 +127,7 @@ export function PrepareTemplateEditorDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={mode === 'edit' ? 'Modifier le modèle' : 'Créer un modèle'}
-      description={`Personnalisez les blocs pour ${typeCode}`}
+      description={`Personnalisez les blocs pour ${typeCodeLabel(typeCode)}`}
       icon={LayoutTemplate}
       size="md"
       footer={

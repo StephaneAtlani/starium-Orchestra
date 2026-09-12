@@ -118,8 +118,13 @@ export function StariumScrollArea({
     el.scrollTop = (nextTop / track) * maxScroll;
   };
 
-  const showRail =
-    overflow && (reveal === 'always' || hover || dragging);
+  const railFull = reveal === 'always' || hover || dragging;
+  /** Affordance : rail fantôme dès overflow, plein au survol / always. */
+  const railOpacityClass = !overflow
+    ? 'opacity-0'
+    : railFull
+      ? 'opacity-100'
+      : 'opacity-40';
 
   return (
     <div
@@ -147,11 +152,8 @@ export function StariumScrollArea({
           role="presentation"
           aria-hidden
           className={cn(
-            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-20 w-3 rounded-full transition-opacity duration-[var(--duration-fast)]',
-            showRail
-              ? 'pointer-events-auto opacity-100'
-              : 'pointer-events-none opacity-0',
-            /* Toujours en DOM dès overflow — opacity gère le reveal au survol */
+            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-20 w-3 rounded-full transition-opacity duration-[var(--duration-fast)] pointer-events-auto',
+            railOpacityClass,
           )}
           onPointerDown={onRailPointerDown}
         >

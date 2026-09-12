@@ -17,6 +17,7 @@ import {
 } from '../lib/prepare-workspace-types';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { usePrepareTemplatesQuery } from '../hooks/use-prepare-templates-query';
+import { useProjectGanttQuery } from '../hooks/use-project-gantt-query';
 import type { ProjectReviewDetail } from '../types/project.types';
 import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { PrepareWorkspaceBanner } from './prepare-workspace-banner';
@@ -26,6 +27,13 @@ import { PrepareWorkspaceOdj, type PrepareOdjPointTarget } from './prepare-works
 import { PrepareWorkspaceReprise } from './prepare-workspace-reprise';
 import { PrepareTemplateEditorDialog } from './prepare-template-editor-dialog';
 import { PrepareWorkspacePointDialog } from './prepare-workspace-point-dialog';
+import {
+  buildPrepPlanModel,
+  defaultPlanningSelection,
+  planSummaryText,
+  PreparePlanMiniBar,
+} from './prepare-workspace-planning-panel';
+import type { PrepPlanningPayload } from '../lib/prepare-workspace-types';
 import type { PrepareLockIssue } from '../lib/project-review-prepare-guards';
 import type { PrepareLockFocusTarget } from '../lib/project-review-prepare-guards';
 import type { ProjectReviewAgendaItemApi } from '../types/project.types';
@@ -107,6 +115,11 @@ export function ProjectReviewPrepareWorkspace({
     enabled: true,
   });
   const templates = templatesQuery.data?.items ?? [];
+  const ganttQuery = useProjectGanttQuery(projectId, { enabled: true });
+  const planModel = useMemo(
+    () => buildPrepPlanModel(ganttQuery.data),
+    [ganttQuery.data],
+  );
 
   useEffect(() => {
     setPrep(parsePrepWorkspace(detail.contentPayload, fallbackIds));
@@ -275,6 +288,27 @@ export function ProjectReviewPrepareWorkspace({
     [persistPrep],
   );
 
+  const planningPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const onPlanningChange = useCallback(
+    (planning: PrepPlanningPayload) => {
+      const next = { ...prepRef.current, planning };
+      setPrep(next);
+      if (planningPersistTimer.current) clearTimeout(planningPersistTimer.current);
+      planningPersistTimer.current = setTimeout(() => {
+        void persistPrep({ ...prepRef.current, planning });
+      }, 400);
+    },
+    [persistPrep],
+  );
+
+  const planningValue = useMemo(
+    () => defaultPlanningSelection(planModel.milestones, prep.planning),
+    [planModel.milestones, prep.planning],
+  );
+
   const odjMeta = useMemo(
     () => {
       const sourceActions =
@@ -290,6 +324,7 @@ export function ProjectReviewPrepareWorkspace({
         (item) =>
           item.itemType === 'ARBITRATION' && !(item.decisionSummary?.trim()),
       ).length;
+      const presentCount = planningValue.selectedMilestoneIds.length;
       return {
         participantCount: (detail.participants ?? []).length,
         openActionsCount,
@@ -297,6 +332,18 @@ export function ProjectReviewPrepareWorkspace({
         openRisksCount: 0,
         goal: prep.goal ?? '',
         onGoalChange,
+        planningMeta: (
+          <span className="inline-flex flex-wrap items-center gap-x-1">
+            <PreparePlanMiniBar phases={planModel.phases} />
+            <span>
+              {planSummaryText(
+                planModel,
+                planningValue.mode,
+                presentCount,
+              )}
+            </span>
+          </span>
+        ),
       };
     },
     [
@@ -304,6 +351,9 @@ export function ProjectReviewPrepareWorkspace({
       detail.agendaItems,
       detail.participants,
       onGoalChange,
+      planModel,
+      planningValue.mode,
+      planningValue.selectedMilestoneIds.length,
       prep.goal,
       previousDetail?.actionItems,
       previousDetail?.agendaItems,
@@ -346,9 +396,21 @@ export function ProjectReviewPrepareWorkspace({
       setPointOpen(!!item);
       return;
     }
+    let nextPrep = prep;
     if (!prep.selectedBlockIds.includes(target.blockId)) {
-      const nextIds = [...prep.selectedBlockIds, target.blockId];
-      await persistPrep({ ...prep, selectedBlockIds: nextIds });
+      nextPrep = {
+        ...prep,
+        selectedBlockIds: [...prep.selectedBlockIds, target.blockId],
+      };
+    }
+    if (target.blockId === 'planning' && !nextPrep.planning) {
+      nextPrep = {
+        ...nextPrep,
+        planning: defaultPlanningSelection(planModel.milestones, null),
+      };
+    }
+    if (nextPrep !== prep) {
+      await persistPrep(nextPrep);
     }
     const item = await ensureAgendaForBlock(target.blockId);
     setPointItem(item);
@@ -467,12 +529,8 @@ export function ProjectReviewPrepareWorkspace({
           </StariumScrollArea>
         </div>
 
-        <div className="prepare-workspace__col">
-          <StariumScrollArea
-            className="h-full min-h-0 w-full flex-1"
-            viewportClassName="prepare-workspace__viewport"
-            reveal="hover"
-          >
+        <div className="prepare-workspace__col prepare-workspace__col--mid">
+          <div className="prepare-workspace__viewport prepare-workspace__viewport--odj flex min-h-0 flex-1 flex-col overflow-hidden">
             <PrepareWorkspaceOdj
               mode={prep.mode}
               onModeChange={(m) => void onModeChange(m)}
@@ -530,7 +588,7 @@ export function ProjectReviewPrepareWorkspace({
                 }
               }}
             />
-          </StariumScrollArea>
+          </div>
         </div>
 
         <div className="prepare-workspace__col prepare-workspace__col--right">
@@ -541,6 +599,8 @@ export function ProjectReviewPrepareWorkspace({
           >
             <PrepareWorkspaceReprise
               projectId={projectId}
+              reviewId={detail.id}
+              reviewDate={detail.reviewDate}
               previousDetail={previousDetail}
               previousLoading={previousLoading}
               previousError={previousError}
@@ -604,6 +664,11 @@ export function ProjectReviewPrepareWorkspace({
         agendaItem={pointItem}
         canEdit={canEdit && !agendaLocked}
         pointIndex={pointIndex}
+        planning={planningValue}
+        onPlanningChange={onPlanningChange}
+        gantt={ganttQuery.data}
+        ganttLoading={ganttQuery.isLoading}
+        ganttError={ganttQuery.isError}
       />
     </div>
   );

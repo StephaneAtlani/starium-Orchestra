@@ -42,15 +42,17 @@ export function PrepareWorkspaceModelCard({
 }: Props) {
   const selected = templates.find((t) => t.id === selectedTemplateId) ?? null;
 
+  const typeLabel = typeCodeLabel(typeCode);
+
   return (
     <section className="prepare-workspace__card" aria-labelledby="pw-model-title">
       <div className="prepare-workspace__card-h">
         <LayoutTemplate className="size-3.5" aria-hidden />
-        <span id="pw-model-title">Modèle {typeCode}</span>
+        <span id="pw-model-title">Modèle {typeLabel}</span>
         {canEdit && selected ? (
           <button
             type="button"
-            className="ml-auto text-[11.5px] font-bold normal-case tracking-normal text-[color:var(--brand-gold-700)] underline-offset-2 hover:underline"
+            className="prepare-workspace__link ml-auto"
             onClick={onEdit}
           >
             Modifier
@@ -61,7 +63,7 @@ export function PrepareWorkspaceModelCard({
       <p className="text-sm font-extrabold text-foreground">
         {selected
           ? displayLabel(selected.name, 'Modèle sans nom')
-          : typeCodeLabel(typeCode)}
+          : typeLabel}
       </p>
       <p className="mt-1 text-xs font-semibold text-muted-foreground">
         {selected
@@ -88,7 +90,9 @@ export function PrepareWorkspaceModelCard({
             <SelectValue placeholder="Modèle par défaut" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__default__">Modèle par défaut ({typeCode})</SelectItem>
+            <SelectItem value="__default__">
+              Modèle par défaut ({typeLabel})
+            </SelectItem>
             {templates.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {displayLabel(t.name, 'Modèle sans nom')}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { displayLabel } from '@/lib/display-label';
 import {
   formatDurationMinutesFr,
@@ -36,6 +37,8 @@ export type PrepareOdjMeta = {
   openRisksCount: number;
   goal: string;
   onGoalChange: (goal: string) => void;
+  /** Meta dynamique bloc « Le planning » (frise + résumé). */
+  planningMeta?: ReactNode;
 };
 
 type Props = {
@@ -93,7 +96,9 @@ function blockMeta(
     case 'avancement':
       return <span>Revue d’avancement du projet</span>;
     case 'planning':
-      return <span>Jalons et macro-planning à présenter</span>;
+      return meta.planningMeta ?? (
+        <span>Jalons et macro-planning à présenter</span>
+      );
     case 'arbitrage':
       return meta.openArbitrationCount > 0 ? (
         <span>
@@ -266,8 +271,46 @@ export function PrepareWorkspaceOdj({
 
   let selectedIndex = 0;
 
+  const addRow = (
+    <div className="prepare-workspace__addrow prepare-workspace__addrow--dock">
+      <Input
+        value={draftTitle}
+        onChange={(e) => setDraftTitle(e.target.value)}
+        placeholder={
+          mode === 'simple'
+            ? 'Ajouter un point spécifique…'
+            : 'Ajouter un point…'
+        }
+        className="min-h-11 flex-1 sm:min-h-9"
+        disabled={!editable || adding}
+        aria-label={
+          mode === 'simple' ? 'Titre du point spécifique' : 'Titre du point'
+        }
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void submitAdd();
+          }
+        }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11 gap-1.5 sm:min-h-9"
+        disabled={!editable || adding || !draftTitle.trim()}
+        onClick={() => void submitAdd()}
+      >
+        <Plus className="size-3.5" aria-hidden />
+        Ajouter
+      </Button>
+    </div>
+  );
+
   return (
-    <div ref={agendaListRef as Ref<HTMLDivElement>}>
+    <div
+      ref={agendaListRef as Ref<HTMLDivElement>}
+      className="prepare-workspace__odj"
+    >
       <div className="prepare-workspace__mid-h">
         <div>
           <div className="prepare-workspace__mid-t">
@@ -302,285 +345,243 @@ export function PrepareWorkspaceOdj({
         </button>
       </div>
 
-      {mode === 'simple' ? (
-        <div
-          className="prepare-workspace__simple"
-          role="list"
-          aria-label="Blocs standards"
-        >
-          {orderedSelectedBlocks.map((b) => {
-            const on = selected.has(b.id);
-            const index = on ? ++selectedIndex : null;
-            const dur = blockDurations[b.id] ?? b.defaultMin;
-            return (
-              <div
-                key={b.id}
-                role="listitem"
-                draggable={editable && on}
-                onDragStart={() => {
-                  if (editable && on) setDragId(b.id);
-                }}
-                onDragOver={(e) => {
-                  if (editable && on) e.preventDefault();
-                }}
-                onDrop={() => onDropSelected(b.id)}
-                className={`prepare-workspace__item${on ? '' : ' is-off'}${dragId === b.id ? ' is-dragging' : ''}`}
-              >
-                <div className="prepare-workspace__item-row">
-                  <span
-                    className="prepare-workspace__grip"
-                    aria-hidden
-                    title="Glisser pour déplacer"
-                  >
-                    <GripVertical className="size-3.5" />
-                  </span>
-
-                  <button
-                    type="button"
-                    className={`prepare-workspace__chk${on ? ' is-on' : ''}`}
-                    aria-pressed={on}
-                    aria-label={`${on ? 'Retirer' : 'Inclure'} ${b.title}`}
-                    disabled={!editable}
-                    onClick={() => onToggleBlock(b.id)}
-                  >
-                    {on ? <Check className="size-2.5" aria-hidden /> : null}
-                  </button>
-
-                  {on && index != null ? (
-                    <button
-                      type="button"
-                      className="prepare-workspace__num"
-                      aria-label={`Préparer le point n° ${index} — ${b.title}`}
-                      onClick={() =>
-                        onOpenPoint({ kind: 'block', blockId: b.id, index })
-                      }
+      <StariumScrollArea
+        className="prepare-workspace__odj-scroll min-h-0 w-full flex-1"
+        viewportClassName="prepare-workspace__odj-viewport"
+        reveal="hover"
+      >
+        {mode === 'simple' ? (
+          <div
+            className="prepare-workspace__simple"
+            role="list"
+            aria-label="Blocs standards"
+          >
+            {orderedSelectedBlocks.map((b) => {
+              const on = selected.has(b.id);
+              const index = on ? ++selectedIndex : null;
+              const dur = blockDurations[b.id] ?? b.defaultMin;
+              return (
+                <div
+                  key={b.id}
+                  role="listitem"
+                  draggable={editable && on}
+                  onDragStart={() => {
+                    if (editable && on) setDragId(b.id);
+                  }}
+                  onDragOver={(e) => {
+                    if (editable && on) e.preventDefault();
+                  }}
+                  onDrop={() => onDropSelected(b.id)}
+                  className={`prepare-workspace__item${on ? '' : ' is-off'}${dragId === b.id ? ' is-dragging' : ''}`}
+                >
+                  <div className="prepare-workspace__item-row">
+                    <span
+                      className="prepare-workspace__grip"
+                      aria-hidden
+                      title="Glisser pour déplacer"
                     >
-                      {index}
-                    </button>
-                  ) : (
-                    <span className="prepare-workspace__num is-empty" aria-hidden>
-                      –
+                      <GripVertical className="size-3.5" />
                     </span>
-                  )}
 
-                  <div
-                    className="prepare-workspace__item-body"
-                    role={on && b.id !== 'objectif' ? 'button' : undefined}
-                    tabIndex={on && b.id !== 'objectif' ? 0 : undefined}
-                    onClick={() => {
-                      if (on && index != null && b.id !== 'objectif') {
-                        onOpenPoint({ kind: 'block', blockId: b.id, index });
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (
-                        on &&
-                        index != null &&
-                        b.id !== 'objectif' &&
-                        (e.key === 'Enter' || e.key === ' ')
-                      ) {
-                        e.preventDefault();
-                        onOpenPoint({ kind: 'block', blockId: b.id, index });
-                      }
-                    }}
-                  >
-                    <div className="prepare-workspace__item-t">{b.title}</div>
-                    {on && b.id === 'objectif' ? (
-                      <div className="prepare-workspace__item-m">
-                        <Input
-                          value={meta.goal}
-                          disabled={!editable}
-                          placeholder="En une phrase, ce que la séance doit produire…"
-                          className="prepare-workspace__goal"
-                          aria-label="Objectif de la séance"
-                          onChange={(e) => meta.onGoalChange(e.target.value)}
-                        />
-                      </div>
-                    ) : on ? (
-                      <div className="prepare-workspace__item-m">
-                        {blockMeta(b.id, meta)}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {on ? (
-                    <div className="prepare-workspace__dur-wrap">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={dur}
-                        disabled={!editable}
-                        aria-label={`Durée de ${b.title} en minutes`}
-                        className="prepare-workspace__dur"
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          const n = Number.parseInt(e.target.value, 10);
-                          if (!Number.isFinite(n) || n < 0) return;
-                          onBlockDurationChange(b.id, n);
-                        }}
-                      />
-                      <span className="prepare-workspace__dur-u">min</span>
-                    </div>
-                  ) : (
-                    <span className="prepare-workspace__off-l">retiré</span>
-                  )}
-
-                  {on && editable ? (
-                    <span className="prepare-workspace__updn">
-                      <button
-                        type="button"
-                        aria-label={`Monter ${b.title}`}
-                        disabled={index === 1}
-                        onClick={() => moveSelected(b.id, -1)}
-                      >
-                        <ChevronUp className="size-2.5" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Descendre ${b.title}`}
-                        disabled={index === selected.size}
-                        onClick={() => moveSelected(b.id, 1)}
-                      >
-                        <ChevronDown className="size-2.5" aria-hidden />
-                      </button>
-                    </span>
-                  ) : null}
-
-                  {on ? (
                     <button
                       type="button"
-                      className="prepare-workspace__caret"
-                      aria-label={`Compléter ${b.title}`}
+                      className={`prepare-workspace__chk${on ? ' is-on' : ''}`}
+                      aria-pressed={on}
+                      aria-label={`${on ? 'Retirer' : 'Inclure'} ${b.title}`}
+                      disabled={!editable}
+                      onClick={() => onToggleBlock(b.id)}
+                    >
+                      {on ? <Check className="size-2.5" aria-hidden /> : null}
+                    </button>
+
+                    {on && index != null ? (
+                      <button
+                        type="button"
+                        className="prepare-workspace__num"
+                        aria-label={`Préparer le point n° ${index} — ${b.title}`}
+                        onClick={() =>
+                          onOpenPoint({ kind: 'block', blockId: b.id, index })
+                        }
+                      >
+                        {index}
+                      </button>
+                    ) : (
+                      <span
+                        className="prepare-workspace__num is-empty"
+                        aria-hidden
+                      >
+                        –
+                      </span>
+                    )}
+
+                    <div
+                      className="prepare-workspace__item-body"
+                      role={on && b.id !== 'objectif' ? 'button' : undefined}
+                      tabIndex={on && b.id !== 'objectif' ? 0 : undefined}
                       onClick={() => {
-                        if (index != null) {
+                        if (on && index != null && b.id !== 'objectif') {
+                          onOpenPoint({ kind: 'block', blockId: b.id, index });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (
+                          on &&
+                          index != null &&
+                          b.id !== 'objectif' &&
+                          (e.key === 'Enter' || e.key === ' ')
+                        ) {
+                          e.preventDefault();
                           onOpenPoint({ kind: 'block', blockId: b.id, index });
                         }
                       }}
                     >
-                      <Pencil className="size-3.5" aria-hidden />
-                    </button>
-                  ) : null}
+                      <div className="prepare-workspace__item-t">{b.title}</div>
+                      {on && b.id === 'objectif' ? (
+                        <div className="prepare-workspace__item-m">
+                          <Input
+                            value={meta.goal}
+                            disabled={!editable}
+                            placeholder="En une phrase, ce que la séance doit produire…"
+                            className="prepare-workspace__goal"
+                            aria-label="Objectif de la séance"
+                            onChange={(e) => meta.onGoalChange(e.target.value)}
+                          />
+                        </div>
+                      ) : on ? (
+                        <div className="prepare-workspace__item-m">
+                          {blockMeta(b.id, meta)}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {on ? (
+                      <div className="prepare-workspace__dur-wrap">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={dur}
+                          disabled={!editable}
+                          aria-label={`Durée de ${b.title} en minutes`}
+                          className="prepare-workspace__dur"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => {
+                            const n = Number.parseInt(e.target.value, 10);
+                            if (!Number.isFinite(n) || n < 0) return;
+                            onBlockDurationChange(b.id, n);
+                          }}
+                        />
+                        <span className="prepare-workspace__dur-u">min</span>
+                      </div>
+                    ) : (
+                      <span className="prepare-workspace__off-l">retiré</span>
+                    )}
+
+                    {on && editable ? (
+                      <span className="prepare-workspace__updn">
+                        <button
+                          type="button"
+                          aria-label={`Monter ${b.title}`}
+                          disabled={index === 1}
+                          onClick={() => moveSelected(b.id, -1)}
+                        >
+                          <ChevronUp className="size-2.5" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Descendre ${b.title}`}
+                          disabled={index === selected.size}
+                          onClick={() => moveSelected(b.id, 1)}
+                        >
+                          <ChevronDown className="size-2.5" aria-hidden />
+                        </button>
+                      </span>
+                    ) : null}
+
+                    {on ? (
+                      <button
+                        type="button"
+                        className="prepare-workspace__caret"
+                        aria-label={`Compléter ${b.title}`}
+                        onClick={() => {
+                          if (index != null) {
+                            onOpenPoint({ kind: 'block', blockId: b.id, index });
+                          }
+                        }}
+                      >
+                        <Pencil className="size-3.5" aria-hidden />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
+              );
+            })}
+
+            {customItems.length > 0 ? (
+              <ul className="mt-2 space-y-0" aria-label="Points spécifiques">
+                {customItems.map((item, i) => (
+                  <AgendaLiteRow
+                    key={item.id}
+                    index={selected.size + i + 1}
+                    item={item}
+                    editable={editable}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < customItems.length - 1}
+                    onMove={(delta) => void moveAgenda(item.id, delta)}
+                    onDragStart={() => setDragId(item.id)}
+                    onDrop={() => void onDropAgenda(item.id)}
+                    dragging={dragId === item.id}
+                    onOpenPoint={() =>
+                      onOpenPoint({
+                        kind: 'agenda',
+                        agendaItemId: item.id,
+                        index: selected.size + i + 1,
+                      })
+                    }
+                    onUpdateDuration={onUpdateDuration}
+                    onDelete={onDeleteAgendaItem}
+                  />
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sortedAgenda.length === 0 ? (
+              <div className="prepare-workspace__empty">
+                Aucun point — cochez des blocs en vue simple ou ajoutez un sujet
               </div>
-            );
-          })}
-
-          <div className="prepare-workspace__addrow">
-            <Input
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              placeholder="Ajouter un point spécifique…"
-              className="min-h-9 flex-1"
-              disabled={!editable || adding}
-              aria-label="Titre du point spécifique"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void submitAdd();
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-9 gap-1.5"
-              disabled={!editable || adding || !draftTitle.trim()}
-              onClick={() => void submitAdd()}
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Ajouter
-            </Button>
+            ) : (
+              <ul className="space-y-0" aria-label="Ordre du jour">
+                {sortedAgenda.map((item, i) => (
+                  <AgendaLiteRow
+                    key={item.id}
+                    index={i + 1}
+                    item={item}
+                    editable={editable}
+                    canMoveUp={i > 0}
+                    canMoveDown={i < sortedAgenda.length - 1}
+                    onMove={(delta) => void moveAgenda(item.id, delta)}
+                    onDragStart={() => setDragId(item.id)}
+                    onDrop={() => void onDropAgenda(item.id)}
+                    dragging={dragId === item.id}
+                    onOpenPoint={() =>
+                      onOpenPoint({
+                        kind: 'agenda',
+                        agendaItemId: item.id,
+                        index: i + 1,
+                      })
+                    }
+                    onUpdateDuration={onUpdateDuration}
+                    onDelete={onDeleteAgendaItem}
+                  />
+                ))}
+              </ul>
+            )}
           </div>
+        )}
+      </StariumScrollArea>
 
-          {customItems.length > 0 ? (
-            <ul className="mt-2 space-y-0" aria-label="Points spécifiques">
-              {customItems.map((item, i) => (
-                <AgendaLiteRow
-                  key={item.id}
-                  index={selected.size + i + 1}
-                  item={item}
-                  editable={editable}
-                  canMoveUp={i > 0}
-                  canMoveDown={i < customItems.length - 1}
-                  onMove={(delta) => void moveAgenda(item.id, delta)}
-                  onDragStart={() => setDragId(item.id)}
-                  onDrop={() => void onDropAgenda(item.id)}
-                  dragging={dragId === item.id}
-                  onOpenPoint={() =>
-                    onOpenPoint({
-                      kind: 'agenda',
-                      agendaItemId: item.id,
-                      index: selected.size + i + 1,
-                    })
-                  }
-                  onUpdateDuration={onUpdateDuration}
-                  onDelete={onDeleteAgendaItem}
-                />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {sortedAgenda.length === 0 ? (
-            <div className="prepare-workspace__empty">
-              Aucun point — cochez des blocs en vue simple ou ajoutez un sujet
-            </div>
-          ) : (
-            <ul className="space-y-0" aria-label="Ordre du jour">
-              {sortedAgenda.map((item, i) => (
-                <AgendaLiteRow
-                  key={item.id}
-                  index={i + 1}
-                  item={item}
-                  editable={editable}
-                  canMoveUp={i > 0}
-                  canMoveDown={i < sortedAgenda.length - 1}
-                  onMove={(delta) => void moveAgenda(item.id, delta)}
-                  onDragStart={() => setDragId(item.id)}
-                  onDrop={() => void onDropAgenda(item.id)}
-                  dragging={dragId === item.id}
-                  onOpenPoint={() =>
-                    onOpenPoint({
-                      kind: 'agenda',
-                      agendaItemId: item.id,
-                      index: i + 1,
-                    })
-                  }
-                  onUpdateDuration={onUpdateDuration}
-                  onDelete={onDeleteAgendaItem}
-                />
-              ))}
-            </ul>
-          )}
-          <div className="prepare-workspace__addrow">
-            <Input
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              placeholder="Ajouter un point…"
-              className="min-h-9 flex-1"
-              disabled={!editable || adding}
-              aria-label="Titre du point"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void submitAdd();
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-9 gap-1.5"
-              disabled={!editable || adding || !draftTitle.trim()}
-              onClick={() => void submitAdd()}
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Ajouter
-            </Button>
-          </div>
-        </div>
-      )}
+      {addRow}
     </div>
   );
 }
