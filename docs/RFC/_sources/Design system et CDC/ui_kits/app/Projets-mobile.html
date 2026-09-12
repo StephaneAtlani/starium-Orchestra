@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>Projets — Starium Mobile</title>
+<style>
+@font-face {
+  font-family: 'Manrope';
+  src: url('../../fonts/Manrope-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+
+:root {
+  --brand-gold:       #E8A317;
+  --brand-gold-600:   #CC8E0E;
+  --brand-gold-700:   #5F3F00;
+  --brand-gold-100:   #F4D58A;
+  --brand-gold-050:   #FBEAB5;
+  --brand-ink:        #0E0E10;
+  --neutral-0:        #FFFFFF;
+  --neutral-50:       #FAF9F7;
+  --neutral-100:      #F4F2EE;
+  --neutral-200:      #E9E6E0;
+  --neutral-300:      #D6D2CA;
+  --neutral-400:      #B6B0A4;
+  --neutral-500:      #8C8579;
+  --neutral-600:      #5F5A52;
+  --neutral-700:      #403D38;
+  --state-success:    #1F8A5B;
+  --state-success-bg: #E6F4ED;
+  --state-warning:    #C77A00;
+  --state-warning-bg: #FFF1DC;
+  --state-danger:     #B42318;
+  --state-danger-bg:  #FBE8E6;
+  --state-info:       #2A6FDB;
+  --state-info-bg:    #E3EEFB;
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(14,14,16,.04), 0 1px 1px rgba(14,14,16,.03);
+  --shadow-2: 0 2px 8px rgba(14,14,16,.08), 0 1px 3px rgba(14,14,16,.05);
+  --shadow-3: 0 8px 24px rgba(14,14,16,.12), 0 2px 6px rgba(14,14,16,.06);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--neutral-50);
+  color: var(--brand-ink);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  width: 390px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── SHELL ── */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 80px; /* bottom nav height */
+}
+
+/* ── STATUS BAR ── */
+.status-bar {
+  height: 44px;
+  background: var(--brand-ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+.status-time { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+.status-icons { display: flex; align-items: center; gap: 6px; }
+.status-icons svg { color: #fff; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--brand-ink);
+  padding: 12px 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.topbar-star {
+  width: 30px; height: 30px;
+  background: var(--brand-gold);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.topbar-brand { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -.02em; }
+.topbar-org {
+  font-size: 11px; color: var(--brand-gold);
+  font-weight: 600; background: rgba(232,163,23,.15);
+  padding: 3px 8px; border-radius: var(--radius-pill);
+}
+.topbar-actions { display: flex; align-items: center; gap: 4px; }
+.topbar-btn {
+  width: 36px; height: 36px;
+  border: none; background: rgba(255,255,255,.1);
+  border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.8);
+  position: relative;
+}
+.notif-dot {
+  position: absolute; top: 6px; right: 7px;
+  width: 7px; height: 7px;
+  background: var(--brand-gold);
+  border-radius: 999px;
+  border: 1.5px solid var(--brand-ink);
+}
+.avatar {
+  width: 36px; height: 36px;
+  border-radius: 999px;
+  background: var(--brand-gold-100);
+  color: var(--brand-gold-700);
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--brand-gold);
+}
+
+/* ── PAGE TITLE BLOCK ── */
+.page-head {
+  background: var(--brand-ink);
+  padding: 0 16px 20px;
+}
+.page-title { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -.03em; }
+.page-subtitle { font-size: 12px; color: rgba(255,255,255,.45); margin-top: 3px; }
+
+/* ── SEARCH BAR ── */
+.search-bar {
+  background: var(--brand-ink);
+  padding: 0 16px 16px;
+}
+.search-inner {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.1);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.search-inner input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--font-sans); font-size: 13px;
+  color: rgba(255,255,255,.6);
+}
+.search-inner input::placeholder { color: rgba(255,255,255,.35); }
+.search-inner svg { color: rgba(255,255,255,.4); flex-shrink: 0; }
+.search-kbd {
+  font-family: 'Courier New', monospace;
+  font-size: 10px; color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 1px 5px; border-radius: 4px;
+}
+
+/* ── KPI STRIP ── */
+.kpi-strip-wrap {
+  padding: 16px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kpi-strip-wrap::-webkit-scrollbar { display: none; }
+.kpi-strip {
+  display: flex;
+  gap: 10px;
+  padding: 0 16px;
+  width: max-content;
+}
+.kpi-card {
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  min-width: 100px;
+  box-shadow: var(--shadow-1);
+  flex-shrink: 0;
+}
+.kpi-card-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--neutral-400);
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+.kpi-card-value {
+  font-size: 32px; font-weight: 800;
+  letter-spacing: -.04em;
+  color: var(--brand-ink);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-card-value.v-ok     { color: var(--state-success); }
+.kpi-card-value.v-warn   { color: var(--state-warning); }
+.kpi-card-value.v-danger { color: var(--state-danger); }
+.kpi-card-value.v-muted  { color: var(--neutral-300); }
+.kpi-card-sub {
+  font-size: 10.5px; color: var(--neutral-400);
+  margin-top: 2px; white-space: nowrap;
+}
+
+/* ── SECTION HEADER ── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+.section-title {
+  font-size: 13px; font-weight: 700; color: var(--brand-ink);
+  letter-spacing: -.01em;
+}
+.section-count {
+  font-size: 11.5px; color: var(--neutral-400);
+  background: var(--neutral-100);
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+/* ── FILTER CHIPS ── */
+.filter-chips-wrap {
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 12px;
+}
+.filter-chips-wrap::-webkit-scrollbar { display: none; }
+.filter-chips { display: flex; gap: 8px; width: max-content; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--neutral-200);
+  background: var(--neutral-0);
+  color: var(--neutral-600);
+  white-space: nowrap; cursor: pointer;
+  transition: all 120ms;
+}
+.fchip.active {
+  background: var(--brand-ink);
+  border-color: var(--brand-ink);
+  color: #fff;
+}
+.fchip.active svg { stroke: #fff; }
+.fchip svg { flex-shrink: 0; }
+
+/* ── PROJECT CARDS ── */
+.project-list { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+
+.proj-card {
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 120ms;
+}
+.proj-card:active { box-shadow: var(--shadow-2); }
+
+/* Alert stripe on left */
+.proj-card-inner {
+  display: flex;
+  border-left: 3px solid transparent;
+}
+.proj-card-inner.border-danger { border-color: var(--state-danger); }
+.proj-card-inner.border-warn   { border-color: var(--state-warning); }
+.proj-card-inner.border-ok     { border-color: var(--state-success); }
+.proj-card-inner.border-muted  { border-color: var(--neutral-300); }
+
+.proj-card-body { flex: 1; padding: 14px 14px 12px; }
+
+/* Row 1: category + badge */
+.proj-row1 {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+.proj-category {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--neutral-400);
+}
+.proj-category-sub { font-size: 9.5px; color: var(--neutral-300); margin-top: 1px; }
+
+/* Row 2: name */
+.proj-name {
+  font-size: 14.5px; font-weight: 700;
+  color: var(--brand-gold-700);
+  letter-spacing: -.01em;
+  line-height: 1.25;
+  margin-bottom: 3px;
+}
+.proj-code {
+  font-family: 'Courier New', monospace;
+  font-size: 10px; color: var(--neutral-500);
+}
+
+/* Row 3: progress */
+.proj-progress {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 8px;
+}
+.prog-track {
+  flex: 1; height: 5px;
+  background: var(--neutral-200); border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.prog-fill { height: 100%; border-radius: var(--radius-pill); }
+.prog-fill.ok     { background: var(--state-success); }
+.prog-fill.warn   { background: var(--brand-gold); }
+.prog-fill.danger { background: var(--state-danger); }
+.prog-fill.muted  { background: var(--neutral-300); }
+.prog-val {
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 34px; text-align: right;
+  color: var(--neutral-600);
+}
+
+/* Row 4: meta footer */
+.proj-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.proj-meta-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.proj-meta-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.meta-person {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px; color: var(--neutral-600); font-weight: 600;
+}
+.meta-person-av {
+  width: 20px; height: 20px;
+  border-radius: 999px;
+  background: var(--brand-gold-100);
+  color: var(--brand-gold-700);
+  font-size: 7px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.meta-date {
+  font-size: 11px; color: var(--neutral-400);
+  font-variant-numeric: tabular-nums;
+}
+.meta-date.late { color: var(--state-danger); font-weight: 700; }
+
+/* ── CHIPS ── */
+.chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px; font-weight: 700;
+  white-space: nowrap;
+}
+.chip-ok     { background: var(--state-success-bg);   color: var(--state-success); }
+.chip-warn   { background: var(--state-warning-bg);   color: var(--state-warning); }
+.chip-danger { background: var(--state-danger-bg);    color: var(--state-danger); }
+.chip-gold   { background: var(--brand-gold-050);     color: var(--brand-gold-700); }
+.chip-muted  { background: var(--neutral-100);        color: var(--neutral-500); }
+.chip-dark   { background: var(--neutral-200);        color: var(--neutral-700); }
+.chip-purple { background: #EFE4FD;                   color: #6B2FB2; }
+.chip-teal   { background: #E2F5F1;                   color: #0E7462; }
+
+/* Signal badges */
+.signal { display: inline-flex; align-items: center; gap: 4px; }
+.signal-dot { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
+.signal-dot.danger { background: var(--state-danger); }
+.signal-dot.warn   { background: var(--state-warning); }
+.signal-text { font-size: 10.5px; font-weight: 700; color: var(--state-danger); }
+.signal-text.warn { color: var(--state-warning); }
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: 166px; right: 18px;
+  width: 48px; height: 48px;
+  border-radius: 999px;
+  background: var(--neutral-0);
+  border: 1.5px solid var(--neutral-200);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-2);
+  color: var(--brand-ink);
+  z-index: 100;
+  transition: transform 100ms, box-shadow 100ms;
+}
+.fab:active { transform: scale(.95); }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 390px;
+  height: 80px;
+  background: var(--neutral-0);
+  border-top: 1px solid var(--neutral-200);
+  display: flex; align-items: flex-start;
+  padding: 10px 0 0;
+  z-index: 200;
+  box-shadow: 0 -4px 20px rgba(14,14,16,.08);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  cursor: pointer; padding: 0 4px;
+  text-decoration: none; border: none; background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-item svg { transition: transform 120ms; }
+.nav-item:active svg { transform: scale(.88); }
+.nav-icon {
+  width: 44px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+}
+.nav-item.active .nav-icon { background: var(--brand-gold-050); }
+.nav-item.active .nav-icon svg { stroke: var(--brand-gold-700); }
+.nav-item svg { stroke: var(--neutral-400); }
+.nav-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--neutral-400); letter-spacing: .01em;
+}
+.nav-item.active .nav-label { color: var(--brand-gold-700); }
+.nav-badge {
+  position: absolute;
+  top: 4px; right: 8px;
+  width: 16px; height: 16px;
+  border-radius: 999px;
+  background: var(--state-danger);
+  color: #fff; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--neutral-0);
+}
+.nav-icon-wrap { position: relative; }
+
+/* ── ORION ASSISTANT ── */
+.orion-fab {
+  position: fixed; right: 16px; bottom: 96px;
+  width: 60px; height: 60px; border-radius: 999px;
+  border: none; cursor: pointer; padding: 0;
+  background: radial-gradient(circle at 50% 38%, #FBEAB5, #E8A317 78%);
+  box-shadow: 0 6px 20px rgba(232,163,23,.45), 0 2px 6px rgba(14,14,16,.2);
+  z-index: 300; display: flex; align-items: center; justify-content: center;
+  transition: transform 120ms; animation: orion-bob 3.2s ease-in-out infinite;
+}
+.orion-fab:active { transform: scale(.92); }
+.orion-fab img { width: 56px; height: 56px; border-radius: 999px; display: block; }
+.orion-fab.hidden { opacity: 0; pointer-events: none; transform: scale(.6); }
+@keyframes orion-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+.orion-ping {
+  position: absolute; top: -2px; right: -2px;
+  background: var(--state-danger); color:#fff; font-size: 10px; font-weight: 800;
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  border: 2px solid var(--neutral-0); display:flex; align-items:center; justify-content:center;
+}
+.orion-hint {
+  position: absolute; right: 70px; top: 50%; transform: translateY(-50%);
+  background: var(--brand-ink); color: #fff; font-size: 12px; font-weight: 600;
+  white-space: nowrap; padding: 7px 11px; border-radius: 10px; box-shadow: var(--shadow-2);
+}
+.orion-hint::after {
+  content:''; position:absolute; right:-4px; top:50%; transform:translateY(-50%) rotate(45deg);
+  width:9px; height:9px; background: var(--brand-ink);
+}
+.orion-overlay {
+  position: fixed; inset: 0; background: rgba(14,14,16,.45);
+  z-index: 400; opacity: 0; pointer-events: none; transition: opacity 200ms;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.orion-overlay.open { opacity: 1; pointer-events: auto; }
+.orion-sheet {
+  width: 390px; max-width: 100%; background: var(--neutral-0);
+  border-radius: 22px 22px 0 0; box-shadow: 0 -10px 40px rgba(14,14,16,.25);
+  display: flex; flex-direction: column; max-height: 80vh;
+  transform: translateY(100%); transition: transform 260ms cubic-bezier(.22,1,.36,1);
+  overflow: hidden;
+}
+.orion-overlay.open .orion-sheet { transform: translateY(0); }
+.orion-grab { width: 40px; height: 4px; border-radius: 999px; background: var(--neutral-300); margin: 8px auto 0; }
+.orion-head { display:flex; align-items:center; gap: 11px; padding: 12px 16px 14px; border-bottom: 1px solid var(--neutral-100); }
+.orion-head-av { width: 42px; height: 42px; border-radius: 999px; flex-shrink:0; box-shadow: 0 2px 8px rgba(232,163,23,.35); }
+.orion-head-name { font-size: 15px; font-weight: 800; color: var(--brand-ink); letter-spacing:-.01em; display:flex; align-items:center; gap:6px; }
+.orion-head-tag { font-size:10px; font-weight:700; color:var(--brand-gold-700); background:var(--brand-gold-050); padding:2px 7px; border-radius:999px; }
+.orion-head-status { font-size: 11.5px; color: var(--state-success); font-weight: 600; display:flex; align-items:center; gap:5px; margin-top:2px; }
+.orion-head-status::before { content:''; width:6px;height:6px;border-radius:999px;background:var(--state-success); }
+.orion-close { margin-left:auto; width:34px;height:34px; border:none; background:var(--neutral-100); border-radius:10px; display:flex;align-items:center;justify-content:center; cursor:pointer; color:var(--neutral-600); }
+.orion-body { flex:1; overflow-y:auto; padding: 16px; display:flex; flex-direction:column; gap:12px; background: var(--neutral-50); }
+.orion-msg { display:flex; gap:8px; align-items:flex-end; max-width: 88%; }
+.orion-msg.bot { align-self:flex-start; }
+.orion-msg.user { align-self:flex-end; flex-direction:row-reverse; }
+.orion-msg-av { width:26px;height:26px;border-radius:999px;flex-shrink:0; }
+.orion-bubble { padding: 10px 13px; border-radius: 14px; font-size: 13.5px; line-height:1.5; }
+.orion-msg.bot .orion-bubble { background: var(--neutral-0); border:1px solid var(--neutral-200); color: var(--brand-ink); border-bottom-left-radius:4px; }
+.orion-msg.user .orion-bubble { background: var(--brand-ink); color:#fff; border-bottom-right-radius:4px; }
+.orion-sugg-wrap { padding: 0 16px 10px; overflow-x:auto; scrollbar-width:none; background:var(--neutral-50); }
+.orion-sugg-wrap::-webkit-scrollbar{display:none;}
+.orion-sugg { display:flex; gap:8px; width:max-content; padding-top: 4px; }
+.orion-chip { white-space:nowrap; padding: 8px 13px; border-radius: 999px; background: var(--brand-gold-050); border: 1px solid var(--brand-gold-100); color: var(--brand-gold-700); font-size: 12.5px; font-weight: 600; cursor:pointer; font-family: var(--font-sans); }
+.orion-chip:active { background: var(--brand-gold-100); }
+.orion-input { display:flex; align-items:center; gap:8px; padding: 12px 16px; border-top: 1px solid var(--neutral-100); background: var(--neutral-0); }
+.orion-input input { flex:1; border: 1px solid var(--neutral-200); border-radius: 999px; padding: 11px 16px; font-size: 13.5px; font-family: var(--font-sans); outline:none; color: var(--brand-ink); background: var(--neutral-50); }
+.orion-input input:focus { border-color: var(--brand-gold); background:#fff; }
+.orion-send { width: 42px; height: 42px; border-radius: 999px; flex-shrink:0; background: var(--brand-gold); border:none; cursor:pointer; display:flex;align-items:center;justify-content:center; color: var(--brand-ink); }
+.orion-send:active { background: var(--brand-gold-600); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 6s4-2 11-2 11 2 11 2"/><path d="M5 9s3-1.5 7-1.5 7 1.5 7 1.5"/><path d="M9 12.5s1.5-.5 3-.5 3 .5 3 .5"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="2" y="7" width="16" height="11" rx="2"/><path d="M22 11v2" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-star">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <span class="topbar-brand">Starium</span>
+    </div>
+    <span class="topbar-org">Innovatech SA</span>
+    <div class="topbar-actions">
+      <button class="topbar-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </button>
+      <div class="avatar">SM</div>
+    </div>
+  </div>
+
+  <!-- PAGE TITLE -->
+  <div class="page-head">
+    <h1 class="page-title">Projets</h1>
+    <p class="page-subtitle">Portefeuille · 12 projets actifs</p>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-bar">
+    <div class="search-inner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Rechercher un projet…">
+      <span class="search-kbd">⌘K</span>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip-wrap">
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-card-label">Total</div>
+        <div class="kpi-card-value">12</div>
+        <div class="kpi-card-sub">projets</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">En cours</div>
+        <div class="kpi-card-value v-warn">7</div>
+        <div class="kpi-card-sub">actifs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Terminés</div>
+        <div class="kpi-card-value v-ok">1</div>
+        <div class="kpi-card-sub">livrés</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">En retard</div>
+        <div class="kpi-card-value v-warn">1</div>
+        <div class="kpi-card-sub">retard</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Critiques</div>
+        <div class="kpi-card-value v-danger">10</div>
+        <div class="kpi-card-sub">signaux</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Bloqués</div>
+        <div class="kpi-card-value v-danger">1</div>
+        <div class="kpi-card-sub">bloqué</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Sans resp.</div>
+        <div class="kpi-card-value v-danger">2</div>
+        <div class="kpi-card-sub">manquants</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION HEADER -->
+  <div class="section-header">
+    <span class="section-title">Portefeuille</span>
+    <span class="section-count">12 projets</span>
+  </div>
+
+  <!-- FILTER CHIPS -->
+  <div class="filter-chips-wrap">
+    <div class="filter-chips">
+      <button class="fchip active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Tous
+      </button>
+      <button class="fchip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        En retard
+      </button>
+      <button class="fchip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        Critiques
+      </button>
+      <button class="fchip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Mes projets
+      </button>
+      <button class="fchip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Terminés
+      </button>
+    </div>
+  </div>
+
+  <!-- PROJECT CARDS LIST -->
+  <div class="project-list">
+
+    <!-- CARD 1 — mise à jour des serveurs -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-muted">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Activité</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-teal">Activité</span>
+              <span class="chip chip-dark">Brouillon</span>
+            </div>
+          </div>
+          <div class="proj-name">Mise à jour des serveurs</div>
+          <div class="proj-code">ACT-2026-AF5D3DAA</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill muted" style="width:0%"></div></div>
+            <span class="prog-val" style="color:var(--neutral-400)">—</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-ok">Bon</span>
+              <span class="meta-date">Priorité : Moyenne</span>
+            </div>
+            <div class="proj-meta-right">
+              <div class="signal">
+                <div class="signal-dot danger"></div>
+                <span class="signal-text">Sans resp.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2 — Programme legacy -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-danger">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Transformation &amp; métier</div>
+              <div class="proj-category-sub">Expérience client &amp; canaux</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-ok">Terminé</span>
+            </div>
+          </div>
+          <div class="proj-name">Programme legacy — sortie de four</div>
+          <div class="proj-code">IND-SEED-03</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill ok" style="width:100%"></div></div>
+            <span class="prog-val" style="color:var(--state-success)">100 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-danger">Critique</span>
+              <div class="meta-person">
+                <div class="meta-person-av">JV</div>
+                Jean Vasseur
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date">10/04/2026</span>
+              <div class="signal">
+                <div class="signal-dot danger"></div>
+                <span class="signal-text">Critique</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3 — E-commerce -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-danger">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Transformation &amp; métier</div>
+              <div class="proj-category-sub">Expérience client &amp; canaux</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-gold">En cours</span>
+            </div>
+          </div>
+          <div class="proj-name">E-commerce — tunnel d'achat</div>
+          <div class="proj-code">IND-SEED-06</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill warn" style="width:62%"></div></div>
+            <span class="prog-val">62 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-danger">Critique</span>
+              <div class="meta-person">
+                <div class="meta-person-av">MF</div>
+                M. Faure
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date late">30/04/2026</span>
+              <div class="signal">
+                <div class="signal-dot warn"></div>
+                <span class="signal-text warn">En retard</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 4 — Modernisation réseau -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-ok">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Infrastructure &amp; IT</div>
+              <div class="proj-category-sub">Résilience opérationnelle</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-ok">Terminé</span>
+            </div>
+          </div>
+          <div class="proj-name">Modernisation réseau LAN/WAN</div>
+          <div class="proj-code">IND-SEED-11</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill ok" style="width:100%"></div></div>
+            <span class="prog-val" style="color:var(--state-success)">100 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-ok">Bon</span>
+              <div class="meta-person">
+                <div class="meta-person-av">PD</div>
+                Paul Dupont
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date">15/03/2026</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 5 — Conformité DORA -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-danger">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Gouvernance &amp; conformité</div>
+              <div class="proj-category-sub">Réglementaire</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-gold">En cours</span>
+            </div>
+          </div>
+          <div class="proj-name">Conformité DORA</div>
+          <div class="proj-code">IND-SEED-04</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill danger" style="width:33%"></div></div>
+            <span class="prog-val" style="color:var(--state-danger)">33 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-danger">Critique</span>
+              <div class="meta-person">
+                <div class="meta-person-av">SM</div>
+                S. Martin
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date late">15/09/2026</span>
+              <div class="signal">
+                <div class="signal-dot danger"></div>
+                <span class="signal-text">Critique</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 6 — Remplacement SI RH -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-warn">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">RH &amp; Organisation</div>
+              <div class="proj-category-sub">Transformation SI</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-gold">En cours</span>
+            </div>
+          </div>
+          <div class="proj-name">Remplacement SI RH</div>
+          <div class="proj-code">IND-SEED-07</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill warn" style="width:74%"></div></div>
+            <span class="prog-val">74 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-warn">Attention</span>
+              <div class="meta-person">
+                <div class="meta-person-av">AL</div>
+                A. Lefebvre
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date">31/12/2026</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 7 — Déploiement ERP Finance -->
+    <div class="proj-card">
+      <div class="proj-card-inner border-danger">
+        <div class="proj-card-body">
+          <div class="proj-row1">
+            <div>
+              <div class="proj-category">Finance &amp; contrôle de gestion</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center">
+              <span class="chip chip-purple">Projet</span>
+              <span class="chip chip-gold">En cours</span>
+            </div>
+          </div>
+          <div class="proj-name">Déploiement ERP Finance</div>
+          <div class="proj-code">IND-SEED-02</div>
+          <div class="proj-progress">
+            <div class="prog-track"><div class="prog-fill danger" style="width:18%"></div></div>
+            <span class="prog-val" style="color:var(--state-danger)">18 %</span>
+          </div>
+          <div class="proj-meta">
+            <div class="proj-meta-left">
+              <span class="chip chip-danger">Critique</span>
+              <div class="meta-person">
+                <div class="meta-person-av">LM</div>
+                L. Moreau
+              </div>
+            </div>
+            <div class="proj-meta-right">
+              <span class="meta-date late">30/06/2026</span>
+              <div class="signal">
+                <div class="signal-dot danger"></div>
+                <span class="signal-text">Sans resp.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- FAB -->
+<button class="fab" title="Nouveau projet">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="22" height="22"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+
+  <button class="nav-item">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Dashboard</span>
+  </button>
+
+  <button class="nav-item active">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Projets</span>
+  </button>
+
+  <button class="nav-item" style="position:relative">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="nav-badge">10</div>
+      </div>
+    </div>
+    <span class="nav-label">Risques</span>
+  </button>
+
+  <button class="nav-item">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Budgets</span>
+  </button>
+
+  <button class="nav-item">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Profil</span>
+  </button>
+
+</nav>
+
+<!-- ORION ASSISTANT -->
+<button class="orion-fab" id="orionFab" onclick="orionOpen()" aria-label="Ouvrir Orion">
+  <span class="orion-hint">Besoin d'aide ?</span>
+  <img src="../../assets/orion.png" alt="Orion">
+  <span class="orion-ping">2</span>
+</button>
+
+<div class="orion-overlay" id="orionOverlay" onclick="if(event.target===this)orionClose()">
+  <div class="orion-sheet">
+    <div class="orion-grab"></div>
+    <div class="orion-head">
+      <img class="orion-head-av" src="../../assets/orion.png" alt="Orion">
+      <div>
+        <div class="orion-head-name">Orion <span class="orion-head-tag">IA</span></div>
+        <div class="orion-head-status">Assistant Starium · en ligne</div>
+      </div>
+      <button class="orion-close" onclick="orionClose()" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="orion-body" id="orionBody">
+      <div class="orion-msg bot">
+        <img class="orion-msg-av" src="../../assets/orion.png" alt="">
+        <div class="orion-bubble">Bonjour 👋 Je suis Orion. Sur le <b>portefeuille</b>, je vois <b>10 signaux critiques</b>, <b>1 projet en retard</b> et <b>2 projets sans responsable</b>. Par quoi veux-tu commencer&nbsp;?</div>
+      </div>
+    </div>
+    <div class="orion-sugg-wrap">
+      <div class="orion-sugg">
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Projets en retard&nbsp;?</button>
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Projets sans responsable</button>
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Créer un projet</button>
+      </div>
+    </div>
+    <div class="orion-input">
+      <input id="orionInput" type="text" placeholder="Pose ta question à Orion…" onkeydown="if(event.key==='Enter')orionSend()">
+      <button class="orion-send" onclick="orionSend()" aria-label="Envoyer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function orionOpen(){ document.getElementById('orionOverlay').classList.add('open'); document.getElementById('orionFab').classList.add('hidden'); var p=document.querySelector('.orion-ping'); if(p)p.remove(); }
+function orionClose(){ document.getElementById('orionOverlay').classList.remove('open'); document.getElementById('orionFab').classList.remove('hidden'); }
+function orionAddMsg(text, who){
+  var body=document.getElementById('orionBody');
+  var m=document.createElement('div'); m.className='orion-msg '+who;
+  if(who==='bot'){ m.innerHTML='<img class="orion-msg-av" src="../../assets/orion.png" alt=""><div class="orion-bubble">'+text+'</div>'; }
+  else { m.innerHTML='<div class="orion-bubble"></div>'; m.querySelector('.orion-bubble').textContent=text; }
+  body.appendChild(m); body.scrollTop=body.scrollHeight;
+}
+var orionReplies={
+ 'Projets en retard\u00a0?':"Un projet est en retard&nbsp;: <b>E-commerce — tunnel d'achat</b> (échéance 30/04, 62&nbsp;%). Je peux relancer M. Faure ou ouvrir un plan de rattrapage.",
+ 'Projets sans responsable':"2 projets sans responsable&nbsp;: <b>Mise à jour des serveurs</b> et <b>Déploiement ERP Finance</b>. Veux-tu que je propose un chef de projet&nbsp;?",
+ 'Créer un projet':"C'est parti 🚀 Donne-moi le nom du projet et sa catégorie, je prépare la fiche et l'échéancier."
+};
+function orionReply(q){
+  var r=orionReplies[q]||"Bonne question — je consulte le portefeuille et je reviens vers toi avec le détail.";
+  setTimeout(function(){ orionAddMsg(r,'bot'); }, 600);
+}
+function orionAsk(q){ orionAddMsg(q,'user'); orionReply(q); }
+function orionSend(){ var i=document.getElementById('orionInput'); var v=i.value.trim(); if(!v)return; orionAddMsg(v,'user'); i.value=''; orionReply(v); }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Équipes projet — Cahier des charges</title>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#14100C"/><rect x="20" y="24" width="60" height="10" rx="2" fill="#F5A623"/><rect x="20" y="40" width="26" height="36" rx="2" fill="#fff" opacity=".85"/><rect x="50" y="40" width="30" height="16" rx="2" fill="#fff" opacity=".5"/><rect x="50" y="60" width="30" height="16" rx="2" fill="#fff" opacity=".3"/></svg></template>
+<style>
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-SemiBold.ttf') format('truetype');font-weight:600}
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-Bold.ttf') format('truetype');font-weight:700}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');font-weight:100 900}
+doc-page:not(:defined){visibility:hidden}
+.page{font-family:'Manrope',system-ui,sans-serif;color:#14100C;background:#fff;box-sizing:border-box}
+.page *{box-sizing:border-box}
+h1,h2,h3,h4{font-family:'Outfit',system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+a{color:#C77A00}a:hover{color:#8A5400}
+/* ─── cover ─── */
+.cover{padding:16mm 18mm;display:flex;flex-direction:column}
+.cv-top{display:flex;align-items:center;gap:10mm}
+.cv-mark{font-family:'Outfit';font-weight:700;font-size:11pt;letter-spacing:.34em}
+.cv-rule{flex:1;height:2px;background:#F5A623}
+.cv-kicker{font-size:8.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8C8579}
+.cover h1{font-size:50pt;font-weight:700;line-height:.98;margin-top:20mm}
+.cv-lede{font-size:12pt;line-height:1.5;color:#5F5A52;max-width:170mm;margin:7mm 0 0;font-weight:500;text-wrap:pretty}
+.cv-grid{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7mm;border-top:1px solid #E9E6E0;padding-top:7mm}
+.cv-num{font-family:'Outfit';font-weight:700;font-size:24pt;color:#C77A00;line-height:1}
+.cv-lbl{font-size:8.5pt;line-height:1.4;color:#5F5A52;font-weight:600;margin-top:2mm}
+.cv-foot{display:flex;justify-content:space-between;font-size:8.5pt;color:#8C8579;font-weight:600;margin-top:6mm}
+/* ─── generic doc page ─── */
+.std{padding:13mm 15mm;display:flex;flex-direction:column}
+.std-h{border-bottom:1px solid #E9E6E0;padding-bottom:5mm;margin-bottom:6mm}
+.std-k{font-size:8pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.std h2{font-size:23pt;font-weight:700;line-height:1.08}
+.std-h p{font-size:10pt;line-height:1.5;color:#5F5A52;font-weight:500;margin:4mm 0 0;max-width:205mm;text-wrap:pretty}
+.std-note{margin-top:auto;font-size:8.5pt;line-height:1.5;color:#5F5A52;font-weight:600;border-top:1px solid #E9E6E0;padding-top:4mm;text-wrap:pretty}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm}
+.tri-h{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.tri ul,.lst{margin:0;padding-left:4.2mm;list-style:none}
+.tri li,.lst li{font-size:8.6pt;line-height:1.45;color:#5F5A52;font-weight:500;margin-bottom:2.2mm;position:relative;text-wrap:pretty}
+.tri li::before,.lst li::before{content:'';position:absolute;left:-4.2mm;top:1.6mm;width:1.4mm;height:1.4mm;border-radius:99px;background:#F5A623}
+.tri li b,.lst li b{color:#14100C;font-weight:700}
+.tb{width:100%;border-collapse:collapse;font-size:8.4pt}
+.tb th{text-align:left;font-size:7.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579;padding:0 3mm 2.5mm 0;border-bottom:1px solid #E9E6E0}
+.tb td{padding:2.8mm 3mm 2.8mm 0;border-bottom:1px solid #E9E6E0;color:#5F5A52;font-weight:500;line-height:1.4;vertical-align:top;text-wrap:pretty}
+.tb .s{font-weight:700;color:#14100C}
+.tb code,code{font-family:ui-monospace,Menlo,monospace;font-size:7.8pt;background:#F4F2EE;padding:.5mm 1.4mm;border-radius:1mm;color:#403D38}
+.pill{display:inline-block;color:#fff;font-weight:800;font-size:7.2pt;padding:1.1mm 2.4mm;border-radius:1.4mm;white-space:nowrap}
+/* ─── section divider ─── */
+.divider{padding:18mm;display:flex;align-items:center;background:#14100C;color:#fff}
+.dv-in{max-width:200mm}
+.dv-kick{font-size:9pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#F5A623;margin-bottom:6mm}
+.divider h2{font-size:32pt;font-weight:700;line-height:1.02}
+.divider p{font-size:11pt;line-height:1.55;color:rgba(255,255,255,.74);margin:6mm 0 0;font-weight:500;max-width:175mm;text-wrap:pretty}
+.dv-steps{display:flex;flex-wrap:wrap;gap:3mm;margin-top:9mm}
+.dv-steps span{font-size:8.5pt;font-weight:700;padding:2mm 4.5mm;border:1px solid rgba(255,255,255,.28);border-radius:99px}
+/* ─── screen blueprint page ─── */
+.scr{padding:10mm 12mm;display:flex;flex-direction:column;overflow:hidden}
+.sh{display:flex;align-items:flex-start;gap:5mm;border-bottom:1px solid #E9E6E0;padding-bottom:3.5mm;flex-shrink:0}
+.sh-n{font-family:'Outfit';font-weight:700;font-size:19pt;color:#C77A00;line-height:.9;min-width:15mm}
+.sh-t{flex:1}
+.scr h3{font-size:16.5pt;font-weight:700;line-height:1.1}
+.sh-p{font-size:7.8pt;font-weight:600;color:#8C8579;margin-top:1.6mm;font-family:ui-monospace,Menlo,monospace}
+.sh-k{font-size:7.2pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:#14100C;padding:1.5mm 3.2mm;border-radius:1.4mm;white-space:nowrap}
+.bp{display:grid;grid-template-columns:1.42fr 1fr;gap:7mm;margin-top:4.5mm;min-height:0;flex:1}
+.blk{margin-bottom:4mm}
+.blk:last-child{margin-bottom:0}
+.blk-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2.4mm}
+.role{font-size:9pt;line-height:1.45;margin:0;font-weight:600;color:#14100C;text-wrap:pretty}
+.zon ol{margin:0;padding-left:6mm;counter-reset:z;list-style:none}
+.zon li{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin-bottom:2mm;position:relative;counter-increment:z;text-wrap:pretty}
+.zon li::before{content:counter(z);position:absolute;left:-6mm;top:.2mm;width:3.7mm;height:3.7mm;border-radius:99px;background:#14100C;color:#fff;font-size:6.2pt;font-weight:800;display:flex;align-items:center;justify-content:center}
+.zon li b{color:#14100C;font-weight:700}
+.shot{position:relative;border:1px solid #D6D2CA;border-radius:2mm;overflow:hidden;background:#FAF9F7;margin:0}
+.shot img{display:block;width:100%;height:auto}
+.pin{position:absolute;width:4.4mm;height:4.4mm;border-radius:99px;background:#C77A00;color:#fff;font-family:'Outfit';font-weight:700;font-size:6.6pt;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 0 0 1mm rgba(255,255,255,.94),0 .5mm 1.4mm rgba(0,0,0,.35)}
+.shot-cap{font-size:6.8pt;font-weight:700;color:#8C8579;margin-top:1.8mm;letter-spacing:.04em}
+.todo{border:1px dashed #C77A00;background:#FFF1DC;border-radius:1.6mm;padding:2.2mm 2.8mm;margin-bottom:3.5mm}
+.todo-t{font-size:7.2pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00}
+.todo-p{font-size:8pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:1.2mm 0 0;text-wrap:pretty}
+/* wireframe kit */
+.wf{border:1px solid #D6D2CA;border-radius:2mm;background:#FAF9F7;padding:2.6mm;display:flex;flex-direction:column;gap:2.2mm;margin-bottom:3.5mm}
+.wf-cap{font-size:6.8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579;margin-bottom:1mm}
+.wb{border:1px solid #D6D2CA;border-radius:1.4mm;background:#fff;padding:2.2mm 2.6mm;position:relative}
+.wb.ink{background:#14100C;border-color:#14100C}
+.wb.tint{background:#FCEDC4;border-color:#F8D999}
+.wb.sunk{background:#F4F2EE}
+.wb.dash{border-style:dashed}
+.wt{font-size:7.4pt;font-weight:700;color:#14100C;line-height:1.3}
+.wb.ink .wt{color:#fff}
+.wm{font-size:6.6pt;font-weight:600;color:#8C8579;line-height:1.35;margin-top:.8mm}
+.wb.ink .wm{color:rgba(255,255,255,.6)}
+.wrow{display:flex;gap:2.2mm}
+.wrow>*{flex:1;margin:0}
+.wcol{display:flex;flex-direction:column;gap:2.2mm}
+.wn{position:absolute;top:-1.8mm;left:-1.8mm;width:3.6mm;height:3.6mm;border-radius:99px;background:#C77A00;color:#fff;font-size:6pt;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:'Outfit'}
+.wbtn{display:inline-block;font-size:6.6pt;font-weight:800;padding:1.2mm 2.6mm;border-radius:1.2mm;background:#14100C;color:#fff;white-space:nowrap}
+.wbtn.sec{background:#fff;color:#14100C;border:1px solid #D6D2CA}
+.wbtn.gold{background:#F5A623;color:#14100C}
+.wbar{display:flex;gap:1.6mm;align-items:center;flex-wrap:wrap}
+.wchip{font-size:6.4pt;font-weight:700;padding:.9mm 2mm;border-radius:99px;background:#F4F2EE;color:#5F5A52;border:1px solid #E9E6E0}
+.wchip.on{background:#14100C;color:#fff;border-color:#14100C}
+.wgrid4{display:grid;grid-template-columns:repeat(4,1fr);gap:2.2mm}
+.wgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:2.2mm}
+.wgrid2{display:grid;grid-template-columns:repeat(2,1fr);gap:2.2mm}
+.wside{display:grid;grid-template-columns:1fr 1.9fr;gap:2.2mm}
+.wside.rev{grid-template-columns:1.9fr 1fr}
+/* footer strip of a screen page */
+.sf{margin-top:3.5mm;display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:6mm;border-top:1px solid #E9E6E0;padding-top:3.5mm;flex-shrink:0}
+.sf-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2mm}
+.sf-h.mt{margin-top:3.2mm}
+.sf p{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.sf ul{margin:0;padding-left:4mm;list-style:none}
+.sf li{font-size:8.3pt;line-height:1.4;color:#5F5A52;font-weight:500;margin-bottom:1.7mm;position:relative;text-wrap:pretty}
+.sf li::before{content:'';position:absolute;left:-4mm;top:1.5mm;width:1.3mm;height:1.3mm;border-radius:99px;background:#F5A623}
+.sf li b{color:#14100C;font-weight:700}
+/* behaviour page */
+.bhv{padding:11mm 13mm;display:flex;flex-direction:column;overflow:hidden}
+.bhv-h{display:flex;align-items:baseline;gap:4mm;border-bottom:1px solid #E9E6E0;padding-bottom:4mm;margin-bottom:5mm;flex-shrink:0}
+.bhv-h .n{font-family:'Outfit';font-weight:700;font-size:12pt;color:#C77A00}
+.bhv-h h4{font-size:14pt;font-weight:700;flex:1}
+.bhv-h .tag{font-size:7pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579}
+.bhv-cols{display:grid;grid-template-columns:1fr 1fr;gap:8mm;min-height:0;flex:1}
+.ac{border:1px solid #E9E6E0;border-radius:2mm;padding:3.4mm 4mm;background:#FAF9F7;margin-bottom:2.6mm}
+.ac-t{font-size:8pt;font-weight:800;color:#14100C;margin-bottom:1.6mm}
+.ac-l{font-size:8pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.ac-l em{font-style:normal;font-weight:800;color:#C77A00;letter-spacing:.04em;text-transform:uppercase;font-size:6.8pt;margin-right:1.2mm}
+.msg{font-size:8pt;line-height:1.4;color:#5F5A52;font-weight:500;padding-left:4.6mm;position:relative;margin-bottom:2mm;text-wrap:pretty}
+.msg::before{content:'';position:absolute;left:0;top:1.3mm;width:2.6mm;height:2.6mm;border-radius:.6mm;background:#B42318}
+.msg.warn::before{background:#C77A00}
+.msg.ok::before{background:#1F8A5B}
+.msg q{font-weight:700;color:#14100C;quotes:'« ' ' »'}
+.rc{display:grid;grid-template-columns:repeat(2,1fr);gap:9mm;align-items:start}
+.rc-t{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;padding-bottom:2mm;border-bottom:1px solid #E9E6E0;margin-bottom:3mm}
+.rc .ac{background:#fff;border-color:#E9E6E0}
+</style>
+</head>
+<body>
+<doc-page size="a4" orientation="landscape">
+
+<!-- COUVERTURE -->
+<section class="page cover">
+<div class="cv-top"><div class="cv-mark">STARIUM</div><div class="cv-rule"></div><div class="cv-kicker">Cahier des charges · fonctionnalité</div></div>
+<h1>Équipes projet</h1>
+<p class="cv-lede">Les instances de pilotage d'un projet — COPIL, COPROJ, COTECH, groupes de travail — sont décrites une seule fois, au niveau du projet, puis reprises partout : préparation d'un point, convocation, émargement, diffusion du compte-rendu. Ce document spécifie l'onglet Équipes, l'éditeur d'équipe et la convocation d'une équipe depuis un point projet.</p>
+<div class="cv-grid">
+<div><div class="cv-num">3</div><div class="cv-lbl">écrans spécifiés : onglet Équipes, éditeur d'équipe, convocation depuis la préparation</div></div>
+<div><div class="cv-num">1</div><div class="cv-lbl">source de vérité : l'équipe est saisie au projet, jamais dans le point</div></div>
+<div><div class="cv-num">0</div><div class="cv-lbl">ressaisie : convoquer une équipe remplit la liste des participants d'un geste</div></div>
+<div><div class="cv-num">18</div><div class="cv-lbl">critères de recette vérifiables un par un, en annexe</div></div>
+</div>
+<div class="cv-foot"><span>Starium · Refonte Portail Client</span><span>Version 1 · Septembre 2026</span></div>
+</section>
+
+<!-- CADRAGE -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Cadrage</div><h2>Ce que résout la fonctionnalité</h2><p>Avant, la liste des participants était retapée à chaque point projet : un COPROJ hebdomadaire, c'est cinquante saisies par an des quatre mêmes personnes. Les équipes déplacent cette saisie au niveau du projet, une fois pour toutes, et la rendent disponible à tous les modules qui ont besoin de personnes.</p></div>
+<div class="tri">
+<div><div class="tri-h">Principes</div><ul>
+<li><b>Le projet possède ses équipes.</b> Elles vivent dans un onglet du projet, au même niveau que Points projet — pas dans un écran de préparation.</li>
+<li><b>Une équipe est un groupe nommé de personnes</b>, rien de plus : pas de droits, pas de périmètre, pas de workflow.</li>
+<li><b>Convoquer n'est pas lier.</b> Convoquer une équipe copie ses membres dans les participants du point ; modifier ensuite l'équipe ne réécrit pas les points déjà convoqués.</li>
+<li><b>Aucune suppression en cascade.</b> Supprimer une équipe ne retire personne d'un point existant.</li>
+</ul></div>
+<div><div class="tri-h">Utilisateurs et usages</div><ul>
+<li><b>Chef de projet</b> — crée les équipes au démarrage du projet, les fait évoluer aux arrivées et départs.</li>
+<li><b>Animateur du point</b> — convoque une équipe entière au moment de préparer la séance, complète si besoin.</li>
+<li><b>Participant</b> — n'interagit pas avec l'écran ; il reçoit la convocation et apparaît à l'émargement.</li>
+<li><b>Modules aval</b> — convocation, émargement, compte-rendu et diffusion consomment la même liste de personnes.</li>
+</ul></div>
+<div><div class="tri-h">Règles transverses</div><ul>
+<li><b>Nom unique</b> par projet, insensible à la casse ; les doublons sont refusés à l'enregistrement.</li>
+<li><b>Une équipe peut être vide</b> : elle est créable sans membre, mais n'est alors pas convocable.</li>
+<li><b>Une personne peut appartenir à plusieurs équipes</b> sans limite.</li>
+<li><b>Les personnes ajoutées à la main</b> rejoignent l'annuaire du projet et restent disponibles pour les autres équipes.</li>
+<li><b>Couleur et libellé</b> sont décoratifs : ils n'entrent dans aucune règle métier.</li>
+</ul></div>
+</div>
+<div class="std-note">Périmètre de cette version : création, modification, suppression d'équipes, et convocation d'une équipe dans un point. Les rôles au sein de l'équipe (pilote, membre, observateur), les équipes partagées entre plusieurs projets et l'import depuis l'annuaire d'entreprise sont hors périmètre — voir l'annexe finale.</div>
+</section>
+
+<!-- MODELE DE DONNEES -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Données</div><h2>Modèle de données et persistance</h2><p>Une équipe est un objet plat. Les membres sont stockés par identifiant de personne, jamais par copie du nom : renommer une personne dans l'annuaire se répercute partout sans reprise de données.</p></div>
+<table class="tb">
+<thead><tr><th style="width:26mm">Champ</th><th style="width:24mm">Type</th><th style="width:20mm">Obligatoire</th><th>Règle</th></tr></thead>
+<tbody>
+<tr><td class="s"><code>id</code></td><td>chaîne</td><td>oui</td><td>Identifiant technique, dérivé du nom à la création puis figé. Jamais affiché ni modifiable.</td></tr>
+<tr><td class="s"><code>name</code></td><td>chaîne</td><td>oui</td><td>Nom court affiché partout (ex. <code>COPROJ</code>). 2 à 24 caractères, unique dans le projet.</td></tr>
+<tr><td class="s"><code>label</code></td><td>chaîne</td><td>non</td><td>Intitulé long explicatif (ex. « Comité projet — pilotage hebdomadaire »). Affiché sous le nom, jamais en tête.</td></tr>
+<tr><td class="s"><code>members</code></td><td>liste d'identifiants</td><td>oui</td><td>Peut être vide. Ordre d'ajout conservé : il dicte l'ordre des avatars et l'ordre de l'émargement.</td></tr>
+<tr><td class="s"><code>color</code></td><td>jeton de couleur</td><td>oui</td><td>Choisie dans six jetons du design system. Attribuée automatiquement à la création, modifiable.</td></tr>
+</tbody>
+</table>
+<div class="sf" style="grid-template-columns:1fr 1fr 1fr">
+<div><div class="sf-h">Persistance</div><ul>
+<li>Les équipes sont enregistrées sous la clé <code>starium.teams.v1</code>, à chaque validation de l'éditeur.</li>
+<li>Les personnes créées à la main sont enregistrées sous <code>starium.dir.v1</code> et fusionnées dans l'annuaire au chargement.</li>
+<li>Aucune sauvegarde implicite : fermer l'éditeur sans valider ne modifie rien.</li>
+</ul></div>
+<div><div class="sf-h">Jeu de données initial</div><ul>
+<li>Un projet neuf démarre avec trois équipes pré-remplies : <b>COPROJ</b>, <b>COPIL</b>, <b>COTECH</b>, alimentées depuis les modèles de point du même nom.</li>
+<li>Ces équipes sont ordinaires : renommables, modifiables, supprimables.</li>
+<li>Dès qu'une équipe est modifiée, le jeu initial n'est plus rejoué.</li>
+</ul></div>
+<div><div class="sf-h">Annuaire du projet</div><ul>
+<li>Une personne porte un identifiant, un nom affiché, un e-mail et une couleur d'avatar.</li>
+<li>L'ajout manuel demande le nom seul ; identifiant, e-mail et couleur sont dérivés.</li>
+<li>Un ajout manuel ne crée jamais de doublon d'une personne déjà présente sous le même nom.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- DIVIDER -->
+<section class="page divider">
+<div class="dv-in">
+<div class="dv-kick">Les écrans</div>
+<h2>Trois écrans, un aller-retour</h2>
+<p>On décrit l'équipe dans l'onglet du projet, on la consomme dans la préparation d'un point, et l'on revient à l'éditeur sans quitter la préparation quand il manque quelqu'un. Chaque écran est spécifié sur deux pages : le plan, puis le comportement.</p>
+<div class="dv-steps"><span>01 · Onglet Équipes</span><span>02 · Éditeur d'équipe</span><span>03 · Convoquer une équipe</span></div>
+</div>
+</section>
+
+<!-- 01 PLAN -->
+<section class="page scr" data-screen-label="01 Onglet Équipes · plan">
+<header class="sh"><div class="sh-n">01</div><div class="sh-t"><h3>Onglet « Équipes »</h3><div class="sh-p">Projets › Refonte Portail Client › Équipes</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div class="wf"><div class="wf-cap">Onglet Équipes — grille de cartes</div>
+<div class="wbar"><span class="wchip">Synthèse</span><span class="wchip">Budget</span><span class="wchip">Documents</span><span class="wchip on">Équipes</span><span class="wchip">Points projet</span></div>
+<div class="wb sunk"><div class="wn">1</div><div class="wt">Équipes du projet · 3</div><div class="wm">Décrivez une fois les instances de pilotage : elles sont reprises dans chaque point projet.</div></div>
+<div class="wgrid3">
+<div class="wb"><div class="wn">2</div><div class="wt">COPROJ</div><div class="wm">Comité projet — hebdomadaire</div><div class="wm">●●●● 4 membres · 12 points</div></div>
+<div class="wb"><div class="wt">COPIL</div><div class="wm">Comité de pilotage — mensuel</div><div class="wm">●●●●● 5 membres · 4 points</div></div>
+<div class="wb"><div class="wt">COTECH</div><div class="wm">Architecture &amp; SSI</div><div class="wm">●●● 3 membres · 6 points</div></div>
+</div>
+<div class="wb dash"><div class="wn">3</div><div class="wt">+ Nouvelle équipe</div><div class="wm">Toujours en dernière position de la grille</div></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Donner en un écran la photographie des instances du projet : qui siège où, et dans combien de points chaque équipe est engagée. C'est le point d'entrée unique pour créer ou corriger une équipe.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête de l'onglet</b> — titre, compteur d'équipes, phrase d'explication. Pas de bouton d'action : la création passe par la carte dédiée.</li>
+<li><b>Carte d'équipe</b> — nom en tête, libellé long en dessous, pile d'avatars des membres, nombre de membres, nombre de points projet rattachés. La couleur de l'équipe habille un liseré de la carte.</li>
+<li><b>Carte « Nouvelle équipe »</b> — carte en pointillés, toujours présente, toujours en fin de grille.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Ce qui n'est pas ici</div><p class="role" style="font-weight:500;color:#5F5A52">Ni recherche, ni tri, ni filtre : un projet compte quelques équipes, pas des dizaines. Aucune action destructive directement sur la grille — la suppression est dans l'éditeur.</p></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Contenu des cartes</div><ul>
+<li>Les avatars affichent au plus cinq membres, puis un jeton <b>+ n</b> ; l'ordre est celui de la liste des membres.</li>
+<li>Le compteur de points rattachés se lit « nombre de points projet dont les participants ont été convoqués depuis cette équipe ».</li>
+<li>Une équipe vide affiche « Aucun membre » à la place de la pile d'avatars, et non une pile vide.</li>
+</ul></div>
+<div><div class="sf-h">Sorties</div><ul>
+<li>Clic sur une carte d'équipe → éditeur d'équipe, écran 02, en modification.</li>
+<li>Clic sur la carte pointillée → éditeur d'équipe, écran 02, en création.</li>
+</ul></div>
+<div><div class="sf-h">États</div><ul>
+<li><b>Nominal</b> — une à huit équipes, grille de trois colonnes.</li>
+<li><b>Vide</b> — aucune équipe : la carte pointillée occupe seule la grille, en pleine largeur.</li>
+<li><b>Survol</b> — élévation de la carte, jamais de déplacement.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- 01 COMPORTEMENT -->
+<section class="page bhv" data-screen-label="01 Onglet Équipes · comportement">
+<div class="bhv-h"><div class="n">01</div><h4>Onglet « Équipes » — comportement</h4><div class="tag">Interactions · états · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="ac"><div class="ac-t">Ouverture de l'onglet</div><p class="ac-l"><em>Attendu</em> La grille se reconstruit à chaque ouverture depuis les équipes enregistrées. Aucun état de l'onglet n'est mémorisé : pas de dernière équipe sélectionnée, pas de position de scroll restaurée.</p></div>
+<div class="ac"><div class="ac-t">Compteur de points rattachés</div><p class="ac-l"><em>Attendu</em> Recalculé à l'ouverture, jamais stocké sur l'équipe. Il compte les points distincts, pas les occurrences d'une série : un COPROJ hebdomadaire convoqué douze fois compte douze points.</p></div>
+<div class="ac"><div class="ac-t">Retour depuis l'éditeur</div><p class="ac-l"><em>Attendu</em> À la fermeture de l'éditeur, la grille est rafraîchie sur place. Une équipe créée apparaît juste avant la carte pointillée ; une équipe renommée garde sa position.</p></div>
+<div class="ac"><div class="ac-t">Cohérence des avatars</div><p class="ac-l"><em>Attendu</em> Les avatars de la grille, ceux de l'éditeur et ceux de la ligne d'émargement d'un point sont rendus par le même mécanisme : initiales et couleur d'une personne sont identiques dans les trois endroits.</p></div>
+</div>
+<div>
+<div class="sf-h">Messages</div>
+<p class="msg ok">Après création : <q>Équipe COTECH créée · 3 membres</q></p>
+<p class="msg ok">Après suppression : <q>Équipe supprimée · les points déjà convoqués ne sont pas modifiés</q></p>
+<p class="msg warn">Sur une carte d'équipe vide : <q>Aucun membre — complétez l'équipe pour pouvoir la convoquer</q></p>
+<div class="sf-h mt">Recette</div>
+<div class="ac"><div class="ac-t">R01.1 — La grille liste toutes les équipes du projet, plus une carte de création en dernière position</div></div>
+<div class="ac"><div class="ac-t">R01.2 — Une équipe sans membre affiche « Aucun membre » et non une pile vide</div></div>
+<div class="ac"><div class="ac-t">R01.3 — Au-delà de cinq membres, la pile affiche cinq avatars et un jeton de reste exact</div></div>
+<div class="ac"><div class="ac-t">R01.4 — Après rechargement complet de la page, les équipes et leurs membres sont identiques</div></div>
+<div class="ac"><div class="ac-t">R01.5 — Aucune action de l'onglet ne peut supprimer une équipe sans passer par l'éditeur</div></div>
+</div>
+</div>
+</section>
+
+<!-- 02 PLAN -->
+<section class="page scr" data-screen-label="02 Éditeur d'équipe · plan">
+<header class="sh"><div class="sh-n">02</div><div class="sh-t"><h3>Éditeur d'équipe</h3><div class="sh-p">Équipes › COPROJ — modale</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div class="wf"><div class="wf-cap">Éditeur d'équipe — modale</div>
+<div class="wb ink"><div class="wn">1</div><div class="wt">Modifier l'équipe</div><div class="wm">COPROJ · 4 membres</div></div>
+<div class="wrow"><div class="wb"><div class="wn">2</div><div class="wt">Nom</div><div class="wm">COPROJ</div></div><div class="wb"><div class="wt">Libellé</div><div class="wm">Comité projet — hebdomadaire</div></div></div>
+<div class="wb"><div class="wn">3</div><div class="wt">Couleur</div><div class="wbar" style="margin-top:1.4mm"><span class="wchip on">●</span><span class="wchip">●</span><span class="wchip">●</span><span class="wchip">●</span><span class="wchip">●</span><span class="wchip">●</span></div></div>
+<div class="wb sunk"><div class="wn">4</div><div class="wt">Membres · annuaire du projet</div><div class="wbar" style="margin-top:1.4mm"><span class="wchip on">MD ✓</span><span class="wchip on">SL ✓</span><span class="wchip on">JT ✓</span><span class="wchip on">AB ✓</span><span class="wchip">PD</span><span class="wchip">CM</span><span class="wchip">CL</span></div></div>
+<div class="wrow"><div class="wb dash"><div class="wn">5</div><div class="wt">Ajouter une personne</div><div class="wm">Nom de la personne… + Ajouter</div></div></div>
+<div class="wbar"><span class="wbtn gold">Enregistrer</span><span class="wbtn sec">Annuler</span><span class="wm" style="margin-left:auto">Supprimer l'équipe</span></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Décrire une équipe de bout en bout sans quitter le contexte : identité, couleur, composition. C'est le seul endroit où l'on crée, renomme ou supprime une équipe, et le seul endroit où l'on crée une personne absente de l'annuaire.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête</b> — « Nouvelle équipe » en création, « Modifier l'équipe » suivi du nom et du décompte en modification.</li>
+<li><b>Identité</b> — nom court obligatoire, libellé long facultatif.</li>
+<li><b>Couleur</b> — six jetons ; le jeton actif est coché, pas seulement teinté.</li>
+<li><b>Membres</b> — l'annuaire du projet en jetons cliquables ; un jeton sélectionné porte une coche. Aucune liste séparée « membres choisis » : la sélection est lisible sur place.</li>
+<li><b>Ajout manuel</b> — un champ de nom et un bouton. La personne créée est immédiatement sélectionnée.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Pied de modale</div><p class="role" style="font-weight:500;color:#5F5A52">Enregistrer est l'action principale ; Annuler ferme sans écrire. Supprimer l'équipe est à l'opposé, en texte seul, et n'existe pas en création.</p></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Validations</div><ul>
+<li><b>Nom vide</b> — Enregistrer est inactif, le champ est signalé au premier essai.</li>
+<li><b>Nom déjà pris</b> — refus à l'enregistrement, avec le nom existant cité.</li>
+<li><b>Aucun membre</b> — autorisé : l'équipe est enregistrée vide et signalée comme non convocable.</li>
+</ul></div>
+<div><div class="sf-h">Sorties</div><ul>
+<li>Enregistrer → écriture, fermeture, retour à l'appelant rafraîchi.</li>
+<li>Annuler, touche Échap, clic hors modale → fermeture sans écriture.</li>
+<li>Supprimer → confirmation, puis fermeture.</li>
+</ul></div>
+<div><div class="sf-h">Appelants</div><ul>
+<li>Onglet Équipes, en création comme en modification.</li>
+<li>Préparation d'un point, via « Gérer » dans la carte Participants : l'éditeur s'ouvre sur l'équipe convoquée.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- 02 COMPORTEMENT -->
+<section class="page bhv" data-screen-label="02 Éditeur d'équipe · comportement">
+<div class="bhv-h"><div class="n">02</div><h4>Éditeur d'équipe — comportement</h4><div class="tag">Saisie · validations · suppression · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="ac"><div class="ac-t">Sélection des membres</div><p class="ac-l"><em>Attendu</em> Un clic sur un jeton d'annuaire ajoute ou retire la personne. L'ordre des membres suit l'ordre des clics, pas l'ordre de l'annuaire : c'est cet ordre que l'on retrouve dans les avatars et à l'émargement.</p></div>
+<div class="ac"><div class="ac-t">Ajout manuel d'une personne</div><p class="ac-l"><em>Attendu</em> Le nom saisi produit des initiales, un e-mail dérivé et une couleur d'avatar. La personne rejoint l'annuaire du projet, est sélectionnée d'office, et reste disponible pour les autres équipes après rechargement de la page.</p></div>
+<div class="ac"><div class="ac-t">Renommage</div><p class="ac-l"><em>Attendu</em> Le nom affiché change partout où l'équipe est citée. L'identifiant technique ne bouge pas : les points déjà convoqués depuis cette équipe restent rattachés à elle.</p></div>
+<div class="ac"><div class="ac-t">Suppression</div><p class="ac-l"><em>Attendu</em> Confirmation obligatoire, nommant l'équipe et son nombre de points rattachés. Après suppression, aucun participant n'est retiré d'un point, aucune convocation n'est annulée ; seul le lien d'origine disparaît.</p></div>
+<div class="ac"><div class="ac-t">Abandon</div><p class="ac-l"><em>Attendu</em> Annuler, Échap et le clic hors modale sont équivalents et n'écrivent rien — y compris une personne ajoutée à la main pendant la session, qui reste dans l'annuaire mais n'est membre de rien.</p></div>
+</div>
+<div>
+<div class="sf-h">Messages</div>
+<p class="msg">Nom vide : <q>Donnez un nom à l'équipe — deux caractères au minimum</q></p>
+<p class="msg">Nom déjà pris : <q>Une équipe COPIL existe déjà sur ce projet</q></p>
+<p class="msg warn">Confirmation de suppression : <q>Supprimer COPROJ ? 12 points projet ont été convoqués depuis cette équipe. Ils ne seront pas modifiés.</q></p>
+<p class="msg ok">Ajout manuel : <q>Claire Lasserre ajoutée à l'annuaire du projet</q></p>
+<div class="sf-h mt">Recette</div>
+<div class="ac"><div class="ac-t">R02.1 — Enregistrer reste inactif tant que le nom est vide</div></div>
+<div class="ac"><div class="ac-t">R02.2 — Un nom déjà utilisé, quelle que soit la casse, est refusé avec message</div></div>
+<div class="ac"><div class="ac-t">R02.3 — Une personne ajoutée à la main survit au rechargement de la page, nom et e-mail compris</div></div>
+<div class="ac"><div class="ac-t">R02.4 — Échap et le clic hors modale n'écrivent aucune modification</div></div>
+<div class="ac"><div class="ac-t">R02.5 — La suppression exige une confirmation nommant l'équipe</div></div>
+<div class="ac"><div class="ac-t">R02.6 — Après suppression, les participants des points déjà convoqués sont inchangés</div></div>
+<div class="ac"><div class="ac-t">R02.7 — Une équipe enregistrée sans membre est créée et signalée non convocable</div></div>
+</div>
+</div>
+</section>
+
+<!-- 03 PLAN -->
+<section class="page scr" data-screen-label="03 Convoquer une équipe · plan">
+<header class="sh"><div class="sh-n">03</div><div class="sh-t"><h3>Convoquer une équipe</h3><div class="sh-p">Points projet › COPROJ — Semaine 20 › Préparer › Participants</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div class="wf"><div class="wf-cap">Carte Participants de la préparation</div>
+<div class="wb sunk"><div class="wn">1</div><div class="wt">Participants · 4 convoqués</div></div>
+<div class="wb"><div class="wn">2</div><div class="wt">Convoquer une équipe…  ▾</div><div class="wm">COPROJ — 4 membres · COPIL — 5 membres · COTECH — 3 membres</div></div>
+<div class="wbar"><span class="wchip on">Équipe COPROJ au complet</span><span class="wm">ou</span><span class="wchip">Compléter l'équipe</span><span class="wchip">Gérer</span></div>
+<div class="wcol">
+<div class="wb"><div class="wn">3</div><div class="wt">MD · Marc D.</div><div class="wm">Animateur · convoqué</div></div>
+<div class="wb"><div class="wt">SL · Sophie L.</div><div class="wm">Membre COPROJ · convoquée</div></div>
+<div class="wb"><div class="wt">JT · Julien T.</div><div class="wm">Membre COPROJ · convoqué</div></div>
+</div>
+<div class="wb dash"><div class="wn">4</div><div class="wt">+ Ajouter un participant ponctuel</div><div class="wm">N'entre pas dans l'équipe</div></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Remplir la liste des convoqués d'un point en un geste, puis la corriger à la marge. L'équipe est la valeur par défaut ; l'écart au cas par cas reste possible sans toucher à l'équipe.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête de carte</b> — intitulé et nombre de convoqués, recalculé à chaque ajout ou retrait.</li>
+<li><b>Sélecteur d'équipe</b> — liste les équipes du projet avec leur nombre de membres. Choisir une équipe ajoute tous ses membres absents, sans jamais retirer personne.</li>
+<li><b>Ligne d'état</b> — « équipe au complet », ou le lien <b>Compléter l'équipe</b> quand des membres manquent, plus <b>Gérer</b> qui ouvre l'éditeur, écran 02.</li>
+<li><b>Ajout ponctuel</b> — une personne invitée sur ce point seul ; elle n'est pas ajoutée à l'équipe.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Sorties</div><p class="role" style="font-weight:500;color:#5F5A52">La liste obtenue alimente sans ressaisie la convocation par e-mail, la ligne d'émargement au démarrage de la séance et la liste de diffusion du compte-rendu.</p></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Règles de fusion</div><ul>
+<li>Convoquer une équipe <b>ajoute</b> les membres manquants ; les participants déjà présents ne sont pas dupliqués.</li>
+<li>Convoquer une seconde équipe cumule les deux listes, doublons fusionnés.</li>
+<li>Retirer un participant ne le retire pas de l'équipe ; l'écart est propre à ce point.</li>
+</ul></div>
+<div><div class="sf-h">États</div><ul>
+<li><b>Au complet</b> — tous les membres de l'équipe sont convoqués : la ligne d'état l'indique, le lien de complétion disparaît.</li>
+<li><b>Partiel</b> — un membre a été retiré, ou l'équipe a grossi depuis la convocation : le lien de complétion revient.</li>
+<li><b>Aucune équipe</b> — le sélecteur reste visible mais vide, avec renvoi vers l'onglet Équipes.</li>
+</ul></div>
+<div><div class="sf-h">Séance déjà convoquée</div><ul>
+<li>Après envoi de la convocation, l'ajout d'un participant est encore possible et déclenche une convocation individuelle.</li>
+<li>Une modification de l'équipe après envoi ne modifie jamais la liste du point de sa propre initiative.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- 03 COMPORTEMENT -->
+<section class="page bhv" data-screen-label="03 Convoquer une équipe · comportement">
+<div class="bhv-h"><div class="n">03</div><h4>Convoquer une équipe — comportement</h4><div class="tag">Fusion · écarts · aval · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="ac"><div class="ac-t">Choix d'une équipe</div><p class="ac-l"><em>Attendu</em> Les membres absents sont ajoutés à la fin de la liste, dans l'ordre de l'équipe. Le sélecteur revient ensuite à son intitulé neutre : il reste utilisable pour convoquer une autre équipe.</p></div>
+<div class="ac"><div class="ac-t">Compléter l'équipe</div><p class="ac-l"><em>Attendu</em> Le lien n'apparaît que s'il manque au moins un membre. Un clic ajoute les manquants et rien d'autre ; il ne restaure pas les participants ponctuels supprimés.</p></div>
+<div class="ac"><div class="ac-t">Équipe vide</div><p class="ac-l"><em>Attendu</em> Une équipe sans membre est listée mais non sélectionnable, avec un renvoi vers l'éditeur pour la compléter.</p></div>
+<div class="ac"><div class="ac-t">Ouverture de l'éditeur depuis la préparation</div><p class="ac-l"><em>Attendu</em> « Gérer » ouvre l'écran 02 sur l'équipe en cours. À l'enregistrement, on revient à la préparation : la liste des convoqués n'est pas réécrite d'office, la ligne d'état passe simplement en « partiel » si l'équipe a grossi.</p></div>
+<div class="ac"><div class="ac-t">Propagation en aval</div><p class="ac-l"><em>Attendu</em> La liste des convoqués est l'unique source de la convocation, de l'émargement et de la diffusion du compte-rendu. Aucun de ces modules ne relit l'équipe.</p></div>
+</div>
+<div>
+<div class="sf-h">Messages</div>
+<p class="msg ok">Convocation d'une équipe : <q>COPROJ convoquée · 4 participants ajoutés</q></p>
+<p class="msg ok">Équipe déjà complète : <q>Équipe COPROJ au complet</q></p>
+<p class="msg warn">Après grossissement de l'équipe : <q>2 membres de COPROJ ne sont pas convoqués — Compléter l'équipe</q></p>
+<p class="msg warn">Aucune équipe sur le projet : <q>Aucune équipe définie — créez-en une dans l'onglet Équipes</q></p>
+<div class="sf-h mt">Recette</div>
+<div class="ac"><div class="ac-t">R03.1 — Convoquer une équipe ajoute tous ses membres manquants et aucun doublon</div></div>
+<div class="ac"><div class="ac-t">R03.2 — Convoquer deux équipes partageant une personne ne la convoque qu'une fois</div></div>
+<div class="ac"><div class="ac-t">R03.3 — Retirer un participant fait réapparaître le lien de complétion</div></div>
+<div class="ac"><div class="ac-t">R03.4 — Ajouter un membre à l'équipe ne modifie pas d'office les points déjà convoqués</div></div>
+<div class="ac"><div class="ac-t">R03.5 — Supprimer l'équipe laisse la liste des convoqués intacte</div></div>
+<div class="ac"><div class="ac-t">R03.6 — La ligne d'émargement reprend exactement la liste des convoqués, dans le même ordre</div></div>
+</div>
+</div>
+</section>
+
+<!-- ANNEXE -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe</div><h2>Périmètre, et ce qui n'en fait pas partie</h2><p>Ce qui suit délimite ce que la fonctionnalité Équipes ne fait pas dans cette version. Un développement qui ajoute l'un de ces comportements sort du cahier des charges.</p></div>
+<div class="tri">
+<div><div class="tri-h">Hors périmètre — gouvernance</div><ul>
+<li><b>Pas de rôles</b> dans l'équipe : ni pilote, ni membre, ni observateur. L'animateur d'un point est porté par le point, pas par l'équipe.</li>
+<li><b>Pas de droits</b> : appartenir à une équipe ne donne accès à rien.</li>
+<li><b>Pas de validation</b> : la composition d'une équipe n'est soumise à personne.</li>
+</ul></div>
+<div><div class="tri-h">Hors périmètre — portée</div><ul>
+<li><b>Pas d'équipe partagée</b> entre plusieurs projets : chaque projet possède les siennes.</li>
+<li><b>Pas d'import</b> depuis un annuaire d'entreprise ; l'annuaire est celui du projet.</li>
+<li><b>Pas d'équipe liée à un modèle de point</b> : les trois équipes initiales sont une commodité de démarrage, pas un lien permanent.</li>
+</ul></div>
+<div><div class="tri-h">Hors périmètre — cycle de vie</div><ul>
+<li><b>Pas d'historique</b> des compositions : on ne sait pas qui était membre au mois de mars.</li>
+<li><b>Pas d'archivage</b> : une équipe est active ou supprimée.</li>
+<li><b>Pas de propagation rétroactive</b> d'une modification d'équipe vers les points déjà convoqués — c'est un choix, pas une limite technique.</li>
+</ul></div>
+</div>
+<div class="std-note">Les rôles au sein de l'équipe sont le premier candidat pour une version 2 : ils conditionnent l'affichage de l'animateur, la signature du compte-rendu et le destinataire des relances d'action. Ils supposent d'ajouter un champ de rôle par membre, sans changer le reste du modèle.</div>
+</section>
+
+</doc-page>
+<script src="doc-page.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/* =========================================================
+   Starium Design System — root stylesheet entry point.
+   Consumers: @import url('styles.css') to get all tokens,
+   base element styles, and font declarations in one shot.
+   ========================================================= */
+@import url('colors_and_type.css');

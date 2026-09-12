@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Starium Orchestra</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-sans);font-size:13px;color:var(--fg-1);background:var(--bg-app);-webkit-font-smoothing:antialiased}
+
+/* ── SHELL ─────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:224px 1fr;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+.sidebar{background:#1A1814;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sb-brand{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.sb-brand img{height:26px;display:block}
+.sb-nav{flex:1;overflow-y:auto;padding:8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent}
+.sb-nav::-webkit-scrollbar{width:4px}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+.sb-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.28);padding:14px 10px 4px}
+.sb-div{height:1px;background:rgba(255,255,255,.07);margin:6px 8px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.58);cursor:pointer;transition:background 100ms,color 100ms;text-decoration:none;white-space:nowrap}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.90)}
+.nav-item.active{background:var(--brand-gold);color:#1A1814;font-weight:700}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.sb-user{padding:10px 12px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:9px;cursor:pointer;flex-shrink:0}
+.sb-user:hover{background:rgba(255,255,255,.04)}
+.sb-av{width:30px;height:30px;border-radius:999px;background:var(--brand-gold-100);color:var(--brand-gold-700);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.sb-info{flex:1;min-width:0}
+.sb-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-role{font-size:10.5px;color:rgba(255,255,255,.36);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN ─────────────────────────────────────────── */
+.main-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── TOPBAR ─────────────────────────────────────── */
+.topbar{height:50px;background:var(--bg-surface);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+.t-search{display:flex;align-items:center;gap:8px;flex:1;max-width:440px;height:32px;background:var(--neutral-100);border:1px solid transparent;border-radius:8px;padding:0 10px;color:var(--fg-3);font-size:12px;cursor:text;transition:border-color 100ms}
+.t-search:hover{border-color:var(--border-strong);background:var(--bg-surface)}
+.t-search svg{flex-shrink:0;width:13px;height:13px}
+.t-ph{flex:1}
+.kbd{font-family:var(--font-mono);font-size:10px;padding:1px 5px;border:1px solid var(--border-subtle);border-radius:4px;background:var(--bg-surface)}
+.t-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.org-chip{display:flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;font-weight:600;color:var(--fg-1);cursor:pointer;background:var(--bg-surface)}
+.org-chip:hover{background:var(--neutral-100)}
+.org-chip svg{width:13px;height:13px;color:var(--brand-gold)}
+.tb-btn{width:32px;height:32px;border-radius:8px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--fg-3);cursor:pointer;position:relative}
+.tb-btn:hover{background:var(--neutral-100);color:var(--fg-1)}
+.tb-btn svg{width:15px;height:15px}
+.notif-dot{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:999px;background:var(--brand-gold);border:1.5px solid var(--bg-surface)}
+.tp-av{width:32px;height:32px;border-radius:999px;background:var(--neutral-200);color:var(--neutral-700);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer}
+.tp-av:hover{outline:2px solid var(--brand-gold)}
+
+/* ── PAGE ─────────────────────────────────────────── */
+.page-main{flex:1;overflow-y:auto;scroll-behavior:smooth}
+.pw{padding:22px 28px 48px;max-width:1440px;margin:0 auto}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:20px}
+.ph-left{}
+.breadcrumb{font-size:11.5px;color:var(--fg-3);margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.breadcrumb svg{width:10px;height:10px}
+h1.pt{font:var(--text-display-m);letter-spacing:var(--tracking-tight);display:flex;align-items:center;gap:10px}
+.psub{font:var(--text-body);color:var(--fg-3);margin-top:4px}
+.pa{display:flex;gap:8px;align-items:flex-start;padding-top:4px}
+
+/* ── BUTTONS ─────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background 100ms,border-color 100ms}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+.btn-p{background:var(--brand-gold);color:var(--brand-ink);border-color:var(--brand-gold)}
+.btn-p:hover{background:var(--brand-gold-600);border-color:var(--brand-gold-600)}
+.btn-s{background:var(--bg-surface);color:var(--fg-1);border-color:var(--border-strong)}
+.btn-s:hover{background:var(--neutral-100)}
+.btn-g{background:transparent;color:var(--fg-2)}
+.btn-g:hover{background:var(--neutral-100)}
+.btn-sm{height:28px;padding:0 10px;font-size:12px;border-radius:6px}
+.btn-danger{background:var(--state-danger-bg);color:var(--state-danger);border-color:var(--state-danger-bg)}
+.btn-danger:hover{background:var(--state-danger);color:#fff}
+
+/* ── CARDS ─────────────────────────────────────── */
+.card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:18px;box-shadow:var(--shadow-1)}
+.ct{font:var(--text-h3);margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cl{font-size:12px;font-weight:600;color:var(--brand-gold-700);cursor:pointer;text-decoration:none}
+.cl:hover{color:var(--brand-gold-600)}
+
+/* ── KPI CARDS ─────────────────────────────────── */
+.kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kcard{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow-1)}
+.kico{flex-shrink:0;color:var(--brand-gold)}
+.kico svg{width:34px;height:34px;stroke-width:1.5}
+.kb{}
+.kl{font-size:11.5px;color:var(--fg-3)}
+.kv{font:700 26px/1.1 var(--font-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kf{font-size:11px;margin-top:2px}
+.kf.ok{color:var(--state-success)} .kf.warn{color:var(--brand-gold-700)} .kf.bad{color:var(--state-danger)} .kf.neu{color:var(--fg-3)}
+
+/* ── LAYOUT HELPERS ─────────────────────────────── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ms{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+.vstack{display:flex;flex-direction:column;gap:14px}
+.mb14{margin-bottom:14px}
+
+/* ── TABLES ─────────────────────────────────────── */
+.tw{overflow-x:auto}
+table.dt{width:100%;border-collapse:collapse}
+.dt th{text-align:left;font-size:10.5px;font-weight:700;color:var(--fg-3);padding:8px 10px;border-bottom:1px solid var(--border-subtle);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.dt td{padding:10px 10px;border-bottom:1px solid var(--border-subtle);color:var(--fg-2);vertical-align:middle;font-size:12.5px}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--neutral-50);cursor:pointer}
+.dt td.n{font-weight:600;color:var(--fg-1)}
+
+/* ── BADGES ─────────────────────────────────────── */
+.b{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.bd{width:5px;height:5px;border-radius:999px;flex-shrink:0}
+.ba{background:var(--brand-gold-100);color:var(--brand-gold-700)}
+.bs{background:var(--state-success-bg);color:var(--state-success)}
+.bw{background:var(--state-warning-bg);color:var(--state-warning)}
+.br{background:var(--state-danger-bg);color:var(--state-danger)}
+.bi{background:var(--state-info-bg);color:var(--state-info)}
+.bn{background:var(--neutral-100);color:var(--fg-3)}
+.bp{background:#ece9f8;color:#5b4ec8}
+
+/* ── PROGRESS ─────────────────────────────────── */
+.pt{height:5px;background:var(--neutral-200);border-radius:999px;overflow:hidden;min-width:60px}
+.pf{height:100%;border-radius:999px}
+.pf.ok{background:var(--state-success)} .pf.warn{background:var(--brand-gold)} .pf.bad{background:var(--state-danger)}
+
+/* ── FILTER BAR ─────────────────────────────────── */
+.fb{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.fsel{height:30px;padding:0 10px;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-surface);font:inherit;font-size:12px;color:var(--fg-1);cursor:pointer}
+.finput{height:30px;padding:0 10px;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-surface);font:inherit;font-size:12px;color:var(--fg-1);flex:1;min-width:160px;max-width:260px}
+.finput::placeholder{color:var(--fg-4)}
+.fsp{flex:1}
+
+/* ── ALERTS ─────────────────────────────────────── */
+.ali{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-subtle)}
+.ali:last-child{border-bottom:none}
+.alid{width:8px;height:8px;border-radius:999px;margin-top:5px;flex-shrink:0}
+.alid.crit{background:var(--state-danger)} .alid.warn{background:var(--brand-gold)} .alid.info{background:var(--state-info)}
+.alib{flex:1}
+.alit{font-size:12.5px;font-weight:600;color:var(--fg-1)}
+.alim{font-size:11.5px;color:var(--fg-3);margin-top:2px}
+
+/* ── TABS ─────────────────────────────────────── */
+.ptabs{display:flex;border-bottom:1px solid var(--border-subtle);margin-bottom:16px}
+.ptab{padding:9px 14px;font-size:12.5px;font-weight:500;color:var(--fg-3);border-bottom:2px solid transparent;cursor:pointer;transition:color 100ms,border-color 100ms}
+.ptab:hover{color:var(--fg-1)}
+.ptab.active{color:var(--brand-gold-700);border-bottom-color:var(--brand-gold);font-weight:600}
+.tab-pane{}
+
+/* ── KANBAN ─────────────────────────────────────── */
+.kanban{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:10px;min-height:280px;overflow-x:auto}
+.kcol{background:var(--neutral-100);border-radius:10px;padding:10px;min-height:200px}
+.kch{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.kcnt{background:var(--bg-surface);border:1px solid var(--border-subtle);width:20px;height:20px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--fg-2)}
+.kcard{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:10px;margin-bottom:7px;cursor:pointer;transition:box-shadow 100ms}
+.kcard:hover{box-shadow:var(--shadow-2)}
+.kct{font-size:12.5px;font-weight:600;color:var(--fg-1);margin-bottom:5px}
+.kcm{font-size:11px;color:var(--fg-3);display:flex;align-items:center;gap:7px}
+
+/* ── SUPPLIER GRID ─────────────────────────────── */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sc{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow 100ms,border-color 100ms}
+.sc:hover{box-shadow:var(--shadow-2);border-color:var(--border-strong)}
+.slog{width:44px;height:44px;border-radius:10px;background:var(--neutral-100);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--fg-3);margin-bottom:10px;font-family:var(--font-mono)}
+.sn{font-size:13.5px;font-weight:700;color:var(--fg-1);margin-bottom:2px}
+.scat{font-size:12px;color:var(--fg-3);margin-bottom:10px}
+.sm{font-size:11.5px;color:var(--fg-2);display:flex;gap:12px}
+
+/* ── SETTINGS TILES ─────────────────────────────── */
+.stgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sttile{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:16px;cursor:pointer;transition:box-shadow 100ms,border-color 100ms;display:flex;gap:14px;align-items:flex-start}
+.sttile:hover{box-shadow:var(--shadow-2);border-color:var(--border-strong)}
+.stico{width:40px;height:40px;border-radius:10px;background:var(--brand-gold-100);color:var(--brand-gold-700);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stico svg{width:20px;height:20px}
+.sttit{font-size:13px;font-weight:700;color:var(--fg-1);margin-bottom:3px}
+.stdesc{font-size:11.5px;color:var(--fg-3);line-height:1.45}
+
+/* ── FRAMEWORK PROGRESS ─────────────────────────── */
+.fwcard{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:18px}
+.fwh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.fwn{font-size:13.5px;font-weight:700;color:var(--fg-1)}
+.fwp{font:700 28px/1 var(--font-display);letter-spacing:-.02em;color:var(--brand-gold-700)}
+.fwt{height:8px;background:var(--neutral-200);border-radius:999px;overflow:hidden;margin-bottom:7px}
+.fwf{height:100%;border-radius:999px;background:var(--brand-gold)}
+.fwm{font-size:11.5px;color:var(--fg-3)}
+
+/* ── MISC ─────────────────────────────────────── */
+.ovl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-3);margin-bottom:6px}
+.mili{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+.mili:last-child{border-bottom:none}
+.mild{font-size:11.5px;font-weight:700;color:var(--brand-gold-700);min-width:72px}
+.miln{font-size:12.5px;font-weight:600;color:var(--fg-1)}
+.milp{font-size:11.5px;color:var(--fg-3)}
+.ql{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ql-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg-surface);cursor:pointer;transition:background 100ms}
+.ql-item:hover{background:var(--neutral-100)}
+.ql-item svg{width:14px;height:14px;color:var(--brand-gold);flex-shrink:0}
+.ql-item span{font-size:12px;font-weight:600;color:var(--fg-1)}
+.cycle-header{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.stat-strip{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;border:1px solid var(--border-subtle);background:var(--bg-surface);font-size:12px;font-weight:600;color:var(--fg-2)}
+.vision-q{font:500 17px/1.6 var(--font-display);color:var(--fg-1);padding:0 24px;position:relative;letter-spacing:-.01em}
+.vision-q::before{content:'\201C';font-family:Georgia,serif;font-size:48px;color:var(--brand-gold);position:absolute;left:-4px;top:12px;line-height:0;font-weight:400}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <img src="../../assets/logo-horizontal-white.png" alt="Starium Orchestra">
+    </div>
+    <nav class="sb-nav" id="sb-nav"></nav>
+    <div class="sb-user">
+      <div class="sb-av">SM</div>
+      <div class="sb-info">
+        <div class="sb-name">Sophie Martin</div>
+        <div class="sb-role">DSI · Innovatech SA</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-wrap">
+    <header class="topbar">
+      <div class="t-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="t-ph">Rechercher…</span>
+        <kbd class="kbd">⌘K</kbd>
+      </div>
+      <div class="t-right">
+        <div class="org-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Innovatech SA
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <button class="tb-btn" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-dot"></span>
+        </button>
+        <div class="tp-av">SM</div>
+      </div>
+    </header>
+    <main class="page-main" id="page-root"></main>
+  </div>
+</div>
+
+<script src="orchestra-pages.js"></script>
+<script>
+const NAV = [
+  {id:'dashboard', label:"Vue d'ensemble",        ico:'grid'},
+  {sep:'Gouvernance'},
+  {id:'strategy',   label:'Vision stratégique',   ico:'target', ext:'index.html'},
+  {id:'cycles',     label:'Cycles de pilotage',   ico:'refresh-cw'},
+  {id:'compliance', label:'Conformité',            ico:'shield-check'},
+  {sep:'Projets'},
+  {id:'projects',   label:'Portefeuille projets', ico:'briefcase'},
+  {id:'requests',   label:'Demandes projet',      ico:'inbox'},
+  {id:'risks',      label:'Risques & plans d\'action', ico:'alert-triangle'},
+  {sep:'Finances'},
+  {id:'budget',     label:'Budgets & finances',   ico:'wallet'},
+  {id:'suppliers',  label:'Achats & fournisseurs',ico:'truck'},
+  {id:'contracts',  label:'Contrats & licences',  ico:'file-text'},
+  {id:'scenario',   label:'Scénarios de capacité', ico:'refresh-cw', ext:'scenario.html'},
+  {id:'teams',      label:'Équipes & ressources', ico:'users'},
+  {div:1},
+  {id:'docs',       label:'Documentation',         ico:'book-open'},
+  {id:'settings',   label:'Paramètres',            ico:'settings'},
+];
+
+const EXTERNAL = {
+  scenario: 'scenario.html',
+  appvision: 'index.html',
+};
+
+function buildNav() {
+  document.getElementById('sb-nav').innerHTML = NAV.map(n => {
+    if (n.sep) return `<div class="sb-sec">${n.sep}</div>`;
+    if (n.div) return '<div class="sb-div"></div>';
+    return `<div class="nav-item" data-id="${n.id}" onclick="${n.ext?`window.location.href='${n.ext}'`:`go('${n.id}')`}">${I[n.ico]||''}<span>${n.label}</span></div>`;
+  }).join('');
+}
+
+function go(id) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+  const page = PAGES[id];
+  if (!page) return;
+  const root = document.getElementById('page-root');
+  root.scrollTop = 0;
+  root.innerHTML = page.render();
+  document.title = page.title + ' · Starium Orchestra';
+  sessionStorage.setItem('orch-page', id);
+}
+
+function switchTab(wrapperId, tabId) {
+  const w = document.getElementById(wrapperId);
+  if (!w) return;
+  w.querySelectorAll('.ptab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  w.querySelectorAll('.tab-pane').forEach(p => { p.style.display = p.dataset.pane === tabId ? '' : 'none'; });
+}
+
+buildNav();
+go(sessionStorage.getItem('orch-page') || 'dashboard');
+</script>
+</body>
+</html>

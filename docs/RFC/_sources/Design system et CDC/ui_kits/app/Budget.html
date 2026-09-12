@@ -1,0 +1,1919 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budgets — Starium</title>
+<template id="__bundler_thumbnail" data-bg-color="#0E0E10">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="240" height="800" fill="#0E0E10"/>
+    <rect x="20" y="24" width="120" height="18" rx="4" fill="#E8A317"/>
+    <rect x="20" y="80" width="200" height="30" rx="8" fill="#E8A317" opacity=".18"/>
+    <rect x="240" y="0" width="960" height="800" fill="#FAF9F7"/>
+    <rect x="280" y="90" width="880" height="120" rx="14" fill="#fff"/>
+    <rect x="304" y="116" width="280" height="26" rx="5" fill="#0E0E10"/>
+    <rect x="304" y="170" width="700" height="10" rx="5" fill="#E8A317"/>
+    <rect x="280" y="250" width="880" height="44" rx="10" fill="#fff"/>
+    <rect x="280" y="320" width="430" height="200" rx="14" fill="#fff"/>
+    <rect x="730" y="320" width="430" height="200" rx="14" fill="#fff"/>
+  </svg>
+</template>
+<link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══ SIDEBAR (menu de gauche actuel — conservé) ═══ -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <img src="assets/logo-horizontal-white.png" alt="Starium" class="sb-logo-img">
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section-label">Pilotage financier</div>
+      <a class="sb-item active" data-nav="budgets" onclick="showView('budgets')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Budgets<span class="sb-item-end">›</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+    <header class="topbar">
+      <div class="breadcrumb" id="breadcrumb">
+        <span class="bc-current">Pilotage financier</span><span class="bc-sep">/</span><span class="bc-current">Budgets</span>
+      </div>
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="tsph">Rechercher un projet, propriétaire…</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="topbar-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-badge">3</span>
+      </div>
+      <div class="avatar">AB</div>
+      <div class="topbar-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+    </header>
+
+    <div class="page-content">
+
+
+
+
+
+
+
+
+
+      <!-- ═══ MODAL : NOUVEL AXE STRATÉGIQUE ═══ -->
+      <div class="modal-overlay" id="axisModal" onclick="if(event.target===this)closeAxisModal()">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+            <div>
+              <div class="modal-title">Nouvel axe stratégique</div>
+              <div class="modal-sub">Ajouter un axe à la vision stratégique</div>
+            </div>
+            <button class="modal-close" onclick="closeAxisModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body">
+            <div class="field">
+              <label class="field-label">Nom de l'axe <span class="req">*</span></label>
+              <input class="input" id="ax-name" placeholder="Ex : Excellence relation client">
+            </div>
+            <div class="field">
+              <label class="field-label">Description</label>
+              <input class="input" id="ax-desc" placeholder="Ex : Améliorer la satisfaction et la fidélisation client">
+            </div>
+            <div class="field">
+              <label class="field-label">Thème <span class="req">*</span></label>
+              <div class="type-pills" id="ax-tone">
+                <button class="type-pill sel" data-tone="success" onclick="axPickTone(this)"><div class="type-pill-name">Vert</div></button>
+                <button class="type-pill" data-tone="info" onclick="axPickTone(this)"><div class="type-pill-name">Bleu</div></button>
+                <button class="type-pill" data-tone="warning" onclick="axPickTone(this)"><div class="type-pill-name">Or</div></button>
+                <button class="type-pill" data-tone="purple" onclick="axPickTone(this)"><div class="type-pill-name">Violet</div></button>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Objectifs cibles</label>
+              <input class="input" type="number" min="0" id="ax-total" placeholder="Ex : 6">
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" onclick="closeAxisModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="saveAxis()">Créer l'axe</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ MODAL : OBJECTIFS DE L'AXE ═══ -->
+      <div class="modal-overlay" id="axisObjModal" onclick="if(event.target===this)closeAxisObjModal()">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div>
+              <div class="modal-title">Objectifs</div>
+              <div class="modal-sub" id="aom-sub"></div>
+            </div>
+            <button class="modal-close" onclick="closeAxisObjModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body">
+            <div id="aom-list" style="margin-bottom:16px"></div>
+            <div id="aom-form" style="display:none;padding-top:14px;border-top:1px solid var(--neutral-100)">
+              <div class="field">
+                <label class="field-label">Titre de l'objectif <span class="req">*</span></label>
+                <input class="input" id="aom-title" placeholder="Ex : Réduire le délai moyen de traitement de 20%">
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label class="field-label">Responsable</label>
+                  <input class="input" id="aom-who" placeholder="Ex : Claire Dubois">
+                </div>
+                <div class="field">
+                  <label class="field-label">Échéance</label>
+                  <input class="input" type="date" id="aom-due">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label">Avancement — <span id="aom-pct-val">0%</span></label>
+                <input type="range" min="0" max="100" step="5" value="0" id="aom-pct" oninput="document.getElementById('aom-pct-val').textContent=this.value+'%'" style="width:100%">
+              </div>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" id="aom-addbtn" onclick="showAddObjectiveForm()">Ajouter un objectif</button>
+            <button class="btn btn-secondary" id="aom-cancelbtn" style="display:none" onclick="hideAddObjectiveForm()">Annuler</button>
+            <button class="btn btn-primary" id="aom-savebtn" style="display:none" onclick="saveObjective()">Enregistrer l'objectif</button>
+          </div>
+        </div>
+      </div>
+
+
+
+
+
+
+
+
+
+      <!-- ═══ MODAL : ACTION (plan d'action) ═══ -->
+      <div class="modal-overlay" id="actionModal" onclick="if(event.target===this)paCloseAction()">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div>
+              <div class="modal-title" id="am-modaltitle">Nouvelle action</div>
+              <div class="modal-sub" id="am-modalsub">Créer une action corrective ou d'amélioration</div>
+            </div>
+            <button class="modal-close" onclick="paCloseAction()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="modal-body">
+            <div class="field">
+              <label class="field-label">Titre de l'action <span class="req">*</span></label>
+              <input class="input" id="am-title" placeholder="Ex : Finaliser la matrice de droits d'accès">
+            </div>
+            <div class="field">
+              <label class="field-label">Priorité <span class="req">*</span></label>
+              <div class="type-pills" id="am-prio">
+                <button class="type-pill sel" data-prio="haute" onclick="amPickPrio(this)"><div class="type-pill-name">Haute</div></button>
+                <button class="type-pill" data-prio="moyenne" onclick="amPickPrio(this)"><div class="type-pill-name">Moyenne</div></button>
+                <button class="type-pill" data-prio="basse" onclick="amPickPrio(this)"><div class="type-pill-name">Basse</div></button>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">Projet <span class="req">*</span></label>
+                <select class="nselect" id="am-proj"></select>
+              </div>
+              <div class="field">
+                <label class="field-label">Statut <span class="req">*</span></label>
+                <select class="nselect" id="am-status" onchange="amStatusChanged()">
+                  <option value="afaire">À faire</option>
+                  <option value="encours">En cours</option>
+                  <option value="revue">En revue</option>
+                  <option value="termine">Terminé</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label class="field-label">Responsable <span class="req">*</span></label>
+                <select class="nselect" id="am-owner"></select>
+              </div>
+              <div class="field">
+                <label class="field-label">Échéance <span class="req">*</span></label>
+                <input class="input" type="date" id="am-due">
+              </div>
+            </div>
+            <div class="field" id="am-prog-field">
+              <label class="field-label">Avancement — <span id="am-prog-val">40%</span></label>
+              <input type="range" min="0" max="100" step="5" value="40" id="am-prog" oninput="document.getElementById('am-prog-val').textContent=this.value+'%'" style="width:100%">
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-secondary" id="am-delete" onclick="paDeleteAction()" style="color:var(--state-danger);margin-right:auto">Supprimer</button>
+            <button class="btn btn-secondary" onclick="paCloseAction()">Annuler</button>
+            <button class="btn btn-primary" onclick="paSaveAction()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- ════════ VIEW: BUDGETS (portefeuille) ════════ -->
+      <section class="view active" id="view-budgets">
+        <!-- ===== ACCUEIL : CHOIX DU BUDGET ===== -->
+        <div class="maxw" id="budgets-home">
+          <div class="pg-head">
+            <div>
+              <h1>Budgets</h1>
+              <p class="np-sub">Sélectionnez un budget à piloter — direction, fonction support ou portefeuille projets.</p>
+            </div>
+            <div class="head-actions">
+              <div class="seg-toggle"><button class="seg-btn active" onclick="mbSetHomeView('cards',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="width:15px;height:15px;margin-right:5px;vertical-align:-2px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Cartes</button><button class="seg-btn" onclick="mbSetHomeView('table',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="width:15px;height:15px;margin-right:5px;vertical-align:-2px"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>Tableau</button></div>
+              <div class="seg-toggle"><button class="seg-btn active" onclick="mbSetYear('2025',this)">2025</button><button class="seg-btn" onclick="mbSetYear('2024',this)">2024</button></div>
+              <button class="btn btn-secondary" onclick="mbExportAll()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporter</button>
+            </div>
+          </div>
+          <div class="mb-consol" id="mb-consol"></div>
+          <div class="mb-sec-label">Choisir un budget à consulter</div>
+          <div class="mb-cardgrid" id="mb-cardgrid"></div>
+          <div class="card tablecard" id="mb-table" style="display:none"><div class="table-wrap"><table class="dt"><thead><tr><th>Budget</th><th>Type</th><th>Alloué</th><th>Engagé</th><th>Consommé</th><th>Reste</th><th>Exécution</th><th class="right">État</th></tr></thead><tbody id="mb-table-body"></tbody><tfoot id="mb-table-foot"></tfoot></table></div></div>
+        </div>
+
+        <!-- ===== DÉTAIL D'UN BUDGET ===== -->
+        <div class="maxw" id="budgets-detail" style="display:none"></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : SAISIE DÉPENSE / ENGAGEMENT ═══ -->
+<div class="modal-overlay" id="budgetModal" onclick="if(event.target===this)closeBudgetModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <div>
+        <div class="modal-title">Saisir une dépense</div>
+        <div class="modal-sub">Refonte Portail Client · enregistrer un engagement ou une facture</div>
+      </div>
+      <button class="modal-close" onclick="closeBudgetModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Nature de la saisie <span class="req">*</span></label>
+        <div class="type-pills">
+          <button class="type-pill sel" data-type="Engagée" onclick="bmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="type-pill-name">Engagement</div></button>
+          <button class="type-pill" data-type="Facturée" onclick="bmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="type-pill-name">Facture</div></button>
+          <button class="type-pill" data-type="Payée" onclick="bmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="type-pill-name">Dépense réelle</div></button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Libellé <span class="req">*</span></label>
+        <input class="input" id="bm-label" placeholder="Ex : Sprint 5 — développement espace client">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Catégorie <span class="req">*</span></label>
+          <select class="nselect" id="bm-cat">
+            <option>Développement</option>
+            <option>UX / Design</option>
+            <option>Infrastructure</option>
+            <option>Recette</option>
+            <option>Prestataires</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Fournisseur</label>
+          <select class="nselect" id="bm-sup">
+            <option>Accenture</option>
+            <option>Microsoft France</option>
+            <option>OVHcloud</option>
+            <option>Devoteam</option>
+            <option>Studio Pixel</option>
+            <option>Salesforce</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row3">
+        <div class="field">
+          <label class="field-label">Montant HT <span class="req">*</span></label>
+          <div class="input-prefix"><span class="input-prefix-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><input id="bm-ht" type="number" inputmode="decimal" value="15000" oninput="bmCalc()"></div>
+        </div>
+        <div class="field">
+          <label class="field-label">TVA</label>
+          <select class="nselect" id="bm-tva" onchange="bmCalc()">
+            <option value="20">20%</option>
+            <option value="10">10%</option>
+            <option value="5.5">5,5%</option>
+            <option value="0">0%</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Date <span class="req">*</span></label>
+          <input class="input" type="date" value="2026-06-21">
+        </div>
+      </div>
+      <div class="ttc-box">
+        <span class="ttc-label">Montant TTC</span>
+        <span class="ttc-val" id="bm-ttc">18 000 €</span>
+      </div>
+      <div class="field" style="margin-top:18px;margin-bottom:0">
+        <label class="field-label">Pièce justificative</label>
+        <div class="file-drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Glissez un fichier ici ou <span style="color:var(--brand-gold-700);text-decoration:underline">parcourir</span> — PDF, JPG (max 10 Mo)</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeBudgetModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveBudget()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : PLANIFIER UNE INSTANCE ═══ -->
+<div class="modal-overlay" id="planModal" onclick="if(event.target===this)closePlan()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg></div>
+      <div>
+        <div class="modal-title">Planifier une instance</div>
+        <div class="modal-sub">Programmer un comité, une revue ou une instance de décision</div>
+      </div>
+      <button class="modal-close" onclick="closePlan()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Type d'instance <span class="req">*</span></label>
+        <div class="type-pills" style="grid-template-columns:repeat(4,1fr)">
+          <button class="type-pill sel" data-type="COPIL" onclick="pmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg></div><div class="type-pill-name">COPIL</div></button>
+          <button class="type-pill" data-type="COMEX" onclick="pmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="type-pill-name">COMEX</div></button>
+          <button class="type-pill" data-type="CRA" onclick="pmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div><div class="type-pill-name">CRA</div></button>
+          <button class="type-pill" data-type="CODIR" onclick="pmPickType(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="type-pill-name">CODIR</div></button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Intitulé de la séance <span class="req">*</span></label>
+        <input class="input" id="pm-label" placeholder="Ex : Comité de pilotage — Q3">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Date <span class="req">*</span></label>
+          <input class="input" type="date" id="pm-date" value="2025-07-04">
+        </div>
+        <div class="field">
+          <label class="field-label">Récurrence</label>
+          <select class="nselect" id="pm-rec">
+            <option>Ponctuel</option>
+            <option>Mensuel</option>
+            <option>Bimensuel</option>
+            <option>Trimestriel</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Heure de début <span class="req">*</span></label>
+          <input class="input" type="time" id="pm-start" value="14:00">
+        </div>
+        <div class="field">
+          <label class="field-label">Heure de fin</label>
+          <input class="input" type="time" id="pm-end" value="15:30">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Lieu / visioconférence</label>
+        <div class="plan-loc">
+          <span class="plan-loc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <input id="pm-loc" placeholder="Ex : Salle Horizon / Teams" value="Salle Horizon / Teams">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Participants</label>
+        <div class="tags-input" id="pm-tags">
+          <span class="tag"><span class="av av-2">MD</span>M. Dubois<span class="tag-x" onclick="pmRemoveTag(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></span>
+          <span class="tag"><span class="av av-3">SL</span>S. Leroy<span class="tag-x" onclick="pmRemoveTag(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></span>
+          <span class="tag"><span class="av av-1">JT</span>J. Tran<span class="tag-x" onclick="pmRemoveTag(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></span>
+          <select class="nselect" style="border:none;padding:4px 28px 4px 4px;width:auto;font-size:12.5px;font-weight:600;color:var(--neutral-500);background-color:transparent" onchange="pmAddTag(this)">
+            <option value="">+ Ajouter…</option>
+            <option value="av-4|PD|P. Durand">P. Durand</option>
+            <option value="av-6|AB|A. Bernard">A. Bernard</option>
+            <option value="av-5|CL|C. Lambert">C. Lambert</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="field-label">Ordre du jour</label>
+        <textarea class="textarea" id="pm-agenda" placeholder="Un point par ligne — ex :&#10;Revue d'avancement des chantiers&#10;Arbitrage budgétaire Q3&#10;Go/No Go lancement"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closePlan()">Annuler</button>
+      <button class="btn btn-primary" onclick="savePlan()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Planifier</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : CALENDRIER ═══ -->
+<div class="modal-overlay" id="calModal" onclick="if(event.target===this)closeCalendar()">
+  <div class="modal modal-cal">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div>
+        <div class="modal-title">Calendrier des instances</div>
+        <div class="modal-sub">Cadence de gouvernance — comités, revues et instances de décision</div>
+      </div>
+      <button class="modal-close" onclick="closeCalendar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="cal-bar">
+        <div class="cal-nav">
+          <button class="cal-navbtn" onclick="calNav(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <span class="cal-month" id="calMonth">mai 2025</span>
+          <button class="cal-navbtn" onclick="calNav(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <button class="cal-today-btn" onclick="calToday()">Aujourd'hui</button>
+        </div>
+        <div class="cal-legend">
+          <span class="cal-leg"><span class="cal-leg-dot" style="background:var(--brand-gold)"></span>COPIL</span>
+          <span class="cal-leg"><span class="cal-leg-dot" style="background:var(--state-danger)"></span>COMEX</span>
+          <span class="cal-leg"><span class="cal-leg-dot" style="background:var(--state-info)"></span>CRA</span>
+          <span class="cal-leg"><span class="cal-leg-dot" style="background:var(--purple)"></span>CODIR</span>
+        </div>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-dow-row">
+          <div class="cal-dow">Lun</div><div class="cal-dow">Mar</div><div class="cal-dow">Mer</div><div class="cal-dow">Jeu</div><div class="cal-dow">Ven</div><div class="cal-dow">Sam</div><div class="cal-dow">Dim</div>
+        </div>
+        <div class="cal-weeks" id="calWeeks"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeCalendar()">Fermer</button>
+      <button class="btn btn-primary" onclick="closeCalendar();openPlan()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Planifier une instance</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : PRÉPARER L'INSTANCE ═══ -->
+<div class="modal-overlay" id="prepModal" onclick="if(event.target===this)closePrepare()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+      <div>
+        <div class="modal-title">Préparer l'instance</div>
+        <div class="modal-sub">Ordre du jour, supports et points à arbitrer</div>
+      </div>
+      <button class="modal-close" onclick="closePrepare()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="prepBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closePrepare()">Enregistrer le brouillon</button>
+      <button class="btn btn-secondary" onclick="startFromPrepare()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Démarrer la séance</button>
+      <button class="btn btn-primary" onclick="sendConvocation()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Envoyer la convocation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : CONSULTER LE COMPTE-RENDU ═══ -->
+<div class="modal-overlay" id="consultModal" onclick="if(event.target===this)closeConsult()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+      <div>
+        <div class="modal-title">Compte-rendu de l'instance</div>
+        <div class="modal-sub">Décisions actées, actions et relevé de présence</div>
+      </div>
+      <button class="modal-close" onclick="closeConsult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="consultBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeConsult()">Fermer</button>
+      <button class="btn btn-primary" onclick="showToast('Compte-rendu téléchargé (PDF)')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Télécharger le CR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : ANIMER LA SÉANCE (déroulement live) ═══ -->
+<div class="modal-overlay" id="meetModal" onclick="if(event.target===this)closeMeeting()">
+  <div class="modal modal-meet">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+      <div>
+        <div class="modal-title">Animer la séance</div>
+        <div class="modal-sub" id="meetSub">—</div>
+      </div>
+      <button class="modal-close" onclick="closeMeeting()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="meet-bar">
+        <div class="meet-live"><span class="meet-live-dot"></span>En séance</div>
+        <div class="meet-timer" id="meetTimer">00:00</div>
+        <div class="meet-bar-sep"></div>
+        <div class="meet-bar-stat" id="meetPresence"></div>
+        <div class="meet-bar-sep"></div>
+        <div class="meet-bar-stat" id="meetProgress"></div>
+      </div>
+      <div class="meet-grid">
+        <div>
+          <div class="meet-col-h">Présence</div>
+          <div class="meet-att" id="meetAtt"></div>
+          <div class="meet-col-h">Ordre du jour</div>
+          <div class="meet-steps" id="meetSteps"></div>
+        </div>
+        <div class="meet-panel" id="meetPanel"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeMeeting()">Suspendre</button>
+      <button class="btn btn-primary" onclick="finishMeeting()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>Clôturer &amp; générer le CR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : RÉVISER LE PRÉVISIONNEL ═══ -->
+<div class="modal-overlay" id="mbFcModal" onclick="if(event.target===this)mbCloseForecast()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/><path d="M12 20h9"/></svg></div>
+      <div><div class="modal-title">Réviser le prévisionnel</div><div class="modal-sub" id="mbFcSub">—</div></div>
+      <button class="modal-close" onclick="mbCloseForecast()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="mbFcSummary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px"></div>
+      <div class="mb-fc-sec">
+        <div class="mb-fc-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Calculette de répartition par ligne</div>
+        <div class="field" style="margin:0 0 14px">
+          <label class="field-label">Ligne budgétaire</label>
+          <select class="nselect" id="mbCalcLine" onchange="mbCalcSet('lineIdx',this.value)"></select>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px">
+          <div class="field" style="margin:0;flex:1;min-width:160px">
+            <label class="field-label">Base de calcul</label>
+            <select class="nselect" id="mbCalcBase" onchange="mbCalcSet('base',this.value)">
+              <option value="prev">Prévision actuelle de la ligne</option>
+              <option value="budget">Budget alloué de la ligne</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;width:150px">
+            <label class="field-label">Augmentation</label>
+            <div class="input-prefix"><input type="number" inputmode="decimal" id="mbCalcGrowth" value="0" step="0.5" oninput="mbCalcSet('growth',this.value)"><span class="input-prefix-ico" style="left:auto;right:12px">%</span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:14px">
+          <div><div class="field-label" style="margin-bottom:6px">Périodicité</div><div class="seg-toggle" id="mbCalcGran"><button class="seg-btn" onclick="mbCalcSet('gran','semestre',this)">Semestre</button><button class="seg-btn active" onclick="mbCalcSet('gran','trimestre',this)">Trimestre</button><button class="seg-btn" onclick="mbCalcSet('gran','mois',this)">Mois</button></div></div>
+          <div><div class="field-label" style="margin-bottom:6px">Méthode</div><div class="seg-toggle" id="mbCalcMethod"><button class="seg-btn active" onclick="mbCalcSet('method','lineaire',this)">Linéaire</button><button class="seg-btn" onclick="mbCalcSet('method','croissance',this)">Croissance</button></div></div>
+          <div class="field" id="mbCalcStepWrap" style="margin:0;width:150px;display:none"><label class="field-label">+ par période</label><div class="input-prefix"><input type="number" inputmode="decimal" id="mbCalcStep" value="5" step="0.5" oninput="mbCalcSet('step',this.value)"><span class="input-prefix-ico" style="left:auto;right:12px">%</span></div></div>
+        </div>
+        <div id="mbCalcBars" class="mb-fc-bars"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--neutral-500);margin-bottom:8px">Répartition modifiable — ajustez chaque période directement :</div>
+        <div id="mbCalcGrid" class="mb-fc-grid"></div>
+        <div id="mbCalcTotal"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px"><button class="mb-act-btn" onclick="mbCalcRegen()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Re-répartir</button><button class="mb-act-btn primary" onclick="mbCalcApply()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Appliquer au prévisionnel</button></div>
+      </div>
+      <div class="mb-fc-sec">
+        <div class="mb-fc-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="22"/></svg>Prévisionnel mensuel par ligne — modifiable</div>
+        <div id="mbFcList" class="mb-mth-scroll"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="mbFcReset()">Réinitialiser</button>
+      <button class="btn btn-primary" onclick="mbCloseForecast()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Terminer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : SAISIR UNE DÉPENSE (multi-budgets) ═══ -->
+<div class="modal-overlay" id="mbDepModal" onclick="if(event.target===this)mbCloseDepense()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+      <div><div class="modal-title">Saisir une dépense</div><div class="modal-sub" id="mbDepSub">—</div></div>
+      <button class="modal-close" onclick="mbCloseDepense()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Nature de la saisie <span class="req">*</span></label>
+        <div class="type-pills">
+          <button class="type-pill sel" data-nat="engage" onclick="mbDepNat(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="type-pill-name">Engagement</div></button>
+          <button class="type-pill" data-nat="conso" onclick="mbDepNat(this)"><div class="type-pill-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="type-pill-name">Facture / dépense</div></button>
+        </div>
+      </div>
+      <div class="field"><label class="field-label">Libellé <span class="req">*</span></label><input class="input" id="mbDepLabel" placeholder="Ex : Commande prestation T3"></div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Enveloppe <span class="req">*</span></label><select class="nselect" id="mbDepEnv" onchange="mbDepEnvChange()"></select></div>
+        <div class="field"><label class="field-label">Ligne budgétaire <span class="req">*</span></label><select class="nselect" id="mbDepLine"></select></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Montant <span class="req">*</span></label><div class="input-prefix"><span class="input-prefix-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><input id="mbDepAmt" type="number" inputmode="decimal" value="5000"></div></div>
+        <div class="field"><label class="field-label">Date <span class="req">*</span></label><input class="input" type="date" id="mbDepDate" value="2025-09-15"></div>
+      </div>
+      <div id="mbDepImpact" style="font-size:12.5px;font-weight:600;color:var(--neutral-500);background:var(--neutral-50);border-radius:10px;padding:11px 13px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="mbCloseDepense()">Annuler</button>
+      <button class="btn btn-primary" onclick="mbSaveDepense()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : DÉTAIL LIGNE BUDGÉTAIRE ═══ -->
+<div class="modal-overlay" id="mbLineModal" onclick="if(event.target===this)mbCloseLineDetail()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg></div>
+      <div><div class="modal-title" id="mbLineTitle">Ligne budgétaire</div><div class="modal-sub" id="mbLineSub">—</div></div>
+      <button class="modal-close" onclick="mbCloseLineDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="mbLineBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="mbCloseLineDetail()">Fermer</button>
+      <button class="btn btn-primary" id="mbLineDepBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Saisir une dépense</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : SOURCES & IMPORTS ═══ -->
+<div class="modal-overlay" id="bsSrcModal" onclick="if(event.target===this)bsCloseSrc()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+      <div><div class="modal-title">Sources &amp; imports</div><div class="modal-sub">Connecteurs XLS, API et ERP alimentant les budgets</div></div>
+      <button class="modal-close" onclick="bsCloseSrc()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="bsSrcBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="bsCloseSrc()">Fermer</button>
+      <button class="btn btn-primary" onclick="bsOpenWizard('xls')">Nouvel import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : ASSISTANT D'IMPORT ═══ -->
+<div class="modal-overlay" id="bsWizModal" onclick="if(event.target===this)bsCloseWizard()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+      <div><div class="modal-title">Assistant d'import</div><div class="modal-sub" id="bsWizSub">—</div></div>
+      <button class="modal-close" onclick="bsCloseWizard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="bsWizBody"></div>
+    <div class="modal-foot" id="bsWizFoot"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : JOURNAL DES RÉAFFECTATIONS ═══ -->
+<div class="modal-overlay" id="brModal" onclick="if(event.target===this)brClose()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+      <div><div class="modal-title">Réaffectations — validation &amp; journal</div><div class="modal-sub" id="brSub">—</div></div>
+      <button class="modal-close" onclick="brClose()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="brBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="brClose()">Fermer</button>
+      <button class="btn btn-primary" onclick="brClose();mbOpenReaffect()">Nouvelle demande</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : SCÉNARIOS PRÉVISIONNELS ═══ -->
+<div class="modal-overlay" id="bscModal" onclick="if(event.target===this)bscClose()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 3v18h18"/><polyline points="7 14 11 10 15 13 20 7"/></svg></div>
+      <div><div class="modal-title">Scénarios &amp; versions budgétaires</div><div class="modal-sub" id="bscSub">—</div></div>
+      <button class="modal-close" onclick="bscClose()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="bscBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="bscClose()">Fermer</button>
+      <button class="btn btn-primary" onclick="bscApply()">Appliquer le scénario retenu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : RÉAFFECTER DU BUDGET ═══ -->
+<div class="modal-overlay" id="mbReafModal" onclick="if(event.target===this)mbCloseReaffect()">
+  <div class="modal modal-plan">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+      <div><div class="modal-title">Réaffecter du budget</div><div class="modal-sub" id="mbReafSub">—</div></div>
+      <button class="modal-close" onclick="mbCloseReaffect()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label class="field-label">Depuis la ligne (source) <span class="req">*</span></label><select class="nselect" id="mbReafFrom" onchange="mbReafCalc()"></select></div>
+      <div class="field"><label class="field-label">Vers la ligne (destination) <span class="req">*</span></label><select class="nselect" id="mbReafTo"></select></div>
+      <div class="field"><label class="field-label">Montant à transférer <span class="req">*</span></label><div class="input-prefix"><span class="input-prefix-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><input id="mbReafAmt" type="number" inputmode="decimal" value="5000" oninput="mbReafCalc()"></div></div>
+      <div class="field"><label class="field-label">Motif de la réaffectation <span class="req">*</span></label><input class="input" id="mbReafMotif" placeholder="Justification pour la piste d'audit"></div>
+      <div id="mbReafImpact" style="font-size:12.5px;font-weight:600;color:var(--neutral-500);background:var(--neutral-50);border-radius:10px;padding:11px 13px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="mbCloseReaffect()">Annuler</button>
+      <button class="btn btn-primary" onclick="mbSaveReaffect()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Réaffecter</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ═══ MODAL : NOUVEAU CONTRÔLE ═══ -->
+<div class="modal-overlay" id="ctrlModal" onclick="if(event.target===this)closeNewCtrl()">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <div><div class="modal-title">Nouveau contrôle</div><div class="modal-sub" id="nc-sub">Ajouter une exigence au référentiel.</div></div>
+      <button class="modal-close" onclick="closeNewCtrl()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label class="field-label">Domaine / famille <span class="req">*</span></label>
+          <select class="selectbox" id="nc-fn"></select>
+        </div>
+        <div class="field" style="margin:0">
+          <label class="field-label">Référence <span class="req">*</span></label>
+          <input class="input" id="nc-code" placeholder="Ex : GV.OC-04">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Intitulé du contrôle <span class="req">*</span></label>
+        <input class="input" id="nc-name" placeholder="Ex : Revue périodique des accès à privilèges">
+      </div>
+      <div class="field">
+        <label class="field-label">Objectif / mesure attendue</label>
+        <textarea class="textarea" id="nc-ctrl" placeholder="Décrivez le contrôle attendu et son objectif de conformité…"></textarea>
+      </div>
+      <div class="field-row" style="margin-bottom:0">
+        <div class="field" style="margin:0">
+          <label class="field-label">Responsable</label>
+          <select class="selectbox" id="nc-owner">
+            <option value="av-4|PD">Paul Dubois — RSSI</option>
+            <option value="av-2|MD">Marc Dubois — Chef de projet</option>
+            <option value="av-3|SL">Sophie Leroy — Lead technique</option>
+            <option value="av-1|JT">Julien Tran — DPO</option>
+            <option value="av-6|AB">Alice Bernard — UX / Design</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label class="field-label">Statut initial</label>
+          <select class="selectbox" id="nc-status">
+            <option value="todo">À évaluer</option>
+            <option value="conf">Conforme</option>
+            <option value="part">Partiel</option>
+            <option value="ecart">Écart</option>
+            <option value="na">Non applicable</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeNewCtrl()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveNewCtrl()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ajouter le contrôle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : LANCER UNE REVUE ═══ -->
+<div class="modal-overlay" id="reviewModal" onclick="if(event.target===this)closeReview()">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-head-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+      <div><div class="modal-title">Lancer une revue de conformité</div><div class="modal-sub" id="rv-sub">Campagne d'évaluation d'un référentiel.</div></div>
+      <button class="modal-close" onclick="closeReview()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Intitulé de la campagne <span class="req">*</span></label>
+        <input class="input" id="rv-name" placeholder="Ex : Revue annuelle ISO 27001">
+      </div>
+      <div class="field">
+        <label class="field-label">Périmètre à évaluer</label>
+        <div class="rv-scope" id="rv-scope"></div>
+      </div>
+      <div class="field-row">
+        <div class="field" style="margin:0">
+          <label class="field-label">Responsable de la revue</label>
+          <select class="selectbox" id="rv-owner">
+            <option>Paul Dubois — RSSI</option><option>Marc Dubois — Chef de projet</option><option>Sophie Leroy — Lead technique</option><option>Julien Tran — DPO</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label class="field-label">Échéance</label>
+          <input class="input" type="date" id="rv-due" value="2026-11-30">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="field-label">Modalité</label>
+        <div class="type-pills" style="grid-template-columns:repeat(3,1fr)">
+          <button class="type-pill sel" data-mode="auto" onclick="rvPickMode(this)"><div class="type-pill-name">Auto-évaluation</div></button>
+          <button class="type-pill" data-mode="interne" onclick="rvPickMode(this)"><div class="type-pill-name">Audit interne</div></button>
+          <button class="type-pill" data-mode="externe" onclick="rvPickMode(this)"><div class="type-pill-name">Audit externe</div></button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span style="margin-right:auto;font-size:12.5px;color:var(--neutral-500);font-weight:600" id="rv-count">— exigences sélectionnées</span>
+      <button class="btn btn-secondary" onclick="closeReview()">Annuler</button>
+      <button class="btn btn-primary" onclick="rvLaunch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>Lancer la revue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL : PLAN DE REMÉDIATION ═══ -->
+<div class="modal-overlay" id="remModal" onclick="if(event.target===this)closeRemediation()">
+  <div class="modal modal-rem">
+    <div class="modal-head">
+      <div class="modal-head-ico" style="background:var(--state-danger-bg);color:var(--state-danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div><div class="modal-title" id="rem-title">Plan de remédiation</div><div class="modal-sub" id="rem-sub">Écarts et exigences partielles à traiter.</div></div>
+      <button class="modal-close" onclick="closeRemediation()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="rem-kpis" id="rem-kpis"></div>
+      <div class="rem-toolbar">
+        <div class="seg-toggle" id="rem-seg"><button class="seg-btn active" onclick="remFilter('all',this)">Tout</button><button class="seg-btn" onclick="remFilter('ecart',this)">Écarts</button><button class="seg-btn" onclick="remFilter('part',this)">Partiels</button></div>
+        <div class="fspacer" style="flex:1"></div>
+        <button class="btn btn-secondary" onclick="showToast('Plan de remédiation exporté (Excel)')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporter</button>
+      </div>
+      <table class="rem-table"><thead><tr><th style="width:74px">Réf.</th><th>Exigence</th><th>Action corrective</th><th style="width:150px">Responsable</th><th style="width:110px">Échéance</th><th style="width:96px">Priorité</th></tr></thead><tbody id="rem-body"></tbody></table>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeRemediation()">Fermer</button>
+      <button class="btn btn-primary" onclick="showToast('Plan de remédiation assigné aux responsables')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Assigner les actions</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODE PRÉSENTATION CODIR (plein écran) ═══ -->
+<div class="present" id="present">
+  <div class="present-brand"><span class="present-brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span><span class="present-brand-name">Starium · CODIR</span></div>
+  <button class="present-close" onclick="closePresent()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <div class="present-stage" id="presentStage">
+
+    <!-- SLIDE 0 — Couverture -->
+    <div class="pslide active" style="justify-content:center;align-items:flex-start">
+      <div class="pslide-eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h20v14H2z"/><path d="M8 21h8M12 17v4"/></svg>Comité de direction</div>
+      <div class="pslide-title">Revue de portefeuille<br>DSI — Mai 2025</div>
+      <div class="pslide-sub">Innovatech SA · 12 projets actifs · 405 k€ engagés · Séance du 23 mai 2025</div>
+      <div style="display:flex;gap:36px;margin-top:14px">
+        <div><div style="font-size:13px;color:rgba(255,255,255,.4);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Avancement moyen</div><div style="font-size:38px;font-weight:800;color:#fff;letter-spacing:-.03em;margin-top:6px">58%</div></div>
+        <div><div style="font-size:13px;color:rgba(255,255,255,.4);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Jalons tenus</div><div style="font-size:38px;font-weight:800;color:var(--brand-gold);letter-spacing:-.03em;margin-top:6px">82%</div></div>
+        <div><div style="font-size:13px;color:rgba(255,255,255,.4);font-weight:600;text-transform:uppercase;letter-spacing:.06em">Risques critiques</div><div style="font-size:38px;font-weight:800;color:#F4B0A8;letter-spacing:-.03em;margin-top:6px">3</div></div>
+      </div>
+    </div>
+
+    <!-- SLIDE 1 — Synthèse -->
+    <div class="pslide">
+      <div class="pslide-eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>Synthèse du portefeuille</div>
+      <div class="pslide-title" style="font-size:36px;margin-bottom:30px">Vue consolidée</div>
+      <div class="psynth">
+        <div class="psynth-cell"><div class="psynth-label">Projets actifs</div><div class="psynth-val">12</div><div class="psynth-sub" style="color:var(--brand-gold)">+2 vs trimestre</div></div>
+        <div class="psynth-cell"><div class="psynth-label">Avancement</div><div class="psynth-val">58%</div><div class="psynth-sub" style="color:#9DCBF5">+7 pts vs T1</div></div>
+        <div class="psynth-cell"><div class="psynth-label">Budget</div><div class="psynth-val">60%</div><div class="psynth-sub" style="color:rgba(255,255,255,.45)">245/405 k€</div></div>
+        <div class="psynth-cell"><div class="psynth-label">Risques crit.</div><div class="psynth-val" style="color:#F4B0A8">3</div><div class="psynth-sub" style="color:#F4B0A8">arbitrage requis</div></div>
+        <div class="psynth-cell"><div class="psynth-label">Jalons tenus</div><div class="psynth-val" style="color:#A8E0C4">82%</div><div class="psynth-sub" style="color:#A8E0C4">14/17</div></div>
+      </div>
+      <div class="pstack">
+        <div class="pstack-seg" style="width:50%;background:var(--state-success)">6</div>
+        <div class="pstack-seg" style="width:25%;background:var(--state-danger)">3</div>
+        <div class="pstack-seg" style="width:17%;background:var(--state-info)">2</div>
+        <div class="pstack-seg" style="width:8%;background:var(--neutral-500)">1</div>
+      </div>
+      <div class="pstack-legend">
+        <div class="psbl"><span class="psbl-dot" style="background:var(--state-success)"></span>En cours <b>6</b></div>
+        <div class="psbl"><span class="psbl-dot" style="background:var(--state-danger)"></span>En retard <b>3</b></div>
+        <div class="psbl"><span class="psbl-dot" style="background:var(--state-info)"></span>Planifiés <b>2</b></div>
+        <div class="psbl"><span class="psbl-dot" style="background:var(--neutral-500)"></span>Terminés <b>1</b></div>
+      </div>
+    </div>
+
+    <!-- SLIDES 2-7 — un par projet (générés) -->
+    <div id="presentProjSlides"></div>
+  </div>
+
+  <div class="present-foot">
+    <button class="pnav-btn" id="pPrev" onclick="presentGo(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <div class="present-progress" id="presentDots"></div>
+    <span class="present-count" id="presentCount">1 / 8</span>
+    <button class="pnav-btn" id="pNext" onclick="presentGo(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+  </div>
+</div>
+
+<script src="modules/capacite.js"></script>
+<script src="modules/scenario.js"></script>
+<script src="modules/reunions.js"></script>
+<script src="modules/seance.js"></script>
+<script src="modules/plans-action.js"></script>
+<script src="modules/equipes.js"></script>
+<script src="modules/conformite.js"></script>
+<script src="budget/budget-data.js"></script>
+<script src="budget/budget-views.js"></script>
+<script src="budget/budget-depense.js"></script>
+<script src="budget/budget-import.js"></script>
+<script src="budget/budget-reaffect.js"></script>
+<script src="budget/budget-forecast.js"></script>
+<script>
+const VIEW_META={
+  dashboard:{nav:'dashboard', bc:'<span class="bc-current">Dashboard</span>'},
+  seance:{nav:'reunions', bc:'<a onclick="showView(\'reunions\')">Réunions</a><span class="bc-sep">/</span><span class="bc-current">Séance en cours</span>'},
+  reunions:{nav:'reunions', bc:'<a onclick="showView(\'dashboard\')">Gouvernance &amp; conformité</a><span class="bc-sep">/</span><span class="bc-current">Réunions</span>'},
+  capacity:{nav:'capacity', bc:'<a onclick="showView(\'dashboard\')">Accueil</a><span class="bc-sep">/</span><span class="bc-current">Scénario</span>'},
+  risques:{nav:'risques', bc:'<a onclick="showView(\'dashboard\')">Pilotage stratégique</a><span class="bc-sep">/</span><span class="bc-current">Risques</span>'},
+  conformite:{nav:'conformite', bc:'<a onclick="showView(\'dashboard\')">Gouvernance &amp; conformité</a><span class="bc-sep">/</span><span class="bc-current">Conformité</span>'},
+  fournisseurs:{nav:'fournisseurs', bc:'<a onclick="showView(\'dashboard\')">Pilotage financier</a><span class="bc-sep">/</span><span class="bc-current">Fournisseurs</span>'},
+  contrats:{nav:'contrats', bc:'<a onclick="showView(\'dashboard\')">Pilotage financier</a><span class="bc-sep">/</span><span class="bc-current">Contrats</span>'},
+  ressources:{nav:'ressources', bc:'<a onclick="showView(\'dashboard\')">Organisation</a><span class="bc-sep">/</span><span class="bc-current">Ressources</span>'},
+  equipes:{nav:'equipes', bc:'<a onclick="showView(\'dashboard\')">Organisation</a><span class="bc-sep">/</span><span class="bc-current">Équipes</span>'},
+  vision:{nav:'vision', bc:'<a onclick="showView(\'dashboard\')">Pilotage stratégique</a><span class="bc-sep">/</span><span class="bc-current">Vision stratégique</span>'},
+  list:{nav:'projets', bc:'<a onclick="showView(\'list\')">Pilotage</a><span class="bc-sep">/</span><span class="bc-current">Projets</span>'},
+  quarterplan:{nav:'quarterplan', bc:'<a onclick="showView(\'list\')">Pilotage</a><span class="bc-sep">/</span><span class="bc-current">Quarterplan</span>'},
+  codir:{nav:'projets', bc:'<a onclick="showView(\'list\')">Projets</a><span class="bc-sep">/</span><span class="bc-current">Présentation CODIR</span>'},
+  'new':{nav:'projets', bc:'<a onclick="showView(\'list\')">Projets</a><span class="bc-sep">/</span><span class="bc-current">Nouveau projet</span>'},
+  detail:{nav:'projets', bc:'<a onclick="showView(\'list\')">Pilotage</a><span class="bc-sep">/</span><a onclick="showView(\'list\')">Projets</a><span class="bc-sep">/</span><span class="bc-current">Refonte Portail Client</span>'},
+  plans:{nav:'plans', bc:'<a onclick="showView(\'list\')">Pilotage</a><span class="bc-sep">/</span><span class="bc-current">Plans d\'action</span>'},
+  cycles:{nav:'cycles', bc:'<a onclick="showView(\'list\')">Pilotage</a><span class="bc-sep">/</span><span class="bc-current">Cycles de pilotage</span>'},
+  atlas:{nav:'atlas', bc:'<span class="bc-current">Atlas — Cartographie dynamique</span>'},
+  budgets:{nav:'budgets', bc:'<a onclick="showView(\'list\')">Pilotage financier</a><span class="bc-sep">/</span><span class="bc-current">Budgets</span>'}
+};
+window.addEventListener('message', (e)=>{
+  if(e.data && e.data.type==='starium-atlas-back'){ showView('dashboard'); }
+});
+function showView(name){
+  if(name==='quarterplan'){ // no dedicated section — reuse the Projets list with the Capacité toggle on
+    document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-list'));
+    document.querySelector('.page-content').scrollTop=0;
+    const m=VIEW_META.quarterplan;
+    document.getElementById('breadcrumb').innerHTML=m.bc;
+    document.querySelectorAll('.sidebar .sb-item[data-nav]').forEach(i=>i.classList.toggle('active', i.dataset.nav===m.nav));
+    const cb=document.getElementById('plBtnCapa'); if(cb) plListView(cb,'capa');
+    return;
+  }
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+name));
+  document.querySelector('.page-content').scrollTop=0;
+  const meta=VIEW_META[name]||VIEW_META.detail;
+  document.getElementById('breadcrumb').innerHTML=meta.bc;
+  document.querySelectorAll('.sidebar .sb-item[data-nav]').forEach(i=>i.classList.toggle('active', i.dataset.nav===meta.nav));
+  if(name==='budgets' && typeof mbShowHome==='function') mbShowHome();
+  if(name==='plans' && typeof paShowHome==='function') paShowHome();
+  if(name==='conformite' && typeof confBack==='function') confBack();
+  if(name==='capacity' && typeof capRender==='function') capRender();
+  if(name==='reunions' && typeof mtgRender==='function') mtgRender();
+  if(name==='seance' && typeof livRender==='function') livRender();
+}
+function plListView(btn,mode){
+  document.querySelectorAll('#view-list .seg-toggle .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('plTableCard').style.display = (mode==='matrix'||mode==='capa') ? 'none' : '';
+  document.getElementById('plMatrixCard').style.display = mode==='matrix' ? '' : 'none';
+  document.getElementById('plCapaCard').style.display = mode==='capa' ? '' : 'none';
+  if(mode==='capa') cpRenderCells();
+}
+function cpRenderCells(){
+  const cells=document.querySelectorAll('#plCapaCard .cp-cell');
+  cells.forEach(c=>{
+    if(c.dataset.done) return;
+    const load=+c.dataset.load, segs=JSON.parse(c.dataset.segs);
+    const tone=load>100?'var(--state-danger)':(load>=85?'var(--brand-gold-700)':'var(--state-success)');
+    const maxS=Math.max(load,100); // track spans up to max(load,100); cap marker sits at 100
+    let bars='', tip='';
+    segs.forEach(s=>{ bars+='<div class="cp-seg" style="width:'+(s[2]/maxS*100)+'%;background:'+s[1]+'"></div>';
+      tip+='<div class="r"><i style="background:'+s[1]+'"></i>'+s[0]+' · '+s[2]+' j·h</div>'; });
+    const projCount=segs.length;
+    c.innerHTML='<div class="cp-cbar"><div class="cp-cfill">'+bars+'</div><span class="cp-cap" style="left:'+(100/maxS*100)+'%"></span></div>'
+      +'<div class="cp-cmeta"><span class="cp-cload" style="color:'+tone+'">'+load+'%</span><span class="cp-cproj">'+projCount+' projet'+(projCount>1?'s':'')+'</span></div>'
+      +'<div class="cp-ctip"><div style="font-weight:800;margin-bottom:3px">Charge '+load+'% de la capacité</div>'+tip+'</div>';
+    c.dataset.done='1';
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{try{cpRenderCells();}catch(e){}});
+
+/* ─── Nouveau projet · wizard ─── */
+let npStep=1;
+function npRender(){
+  document.querySelectorAll('#vstepper .vstep').forEach(s=>{
+    const n=+s.dataset.step;
+    s.classList.toggle('active', n===npStep);
+    s.classList.toggle('done', n<npStep);
+  });
+  document.querySelectorAll('#view-new .np-pane').forEach(p=>p.classList.toggle('active', +p.dataset.pane===npStep));
+  const back=document.getElementById('np-back');
+  back.style.visibility = npStep>1 ? 'visible' : 'hidden';
+  const next=document.getElementById('np-next');
+  if(npStep===4){ next.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Créer le projet'; next.setAttribute('onclick','showView(\'detail\')'); }
+  else { next.innerHTML='Continuer<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'; next.setAttribute('onclick','npNext()'); }
+  if(npStep===4) npSync();
+}
+function npGoStep(n){ npStep=n; npRender(); }
+function npNext(){ if(npStep<4){ npStep++; npRender(); } }
+function npPrev(){ if(npStep>1){ npStep--; npRender(); } }
+
+/* ─── Budget workspace ─── */
+function showBud(name){
+  document.querySelectorAll('#view-detail .bud-subtab').forEach(t=>t.classList.toggle('active', t.dataset.bud===name));
+  document.querySelectorAll('#view-detail .bud-pane').forEach(p=>p.classList.toggle('active', p.dataset.budpane===name));
+  if(name==='categories') budRenderCats();
+}
+const BUD_ICO={
+  purple:'<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><circle cx="11" cy="11" r="2"/>',
+  green:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  blue:'<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+  gold:'<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>',
+  red:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>'
+};
+const BUD_CATS=[
+  {name:'UX / Design', ico:'purple', lines:[
+    {name:'Ateliers & recherche utilisateur', budget:6000, engage:4200, conso:4000, prev:5800},
+    {name:'Maquettage / prototypes', budget:6000, engage:4000, conso:3900, prev:5900},
+    {name:'Design system', budget:3000, engage:2000, conso:1800, prev:2800}
+  ]},
+  {name:'Développement', ico:'green', lines:[
+    {name:'Sprints de développement', budget:40000, engage:22000, conso:21500, prev:38500},
+    {name:'Intégration & API', budget:10000, engage:6000, conso:5800, prev:9800},
+    {name:'Reprise de données', budget:5000, engage:2500, conso:2500, prev:4700}
+  ]},
+  {name:'Infrastructure', ico:'blue', lines:[
+    {name:'Hébergement cloud', budget:7000, engage:5000, conso:4900, prev:7000},
+    {name:'Licences & outils', budget:5000, engage:3000, conso:2900, prev:4900},
+    {name:'Sécurité & certificats', budget:3000, engage:2500, conso:2300, prev:3500}
+  ]},
+  {name:'Recette', ico:'gold', lines:[
+    {name:'Renfort recette', budget:6000, engage:4500, conso:4300, prev:5800},
+    {name:'Jeux de tests & TNR', budget:4000, engage:2500, conso:2400, prev:3800}
+  ]},
+  {name:'Prestataires', ico:'red', lines:[
+    {name:'Audit sécurité', budget:8000, engage:8300, conso:7900, prev:9300},
+    {name:'AMOA / conseil', budget:10000, engage:9000, conso:8800, prev:10000},
+    {name:'Support & TMA', budget:7000, engage:5700, conso:5500, prev:7000}
+  ]}
+];
+function budPfClass(pct){ return pct>=90?'pf-bad':(pct>=75?'pf-warn':'pf-ok'); }
+function budDepCell(dep){ return dep>0?'<span class="dep-pos">+'+fmtEur(dep)+'</span>':'<span class="dep-none">—</span>'; }
+function budRenderCats(){
+  const tb=document.getElementById('bud-cat-tbody'); if(!tb) return;
+  let html='', tB=0,tE=0,tC=0,tP=0,tDep=0, worst={pct:-1};
+  BUD_CATS.forEach((c,ci)=>{
+    const b=c.lines.reduce((s,l)=>s+l.budget,0), e=c.lines.reduce((s,l)=>s+l.engage,0), co=c.lines.reduce((s,l)=>s+l.conso,0), pv=c.lines.reduce((s,l)=>s+l.prev,0);
+    const dep=Math.max(0,pv-b), pct=Math.round(co/b*100);
+    tB+=b;tE+=e;tC+=co;tP+=pv;tDep+=dep;
+    if(pct>worst.pct) worst={pct:pct,name:c.name};
+    html+='<tr class="cat-row" onclick="budToggleCat('+ci+')"><td><div class="bcat"><span class="cat-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></span><div class="bcat-ico ti-'+c.ico+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">'+BUD_ICO[c.ico]+'</svg></div><span class="cell-strong">'+c.name+'</span></div></td>'
+      +'<td class="num">'+fmtEur(b)+'</td>'
+      +'<td class="num" style="color:var(--brand-gold-700);font-weight:600">'+fmtEur(e)+'</td>'
+      +'<td class="num" style="color:var(--state-info);font-weight:700">'+fmtEur(co)+'</td>'
+      +'<td class="num">'+budDepCell(dep)+'</td>'
+      +'<td><div class="prog-cell" style="min-width:100px"><div class="ptrack"><div class="pfill '+budPfClass(pct)+'" style="width:'+Math.min(pct,100)+'%"></div></div><span class="prog-pct"'+(pct>=90?' style="color:var(--state-danger)"':'')+'>'+pct+'%</span></div></td></tr>';
+    c.lines.forEach(l=>{
+      const ldep=Math.max(0,l.prev-l.budget), lpct=Math.round(l.conso/l.budget*100), leng=Math.max(0,l.engage-l.budget);
+      html+='<tr class="line-row" data-cat="'+ci+'" style="display:none;cursor:pointer" onclick="openBudgetModal(&quot;'+String(c.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'&quot;)"><td><span class="line-name">'+l.name+(leng>0?' <span class="badge bdg-danger" style="margin-left:4px">Engagé &gt; budget</span>':'')+'</span></td>'
+        +'<td class="num">'+fmtEur(l.budget)+'</td>'
+        +'<td class="num" style="color:var(--brand-gold-700);font-weight:600'+(leng>0?';color:var(--state-danger)':'')+'">'+fmtEur(l.engage)+'</td>'
+        +'<td class="num" style="color:var(--state-info)">'+fmtEur(l.conso)+'</td>'
+        +'<td class="num">'+budDepCell(ldep)+'</td>'
+        +'<td><div class="prog-cell" style="min-width:100px"><div class="ptrack"><div class="pfill '+budPfClass(lpct)+'" style="width:'+Math.min(lpct,100)+'%"></div></div><span class="prog-pct"'+(lpct>=90?' style="color:var(--state-danger)"':'')+'>'+lpct+'%</span></div></td></tr>';
+    });
+  });
+  tb.innerHTML=html;
+  const tpct=Math.round(tC/tB*100);
+  document.getElementById('bud-cat-tfoot').innerHTML='<tr style="border-top:2px solid var(--neutral-200);font-weight:800"><td style="padding:14px 16px;font-weight:800;color:var(--brand-ink)">Total</td><td class="num" style="font-weight:800">'+fmtEur(tB)+'</td><td class="num" style="font-weight:800;color:var(--brand-gold-700)">'+fmtEur(tE)+'</td><td class="num" style="font-weight:800;color:var(--state-info)">'+fmtEur(tC)+'</td><td class="num" style="font-weight:800">'+(tDep>0?'<span class="dep-pos">+'+fmtEur(tDep)+'</span>':'—')+'</td><td style="font-weight:800">'+tpct+'%</td></tr>';
+  const catsDep=BUD_CATS.filter(c=>{const b=c.lines.reduce((s,l)=>s+l.budget,0),pv=c.lines.reduce((s,l)=>s+l.prev,0);return pv>b;}).length;
+  const ecart=tB-tP, sousBudget=ecart>=0;
+  const an=document.getElementById('bud-analyse'); if(an) an.innerHTML=
+    '<div class="ban-cell lead"><div class="ban-k" style="opacity:.8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>Analyse budgétaire</div><div class="ban-v">'+(sousBudget?'Sous budget de '+fmtEur(Math.abs(ecart)):'Dépassement de '+fmtEur(Math.abs(ecart)))+'</div><div class="ban-narr">Prévision globale de <b>'+fmtEur(tP)+'</b> sur '+fmtEur(tB)+'. <b>'+catsDep+' postes</b> en dépassement projeté (+'+fmtEur(tDep)+'), compensés par les économies sur Développement et Recette. Marge à réaffecter vers Prestataires.</div></div>'
+    +'<div class="ban-cell"><div class="ban-k"><svg viewBox="0 0 24 24" fill="none" stroke="var(--state-danger)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>Dépassement projeté</div><div class="ban-v" style="color:var(--state-danger)">+'+fmtEur(tDep)+'</div><div class="ban-sub">sur '+catsDep+' postes budgétaires</div></div>'
+    +'<div class="ban-cell"><div class="ban-k"><svg viewBox="0 0 24 24" fill="none" stroke="var(--neutral-400)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Prévision à fin</div><div class="ban-v">'+fmtEur(tP)+'</div><div class="ban-sub" style="color:'+(sousBudget?'var(--state-success)':'var(--state-danger)')+'">Écart '+(sousBudget?'+':'−')+fmtEur(Math.abs(ecart))+'</div></div>'
+    +'<div class="ban-cell"><div class="ban-k"><svg viewBox="0 0 24 24" fill="none" stroke="var(--neutral-400)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Poste le plus tendu</div><div class="ban-v" style="font-size:16px">'+worst.name+'</div><div class="ban-sub" style="color:var(--state-danger)">'+worst.pct+'% consommé</div></div>';
+}
+function budToggleCat(ci){
+  const rows=document.querySelectorAll('#bud-cat-tbody .cat-row'); const row=rows[ci]; if(!row) return;
+  row.classList.toggle('open');
+  const open=row.classList.contains('open');
+  document.querySelectorAll('#bud-cat-tbody .line-row[data-cat="'+ci+'"]').forEach(r=>r.style.display=open?'':'none');
+}
+try{budRenderCats();}catch(e){}
+function fmtEur(n){ return n.toLocaleString('fr-FR').replace(/\u202f/g,' ') + ' €'; }
+function openBudgetModal(cat){
+  if(cat){ const c=document.getElementById('bm-cat'); if(c) c.value=cat; }
+  document.getElementById('budgetModal').classList.add('open');
+  bmCalc();
+}
+function closeBudgetModal(){ document.getElementById('budgetModal').classList.remove('open'); }
+
+/* ═══════════ MULTI-BUDGETS ═══════════
+   Module extrait dans ui_kits/app/budget/ — voir les <script src> juste avant ce bloc.
+   Ordre de chargement : data → views → depense → import → reaffect → forecast. */
+try{renderBudgetsHome();}catch(e){}
+
+/* ─── Cycles de pilotage : Planifier une instance + Calendrier ─── */
+const CYC_TODAY='2025-05-13';
+const CYC_TYPES={
+  COPIL:{bg:'var(--brand-gold-050)',fg:'var(--brand-gold-700)',dot:'var(--brand-gold)',badge:'bdg-gold'},
+  COMEX:{bg:'var(--state-danger-bg)',fg:'var(--state-danger)',dot:'var(--state-danger)',badge:'bdg-danger'},
+  CRA:{bg:'var(--state-info-bg)',fg:'var(--state-info)',dot:'var(--state-info)',badge:'bdg-info'},
+  CODIR:{bg:'var(--purple-bg)',fg:'var(--purple)',dot:'var(--purple)',badge:''}
+};
+const CYC_MONTHS=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const CYC_MONTHS_SHORT=['Janv','Févr','Mars','Avr','Mai','Juin','Juil','Août','Sept','Oct','Nov','Déc'];
+let cycEvents=[
+  {date:'2025-05-02',type:'COPIL',name:'COPIL — Q2 (avril)',start:'14:00'},
+  {date:'2025-05-23',type:'COPIL',name:'Comité de pilotage — Q2',start:'14:00'},
+  {date:'2025-06-04',type:'CRA',name:'Revue de portefeuille',start:'10:00'},
+  {date:'2025-06-18',type:'COMEX',name:'COMEX — arbitrages',start:'09:00'}
+];
+let calY=2025, calM=4;
+
+function openPlan(){ document.getElementById('planModal').classList.add('open'); }
+function closePlan(){ document.getElementById('planModal').classList.remove('open'); }
+function pmPickType(el){ document.querySelectorAll('#planModal .type-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); }
+function pmRemoveTag(x){ x.closest('.tag').remove(); }
+function pmAddTag(sel){
+  if(!sel.value) return;
+  const [av,ini,name]=sel.value.split('|');
+  const tag=document.createElement('span');
+  tag.className='tag';
+  tag.innerHTML='<span class="av '+av+'">'+ini+'</span>'+name+'<span class="tag-x" onclick="pmRemoveTag(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>';
+  sel.parentNode.insertBefore(tag, sel);
+  sel.querySelector('option[value="'+sel.value+'"]').remove();
+  sel.value='';
+}
+function savePlan(){
+  const type=(document.querySelector('#planModal .type-pill.sel')||{}).dataset?.type||'COPIL';
+  const label=(document.getElementById('pm-label').value||'').trim()||(type+' — nouvelle instance');
+  const dRaw=document.getElementById('pm-date').value;
+  const start=document.getElementById('pm-start').value||'';
+  const end=document.getElementById('pm-end').value||'';
+  const rec=document.getElementById('pm-rec').value;
+  const loc=(document.getElementById('pm-loc').value||'').trim()||'À définir';
+  const agenda=(document.getElementById('pm-agenda').value||'').split('\n').map(l=>l.trim()).filter(Boolean);
+  const tags=[...document.querySelectorAll('#pm-tags .tag .av')];
+  if(dRaw){ cycEvents.push({date:dRaw,type:type,name:label,start:start}); }
+  // construire la carte d'instance
+  const t=CYC_TYPES[type]||CYC_TYPES.COPIL;
+  let d='--', m='';
+  if(dRaw){ const dt=new Date(dRaw+'T00:00'); d=String(dt.getDate()).padStart(2,'0'); m=CYC_MONTHS_SHORT[dt.getMonth()]; }
+  const recBadge = rec && rec!=='Ponctuel' ? '<span class="badge bdg-info">'+rec+'</span>' : '<span class="badge bdg-neutral">Ponctuel</span>';
+  const typeBadge = t.badge ? '<span class="badge '+t.badge+'">'+type+'</span>' : '<span class="badge" style="background:var(--purple-bg);color:var(--purple)">'+type+'</span>';
+  const timeStr = start ? (start+(end?' – '+end:'')) : 'Horaire à définir';
+  const agendaStr = agenda.length ? agenda.length+' point'+(agenda.length>1?'s':'')+' à l\'ordre du jour' : 'Ordre du jour à préparer';
+  const avs = tags.slice(0,3).map(a=>'<div class="'+a.className+'">'+a.textContent+'</div>').join('') + (tags.length>3?'<div class="av av-5">+'+(tags.length-3)+'</div>':'');
+  // enregistrer l'instance pour la préparation
+  const prepKey='inst-'+(Date.now());
+  INST_PREP[prepKey]={
+    name:label, type:type, badge:(t.badge||'bdg-neutral'), bg:t.bg, fg:t.fg,
+    d:d, m:m, sub:timeStr+' · '+loc,
+    agenda: agenda.length ? agenda.map(p=>[p,'—']) : [['Point à définir','—']],
+    docs:[], arb:[],
+    parts: tags.map(a=>[a.textContent, (a.className.match(/av-\d/)||['av-1'])[0]]),
+    partsN: tags.length
+  };
+  const item=document.createElement('div');
+  item.className='cyc-item row-flash';
+  item.innerHTML='<div class="cyc-date"><span class="d">'+d+'</span><span class="m">'+m+'</span></div>'
+    +'<div class="cyc-body">'
+    +'<div class="cyc-toprow"><span class="cyc-name">'+label+'</span>'+typeBadge+recBadge+'</div>'
+    +'<div class="cyc-meta">'+timeStr+' · '+loc+' · '+agendaStr+'</div>'
+    +'<div class="cyc-foot">'
+    +'<div class="cyc-participants">'+avs+'</div>'
+    +'<div class="cyc-stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Convocation à envoyer</div>'
+    +'<span class="cyc-link" onclick="openPrepare(\''+prepKey+'\', this.closest(\'.cyc-item\'))">Préparer<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></span>'
+    +'</div></div>';
+  const list=document.getElementById('cyc-list');
+  if(list) list.insertBefore(item, list.firstChild);
+  closePlan();
+  showToast('Instance « '+label+' » planifiée');
+}
+
+function openCalendar(){ const td=new Date(CYC_TODAY+'T00:00'); calY=td.getFullYear(); calM=td.getMonth(); renderCal(); document.getElementById('calModal').classList.add('open'); }
+function closeCalendar(){ document.getElementById('calModal').classList.remove('open'); }
+function calNav(d){ calM+=d; if(calM<0){calM=11;calY--;} if(calM>11){calM=0;calY++;} renderCal(); }
+function calToday(){ const td=new Date(CYC_TODAY+'T00:00'); calY=td.getFullYear(); calM=td.getMonth(); renderCal(); }
+function renderCal(){
+  document.getElementById('calMonth').textContent=CYC_MONTHS[calM]+' '+calY;
+  const first=new Date(calY,calM,1);
+  const startDow=(first.getDay()+6)%7;
+  const daysInMonth=new Date(calY,calM+1,0).getDate();
+  const prevDays=new Date(calY,calM,0).getDate();
+  const rows=Math.ceil((startDow+daysInMonth)/7);
+  let html='';
+  for(let i=0;i<rows*7;i++){
+    const dayIdx=i-startDow+1;
+    let out=false, dnum, cellY=calY, cellM=calM;
+    if(dayIdx<1){ out=true; dnum=prevDays+dayIdx; cellM=calM-1; if(cellM<0){cellM=11;cellY--;} }
+    else if(dayIdx>daysInMonth){ out=true; dnum=dayIdx-daysInMonth; cellM=calM+1; if(cellM>11){cellM=0;cellY++;} }
+    else dnum=dayIdx;
+    const iso=cellY+'-'+String(cellM+1).padStart(2,'0')+'-'+String(dnum).padStart(2,'0');
+    const isToday=iso===CYC_TODAY;
+    let evs='';
+    if(!out){
+      cycEvents.filter(e=>e.date===iso).sort((a,b)=>(a.start||'').localeCompare(b.start||'')).forEach(e=>{
+        const t=CYC_TYPES[e.type]||CYC_TYPES.COPIL;
+        const past=iso<CYC_TODAY;
+        evs+='<div class="cal-ev'+(past?' past':'')+'" style="background:'+t.bg+';color:'+t.fg+'" title="'+e.name+'"><span class="cal-ev-dot" style="background:'+t.dot+'"></span>'+(e.start?'<span class="cal-ev-time">'+e.start+'</span>':'')+'<span class="cal-ev-name">'+e.name+'</span></div>';
+      });
+    }
+    html+='<div class="cal-cell'+(out?' out':'')+(isToday?' today':'')+'"><span class="cal-daynum">'+dnum+'</span>'+evs+'</div>';
+  }
+  document.getElementById('calWeeks').innerHTML=html;
+}
+
+/* ─── Préparer / Consulter une instance ─── */
+const INST_PREP={
+  'copil-q2':{
+    name:'Comité de pilotage — Q2', type:'COPIL', badge:'bdg-gold',
+    bg:'var(--brand-gold-050)', fg:'var(--brand-gold-700)',
+    d:'23', m:'Mai', sub:'14:00 – 15:30 · Salle Horizon / Teams',
+    agenda:[
+      ['Revue d\'avancement des chantiers','20 min'],
+      ['Suivi budgétaire & prévision Q3','15 min'],
+      ['Go/No Go — Application mobile','20 min'],
+      ['Plan d\'actions & risques','15 min'],
+      ['Questions diverses','10 min']
+    ],
+    docs:[
+      ['Support COPIL Q2.pptx','PPTX · 4,2 Mo · à finaliser','danger'],
+      ['Tableau de bord budgétaire.xlsx','XLSX · 820 Ko','success'],
+      ['Reporting risques.pdf','PDF · 1,1 Mo','info']
+    ],
+    arb:[['Go/No Go lancement Application Mobile','Décision attendue · impact planning Q3']],
+    parts:[['MD','av-2'],['SL','av-3'],['JT','av-1'],['PD','av-4'],['AB','av-6'],['CL','av-5']],
+    partsN:7
+  },
+  'cra-portefeuille':{
+    name:'Revue de portefeuille', type:'CRA', badge:'bdg-neutral',
+    bg:'var(--state-info-bg)', fg:'var(--state-info)',
+    d:'04', m:'Juin', sub:'10:00 – 11:00 · Teams',
+    agenda:[
+      ['Avancement des 12 projets','30 min'],
+      ['Projets en alerte — plan de remédiation','15 min'],
+      ['Arbitrage renfort QA sur la recette','15 min']
+    ],
+    docs:[
+      ['Revue portefeuille — juin.pdf','PDF · 2,4 Mo · brouillon','danger'],
+      ['Matrice de charge équipes.xlsx','XLSX · 640 Ko','success']
+    ],
+    arb:[['Renfort QA sur la recette','1 ETP sur 6 semaines · à valider']],
+    parts:[['MD','av-2'],['AB','av-6'],['SL','av-3'],['PD','av-4']],
+    partsN:4
+  },
+  'comex-q3':{
+    name:'Comité exécutif — arbitrages budgétaires', type:'COMEX', badge:'bdg-danger',
+    bg:'var(--state-danger-bg)', fg:'var(--state-danger)',
+    d:'18', m:'Juin', sub:'09:00 – 12:00 · Salle Étoile',
+    agenda:[
+      ['Cadrage des enveloppes Q3','25 min'],
+      ['Arbitrage rallonge Prestataires','20 min'],
+      ['Priorisation des investissements','30 min'],
+      ['Validation du plan de charge','20 min']
+    ],
+    docs:[
+      ['Note d\'arbitrage Q3.pdf','PDF · 1,8 Mo · à valider','danger'],
+      ['Scénarios budgétaires.xlsx','XLSX · 1,2 Mo','success'],
+      ['Synthèse portefeuille.pptx','PPTX · 3,6 Mo','info']
+    ],
+    arb:[
+      ['Rallonge budgétaire Prestataires','+6 k€ demandés · impact marge'],
+      ['Report investissement Infra','Décalage T4 · à confirmer'],
+      ['Priorisation Application mobile vs Portail','Choix stratégique']
+    ],
+    parts:[['PD','av-4'],['MD','av-2'],['SL','av-3'],['AB','av-6'],['CL','av-5'],['JT','av-1']],
+    partsN:7
+  }
+};
+const INST_CR={
+  'copil-q2-avril':{
+    name:'Comité de pilotage — Q2 (avril)', type:'COPIL', badge:'bdg-gold',
+    bg:'var(--brand-gold-050)', fg:'var(--brand-gold-700)',
+    d:'02', m:'Mai', sub:'14:00 – 15:20 · Salle Horizon / Teams',
+    stats:[['5','Décisions actées'],['3','Actions ouvertes'],['6/9','Présents']],
+    decisions:[
+      ['Validation du budget prévisionnel Q3','Enveloppe 120 k€ confirmée'],
+      ['Lancement de la phase de recette','Démarrage le 12 mai'],
+      ['Recrutement d\'un renfort QA','1 ETP validé sur 6 semaines'],
+      ['Report du module Reporting','Décalé au T4'],
+      ['Validation de la roadmap mobile','Go pour cadrage']
+    ],
+    actions:[
+      ['Diffuser le planning de recette','S. Leroy · 06 mai',true],
+      ['Cadrer le besoin renfort QA','M. Dubois · 09 mai',false],
+      ['Préparer le dossier Go/No Go mobile','J. Tran · 16 mai',false]
+    ],
+    present:[['MD','av-2'],['SL','av-3'],['JT','av-1'],['AB','av-6'],['CL','av-5'],['PD','av-4']],
+    absent:[['NR','av-1'],['FG','av-2'],['LM','av-3']],
+    docs:[
+      ['Compte-rendu COPIL Q2.pdf','PDF · 480 Ko · validé le 05/05','success'],
+      ['Support de séance.pptx','PPTX · 4,0 Mo','info']
+    ]
+  }
+};
+
+/* ─── Points projet (COPROJ / COPIL) — occurrences ─── */
+const PP_COPROJ_AGENDA=[
+  ['Suivi des actions du COPROJ précédent','10 min'],
+  ['Avancement des chantiers & jalons','15 min'],
+  ['Points de blocage & risques','10 min'],
+  ['Sujets à remonter au COPIL','5 min'],
+  ['Tour de table','5 min']
+];
+const PP_COPROJ_DOCS=[
+  ['Tableau de suivi hebdo.xlsx','XLSX · 320 Ko','success'],
+  ['Extrait planning.pdf','PDF · 210 Ko','info']
+];
+const PP_COPROJ_PARTS=[['MD','av-2'],['SL','av-3'],['JT','av-1'],['AB','av-6']];
+function ppCoproj(name,d,m){return{name:name,type:'COPROJ',badge:'bdg-coproj',bg:'var(--state-info-bg)',fg:'var(--state-info)',d:d,m:m,sub:'09:30 – 10:15 · Salle Cadence / Teams',agenda:PP_COPROJ_AGENDA.map(a=>a.slice()),docs:PP_COPROJ_DOCS.map(a=>a.slice()),arb:[['Sujet à remonter — renfort UX','Recommandation COPROJ · à décider en COPIL']],parts:PP_COPROJ_PARTS.map(a=>a.slice()),partsN:4};}
+Object.assign(INST_PREP, {
+  'pp-coproj-s20': ppCoproj('COPROJ — Semaine 20','16','Mai'),
+  'pp-coproj-s21': ppCoproj('COPROJ — Semaine 21','23','Mai'),
+  'pp-coproj-s19': ppCoproj('COPROJ — Semaine 19','09','Mai'),
+  'pp-coproj-s18': ppCoproj('COPROJ — Semaine 18','02','Mai'),
+  'pp-copil-mai':{
+    name:'COPIL — Mai', type:'COPIL', badge:'bdg-gold',
+    bg:'var(--brand-gold-050)', fg:'var(--brand-gold-700)',
+    d:'23', m:'Mai', sub:'14:00 – 15:30 · Salle Horizon / Teams',
+    agenda:[
+      ['Synthèse des 3 COPROJ depuis le dernier COPIL','15 min'],
+      ['Avancement, budget & jalons','15 min'],
+      ['Décision — Go/No Go démarrage recette','20 min'],
+      ['Arbitrage — renfort UX 0,5 ETP','15 min'],
+      ['Risques majeurs & décisions à appliquer','10 min']
+    ],
+    docs:[
+      ['Synthèse COPROJ → COPIL.pdf','PDF · 640 Ko · consolidé','info'],
+      ['Tableau de bord projet.xlsx','XLSX · 480 Ko','success'],
+      ['Support COPIL Mai.pptx','PPTX · 3,1 Mo · à finaliser','danger']
+    ],
+    arb:[
+      ['Go/No Go — démarrage de la recette','Décision attendue · impact planning'],
+      ['Renfort UX 0,5 ETP sur la recette','Remonté du COPROJ S20 · à arbitrer']
+    ],
+    parts:[['MD','av-2'],['SL','av-3'],['JT','av-1'],['PD','av-4'],['AB','av-6'],['CL','av-5']],
+    partsN:6
+  }
+});
+Object.assign(INST_CR, {
+  'pp-copil-avril':{
+    name:'COPIL — Avril', type:'COPIL', badge:'bdg-gold',
+    bg:'var(--brand-gold-050)', fg:'var(--brand-gold-700)',
+    d:'25', m:'Avr', sub:'14:00 – 15:25 · Salle Horizon / Teams',
+    stats:[['5','Décisions actées'],['4','Actions ouvertes'],['6/6','Présents']],
+    decisions:[
+      ['Validation du parcours client cible','Parcours V2 retenu'],
+      ['Cadrage de la phase de recette','Démarrage prévu S20'],
+      ['Report du module Reporting au T4','Priorité donnée à la recette'],
+      ['Validation de l\u0027enveloppe prestataires','+6 k€ actés'],
+      ['Escalade au cycle — arbitrage priorisation','Transmis au COMEX']
+    ],
+    actions:[
+      ['Diffuser le planning de recette','S. Leroy · 30 avr.',true],
+      ['Cadrer le besoin renfort UX','M. Dubois · 07 mai',false],
+      ['Préparer le dossier de candidature cycle','J. Tran · 12 mai',false],
+      ['Mettre à jour le registre des risques','A. Bernard · 09 mai',false]
+    ],
+    present:[['MD','av-2'],['SL','av-3'],['JT','av-1'],['PD','av-4'],['AB','av-6'],['CL','av-5']], absent:[],
+    risks:[['Adoption utilisateurs du nouveau portail','Modéré'],['Dette technique legacy sur la reprise data','Élevé']],
+    docs:[['Compte-rendu COPIL Avril.pdf','PDF · 520 Ko · validé le 28/04','success'],['Support de séance.pptx','PPTX · 3,0 Mo','info']]
+  },
+  'pp-coproj-s17':{
+    name:'COPROJ — Semaine 17', type:'COPROJ', badge:'bdg-coproj', bg:'var(--state-info-bg)', fg:'var(--state-info)',
+    d:'25', m:'Avr', sub:'09:30 – 10:10 · Salle Cadence / Teams',
+    stats:[['2','Décisions'],['3','Actions ouvertes'],['4/4','Présents']],
+    decisions:[['Priorisation des correctifs sprint 8','Top 5 retenu'],['Sujet renfort UX remonté au COPIL','Escaladé au COPIL Mai']],
+    actions:[['Corriger le bug de connexion SSO','J. Tran · 29 avr.',true],['Relancer le prestataire hébergement','S. Leroy · 30 avr.',false],['Préparer la démo sprint 8','A. Bernard · 02 mai',false]],
+    present:PP_COPROJ_PARTS.map(a=>a.slice()), absent:[],
+    docs:[['CR COPROJ S17.pdf','PDF · 180 Ko · diffusé','success']]
+  },
+  'pp-coproj-s16':{
+    name:'COPROJ — Semaine 16', type:'COPROJ', badge:'bdg-coproj', bg:'var(--state-info-bg)', fg:'var(--state-info)',
+    d:'18', m:'Avr', sub:'09:30 – 10:05 · Salle Cadence / Teams',
+    stats:[['1','Décision'],['4','Actions ouvertes'],['4/4','Présents']],
+    decisions:[['Validation de la maquette du tableau de bord','Design approuvé']],
+    actions:[['Intégrer les retours maquette','A. Bernard · 22 avr.',true],['Câbler l\u0027API indicateurs','J. Tran · 24 avr.',false],['Rédiger les cas de test','S. Leroy · 25 avr.',false],['Planifier la revue sécurité','M. Dubois · 29 avr.',false]],
+    present:PP_COPROJ_PARTS.map(a=>a.slice()), absent:[],
+    docs:[['CR COPROJ S16.pdf','PDF · 165 Ko · diffusé','success']]
+  },
+  'pp-coproj-s15':{
+    name:'COPROJ — Semaine 15', type:'COPROJ', badge:'bdg-coproj', bg:'var(--state-info-bg)', fg:'var(--state-info)',
+    d:'11', m:'Avr', sub:'09:30 – 10:10 · Salle Cadence / Teams',
+    stats:[['2','Décisions'],['2','Actions ouvertes'],['3/4','Présents']],
+    decisions:[['Lancement du chantier reprise de données','Démarrage lot 1'],['Report du point contrats prestataires','Reporté au COPROJ S16']],
+    actions:[['Cadrer le périmètre de reprise data','S. Leroy · 16 avr.',true],['Consolider la liste des prestataires','M. Dubois · 18 avr.',false]],
+    present:[['MD','av-2'],['SL','av-3'],['JT','av-1']], absent:[['AB','av-6']],
+    docs:[['CR COPROJ S15.pdf','PDF · 158 Ko · diffusé','success']]
+  }
+});
+
+/* ─── Points projet · filtres, création, candidature ─── */
+function ppFilter(status){
+  document.querySelectorAll('#pp-subtabs .pp-sub').forEach(b=>b.classList.toggle('active', b.dataset.pp===status));
+  const isSeries=status==='series';
+  const main=document.getElementById('pp-main'); if(main) main.style.display=isSeries?'none':'';
+  const ser=document.getElementById('pp-series'); if(ser) ser.style.display=isSeries?'':'none';
+  if(!isSeries){
+    let n=0;
+    document.querySelectorAll('#pp-listcard .cyc-item').forEach(it=>{
+      const show=it.dataset.ppstatus===status;
+      it.style.display=show?'':'none'; if(show) n++;
+    });
+    const empty=document.getElementById('pp-empty'); if(empty) empty.style.display=n?'none':'';
+  }
+}
+function ppSync(){ const a=document.querySelector('#pp-subtabs .pp-sub.active'); ppFilter(a?a.dataset.pp:'preparer'); }
+function ppOpenCreate(){ document.getElementById('ppCreateModal').classList.add('open'); }
+function ppCloseCreate(){ document.getElementById('ppCreateModal').classList.remove('open'); }
+function ppPickType(el){ document.querySelectorAll('#ppCreateModal .type-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); }
+function ppSaveCreate(){ ppCloseCreate(); showToast('Point projet créé · préparation ouverte'); }
+function ppOpenCand(){ document.getElementById('ppCandModal').classList.add('open'); }
+function ppCloseCand(){ document.getElementById('ppCandModal').classList.remove('open'); }
+function ppSaveCand(){ ppCloseCand(); showToast('Candidature transmise au cycle de pilotage'); }
+
+function docIcoSvg(kind){
+  if(kind==='xlsx'||kind==='success') return '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="17"/><line x1="16" y1="13" x2="8" y2="17"/>';
+  return '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>';
+}
+const DOC_TONE={danger:['var(--state-danger-bg)','var(--state-danger)'],success:['var(--state-success-bg)','var(--state-success)'],info:['var(--state-info-bg)','var(--state-info)']};
+
+let curPrepKey=null, curPrepEl=null;
+function openPrepare(key, el){
+  curPrepKey=key; curPrepEl=el||null;
+  const x=INST_PREP[key]; if(!x) return;
+  const agenda=x.agenda.map((a,i)=>'<div class="agenda-item"><span class="agenda-grip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg></span><span class="agenda-num">'+(i+1)+'</span><span class="agenda-txt">'+a[0]+'</span><span class="agenda-time">'+a[1]+'</span><span class="agenda-x" onclick="this.closest(\'.agenda-item\').remove()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></div>').join('');
+  const docs=x.docs.map(d=>{const t=DOC_TONE[d[2]];return '<div class="doc-row"><span class="doc-ico" style="background:'+t[0]+';color:'+t[1]+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">'+docIcoSvg(d[2])+'</svg></span><div class="doc-body"><div class="doc-name">'+d[0]+'</div><div class="doc-meta">'+d[1]+'</div></div><span class="doc-act">Voir</span></div>';}).join('');
+  const docsSec = x.docs.length ? docs : '<div class="doc-row" style="justify-content:center;color:var(--neutral-400);font-size:12.5px;font-weight:600;border-style:dashed">Aucun support joint pour le moment</div>';
+  const arb=x.arb.map(a=>'<div class="arb-row"><span class="arb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><div class="arb-body"><div class="arb-title">'+a[0]+'</div><div class="arb-meta">'+a[1]+'</div></div></div>').join('');
+  const arbSec = x.arb.length ? '<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>Points à arbitrer</span></div>'+arb+'</div>' : '';
+  const parts=x.parts.map(p=>'<span class="part-chip"><span class="av '+p[1]+'">'+p[0]+'</span>'+p[0]+'</span>').join('')+(x.partsN>x.parts.length?'<span class="part-chip">+'+(x.partsN-x.parts.length)+' autres</span>':'');
+  document.getElementById('prepBody').innerHTML=
+    '<div class="inst-banner" style="background:'+x.bg+';color:'+x.fg+'"><div class="ib-date" style="color:'+x.fg+'"><span class="d">'+x.d+'</span><span class="m">'+x.m+'</span></div><div class="ib-meta"><div class="ib-title">'+x.name+'<span class="badge '+x.badge+'">'+x.type+'</span></div><div class="ib-sub">'+x.sub+'</div></div></div>'
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Ordre du jour</span><span class="inst-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ajouter un point</span></div>'+agenda+'</div>'
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Supports de séance</span><span class="inst-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Joindre un fichier</span></div>'+docsSec+'</div>'
+    +arbSec
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>Participants ('+x.partsN+')</span></div><div class="part-grid">'+parts+'</div></div>';
+  document.getElementById('prepModal').classList.add('open');
+}
+function closePrepare(){ document.getElementById('prepModal').classList.remove('open'); }
+function startFromPrepare(){ closePrepare(); openMeeting(curPrepKey, curPrepEl); }
+function sendConvocation(){
+  if(curPrepEl){
+    const stat=curPrepEl.querySelector('.cyc-stat');
+    if(stat) stat.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/></svg>Convoqué · prêt à animer';
+    const link=curPrepEl.querySelector('.cyc-link');
+    if(link){ link.setAttribute('onclick', "openMeeting('"+curPrepKey+"', this.closest('.cyc-item'))"); link.innerHTML='Animer la séance<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>'; }
+  }
+  closePrepare();
+  showToast('Convocation envoyée · séance prête à être animée');
+}
+
+/* ─── Animer la séance (déroulement live) ─── */
+const VERD={adopte:{label:'Adopté',c:'var(--state-success)',bg:'var(--state-success-bg)'},rejete:{label:'Rejeté',c:'var(--state-danger)',bg:'var(--state-danger-bg)'},reporte:{label:'Reporté',c:'var(--brand-gold-700)',bg:'var(--brand-gold-050)'}};
+let MEET=null, MEET_EL=null, MEET_KEY=null;
+function openMeeting(key, el){
+  const x=INST_PREP[key]; if(!x) return;
+  MEET_KEY=key; MEET_EL=el||null;
+  MEET={
+    points:x.agenda.map(a=>({title:a[0],time:a[1],status:'todo',kind:'presentation',notes:[],docs:[],decisions:[],arbs:[],actions:[],risks:[]})),
+    present:x.parts.map(p=>({ini:p[0],cls:p[1],present:true})),
+    cur:0, pendVerdict:'adopte', t0:Date.now(), name:x.name, badge:x.badge, type:x.type, timerId:null, avail:(x.docs||[]).map(d=>d[0])
+  };
+  if(MEET.points.length) MEET.points[0].status='cur';
+  document.getElementById('meetSub').textContent=x.name+' · '+x.sub;
+  renderMeet();
+  document.getElementById('meetModal').classList.add('open');
+  meetTick(); MEET.timerId=setInterval(meetTick,1000);
+}
+function meetTick(){
+  if(!MEET) return;
+  const s=Math.floor((Date.now()-MEET.t0)/1000);
+  const el=document.getElementById('meetTimer');
+  if(el) el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function closeMeeting(){ if(MEET&&MEET.timerId) clearInterval(MEET.timerId); document.getElementById('meetModal').classList.remove('open'); }
+function meetToggleAtt(i){ MEET.present[i].present=!MEET.present[i].present; renderMeet(); }
+function meetSelectStep(i){ MEET.points.forEach(p=>{ if(p.status==='cur') p.status='todo'; }); MEET.cur=i; if(MEET.points[i].status!=='done') MEET.points[i].status='cur'; renderMeet(); }
+function meetSetVerdict(v){ MEET.pendVerdict=v; renderMeet(); }
+function meetSetKind(k){ MEET.points[MEET.cur].kind=k; renderMeet(); }
+function meetAddNote(){ const el=document.getElementById('meet-note-in'); const v=el.value.trim(); if(!v) return; MEET.points[MEET.cur].notes.push(v); renderMeet(); }
+function meetLinkDoc(sel){ if(!sel.value) return; MEET.points[MEET.cur].docs.push({name:sel.value,ext:false}); renderMeet(); }
+function meetAddLink(){ const el=document.getElementById('meet-link-in'); const v=el.value.trim(); if(!v) return; MEET.points[MEET.cur].docs.push({name:v,ext:true}); renderMeet(); }
+function meetRouteDecision(i,kind){ const p=MEET.points[MEET.cur]; const d=p.decisions[i]; if(d.route) return; d.route=kind; if(kind==='action'){ p.actions.push({title:d.text,owner:'—',due:'À planifier'}); } else { p.risks.push({title:d.text,level:'Moyen'}); } renderMeet(); }
+function meetAddRisk(){ const el=document.getElementById('meet-risk-in'); const v=el.value.trim(); if(!v) return; MEET.points[MEET.cur].risks.push({title:v,level:'Moyen'}); renderMeet(); }
+function meetAddDecision(){ const el=document.getElementById('meet-dec-in'); const v=el.value.trim(); if(!v) return; MEET.points[MEET.cur].decisions.push({text:v,route:null}); renderMeet(); }
+function meetAddArb(){ const el=document.getElementById('meet-arb-in'); const v=el.value.trim(); if(!v) return; MEET.points[MEET.cur].arbs.push({title:v,verdict:MEET.pendVerdict}); renderMeet(); }
+function meetAddAction(){ const el=document.getElementById('meet-act-in'); const v=el.value.trim(); if(!v) return; const owner=document.getElementById('meet-act-owner').value; const due=document.getElementById('meet-act-due').value.trim(); MEET.points[MEET.cur].actions.push({title:v,owner:owner,due:due}); renderMeet(); }
+function meetDel(kind,i){ MEET.points[MEET.cur][kind].splice(i,1); renderMeet(); }
+function meetNext(){ const p=MEET.points[MEET.cur]; p.status='done'; if(MEET.cur<MEET.points.length-1){ MEET.cur++; MEET.points[MEET.cur].status='cur'; } renderMeet(); }
+function mcX(kind,i){ return '<span class="mc-x" onclick="meetDel(\''+kind+'\','+i+')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>'; }
+function renderMeet(){
+  const presCount=MEET.present.filter(p=>p.present).length;
+  document.getElementById('meetPresence').innerHTML='<b>'+presCount+'/'+MEET.present.length+'</b> présents';
+  const done=MEET.points.filter(p=>p.status==='done').length;
+  document.getElementById('meetProgress').innerHTML='Point <b>'+(MEET.cur+1)+'/'+MEET.points.length+'</b> · '+done+' traité'+(done>1?'s':'');
+  document.getElementById('meetAtt').innerHTML=MEET.present.map((p,i)=>'<div class="meet-att-row'+(p.present?'':' absent')+'" onclick="meetToggleAtt('+i+')"><span class="av '+p.cls+'">'+p.ini+'</span><span class="meet-att-name">'+p.ini+'</span><span class="meet-att-tog"></span></div>').join('');
+  document.getElementById('meetSteps').innerHTML=MEET.points.map((p,i)=>{
+    const cls=p.status==='done'?'done':(i===MEET.cur?'cur':'');
+    const idx=p.status==='done'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':(i+1);
+    return '<div class="meet-step '+cls+'" onclick="meetSelectStep('+i+')"><span class="meet-step-idx">'+idx+'</span><span class="meet-step-txt">'+p.title+'</span>'+(p.kind==='decision'?'<span class="meet-step-kind" style="background:var(--brand-gold-050);color:var(--brand-gold-700)">Déc</span>':'<span class="meet-step-kind" style="background:var(--state-info-bg);color:var(--state-info)">Info</span>')+'<span class="meet-step-time">'+p.time+'</span></div>';
+  }).join('');
+  const p=MEET.points[MEET.cur];
+  const owners=MEET.present.filter(o=>o.present).map(o=>'<option value="'+o.ini+'">'+o.ini+'</option>').join('');
+  const chk='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>';
+  const decList=p.decisions.length?p.decisions.map((d,i)=>{
+    const route = d.route==='action' ? '<span class="mc-route done">'+chk+'Portée au plan d\'action</span>' : d.route==='risk' ? '<span class="mc-route done risk">'+chk+'Consignée en risque</span>' : '<span class="mc-route" onclick="meetRouteDecision('+i+',\'action\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Plan d\'action</span><span class="mc-route risk" onclick="meetRouteDecision('+i+',\'risk\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>Risque</span>';
+    return '<div class="meet-chip"><span class="mc-ico" style="color:var(--state-success)">'+chk+'</span><span class="mc-body">'+d.text+'<div class="mc-actions">'+route+'</div></span>'+mcX('decisions',i)+'</div>';
+  }).join(''):'<div class="meet-empty">Aucune décision actée</div>';
+  const arbList=p.arbs.length?p.arbs.map((a,i)=>{const v=VERD[a.verdict];return '<div class="meet-chip"><span class="mc-ico" style="color:'+v.c+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></span><span class="mc-body">'+a.title+'<span class="mc-badge" style="background:'+v.bg+';color:'+v.c+'">'+v.label+'</span></span>'+mcX('arbs',i)+'</div>';}).join(''):'<div class="meet-empty">Aucun arbitrage</div>';
+  const actList=p.actions.length?p.actions.map((a,i)=>'<div class="meet-chip"><span class="mc-ico" style="color:var(--state-info)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="mc-body">'+a.title+'<div class="mc-sub">'+(a.owner||'—')+(a.due?' · '+a.due:'')+'</div></span>'+mcX('actions',i)+'</div>').join(''):'<div class="meet-empty">Aucune action au plan</div>';
+  const riskList=p.risks.length?p.risks.map((r,i)=>'<div class="meet-chip"><span class="mc-ico" style="color:var(--state-danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span><span class="mc-body">'+r.title+'<span class="mc-badge" style="background:var(--state-danger-bg);color:var(--state-danger)">'+r.level+'</span></span>'+mcX('risks',i)+'</div>').join(''):'<div class="meet-empty">Aucun risque identifié</div>';
+  const noteList=p.notes.length?p.notes.map((n,i)=>'<div class="meet-chip"><span class="mc-ico" style="color:var(--neutral-500)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span><span class="mc-body">'+n+'</span>'+mcX('notes',i)+'</div>').join(''):'<div class="meet-empty">Aucun élément relevé</div>';
+  const docList=p.docs.length?p.docs.map((d,i)=>'<div class="doc-link-chip"><span class="dl-ico">'+(d.ext?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>')+'</span><span class="dl-name">'+d.name+'</span>'+mcX('docs',i)+'</div>').join(''):'<div class="meet-empty">Aucun document lié</div>';
+  const isPres=p.kind!=='decision';
+  const availOpts=MEET.avail.map(n=>'<option value="'+n+'">'+n+'</option>').join('');
+  const natSeg='<div class="meet-nat"><button class="meet-natbtn'+(isPres?' sel':'')+'" onclick="meetSetKind(\'presentation\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 3h20v14H2z"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Présentation / info</button><button class="meet-natbtn'+(!isPres?' sel':'')+'" onclick="meetSetKind(\'decision\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Décision / arbitrage</button></div>';
+  const notesCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h20v14H2z"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Relevé de présentation</div><div class="meet-inrow"><input class="input" id="meet-note-in" placeholder="Élément présenté, point d\'information…" onkeydown="if(event.key===\'Enter\')meetAddNote()"><button class="meet-mini-btn" onclick="meetAddNote()">Noter</button></div><div class="meet-captured">'+noteList+'</div></div>';
+  const docsCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Documents présentés</div><div class="meet-inrow"><select class="nselect" onchange="meetLinkDoc(this)"><option value="">Lier un support de séance…</option>'+availOpts+'</select></div><div class="meet-inrow" style="margin-top:8px"><input class="input" id="meet-link-in" placeholder="…ou coller un lien externe" onkeydown="if(event.key===\'Enter\')meetAddLink()"><button class="meet-mini-btn" onclick="meetAddLink()">Lier</button></div><div class="meet-captured">'+docList+'</div></div>';
+  const cta='<button class="meet-cta" onclick="meetSetKind(\'decision\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Cette présentation mène à une décision →</button>';
+  const backLink='<span class="meet-back" onclick="meetSetKind(\'presentation\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>Repasser en présentation</span>';
+  const decCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Décisions</div><div class="meet-inrow"><input class="input" id="meet-dec-in" placeholder="Formuler une décision actée…" onkeydown="if(event.key===\'Enter\')meetAddDecision()"><button class="meet-mini-btn" onclick="meetAddDecision()">Acter</button></div><div class="meet-captured">'+decList+'</div></div>';
+  const arbCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>Arbitrage</div><div class="meet-verdict"><button class="meet-vbtn'+(MEET.pendVerdict==='adopte'?' sel':'')+'" data-v="adopte" onclick="meetSetVerdict(\'adopte\')">Adopté</button><button class="meet-vbtn'+(MEET.pendVerdict==='rejete'?' sel':'')+'" data-v="rejete" onclick="meetSetVerdict(\'rejete\')">Rejeté</button><button class="meet-vbtn'+(MEET.pendVerdict==='reporte'?' sel':'')+'" data-v="reporte" onclick="meetSetVerdict(\'reporte\')">Reporté</button></div><div class="meet-inrow"><input class="input" id="meet-arb-in" placeholder="Objet de l\'arbitrage…" onkeydown="if(event.key===\'Enter\')meetAddArb()"><button class="meet-mini-btn" onclick="meetAddArb()">Trancher</button></div><div class="meet-captured">'+arbList+'</div></div>';
+  const actCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Plan d\'action</div><div class="meet-inrow"><input class="input" id="meet-act-in" placeholder="Décrire l\'action…"><select class="nselect" id="meet-act-owner">'+owners+'</select><input class="input" id="meet-act-due" placeholder="Échéance" style="max-width:110px"><button class="meet-mini-btn" onclick="meetAddAction()">Assigner</button></div><div class="meet-captured">'+actList+'</div></div>';
+  const riskCap='<div class="meet-cap"><div class="meet-cap-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Risques</div><div class="meet-inrow"><input class="input" id="meet-risk-in" placeholder="Décrire un risque identifié…" onkeydown="if(event.key===\'Enter\')meetAddRisk()"><button class="meet-mini-btn" onclick="meetAddRisk()">Consigner</button></div><div class="meet-captured">'+riskList+'</div></div>';
+  const isLast=MEET.cur===MEET.points.length-1;
+  const nextBtn=isLast?'':'<div class="meet-next"><button class="meet-next-btn" onclick="meetNext()">Valider ce point<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div>';
+  let panel='<div class="meet-panel-h">Point '+(MEET.cur+1)+' — '+p.title+'</div>'
+    +'<div class="meet-panel-sub">Durée prévue '+p.time+' · '+(isPres?'présentation / information':'décision / arbitrage')+'</div>'
+    +natSeg;
+  if(isPres){ panel += notesCap + docsCap + cta; }
+  else { panel += backLink + decCap + arbCap + actCap + riskCap; }
+  panel += nextBtn;
+  document.getElementById('meetPanel').innerHTML=panel;
+}
+function finishMeeting(){
+  if(!MEET) return;
+  const decisions=[];
+  MEET.points.forEach(p=>{ p.decisions.forEach(d=>decisions.push([d.text, d.route==='action'?'Portée au plan d\'action':(d.route==='risk'?'Consignée en risque':'Actée en séance')])); p.arbs.forEach(a=>decisions.push([a.title, 'Arbitrage · '+VERD[a.verdict].label])); });
+  const actions=[];
+  MEET.points.forEach(p=>p.actions.forEach(a=>actions.push([a.title,(a.owner||'—')+(a.due?' · '+a.due:''),false])));
+  const risks=[];
+  MEET.points.forEach(p=>p.risks.forEach(r=>risks.push([r.title,r.level])));
+  const presented=[];
+  MEET.points.forEach(p=>{ p.notes.forEach(n=>presented.push([p.title,n])); p.docs.forEach(d=>presented.push([p.title,(d.ext?'🔗 ':'📎 ')+d.name])); });
+  const present=MEET.present.filter(p=>p.present).map(p=>[p.ini,p.cls]);
+  const absent=MEET.present.filter(p=>!p.present).map(p=>[p.ini,p.cls]);
+  const x=INST_PREP[MEET_KEY];
+  INST_CR[MEET_KEY]={
+    name:MEET.name, type:MEET.type, badge:MEET.badge, bg:x.bg, fg:x.fg, d:x.d, m:x.m, sub:x.sub,
+    stats:[[String(decisions.length),'Décisions'],[String(actions.length),'Actions'],[present.length+'/'+MEET.present.length,'Présents']],
+    presented:presented,
+    risks:risks,
+    decisions: decisions.length?decisions:[['Aucune décision actée','—']],
+    actions: actions.length?actions:[['Aucune action assignée','—',false]],
+    present:present, absent:absent,
+    docs:[['Compte-rendu — '+MEET.name+'.pdf','PDF · généré à l\'instant','success']]
+  };
+  if(MEET_EL){
+    const dt=MEET_EL.querySelector('.cyc-date'); if(dt) dt.classList.add('past');
+    const top=MEET_EL.querySelector('.cyc-toprow'); if(top && !top.querySelector('.tenu-badge')) top.insertAdjacentHTML('beforeend','<span class="badge tenu-badge" style="background:var(--state-success-bg);color:var(--state-success)">Tenu</span>');
+    const stat=MEET_EL.querySelector('.cyc-stat'); if(stat) stat.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>CR disponible';
+    const link=MEET_EL.querySelector('.cyc-link'); if(link){ link.setAttribute('onclick', "openConsult('"+MEET_KEY+"')"); link.innerHTML='Consulter<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>'; }
+  }
+  closeMeeting();
+  showToast('Séance clôturée · compte-rendu généré');
+}
+
+function openConsult(key){
+  const x=INST_CR[key]; if(!x) return;
+  const stats=x.stats.map(s=>'<div class="inst-sum-cell"><div class="inst-sum-val">'+s[0]+'</div><div class="inst-sum-lbl">'+s[1]+'</div></div>').join('');
+  const decisions=x.decisions.map(d=>'<div class="dec-taken"><span class="dec-taken-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg></span><div class="dec-taken-body"><div class="dec-taken-title">'+d[0]+'</div><div class="dec-taken-meta">'+d[1]+'</div></div></div>').join('');
+  const actions=x.actions.map(a=>'<div class="act-row"><span class="act-check'+(a[2]?' done':'')+'">'+(a[2]?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':'')+'</span><div class="act-body"><div class="act-title'+(a[2]?' done':'')+'">'+a[0]+'</div><div class="act-meta">'+a[1]+'</div></div></div>').join('');
+  const present=x.present.map(p=>'<span class="part-chip"><span class="pstat" style="background:var(--state-success)"></span><span class="av '+p[1]+'">'+p[0]+'</span>'+p[0]+'</span>').join('');
+  const absent=x.absent.map(p=>'<span class="part-chip absent"><span class="pstat" style="background:var(--neutral-300)"></span><span class="av '+p[1]+'">'+p[0]+'</span>'+p[0]+'</span>').join('');
+  const docs=x.docs.map(d=>{const t=DOC_TONE[d[2]];return '<div class="doc-row"><span class="doc-ico" style="background:'+t[0]+';color:'+t[1]+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">'+docIcoSvg(d[2])+'</svg></span><div class="doc-body"><div class="doc-name">'+d[0]+'</div><div class="doc-meta">'+d[1]+'</div></div><span class="doc-act">Télécharger</span></div>';}).join('');
+  const presentedSec=(x.presented&&x.presented.length)?'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 3h20v14H2z"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Éléments présentés</span></div>'+x.presented.map(pr=>'<div class="dec-taken"><span class="dec-taken-ico" style="background:var(--state-info-bg);color:var(--state-info)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span><div class="dec-taken-body"><div class="dec-taken-title">'+pr[1]+'</div><div class="dec-taken-meta">'+pr[0]+'</div></div></div>').join('')+'</div>':'';
+  const risksSec=(x.risks&&x.risks.length)?'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Risques identifiés</span></div>'+x.risks.map(r=>'<div class="dec-taken"><span class="dec-taken-ico" style="background:var(--state-danger-bg);color:var(--state-danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg></span><div class="dec-taken-body"><div class="dec-taken-title">'+r[0]+'</div><div class="dec-taken-meta">Niveau · '+r[1]+'</div></div></div>').join('')+'</div>':'';
+  document.getElementById('consultBody').innerHTML=
+    '<div class="inst-banner" style="background:'+x.bg+';color:'+x.fg+'"><div class="ib-date" style="color:'+x.fg+'"><span class="d">'+x.d+'</span><span class="m">'+x.m+'</span></div><div class="ib-meta"><div class="ib-title">'+x.name+'<span class="badge '+x.badge+'">'+x.type+'</span><span class="badge" style="background:var(--state-success-bg);color:var(--state-success)">Tenu</span></div><div class="ib-sub">'+x.sub+'</div></div></div>'
+    +'<div class="inst-summary">'+stats+'</div>'
+    +presentedSec
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="20 6 9 17 4 12"/></svg>Décisions actées</span></div>'+decisions+'</div>'
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Plan d\'action</span></div>'+actions+'</div>'
+    +risksSec
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Relevé de présence</span></div><div class="part-grid">'+present+absent+'</div></div>'
+    +'<div class="inst-sec"><div class="inst-sec-head"><span class="inst-sec-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Documents</span></div>'+docs+'</div>';
+  document.getElementById('consultModal').classList.add('open');
+}
+function closeConsult(){ document.getElementById('consultModal').classList.remove('open'); }
+function bmPickType(el){ document.querySelectorAll('#budgetModal .type-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); }
+function bmCalc(){
+  const ht=parseFloat((document.getElementById('bm-ht').value||'0').replace(/[^0-9.]/g,''))||0;
+  const rate=parseFloat(document.getElementById('bm-tva').value)||0;
+  const ttc=Math.round(ht*(1+rate/100));
+  document.getElementById('bm-ttc').textContent=fmtEur(ttc);
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeBudgetModal(); closePlan(); closeCalendar(); closePrepare(); closeConsult(); closeMeeting(); mbCloseDepense(); mbCloseReaffect(); mbCloseForecast(); ppCloseCreate(); ppCloseCand(); } });
+
+/* toast */
+function showToast(msg){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML='<span class="toast-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>'+msg;
+  w.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 3200);
+}
+
+/* Enregistrer une dépense → ajoute la ligne dans le tableau Factures */
+let factureSeq=161;
+function saveBudget(){
+  const label=(document.getElementById('bm-label').value||'').trim() || 'Nouvelle dépense';
+  const cat=document.getElementById('bm-cat').value;
+  const sup=document.getElementById('bm-sup').value;
+  const ttc=document.getElementById('bm-ttc').textContent;
+  const dRaw=document.querySelector('#budgetModal input[type=date]').value;
+  let dLabel='—';
+  if(dRaw){ const dt=new Date(dRaw+'T00:00'); dLabel=dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}); }
+  const typePill=document.querySelector('#budgetModal .type-pill.sel');
+  const statut=(typePill&&typePill.dataset.type)||'Engagée';
+  const statusClass={'Engagée':'is-engage','Facturée':'is-facture','Payée':'is-paye'}[statut]||'is-engage';
+  const prefix=statut==='Engagée'?'CMD':'FAC';
+  const ref=prefix+'-2025-0'+(++factureSeq);
+  const tb=document.getElementById('factures-tbody');
+  const tr=document.createElement('tr');
+  tr.className='row-flash'; tr.style.cursor='pointer';
+  tr.innerHTML='<td><div><div class="cell-strong">'+ref+'</div><div class="cell-sub">'+label+'</div></div></td>'
+    +'<td>'+sup+'</td>'
+    +'<td><span class="badge bdg-neutral nodot">'+cat+'</span></td>'
+    +'<td style="font-weight:700;font-variant-numeric:tabular-nums">'+ttc+'</td>'
+    +'<td style="color:var(--neutral-600)">'+dLabel+'</td>'
+    +'<td style="color:var(--neutral-600)">—</td>'
+    +'<td class="right"><span class="invoice-status '+statusClass+'">'+statut+'</span></td>';
+  tb.insertBefore(tr, tb.firstChild);
+  closeBudgetModal();
+  showBud('factures');
+  showToast('Dépense enregistrée · '+ttc+' ('+statut.toLowerCase()+')');
+  // reset
+  document.getElementById('bm-label').value='';
+}
+
+/* Rend tous les segmented-toggles cliquables (état actif) */
+document.addEventListener('click',e=>{
+  const seg=e.target.closest('.seg-toggle .seg-btn');
+  if(seg){ seg.parentElement.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active')); seg.classList.add('active'); }
+});
+
+/* ─── Mode présentation CODIR ─── */
+const PRESENT_PROJECTS=[
+  {name:'Refonte Portail Client',cat:'Transformation digitale',owner:'Marc Dupont',av:'MD',avc:'av-2',icoc:'ti-gold',ico:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',health:'excellente',htone:'success',status:'En cours',stone:'success',
+    indics:[{l:'Avancement',v:'68%',f:'12/18 tâches',c:'#9DCBF5',bar:68,barc:'var(--state-info)'},{l:'Budget',v:'65%',f:'78,5/120 k€',c:'#fff',bar:65,barc:'var(--brand-gold)'},{l:'Risques',v:'2',f:'0 critique',c:'#F4D58A',bar:33,barc:'var(--brand-gold)'},{l:'Échéance',v:'30 juin',f:'Dans les temps',c:'#A8E0C4',bar:100,barc:'var(--state-success)'}],
+    timeline:[{l:'Cadrage',d:'Mars',s:'done'},{l:'Conception',d:'Avril',s:'done'},{l:'Dévelop.',d:'Mai',s:'current'},{l:'Recette',d:'Juin',s:''},{l:'Mise en prod',d:'30 juin',s:''}],
+    next:{m:'Validation maquette',d:'15 mai 2025'},risk:{m:'Adoption utilisateurs',lvl:'Modéré'},team:['MD av-2','SL av-3','JT av-1','AB av-6'],
+    decisions:[{t:'Validation du parcours client cible',m:'COPIL · 2 mai',tag:'Acté',tone:'success'},{t:'Renfort UX 0,5 ETP sur la recette',m:'Marc D. · 28 avr.',tag:'Arbitrage',tone:'info'}]},
+  {name:'Migration Cloud',cat:'IT & Infrastructure',owner:'Sophie Leroy',av:'SL',avc:'av-3',icoc:'ti-blue',ico:'<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',health:'critique',htone:'danger',status:'En retard',stone:'danger',
+    indics:[{l:'Avancement',v:'35%',f:'retard 3 sem.',c:'#F4B0A8',bar:35,barc:'var(--state-danger)'},{l:'Budget',v:'88%',f:'70,4/80 k€',c:'#F4B0A8',bar:88,barc:'var(--state-danger)'},{l:'Risques',v:'4',f:'2 critiques',c:'#F4B0A8',bar:80,barc:'var(--state-danger)'},{l:'Échéance',v:'15 mai',f:'Dépassée',c:'#F4B0A8',bar:100,barc:'var(--state-danger)'}],
+    timeline:[{l:'Cadrage',d:'Janv',s:'done'},{l:'Lift & shift',d:'Mars',s:'done'},{l:'Migration',d:'Mai',s:'current'},{l:'Bascule',d:'Juil',s:''},{l:'Décommiss.',d:'Sept',s:''}],
+    next:{m:'Bascule env. production',d:'02 juin 2025'},risk:{m:'Dépassement budget +6 k€',lvl:'Critique'},team:['SL av-3','PD av-4','MD av-2'],
+    decisions:[{t:'Demande de rallonge +6 k€ au COMEX',m:'à arbitrer · 18 juin',tag:'En attente',tone:'warn'},{t:'Plan de continuité prestataire activé',m:'Sophie L. · 12 mai',tag:'Acté',tone:'success'}]},
+  {name:'Conformité RGPD',cat:'Gouvernance & conformité',owner:'Julien Thomas',av:'JT',avc:'av-1',icoc:'ti-green',ico:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',health:'bonne',htone:'info',status:'En cours',stone:'success',
+    indics:[{l:'Avancement',v:'90%',f:'phase finale',c:'#A8E0C4',bar:90,barc:'var(--state-success)'},{l:'Budget',v:'90%',f:'40,5/45 k€',c:'#fff',bar:90,barc:'var(--brand-gold)'},{l:'Risques',v:'1',f:'0 critique',c:'#A8E0C4',bar:20,barc:'var(--state-success)'},{l:'Échéance',v:'28 févr.',f:'Dans les temps',c:'#A8E0C4',bar:100,barc:'var(--state-success)'}],
+    timeline:[{l:'Audit',d:'Oct',s:'done'},{l:'Cartographie',d:'Déc',s:'done'},{l:'Remédiation',d:'Févr',s:'done'},{l:'Contrôles',d:'Avril',s:'current'},{l:'Certification',d:'Mai',s:''}],
+    next:{m:'Revue finale CNIL',d:'20 mai 2025'},risk:{m:'Délai validation juridique',lvl:'Faible'},team:['JT av-1','AB av-6'],
+    decisions:[{t:'Registre des traitements validé',m:'DPO · 5 mai',tag:'Acté',tone:'success'},{t:'Procédure de notification CNIL en revue',m:'Julien T. · 2 mai',tag:'En cours',tone:'info'}]},
+  {name:'Application Mobile',cat:'Produit & Innovation',owner:'Alice Bernard',av:'AB',avc:'av-6',icoc:'ti-purple',ico:'<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/>',health:'à surveiller',htone:'warn',status:'Planifié',stone:'info',
+    indics:[{l:'Avancement',v:'12%',f:'cadrage',c:'#9DCBF5',bar:12,barc:'var(--state-info)'},{l:'Budget',v:'12%',f:'7,2/60 k€',c:'#fff',bar:12,barc:'var(--state-info)'},{l:'Risques',v:'2',f:'0 critique',c:'#F4D58A',bar:33,barc:'var(--brand-gold)'},{l:'Échéance',v:'30 sept.',f:'À lancer',c:'rgba(255,255,255,.6)',bar:0,barc:'var(--neutral-400)'}],
+    timeline:[{l:'Cadrage',d:'Mai',s:'current'},{l:'Design',d:'Juin',s:''},{l:'Dévelop.',d:'Juil',s:''},{l:'Beta',d:'Sept',s:''},{l:'Lancement',d:'30 sept',s:''}],
+    next:{m:'Go/No Go lancement',d:'23 mai 2025'},risk:{m:'Disponibilité ressources',lvl:'Modéré'},team:['AB av-6','JT av-1'],
+    decisions:[{t:'Go/No Go prévu au COPIL du 23 mai',m:'à décider · 23 mai',tag:'En attente',tone:'warn'},{t:'Périmètre MVP arrêté (3 modules)',m:'Alice B. · 6 mai',tag:'Acté',tone:'success'}]},
+  {name:'Data & BI Finance',cat:'Transformation digitale',owner:'Paul Dubois',av:'PD',avc:'av-4',icoc:'ti-gold',ico:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',health:'bonne',htone:'info',status:'En cours',stone:'success',
+    indics:[{l:'Avancement',v:'50%',f:'mi-parcours',c:'#9DCBF5',bar:50,barc:'var(--state-info)'},{l:'Budget',v:'50%',f:'27,5/55 k€',c:'#fff',bar:50,barc:'var(--brand-gold)'},{l:'Risques',v:'1',f:'0 critique',c:'#A8E0C4',bar:20,barc:'var(--state-success)'},{l:'Échéance',v:'31 oct.',f:'Dans les temps',c:'#A8E0C4',bar:100,barc:'var(--state-success)'}],
+    timeline:[{l:'Cadrage',d:'Févr',s:'done'},{l:'Modèle data',d:'Mars',s:'done'},{l:'Pipelines',d:'Mai',s:'current'},{l:'Dashboards',d:'Août',s:''},{l:'Déploiement',d:'31 oct',s:''}],
+    next:{m:'Recette des pipelines',d:'10 juin 2025'},risk:{m:'Qualité données sources',lvl:'Modéré'},team:['PD av-4','SL av-3','JT av-1'],
+    decisions:[{t:'Choix de l\'outil de dataviz (Power BI)',m:'CRA · 28 avr.',tag:'Acté',tone:'success'},{t:'Gouvernance de la donnée à cadrer',m:'Paul D. · 14 mai',tag:'À traiter',tone:'info'}]},
+  {name:'Remplacement SI RH',cat:'RH & Organisation',owner:'Sophie Leroy',av:'SL',avc:'av-3',icoc:'ti-red',ico:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',health:'à surveiller',htone:'warn',status:'À surveiller',stone:'warn',
+    indics:[{l:'Avancement',v:'74%',f:'en cours',c:'#F4D58A',bar:74,barc:'var(--brand-gold)'},{l:'Budget',v:'79%',f:'tendu',c:'#F4D58A',bar:79,barc:'var(--brand-gold)'},{l:'Risques',v:'3',f:'1 élevé',c:'#F4D58A',bar:60,barc:'var(--brand-gold)'},{l:'Échéance',v:'31 déc.',f:'Sous tension',c:'#F4D58A',bar:74,barc:'var(--brand-gold)'}],
+    timeline:[{l:'Cadrage',d:'Janv',s:'done'},{l:'Paramétrage',d:'Mars',s:'done'},{l:'Reprise data',d:'Mai',s:'current'},{l:'Formation',d:'Oct',s:''},{l:'Bascule',d:'31 déc',s:''}],
+    next:{m:'Reprise des données legacy',d:'30 juin 2025'},risk:{m:'Dette technique legacy',lvl:'Élevé'},team:['SL av-3','PD av-4','MD av-2','JT av-1'],
+    decisions:[{t:'Report de la bascule à fin décembre',m:'COPIL · 2 mai',tag:'Acté',tone:'warn'},{t:'Stratégie de reprise data validée',m:'Sophie L. · 9 mai',tag:'Acté',tone:'success'}]},
+];
+const HTONE={success:{bg:'rgba(31,138,91,.22)',fg:'#A8E0C4',ico:'<polyline points="20 6 9 17 4 12"/>'},info:{bg:'rgba(42,111,219,.22)',fg:'#9DCBF5',ico:'<polyline points="20 6 9 17 4 12"/>'},warn:{bg:'rgba(232,163,23,.2)',fg:'#F4D58A',ico:'<path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="10"/>'},danger:{bg:'rgba(180,35,24,.25)',fg:'#F4B0A8',ico:'<line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/><circle cx="12" cy="12" r="10"/>'}};
+const STONE={success:'bdg-success',danger:'bdg-danger',info:'bdg-info',warn:'bdg-warn'};
+const ICOBG={'ti-gold':'var(--brand-gold-050)','ti-blue':'var(--state-info-bg)','ti-green':'var(--state-success-bg)','ti-purple':'var(--purple-bg)','ti-red':'var(--state-danger-bg)'};
+const ICOFG={'ti-gold':'var(--brand-gold-700)','ti-blue':'var(--state-info)','ti-green':'var(--state-success)','ti-purple':'var(--purple)','ti-red':'var(--state-danger)'};
+let presentIdx=0, presentTotal=0;
+
+function buildPresentSlides(){
+  const host=document.getElementById('presentProjSlides');
+  const riskTone={'Critique':'#F4B0A8','Élevé':'#F4D58A','Modéré':'#F4D58A','Faible':'#A8E0C4'};
+  host.innerHTML=PRESENT_PROJECTS.map((p,i)=>{
+    const ht=HTONE[p.htone];
+    const indics=p.indics.map(d=>`<div class="pproj2-indic"><div class="pproj2-indic-label">${d.l}</div><div class="pproj2-indic-val" style="color:${d.c}">${d.v}</div><div class="pproj2-indic-foot">${d.f}</div></div>`).join('');
+    // timeline
+    const doneCount=p.timeline.filter(t=>t.s==='done').length;
+    const curIdx=p.timeline.findIndex(t=>t.s==='current');
+    const fillIdx=curIdx>=0?curIdx:doneCount-1;
+    const fillPct=p.timeline.length>1?(fillIdx/(p.timeline.length-1))*100:0;
+    const nodes=p.timeline.map(t=>`<div class="ptl-node ${t.s}"><div class="ptl-dot"></div><div class="ptl-label">${t.l}</div><div class="ptl-date">${t.d}</div></div>`).join('');
+    const team=p.team.map(t=>{const[ini,cls]=t.split(' ');return `<span class="av ${cls}">${ini}</span>`;}).join('');
+    const dtone={success:{bg:'rgba(31,138,91,.22)',fg:'#A8E0C4',ic:'<polyline points="20 6 9 17 4 12"/>'},info:{bg:'rgba(42,111,219,.2)',fg:'#9DCBF5',ic:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'},warn:{bg:'rgba(232,163,23,.2)',fg:'#F4D58A',ic:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'}};
+    const decis=(p.decisions||[]).map(d=>{const dt=dtone[d.tone];return `<div class="pdecis-row"><div class="pdecis-ico" style="background:${dt.bg};color:${dt.fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${dt.ic}</svg></div><div class="pdecis-body"><div class="pdecis-text">${d.t}</div><div class="pdecis-meta"><span class="pdecis-tag" style="background:${dt.bg};color:${dt.fg}">${d.tag}</span>${d.m}</div></div></div>`;}).join('');
+    return `<div class="pslide"><div class="pslide-eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reporting projet · ${i+1}/${PRESENT_PROJECTS.length}</div>
+      <div class="pproj2">
+        <div class="pproj2-left">
+          <div class="pproj-ico" style="background:${ICOBG[p.icoc]};color:${ICOFG[p.icoc]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">${p.ico}</svg></div>
+          <div class="pproj-name">${p.name}</div>
+          <div class="pproj-cat">${p.cat}</div>
+          <div class="pproj-owner"><span class="av ${p.avc}">${p.av}</span><span>${p.owner}</span></div>
+          <div class="pproj-health" style="background:${ht.bg};color:${ht.fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">${ht.ico}</svg>Santé ${p.health}</div>
+          <div class="pproj2-indics">${indics}</div>
+        </div>
+        <div class="pproj2-right">
+          <div>
+            <div class="ptl-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><circle cx="7" cy="12" r="2" fill="currentColor"/><circle cx="17" cy="12" r="2" fill="currentColor"/></svg>Feuille de route</div>
+            <div class="ptimeline">
+              <div class="ptl-track"></div><div class="ptl-track-fill" style="width:${fillPct}%"></div>
+              <div class="ptl-nodes">${nodes}</div>
+            </div>
+          </div>
+          <div class="pdecis">
+            <div class="ptl-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Dernières décisions</div>
+            <div class="pdecis-list">${decis}</div>
+          </div>
+          <div class="pproj2-cards">
+            <div class="pp2card"><div class="pp2card-label"><svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-gold)" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>Prochain jalon</div><div class="pp2card-main">${p.next.m}</div><div class="pp2card-sub">${p.next.d}</div></div>
+            <div class="pp2card"><div class="pp2card-label"><svg viewBox="0 0 24 24" fill="none" stroke="${riskTone[p.risk.lvl]}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>Risque principal</div><div class="pp2card-main">${p.risk.m}</div><div class="pp2card-sub" style="color:${riskTone[p.risk.lvl]}">Niveau ${p.risk.lvl}</div></div>
+            <div class="pp2card"><div class="pp2card-label"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Équipe · ${p.team.length}</div><div class="pp2-team">${team}</div></div>
+          </div>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+function openPresent(){
+  buildPresentSlides();
+  const slides=document.querySelectorAll('#presentStage .pslide');
+  presentTotal=slides.length;
+  // dots
+  const dots=document.getElementById('presentDots');
+  dots.innerHTML='';
+  for(let i=0;i<presentTotal;i++){ const d=document.createElement('div'); d.className='pdot'; d.onclick=()=>presentSet(i); dots.appendChild(d); }
+  presentIdx=0;
+  document.getElementById('present').classList.add('open');
+  presentSet(0);
+}
+function closePresent(){ document.getElementById('present').classList.remove('open'); }
+function presentSet(i){
+  presentIdx=Math.max(0,Math.min(i,presentTotal-1));
+  document.querySelectorAll('#presentStage .pslide').forEach((s,n)=>s.classList.toggle('active', n===presentIdx));
+  document.querySelectorAll('#presentDots .pdot').forEach((d,n)=>{ d.classList.toggle('active', n===presentIdx); d.classList.toggle('done', n<presentIdx); });
+  document.getElementById('presentCount').textContent=(presentIdx+1)+' / '+presentTotal;
+  document.getElementById('pPrev').disabled=presentIdx===0;
+  document.getElementById('pNext').disabled=presentIdx===presentTotal-1;
+}
+function presentGo(d){ presentSet(presentIdx+d); }
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('present').classList.contains('open')) return;
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ e.preventDefault(); presentGo(1); }
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); presentGo(-1); }
+  else if(e.key==='Escape'){ closePresent(); }
+});
+function npPickType(el,label){
+  document.querySelectorAll('#view-new .typecard').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const cat=label.replace(/&amp;/g,'&');
+  document.getElementById('npp-cat').textContent=cat;
+  const rt=document.getElementById('r-type'); if(rt) rt.textContent=cat;
+}
+function npPickMethod(el){
+  document.querySelectorAll('#view-new .methodcard').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const m=el.querySelector('.methodcard-name').textContent;
+  const rm=document.getElementById('r-method'); if(rm) rm.textContent=m;
+}
+/* ============================================================
+   VISION STRATÉGIQUE — axes & objectifs
+   ============================================================ */
+const AXIS_TONE={
+  success:{color:'var(--state-success)', bg:'var(--state-success-bg)', bar:'var(--state-success)', badge:'bdg-success', label:'En bonne trajectoire', icon:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'},
+  info:{color:'var(--state-info)', bg:'var(--state-info-bg)', bar:'var(--state-info)', badge:'bdg-success', label:'En bonne trajectoire', icon:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'},
+  warning:{color:'var(--state-warning)', bg:'var(--state-warning-bg)', bar:'var(--brand-gold)', badge:'bdg-warn', label:'Attention requise', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'},
+  purple:{color:'var(--purple)', bg:'var(--purple-bg)', bar:'var(--purple)', badge:'bdg-success', label:'En bonne trajectoire', icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>'}
+};
+let AXES=[
+  {id:'ax1', idx:1, name:'Performance opérationnelle', desc:"Industrialiser l'exploitation et fiabiliser les services pour atteindre 99,9% de disponibilité.", pct:85, tone:'success', total:6, completed:5, objectives:[]},
+  {id:'ax2', idx:2, name:'Transformation digitale', desc:"Moderniser le SI et l'expérience utilisateur pour accélérer la mise sur le marché des services.", pct:72, tone:'info', total:6, completed:4, objectives:[]},
+  {id:'ax3', idx:3, name:'Maîtrise des risques', desc:'Renforcer la cybersécurité et la conformité (DORA, RGPD) face à des exigences réglementaires croissantes.', pct:65, tone:'warning', total:6, completed:3, objectives:[]},
+  {id:'ax4', idx:4, name:'Talents & culture', desc:'Attirer et fidéliser les compétences clés, et diffuser une culture produit et data dans les équipes.', pct:78, tone:'purple', total:7, completed:5, objectives:[]}
+];
+function pad2(n){ return n<10?'0'+n:''+n; }
+function renderAxes(){
+  document.getElementById('axes-sec-title').textContent='Les '+AXES.length+' axes stratégiques';
+  document.getElementById('axis-grid').innerHTML=AXES.map(a=>{
+    const t=AXIS_TONE[a.tone];
+    return '<div class="card axiscard" style="'+(a.tone==='warning'?'border-color:#F2D9A8':'')+'">'
+      +'<div class="axiscard-head">'
+      +'<div class="axiscard-ico" style="background:'+t.bg+';color:'+t.color+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">'+t.icon+'</svg></div>'
+      +'<div><div class="axiscard-idx">Axe '+pad2(a.idx)+'</div><div class="axiscard-name">'+a.name+'</div></div>'
+      +'<div class="axiscard-pct" style="color:'+t.color+'">'+a.pct+'%</div>'
+      +'</div>'
+      +'<p class="axiscard-desc">'+a.desc+'</p>'
+      +'<div class="bigbar"><div class="bigbar-fill" style="width:'+a.pct+'%;background:'+t.bar+'"></div></div>'
+      +'<div class="axiscard-foot">'
+      +'<span class="badge '+t.badge+'">'+t.label+'</span>'
+      +'<span class="axiscard-obj" style="cursor:pointer" onclick="openAxisObjModal(\''+a.id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'+a.completed+'/'+a.total+' objectifs</span>'
+      +'</div></div>';
+  }).join('');
+}
+function openAxisModal(){
+  document.getElementById('ax-name').value='';
+  document.getElementById('ax-desc').value='';
+  document.getElementById('ax-total').value='';
+  document.querySelectorAll('#ax-tone .type-pill').forEach((p,i)=>p.classList.toggle('sel', i===0));
+  document.getElementById('axisModal').classList.add('open');
+}
+function closeAxisModal(){ document.getElementById('axisModal').classList.remove('open'); }
+function axPickTone(el){ el.parentElement.querySelectorAll('.type-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); }
+function saveAxis(){
+  const name=document.getElementById('ax-name').value.trim();
+  if(!name){ showToast && showToast('Merci de renseigner un nom'); return; }
+  const desc=document.getElementById('ax-desc').value.trim();
+  const total=parseInt(document.getElementById('ax-total').value,10)||0;
+  const tone=(document.querySelector('#ax-tone .type-pill.sel')||{}).dataset.tone||'success';
+  AXES.push({id:'ax'+Date.now(), idx:AXES.length+1, name, desc:desc||'Description à compléter.', pct:0, tone, total, completed:0, objectives:[]});
+  renderAxes();
+  closeAxisModal();
+}
+let AOM_CURRENT=null;
+function openAxisObjModal(axisId){
+  AOM_CURRENT=axisId;
+  const a=AXES.find(x=>x.id===axisId); if(!a) return;
+  document.getElementById('aom-sub').textContent=a.name;
+  renderObjList(a);
+  hideAddObjectiveForm();
+  document.getElementById('axisObjModal').classList.add('open');
+}
+function closeAxisObjModal(){ document.getElementById('axisObjModal').classList.remove('open'); AOM_CURRENT=null; }
+function renderObjList(a){
+  const list=document.getElementById('aom-list');
+  if(!a.objectives.length){
+    list.innerHTML='<div style="font-size:13px;color:var(--neutral-500);padding:6px 0">Aucun objectif détaillé pour le moment. Utilisez « Ajouter un objectif » pour en renseigner un.</div>';
+    return;
+  }
+  list.innerHTML='<table class="dt"><thead><tr><th>Objectif</th><th>Responsable</th><th>Échéance</th><th>Avancement</th></tr></thead><tbody>'
+    +a.objectives.map(o=>'<tr><td class="cell-strong">'+o.title+'</td><td>'+(o.who||'—')+'</td><td>'+(o.due||'—')+'</td><td>'
+      +'<div class="bigbar" style="width:100px;height:6px;display:inline-block;vertical-align:middle;margin-right:8px"><div class="bigbar-fill" style="width:'+o.pct+'%;background:'+(o.pct>=70?'var(--state-success)':o.pct>=40?'var(--brand-gold)':'var(--state-danger)')+'"></div></div>'+o.pct+'%</td></tr>').join('')
+    +'</tbody></table>';
+}
+function showAddObjectiveForm(){
+  document.getElementById('aom-form').style.display='block';
+  document.getElementById('aom-addbtn').style.display='none';
+  document.getElementById('aom-cancelbtn').style.display='inline-flex';
+  document.getElementById('aom-savebtn').style.display='inline-flex';
+  document.getElementById('aom-title').value='';
+  document.getElementById('aom-who').value='';
+  document.getElementById('aom-due').value='';
+  document.getElementById('aom-pct').value=0;
+  document.getElementById('aom-pct-val').textContent='0%';
+}
+function hideAddObjectiveForm(){
+  document.getElementById('aom-form').style.display='none';
+  document.getElementById('aom-addbtn').style.display='inline-flex';
+  document.getElementById('aom-cancelbtn').style.display='none';
+  document.getElementById('aom-savebtn').style.display='none';
+}
+function saveObjective(){
+  const a=AXES.find(x=>x.id===AOM_CURRENT); if(!a) return;
+  const title=document.getElementById('aom-title').value.trim();
+  if(!title){ showToast && showToast("Merci de renseigner un titre d'objectif"); return; }
+  const who=document.getElementById('aom-who').value.trim();
+  const due=document.getElementById('aom-due').value;
+  const pct=parseInt(document.getElementById('aom-pct').value,10)||0;
+  a.objectives.push({title, who, due, pct});
+  a.total+=1;
+  if(pct>=100) a.completed+=1;
+  renderObjList(a);
+  hideAddObjectiveForm();
+  renderAxes();
+}
+try{renderAxes();}catch(e){}
+
+function npToggleMember(el){ el.classList.toggle('sel'); npSync(); }
+function npSync(){
+  const name=(document.getElementById('f-name')||{}).value||'Refonte Portail Client';
+  const budget=(document.getElementById('f-budget')||{}).value||'120 000 €';
+  const due=(document.getElementById('f-due')||{}).value||'30 juin 2025';
+  document.getElementById('npp-name').textContent=name;
+  document.getElementById('npp-budget').textContent=budget;
+  document.getElementById('npp-due').textContent=due;
+  // team: chef + selected members
+  const sel=[...document.querySelectorAll('#view-new .member-row.sel')];
+  const count=sel.length+1;
+  document.getElementById('npp-team-count').textContent=count+' membre'+(count>1?'s':'');
+  const av=document.getElementById('npp-avatars');
+  let html='<div class="av av-2">MD</div>';
+  sel.forEach(m=>{ const a=m.querySelector('.av'); html+='<div class="av '+[...a.classList].filter(c=>c.startsWith('av-')).join(' ')+'">'+a.textContent+'</div>'; });
+  av.innerHTML=html;
+  // recap mirrors
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  set('r-name',name); set('r-budget',budget); set('r-due',due);
+  set('r-team', sel.length+' membre'+(sel.length>1?'s':''));
+}
+
+</script>
+</body>
+</html>

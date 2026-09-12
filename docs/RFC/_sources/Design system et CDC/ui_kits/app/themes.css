@@ -1,0 +1,316 @@
+/* 5 thèmes pour App Starium — boutons + icônes.
+   Chaque thème surcharge les tokens scopés à .app, plus .btn-primary
+   (qui était figé sur #FFD700, ici redéclaré par thème). */
+
+/* ── Font sources for theme families ────────────────────────
+   Outfit: self-hosted (font files in /fonts/).
+   Plus Jakarta Sans / DM Sans / Sora / Albert Sans: Google Fonts CDN.
+   ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=Albert+Sans:wght@400;500;600;700;800&display=swap');
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Thin.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url('../../fonts/Outfit-ExtraLight.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Light.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../../fonts/Outfit-SemiBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('../../fonts/Outfit-ExtraBold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('../../fonts/Outfit-Black.ttf') format('truetype');
+}
+
+/* Reset du figé sur .btn-primary pour que les thèmes pilotent */
+.app .btn-primary       { background: var(--app-btn-bg); color: var(--app-btn-fg); }
+.app .btn-primary:hover { background: var(--app-btn-hover); }
+.app .btn-primary:active{ background: var(--app-btn-press); }
+
+/* Anneaux d'icônes (sélecteur client, KPI, axes) — déjà sur --brand-gold-100/700.
+   On laisse les overrides de tokens piloter. */
+
+/* ============ A — Or sobre logo ============ */
+.app[data-theme="A"] {
+  --brand-gold-100: #FFF4DC;
+  --brand-gold-050: #FFFAEC;
+  --brand-gold-700: #A77100;
+  --app-btn-bg:    #DB9801;
+  --app-btn-fg:    #0E0E10;
+  --app-btn-hover: #C18600;
+  --app-btn-press: #A77100;
+}
+
+/* ============ B — Or chaud / ambre brûlé ============ */
+.app[data-theme="B"] {
+  --brand-gold-100: #F4D58A;
+  --brand-gold-050: #FBEAB5;
+  --brand-gold-700: #5F3F00;
+  --app-btn-bg:    #E8A317;
+  --app-btn-fg:    #0E0E10;
+  --app-btn-hover: #CC8E0E;
+  --app-btn-press: #A6730A;
+}
+
+/* ============ C — Encre + filet d'or ============ */
+.app[data-theme="C"] {
+  --brand-gold-100: #14130F;
+  --brand-gold-050: #1F1C18;
+  --brand-gold-700: #F2C453;
+  --app-btn-bg:    #0E0E10;
+  --app-btn-fg:    #FFFFFF;
+  --app-btn-hover: #1F1C18;
+  --app-btn-press: #2A2620;
+}
+.app[data-theme="C"] .btn-primary { box-shadow: inset 3px 0 0 #DB9801; }
+
+/* ============ D — Or olive désaturé ============ */
+.app[data-theme="D"] {
+  --brand-gold-100: #EDE3C2;
+  --brand-gold-050: #F6F0DA;
+  --brand-gold-700: #7A5A0F;
+  --app-btn-bg:    #B8860B;
+  --app-btn-fg:    #FFFFFF;
+  --app-btn-hover: #9E7309;
+  --app-btn-press: #815E07;
+}
+
+/* ============ E — Ambre + bronze ============ */
+.app[data-theme="E"] {
+  --brand-gold-100: #F2C453;
+  --brand-gold-050: #FAE19B;
+  --brand-gold-700: #7C4A00;
+  --app-btn-bg:    #F0B400;
+  --app-btn-fg:    #0E0E10;
+  --app-btn-hover: #D69F00;
+  --app-btn-press: #B38500;
+}
+
+/* ============ F — Champagne pâle ============ */
+.app[data-theme="F"] {
+  --brand-gold-100: #FAF1D9;
+  --brand-gold-050: #FDF8E8;
+  --brand-gold-700: #6B4D00;
+  --app-btn-bg:    #E5C77A;
+  --app-btn-fg:    #2A1F00;
+  --app-btn-hover: #D4B564;
+  --app-btn-press: #B89846;
+}
+
+/* ============ G — Cuivre ============ */
+.app[data-theme="G"] {
+  --brand-gold-100: #F1D9C2;
+  --brand-gold-050: #F9EBDA;
+  --brand-gold-700: #8A4F1B;
+  --app-btn-bg:    #B87333;
+  --app-btn-fg:    #FFFFFF;
+  --app-btn-hover: #9E5F22;
+  --app-btn-press: #804C18;
+}
+
+/* ============ H — Or sur encre (dark inversé) ============ */
+.app[data-theme="H"] {
+  --brand-gold-100: #2A2620;
+  --brand-gold-050: #1F1C18;
+  --brand-gold-700: #F2C453;
+  --app-btn-bg:    #F2C453;
+  --app-btn-fg:    #0E0E10;
+  --app-btn-hover: #DCB144;
+  --app-btn-press: #C39A33;
+}
+
+/* ============ I — Canari saturé ============ */
+.app[data-theme="I"] {
+  --brand-gold-100: #FFF1A8;
+  --brand-gold-050: #FFF8D2;
+  --brand-gold-700: #6B4D00;
+  --app-btn-bg:    #FFCB05;
+  --app-btn-fg:    #0E0E10;
+  --app-btn-hover: #E5B600;
+  --app-btn-press: #BF9700;
+}
+
+/* ============ J — Bronze antique ============ */
+.app[data-theme="J"] {
+  --brand-gold-100: #E0CFA0;
+  --brand-gold-050: #EEE3BF;
+  --brand-gold-700: #4A3700;
+  --app-btn-bg:    #8C6A1A;
+  --app-btn-fg:    #FFFFFF;
+  --app-btn-hover: #735715;
+  --app-btn-press: #5C4510;
+}
+
+/* ============ Familles typo (composables avec tout thème) ============
+   Active via data-font="X" sur .app — bascule headlines + body.
+   Esprit Apple sobre / luxe éditorial.
+   ====================================================================== */
+
+/* F1 — Outfit (défaut, géométrique, calme) */
+.app[data-font="F1"] {
+  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* F2 — Manrope (humaniste néo-grotesk, très Apple-like) */
+.app[data-font="F2"] {
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* F3 — Plus Jakarta Sans (géométrique premium, neo-grotesk) */
+.app[data-font="F3"] {
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* F4 — DM Sans (raffiné, low-contrast, esprit Apple) */
+.app[data-font="F4"] {
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* F5 — Sora (géométrique chaud, esprit luxe contemporain) */
+.app[data-font="F5"] {
+  --font-display: 'Sora', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'Sora', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* F6 — Albert Sans (humaniste sobre, très Apple SF Pro-like) */
+.app[data-font="F6"] {
+  --font-display: 'Albert Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans:    'Albert Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* ============ Menu sombre ============
+   Active via data-menu="dark" sur .app — repeint la sidebar en encre.
+   ================================================================== */
+.app[data-menu="dark"] .sidebar {
+  background: #0E0E10;
+  border-right-color: rgba(255,255,255,0.06);
+}
+.app[data-menu="dark"] .sidebar-brand {
+  border-bottom-color: rgba(255,255,255,0.08);
+}
+.app[data-menu="dark"] .sidebar-section {
+  color: rgba(255,255,255,0.45);
+}
+.app[data-menu="dark"] .nav-item {
+  color: rgba(255,255,255,0.72);
+}
+.app[data-menu="dark"] .nav-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: #FFFFFF;
+}
+.app[data-menu="dark"] .nav-item.active {
+  background: var(--brand-gold-100);
+  color: var(--brand-gold-700);
+}
+/* Si le thème courant a un --brand-gold-100 sombre (C, H), l'item actif
+   passe en or pur sur fond ambré pour rester lisible. */
+.app[data-theme="C"][data-menu="dark"] .nav-item.active,
+.app[data-theme="H"][data-menu="dark"] .nav-item.active {
+  background: rgba(242,196,83,0.15);
+  color: #F2C453;
+}
+.app[data-menu="dark"] .sidebar-footer {
+  border-top-color: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.55);
+}
+.app[data-menu="dark"] .sidebar-footer:hover { color: #FFFFFF; }
+/* Logo Starium : on bascule sur la version blanche. */
+.app[data-menu="dark"] .sidebar-brand img {
+  content: url('../../assets/logo-horizontal-white.png');
+}
+
+/* ============ Theme switcher chrome ============ */
+.theme-bar {
+  position: fixed; top: 12px; right: 12px; z-index: 100;
+  display: flex; gap: 6px; flex-wrap: wrap;
+  max-width: 720px;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: var(--shadow-3);
+  backdrop-filter: blur(6px);
+}
+.theme-bar .group-sep {
+  width: 1px; align-self: stretch; background: var(--border-subtle); margin: 0 2px;
+}
+.theme-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font: var(--text-caption); font-weight: 600;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+.theme-chip:hover { background: var(--neutral-100); color: var(--fg-1); }
+.theme-chip[aria-pressed="true"] { background: var(--neutral-100); color: var(--fg-1); border-color: var(--border-strong); }
+.theme-chip .sw {
+  width: 18px; height: 18px; border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background:
+    linear-gradient(135deg, var(--c1) 0 50%, var(--c2) 50% 100%);
+}
+.theme-chip[data-f] .sample {
+  font: var(--chip-font);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--fg-1);
+  width: 22px; text-align: center;
+  letter-spacing: -0.01em;
+}

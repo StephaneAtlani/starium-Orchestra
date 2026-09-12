@@ -1,0 +1,52 @@
+<!-- @dsCard group="Components" viewport="760x360" name="Button" subtitle="Action principale — variantes & tailles" -->
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Button — Starium</title>
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 40px; background: var(--bg-app); }
+  .wrap { display: flex; flex-direction: column; gap: 28px; max-width: 680px; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .lbl { font: var(--text-overline); letter-spacing: var(--tracking-overline); text-transform: uppercase; color: var(--fg-3); width: 100%; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const { Button } = window.StariumDesignSystem_019e02;
+  const h = React.createElement;
+  const plus = h('svg', { viewBox: '0 0 24 24', width: 15, height: 15, fill: 'none', stroke: 'currentColor', strokeWidth: 2.5, strokeLinecap: 'round' },
+    h('line', { x1: 12, y1: 5, x2: 12, y2: 19 }), h('line', { x1: 5, y1: 12, x2: 19, y2: 12 }));
+
+  function Demo() {
+    return h('div', { className: 'wrap' },
+      h('div', { className: 'row' },
+        h('span', { className: 'lbl' }, 'Variantes'),
+        h(Button, { variant: 'primary', iconLeft: plus }, 'Nouveau projet'),
+        h(Button, { variant: 'secondary' }, 'Exporter'),
+        h(Button, { variant: 'modifier' }, 'Modifier'),
+        h(Button, { variant: 'ghost' }, 'Annuler'),
+        h(Button, { variant: 'danger' }, 'Supprimer'),
+      ),
+      h('div', { className: 'row' },
+        h('span', { className: 'lbl' }, 'Tailles'),
+        h(Button, { variant: 'primary', size: 'sm' }, 'Small'),
+        h(Button, { variant: 'primary', size: 'md' }, 'Medium'),
+        h(Button, { variant: 'primary', size: 'lg' }, 'Large'),
+      ),
+      h('div', { className: 'row' },
+        h('span', { className: 'lbl' }, 'États'),
+        h(Button, { variant: 'primary' }, 'Actif'),
+        h(Button, { variant: 'primary', disabled: true }, 'Désactivé'),
+      ),
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(h(Demo));
+</script>
+</body>
+</html>

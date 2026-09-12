@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Onglets" subtitle="Stack vertical — filet à gauche" viewport="700x130" -->
+<html><head><meta charset="utf-8"><title>Tabs</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .tabs {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-subtle);
+    width: max-content;
+  }
+  .tab {
+    padding: 10px 16px;
+    font: var(--text-body);
+    font-weight: 500;
+    color: var(--fg-3);
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+  }
+  .tab:hover { color: var(--fg-1); }
+  .tab.active {
+    color: var(--brand-gold-700);
+    border-left-color: var(--brand-gold);
+    font-weight: 600;
+  }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:flex;gap:32px;align-items:flex-start;">
+    <div class="tabs">
+      <div class="tab active">Vue d'ensemble</div>
+      <div class="tab">Vision entreprise</div>
+      <div class="tab">Axes stratégiques</div>
+      <div class="tab">Objectifs</div>
+      <div class="tab">Alignement</div>
+      <div class="tab">Alertes</div>
+      <div class="tab">Historique</div>
+    </div>
+    <div style="font:var(--text-body-s);color:var(--fg-3);max-width:280px;padding-top:4px;">
+      Onglets verticaux : filet 2px à gauche en <span class="mono">--brand-gold</span> pour l'item actif, texte en <span class="mono">--brand-gold-700</span>. Sentence case.
+    </div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="KPI cards" subtitle="Versions 2 et 3 colonnes" viewport="980x380" -->
+<html><head><meta charset="utf-8"><title>KPI ring card</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .kpi {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow-1);
+  }
+  .ring {
+    width: 48px; height: 48px;
+    border-radius: 999px;
+    background: var(--brand-gold-100);
+    color: var(--brand-gold-700);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .label { font: var(--text-body-s); color: var(--fg-3); }
+  .value { font: var(--text-display-m); letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .delta { font: var(--text-caption); color: var(--state-success); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .foot  { font: var(--text-caption); color: var(--fg-3); margin-top: 2px; }
+  .section-label {
+    font: var(--text-overline);
+    letter-spacing: var(--tracking-overline);
+    text-transform: uppercase;
+    color: var(--fg-3);
+    margin: 0 0 10px;
+  }
+  .stack { display: flex; flex-direction: column; gap: 24px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+</style></head>
+<body>
+<div class="card-frame" style="width:980px;">
+  <div class="stack">
+
+    <!-- 2-column -->
+    <section>
+      <div class="section-label">2 colonnes</div>
+      <div class="grid-2">
+        <div class="kpi">
+          <div class="ring"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <div class="body">
+            <div class="label">Score d'alignement global</div>
+            <div class="value">82%</div>
+            <div class="delta">↑ 6 pts vs T1 2025</div>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="ring"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div>
+          <div class="body">
+            <div class="label">Objectifs en bonne trajectoire</div>
+            <div class="value">14<span style="color:var(--fg-3);font-weight:500;"> / 18</span></div>
+            <div class="foot">78%</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3-column -->
+    <section>
+      <div class="section-label">3 colonnes</div>
+      <div class="grid-3">
+        <div class="kpi">
+          <div class="ring"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <div class="body">
+            <div class="label">Score d'alignement global</div>
+            <div class="value">82%</div>
+            <div class="delta">↑ 6 pts vs T1 2025</div>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="ring"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/><circle cx="12" cy="12" r="4"/></svg></div>
+          <div class="body">
+            <div class="label">Axes stratégiques actifs</div>
+            <div class="value">4</div>
+            <div class="foot">100% couverts</div>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="ring"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg></div>
+          <div class="body">
+            <div class="label">Objectifs en bonne trajectoire</div>
+            <div class="value">14<span style="color:var(--fg-3);font-weight:500;"> / 18</span></div>
+            <div class="foot">78%</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+</body></html>

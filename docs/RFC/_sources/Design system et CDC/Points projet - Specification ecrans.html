@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Points projet — Spécification écrans</title>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#14100C"/><rect x="24" y="30" width="52" height="8" rx="2" fill="#E8A317"/><rect x="24" y="44" width="38" height="6" rx="2" fill="#fff" opacity=".7"/><rect x="24" y="56" width="44" height="6" rx="2" fill="#fff" opacity=".4"/></svg></template>
+<style>@font-face{font-family:'Outfit';src:url('fonts/Outfit-SemiBold.ttf') format('truetype');font-weight:600}
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-Bold.ttf') format('truetype');font-weight:700}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');font-weight:100 900}
+doc-page:not(:defined){visibility:hidden}
+.page{font-family:'Manrope',system-ui,sans-serif;color:#14100C;background:#fff;box-sizing:border-box}
+.page *{box-sizing:border-box}
+h1,h2,h3{font-family:'Outfit',system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+a{color:#E8A317}a:hover{color:#B87F0D}
+.cover{padding:16mm 18mm;display:flex;flex-direction:column}
+.cv-top{display:flex;align-items:center;gap:10mm}
+.cv-mark{font-family:'Outfit';font-weight:700;font-size:11pt;letter-spacing:.34em}
+.cv-rule{flex:1;height:2px;background:#E8A317}
+.cv-kicker{font-size:8.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6B6560}
+.cv-mid{margin-top:20mm}
+.cover h1{font-size:52pt;font-weight:700;line-height:.98}
+.cv-lede{font-size:12pt;line-height:1.5;color:#6B6560;max-width:158mm;margin:7mm 0 0;font-weight:500;text-wrap:pretty}
+.cv-grid{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8mm;border-top:1px solid #E7E2DA;padding-top:7mm}
+.cv-num{font-family:'Outfit';font-weight:700;font-size:26pt;color:#E8A317;line-height:1}
+.cv-lbl{font-size:9pt;line-height:1.4;color:#6B6560;font-weight:600;margin-top:2mm}
+.cv-foot{display:flex;justify-content:space-between;font-size:8.5pt;color:#6B6560;font-weight:600;margin-top:7mm}
+.divider{padding:18mm;display:flex;align-items:center;background:#14100C;color:#fff}
+.dv-in{max-width:195mm}
+.dv-kick{font-size:9pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#E8A317;margin-bottom:6mm}
+.divider h2{font-size:34pt;font-weight:700;line-height:1.02}
+.divider p{font-size:11.5pt;line-height:1.55;color:rgba(255,255,255,.74);margin:6mm 0 0;font-weight:500;max-width:170mm;text-wrap:pretty}
+.dv-steps{display:flex;flex-wrap:wrap;gap:3mm;margin-top:10mm}
+.dv-steps span{font-size:9pt;font-weight:700;padding:2.2mm 5mm;border:1px solid rgba(255,255,255,.28);border-radius:99px}
+.std{padding:14mm 16mm;display:flex;flex-direction:column}
+.std-h{border-bottom:1px solid #E7E2DA;padding-bottom:6mm;margin-bottom:7mm}
+.std-k{font-size:8pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#E8A317;margin-bottom:3mm}
+.std h2{font-size:24pt;font-weight:700;line-height:1.08}
+.std-h p{font-size:10pt;line-height:1.5;color:#6B6560;font-weight:500;margin:4mm 0 0;max-width:200mm;text-wrap:pretty}
+.std-note{margin-top:auto;font-size:9pt;line-height:1.5;color:#6B6560;font-weight:600;border-top:1px solid #E7E2DA;padding-top:5mm;text-wrap:pretty}
+.som{display:grid;grid-template-columns:1fr 1.15fr 1.15fr;gap:10mm}
+.som-t{font-size:8.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E8A317;padding-bottom:2.5mm;border-bottom:1px solid #E7E2DA;margin-bottom:3.5mm}
+.som-l{display:flex;gap:4mm;font-size:9.5pt;font-weight:600;line-height:1.4;padding:1.7mm 0;border-bottom:1px dotted #E7E2DA}
+.som-l span{color:#E8A317;font-weight:800;min-width:7mm;font-variant-numeric:tabular-nums}
+.fsm{display:flex;align-items:stretch;gap:0;margin-bottom:9mm}
+.fsm-n{flex:1;border:1px solid #E7E2DA;border-radius:2.5mm;padding:4.5mm 4mm}
+.fsm-dot{width:4mm;height:4mm;border-radius:99px;margin-bottom:3mm}
+.fsm-t{font-family:'Outfit';font-weight:700;font-size:12pt;margin-bottom:2mm}
+.fsm-d{font-size:8.5pt;line-height:1.45;color:#6B6560;font-weight:500;text-wrap:pretty}
+.fsm-a{width:9mm;align-self:center;height:1px;background:#E8A317;position:relative}
+.fsm-a::after{content:'';position:absolute;right:0;top:-1.3mm;border-left:2mm solid #E8A317;border-top:1.4mm solid transparent;border-bottom:1.4mm solid transparent}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:9mm}
+.tri-h{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#E8A317;margin-bottom:3mm}
+.tri ul{margin:0;padding-left:4.2mm;list-style:none}
+.tri li{font-size:9pt;line-height:1.48;color:#6B6560;font-weight:500;margin-bottom:2.4mm;position:relative;text-wrap:pretty}
+.tri li::before{content:'';position:absolute;left:-4.2mm;top:1.7mm;width:1.5mm;height:1.5mm;border-radius:99px;background:#E8A317}
+.tb{width:100%;border-collapse:collapse;font-size:8.5pt}
+.tb th{text-align:left;font-size:7.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C857D;padding:0 3mm 2.5mm 0;border-bottom:1px solid #E7E2DA}
+.tb td{padding:3.2mm 3mm 3.2mm 0;border-bottom:1px solid #E7E2DA;color:#6B6560;font-weight:500;line-height:1.4;vertical-align:top;text-wrap:pretty}
+.tb .tb-s{font-weight:700;color:#14100C}
+.tb-b{display:inline-block;color:#fff;font-weight:800;font-size:7.5pt;letter-spacing:.03em;padding:1.2mm 2.6mm;border-radius:1.5mm;white-space:nowrap}
+.quad{display:grid;grid-template-columns:repeat(2,1fr);gap:7mm}
+.qd{border:1px solid #E7E2DA;border-radius:2.5mm;padding:6mm;border-top:2.5px solid #E8A317}
+.qd-h{font-family:'Outfit';font-weight:700;font-size:14pt;margin-bottom:3mm}
+.qd-p{font-size:9.5pt;line-height:1.5;color:#6B6560;font-weight:500;margin:0;text-wrap:pretty}
+.qd-f{font-size:8.5pt;line-height:1.45;font-weight:700;color:#14100C;margin-top:4mm;padding-top:3mm;border-top:1px dotted #E7E2DA;text-wrap:pretty}
+.flowline{display:flex;align-items:center;gap:4mm;margin-top:auto;padding-top:7mm}
+.flowline span{font-family:'Outfit';font-weight:700;font-size:11pt;background:#14100C;color:#fff;padding:2.5mm 6mm;border-radius:99px}
+.flowline em{flex:1;font-style:normal;font-size:8.5pt;font-weight:700;color:#E8A317;text-align:center;border-bottom:1px solid #E8A317;padding-bottom:1.5mm}
+.scr{padding:10mm 12mm;display:flex;flex-direction:column;overflow:hidden}
+.sh{display:flex;align-items:flex-start;gap:5mm;border-bottom:1px solid #E7E2DA;padding-bottom:3.5mm}
+.sh-n{font-family:'Outfit';font-weight:700;font-size:19pt;color:#E8A317;line-height:.9;min-width:14mm}
+.sh-t{flex:1}
+.scr h3{font-size:17pt;font-weight:700;line-height:1.1}
+.sh-p{font-size:8pt;font-weight:600;color:#8C857D;margin-top:1.8mm}
+.sh-k{font-size:7.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:#14100C;padding:1.6mm 3.4mm;border-radius:1.5mm;white-space:nowrap}
+.sb{display:grid;grid-template-columns:0.72fr 1fr;gap:7mm;margin-top:4.5mm;min-height:0}
+.shot{border:1px solid #E7E2DA;border-radius:2.5mm;overflow:hidden;background:#FAF9F7;margin:0 0 4mm;width:110mm;max-width:100%}
+.shot img{display:block;width:100%;height:auto}
+.blk{margin-bottom:4mm}
+.blk-h{font-size:7.5pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#E8A317;margin-bottom:2.5mm}
+.role{font-size:9.5pt;line-height:1.45;margin:0;font-weight:600;color:#14100C;text-wrap:pretty}
+.sb ul,.sf ul{margin:0;padding-left:4mm;list-style:none}
+.sb li,.sf li{font-size:8.8pt;line-height:1.42;color:#6B6560;font-weight:500;margin-bottom:1.6mm;position:relative;text-wrap:pretty}
+.sb li::before,.sf li::before{content:'';position:absolute;left:-4mm;top:1.6mm;width:1.4mm;height:1.4mm;border-radius:99px;background:#E8A317}
+.zon ol{margin:0;padding-left:6mm;counter-reset:z}
+.zon li{font-size:8.8pt;line-height:1.42;color:#6B6560;font-weight:500;margin-bottom:1.6mm;position:relative;list-style:none;counter-increment:z;text-wrap:pretty}
+.zon li::before{content:counter(z);position:absolute;left:-6mm;top:.1mm;width:3.8mm;height:3.8mm;border-radius:99px;background:#14100C;color:#fff;font-size:6.5pt;font-weight:800;display:flex;align-items:center;justify-content:center}
+.sf{margin-top:auto;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:6mm;border-top:1px solid #E7E2DA;padding-top:4mm}
+.sf-h{font-size:7.5pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#E8A317;margin-bottom:2.2mm}
+.sf-h.mt{margin-top:3.5mm}
+.sf-c p{font-size:8.8pt;line-height:1.42;color:#6B6560;font-weight:500;margin:0;text-wrap:pretty}</style>
+</head>
+<body>
+<doc-page size="a4" orientation="landscape">
+<section class="page cover">
+<div class="cv-top"><div class="cv-mark">STARIUM</div><div class="cv-rule"></div><div class="cv-kicker">Spécification fonctionnelle · écrans</div></div>
+<div class="cv-mid"><h1>Points projet</h1><p class="cv-lede">Cycle de vie complet d'une instance de gouvernance projet — de la création du point à la diffusion du compte-rendu. Vingt écrans détaillés : rôle, zones, données, actions, règles de gestion, transitions.</p></div>
+<div class="cv-grid">
+<div class="cv-cell"><div class="cv-num">20</div><div class="cv-lbl">écrans spécifiés<br>11 dans la fiche projet, 9 transverses</div></div>
+<div class="cv-cell"><div class="cv-num">06</div><div class="cv-lbl">états du cycle de vie<br>de « à préparer » à « historique »</div></div>
+<div class="cv-cell"><div class="cv-num">06</div><div class="cv-lbl">types d'instance<br>COPROJ · COPIL · COTECH · CODIR · Revue · Ad hoc</div></div>
+</div>
+<div class="cv-foot"><span>Refonte Portail Client</span><span>10 septembre 2026</span></div></section><section class="page std"><div class="std-h"><div class="std-k">Sommaire</div><h2>Ce que contient ce document</h2></div>
+<div class="som">
+<div class="som-col"><div class="som-t">Cadrage</div>
+<div class="som-l"><span>—</span>Machine à états d'un point projet</div>
+<div class="som-l"><span>—</span>Les six types d'instance</div>
+<div class="som-l"><span>—</span>Objets manipulés et propagation</div>
+<div class="som-l"><span>—</span>Règles transverses</div></div>
+<div class="som-col"><div class="som-t">Partie A · fiche projet</div>
+<div class="som-l"><span>01</span>À préparer</div><div class="som-l"><span>02</span>À venir</div><div class="som-l"><span>03</span>En cours</div><div class="som-l"><span>04</span>À finaliser</div><div class="som-l"><span>05</span>Historique</div><div class="som-l"><span>06</span>Séries</div><div class="som-l"><span>07</span>Créer un point projet</div><div class="som-l"><span>08</span>Préparation de la séance</div><div class="som-l"><span>09</span>Séance en cours — conduite</div><div class="som-l"><span>10</span>Séance — sujets à remonter</div><div class="som-l"><span>11</span>Finalisation et compte-rendu</div></div>
+<div class="som-col"><div class="som-t">Partie B · transverse</div>
+<div class="som-l"><span>12</span>Cycles de pilotage</div><div class="som-l"><span>13</span>Bouton « Nouveau point projet »</div><div class="som-l"><span>14</span>Modale — COPROJ</div><div class="som-l"><span>15</span>Modale — COPIL</div><div class="som-l"><span>16</span>Modale — Point ad hoc</div><div class="som-l"><span>17</span>Point créé — retour en contexte</div><div class="som-l"><span>18</span>Préparation depuis les cycles</div><div class="som-l"><span>19</span>Compte-rendu consulté</div><div class="som-l"><span>20</span>Calendrier des instances</div></div>
+</div>
+<div class="std-note">Chaque page d'écran porte la même structure : rôle de l'écran, zones qui le composent, données affichées, actions disponibles, règles de gestion, puis les transitions en entrée et en sortie.</div></section><section class="page std"><div class="std-h"><div class="std-k">Cadrage · 01</div><h2>Machine à états d'un point projet</h2><p>Un point traverse cinq états dans un ordre strict. Chaque transition est déclenchée par une action explicite ou par le temps — jamais implicitement.</p></div>
+<div class="fsm"><div class="fsm-n"><div class="fsm-dot" style="background:#C08A12"></div><div class="fsm-t">À préparer</div><div class="fsm-d">L'ordre du jour n'est pas figé. La séance ne peut pas démarrer.</div></div><div class="fsm-a"></div><div class="fsm-n"><div class="fsm-dot" style="background:#2F6FBF"></div><div class="fsm-t">À venir</div><div class="fsm-d">Ordre du jour figé, participants notifiés. En attente de la date.</div></div><div class="fsm-a"></div><div class="fsm-n"><div class="fsm-dot" style="background:#1F8A5B"></div><div class="fsm-t">En cours</div><div class="fsm-d">Séance démarrée. Saisie live, persistée en continu.</div></div><div class="fsm-a"></div><div class="fsm-n"><div class="fsm-dot" style="background:#C2542B"></div><div class="fsm-t">À finaliser</div><div class="fsm-d">Séance close, compte-rendu non diffusé. Décisions non opposables.</div></div><div class="fsm-a"></div><div class="fsm-n"><div class="fsm-dot" style="background:#5B5FE0"></div><div class="fsm-t">Historique</div><div class="fsm-d">CR diffusé et verrouillé. Piste d'audit.</div></div></div>
+<div class="tri">
+<div class="tri-c"><div class="tri-h">Déclencheurs de transition</div><ul><li>Figer l'ordre du jour → à préparer devient à venir</li><li>Heure de séance atteinte, ou démarrage manuel → à venir devient en cours</li><li>Clôture de la dernière ligne d'ordre du jour → en cours devient à finaliser</li><li>Diffusion du compte-rendu → à finaliser devient historique</li></ul></div>
+<div class="tri-c"><div class="tri-h">Retours arrière autorisés</div><ul><li>À venir → à préparer : rouvrir l'ordre du jour renotifie les participants</li><li>En cours → à venir : impossible, une séance démarrée ne se dé-démarre pas</li><li>Historique → à finaliser : impossible, la correction passe par rectificatif</li></ul></div>
+<div class="tri-c"><div class="tri-h">Blocages</div><ul><li>Pas de démarrage sans ordre du jour figé</li><li>Pas de clôture avec un arbitrage sans verdict</li><li>Pas de diffusion avec une action sans porteur</li><li>Pas de seconde séance en cours du même type</li></ul></div>
+</div></section><section class="page std"><div class="std-h"><div class="std-k">Cadrage · 02</div><h2>Les six types d'instance</h2><p>Le type choisi à la création pilote l'ordre du jour type, la durée, la récurrence, les participants proposés et la règle de propagation appliquée. Le typage porte des règles métier, pas une couleur.</p></div>
+<table class="tb"><thead><tr><th>Type</th><th>Intitulé</th><th>Cadence</th><th>Durée</th><th>Audience</th><th>Objet de la séance</th><th>Règle de propagation</th></tr></thead><tbody>
+<tr><td><span class="tb-b" style="background:#2F6FBF">COPROJ</span></td><td class="tb-s">Comité projet</td><td>Hebdomadaire</td><td>45 min</td><td>Équipe projet</td><td>Suivi opérationnel : avancement, blocages, actions de la semaine</td><td>Reporte les actions ouvertes du point précédent</td></tr><tr><td><span class="tb-b" style="background:#B8860B">COPIL</span></td><td class="tb-s">Comité de pilotage</td><td>Mensuel</td><td>1 h 30</td><td>Sponsors et chefs de projet</td><td>Pilotage : synthèse, budget, risques majeurs, arbitrages</td><td>Consolide les COPROJ tenus depuis la séance précédente</td></tr><tr><td><span class="tb-b" style="background:#0F766E">COTECH</span></td><td class="tb-s">Comité technique</td><td>Bimensuel</td><td>1 h</td><td>Architecture et SSI</td><td>Dette technique, sécurité, intégrations, choix structurants</td><td>Remonte les objets Atlas en risque critique</td></tr><tr><td><span class="tb-b" style="background:#14100C">CODIR</span></td><td class="tb-s">Comité de direction</td><td>Trimestriel</td><td>2 h</td><td>Direction générale</td><td>Cap stratégique, portefeuille, budget consolidé</td><td>Remonte les décisions en attente d'arbitrage</td></tr><tr><td><span class="tb-b" style="background:#5B5FE0">Revue</span></td><td class="tb-s">Revue de portefeuille</td><td>Semestriel</td><td>3 h</td><td>Direction et PMO</td><td>Priorisation projet par projet, capacité, réallocations, Go/No Go</td><td>Charge la vue Capacité et les scénarios budgétaires</td></tr><tr><td><span class="tb-b" style="background:#C2542B">Ad hoc</span></td><td class="tb-s">Point ponctuel</td><td>Ponctuel</td><td>30 min</td><td>Cercle restreint</td><td>Incident ou décision urgente, hors cadence</td><td>Ne génère aucune série, reste rattaché au cycle projet</td></tr>
+</tbody></table>
+<div class="std-note">Un type n'est jamais modifié après création : changer de niveau de gouvernance revient à créer une nouvelle instance et à y remonter les sujets.</div></section><section class="page std"><div class="std-h"><div class="std-k">Cadrage · 03</div><h2>Objets manipulés et propagation</h2><p>Une séance produit quatre natures d'objets. Chacun a une destination hors de la séance : c'est ce qui distingue un compte-rendu d'un procès-verbal mort.</p></div>
+<div class="quad">
+<div class="qd"><div class="qd-h">Décision</div><p class="qd-p">Choix acté en séance, avec sa portée. Peut être routée en action, en risque, ou en sujet à remonter au niveau supérieur.</p><div class="qd-f">Destination : compte-rendu, et le cas échéant plan d'action ou registre des risques.</div></div>
+<div class="qd"><div class="qd-h">Action</div><p class="qd-p">Tâche avec porteur et échéance. Créée en séance ou dérivée d'une décision. Bloque la diffusion du CR si elle n'a pas de porteur.</p><div class="qd-f">Destination : plan d'action projet. Reportée au point suivant tant qu'elle est ouverte.</div></div>
+<div class="qd"><div class="qd-h">Arbitrage</div><p class="qd-p">Point soumis à verdict : adopté, rejeté ou reporté. Un arbitrage sans verdict bloque la clôture de la séance.</p><div class="qd-f">Destination : compte-rendu. Un report alimente l'ordre du jour de l'instance suivante.</div></div>
+<div class="qd"><div class="qd-h">Risque</div><p class="qd-p">Menace identifiée en séance, qualifiée par un niveau. Saisie directe ou dérivée d'une décision.</p><div class="qd-f">Destination : registre des risques du projet, à la diffusion du compte-rendu.</div></div>
+</div>
+<div class="flowline"><span>COPROJ</span><em>sujets à remonter</em><span>COPIL</span><em>décisions redescendues</em><span>COPROJ</span></div></section><section class="page std"><div class="std-h"><div class="std-k">Cadrage · 04</div><h2>Règles transverses</h2><p>Règles applicables à tous les écrans de la brique, indépendamment du type d'instance et du point d'entrée.</p></div>
+<div class="tri">
+<div class="tri-c"><div class="tri-h">Saisie et persistance</div><ul><li>Toute saisie en séance est persistée immédiatement : une fermeture d'onglet ne perd rien</li><li>Une séance en cours se reprend exactement là où elle a été laissée</li><li>Aucun brouillon n'est perdu entre préparation et séance</li></ul>
+<div class="tri-h" style="margin-top:5mm">Traçabilité</div><ul><li>Chaque objet conserve son point et sa séance d'origine tout au long de sa vie</li><li>Aucune suppression après diffusion : correction par rectificatif daté</li><li>L'émargement est figé à la clôture et fait foi</li></ul></div>
+<div class="tri-c"><div class="tri-h">Propagation entre niveaux</div><ul><li>Un sujet remonté alimente l'ordre du jour de l'instance supérieure sans double saisie</li><li>Une décision du niveau supérieur redescend au point suivant du niveau inférieur</li><li>La consolidation est calculée à la préparation, jamais figée à la création</li><li>Retirer un sujet remonté exige une justification tracée</li></ul>
+<div class="tri-h" style="margin-top:5mm">Notifications</div><ul><li>Figer un ordre du jour notifie les participants</li><li>Rouvrir un ordre du jour figé les renotifie</li><li>Diffuser un CR notifie présents et absents</li></ul></div>
+<div class="tri-c"><div class="tri-h">Contrôles bloquants</div><ul><li>Démarrage : ordre du jour figé requis</li><li>Clôture : aucun arbitrage sans verdict</li><li>Diffusion : aucune action sans porteur</li><li>Une seule séance en cours par type et par projet</li></ul>
+<div class="tri-h" style="margin-top:5mm">Avertissements non bloquants</div><ul><li>Durée cumulée des points supérieure à la durée de séance</li><li>Action sans échéance</li><li>Séance non clôturée depuis plus de 24 h</li><li>Compte-rendu non diffusé au-delà de 5 jours ouvrés</li></ul></div>
+</div></section><section class="page divider"><div class="dv-in"><div class="dv-kick">Partie A</div><h2>Cycle de vie du point projet</h2><p>Onglet « Points projet » de la fiche projet. Un point traverse cinq états et s'appuie sur des séries pour sa cadence. Onze écrans, de la file de préparation à l'archive.</p><div class="dv-steps"><span>À préparer</span><span>À venir</span><span>En cours</span><span>À finaliser</span><span>Historique</span><span>Séries</span></div></div></section><section class="page scr">
+<header class="sh"><div class="sh-n">01</div><div class="sh-t"><h3>Points projet — À préparer</h3><div class="sh-p">Projets › Refonte Portail Client › Points projet › À préparer</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A1-preparer.png" alt="Points projet — À préparer"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Bandeau de 4 indicateurs : prochain point, volume trimestriel, actions issues des points, décisions COPIL à appliquer</li><li>Barre de sous-onglets avec compteur par état — le compteur est la charge réelle, pas une décoration</li><li>Liste des points, un bloc par séance, triés par date croissante</li><li>Bouton primaire « Créer un point » aligné à droite de la barre</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Point d'entrée de la brique. L'onglet regroupe toutes les instances de gouvernance rattachées au projet, filtrées par état d'avancement. Le sous-onglet « À préparer » isole les séances dont l'ordre du jour n'est pas encore figé — c'est la file de travail du chef de projet.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Date en pastille (jour + mois), grisée si passée</li><li>Intitulé de la séance et badge de type coloré</li><li>Badge de cadence (hebdomadaire, mensuel, ponctuel)</li><li>Horaire, durée, lieu physique et/ou visio</li><li>Nombre de points à l'ordre du jour</li><li>Avatars des participants convoqués, débordement en « +N »</li><li>Statut de préparation avec pictogramme dédié</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Clic sur « Préparer » → écran de préparation de la séance</li><li>Clic sur « Créer un point » → modale de création</li><li>Clic sur un sous-onglet → filtre la liste sans rechargement</li><li>Clic sur un avatar → fiche du participant</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Un point reste « À préparer » tant que l'ordre du jour n'est pas figé</li><li>Le compteur du sous-onglet se recalcule à chaque changement d'état</li><li>Les indicateurs de tête portent sur le projet courant uniquement, pas sur le portefeuille</li><li>Aucune séance ne peut démarrer sans ordre du jour figé</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Onglet « Points projet » de la fiche projet, ou notification d'un point à préparer.</p><div class="sf-h mt">Sortie</div><p>Écran de préparation (08), ou modale de création (07).</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Vide si aucune séance à préparer — message d'état vide, bouton de création mis en avant.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">02</div><div class="sh-t"><h3>Points projet — À venir</h3><div class="sh-p">… › Points projet › À venir</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A2-avenir.png" alt="Points projet — À venir"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Même bandeau d'indicateurs, contexte inchangé</li><li>Liste filtrée sur les séances datées, confirmées et préparées</li><li>Mention explicite de consolidation sur les lignes COPIL</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Séances planifiées dont la préparation est terminée. Aucune action n'est requise à court terme : l'écran sert à vérifier la cadence réelle et à anticiper la charge de gouvernance des prochaines semaines.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Date, intitulé, type et cadence</li><li>Horaire et lieu confirmés</li><li>Pour un COPIL : nombre de COPROJ consolidés depuis la séance précédente</li><li>État de l'ordre du jour (prêt / à consolider)</li><li>Participants confirmés</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>« Préparer » → rouvre l'ordre du jour pour ajustement</li><li>Décaler ou annuler la séance depuis le menu contextuel de la ligne</li><li>Consulter le brief de préparation déjà diffusé</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le lien de consolidation COPROJ → COPIL est calculé, pas saisi : il dépend des dates des deux séries</li><li>Une séance passe automatiquement en « En cours » à son heure de démarrage</li><li>Modifier l'ordre du jour d'une séance à venir renotifie les participants</li><li>Annuler une séance d'une série ne rompt pas la série</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Ordre du jour figé depuis l'écran de préparation.</p><div class="sf-h mt">Sortie</div><p>Passage automatique en « En cours », ou retour en préparation.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Une séance dont l'heure est dépassée sans démarrage reste affichée, signalée en retard.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">03</div><div class="sh-t"><h3>Points projet — En cours</h3><div class="sh-p">… › Points projet › En cours</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A3-encours.png" alt="Points projet — En cours"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Liste réduite aux séances actives</li><li>Ligne enrichie de l'avancement temps réel</li><li>Action de reprise en évidence</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Séances démarrées et non closes. Un seul point est normalement en cours à un instant donné : l'écran sert autant à reprendre la conduite qu'à détecter les séances jamais clôturées.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Heure de démarrage réelle, distincte de l'heure planifiée</li><li>Avancement dans l'ordre du jour, sous la forme point N/M</li><li>Taux de présence constaté à l'émargement</li><li>Participants présents en avatars pleins, absents en avatars atténués</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>« Reprendre la conduite » → rouvre l'animation exactement où elle a été laissée</li><li>Clôturer la séance depuis l'écran d'animation uniquement</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>La séance survit à la fermeture de l'onglet : l'état est persisté à chaque saisie</li><li>Un point resté « En cours » au-delà de sa durée théorique est signalé</li><li>Impossible de démarrer une seconde séance du même type tant que la première n'est pas close</li><li>L'émargement est figé au moment de la clôture, pas modifiable ensuite</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Démarrage de la séance depuis l'écran de préparation, ou heure de séance atteinte.</p><div class="sf-h mt">Sortie</div><p>Écran d'animation (09), puis « À finaliser » à la clôture.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Séance non clôturée depuis plus de 24 h → alerte au chef de projet.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">04</div><div class="sh-t"><h3>Points projet — À finaliser</h3><div class="sh-p">… › Points projet › À finaliser</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A4-finaliser.png" alt="Points projet — À finaliser"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Liste des séances closes en attente de CR</li><li>Signalement des manques bloquant la diffusion</li><li>Action « Finaliser » en lien de ligne</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Séances tenues dont le compte-rendu n'est pas encore validé ni diffusé. C'est la file d'attente de la gouvernance : tant qu'un point est ici, ses décisions ne sont pas opposables et ses actions ne sont pas engagées.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Date de tenue, intitulé, type</li><li>Nombre de décisions actées et d'actions créées</li><li>Arbitrages restés sans verdict</li><li>Actions sans porteur ou sans échéance</li><li>Délai écoulé depuis la tenue de la séance</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>« Finaliser » → rouvre la séance en mode rédaction</li><li>Compléter les manques signalés</li><li>Valider puis diffuser le compte-rendu</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Un CR non diffusé ne crée aucune action dans le plan d'action projet</li><li>Les arbitrages sans verdict bloquent la diffusion</li><li>Une action sans porteur bloque la diffusion ; sans échéance, elle génère un avertissement</li><li>Au-delà de 5 jours ouvrés, le point est signalé en retard de restitution</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Clôture de la séance depuis l'écran d'animation.</p><div class="sf-h mt">Sortie</div><p>Diffusion du CR → bascule en « Historique ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Blocage explicite si un contrôle de complétude échoue, avec la liste des éléments manquants.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">05</div><div class="sh-t"><h3>Points projet — Historique</h3><div class="sh-p">… › Points projet › Historique</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A5-historique.png" alt="Points projet — Historique"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Liste antéchronologique des séances tenues</li><li>Rappel du bilan de chaque séance</li><li>Accès au compte-rendu en lecture seule</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Archive des séances closes, compte-rendu validé et diffusé. Constitue la piste d'audit de la gouvernance projet : qui a décidé quoi, quand, en présence de qui.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Date de tenue, intitulé, type, mention « Tenu »</li><li>Décisions actées et actions ouvertes issues de la séance</li><li>Statut du compte-rendu (validé, diffusé)</li><li>Participants effectivement présents</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>« Consulter » → compte-rendu en lecture seule (19)</li><li>Télécharger le CR au format PDF</li><li>Rechercher une décision dans l'ensemble de l'historique</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Aucune modification possible après diffusion — une correction passe par un rectificatif daté</li><li>Les actions issues d'un CR restent liées à leur séance d'origine tout au long de leur vie</li><li>L'historique n'est jamais purgé : il porte la valeur probante de la gouvernance</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Diffusion du compte-rendu.</p><div class="sf-h mt">Sortie</div><p>Consultation seule. Les actions vivent dans le plan d'action projet.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Un rectificatif s'affiche comme une entrée liée à la séance corrigée, sans écraser l'original.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">06</div><div class="sh-t"><h3>Points projet — Séries</h3><div class="sh-p">… › Points projet › Séries</div></div><div class="sh-k">Configuration</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A6-series.png" alt="Points projet — Séries"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Liste des séries actives du projet</li><li>Bloc de composition d'équipe permanente par série</li><li>Action de création d'une nouvelle série</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Définition des cadences récurrentes plutôt que des séances unitaires. Créer une série évite de recréer chaque point à la main et garantit la régularité de la gouvernance.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Type d'instance porté par la série</li><li>Fréquence, jour et horaire standard</li><li>Durée standard et lieu par défaut</li><li>Équipe permanente convoquée</li><li>Ordre du jour type associé</li><li>Nombre de séances déjà générées</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Créer une série : type, cadence, durée, salle, équipe</li><li>Modifier une série existante</li><li>Suspendre une série sans la supprimer</li><li>Générer les séances sur un horizon donné</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Les séances futures sont générées à partir de la série</li><li>Modifier une série n'altère jamais les séances déjà tenues</li><li>Modifier une série propose de reporter le changement sur les séances à venir non préparées</li><li>Suspendre une série arrête la génération sans supprimer l'historique</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Cadrage de la gouvernance en début de projet.</p><div class="sf-h mt">Sortie</div><p>Les séances générées apparaissent dans « À venir ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Série suspendue affichée en atténué, avec la date de suspension.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">07</div><div class="sh-t"><h3>Créer un point projet</h3><div class="sh-p">… › Points projet › Créer un point</div></div><div class="sh-k">Modale</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A7-creer.png" alt="Créer un point projet"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Sélecteur de type d'instance en pastilles</li><li>Bloc de planification : date, heure, durée, lieu</li><li>Bloc participants pré-cochés depuis l'équipe projet</li><li>Pied de modale à double validation</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Création unitaire d'une séance rattachée au projet courant. Le type d'instance choisi pilote l'intégralité des valeurs par défaut : ordre du jour, durée, participants.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Types disponibles avec leur cadence et durée standard</li><li>Champs date, heure, durée, salle et lien visio</li><li>Liste des membres de l'équipe projet avec cases pré-cochées</li><li>Ordre du jour type pré-rempli selon le type</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Choisir le type → recharge les valeurs par défaut</li><li>Ajuster date, heure, durée, lieu</li><li>Cocher ou décocher des participants</li><li>« Créer » ou « Créer et préparer »</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le type conditionne l'ordre du jour type, la durée et les participants proposés</li><li>Aucun second écran : la création tient en une modale</li><li>« Créer et préparer » enchaîne directement sur l'ordre du jour</li><li>Un point créé hors série n'alimente aucune cadence</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Bouton « Créer un point » de la barre de sous-onglets.</p><div class="sf-h mt">Sortie</div><p>Point ajouté à « À préparer », ou ouverture immédiate de la préparation.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Validation bloquée si le type ou la date manquent.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">08</div><div class="sh-t"><h3>Préparation de la séance</h3><div class="sh-p">… › Points projet › Préparer</div></div><div class="sh-k">Écran de travail</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A8-preparation.png" alt="Préparation de la séance"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>En-tête de séance : type, date, horaire, lieu</li><li>Liste ordonnée des points de l'ordre du jour, réordonnables</li><li>Panneau de report automatique des éléments du point précédent</li><li>Zone de documents support, rattachés point par point</li><li>Action de diffusion du brief de préparation</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Construction de l'ordre du jour avant la séance. C'est ici que se joue la qualité du comité : un ordre du jour typé, minuté et porté produit une séance qui décide.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Actions ouvertes du point précédent, reportées automatiquement</li><li>Décisions non encore appliquées</li><li>Pour chaque point : intitulé, porteur, durée cible, type (information, décision, arbitrage)</li><li>Documents rattachés, avec format et poids</li><li>Durée cumulée comparée à la durée de séance</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Ajouter, renommer, réordonner ou supprimer un point</li><li>Affecter un porteur et une durée cible</li><li>Qualifier le type de chaque point</li><li>Rattacher un document à un point précis</li><li>Diffuser le brief aux participants</li><li>Figer l'ordre du jour</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Les actions ouvertes et décisions non appliquées sont reportées sans saisie</li><li>La durée cumulée des points ne doit pas dépasser la durée de séance — dépassement signalé</li><li>Un point de type « décision » impose un porteur</li><li>Tant que l'ordre du jour n'est pas figé, le point reste en « À préparer »</li><li>Figer l'ordre du jour notifie les participants</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Lien « Préparer » depuis la liste, ou « Créer et préparer » depuis la modale.</p><div class="sf-h mt">Sortie</div><p>Ordre du jour figé → le point passe en « À venir ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Avertissement si la durée cumulée dépasse la séance ou si un point de décision n'a pas de porteur.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">09</div><div class="sh-t"><h3>Séance en cours — conduite</h3><div class="sh-p">… › Points projet › Animer la séance</div></div><div class="sh-k">Écran de travail</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A9-seance.png" alt="Séance en cours — conduite"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Barre de séance : chronomètre global, minuteur du point courant, émargement</li><li>Stepper vertical des points de l'ordre du jour avec leur état</li><li>Zone de saisie du point courant, découpée par nature d'élément</li><li>Pied d'écran : point suivant, clôture de séance</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Animation live du comité : on déroule l'ordre du jour et on saisit au fil de l'eau. L'objectif est qu'à la fin de la séance le compte-rendu soit déjà écrit.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Temps écoulé depuis le démarrage réel</li><li>Temps consommé sur le point courant contre durée cible</li><li>Présents et absents, modifiables d'un clic</li><li>Notes libres du point courant</li><li>Décisions, arbitrages avec verdict, risques, actions</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Émarger un participant</li><li>Naviguer entre les points via le stepper</li><li>Saisir une note, une décision, un risque, une action</li><li>Poser un verdict d'arbitrage : adopté, rejeté, reporté</li><li>Router une décision en action, en risque ou en sujet à remonter</li><li>Rattacher un document ou un lien au point courant</li><li>« Point suivant » clôt le point courant et avance le stepper</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Chaque saisie est persistée immédiatement : aucune perte en cas de fermeture</li><li>Une action créée en séance exige un porteur avant clôture</li><li>Un arbitrage sans verdict bloque la clôture de la séance</li><li>Le routage d'une décision est unique et irréversible en séance</li><li>L'émargement est figé à la clôture</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Démarrage ou reprise depuis « En cours ».</p><div class="sf-h mt">Sortie</div><p>Dernier point clos → clôture → passage en « À finaliser ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Dépassement de durée signalé sur le point courant, sans blocage.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">10</div><div class="sh-t"><h3>Séance — sujets à remonter</h3><div class="sh-p">… › Animer la séance › Sujets à remonter au COPIL</div></div><div class="sh-k">Écran de travail</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A10-seance-remontee.png" alt="Séance — sujets à remonter"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Point de l'ordre du jour réservé à la remontée</li><li>Liste des sujets qualifiés à remonter</li><li>Aperçu de l'instance de destination</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Point d'ordre du jour dédié à l'articulation entre les niveaux de gouvernance. C'est le mécanisme qui évite que les sujets se perdent entre le comité opérationnel et le comité de pilotage.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Sujets remontés, avec leur point d'origine</li><li>Séance et date d'origine, porteur du sujet</li><li>Instance de destination et sa date prévisionnelle</li><li>Décisions COPIL redescendues à traiter en séance</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Qualifier un sujet « à remonter »</li><li>Choisir l'instance de destination si plusieurs sont éligibles</li><li>Retirer un sujet de la remontée</li><li>Consulter la décision COPIL redescendue et la marquer traitée</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Un sujet remonté alimente automatiquement l'ordre du jour du prochain COPIL</li><li>Chaque remontée conserve son contexte : point, séance, date, porteur — pas de double saisie</li><li>La circulation est bidirectionnelle : les décisions COPIL redescendent au COPROJ suivant</li><li>Un sujet remonté reste visible dans la séance d'origine, marqué comme transmis</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Point « Sujets à remonter » de l'ordre du jour d'un COPROJ.</p><div class="sf-h mt">Sortie</div><p>Ordre du jour du COPIL pré-alimenté, sans intervention manuelle.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Si aucun COPIL n'est planifié, le sujet est mis en attente et signalé.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">11</div><div class="sh-t"><h3>Finalisation et compte-rendu</h3><div class="sh-p">… › Points projet › Finaliser</div></div><div class="sh-k">Écran de travail</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-A11-finalisation.png" alt="Finalisation et compte-rendu"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Compte-rendu généré, structuré par point d'ordre du jour</li><li>Panneau de contrôles de complétude</li><li>Bloc de diffusion et de verrouillage</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Relecture et diffusion du compte-rendu après la séance. Le CR est généré depuis la saisie live : rien n'est retapé, on relit et on complète.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Décisions actées avec leur portée</li><li>Actions avec porteur et échéance</li><li>Risques identifiés avec niveau</li><li>Présents, absents, excusés</li><li>Documents de séance rattachés</li><li>Liste des manques bloquant la diffusion</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Corriger ou compléter le texte du CR</li><li>Renseigner les porteurs et échéances manquants</li><li>Poser les verdicts d'arbitrage restants</li><li>Diffuser le compte-rendu aux participants</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le CR est généré depuis la saisie live, jamais ressaisi</li><li>La diffusion notifie les participants et verrouille le contenu</li><li>À la diffusion, les actions partent dans le plan d'action projet et les risques dans le registre des risques</li><li>Une correction après diffusion se fait par rectificatif daté, l'original est conservé</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Lien « Finaliser » depuis la liste des points à finaliser.</p><div class="sf-h mt">Sortie</div><p>CR diffusé → point archivé en « Historique ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Diffusion bloquée tant qu'un contrôle de complétude échoue.</p></div>
+</div></section><section class="page divider"><div class="dv-in"><div class="dv-kick">Partie B</div><h2>Création et pilotage transverses</h2><p>Vue « Cycles de pilotage », hors fiche projet. Création typée en un clic, consolidation entre niveaux de gouvernance, calendrier de cadence. Neuf écrans.</p><div class="dv-steps"><span>Créer</span><span>Préparer</span><span>Animer</span><span>Diffuser</span><span>Planifier</span></div></div></section><section class="page scr">
+<header class="sh"><div class="sh-n">12</div><div class="sh-t"><h3>Cycles de pilotage</h3><div class="sh-p">Gouvernance & conformité › Cycles de pilotage</div></div><div class="sh-k">Liste</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-01-cycles.png" alt="Cycles de pilotage"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Bandeau de 4 indicateurs de portefeuille</li><li>Liste unifiée des instances, basculable « À venir / Historique »</li><li>Colonne latérale : décisions en attente d'arbitrage</li><li>Bloc de cadence des cycles</li><li>Deux actions de tête : calendrier et création</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Vue transverse, hors fiche projet : toutes les instances de gouvernance, tous projets confondus. C'est l'écran du responsable de la gouvernance, pas du chef de projet.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Prochaine instance et délai restant</li><li>Nombre de cycles actifs et leur type</li><li>Décisions en attente, dont arbitrages requis</li><li>Taux de présence sur les douze derniers comités</li><li>Pour chaque instance : date, intitulé, type, cadence, lieu, participants, état</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Basculer entre instances à venir et historique</li><li>« Préparer » ou « Consulter » selon l'état de l'instance</li><li>Ouvrir le calendrier mensuel</li><li>Créer un nouveau point projet, typé</li><li>Consulter la liste complète des décisions</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>La vue agrège tous les projets : les indicateurs sont de portefeuille, pas de projet</li><li>Les décisions en attente sont classées par instance d'arbitrage et par échéance</li><li>Le taux de présence est calculé sur une fenêtre glissante de douze comités</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Entrée « Cycles de pilotage » du menu Gouvernance & conformité.</p><div class="sf-h mt">Sortie</div><p>Préparation, consultation de CR, calendrier, ou création typée.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Instance en retard de tenue signalée dans la liste.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">13</div><div class="sh-t"><h3>Bouton « Nouveau point projet »</h3><div class="sh-p">Cycles de pilotage › barre d'actions</div></div><div class="sh-k">Composant</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-02-menu.png" alt="Bouton « Nouveau point projet »"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Bouton principal, action par défaut</li><li>Séparateur et chevron d'ouverture du menu</li><li>Menu déroulant en deux sections : instances récurrentes, ponctuel</li><li>Chaque entrée : pastille d'initiales, intitulé, description, durée</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Split button : l'action la plus fréquente est immédiate à gauche, le choix du type est sous le chevron. Le composant évite d'imposer une modale pour un choix qui peut se faire dans le menu.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Cinq types récurrents : COPROJ, COPIL, COTECH, CODIR, Revue de portefeuille</li><li>Pour chacun : cadence, audience et durée standard</li><li>Deux entrées ponctuelles : point ad hoc, duplication d'une série existante</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Clic principal → crée directement un COPROJ</li><li>Clic sur le chevron → ouvre ou ferme le menu</li><li>Clic sur une entrée → ouvre la modale pré-configurée</li><li>Clic extérieur ou touche Échap → ferme le menu</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le clic principal couvre le cas fréquent en un seul geste</li><li>Chaque entrée annonce sa cadence et sa durée : le choix se fait avant d'ouvrir la modale</li><li>Le chevron pivote de 180° à l'ouverture pour signaler l'état</li><li>La section « Ponctuel » est séparée par un filet : elle ne relève pas de la cadence</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Barre d'actions de la vue Cycles de pilotage.</p><div class="sf-h mt">Sortie</div><p>Modale de création pré-configurée selon le type choisi.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Menu ouvert : fond du chevron assombri, ombre portée sur le panneau.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">14</div><div class="sh-t"><h3>Modale — COPROJ</h3><div class="sh-p">Cycles de pilotage › Nouveau point projet › COPROJ</div></div><div class="sh-k">Modale</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-03-modal-coproj.png" alt="Modale — COPROJ"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>En-tête coloré selon le type, avec sous-titre explicatif</li><li>Grille de sélection du type, six pastilles</li><li>Champs intitulé, date, heure, durée</li><li>Sélecteur de récurrence en pastilles</li><li>Sélecteur de participants en avatars</li><li>Ordre du jour type et bandeau de règle</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Création d'un comité projet. Toute la modale est pré-remplie par le type sélectionné : l'utilisateur valide plus qu'il ne saisit.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Horaire 09:30, durée 45 min, récurrence hebdomadaire</li><li>Ordre du jour type du COPROJ, cinq points</li><li>Participants de l'équipe projet, quatre pré-cochés</li><li>Bandeau : report automatique des actions ouvertes</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Changer de type → recharge l'ensemble des valeurs</li><li>Saisir l'intitulé, ajuster date, heure, durée</li><li>Changer la récurrence</li><li>Cocher ou décocher un participant</li><li>Modifier l'ordre du jour type</li><li>« Créer » ou « Créer et préparer »</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le typage porte des règles métier, pas seulement une couleur</li><li>L'ordre du jour type est modifiable sans altérer le modèle du type</li><li>Les actions ouvertes du dernier point sont reportées automatiquement</li><li>Sans intitulé saisi, un intitulé par défaut est généré à partir du type</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Clic principal du split button, ou entrée COPROJ du menu.</p><div class="sf-h mt">Sortie</div><p>Point ajouté en tête de liste avec son badge de type.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Champ intitulé focalisé à l'ouverture ; fermeture par Échap, clic extérieur ou Annuler.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">15</div><div class="sh-t"><h3>Modale — COPIL</h3><div class="sh-p">… › Nouveau point projet › COPIL</div></div><div class="sh-k">Modale</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-04-modal-copil.png" alt="Modale — COPIL"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>En-tête doré, code couleur du niveau pilotage</li><li>Mêmes zones, valeurs différentes</li><li>Bandeau de règle propre au COPIL</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Même modale, autre type : le contenu s'adapte entièrement au niveau de gouvernance visé. La démonstration que le typage n'est pas cosmétique.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Horaire 14:00, durée 1 h 30, récurrence mensuelle</li><li>Ordre du jour type orienté pilotage : synthèse, consolidation, budget, risques majeurs, arbitrages, échéances</li><li>Bandeau : consolidation automatique des COPROJ tenus depuis le dernier COPIL</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Identiques à la modale COPROJ</li><li>Ajouter des sponsors hors équipe projet aux participants</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le COPIL consolide les COPROJ tenus depuis sa séance précédente</li><li>La consolidation est calculée à la préparation, pas figée à la création</li><li>Un COPIL sans COPROJ intermédiaire reste valide, sa consolidation est simplement vide</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Entrée COPIL du menu typé.</p><div class="sf-h mt">Sortie</div><p>COPIL créé, consolidation des COPROJ programmée pour sa préparation.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Identiques à la modale COPROJ.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">16</div><div class="sh-t"><h3>Modale — Point ad hoc</h3><div class="sh-p">… › Nouveau point projet › Point ad hoc</div></div><div class="sh-k">Modale</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-05-modal-adhoc.png" alt="Modale — Point ad hoc"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>En-tête rouge, code couleur de l'exception</li><li>Récurrence verrouillée sur « Ponctuel »</li><li>Ordre du jour minimal, deux points</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Séance exceptionnelle, hors cadence de gouvernance. Couvre les incidents et les décisions urgentes sans polluer la cadence établie.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Durée courte par défaut, 30 min, horaire 16:00</li><li>Ordre du jour type : objet du point, décision attendue</li><li>Bandeau : aucune série générée, rattachement au cycle du projet</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Saisir l'objet et la décision attendue</li><li>Convoquer un cercle restreint de participants</li><li>Créer immédiatement, sans préparation</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Aucune série n'est générée : le point reste isolé</li><li>Il reste rattaché au cycle du projet pour ne pas échapper à la traçabilité</li><li>Il produit un compte-rendu au même titre qu'une séance récurrente</li><li>Il n'entre pas dans le calcul de cadence des cycles</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Section « Ponctuel » du menu typé.</p><div class="sf-h mt">Sortie</div><p>Point isolé, visible dans la liste, sans effet sur les séries.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Le sélecteur de récurrence est positionné sur « Ponctuel » et reste ajustable.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">17</div><div class="sh-t"><h3>Point créé — retour en contexte</h3><div class="sh-p">Cycles de pilotage › liste</div></div><div class="sh-k">Retour</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-06-cree.png" alt="Point créé — retour en contexte"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Nouvelle ligne insérée en tête de liste</li><li>Flash visuel de mise en évidence</li><li>Toast de confirmation en bas d'écran</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Confirmation de la création directement dans le contexte, sans changement d'écran. L'utilisateur voit le résultat de son action là où il l'attendait.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Intitulé saisi, badge de type, badge de récurrence</li><li>Horaire, durée, nombre de points à l'ordre du jour</li><li>Mention « créé à l'instant »</li><li>Avatars des participants cochés dans la modale</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>« Préparer » sur la nouvelle ligne</li><li>Annuler la création depuis le toast, pendant sa durée d'affichage</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Le flash dure 1,6 s puis disparaît sans laisser de trace visuelle</li><li>Le point est immédiatement préparable</li><li>Le toast rappelle l'intitulé créé pour lever toute ambiguïté</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Validation de la modale de création.</p><div class="sf-h mt">Sortie</div><p>Le point rejoint le cycle de vie normal, en « À préparer ».</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Aucun état d'erreur : la création est validée avant fermeture de la modale.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">18</div><div class="sh-t"><h3>Préparation depuis les cycles</h3><div class="sh-p">Cycles de pilotage › Préparer</div></div><div class="sh-k">Écran de travail</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-07-preparer.png" alt="Préparation depuis les cycles"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>En-tête de séance</li><li>Ordre du jour consolidé depuis les niveaux inférieurs</li><li>Panneau des décisions remontées</li><li>Documents support et brief de séance</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Même écran de préparation, atteint depuis la vue transverse. La différence tient au contenu consolidé, pas à l'interface.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Points remontés depuis les instances de niveau inférieur, avec leur origine</li><li>Décisions en attente d'arbitrage remontées automatiquement</li><li>Documents rattachés point par point</li><li>Durée cumulée contre durée de séance</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Réordonner et minuter les points</li><li>Arbitrer l'ordre de passage des sujets remontés</li><li>Rattacher les documents support</li><li>Diffuser le brief de séance</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>La consolidation est automatique : les sujets remontés arrivent sans saisie</li><li>Les décisions en attente d'arbitrage sont placées d'office à l'ordre du jour</li><li>Le chef de séance peut retirer un sujet remonté, avec justification tracée</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Lien « Préparer » depuis la liste des cycles.</p><div class="sf-h mt">Sortie</div><p>Ordre du jour prêt, séance animable.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Identiques à l'écran de préparation projet (08).</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">19</div><div class="sh-t"><h3>Compte-rendu consulté</h3><div class="sh-p">Cycles de pilotage › Historique › Consulter</div></div><div class="sh-k">Lecture seule</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-08-cr.png" alt="Compte-rendu consulté"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Synthèse chiffrée en tête</li><li>Décisions actées avec leur portée</li><li>Actions avec porteur et échéance</li><li>Présents et absents</li><li>Documents de séance</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Restitution d'une séance close : ce qui a été décidé et ce qui en découle. Écran de lecture, jamais d'édition.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Nombre de décisions, d'actions ouvertes, taux de présence</li><li>Libellé de chaque décision et sa portée</li><li>Chaque action : intitulé, porteur, échéance, statut</li><li>Liste nominative des présents et des absents</li><li>Documents attachés, format et poids</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Télécharger le compte-rendu</li><li>Ouvrir une action dans le plan d'action projet</li><li>Ouvrir un document de séance</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>Contenu verrouillé : un CR diffusé ne se modifie plus</li><li>Le statut des actions est vivant : il reflète le plan d'action, pas l'instant de la séance</li><li>Une correction se fait par rectificatif lié, jamais par écrasement</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Lien « Consulter » depuis l'historique.</p><div class="sf-h mt">Sortie</div><p>Lecture seule. Les actions vivent dans le plan d'action projet.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Un rectificatif éventuel est signalé en tête du compte-rendu.</p></div>
+</div></section><section class="page scr">
+<header class="sh"><div class="sh-n">20</div><div class="sh-t"><h3>Calendrier des instances</h3><div class="sh-p">Cycles de pilotage › Calendrier</div></div><div class="sh-k">Modale</div></header>
+<div class="sb">
+<div class="sb-l"><figure class="shot"><img src="screenshots/pp/sm-09-calendrier.png" alt="Calendrier des instances"></figure>
+<div class="blk zon"><div class="blk-h">Zones de l'écran</div><ol><li>Grille mensuelle, une case par jour</li><li>Pastilles d'instance typées par couleur</li><li>Navigation mois par mois et retour au mois courant</li></ol></div></div>
+<div class="sb-r">
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Vue mensuelle de la cadence de gouvernance. Sert d'appui à la planification : on choisit une date en voyant la charge réelle.</p></div>
+<div class="blk"><div class="blk-h">Données affichées</div><ul><li>Toutes les instances du mois, tous projets confondus</li><li>Type et horaire de chaque instance</li><li>Jour courant mis en évidence</li><li>Densité par semaine, lisible d'un coup d'œil</li></ul></div>
+<div class="blk"><div class="blk-h">Actions disponibles</div><ul><li>Naviguer d'un mois à l'autre</li><li>Revenir au mois courant</li><li>Cliquer une instance pour l'ouvrir</li><li>Cliquer un jour vide pour y créer un point</li></ul></div>
+</div></div>
+<div class="sf">
+<div class="sf-c wide"><div class="sf-h">Règles de gestion</div><ul><li>La vue agrège tous les projets : elle sert à détecter les collisions de comités</li><li>Les semaines sans instance sont visibles autant que les semaines chargées</li><li>Créer depuis le calendrier pré-remplit la date dans la modale</li></ul></div>
+<div class="sf-c"><div class="sf-h">Entrée</div><p>Bouton « Calendrier » de la vue Cycles de pilotage.</p><div class="sf-h mt">Sortie</div><p>Lecture, ouverture d'une instance, ou création à la date choisie.</p></div>
+<div class="sf-c"><div class="sf-h">États particuliers</div><p>Mois sans instance affiché vide, sans message d'erreur.</p></div>
+</div></section>
+</doc-page>
+<script src="doc-page.js"></script>
+</body>
+</html>

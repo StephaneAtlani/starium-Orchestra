@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starium — Documentation Design System</title>
+<link rel="stylesheet" href="colors_and_type.css">
+<template id="__bundler_thumbnail" data-bg-color="#1A1814">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <!-- Sidebar -->
+    <rect x="0" y="0" width="240" height="800" fill="#1A1814"/>
+    <rect x="20" y="20" width="130" height="18" rx="4" fill="#E8A317" opacity=".9"/>
+    <rect x="20" y="60" width="200" height="8" rx="2" fill="#ffffff" opacity=".15"/>
+    <rect x="20" y="80" width="180" height="8" rx="2" fill="#ffffff" opacity=".15"/>
+    <rect x="20" y="100" width="190" height="8" rx="2" fill="#ffffff" opacity=".15"/>
+    <rect x="20" y="130" width="160" height="8" rx="2" fill="#ffffff" opacity=".1"/>
+    <rect x="20" y="150" width="170" height="8" rx="2" fill="#ffffff" opacity=".1"/>
+    <rect x="20" y="170" width="150" height="8" rx="2" fill="#ffffff" opacity=".1"/>
+    <rect x="12" y="190" width="216" height="28" rx="6" fill="#E8A317" opacity=".2"/>
+    <rect x="24" y="199" width="120" height="9" rx="3" fill="#E8A317"/>
+    <!-- Content area -->
+    <rect x="240" y="0" width="960" height="800" fill="#FAF9F7"/>
+    <!-- Section label -->
+    <rect x="280" y="40" width="80" height="8" rx="2" fill="#B6B0A4"/>
+    <!-- Big title -->
+    <rect x="280" y="64" width="320" height="28" rx="5" fill="#0E0E10"/>
+    <rect x="280" y="102" width="480" height="10" rx="3" fill="#B6B0A4"/>
+    <!-- Color swatches -->
+    <rect x="280" y="135" width="52" height="52" rx="8" fill="#E8A317"/>
+    <rect x="344" y="135" width="52" height="52" rx="8" fill="#F4D58A"/>
+    <rect x="408" y="135" width="52" height="52" rx="8" fill="#0E0E10"/>
+    <rect x="472" y="135" width="52" height="52" rx="8" fill="#FAF9F7" stroke="#E9E6E0" stroke-width="1"/>
+    <rect x="536" y="135" width="52" height="52" rx="8" fill="#1F8A5B"/>
+    <rect x="600" y="135" width="52" height="52" rx="8" fill="#B42318"/>
+    <rect x="664" y="135" width="52" height="52" rx="8" fill="#2A6FDB"/>
+    <!-- Type scale -->
+    <rect x="280" y="215" width="1px" height="240" fill="#E9E6E0"/>
+    <rect x="300" y="220" width="280" height="22" rx="4" fill="#0E0E10" opacity=".9"/>
+    <rect x="300" y="255" width="210" height="16" rx="3" fill="#0E0E10" opacity=".75"/>
+    <rect x="300" y="283" width="180" height="13" rx="3" fill="#0E0E10" opacity=".6"/>
+    <rect x="300" y="308" width="400" height="10" rx="2" fill="#5F5A52" opacity=".7"/>
+    <rect x="300" y="328" width="360" height="10" rx="2" fill="#5F5A52" opacity=".55"/>
+    <rect x="300" y="348" width="200" height="8" rx="2" fill="#8C8579" opacity=".7"/>
+    <!-- Component cards row -->
+    <rect x="280" y="490" width="180" height="100" rx="10" fill="#ffffff" stroke="#E9E6E0" stroke-width="1"/>
+    <rect x="296" y="506" width="40" height="40" rx="8" fill="#FFF1DC"/>
+    <rect x="296" y="556" width="100" height="8" rx="2" fill="#0E0E10"/>
+    <rect x="296" y="572" width="80" height="6" rx="2" fill="#B6B0A4"/>
+    <rect x="476" y="490" width="180" height="100" rx="10" fill="#ffffff" stroke="#E9E6E0" stroke-width="1"/>
+    <rect x="492" y="506" width="40" height="40" rx="8" fill="#E6F4ED"/>
+    <rect x="492" y="556" width="100" height="8" rx="2" fill="#0E0E10"/>
+    <rect x="492" y="572" width="80" height="6" rx="2" fill="#B6B0A4"/>
+    <rect x="672" y="490" width="180" height="100" rx="10" fill="#ffffff" stroke="#E9E6E0" stroke-width="1"/>
+    <rect x="688" y="506" width="40" height="40" rx="8" fill="#E3EEFB"/>
+    <rect x="688" y="556" width="100" height="8" rx="2" fill="#0E0E10"/>
+    <rect x="688" y="572" width="80" height="6" rx="2" fill="#B6B0A4"/>
+    <!-- Starium star accent -->
+    <polygon points="1140,740 1148,760 1168,760 1152,772 1158,792 1140,780 1122,792 1128,772 1112,760 1132,760" fill="#E8A317" opacity=".6"/>
+  </svg>
+</template>
+<style>
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-sans); background: var(--bg-app); color: var(--fg-1); -webkit-font-smoothing: antialiased; }
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+/* ── SIDENAV ─────────────────────────────────────────── */
+.sidenav {
+  background: #1A1814;
+  position: sticky; top: 0; height: 100vh;
+  overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column;
+  padding: 0 0 24px;
+}
+.sidenav::-webkit-scrollbar { display: none; }
+.sn-brand { padding: 20px 20px 18px; border-bottom: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
+.sn-brand img { height: 24px; display: block; }
+.sn-group { padding: 20px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.3); }
+.sn-link { display: block; padding: 7px 16px; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.6); text-decoration: none; border-radius: 6px; margin: 0 8px; transition: background 100ms, color 100ms; }
+.sn-link:hover { background: rgba(255,255,255,.07); color: #FFFFFD; }
+.sn-link.active { background: var(--brand-gold); color: #1A1814; font-weight: 700; }
+
+/* ── CONTENT ─────────────────────────────────────────── */
+.content { max-width: 900px; padding: 56px 64px 120px; }
+
+/* ── SECTIONS ─────────────────────────────────────────── */
+.ds-section { margin-bottom: 80px; scroll-margin-top: 32px; }
+.ds-section + .ds-section { border-top: 1px solid var(--border-subtle); padding-top: 72px; }
+
+/* ── HEADINGS ─────────────────────────────────────────── */
+.eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--brand-gold-700); margin-bottom: 10px; }
+h1.doc { font: 800 52px/1.06 var(--font-display); letter-spacing: -0.03em; color: var(--fg-1); }
+h2.doc { font: 700 28px/1.15 var(--font-display); letter-spacing: -0.025em; color: var(--fg-1); margin-bottom: 20px; }
+h3.doc { font: 600 16px/1.3 var(--font-sans); color: var(--fg-1); margin: 32px 0 12px; }
+.lead { font: 400 18px/1.6 var(--font-sans); color: var(--fg-2); margin-top: 16px; max-width: 640px; }
+p.body { font: var(--text-body); color: var(--fg-2); line-height: 1.65; margin-bottom: 14px; }
+
+/* ── RULE ─────────────────────────────────────────────── */
+.rule { height: 1px; background: var(--border-subtle); margin: 28px 0; }
+
+/* ── CHIP / BADGE ─────────────────────────────────────── */
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.chip-gold { background: var(--brand-gold-100); color: var(--brand-gold-700); }
+.chip-success { background: var(--state-success-bg); color: var(--state-success); }
+.chip-warning { background: var(--state-warning-bg); color: var(--state-warning); }
+.chip-danger { background: var(--state-danger-bg); color: var(--state-danger); }
+.chip-info { background: var(--state-info-bg); color: var(--state-info); }
+.chip-neutral { background: var(--neutral-100); color: var(--fg-3); }
+.chip-purple { background: #ece9f8; color: #5b4ec8; }
+
+/* ── COLOR SWATCHES ─────────────────────────────────────── */
+.color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 16px; }
+.color-grid-wide { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 16px; }
+.swatch { border-radius: 10px; overflow: hidden; border: 1px solid rgba(0,0,0,.06); }
+.swatch-color { height: 64px; }
+.swatch-info { padding: 8px 10px; background: var(--bg-surface); }
+.swatch-name { font-size: 11.5px; font-weight: 700; color: var(--fg-1); margin-bottom: 1px; }
+.swatch-hex { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); }
+.swatch-token { font-family: var(--font-mono); font-size: 10px; color: var(--fg-4); margin-top: 1px; }
+
+/* ── TYPE SPECIMENS ─────────────────────────────────────── */
+.type-row { display: flex; align-items: baseline; gap: 28px; padding: 18px 0; border-bottom: 1px solid var(--border-subtle); }
+.type-row:last-child { border-bottom: none; }
+.type-meta { width: 160px; flex-shrink: 0; }
+.type-meta-label { font-size: 12px; font-weight: 600; color: var(--fg-2); }
+.type-meta-token { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-4); margin-top: 2px; }
+.type-specimen { flex: 1; }
+.type-spec-sub { font-size: 12px; color: var(--fg-3); margin-top: 4px; }
+
+/* ── SPACING TABLE ─────────────────────────────────────── */
+.sp-row { display: flex; align-items: center; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+.sp-row:last-child { border-bottom: none; }
+.sp-token { font-family: var(--font-mono); font-size: 12px; color: var(--fg-2); width: 110px; flex-shrink: 0; }
+.sp-val { font-size: 12px; color: var(--fg-3); width: 50px; flex-shrink: 0; }
+.sp-bar-wrap { flex: 1; }
+.sp-bar { height: 8px; background: var(--brand-gold); border-radius: 2px; }
+
+/* ── RADIUS GRID ─────────────────────────────────────────── */
+.radius-grid { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+.radius-demo { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.radius-box { width: 56px; height: 56px; background: var(--brand-gold-100); border: 1.5px solid var(--brand-gold); }
+.radius-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); text-align: center; }
+
+/* ── SHADOW GRID ─────────────────────────────────────────── */
+.shadow-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 16px; }
+.shadow-demo { background: var(--bg-surface); border-radius: 12px; height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+.shadow-token { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); }
+.shadow-use { font-size: 11px; color: var(--fg-4); }
+
+/* ── MOTION TABLE ─────────────────────────────────────────── */
+.motion-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+.motion-row:last-child { border-bottom: none; }
+.motion-token { font-family: var(--font-mono); font-size: 12px; color: var(--fg-2); width: 180px; flex-shrink: 0; }
+.motion-val { font-size: 12px; color: var(--fg-3); width: 280px; flex-shrink: 0; }
+.motion-demo-btn { height: 30px; padding: 0 14px; border-radius: 7px; border: 1px solid var(--border-strong); background: var(--bg-surface); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--fg-1); white-space: nowrap; transition: background 200ms var(--ease-standard); }
+.motion-demo-btn:hover { background: var(--neutral-100); }
+
+/* ── COMPONENT PREVIEWS ─────────────────────────────────── */
+.preview-box { background: var(--bg-sunken); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 28px; margin-top: 16px; }
+.preview-box-dark { background: #1A1814; border-radius: 12px; padding: 28px; margin-top: 16px; }
+.preview-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.preview-col { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── BUTTONS ─────────────────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 18px; border-radius: var(--radius-md); border: 1px solid transparent; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 120ms var(--ease-standard), border-color 120ms; white-space: nowrap; }
+.btn svg { width: 15px; height: 15px; }
+.btn-primary { background: var(--brand-gold); color: var(--brand-ink); border-color: var(--brand-gold); }
+.btn-primary:hover { background: var(--brand-gold-600); border-color: var(--brand-gold-600); }
+.btn-secondary { background: var(--bg-surface); color: var(--fg-1); border-color: var(--border-strong); }
+.btn-secondary:hover { background: var(--neutral-100); }
+.btn-ghost { background: transparent; color: var(--fg-2); }
+.btn-ghost:hover { background: var(--neutral-100); }
+.btn-danger { background: var(--state-danger-bg); color: var(--state-danger); border-color: var(--state-danger-bg); }
+.btn-danger:hover { background: var(--state-danger); color: #fff; }
+.btn-sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: var(--radius-sm); }
+.btn-lg { height: 46px; padding: 0 24px; font-size: 15px; border-radius: var(--radius-md); }
+.btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+/* ── INPUTS ──────────────────────────────────────────────── */
+.input-group { display: flex; flex-direction: column; gap: 6px; }
+.input-label { font-size: 12.5px; font-weight: 600; color: var(--fg-1); }
+.input-hint { font-size: 11.5px; color: var(--fg-3); }
+.input-error { font-size: 11.5px; color: var(--state-danger); }
+.input {
+  height: 38px; padding: 0 14px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font: inherit; font-size: 13px; color: var(--fg-1);
+  transition: border-color 120ms, box-shadow 120ms;
+  outline: none;
+}
+.input::placeholder { color: var(--fg-4); }
+.input:hover { border-color: var(--border-strong); }
+.input:focus { border-color: var(--brand-gold); box-shadow: var(--shadow-focus); }
+.input.error { border-color: var(--state-danger); }
+.input.error:focus { box-shadow: 0 0 0 3px rgba(180,35,24,.22); }
+.input-addon { display: flex; align-items: center; gap: 0; }
+.input-addon .addon { height: 38px; padding: 0 12px; background: var(--neutral-100); border: 1.5px solid var(--border-subtle); display: flex; align-items: center; font-size: 12.5px; font-weight: 500; color: var(--fg-3); }
+.input-addon .addon-left { border-right: none; border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.input-addon .addon-right { border-left: none; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.input-addon .input { border-radius: 0; flex: 1; }
+textarea.input { height: auto; padding: 10px 14px; resize: vertical; line-height: 1.55; }
+
+/* ── CARDS ────────────────────────────────────────────────── */
+.card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-1); }
+.card-title { font: var(--text-h4); color: var(--fg-1); margin-bottom: 6px; font-weight: 700; }
+.card-body { font: var(--text-body-s); color: var(--fg-3); }
+
+/* ── KPI CARD ─────────────────────────────────────────────── */
+.kpi-card { display: flex; align-items: center; gap: 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 16px 20px; box-shadow: var(--shadow-1); }
+.kpi-icon { color: var(--brand-gold); flex-shrink: 0; }
+.kpi-icon svg { width: 34px; height: 34px; stroke-width: 1.5; }
+.kpi-label { font-size: 11.5px; color: var(--fg-3); }
+.kpi-value { font: 700 26px/1.1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-foot { font-size: 11px; margin-top: 2px; color: var(--fg-3); }
+.kpi-foot.ok { color: var(--state-success); }
+.kpi-foot.warn { color: var(--brand-gold-700); }
+.kpi-foot.bad { color: var(--state-danger); }
+
+/* ── PROGRESS ─────────────────────────────────────────────── */
+.prog { height: 6px; background: var(--neutral-200); border-radius: 999px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 999px; }
+.prog-fill.ok { background: var(--state-success); }
+.prog-fill.warn { background: var(--brand-gold); }
+.prog-fill.bad { background: var(--state-danger); }
+
+/* ── TABLE ────────────────────────────────────────────────── */
+.dt-wrap { overflow-x: auto; }
+table.dt { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dt th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-3); padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+.dt td { padding: 11px 12px; border-bottom: 1px solid var(--border-subtle); color: var(--fg-2); vertical-align: middle; }
+.dt tr:last-child td { border-bottom: none; }
+.dt tr:hover td { background: var(--neutral-50); cursor: pointer; }
+.dt td.strong { font-weight: 600; color: var(--fg-1); }
+
+/* ── ALERTS ────────────────────────────────────────────────── */
+.alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: var(--radius-md); font-size: 13px; line-height: 1.5; }
+.alert-success { background: var(--state-success-bg); color: var(--state-success); }
+.alert-warning { background: var(--state-warning-bg); color: var(--state-warning); }
+.alert-danger { background: var(--state-danger-bg); color: var(--state-danger); }
+.alert-info { background: var(--state-info-bg); color: var(--state-info); }
+.alert svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+.alert-body {}
+.alert-title { font-weight: 700; margin-bottom: 2px; }
+.alert-msg { opacity: .85; }
+
+/* ── SIDEBAR NAV SPECIMEN ─────────────────────────────────── */
+.sidebar-specimen { background: #1A1814; border-radius: 12px; padding: 8px; width: 200px; }
+.sn-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; font-size: 12.5px; font-weight: 500; color: rgba(255,255,255,.6); cursor: default; }
+.sn-item.active { background: var(--brand-gold); color: #1A1814; font-weight: 700; }
+.sn-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sn-sec { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.28); padding: 10px 10px 3px; }
+
+/* ── TABS ─────────────────────────────────────────────────── */
+.tabs { display: flex; border-bottom: 1px solid var(--border-subtle); }
+.tab { padding: 9px 16px; font-size: 13px; font-weight: 500; color: var(--fg-3); border-bottom: 2px solid transparent; cursor: pointer; }
+.tab:hover { color: var(--fg-1); }
+.tab.active { color: var(--brand-gold-700); border-bottom-color: var(--brand-gold); font-weight: 600; }
+
+/* ── AVATAR ───────────────────────────────────────────────── */
+.av { width: 36px; height: 36px; border-radius: 999px; background: var(--neutral-200); color: var(--neutral-700); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.av-gold { background: var(--brand-gold-100); color: var(--brand-gold-700); }
+.av-lg { width: 48px; height: 48px; font-size: 16px; }
+.av-sm { width: 28px; height: 28px; font-size: 10px; }
+
+/* ── FRAMEWORK CARD ───────────────────────────────────────── */
+.fw-card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 18px; }
+.fw-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.fw-name { font-size: 13.5px; font-weight: 700; color: var(--fg-1); }
+.fw-pct { font: 700 28px/1 var(--font-display); letter-spacing: -.02em; color: var(--brand-gold-700); }
+.fw-bar { height: 8px; background: var(--neutral-200); border-radius: 999px; overflow: hidden; margin-bottom: 7px; }
+.fw-fill { height: 100%; border-radius: 999px; background: var(--brand-gold); }
+.fw-meta { font-size: 11.5px; color: var(--fg-3); }
+
+/* ── DO / DON'T ───────────────────────────────────────────── */
+.dd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.dd-box { border-radius: 12px; overflow: hidden; border: 1.5px solid; }
+.dd-do { border-color: var(--state-success); }
+.dd-dont { border-color: var(--state-danger); }
+.dd-label { padding: 8px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 7px; }
+.dd-do .dd-label { background: var(--state-success-bg); color: var(--state-success); }
+.dd-dont .dd-label { background: var(--state-danger-bg); color: var(--state-danger); }
+.dd-content { padding: 16px; background: var(--bg-surface); }
+
+/* ── TOPBAR SPECIMEN ──────────────────────────────────────── */
+.topbar-spec { height: 48px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; display: flex; align-items: center; padding: 0 16px; gap: 12px; }
+.t-search-spec { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 320px; height: 30px; background: var(--neutral-100); border: 1px solid transparent; border-radius: 7px; padding: 0 10px; color: var(--fg-3); font-size: 12px; }
+.t-search-spec svg { width: 12px; height: 12px; flex-shrink: 0; }
+.t-right-spec { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.tb-btn-spec { width: 30px; height: 30px; border-radius: 7px; background: transparent; border: none; display: flex; align-items: center; justify-content: center; color: var(--fg-3); cursor: default; }
+.tb-btn-spec svg { width: 14px; height: 14px; }
+.org-chip-spec { display: flex; align-items: center; gap: 5px; padding: 3px 9px; border: 1px solid var(--border-strong); border-radius: 7px; font-size: 12px; font-weight: 600; color: var(--fg-1); }
+.org-chip-spec svg { width: 12px; height: 12px; color: var(--brand-gold); }
+
+/* ── CODE BLOCK ───────────────────────────────────────────── */
+.code { background: #1A1814; color: #FFFFFD; border-radius: 10px; padding: 18px 22px; font: 13px/1.7 var(--font-mono); overflow-x: auto; margin-top: 10px; }
+.code .tok-prop { color: var(--brand-gold); }
+.code .tok-val { color: #7dd3ba; }
+.code .tok-comment { color: rgba(255,255,255,.3); font-style: italic; }
+
+/* ── HERO ─────────────────────────────────────────────────── */
+.hero { padding: 0 0 64px; }
+.hero-tag { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.hero-tag-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--brand-gold); }
+.hero-tag-txt { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--brand-gold-700); }
+.hero-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+
+/* ── UTILS ────────────────────────────────────────────────── */
+.mt4 { margin-top: 4px; }
+.mt8 { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.mt16 { margin-top: 16px; }
+.mt24 { margin-top: 24px; }
+.mt32 { margin-top: 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.vstack { display: flex; flex-direction: column; gap: 12px; }
+.hstack { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── ICON SPECIMEN ─────────────────────────────────────────── */
+.icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-top: 16px; }
+.icon-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; cursor: default; }
+.icon-tile:hover { background: var(--neutral-100); }
+.icon-tile svg { width: 20px; height: 20px; color: var(--fg-2); }
+.icon-tile span { font-size: 9.5px; color: var(--fg-4); text-align: center; font-family: var(--font-mono); }
+
+/* ── LOGO SPECIMENS ─────────────────────────────────────────── */
+.logo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+.logo-tile { border-radius: 12px; border: 1px solid var(--border-subtle); overflow: hidden; }
+.logo-tile-bg { padding: 28px 20px; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+.logo-tile-meta { padding: 10px 14px; background: var(--bg-surface); border-top: 1px solid var(--border-subtle); }
+.logo-tile-name { font-size: 12px; font-weight: 600; color: var(--fg-1); }
+.logo-tile-use { font-size: 11px; color: var(--fg-3); margin-top: 1px; }
+.logo-tile img { max-height: 28px; max-width: 100%; object-fit: contain; }
+
+/* ── STAR ORNAMENT ──────────────────────────────────────────── */
+.star { color: var(--brand-gold); font-size: 18px; line-height: 1; }
+
+/* scroll highlight */
+.ds-section:target h2.doc { color: var(--brand-gold-700); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── SIDENAV ───────────────────────────────── -->
+  <nav class="sidenav">
+    <div class="sn-brand">
+      <img src="assets/logo-horizontal-white.png" alt="Starium">
+    </div>
+    <div class="sn-group">Introduction</div>
+    <a class="sn-link active" href="#identite">Identité de marque</a>
+    <a class="sn-link" href="#voix">Voix & contenu</a>
+
+    <div class="sn-group">Fondations visuelles</div>
+    <a class="sn-link" href="#couleurs">Couleurs</a>
+    <a class="sn-link" href="#typographie">Typographie</a>
+    <a class="sn-link" href="#espacement">Espacement</a>
+    <a class="sn-link" href="#rayons">Rayons</a>
+    <a class="sn-link" href="#ombres">Ombres & élévation</a>
+    <a class="sn-link" href="#motion">Motion</a>
+
+    <div class="sn-group">Éléments visuels</div>
+    <a class="sn-link" href="#iconographie">Iconographie</a>
+    <a class="sn-link" href="#logos">Logos & monogramme</a>
+
+    <div class="sn-group">Composants</div>
+    <a class="sn-link" href="#boutons">Boutons</a>
+    <a class="sn-link" href="#formulaires">Formulaires</a>
+    <a class="sn-link" href="#badges">Badges & statuts</a>
+    <a class="sn-link" href="#cards">Cards</a>
+    <a class="sn-link" href="#tableaux">Tableaux</a>
+    <a class="sn-link" href="#alertes">Alertes</a>
+    <a class="sn-link" href="#navigation">Navigation</a>
+    <a class="sn-link" href="#progression">Progression</a>
+    <a class="sn-link" href="#avatars">Avatars</a>
+
+    <div class="sn-group">Usage</div>
+    <a class="sn-link" href="#a-faire">À faire / À éviter</a>
+    <a class="sn-link" href="#tokens">Tokens CSS</a>
+  </nav>
+
+  <!-- ── CONTENT ───────────────────────────────── -->
+  <main class="content">
+
+    <!-- HERO -->
+    <div class="hero ds-section" id="identite">
+      <div class="hero-tag">
+        <div class="hero-tag-dot"></div>
+        <div class="hero-tag-txt">Design System · v1.0</div>
+      </div>
+      <h1 class="doc">Starium<br>Design System</h1>
+      <p class="lead">La documentation de référence pour concevoir, développer et maintenir des interfaces cohérentes avec la marque Starium — sobre, performante, premium.</p>
+      <div class="hero-badges">
+        <span class="chip chip-gold">93 tokens CSS</span>
+        <span class="chip chip-neutral">Manrope · JetBrains Mono</span>
+        <span class="chip chip-neutral">Lucide Icons</span>
+        <span class="chip chip-success">Validé WCAG AA</span>
+      </div>
+    </div>
+
+    <!-- 1 — IDENTITÉ ──────────────────────────── -->
+    <div class="ds-section">
+      <div class="eyebrow">01 — Identité</div>
+      <h2 class="doc">Identité de marque</h2>
+      <p class="body">Starium est une plateforme SaaS de pilotage des directions, projets, budgets et ressources, à destination des dirigeants et de leurs équipes. La marque vise la sobriété et la performance d'Apple, réchauffée par une signature dorée distinctive.</p>
+      <p class="body"><strong>Baseline :</strong> <em>Révélez vos talents.</em></p>
+
+      <h3 class="doc">Les trois piliers de l'identité</h3>
+      <div class="grid3 mt12">
+        <div class="card">
+          <div style="font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;color:var(--fg-1)">Starium</div>
+          <div class="card-title">Le wordmark</div>
+          <div class="card-body">Lettres rondes, géométriques, tracking serré, poids 800. Jamais allongé, jamais penché.</div>
+        </div>
+        <div class="card">
+          <div style="margin-bottom:8px"><img src="assets/icon-starium.png" alt="Monogramme" style="height:36px"></div>
+          <div class="card-title">Le monogramme</div>
+          <div class="card-body">Quatre lobes noirs autour d'un point doré central en scintillement à 4 branches.</div>
+        </div>
+        <div class="card">
+          <div style="font-size:36px;color:var(--brand-gold);margin-bottom:6px;line-height:1">✦</div>
+          <div class="card-title">L'étoile ✦</div>
+          <div class="card-body">U+2726 — seul ornement autorisé. Puce visuelle, titre de section. Toujours en or.</div>
+        </div>
+      </div>
+
+      <h3 class="doc">Positionnement</h3>
+      <p class="body">On ne crie pas — on aligne. Starium s'adresse aux CODIR, COMEX et directions de projet. Le ton est calme, posé et orienté résultat. La sobriété est le motif.</p>
+
+      <div class="dd-grid mt24">
+        <div class="dd-box dd-do">
+          <div class="dd-label">✓ Faire</div>
+          <div class="dd-content">
+            <p style="font-size:13px;color:var(--fg-2);line-height:1.6">Calme · Premium · Performant<br>Verbes d'action : <em>aligner, piloter, décider, arbitrer, révéler, sécuriser</em><br>Sentence case partout<br>Apostrophes typographiques : <code style="font-family:var(--font-mono);font-size:12px">'</code><br>Guillemets français : <code style="font-family:var(--font-mono);font-size:12px">« … »</code></p>
+          </div>
+        </div>
+        <div class="dd-box dd-dont">
+          <div class="dd-label">✗ Ne pas faire</div>
+          <div class="dd-content">
+            <p style="font-size:13px;color:var(--fg-2);line-height:1.6">Emoji dans l'UI (sauf ✦)<br>Title Case anglo-saxon<br>Gradients vifs, motifs, textures<br>Guillemets droits <code style="font-family:var(--font-mono);font-size:12px">"…"</code><br>Images "corporate happy team"</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 — VOIX ──────────────────────────────── -->
+    <div class="ds-section" id="voix">
+      <div class="eyebrow">02 — Contenu</div>
+      <h2 class="doc">Voix & contenu</h2>
+      <p class="body">La voix Starium est calme, posée et experte. On ne survend pas — on constate, on aligne, on décide.</p>
+
+      <h3 class="doc">Principes rédactionnels</h3>
+      <div class="grid2 mt12">
+        <div class="card">
+          <div class="card-title">Décisionnaire, pas technique</div>
+          <div class="card-body mt4">L'audience est CODIR/COMEX. On parle valeur, pilotage, alignement, risque, capacité. Jamais API, endpoint, payload.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Orientée résultat</div>
+          <div class="card-body mt4">Verbes d'action courts : <em>aligner, piloter, décider, arbitrer, révéler, sécuriser.</em> Pas de langue de bois.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Personne & langue</div>
+          <div class="card-body mt4"><strong>Vous</strong> par défaut. <strong>Nous</strong> pour Starium l'éditeur. Jamais de <em>tu</em>. Français maîtresse — anglicismes (KPI, dashboard, roadmap) tolérés si usage métier établi.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Format des données</div>
+          <div class="card-body mt4">Milliers : espace fine <code style="font-family:var(--font-mono);font-size:12px">1 240</code>. Pourcentage collé : <code style="font-family:var(--font-mono);font-size:12px">82 %</code>. Euro après : <code style="font-family:var(--font-mono);font-size:12px">1 240 €</code>. Dates : <code style="font-family:var(--font-mono);font-size:12px">15 mai 2024</code>, <code style="font-family:var(--font-mono);font-size:12px">T1 2025</code>.</div>
+        </div>
+      </div>
+
+      <h3 class="doc">Casse</h3>
+      <div class="dt-wrap mt8">
+        <table class="dt">
+          <thead><tr><th>Contexte</th><th>Règle</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><td>Titres & sous-titres</td><td>Sentence case</td><td class="strong">« Vision stratégique 2026 »</td></tr>
+            <tr><td>Boutons & CTA</td><td>Sentence case</td><td class="strong">« Modifier la vision »</td></tr>
+            <tr><td>Overlines / sections menu</td><td>UPPERCASE tracké</td><td class="strong">GOUVERNANCE · PILOTAGE</td></tr>
+            <tr><td>Étiquettes de statut</td><td>Sentence case, présent court</td><td class="strong">En cours · En retard · Terminé</td></tr>
+            <tr><td>En-têtes de tableau</td><td>Sentence case ou ALL CAPS petit</td><td class="strong">Projet · Statut · Avancement</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="doc">Exemples validés</h3>
+      <div class="vstack mt12">
+        <div class="alert alert-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><div><div class="alert-title">✅ Correct</div><div class="alert-msg">« Définir notre cap, aligner l'organisation et créer de la valeur durable. »</div></div></div>
+        <div class="alert alert-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><div><div class="alert-title">✅ Correct</div><div class="alert-msg">« Score d'alignement global » · « Axes stratégiques actifs » · « En bonne trajectoire »</div></div></div>
+        <div class="alert alert-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><div><div class="alert-title">❌ Incorrect</div><div class="alert-msg">« 🚀 Boostez votre performance ! » — emoji, ton trop fort, point d'exclamation</div></div></div>
+        <div class="alert alert-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><div><div class="alert-title">❌ Incorrect</div><div class="alert-msg">« Click here to modify » — anglais, impératif sec</div></div></div>
+      </div>
+    </div>
+
+    <!-- 3 — COULEURS ──────────────────────────── -->
+    <div class="ds-section" id="couleurs">
+      <div class="eyebrow">03 — Couleurs</div>
+      <h2 class="doc">Couleurs</h2>
+      <p class="body">La palette Starium est construite autour d'un seul accent — l'or ambre brûlé — sur une base de neutres papier chauds. Pas de gris bleutés froids.</p>
+
+      <h3 class="doc">Or Starium — accent principal</h3>
+      <div class="color-grid mt8" style="grid-template-columns:repeat(5,1fr)">
+        <div class="swatch"><div class="swatch-color" style="background:#FBEAB5"></div><div class="swatch-info"><div class="swatch-name">Gold 050</div><div class="swatch-hex">#FBEAB5</div><div class="swatch-token">--brand-gold-050</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#F4D58A"></div><div class="swatch-info"><div class="swatch-name">Gold 100</div><div class="swatch-hex">#F4D58A</div><div class="swatch-token">--brand-gold-100</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#E8A317"></div><div class="swatch-info"><div class="swatch-name">Gold ★ Principal</div><div class="swatch-hex">#E8A317</div><div class="swatch-token">--brand-gold</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#CC8E0E"></div><div class="swatch-info"><div class="swatch-name">Gold 600</div><div class="swatch-hex">#CC8E0E</div><div class="swatch-token">--brand-gold-600</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#5F3F00"></div><div class="swatch-info"><div class="swatch-name">Gold 700</div><div class="swatch-hex">#5F3F00</div><div class="swatch-token">--brand-gold-700</div></div></div>
+      </div>
+
+      <h3 class="doc">Encre & neutres papier</h3>
+      <div class="color-grid-wide mt8">
+        <div class="swatch"><div class="swatch-color" style="background:#0E0E10;border:1px solid #333"></div><div class="swatch-info"><div class="swatch-name">Encre</div><div class="swatch-hex">#0E0E10</div><div class="swatch-token">--brand-ink</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#FAF9F7;border:1px solid #e9e6e0"></div><div class="swatch-info"><div class="swatch-name">Neutral 50</div><div class="swatch-hex">#FAF9F7</div><div class="swatch-token">--neutral-50</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#F4F2EE"></div><div class="swatch-info"><div class="swatch-name">Neutral 100</div><div class="swatch-hex">#F4F2EE</div><div class="swatch-token">--neutral-100</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#E9E6E0"></div><div class="swatch-info"><div class="swatch-name">Neutral 200</div><div class="swatch-hex">#E9E6E0</div><div class="swatch-token">--neutral-200</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#D6D2CA"></div><div class="swatch-info"><div class="swatch-name">Neutral 300</div><div class="swatch-hex">#D6D2CA</div><div class="swatch-token">--neutral-300</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#8C8579"></div><div class="swatch-info"><div class="swatch-name">Neutral 500</div><div class="swatch-hex">#8C8579</div><div class="swatch-token">--neutral-500</div></div></div>
+      </div>
+
+      <h3 class="doc">États sémantiques</h3>
+      <div class="color-grid mt8" style="grid-template-columns:repeat(4,1fr)">
+        <div class="swatch"><div class="swatch-color" style="background:var(--state-success)"></div><div class="swatch-info"><div class="swatch-name">Succès</div><div class="swatch-hex">#1F8A5B</div><div class="swatch-token">--state-success</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:var(--state-warning)"></div><div class="swatch-info"><div class="swatch-name">Attention</div><div class="swatch-hex">#C77A00</div><div class="swatch-token">--state-warning</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:var(--state-danger)"></div><div class="swatch-info"><div class="swatch-name">Danger</div><div class="swatch-hex">#B42318</div><div class="swatch-token">--state-danger</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:var(--state-info)"></div><div class="swatch-info"><div class="swatch-name">Info</div><div class="swatch-hex">#2A6FDB</div><div class="swatch-token">--state-info</div></div></div>
+      </div>
+
+      <h3 class="doc">Règles d'usage des couleurs</h3>
+      <div class="dt-wrap mt8">
+        <table class="dt">
+          <thead><tr><th>Couleur</th><th>Usages autorisés</th><th>Usages interdits</th></tr></thead>
+          <tbody>
+            <tr><td class="strong" style="color:var(--brand-gold-700)">Or #E8A317</td><td>CTA primaire, item actif sidebar, icône KPI, valeur clé, focus ring</td><td>Arrière-plan plein grande surface, texte de corps, fond de page</td></tr>
+            <tr><td class="strong">Encre #0E0E10</td><td>Texte primaire, logo, sidebar dark, footer</td><td>Fond de toute page autre que sidebar/footer</td></tr>
+            <tr><td class="strong" style="color:var(--neutral-500)">#FAF9F7</td><td>Fond d'application, fond de page</td><td>Surfaces de composants (utiliser #FFFFFF)</td></tr>
+            <tr><td class="strong" style="color:var(--state-success)">Vert succès</td><td>Statut terminé, OK, objectif atteint</td><td>Accent de marque, CTA</td></tr>
+            <tr><td class="strong" style="color:var(--state-danger)">Rouge danger</td><td>Erreur, risque critique, retard</td><td>Highlight, mise en avant positive</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 4 — TYPOGRAPHIE ───────────────────────── -->
+    <div class="ds-section" id="typographie">
+      <div class="eyebrow">04 — Typographie</div>
+      <h2 class="doc">Typographie</h2>
+      <p class="body">Famille unique <strong>Manrope</strong> (variable, auto-hébergée) pour tout l'UI — display, corps, légendes. <strong>JetBrains Mono</strong> pour les tokens, identifiants, données techniques.</p>
+
+      <div class="mt16">
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Display XL</div><div class="type-meta-token">--text-display-xl</div></div>
+          <div class="type-specimen"><div style="font:800 56px/1.05 var(--font-display);letter-spacing:-.03em;color:var(--fg-1)">Starium</div><div class="type-spec-sub">800 · 64px/1.05 · tracking −0.03em</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Display L</div><div class="type-meta-token">--text-display-l</div></div>
+          <div class="type-specimen"><div style="font:800 40px/1.08 var(--font-display);letter-spacing:-.025em;color:var(--fg-1)">Vision 2026</div><div class="type-spec-sub">800 · 48px/1.08 · tracking −0.025em</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Display M</div><div class="type-meta-token">--text-display-m</div></div>
+          <div class="type-specimen"><div style="font:700 32px/1.12 var(--font-display);letter-spacing:-.02em;color:var(--fg-1)">Portefeuille projets</div><div class="type-spec-sub">700 · 36px/1.12 · tracking −0.02em</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">H1</div><div class="type-meta-token">--text-h1</div></div>
+          <div class="type-specimen"><div style="font:700 28px/1.2 var(--font-sans);color:var(--fg-1)">Budgets & finances</div><div class="type-spec-sub">700 · 28px/1.2</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">H2</div><div class="type-meta-token">--text-h2</div></div>
+          <div class="type-specimen"><div style="font:700 22px/1.25 var(--font-sans);color:var(--fg-1)">Axes stratégiques</div><div class="type-spec-sub">700 · 22px/1.25</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">H3</div><div class="type-meta-token">--text-h3</div></div>
+          <div class="type-specimen"><div style="font:600 18px/1.3 var(--font-sans);color:var(--fg-1)">Conformité DORA</div><div class="type-spec-sub">600 · 18px/1.3</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">H4</div><div class="type-meta-token">--text-h4</div></div>
+          <div class="type-specimen"><div style="font:600 15px/1.35 var(--font-sans);color:var(--fg-1)">Objectifs en trajectoire</div><div class="type-spec-sub">600 · 15px/1.35</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Body</div><div class="type-meta-token">--text-body</div></div>
+          <div class="type-specimen"><div style="font:400 15px/1.55 var(--font-sans);color:var(--fg-2)">Définir notre cap, aligner l'organisation et créer de la valeur durable pour l'ensemble de nos parties prenantes.</div><div class="type-spec-sub">400 · 15px/1.55</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Body S</div><div class="type-meta-token">--text-body-s</div></div>
+          <div class="type-specimen"><div style="font:400 13px/1.5 var(--font-sans);color:var(--fg-2)">Texte de menu, labels de champ, contenu de cellule, note de bas de card.</div><div class="type-spec-sub">400 · 13px/1.5</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Caption</div><div class="type-meta-token">--text-caption</div></div>
+          <div class="type-specimen"><div style="font:500 12px/1.4 var(--font-sans);color:var(--fg-3)">Métadonnée · Horodatage · Sous-titre</div><div class="type-spec-sub">500 · 12px/1.4</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Overline</div><div class="type-meta-token">--text-overline</div></div>
+          <div class="type-specimen"><div style="font:600 11px/1.2 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)">Gouvernance · Pilotage · Référentiel</div><div class="type-spec-sub">600 · 11px · uppercase · tracking 0.08em</div></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta"><div class="type-meta-label">Mono</div><div class="type-meta-token">--text-mono</div></div>
+          <div class="type-specimen"><div style="font:500 13px/1.5 var(--font-mono);color:var(--fg-2)">--brand-gold: #E8A317;</div><div class="type-spec-sub">JetBrains Mono · 500 · 13px/1.5</div></div>
+        </div>
+      </div>
+
+      <h3 class="doc">Numéraux tabulaires</h3>
+      <p class="body">Tous les chiffres dans les tables, KPIs, pourcentages et montants financiers utilisent <code style="font-family:var(--font-mono);font-size:12px">font-variant-numeric: tabular-nums</code> pour un alignement vertical parfait.</p>
+      <div class="preview-box mt12" style="font-variant-numeric:tabular-nums;font:700 26px/1.1 var(--font-display);letter-spacing:-.02em">
+        <span style="margin-right:32px;color:var(--fg-1)">82 %</span>
+        <span style="margin-right:32px;color:var(--state-success)">1 240 €</span>
+        <span style="color:var(--brand-gold-700)">14 / 18</span>
+      </div>
+    </div>
+
+    <!-- 5 — ESPACEMENT ────────────────────────── -->
+    <div class="ds-section" id="espacement">
+      <div class="eyebrow">05 — Espacement</div>
+      <h2 class="doc">Espacement</h2>
+      <p class="body">Échelle basée sur 4px. Les marges entre sections principales sont généreuses (48–64px) — l'espace est un signal premium.</p>
+      <div class="mt16">
+        <div class="sp-row"><div class="sp-token">--space-1</div><div class="sp-val">4px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:4px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-2</div><div class="sp-val">8px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:8px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-3</div><div class="sp-val">12px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:12px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-4</div><div class="sp-val">16px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:16px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-5</div><div class="sp-val">20px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:20px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-6</div><div class="sp-val">24px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:24px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-8</div><div class="sp-val">32px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:32px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-10</div><div class="sp-val">40px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:40px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-12</div><div class="sp-val">48px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:48px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-16</div><div class="sp-val">64px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:64px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-20</div><div class="sp-val">80px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:80px"></div></div></div>
+        <div class="sp-row"><div class="sp-token">--space-24</div><div class="sp-val">96px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:96px"></div></div></div>
+      </div>
+
+      <h3 class="doc">Tokens de layout</h3>
+      <div class="dt-wrap mt8">
+        <table class="dt">
+          <thead><tr><th>Token</th><th>Valeur</th><th>Usage</th></tr></thead>
+          <tbody>
+            <tr><td class="strong"><code style="font-family:var(--font-mono);font-size:12px">--sidebar-width</code></td><td>248px</td><td>Largeur de la sidebar principale</td></tr>
+            <tr><td class="strong"><code style="font-family:var(--font-mono);font-size:12px">--topbar-height</code></td><td>64px</td><td>Hauteur de la topbar fixe</td></tr>
+            <tr><td class="strong"><code style="font-family:var(--font-mono);font-size:12px">--container-max</code></td><td>1280px</td><td>Largeur max des pages marketing</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 6 — RAYONS ────────────────────────────── -->
+    <div class="ds-section" id="rayons">
+      <div class="eyebrow">06 — Rayons</div>
+      <h2 class="doc">Rayons de bordure</h2>
+      <p class="body">Les cards utilisent 14px comme valeur signature. Boutons et inputs : 10px. Badges et avatars : pill.</p>
+      <div class="radius-grid">
+        <div class="radius-demo"><div class="radius-box" style="border-radius:4px"></div><div class="radius-label">xs · 4px<br>--radius-xs</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:6px"></div><div class="radius-label">sm · 6px<br>--radius-sm</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:10px"></div><div class="radius-label">md · 10px<br>--radius-md</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:14px"></div><div class="radius-label">lg · 14px ★<br>--radius-lg</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:20px"></div><div class="radius-label">xl · 20px<br>--radius-xl</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:28px"></div><div class="radius-label">2xl · 28px<br>--radius-2xl</div></div>
+        <div class="radius-demo"><div class="radius-box" style="border-radius:999px"></div><div class="radius-label">pill · 999px<br>--radius-pill</div></div>
+      </div>
+    </div>
+
+    <!-- 7 — OMBRES ────────────────────────────── -->
+    <div class="ds-section" id="ombres">
+      <div class="eyebrow">07 — Ombres</div>
+      <h2 class="doc">Ombres & élévation</h2>
+      <p class="body">Système à 4 paliers, tous en encre noire à très faible opacité. Jamais d'ombres bleutées ou colorées (sauf le focus ring or).</p>
+      <div class="shadow-grid">
+        <div class="shadow-demo" style="box-shadow:var(--shadow-1)"><div class="shadow-token">shadow-1</div><div class="shadow-use">Cards KPI</div></div>
+        <div class="shadow-demo" style="box-shadow:var(--shadow-2)"><div class="shadow-token">shadow-2</div><div class="shadow-use">Cards posées</div></div>
+        <div class="shadow-demo" style="box-shadow:var(--shadow-3)"><div class="shadow-token">shadow-3</div><div class="shadow-use">Dropdowns</div></div>
+        <div class="shadow-demo" style="box-shadow:var(--shadow-4)"><div class="shadow-token">shadow-4</div><div class="shadow-use">Modals</div></div>
+      </div>
+      <div class="preview-box mt16">
+        <div class="hstack" style="gap:16px">
+          <div style="width:64px;height:64px;border-radius:10px;background:var(--bg-surface);box-shadow:var(--shadow-focus);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--brand-gold-700);font-weight:700;text-align:center;font-family:var(--font-mono)">Focus ring</div>
+          <div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--fg-1)">Focus ring — or</div>
+            <div style="font-size:12px;color:var(--fg-3);margin-top:3px"><code style="font-family:var(--font-mono);font-size:11.5px">--shadow-focus</code> · 0 0 0 3px rgba(232,163,23,.32)</div>
+            <div style="font-size:12px;color:var(--fg-3);margin-top:2px">Seule "ombre colorée" autorisée dans le système.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8 — MOTION ────────────────────────────── -->
+    <div class="ds-section" id="motion">
+      <div class="eyebrow">08 — Motion</div>
+      <h2 class="doc">Motion & animation</h2>
+      <p class="body">Discret. Entrée rapide, sortie qui s'étire — Apple-like. Pas de bounce, pas de spring, pas de decorative loops.</p>
+      <div class="mt16">
+        <div class="motion-row"><div class="motion-token">--duration-fast</div><div class="motion-val">120ms — micro-interactions, hover</div><button class="motion-demo-btn" style="transition:background 120ms var(--ease-standard)">Hover moi (120ms)</button></div>
+        <div class="motion-row"><div class="motion-token">--duration-base</div><div class="motion-val">200ms — transitions standard</div><button class="motion-demo-btn" style="transition:background 200ms var(--ease-standard)">Hover moi (200ms)</button></div>
+        <div class="motion-row"><div class="motion-token">--duration-slow</div><div class="motion-val">320ms — transitions de page, modals</div><button class="motion-demo-btn" style="transition:background 320ms var(--ease-standard)">Hover moi (320ms)</button></div>
+        <div class="motion-row"><div class="motion-token">--ease-standard</div><div class="motion-val">cubic-bezier(0.2, 0, 0, 1) — usage courant</div></div>
+        <div class="motion-row"><div class="motion-token">--ease-emphasis</div><div class="motion-val">cubic-bezier(0.2, 0, 0, 1.2) — apparitions modal/toast uniquement</div></div>
+        <div class="motion-row"><div class="motion-token">--ease-exit</div><div class="motion-val">cubic-bezier(0.4, 0, 1, 1) — disparitions</div></div>
+      </div>
+      <div class="alert alert-info mt24" style="margin-top:20px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div><div class="alert-title">Entrées de composants</div><div class="alert-msg">Utiliser fade + translate de 4–8px. Jamais de scale 0→1 violent. Respecter <code style="font-family:var(--font-mono);font-size:11.5px">@media (prefers-reduced-motion)</code>.</div></div>
+      </div>
+    </div>
+
+    <!-- 9 — ICONOGRAPHIE ──────────────────────── -->
+    <div class="ds-section" id="iconographie">
+      <div class="eyebrow">09 — Iconographie</div>
+      <h2 class="doc">Iconographie</h2>
+      <p class="body">Système <strong>Lucide Icons</strong> — stroke 1.75px, outlined, coins légèrement arrondis. Couleur <code style="font-family:var(--font-mono);font-size:12px">currentColor</code>.</p>
+
+      <div class="dt-wrap mt16">
+        <table class="dt">
+          <thead><tr><th>Contexte</th><th>Taille</th><th>Stroke</th></tr></thead>
+          <tbody>
+            <tr><td>UI standard (menus, tables, boutons)</td><td>20px</td><td>1.75</td></tr>
+            <tr><td>Inline dans texte / badges</td><td>16px</td><td>1.75</td></tr>
+            <tr><td>KPI standalone (icône principale)</td><td>34px</td><td>1.5</td></tr>
+            <tr><td>Hero / illustrations de section</td><td>24px</td><td>1.5</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="doc">Icônes utilisées dans l'application</h3>
+      <div class="icon-grid mt8">
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>grid</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>target</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>briefcase</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg><span>wallet</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>alert-triangle</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>users</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg><span>shield-check</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>file-text</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span>refresh-cw</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>truck</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>search</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>bell</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>settings</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>book-open</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><span>inbox</span></div>
+        <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>plus</span></div>
+      </div>
+    </div>
+
+    <!-- 10 — LOGOS ────────────────────────────── -->
+    <div class="ds-section" id="logos">
+      <div class="eyebrow">10 — Logos</div>
+      <h2 class="doc">Logos & monogramme</h2>
+      <p class="body">Zone de protection : au moins une "hauteur de S" tout autour. La pointe de l'étoile reste toujours dorée.</p>
+      <div class="logo-grid">
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#FAF9F7"><img src="assets/logo-horizontal.png" alt="Logo horizontal"></div><div class="logo-tile-meta"><div class="logo-tile-name">Horizontal · noir</div><div class="logo-tile-use">Header, login, footer, email</div></div></div>
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#1A1814"><img src="assets/logo-horizontal-white.png" alt="Logo blanc"></div><div class="logo-tile-meta"><div class="logo-tile-name">Horizontal · blanc</div><div class="logo-tile-use">Sidebar dark, hero encre</div></div></div>
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#FAF9F7"><img src="assets/icon-starium.png" alt="Icône" style="max-height:44px"></div><div class="logo-tile-meta"><div class="logo-tile-name">Monogramme · noir</div><div class="logo-tile-use">Favicon, app icon, filigrane</div></div></div>
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#1A1814"><img src="assets/icon-starium-white.png" alt="Icône blanc" style="max-height:44px"></div><div class="logo-tile-meta"><div class="logo-tile-name">Monogramme · blanc</div><div class="logo-tile-use">Fonds sombres, splash</div></div></div>
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#FAF9F7"><img src="assets/logo-vertical.png" alt="Logo vertical"></div><div class="logo-tile-meta"><div class="logo-tile-name">Vertical · noir</div><div class="logo-tile-use">Couvertures, splash mobile</div></div></div>
+        <div class="logo-tile"><div class="logo-tile-bg" style="background:#1A1814"><img src="assets/logo-vertical-white.png" alt="Logo vertical blanc"></div><div class="logo-tile-meta"><div class="logo-tile-name">Vertical · blanc</div><div class="logo-tile-use">Couvertures sombres</div></div></div>
+      </div>
+    </div>
+
+    <!-- 11 — BOUTONS ──────────────────────────── -->
+    <div class="ds-section" id="boutons">
+      <div class="eyebrow">11 — Composants</div>
+      <h2 class="doc">Boutons</h2>
+
+      <h3 class="doc">Variantes</h3>
+      <div class="preview-box">
+        <div class="preview-row">
+          <button class="btn btn-primary">Primaire</button>
+          <button class="btn btn-secondary">Secondaire</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-danger">Danger</button>
+          <button class="btn btn-primary" disabled>Désactivé</button>
+        </div>
+      </div>
+
+      <h3 class="doc">Tailles</h3>
+      <div class="preview-box">
+        <div class="preview-row" style="align-items:flex-end">
+          <button class="btn btn-primary btn-sm">Petit (sm)</button>
+          <button class="btn btn-primary">Standard</button>
+          <button class="btn btn-primary btn-lg">Grand (lg)</button>
+        </div>
+      </div>
+
+      <h3 class="doc">Avec icône</h3>
+      <div class="preview-box">
+        <div class="preview-row">
+          <button class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nouveau projet
+          </button>
+          <button class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exporter
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12 — FORMULAIRES ─────────────────────── -->
+    <div class="ds-section" id="formulaires">
+      <h2 class="doc">Formulaires</h2>
+
+      <div class="grid2 mt16">
+        <div class="input-group">
+          <label class="input-label">Nom du projet</label>
+          <input class="input" type="text" placeholder="Ex. : Migration Cloud Azure" value="">
+          <div class="input-hint">Nom court, reconnaissable par le CODIR.</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Budget estimé</label>
+          <div class="input-addon">
+            <div class="addon addon-left">€</div>
+            <input class="input" type="text" placeholder="0">
+            <div class="addon addon-right">HT</div>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Responsable</label>
+          <input class="input error" type="text" value="Dupond Pierre">
+          <div class="input-error">Utilisateur introuvable — vérifiez l'orthographe.</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Priorité</label>
+          <select class="input">
+            <option>Critique</option><option>Vital</option><option selected>Normal</option>
+          </select>
+        </div>
+        <div class="input-group" style="grid-column:1/-1">
+          <label class="input-label">Description</label>
+          <textarea class="input" rows="3" placeholder="Décrivez l'objectif principal du projet…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 13 — BADGES ───────────────────────────── -->
+    <div class="ds-section" id="badges">
+      <h2 class="doc">Badges & statuts</h2>
+      <p class="body">Tous les statuts utilisent la forme pill. Pas de border seule — fond teinté + texte coloré.</p>
+
+      <h3 class="doc">Statuts de projet</h3>
+      <div class="preview-box">
+        <div class="preview-row">
+          <span class="chip chip-gold">En cours</span>
+          <span class="chip chip-success">Terminé</span>
+          <span class="chip chip-danger">En retard</span>
+          <span class="chip chip-warning">Attention</span>
+          <span class="chip chip-info">En révision</span>
+          <span class="chip chip-neutral">En réflexion</span>
+          <span class="chip chip-purple">Archivé</span>
+        </div>
+      </div>
+
+      <h3 class="doc">Priorités</h3>
+      <div class="preview-box">
+        <div class="preview-row">
+          <span class="chip chip-danger">Critique</span>
+          <span class="chip chip-gold">Vital</span>
+          <span class="chip chip-warning">Élevé</span>
+          <span class="chip chip-neutral">Normal</span>
+        </div>
+      </div>
+
+      <h3 class="doc">Risques</h3>
+      <div class="preview-box">
+        <div class="preview-row">
+          <span class="chip chip-danger">Critique · 20</span>
+          <span class="chip chip-warning">Élevé · 12</span>
+          <span class="chip chip-gold">Moyen · 8</span>
+          <span class="chip chip-success">Faible · 3</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 14 — CARDS ────────────────────────────── -->
+    <div class="ds-section" id="cards">
+      <h2 class="doc">Cards</h2>
+
+      <h3 class="doc">Card KPI (icône standalone)</h3>
+      <div class="grid4 mt12">
+        <div class="kpi-card">
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+          <div><div class="kpi-label">Projets actifs</div><div class="kpi-value">12</div><div class="kpi-foot ok">↑ 2 ce trimestre</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
+          <div><div class="kpi-label">Budget engagé</div><div class="kpi-value">3,1 M€</div><div class="kpi-foot warn">74 % du prévu</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div><div class="kpi-label">Risques critiques</div><div class="kpi-value">3</div><div class="kpi-foot bad">1 sans plan d'action</div></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div><div class="kpi-label">Équipes saturées</div><div class="kpi-value">2 / 9</div><div class="kpi-foot warn">+ 1 surchargée</div></div>
+        </div>
+      </div>
+
+      <h3 class="doc">Card de contenu</h3>
+      <div class="grid3 mt12">
+        <div class="card"><div class="card-title">Conformité ISO 27001</div><div class="card-body mt4">42 / 58 exigences conformes</div><div class="mt12"><div class="prog"><div class="prog-fill ok" style="width:72%"></div></div></div><div style="display:flex;justify-content:space-between;margin-top:6px"><span class="chip chip-success" style="font-size:10.5px">72 %</span><span style="font-size:11.5px;color:var(--fg-3)">16 écarts</span></div></div>
+        <div class="card"><div class="card-title">Conformité DORA</div><div class="card-body mt4">18 / 40 exigences conformes</div><div class="mt12"><div class="prog"><div class="prog-fill bad" style="width:45%"></div></div></div><div style="display:flex;justify-content:space-between;margin-top:6px"><span class="chip chip-danger" style="font-size:10.5px">45 %</span><span style="font-size:11.5px;color:var(--fg-3)">22 écarts</span></div></div>
+        <div class="card"><div class="card-title">Conformité NIS 2</div><div class="card-body mt4">31 / 52 exigences conformes</div><div class="mt12"><div class="prog"><div class="prog-fill warn" style="width:60%"></div></div></div><div style="display:flex;justify-content:space-between;margin-top:6px"><span class="chip chip-gold" style="font-size:10.5px">60 %</span><span style="font-size:11.5px;color:var(--fg-3)">21 écarts</span></div></div>
+      </div>
+    </div>
+
+    <!-- 15 — TABLEAUX ─────────────────────────── -->
+    <div class="ds-section" id="tableaux">
+      <h2 class="doc">Tableaux</h2>
+      <div class="card mt16">
+        <div class="dt-wrap">
+          <table class="dt">
+            <thead><tr><th>Projet</th><th>Statut</th><th>Priorité</th><th>Avancement</th><th>Responsable</th><th>Échéance</th></tr></thead>
+            <tbody>
+              <tr><td class="strong">Remplacement SI RH</td><td><span class="chip chip-gold">En cours</span></td><td><span class="chip chip-danger">Vital</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog" style="width:80px"><div class="prog-fill ok" style="width:74%"></div></div><span style="font-size:11.5px;color:var(--fg-3)">74 %</span></div></td><td>S. Martin</td><td>31 juil. 2026</td></tr>
+              <tr><td class="strong">Migration Cloud Azure</td><td><span class="chip chip-gold">En cours</span></td><td><span class="chip chip-neutral">Normal</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog" style="width:80px"><div class="prog-fill warn" style="width:45%"></div></div><span style="font-size:11.5px;color:var(--fg-3)">45 %</span></div></td><td>P. Dupont</td><td>30 sep. 2026</td></tr>
+              <tr><td class="strong">Conformité DORA</td><td><span class="chip chip-danger">En retard</span></td><td><span class="chip chip-danger">Critique</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog" style="width:80px"><div class="prog-fill bad" style="width:33%"></div></div><span style="font-size:11.5px;color:var(--fg-3)">33 %</span></div></td><td>S. Martin</td><td>30 juin 2026</td></tr>
+              <tr><td class="strong">Modernisation réseau</td><td><span class="chip chip-success">Terminé</span></td><td><span class="chip chip-neutral">Normal</span></td><td><div style="display:flex;align-items:center;gap:8px"><div class="prog" style="width:80px"><div class="prog-fill ok" style="width:100%"></div></div><span style="font-size:11.5px;color:var(--fg-3)">100 %</span></div></td><td>P. Dupont</td><td>31 mars 2026</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 — ALERTES ──────────────────────────── -->
+    <div class="ds-section" id="alertes">
+      <h2 class="doc">Alertes & notifications</h2>
+      <div class="vstack mt16">
+        <div class="alert alert-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg><div><div class="alert-title">Objectif atteint</div><div class="alert-msg">Le projet « Modernisation réseau » a été clôturé avec succès le 31 mars 2026.</div></div></div>
+        <div class="alert alert-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><div class="alert-title">Contrat expirant</div><div class="alert-msg">Le contrat Microsoft Azure expire dans 30 jours — pensez au renouvellement.</div></div></div>
+        <div class="alert alert-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><div class="alert-title">Budget dépassé</div><div class="alert-msg">L'enveloppe « Transformation digitale » dépasse le prévu de 12 %. Une révision budgétaire est recommandée.</div></div></div>
+        <div class="alert alert-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><div class="alert-title">Nouvelle demande projet</div><div class="alert-msg">Sophie Martin a soumis une demande pour le projet « ERP Finance ». En attente d'arbitrage CODIR.</div></div></div>
+      </div>
+    </div>
+
+    <!-- 17 — NAVIGATION ───────────────────────── -->
+    <div class="ds-section" id="navigation">
+      <h2 class="doc">Navigation</h2>
+
+      <h3 class="doc">Sidebar (dark)</h3>
+      <div class="preview-box-dark mt12">
+        <div style="display:flex;gap:20px;align-items:flex-start">
+          <div class="sidebar-specimen">
+            <div class="sn-sec">Gouvernance</div>
+            <div class="sn-item active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="15" height="15" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              Vision stratégique
+            </div>
+            <div class="sn-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="15" height="15" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Cycles de pilotage
+            </div>
+            <div class="sn-sec">Projets</div>
+            <div class="sn-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="15" height="15" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              Portefeuille projets
+            </div>
+            <div class="sn-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="15" height="15" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+              Risques & plans
+            </div>
+          </div>
+          <div style="color:rgba(255,255,255,.6);font-size:12px;line-height:1.7;max-width:280px">
+            <div style="color:rgba(255,255,255,.9);font-weight:600;margin-bottom:8px">Règles de la sidebar</div>
+            <div>• Fond <code style="font-family:var(--font-mono);font-size:11px">#1A1814</code> par défaut</div>
+            <div>• Texte items : <code style="font-family:var(--font-mono);font-size:11px">#FFFFFD</code></div>
+            <div>• Sections overline : blanc 28% opacity</div>
+            <div>• Item actif : fond <code style="font-family:var(--font-mono);font-size:11px">--brand-gold</code>, texte encre</div>
+            <div>• Hover : fond blanc 6% opacity</div>
+            <div>• Profil utilisateur en bas, séparé</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="doc">Topbar</h3>
+      <div class="preview-box mt12">
+        <div class="topbar-spec">
+          <div class="t-search-spec">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Rechercher…</span>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;background:var(--bg-surface);border:1px solid var(--border-subtle);padding:1px 5px;border-radius:4px;color:var(--fg-3)">⌘K</span>
+          </div>
+          <div class="t-right-spec">
+            <div class="org-chip-spec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> Innovatech SA <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg></div>
+            <div class="tb-btn-spec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+            <div class="av av-gold" style="width:30px;height:30px;font-size:11px">SM</div>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="doc">Onglets (Tabs)</h3>
+      <div class="preview-box mt12">
+        <div class="tabs">
+          <div class="tab active">Fournisseurs</div>
+          <div class="tab">Commandes (18)</div>
+          <div class="tab">Factures (34)</div>
+        </div>
+        <div style="padding:16px 0 4px;font-size:12.5px;color:var(--fg-3)">Contenu de l'onglet actif…</div>
+      </div>
+    </div>
+
+    <!-- 18 — PROGRESSION ─────────────────────── -->
+    <div class="ds-section" id="progression">
+      <h2 class="doc">Progression</h2>
+      <div class="vstack mt16">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:200px"><div class="prog"><div class="prog-fill ok" style="width:100%"></div></div></div>
+          <span style="font-size:12px;color:var(--fg-3)">Succès (100%)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:200px"><div class="prog"><div class="prog-fill ok" style="width:74%"></div></div></div>
+          <span style="font-size:12px;color:var(--fg-3)">OK (74%)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:200px"><div class="prog"><div class="prog-fill warn" style="width:45%"></div></div></div>
+          <span style="font-size:12px;color:var(--fg-3)">Attention (45%)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="width:200px"><div class="prog"><div class="prog-fill bad" style="width:18%"></div></div></div>
+          <span style="font-size:12px;color:var(--fg-3)">En retard (18%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 19 — AVATARS ──────────────────────────── -->
+    <div class="ds-section" id="avatars">
+      <h2 class="doc">Avatars</h2>
+      <p class="body">Initiales sur fond neutre par défaut. Fallback doré pour les utilisateurs "propriétaires" ou administrateurs.</p>
+      <div class="preview-box mt16">
+        <div class="hstack">
+          <div class="av av-lg">SM</div>
+          <div class="av av-gold av-lg">PD</div>
+          <div class="av">JL</div>
+          <div class="av av-gold">MC</div>
+          <div class="av av-sm">AR</div>
+          <div style="margin-left:8px;font-size:12.5px;color:var(--fg-3)">Initiales · Fond neutre ou or · Jamais de couleur random</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 — À FAIRE / ÉVITER ─────────────────── -->
+    <div class="ds-section" id="a-faire">
+      <div class="eyebrow">12 — Usage</div>
+      <h2 class="doc">À faire / À éviter</h2>
+      <div class="vstack mt16">
+        <div class="dd-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="dd-box dd-do"><div class="dd-label">✓ Or parcimonieux</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">CTA primaire, icône KPI, item actif, valeur clé. L'or est un signal — s'il est partout, il ne signifie plus rien.</p></div></div>
+          <div class="dd-box dd-dont"><div class="dd-label">✗ Or omniprésent</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Pas de fond plein or sur grande surface, pas de texte de corps en or, pas de bordures gauches colorées.</p></div></div>
+          <div class="dd-box dd-do"><div class="dd-label">✓ Ombres neutres</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Toujours en encre noire à faible opacité. Le système shadow-1 à shadow-4 est l'unique référence.</p></div></div>
+          <div class="dd-box dd-dont"><div class="dd-label">✗ Ombres colorées</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Pas de <code style="font-family:var(--font-mono);font-size:11.5px">box-shadow: 0 4px 20px rgba(232,163,23,.4)</code> — sauf le focus ring défini.</p></div></div>
+          <div class="dd-box dd-do"><div class="dd-label">✓ Fond app #FAF9F7</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Fond papier chaud pour l'app, blanc pur (#FFFFFF) pour les surfaces de composants (cards, sidebar, topbar).</p></div></div>
+          <div class="dd-box dd-dont"><div class="dd-label">✗ Gradients vifs</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Pas de gradient coloré en arrière-plan d'interface. Réservé aux hero marketing en dégradé encre subtil uniquement.</p></div></div>
+          <div class="dd-box dd-do"><div class="dd-label">✓ Icônes Lucide outlined</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">Stroke 1.75px, currentColor, taille 20px standard. Toujours outlined — jamais filled sauf usage marketing exceptionnel.</p></div></div>
+          <div class="dd-box dd-dont"><div class="dd-label">✗ Emoji dans l'UI</div><div class="dd-content"><p style="font-size:12.5px;color:var(--fg-2)">🚀 ✨ ★ → interdits. Utiliser l'icône Lucide correspondante. Seule exception : l'étoile ✦ du logo.</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 — TOKENS CSS ──────────────────────── -->
+    <div class="ds-section" id="tokens">
+      <div class="eyebrow">13 — Référence</div>
+      <h2 class="doc">Tokens CSS — référence complète</h2>
+      <p class="body">Tous les tokens sont définis dans <code style="font-family:var(--font-mono);font-size:12px">colors_and_type.css</code> et consommables via <code style="font-family:var(--font-mono);font-size:12px">@import url('colors_and_type.css')</code>.</p>
+
+      <div class="code mt16">
+<span class="tok-comment">/* ── Brand ─────────────────────────────────── */</span>
+<span class="tok-prop">--brand-gold</span>:        <span class="tok-val">#E8A317</span>;   <span class="tok-comment">/* accent principal */</span>
+<span class="tok-prop">--brand-gold-600</span>:    <span class="tok-val">#CC8E0E</span>;   <span class="tok-comment">/* hover */</span>
+<span class="tok-prop">--brand-gold-700</span>:    <span class="tok-val">#5F3F00</span>;   <span class="tok-comment">/* texte sur tint */</span>
+<span class="tok-prop">--brand-gold-100</span>:    <span class="tok-val">#F4D58A</span>;   <span class="tok-comment">/* badges, tints */</span>
+<span class="tok-prop">--brand-gold-050</span>:    <span class="tok-val">#FBEAB5</span>;   <span class="tok-comment">/* surface très claire */</span>
+<span class="tok-prop">--brand-ink</span>:         <span class="tok-val">#0E0E10</span>;   <span class="tok-comment">/* texte primaire, logo */</span>
+
+<span class="tok-comment">/* ── Neutres papier ──────────────────────── */</span>
+<span class="tok-prop">--neutral-50</span>:   <span class="tok-val">#FAF9F7</span>;  <span class="tok-comment">/* fond d'app */</span>
+<span class="tok-prop">--neutral-100</span>:  <span class="tok-val">#F4F2EE</span>;  <span class="tok-comment">/* surface subtile */</span>
+<span class="tok-prop">--neutral-200</span>:  <span class="tok-val">#E9E6E0</span>;  <span class="tok-comment">/* bordures, dividers */</span>
+<span class="tok-prop">--neutral-300</span>:  <span class="tok-val">#D6D2CA</span>;
+<span class="tok-prop">--neutral-500</span>:  <span class="tok-val">#8C8579</span>;  <span class="tok-comment">/* texte muted */</span>
+<span class="tok-prop">--neutral-700</span>:  <span class="tok-val">#403D38</span>;
+<span class="tok-prop">--neutral-900</span>:  <span class="tok-val">#14130F</span>;
+
+<span class="tok-comment">/* ── États sémantiques ───────────────────── */</span>
+<span class="tok-prop">--state-success</span>:      <span class="tok-val">#1F8A5B</span>;
+<span class="tok-prop">--state-success-bg</span>:   <span class="tok-val">#E6F4ED</span>;
+<span class="tok-prop">--state-warning</span>:      <span class="tok-val">#C77A00</span>;
+<span class="tok-prop">--state-warning-bg</span>:   <span class="tok-val">#FFF1DC</span>;
+<span class="tok-prop">--state-danger</span>:       <span class="tok-val">#B42318</span>;
+<span class="tok-prop">--state-danger-bg</span>:    <span class="tok-val">#FBE8E6</span>;
+<span class="tok-prop">--state-info</span>:         <span class="tok-val">#2A6FDB</span>;
+<span class="tok-prop">--state-info-bg</span>:      <span class="tok-val">#E3EEFB</span>;
+
+<span class="tok-comment">/* ── Typographie ─────────────────────────── */</span>
+<span class="tok-prop">--font-sans</span>:    <span class="tok-val">'Manrope', -apple-system, system-ui, sans-serif</span>;
+<span class="tok-prop">--font-mono</span>:    <span class="tok-val">'JetBrains Mono', ui-monospace, monospace</span>;
+<span class="tok-prop">--text-display-xl</span>: <span class="tok-val">800 64px/1.05 var(--font-display)</span>;
+<span class="tok-prop">--text-h1</span>:      <span class="tok-val">700 28px/1.2 var(--font-sans)</span>;
+<span class="tok-prop">--text-body</span>:    <span class="tok-val">400 15px/1.55 var(--font-sans)</span>;
+<span class="tok-prop">--text-body-s</span>:  <span class="tok-val">400 13px/1.5 var(--font-sans)</span>;
+<span class="tok-prop">--text-caption</span>: <span class="tok-val">500 12px/1.4 var(--font-sans)</span>;
+<span class="tok-prop">--text-overline</span>:<span class="tok-val">600 11px/1.2 var(--font-sans)</span>; <span class="tok-comment">/* + uppercase */</span>
+
+<span class="tok-comment">/* ── Espacement (base 4px) ───────────────── */</span>
+<span class="tok-prop">--space-1</span>: <span class="tok-val">4px</span>;  <span class="tok-prop">--space-2</span>: <span class="tok-val">8px</span>;  <span class="tok-prop">--space-4</span>: <span class="tok-val">16px</span>;
+<span class="tok-prop">--space-6</span>: <span class="tok-val">24px</span>; <span class="tok-prop">--space-8</span>: <span class="tok-val">32px</span>; <span class="tok-prop">--space-12</span>: <span class="tok-val">48px</span>;
+<span class="tok-prop">--space-16</span>: <span class="tok-val">64px</span>;
+
+<span class="tok-comment">/* ── Rayons ─────────────────────────────── */</span>
+<span class="tok-prop">--radius-sm</span>:   <span class="tok-val">6px</span>;
+<span class="tok-prop">--radius-md</span>:   <span class="tok-val">10px</span>;   <span class="tok-comment">/* boutons, inputs */</span>
+<span class="tok-prop">--radius-lg</span>:   <span class="tok-val">14px</span>;   <span class="tok-comment">/* cards — valeur signature */</span>
+<span class="tok-prop">--radius-xl</span>:   <span class="tok-val">20px</span>;   <span class="tok-comment">/* modals */</span>
+<span class="tok-prop">--radius-pill</span>: <span class="tok-val">999px</span>;  <span class="tok-comment">/* badges, avatars */</span>
+
+<span class="tok-comment">/* ── Ombres ─────────────────────────────── */</span>
+<span class="tok-prop">--shadow-1</span>: <span class="tok-val">0 1px 2px rgba(14,14,16,.04)…</span>;  <span class="tok-comment">/* cards */</span>
+<span class="tok-prop">--shadow-3</span>: <span class="tok-val">0 8px 24px rgba(14,14,16,.08)…</span>; <span class="tok-comment">/* dropdowns */</span>
+<span class="tok-prop">--shadow-4</span>: <span class="tok-val">0 24px 60px rgba(14,14,16,.12)…</span>;<span class="tok-comment">/* modals */</span>
+<span class="tok-prop">--shadow-focus</span>: <span class="tok-val">0 0 0 3px rgba(232,163,23,.32)</span>;
+
+<span class="tok-comment">/* ── Motion ─────────────────────────────── */</span>
+<span class="tok-prop">--ease-standard</span>:  <span class="tok-val">cubic-bezier(0.2, 0, 0, 1)</span>;
+<span class="tok-prop">--duration-fast</span>:  <span class="tok-val">120ms</span>;
+<span class="tok-prop">--duration-base</span>:  <span class="tok-val">200ms</span>;
+<span class="tok-prop">--duration-slow</span>:  <span class="tok-val">320ms</span>;
+
+<span class="tok-comment">/* ── Layout ─────────────────────────────── */</span>
+<span class="tok-prop">--sidebar-width</span>:   <span class="tok-val">248px</span>;
+<span class="tok-prop">--topbar-height</span>:   <span class="tok-val">64px</span>;
+<span class="tok-prop">--container-max</span>:   <span class="tok-val">1280px</span>;
+      </div>
+
+      <div style="margin-top:32px;padding:20px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--fg-1);margin-bottom:6px">Liens vers les fichiers</div>
+        <div style="font-size:12.5px;color:var(--fg-3);line-height:2">
+          <a href="colors_and_type.css" style="color:var(--brand-gold-700);font-family:var(--font-mono);font-size:12px">colors_and_type.css</a> — 93 tokens, @font-face, styles de base<br>
+          <a href="styles.css" style="color:var(--brand-gold-700);font-family:var(--font-mono);font-size:12px">styles.css</a> — entry point unique (importe colors_and_type.css)<br>
+          <a href="ui_kits/app/orchestra.html" style="color:var(--brand-gold-700);font-family:var(--font-mono);font-size:12px">ui_kits/app/orchestra.html</a> — SPA 13 pages<br>
+          <a href="ui_kits/app/index.html" style="color:var(--brand-gold-700);font-family:var(--font-mono);font-size:12px">ui_kits/app/index.html</a> — Vue Vision stratégique<br>
+          <a href="ui_kits/app/scenario.html" style="color:var(--brand-gold-700);font-family:var(--font-mono);font-size:12px">ui_kits/app/scenario.html</a> — Scénario de capacité / Gantt
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:48px 0 0;border-top:1px solid var(--border-subtle);display:flex;align-items:center;gap:16px">
+      <img src="assets/icon-starium.png" alt="Starium" style="height:28px;opacity:.4">
+      <div style="font-size:12px;color:var(--fg-4)">Starium Design System · v1.0 · Confidentiel</div>
+      <div style="margin-left:auto;font-size:12px;color:var(--fg-4)">✦</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Active nav on scroll
+const sections = document.querySelectorAll('.ds-section[id]');
+const links = document.querySelectorAll('.sn-link');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { threshold: 0.15, rootMargin: '-60px 0px -60% 0px' });
+sections.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

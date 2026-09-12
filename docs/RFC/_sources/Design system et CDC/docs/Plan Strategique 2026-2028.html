@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plan Stratégique DSI 2026–2028 — Innovatech SA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#ECEAE3;font-family:'Manrope',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 80px;color:#0E0E10}
+.page{background:#fff;max-width:816px;margin:0 auto 28px;padding:64px 72px;border-radius:3px;box-shadow:0 2px 16px rgba(0,0,0,.09)}
+
+/* Cover */
+.cover-bg{background:#0E0E10;margin:-64px -72px 52px;padding:56px 72px 52px;position:relative;overflow:hidden}
+.cover-bg::after{content:'✦';position:absolute;right:-20px;top:-40px;font-size:300px;color:rgba(232,163,23,.06);line-height:1;pointer-events:none}
+.cover-org{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:40px}
+.cover-eyebrow{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#E8A317;margin-bottom:14px}
+h1.cover{font-size:46px;font-weight:800;letter-spacing:-.03em;line-height:1.06;color:#FFFFFD;margin-bottom:12px}
+.cover-period{font-size:20px;color:#E8A317;font-weight:700;letter-spacing:-.01em;margin-bottom:16px}
+.cover-desc{font-size:15px;color:rgba(255,255,255,.55);line-height:1.6;max-width:500px;font-weight:400}
+
+.cover-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-bottom:40px;padding-top:4px}
+.cs{border-top:2px solid #E8A317;padding-top:12px}
+.cs-val{font-size:36px;font-weight:800;letter-spacing:-.03em;color:#E8A317;font-variant-numeric:tabular-nums}
+.cs-lbl{font-size:12px;color:#8C8579;margin-top:4px}
+
+/* Doc structure */
+.dh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #E9E6E0;padding-bottom:18px;margin-bottom:36px}
+.dh-logo img{height:18px;opacity:.45}
+.dh-txt{font-size:11px;color:#B6B0A4;text-align:right;line-height:1.6}
+.chapter{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#E8A317;margin-bottom:8px}
+h2.doc{font-size:26px;font-weight:800;letter-spacing:-.025em;margin-bottom:6px}
+.intro{font-size:14px;color:#5F5A52;line-height:1.65;margin-bottom:28px;border-left:3px solid #E8A317;padding-left:14px;font-style:italic}
+h3.doc{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#403D38;margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+h3.doc::before{content:'';display:block;width:3px;height:13px;background:#E8A317;border-radius:2px;flex-shrink:0}
+p.body{font-size:13.5px;color:#403D38;line-height:1.7;margin-bottom:12px}
+
+/* Ambition */
+.vision-box{background:#0E0E10;border-radius:10px;padding:24px 28px;margin:16px 0 24px;position:relative;overflow:hidden}
+.vision-box::before{content:'✦';position:absolute;right:20px;top:10px;font-size:80px;color:rgba(232,163,23,.08);line-height:1}
+.vision-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#E8A317;margin-bottom:10px}
+.vision-txt{font-size:16px;font-weight:600;color:#FFFFFD;line-height:1.6;position:relative}
+
+/* Axes */
+.axes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.axe{border-radius:10px;padding:16px 18px;border:1px solid}
+.axe-1{border-color:#F4D58A;background:#FBEAB5}
+.axe-2{border-color:#D6D2CA;background:#FAF9F7}
+.axe-3{border-color:#D6D2CA;background:#FAF9F7}
+.axe-4{border-color:#D6D2CA;background:#FAF9F7}
+.axe-num{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579;margin-bottom:5px}
+.axe-name{font-size:14px;font-weight:700;color:#0E0E10;margin-bottom:6px}
+.axe-score{font-size:22px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.axe-1 .axe-score{color:#5F3F00}
+.axe-2 .axe-score,.axe-3 .axe-score,.axe-4 .axe-score{color:#0E0E10}
+.axe-target{font-size:11.5px;color:#8C8579;margin-top:3px}
+.axe-objs{margin-top:10px;font-size:12.5px;color:#5F5A52;line-height:1.6}
+
+/* Roadmap */
+.roadmap{margin:14px 0}
+.rm-year{font-size:12px;font-weight:700;color:#E8A317;text-transform:uppercase;letter-spacing:.08em;margin:20px 0 8px}
+.rm-year:first-child{margin-top:0}
+.rm-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #F4F2EE}
+.rm-item:last-child{border-bottom:none}
+.rm-q{font-size:11.5px;font-weight:700;color:#8C8579;min-width:36px}
+.rm-txt{font-size:13px;color:#403D38;flex:1}
+.rm-owner{font-size:11.5px;color:#8C8579;white-space:nowrap}
+.b{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.ba{background:#F4D58A;color:#5F3F00}.bs{background:#E6F4ED;color:#1F8A5B}
+.bi{background:#E3EEFB;color:#2A6FDB}.bn{background:#F4F2EE;color:#8C8579}
+
+/* OKR Table */
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.dt th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:7px 10px;border-bottom:2px solid #E9E6E0}
+table.dt td{padding:9px 10px;border-bottom:1px solid #F4F2EE;color:#403D38;vertical-align:top}
+table.dt tr:last-child td{border-bottom:none}
+table.dt td strong{color:#0E0E10;font-weight:600}
+.pr{height:5px;background:#E9E6E0;border-radius:999px;overflow:hidden;min-width:60px;display:inline-block}
+.pf{height:100%;border-radius:999px}
+.pf.ok{background:#1F8A5B}.pf.warn{background:#E8A317}.pf.bad{background:#B42318}
+
+/* Budget prev */
+.budget-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.bg-cell{border:1px solid #E9E6E0;border-radius:9px;padding:14px;background:#FAF9F7;text-align:center}
+.bg-year{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8C8579;margin-bottom:5px}
+.bg-val{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#0E0E10;font-variant-numeric:tabular-nums}
+.bg-change{font-size:11px;margin-top:3px}
+
+/* Footer */
+.df{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #E9E6E0;padding-top:14px;margin-top:36px;font-size:11px;color:#B6B0A4}
+
+@media print{
+  body{background:none;padding:0}
+  .page{box-shadow:none;border-radius:0;margin:0;max-width:none;break-after:page}
+  .page:last-child{break-after:auto}
+  @page{margin:.75in}
+  h3.doc{break-after:avoid}
+  .axe,.rm-item,.bg-cell{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 — COUVERTURE -->
+<div class="page">
+  <div class="cover-bg">
+    <div class="cover-org">Innovatech SA · Direction des Systèmes d'Information</div>
+    <div class="cover-eyebrow">Plan Stratégique</div>
+    <h1 class="cover">Ambition DSI<br>Horizon 2028</h1>
+    <div class="cover-period">2026 – 2028</div>
+    <p class="cover-desc">Devenir la DSI de référence pour les ETI de la région, en délivrant une infrastructure IT sécurisée, agile et alignée sur les ambitions de croissance de nos organisations clientes.</p>
+  </div>
+
+  <div class="cover-stats">
+    <div class="cs"><div class="cs-val">82 %</div><div class="cs-lbl">Score d'alignement stratégique actuel</div></div>
+    <div class="cs"><div class="cs-val">95 %</div><div class="cs-lbl">Cible d'alignement à horizon 2028</div></div>
+    <div class="cs"><div class="cs-val">4</div><div class="cs-lbl">Axes stratégiques pour atteindre la vision</div></div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <div style="font-size:12.5px;font-weight:600;color:#0E0E10">Sophie Martin</div>
+      <div style="font-size:11.5px;color:#8C8579">DSI · Innovatech SA</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:12.5px;color:#8C8579">Approuvé par le CODIR</div>
+      <div style="font-size:12.5px;font-weight:600;color:#0E0E10">Version 3.1 · Juin 2026</div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2 — VISION & AXES -->
+<div class="page">
+  <div class="dh">
+    <div class="dh-logo"><img src="../assets/logo-horizontal.png" alt="Innovatech SA"></div>
+    <div class="dh-txt">Plan Stratégique DSI 2026–2028<br>Vision & Axes stratégiques</div>
+  </div>
+  <div class="chapter">Chapitre 01</div>
+  <h2 class="doc">Vision & Ambition</h2>
+
+  <div class="vision-box">
+    <div class="vision-lbl">Notre vision — Horizon 2028</div>
+    <div class="vision-txt">« Devenir la DSI de référence pour les ETI de la région, en délivrant une infrastructure IT sécurisée, agile et alignée sur les ambitions de croissance de nos organisations clientes, tout en maîtrisant les risques et les coûts. »</div>
+  </div>
+
+  <h3 class="doc">Mission de la DSI</h3>
+  <p class="body">La Direction des Systèmes d'Information d'Innovatech SA a pour mission d'être un partenaire stratégique et opérationnel fiable pour l'ensemble des métiers, en garantissant la disponibilité, la sécurité et l'évolution continue des systèmes d'information.</p>
+
+  <h3 class="doc">Quatre axes stratégiques</h3>
+  <div class="axes">
+    <div class="axe axe-1">
+      <div class="axe-num">Axe 01 — Principal</div>
+      <div class="axe-name">Performance opérationnelle</div>
+      <div class="axe-score">85 %</div>
+      <div class="axe-target">Cible 2028 : 95 %</div>
+      <div class="axe-objs">Disponibilité SI · SLA clients · Automatisation · Productivité équipes</div>
+    </div>
+    <div class="axe axe-2">
+      <div class="axe-num">Axe 02</div>
+      <div class="axe-name">Transformation digitale</div>
+      <div class="axe-score">72 %</div>
+      <div class="axe-target">Cible 2028 : 90 %</div>
+      <div class="axe-objs">Modernisation applicative · Cloud · Data · IA générative</div>
+    </div>
+    <div class="axe axe-3">
+      <div class="axe-num">Axe 03</div>
+      <div class="axe-name">Maîtrise des risques</div>
+      <div class="axe-score">65 %</div>
+      <div class="axe-target">Cible 2028 : 85 %</div>
+      <div class="axe-objs">Cybersécurité · Conformité · Résilience · Continuité d'activité</div>
+    </div>
+    <div class="axe axe-4">
+      <div class="axe-num">Axe 04</div>
+      <div class="axe-name">Développement humain</div>
+      <div class="axe-score">80 %</div>
+      <div class="axe-target">Cible 2028 : 92 %</div>
+      <div class="axe-objs">Compétences · Agilité · Culture data · Attractivité équipes</div>
+    </div>
+  </div>
+
+  <div class="df"><span>Innovatech SA · Plan Stratégique DSI 2026–2028 · Confidentiel</span><span>Page 2</span></div>
+</div>
+
+<!-- PAGE 3 — OKR & FEUILLE DE ROUTE -->
+<div class="page">
+  <div class="dh">
+    <div class="dh-logo"><img src="../assets/logo-horizontal.png" alt="Innovatech SA"></div>
+    <div class="dh-txt">Plan Stratégique DSI 2026–2028<br>Objectifs & Feuille de route</div>
+  </div>
+  <div class="chapter">Chapitre 02</div>
+  <h2 class="doc">Objectifs Clés (OKR)</h2>
+  <p class="intro">14 objectifs en bonne trajectoire sur 18. 4 objectifs requièrent une intervention — dont 2 critiques (DORA, Cybersécurité).</p>
+
+  <table class="dt" style="margin-bottom:28px">
+    <thead><tr><th>Objectif</th><th>Axe</th><th>Indicateur</th><th>Actuel</th><th>Cible</th><th>Statut</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Disponibilité SI > 99,5 %</strong></td><td>Perf.</td><td>Uptime mensuel</td><td>99,2 %</td><td>99,5 %</td><td><span class="b ba">En cours</span></td></tr>
+      <tr><td><strong>Conformité DORA</strong></td><td>Risques</td><td>% exigences</td><td>33 %</td><td>100 %</td><td><span class="b" style="background:#FBE8E6;color:#B42318">En retard</span></td></tr>
+      <tr><td><strong>Migration 80 % workloads cloud</strong></td><td>Transfo.</td><td>% workloads</td><td>45 %</td><td>80 %</td><td><span class="b ba">En cours</span></td></tr>
+      <tr><td><strong>Score cybersécurité > 80 %</strong></td><td>Risques</td><td>Maturité SOC</td><td>55 %</td><td>80 %</td><td><span class="b ba">En cours</span></td></tr>
+      <tr><td><strong>NPS équipes DSI > 70</strong></td><td>Humain</td><td>NPS interne</td><td>62</td><td>70</td><td><span class="b bs">OK</span></td></tr>
+      <tr><td><strong>Réduction coûts IT de 10 %</strong></td><td>Perf.</td><td>Coût/utilisateur</td><td>−3 %</td><td>−10 %</td><td><span class="b ba">En cours</span></td></tr>
+      <tr><td><strong>100 % équipes formées à la data</strong></td><td>Humain</td><td>% formés</td><td>44 %</td><td>100 %</td><td><span class="b ba">En cours</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Feuille de route — 2026 à 2028</h3>
+  <div class="roadmap">
+    <div class="rm-year">2026 — Consolidation & Conformité</div>
+    <div class="rm-item"><div class="rm-q">T2</div><div class="rm-txt">Lancement CRM · Modernisation réseau terminée · Décision DORA en CODIR</div><div class="rm-owner"><span class="b ba">En cours</span></div></div>
+    <div class="rm-item"><div class="rm-q">T3</div><div class="rm-txt">Go-live migration Azure · Remédiation DORA · Cybersécurité SOC phase 2</div><div class="rm-owner"><span class="b bn">Planifié</span></div></div>
+    <div class="rm-item"><div class="rm-q">T4</div><div class="rm-txt">Audit DORA · Certification ISO 27001 · Bilan annuel CODIR · Budget 2027</div><div class="rm-owner"><span class="b bn">Planifié</span></div></div>
+
+    <div class="rm-year">2027 — Transformation & Agilité</div>
+    <div class="rm-item"><div class="rm-q">T1</div><div class="rm-txt">Démarrage ERP Finance · Migration 60 % workloads cloud · IA générative pilote</div><div class="rm-owner"><span class="b bn">Planifié</span></div></div>
+    <div class="rm-item"><div class="rm-q">T2–T3</div><div class="rm-txt">SI RH — déploiement national · Portail RH · Chatbot support IT</div><div class="rm-owner"><span class="b bn">Planifié</span></div></div>
+    <div class="rm-item"><div class="rm-q">T4</div><div class="rm-txt">ERP Finance phase 1 go-live · 80 % workloads cloud atteint · Revue stratégique</div><div class="rm-owner"><span class="b bn">Planifié</span></div></div>
+
+    <div class="rm-year">2028 — Excellence & Référence</div>
+    <div class="rm-item"><div class="rm-q">T1–T2</div><div class="rm-txt">Score cybersécurité > 80 % · Formation data 100 % équipes · NPS DSI > 70</div><div class="rm-owner"><span class="b bn">Cible</span></div></div>
+    <div class="rm-item"><div class="rm-q">T3–T4</div><div class="rm-txt">Bilan triennal · Nouveau plan stratégique 2029–2031 · Score alignement 95 %</div><div class="rm-owner"><span class="b bn">Cible</span></div></div>
+  </div>
+
+  <div class="df"><span>Innovatech SA · Plan Stratégique DSI 2026–2028 · Confidentiel</span><span>Page 3</span></div>
+</div>
+
+<!-- PAGE 4 — BUDGET PRÉVISIONNEL -->
+<div class="page">
+  <div class="dh">
+    <div class="dh-logo"><img src="../assets/logo-horizontal.png" alt="Innovatech SA"></div>
+    <div class="dh-txt">Plan Stratégique DSI 2026–2028<br>Budget prévisionnel</div>
+  </div>
+  <div class="chapter">Chapitre 03</div>
+  <h2 class="doc">Budget prévisionnel 2026–2028</h2>
+  <p class="intro">La trajectoire budgétaire est cohérente avec les ambitions de transformation. Le pic 2027 correspond à la montée en charge des projets ERP et cloud.</p>
+
+  <div class="budget-grid">
+    <div class="bg-cell"><div class="bg-year">Réel 2025</div><div class="bg-val">3,8 M€</div><div class="bg-change" style="color:#8C8579">Référence</div></div>
+    <div class="bg-cell" style="border-color:#E8A317;background:#FBEAB5"><div class="bg-year">Prévu 2026 ★</div><div class="bg-val">4,2 M€</div><div class="bg-change" style="color:#5F3F00">+10,5 %</div></div>
+    <div class="bg-cell"><div class="bg-year">Prévu 2027</div><div class="bg-val">5,1 M€</div><div class="bg-change" style="color:#C77A00">+21 %</div></div>
+    <div class="bg-cell"><div class="bg-year">Prévu 2028</div><div class="bg-val">4,6 M€</div><div class="bg-change" style="color:#1F8A5B">−10 %</div></div>
+  </div>
+
+  <h3 class="doc">Répartition par axe — Budget 2026</h3>
+  <table class="dt" style="margin-bottom:24px">
+    <thead><tr><th>Axe stratégique</th><th>Budget 2026</th><th>% total</th><th>Priorité</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Performance opérationnelle</strong></td><td>1 200 000 €</td><td>29 %</td><td><span class="b ba">Maintien</span></td></tr>
+      <tr><td><strong>Transformation digitale</strong></td><td>1 800 000 €</td><td>43 %</td><td><span class="b ba">Investissement</span></td></tr>
+      <tr><td><strong>Maîtrise des risques</strong></td><td>850 000 €</td><td>20 %</td><td><span class="b" style="background:#FBE8E6;color:#B42318">Critique</span></td></tr>
+      <tr><td><strong>Développement humain</strong></td><td>350 000 €</td><td>8 %</td><td><span class="b bs">En cours</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Facteurs de risque budgétaire</h3>
+  <p class="body">Trois facteurs pourraient impacter le budget prévisionnel 2027 : (1) l'ampleur réelle des travaux ERP Finance, non encore entièrement cadrée ; (2) les coûts réglementaires additionnels si la conformité DORA nécessite une certification externe ; (3) l'évolution des tarifs cloud Azure en cas de renouvellement contractuel défavorable.</p>
+  <p class="body">Une réserve de gestion de <strong>200 000 €</strong> est provisionnée dans chaque enveloppe annuelle pour couvrir ces aléas sans révision budgétaire en cours d'année.</p>
+
+  <h3 class="doc">Gouvernance financière</h3>
+  <p class="body">Le suivi budgétaire est mensuel (reporting DSI → DAF) et trimestriel en CODIR. Tout dépassement supérieur à <strong>5 %</strong> d'une enveloppe déclenche automatiquement une alerte et une demande d'arbitrage. Les instantanés budgétaires sont figés à chaque fin de trimestre dans Starium Orchestra.</p>
+
+  <div style="margin-top:32px;border-top:1px dashed #D6D2CA;padding-top:20px;display:flex;justify-content:space-between">
+    <div>
+      <div style="height:1px;background:#403D38;width:160px;margin-bottom:6px;margin-top:36px"></div>
+      <div style="font-size:12px;font-weight:600;color:#0E0E10">Sophie Martin</div>
+      <div style="font-size:11px;color:#8C8579">DSI · Innovatech SA</div>
+    </div>
+    <div>
+      <div style="height:1px;background:#403D38;width:160px;margin-bottom:6px;margin-top:36px"></div>
+      <div style="font-size:12px;font-weight:600;color:#0E0E10">Jean-Marc Lefebvre</div>
+      <div style="font-size:11px;color:#8C8579">PDG · Approuvé en CODIR</div>
+    </div>
+  </div>
+
+  <div class="df"><span>Innovatech SA · Plan Stratégique DSI 2026–2028 · Confidentiel</span><span>Page 4</span></div>
+</div>
+
+</body>
+</html>

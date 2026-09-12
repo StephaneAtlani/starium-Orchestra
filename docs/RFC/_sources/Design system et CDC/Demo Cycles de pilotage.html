@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<title>Démo — Cycles de pilotage</title>
+<style>
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');font-weight:100 900;font-style:normal;font-display:swap}
+html,body{margin:0;height:100%;background:#0b0b0c;font-family:Manrope,system-ui,sans-serif}
+#root{min-height:100%}
+a{color:#E8A317}a:hover{color:#F4D58A}
+</style>
+<script>window.OM_SCENES = '[{"name":"Intro","dur":3.5,"desc":"Carton titre sur l\u2019\u00e9cran Cycles de pilotage, l\u00e9ger zoom avant"},{"name":"Vue","dur":4.5,"desc":"Le titre s\u2019efface, on d\u00e9couvre la liste des instances"},{"name":"Menu","dur":5,"desc":"Le curseur ouvre le menu des types d\u2019instance"},{"name":"Formulaire","dur":6,"desc":"Le formulaire de cr\u00e9ation rempli : nom, cadence, \u00e9quipe, ordre du jour"},{"name":"Chainage","dur":6.5,"desc":"Zoom sur la reprise et la transmission \u00e0 l\u2019instance aval"},{"name":"Generation","dur":4,"desc":"Enregistrement : les s\u00e9ances sont g\u00e9n\u00e9r\u00e9es"},{"name":"Grille","dur":5,"desc":"Panoramique sur les instances et leur cha\u00eenage"},{"name":"Preparer","dur":4.5,"desc":"\u00c9cran de pr\u00e9paration de la s\u00e9ance"},{"name":"Convocation","dur":5.5,"desc":"Composition de la convocation avec aper\u00e7u participant"},{"name":"Contenu","dur":5,"desc":"Options d\u2019envoi : ics, ordre du jour, confirmation, relance"},{"name":"Envoi","dur":4,"desc":"Clic sur envoyer, confirmation des 7 convocations"},{"name":"Suivi","dur":5.5,"desc":"Suivi nominatif des r\u00e9ponses"},{"name":"Fin","dur":3.5,"desc":"Carton de fin"}]';</script>
+<script>window.OM_PLAYBACK = '{"mode":"loop"}';</script>
+<script>window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "motionEditor": true,
+  "showCaptions": true,
+  "showCursor": true,
+  "plateStyle": "sombre"
+}/*EDITMODE-END*/;</script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="animations-v3.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="demo-cycles.jsx"></script>
+<script type="text/babel">
+const { CompositionStage, Piece, useTweaks, TweaksPanel, TweakSection, TweakToggle, TweakRadio } = window;
+function App(){
+  const [t, setTweak] = useTweaks(window.TWEAK_DEFAULTS);
+  return (
+    <div>
+      <CompositionStage width={1920} height={1080} scenes={window.OM_SCENES} playback={window.OM_PLAYBACK} bg="#0b0b0c">
+        <Piece captions={t.showCaptions} cursor={t.showCursor} plateStyle={t.plateStyle} />
+      </CompositionStage>
+      <TweaksPanel>
+        <TweakSection label="Vidéo" />
+        <TweakToggle label="Sous-titres" value={t.showCaptions} onChange={v=>setTweak('showCaptions', v)} />
+        <TweakToggle label="Curseur" value={t.showCursor} onChange={v=>setTweak('showCursor', v)} />
+        <TweakRadio label="Fond" value={t.plateStyle} options={['sombre','clair']} onChange={v=>setTweak('plateStyle', v)} />
+        <TweakSection label="Édition" />
+        <TweakToggle label="Motion editor" value={t.motionEditor} onChange={v=>setTweak('motionEditor', v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body></html>

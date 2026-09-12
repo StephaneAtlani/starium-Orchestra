@@ -1,0 +1,201 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Boutons" subtitle="Plat, sobre, on-system — variantes, tailles, états, groupe" viewport="700x560" -->
+<html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  /* ---------------------------------------------------------------
+     Buttons — flat, sober, on-system.
+     Solid fills, hairline borders, one elevation token (--shadow-1).
+     Gold primary uses the brand token directly; no gradients, no glow.
+     --------------------------------------------------------------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font: var(--text-h4);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--fg-1);
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background var(--duration-fast) var(--ease-standard),
+      border-color var(--duration-fast) var(--ease-standard),
+      color var(--duration-fast) var(--ease-standard);
+  }
+  .btn:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+
+  /* Primary — assorti aux anneaux d'icônes : fond tint, texte ambre foncé. */
+  .btn-primary {
+    background: var(--brand-gold-100);
+    color: var(--brand-gold-700);
+    border-color: var(--brand-gold-100);
+  }
+  .btn-primary:hover  { background: var(--brand-gold); border-color: var(--brand-gold); color: var(--brand-gold-700); }
+  .btn-primary:active { background: var(--brand-gold-600); border-color: var(--brand-gold-600); }
+
+  /* Secondary — surface + hairline */
+  .btn-secondary {
+    background: var(--bg-surface);
+    color: var(--brand-gold-700);
+    border-color: var(--brand-gold-100);
+  }
+  .btn-secondary:hover  { background: var(--brand-gold-050); border-color: var(--brand-gold); }
+  .btn-secondary:active { background: var(--brand-gold-100); }
+
+  /* Tertiary — quiet, no chrome until hover */
+  .btn-tertiary { color: var(--brand-gold-700); }
+  .btn-tertiary:hover  { background: var(--brand-gold-050); }
+  .btn-tertiary:active { background: var(--brand-gold-100); }
+
+  /* Ink — high-contrast confirm */
+  .btn-ink { background: var(--brand-ink); color: var(--brand-gold-100); }
+  .btn-ink:hover  { background: #1F1C18; }
+  .btn-ink:active { background: #2A2620; }
+
+  /* Destructive — paired with state-danger */
+  .btn-danger { background: var(--state-danger-bg); color: var(--state-danger); border-color: var(--state-danger-bg); }
+  .btn-danger:hover  { background: var(--state-danger); color: #fff; border-color: var(--state-danger); }
+  .btn-danger:active { background: #9C1E14; border-color: #9C1E14; color: #fff; }
+
+  /* Disabled */
+  .btn[disabled],
+  .btn[aria-disabled="true"] {
+    opacity: 0.42;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Sizes */
+  .btn-sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: var(--radius-sm); }
+  .btn-lg { height: 48px; padding: 0 22px; font-size: 16px; border-radius: var(--radius-lg); }
+
+  /* Icon-only */
+  .btn-icon { width: 40px; padding: 0; }
+  .btn-icon.btn-sm { width: 32px; }
+  .btn-icon.btn-lg { width: 48px; }
+
+  /* Button group — segmented */
+  .btn-group { display: inline-flex; }
+  .btn-group .btn {
+    border-radius: 0;
+    border-color: var(--border-strong);
+    box-shadow: none;
+    background: var(--bg-surface);
+  }
+  .btn-group .btn + .btn { border-left-width: 0; }
+  .btn-group .btn:first-child { border-top-left-radius: var(--radius-md); border-bottom-left-radius: var(--radius-md); }
+  .btn-group .btn:last-child  { border-top-right-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
+  .btn-group .btn[aria-pressed="true"] {
+    background: var(--brand-gold-100);
+    color: var(--brand-gold-700);
+    border-color: var(--brand-gold-100);
+  }
+  .btn-group .btn[aria-pressed="true"] + .btn { border-left-color: var(--border-strong); }
+
+  /* Loading spinner */
+  .spinner {
+    width: 14px; height: 14px; border-radius: 999px;
+    border: 1.5px solid currentColor; border-right-color: transparent;
+    animation: spin 700ms linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Layout */
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .label { font: var(--text-overline); letter-spacing: var(--tracking-overline); text-transform: uppercase; color: var(--fg-3); }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .ico { width: 16px; height: 16px; flex: none; }
+  .btn-lg .ico { width: 18px; height: 18px; }
+  .btn-sm .ico { width: 14px; height: 14px; }
+  .divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:flex;flex-direction:column;gap:18px;">
+
+    <!-- Variants -->
+    <div class="stack">
+      <div class="label">Variantes</div>
+      <div class="row">
+        <button class="btn btn-primary">Modifier la vision</button>
+        <button class="btn btn-secondary">Exporter</button>
+        <button class="btn btn-tertiary">Annuler</button>
+        <button class="btn btn-ink">Voir le détail</button>
+        <button class="btn btn-danger">Supprimer</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Sizes -->
+    <div class="stack">
+      <div class="label">Tailles</div>
+      <div class="row">
+        <button class="btn btn-primary btn-sm">Small · 32</button>
+        <button class="btn btn-primary">Default · 40</button>
+        <button class="btn btn-primary btn-lg">Large · 48</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- With icon + icon-only -->
+    <div class="stack">
+      <div class="label">Avec icône</div>
+      <div class="row">
+        <button class="btn btn-primary">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nouvelle vision
+        </button>
+        <button class="btn btn-secondary">
+          Exporter
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="btn btn-icon btn-secondary" aria-label="Plus d'options">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+        </button>
+        <button class="btn btn-icon btn-tertiary" aria-label="Fermer">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- States -->
+    <div class="stack">
+      <div class="label">États</div>
+      <div class="row">
+        <button class="btn btn-primary">Default</button>
+        <button class="btn btn-primary" style="background:var(--brand-gold);border-color:var(--brand-gold);">Hover</button>
+        <button class="btn btn-primary" style="background:var(--brand-gold-600);border-color:var(--brand-gold-600);">Pressed</button>
+        <button class="btn btn-primary" style="box-shadow:var(--shadow-focus);">Focus</button>
+        <button class="btn btn-primary" disabled>Disabled</button>
+        <button class="btn btn-primary" aria-disabled="true"><span class="spinner"></span>Enregistrement…</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Segmented group -->
+    <div class="stack">
+      <div class="label">Groupe segmenté</div>
+      <div class="row">
+        <div class="btn-group" role="tablist" aria-label="Période">
+          <button class="btn" aria-pressed="true">Trimestre</button>
+          <button class="btn">Semestre</button>
+          <button class="btn">Année</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body></html>

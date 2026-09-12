@@ -1,0 +1,2185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Charte Design System — Starium</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #ECEAE3;
+  font-family: 'Manrope', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 48px 24px 80px;
+  color: #0E0E10;
+}
+.page {
+  background: #fff;
+  max-width: 816px;
+  margin: 0 auto 32px;
+  padding: 72px 80px;
+  border-radius: 3px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+  position: relative;
+}
+
+/* Cover */
+.cover-meta { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #8C8579; margin-bottom: 64px; display: flex; justify-content: space-between; }
+.cover-star { color: #E8A317; font-size: 32px; margin-bottom: 20px; line-height: 1; }
+h1.cover { font-size: 52px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin-bottom: 16px; }
+.cover-sub { font-size: 18px; color: #5F5A52; line-height: 1.5; max-width: 480px; font-weight: 400; margin-bottom: 56px; }
+.cover-divider { height: 1px; background: #E9E6E0; margin-bottom: 40px; }
+.cover-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+.cover-stat { }
+.cover-stat-val { font-size: 32px; font-weight: 800; letter-spacing: -.03em; color: #E8A317; line-height: 1; }
+.cover-stat-lbl { font-size: 12px; color: #8C8579; margin-top: 4px; font-weight: 500; }
+.cover-footer { position: absolute; bottom: 48px; right: 80px; display: flex; align-items: center; gap: 12px; }
+.cover-footer img { height: 22px; opacity: .7; }
+.cover-footer-txt { font-size: 11px; color: #B6B0A4; font-weight: 500; }
+
+/* Body pages */
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #E9E6E0; padding-bottom: 20px; margin-bottom: 40px; }
+.doc-header-logo img { height: 20px; opacity: .5; }
+.doc-header-txt { font-size: 11px; color: #B6B0A4; text-align: right; line-height: 1.6; }
+.chapter-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #E8A317; margin-bottom: 10px; }
+h2.doc { font-size: 28px; font-weight: 800; letter-spacing: -.025em; margin-bottom: 8px; }
+.doc-intro { font-size: 15px; color: #5F5A52; line-height: 1.65; margin-bottom: 32px; font-weight: 400; border-left: 3px solid #E8A317; padding-left: 16px; }
+h3.doc { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #403D38; margin: 32px 0 12px; }
+p.body { font-size: 14px; color: #403D38; line-height: 1.7; margin-bottom: 14px; }
+.rule { height: 1px; background: #E9E6E0; margin: 28px 0; }
+ul.doc { padding-left: 0; list-style: none; }
+ul.doc li { font-size: 14px; color: #403D38; line-height: 1.65; padding: 6px 0 6px 20px; border-bottom: 1px solid #F4F2EE; position: relative; }
+ul.doc li:last-child { border-bottom: none; }
+ul.doc li::before { content: '✦'; position: absolute; left: 0; color: #E8A317; font-size: 10px; top: 8px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 16px 0; }
+.info-box { background: #FAF9F7; border: 1px solid #E9E6E0; border-radius: 8px; padding: 16px 18px; }
+.info-box-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8C8579; margin-bottom: 6px; }
+.info-box-val { font-size: 14px; font-weight: 600; color: #0E0E10; }
+.info-box-sub { font-size: 12px; color: #8C8579; margin-top: 2px; }
+
+/* Color swatches inline */
+.swatch-row { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.sw { width: 48px; border-radius: 6px; overflow: hidden; }
+.sw-color { height: 36px; }
+.sw-hex { font-size: 9.5px; font-family: monospace; color: #8C8579; padding: 3px 4px; background: #fff; border: 1px solid #E9E6E0; border-top: none; text-align: center; }
+
+/* Table */
+table.doc { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+table.doc th { text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8C8579; padding: 8px 10px; border-bottom: 2px solid #E9E6E0; }
+table.doc td { padding: 10px 10px; border-bottom: 1px solid #F4F2EE; color: #403D38; vertical-align: top; }
+table.doc tr:last-child td { border-bottom: none; }
+table.doc td strong { color: #0E0E10; font-weight: 600; }
+.mono { font-family: 'Courier New', monospace; font-size: 12px; background: #F4F2EE; padding: 1px 5px; border-radius: 3px; color: #5F3F00; }
+
+/* Do / Don't */
+.dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+.dd-box { border-radius: 7px; overflow: hidden; }
+.dd-hd { padding: 7px 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.dd-do .dd-hd { background: #E6F4ED; color: #1F8A5B; }
+.dd-dont .dd-hd { background: #FBE8E6; color: #B42318; }
+.dd-body { padding: 12px; font-size: 13px; line-height: 1.55; color: #403D38; background: #FAF9F7; border: 1px solid #E9E6E0; border-top: none; }
+
+/* Footer */
+.doc-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E9E6E0; padding-top: 16px; margin-top: 40px; font-size: 11px; color: #B6B0A4; }
+
+@media print {
+  body { background: none; padding: 0; }
+  .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; }
+  @page { margin: 0.75in; }
+  .page { break-after: page; }
+  .page:last-child { break-after: auto; }
+  h3.doc { break-after: avoid; }
+  table.doc tr { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 — COUVERTURE -->
+<div class="page">
+  <div class="cover-meta">
+    <span>Starium Orchestra · Design System</span>
+    <span>Version 1.0 · Juin 2026</span>
+  </div>
+  <div class="cover-star">✦</div>
+  <h1 class="cover">Charte<br>Design<br>System</h1>
+  <p class="cover-sub">Référence officielle pour concevoir, développer et maintenir des interfaces cohérentes avec l'identité Starium.</p>
+  <div class="cover-divider"></div>
+  <div class="cover-grid">
+    <div class="cover-stat"><div class="cover-stat-val">93</div><div class="cover-stat-lbl">Tokens CSS documentés</div></div>
+    <div class="cover-stat"><div class="cover-stat-val">12</div><div class="cover-stat-lbl">Chapitres</div></div>
+    <div class="cover-stat"><div class="cover-stat-val">v1.0</div><div class="cover-stat-lbl">Première édition</div></div>
+  </div>
+  <div class="cover-footer">
+    <img src="../assets/logo-horizontal.png" alt="Starium">
+    <span class="cover-footer-txt">Confidentiel · Usage interne</span>
+  </div>
+</div>
+
+<!-- PAGE 2 — IDENTITÉ -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Chapitre 1 — Identité</div>
+  </div>
+  <div class="chapter-label">Chapitre 01</div>
+  <h2 class="doc">Identité de marque</h2>
+  <p class="doc-intro">Starium est une plateforme SaaS de pilotage des directions, projets, budgets et ressources. La marque vise la sobriété et la performance d'Apple, réchauffée par une signature dorée distinctive.</p>
+
+  <h3 class="doc">Positionnement</h3>
+  <p class="body"><strong>Nom :</strong> Starium &nbsp;·&nbsp; <strong>Baseline :</strong> <em>Révélez vos talents.</em></p>
+  <p class="body">La marque s'adresse aux CODIR, COMEX et directions de projet. Le ton est calme, posé, orienté résultat. On ne crie pas — on aligne.</p>
+
+  <h3 class="doc">Les trois piliers visuels</h3>
+  <ul class="doc">
+    <li><strong>Le wordmark</strong> — <em>Starium</em> en très gros gras (800), lettres rondes, tracking serré. Jamais allongé, jamais penché.</li>
+    <li><strong>Le monogramme</strong> — Quatre lobes noirs en rotation autour d'un point doré central en forme de scintillement à 4 branches.</li>
+    <li><strong>L'étoile ✦</strong> — U+2726, seul ornement graphique autorisé. Puce visuelle, titre de section. Toujours en or (#E8A317).</li>
+  </ul>
+
+  <h3 class="doc">Principes fondateurs</h3>
+  <div class="two-col">
+    <div class="info-box"><div class="info-box-label">Sobriété</div><div class="info-box-val">Moins c'est plus</div><div class="info-box-sub">Chaque élément doit justifier sa présence</div></div>
+    <div class="info-box"><div class="info-box-label">Alignement</div><div class="info-box-val">Tout est cohérent</div><div class="info-box-sub">Un seul système, une seule source de vérité</div></div>
+    <div class="info-box"><div class="info-box-label">Décision</div><div class="info-box-val">Orienté résultat</div><div class="info-box-sub">L'UI facilite l'arbitrage, pas la contemplation</div></div>
+    <div class="info-box"><div class="info-box-label">Premium</div><div class="info-box-val">L'espace est un signal</div><div class="info-box-sub">Marges généreuses, hiérarchie tendue</div></div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Starium Design System · Confidentiel</span>
+    <span>Page 2</span>
+  </div>
+</div>
+
+<!-- PAGE 3 — VOIX & CONTENU -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Chapitre 2 — Voix & Contenu</div>
+  </div>
+  <div class="chapter-label">Chapitre 02</div>
+  <h2 class="doc">Voix & contenu</h2>
+  <p class="doc-intro">La voix Starium est calme, posée, experte. On ne survend pas. On constate, on aligne, on décide.</p>
+
+  <h3 class="doc">Règles de casse</h3>
+  <table class="doc">
+    <thead><tr><th>Contexte</th><th>Règle</th><th>Exemple</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Titres & sous-titres</strong></td><td>Sentence case</td><td>« Vision stratégique 2026 »</td></tr>
+      <tr><td><strong>Boutons & CTA</strong></td><td>Sentence case</td><td>« Modifier la vision »</td></tr>
+      <tr><td><strong>Overlines / sections</strong></td><td>UPPERCASE tracké</td><td>GOUVERNANCE · PILOTAGE</td></tr>
+      <tr><td><strong>Statuts</strong></td><td>Sentence case</td><td>En cours · En retard · Terminé</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Format des données</h3>
+  <div class="two-col">
+    <div>
+      <p class="body" style="font-size:13px"><strong>Milliers :</strong> espace fine — <span class="mono">1 240</span></p>
+      <p class="body" style="font-size:13px"><strong>Pourcentage :</strong> collé — <span class="mono">82 %</span></p>
+      <p class="body" style="font-size:13px"><strong>Monnaie :</strong> après — <span class="mono">1 240 €</span></p>
+    </div>
+    <div>
+      <p class="body" style="font-size:13px"><strong>Date longue :</strong> <span class="mono">15 mai 2026</span></p>
+      <p class="body" style="font-size:13px"><strong>Date courte :</strong> <span class="mono">31 déc. 2026</span></p>
+      <p class="body" style="font-size:13px"><strong>Trimestre :</strong> <span class="mono">T1 2025</span></p>
+    </div>
+  </div>
+
+  <h3 class="doc">À faire / À éviter</h3>
+  <div class="dd">
+    <div class="dd-box dd-do"><div class="dd-hd">✓ Correct</div><div class="dd-body">« Définir notre cap, aligner l'organisation et créer de la valeur durable. »<br><br>Vouvoiement professionnel, verbes d'action, apostrophes typographiques.</div></div>
+    <div class="dd-box dd-dont"><div class="dd-hd">✗ Incorrect</div><div class="dd-body">« 🚀 Boostez votre performance ! »<br><br>Emoji, point d'exclamation, registre publicitaire, tutoiement.</div></div>
+  </div>
+
+  <h3 class="doc">Verbes d'action autorisés</h3>
+  <p class="body">Aligner · Piloter · Décider · Arbitrer · Révéler · Sécuriser · Consolider · Anticiper · Prioriser · Arbitrer · Partager · Évaluer</p>
+
+  <div class="doc-footer">
+    <span>Starium Design System · Confidentiel</span>
+    <span>Page 3</span>
+  </div>
+</div>
+
+<!-- PAGE 4 — COULEURS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Chapitre 3 — Couleurs</div>
+  </div>
+  <div class="chapter-label">Chapitre 03</div>
+  <h2 class="doc">Couleurs</h2>
+  <p class="doc-intro">Un seul accent — l'or ambre brûlé — sur une base de neutres papier chauds. Jamais de gris bleutés froids.</p>
+
+  <h3 class="doc">Or Starium — accent principal</h3>
+  <div class="swatch-row">
+    <div class="sw"><div class="sw-color" style="background:#FBEAB5"></div><div class="sw-hex">#FBEAB5</div></div>
+    <div class="sw"><div class="sw-color" style="background:#F4D58A"></div><div class="sw-hex">#F4D58A</div></div>
+    <div class="sw" style="position:relative"><div class="sw-color" style="background:#E8A317"></div><div class="sw-hex" style="font-weight:700;color:#5F3F00">#E8A317 ★</div></div>
+    <div class="sw"><div class="sw-color" style="background:#CC8E0E"></div><div class="sw-hex">#CC8E0E</div></div>
+    <div class="sw"><div class="sw-color" style="background:#5F3F00"></div><div class="sw-hex" style="color:#fff;background:#5F3F00">#5F3F00</div></div>
+  </div>
+
+  <h3 class="doc">Encre & neutres papier</h3>
+  <div class="swatch-row">
+    <div class="sw"><div class="sw-color" style="background:#0E0E10;border:1px solid #333"></div><div class="sw-hex" style="color:#fff;background:#0E0E10">#0E0E10</div></div>
+    <div class="sw"><div class="sw-color" style="background:#FAF9F7;border:1px solid #E9E6E0"></div><div class="sw-hex">#FAF9F7</div></div>
+    <div class="sw"><div class="sw-color" style="background:#F4F2EE"></div><div class="sw-hex">#F4F2EE</div></div>
+    <div class="sw"><div class="sw-color" style="background:#E9E6E0"></div><div class="sw-hex">#E9E6E0</div></div>
+    <div class="sw"><div class="sw-color" style="background:#8C8579"></div><div class="sw-hex">#8C8579</div></div>
+    <div class="sw"><div class="sw-color" style="background:#403D38"></div><div class="sw-hex" style="color:#fff;background:#403D38">#403D38</div></div>
+  </div>
+
+  <h3 class="doc">États sémantiques</h3>
+  <table class="doc">
+    <thead><tr><th>Couleur</th><th>Texte</th><th>Fond</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><strong style="color:#1F8A5B">Succès</strong></td><td><span class="mono">#1F8A5B</span></td><td><span class="mono">#E6F4ED</span></td><td>Terminé, OK, objectif atteint</td></tr>
+      <tr><td><strong style="color:#C77A00">Attention</strong></td><td><span class="mono">#C77A00</span></td><td><span class="mono">#FFF1DC</span></td><td>Alerte non critique, retard léger</td></tr>
+      <tr><td><strong style="color:#B42318">Danger</strong></td><td><span class="mono">#B42318</span></td><td><span class="mono">#FBE8E6</span></td><td>Erreur, risque critique, retard</td></tr>
+      <tr><td><strong style="color:#2A6FDB">Info</strong></td><td><span class="mono">#2A6FDB</span></td><td><span class="mono">#E3EEFB</span></td><td>Information neutre, en révision</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Règle d'or</h3>
+  <p class="body">L'or (#E8A317) est un signal — s'il est partout, il ne signifie plus rien. Il est réservé aux CTA primaires, items actifs, icônes KPI et valeurs clés. <strong>Jamais en fond plein de grande surface.</strong></p>
+
+  <div class="doc-footer">
+    <span>Starium Design System · Confidentiel</span>
+    <span>Page 4</span>
+  </div>
+</div>
+
+<!-- PAGE 5 — TYPOGRAPHIE & ESPACEMENT -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Chapitre 4 — Typographie & Espacement</div>
+  </div>
+  <div class="chapter-label">Chapitre 04</div>
+  <h2 class="doc">Typographie & Espacement</h2>
+  <p class="doc-intro">Famille unique Manrope (variable, auto-hébergée) pour tout l'UI. Hiérarchie tendue — on saute des paliers, on ne dilue pas.</p>
+
+  <h3 class="doc">Échelle typographique</h3>
+  <table class="doc">
+    <thead><tr><th>Rôle</th><th>Token</th><th>Valeur</th></tr></thead>
+    <tbody>
+      <tr><td><strong style="font-size:22px;letter-spacing:-.025em;font-weight:800">Display XL</strong></td><td><span class="mono">--text-display-xl</span></td><td>800 · 64px / 1.05 · tracking −0.03em</td></tr>
+      <tr><td><strong style="font-size:18px;letter-spacing:-.02em;font-weight:800">Display M</strong></td><td><span class="mono">--text-display-m</span></td><td>700 · 36px / 1.12 · tracking −0.02em</td></tr>
+      <tr><td><strong style="font-size:16px;font-weight:700">H1</strong></td><td><span class="mono">--text-h1</span></td><td>700 · 28px / 1.2</td></tr>
+      <tr><td><strong style="font-size:14px;font-weight:700">H2</strong></td><td><span class="mono">--text-h2</span></td><td>700 · 22px / 1.25</td></tr>
+      <tr><td><span style="font-size:14px">Body</span></td><td><span class="mono">--text-body</span></td><td>400 · 15px / 1.55</td></tr>
+      <tr><td><span style="font-size:12px">Body S</span></td><td><span class="mono">--text-body-s</span></td><td>400 · 13px / 1.5</td></tr>
+      <tr><td><span style="font-size:11px;color:#8C8579">Caption</span></td><td><span class="mono">--text-caption</span></td><td>500 · 12px / 1.4</td></tr>
+      <tr><td><span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:#8C8579">OVERLINE</span></td><td><span class="mono">--text-overline</span></td><td>600 · 11px · uppercase · tracking 0.08em</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Espacement — base 4px</h3>
+  <div class="two-col">
+    <div>
+      <p class="body" style="font-size:13px;line-height:2"><span class="mono">--space-1</span> → 4px &nbsp; <span class="mono">--space-2</span> → 8px<br><span class="mono">--space-3</span> → 12px &nbsp; <span class="mono">--space-4</span> → 16px<br><span class="mono">--space-5</span> → 20px &nbsp; <span class="mono">--space-6</span> → 24px<br><span class="mono">--space-8</span> → 32px &nbsp; <span class="mono">--space-10</span> → 40px</p>
+    </div>
+    <div>
+      <p class="body" style="font-size:13px;line-height:2"><span class="mono">--space-12</span> → 48px<br><span class="mono">--space-16</span> → 64px<br><span class="mono">--sidebar-width</span> → 248px<br><span class="mono">--topbar-height</span> → 64px</p>
+    </div>
+  </div>
+
+  <h3 class="doc">Rayons & Ombres</h3>
+  <table class="doc">
+    <thead><tr><th>Token</th><th>Valeur</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><span class="mono">--radius-md</span></td><td>10px</td><td>Boutons, inputs</td></tr>
+      <tr><td><span class="mono">--radius-lg</span></td><td>14px ★</td><td>Cards — valeur signature</td></tr>
+      <tr><td><span class="mono">--radius-xl</span></td><td>20px</td><td>Modals, dialogs</td></tr>
+      <tr><td><span class="mono">--radius-pill</span></td><td>999px</td><td>Badges, avatars</td></tr>
+      <tr><td><span class="mono">--shadow-focus</span></td><td>0 0 0 3px rgba(232,163,23,.32)</td><td>Focus ring or — seule ombre colorée</td></tr>
+    </tbody>
+  </table>
+
+  <div class="doc-footer">
+    <span>Starium Design System · Confidentiel</span>
+    <span>Page 5</span>
+  </div>
+</div>
+
+<!-- PAGE 6 — COMPOSANTS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Chapitre 5 — Composants & Usage</div>
+  </div>
+  <div class="chapter-label">Chapitre 05</div>
+  <h2 class="doc">Composants & Règles d'usage</h2>
+  <p class="doc-intro">Chaque composant est défini par son token de fond, sa bordure, son rayon et son comportement hover/focus. Aucun composant n'échappe au système.</p>
+
+  <h3 class="doc">Boutons</h3>
+  <table class="doc">
+    <thead><tr><th>Variante</th><th>Fond</th><th>Texte</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Primaire</strong></td><td><span class="mono">--brand-gold</span></td><td><span class="mono">--brand-ink</span></td><td>Action principale, CTA unique par écran</td></tr>
+      <tr><td><strong>Secondaire</strong></td><td><span class="mono">--bg-surface</span></td><td><span class="mono">--fg-1</span></td><td>Action secondaire, export, annulation</td></tr>
+      <tr><td><strong>Ghost</strong></td><td>Transparent</td><td><span class="mono">--fg-2</span></td><td>Action tertiaire, dans les toolbars</td></tr>
+      <tr><td><strong>Danger</strong></td><td><span class="mono">--state-danger-bg</span></td><td><span class="mono">--state-danger</span></td><td>Suppression, action irréversible</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Sidebar</h3>
+  <ul class="doc">
+    <li>Fond <span class="mono">#1A1814</span> — encre très profond, pas noir pur</li>
+    <li>Texte des items : <span class="mono">#FFFFFD</span> — blanc cassé doux</li>
+    <li>Item actif : fond <span class="mono">--brand-gold</span>, texte <span class="mono">#1A1814</span>, poids 700</li>
+    <li>Sections overline : blanc 28 % d'opacité, uppercase tracké</li>
+    <li>Hover : fond blanc 6 % d'opacité</li>
+  </ul>
+
+  <h3 class="doc">Badges & Statuts</h3>
+  <table class="doc">
+    <thead><tr><th>Statut</th><th>Classe</th><th>Fond / Texte</th></tr></thead>
+    <tbody>
+      <tr><td><strong style="color:#5F3F00;background:#F4D58A;padding:2px 8px;border-radius:999px;font-size:12px">En cours</strong></td><td><span class="mono">.chip-gold</span></td><td>#F4D58A / #5F3F00</td></tr>
+      <tr><td><strong style="color:#1F8A5B;background:#E6F4ED;padding:2px 8px;border-radius:999px;font-size:12px">Terminé</strong></td><td><span class="mono">.chip-success</span></td><td>#E6F4ED / #1F8A5B</td></tr>
+      <tr><td><strong style="color:#B42318;background:#FBE8E6;padding:2px 8px;border-radius:999px;font-size:12px">En retard</strong></td><td><span class="mono">.chip-danger</span></td><td>#FBE8E6 / #B42318</td></tr>
+      <tr><td><strong style="color:#C77A00;background:#FFF1DC;padding:2px 8px;border-radius:999px;font-size:12px">Attention</strong></td><td><span class="mono">.chip-warning</span></td><td>#FFF1DC / #C77A00</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="doc">Motion</h3>
+  <p class="body">Discret. <span class="mono">120ms</span> pour les micro-interactions hover, <span class="mono">200ms</span> pour les transitions standard, <span class="mono">320ms</span> pour les transitions de page et modals. Easing <span class="mono">cubic-bezier(0.2, 0, 0, 1)</span> — entrée rapide, sortie qui s'étire. <strong>Pas de bounce, pas de spring, pas de loops décoratifs.</strong></p>
+
+  <h3 class="doc">Règles absolues</h3>
+  <div class="dd">
+    <div class="dd-box dd-do"><div class="dd-hd">✓ Toujours</div><div class="dd-body">Manrope · Lucide Icons outlined · Fond papier #FAF9F7 · Ombres encre noire · Focus ring or · Cards 14px radius</div></div>
+    <div class="dd-box dd-dont"><div class="dd-hd">✗ Jamais</div><div class="dd-body">Emoji dans l'UI · Gradients vifs · Ombres colorées · Fond plein or grande surface · Border gauche colorée · Gris bleutés</div></div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Starium Design System · Confidentiel</span>
+    <span>Page 6</span>
+  </div>
+</div>
+
+
+<!-- STYLES SUPPLÉMENTAIRES pour les pages specimens -->
+<style>
+/* ── Specimen layout ───────────────────────────── */
+.spec-row{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin:14px 0}
+.spec-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.spec-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.spec-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.spec-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0}
+.spec-area{background:#FAF9F7;border:1px solid #E9E6E0;border-radius:10px;padding:22px;margin:14px 0}
+.spec-area-dark{background:#1A1814;border-radius:10px;padding:22px;margin:14px 0}
+.spec-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#B6B0A4;margin-top:10px;text-align:center}
+
+/* ── Swatches ──────────────────────────────────── */
+.sw-lg{border-radius:10px;overflow:hidden;border:1px solid rgba(0,0,0,.06)}
+.sw-lg-color{height:72px}
+.sw-lg-info{padding:10px 12px;background:#fff}
+.sw-lg-name{font-size:12.5px;font-weight:700;color:#0E0E10}
+.sw-lg-hex{font-family:'Courier New',monospace;font-size:11px;color:#8C8579;margin-top:2px}
+.sw-lg-token{font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:1px}
+
+/* ── Buttons ───────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 18px;border-radius:10px;border:1px solid transparent;font-family:'Manrope',-apple-system,sans-serif;font-size:13px;font-weight:600;cursor:default;white-space:nowrap}
+.btn-p{background:#E8A317;color:#0E0E10;border-color:#E8A317}
+.btn-s{background:#fff;color:#0E0E10;border-color:#D6D2CA}
+.btn-g{background:transparent;color:#5F5A52;border-color:transparent}
+.btn-d{background:#FBE8E6;color:#B42318;border-color:#FBE8E6}
+.btn-sm{height:30px;padding:0 12px;font-size:12px;border-radius:6px}
+.btn-lg{height:46px;padding:0 24px;font-size:15px}
+.btn-dis{opacity:.4;cursor:not-allowed}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+
+/* ── Badges ────────────────────────────────────── */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;font-family:'Manrope',-apple-system,sans-serif}
+.chip-dot{width:6px;height:6px;border-radius:999px;flex-shrink:0}
+.c-gold{background:#F4D58A;color:#5F3F00}
+.c-ok{background:#E6F4ED;color:#1F8A5B}
+.c-bad{background:#FBE8E6;color:#B42318}
+.c-warn{background:#FFF1DC;color:#C77A00}
+.c-info{background:#E3EEFB;color:#2A6FDB}
+.c-neu{background:#F4F2EE;color:#8C8579}
+.c-purple{background:#ece9f8;color:#5b4ec8}
+
+/* ── Avatars ───────────────────────────────────── */
+.av{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.av-neu{background:#E9E6E0;color:#5F5A52}
+.av-gold{background:#F4D58A;color:#5F3F00}
+.av-lg{width:52px;height:52px;font-size:16px}
+.av-sm{width:26px;height:26px;font-size:10px}
+.av-xs{width:20px;height:20px;font-size:8px}
+.av-stack{display:flex}
+.av-stack .av{margin-left:-8px;border:2px solid #fff}
+.av-stack .av:first-child{margin-left:0}
+
+/* ── Inputs ────────────────────────────────────── */
+.inp{height:38px;padding:0 14px;border:1.5px solid #E9E6E0;border-radius:10px;background:#fff;font-family:'Manrope',-apple-system,sans-serif;font-size:13px;color:#0E0E10;width:100%;outline:none}
+.inp-focus{border-color:#E8A317;box-shadow:0 0 0 3px rgba(232,163,23,.28)}
+.inp-err{border-color:#B42318}
+.inp-dis{opacity:.45;background:#F4F2EE;cursor:not-allowed}
+.inp-label{font-size:12.5px;font-weight:600;color:#0E0E10;display:block;margin-bottom:5px}
+.inp-hint{font-size:11.5px;color:#8C8579;margin-top:4px}
+.inp-error-msg{font-size:11.5px;color:#B42318;margin-top:4px}
+.inp-group{margin-bottom:14px}
+.inp-addon{display:flex}
+.addon-l,.addon-r{height:38px;padding:0 11px;background:#F4F2EE;border:1.5px solid #E9E6E0;display:flex;align-items:center;font-size:12.5px;color:#8C8579;font-weight:500}
+.addon-l{border-right:none;border-radius:10px 0 0 10px}
+.addon-r{border-left:none;border-radius:0 10px 10px 0}
+.inp-addon .inp{border-radius:0;flex:1}
+
+/* ── Progress ──────────────────────────────────── */
+.pr-bar{border-radius:999px;background:#E9E6E0;overflow:hidden}
+.pr-fill{border-radius:999px}
+.pr-h4{height:4px}.pr-h6{height:6px}.pr-h8{height:8px}.pr-h12{height:12px}
+.pr-ok{background:#1F8A5B}.pr-warn{background:#E8A317}.pr-bad{background:#B42318}
+
+/* ── Radius ────────────────────────────────────── */
+.rad-demo{background:#F4D58A;border:1.5px solid #E8A317;width:64px;height:64px;margin:0 auto 6px}
+
+/* ── Shadow ────────────────────────────────────── */
+.sh-demo{background:#fff;border-radius:10px;height:64px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8C8579;font-weight:600}
+
+/* ── Tabs ──────────────────────────────────────── */
+.tabs-spec{display:flex;border-bottom:1.5px solid #E9E6E0}
+.tab-sp{padding:9px 14px;font-size:13px;font-weight:500;color:#8C8579;border-bottom:2px solid transparent;margin-bottom:-1.5px;cursor:default}
+.tab-sp.on{color:#5F3F00;border-bottom-color:#E8A317;font-weight:700}
+
+/* ── Sidebar specimen ──────────────────────────── */
+.sb-sp{background:#1A1814;border-radius:10px;padding:8px;width:100%}
+.sb-sp-sec{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.28);padding:10px 10px 3px}
+.sb-sp-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,.6)}
+.sb-sp-item.on{background:#E8A317;color:#1A1814;font-weight:700}
+.sb-sp-item svg{width:14px;height:14px;flex-shrink:0}
+
+/* ── Spacing ruler ─────────────────────────────── */
+.sp-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #F4F2EE}
+.sp-row:last-child{border-bottom:none}
+.sp-tok{font-family:'Courier New',monospace;font-size:11.5px;color:#5F5A52;min-width:100px}
+.sp-px{font-size:11.5px;color:#8C8579;min-width:36px}
+.sp-bar-wrap{flex:1}
+.sp-bar{height:8px;background:#E8A317;border-radius:2px}
+
+/* ── KPI card ──────────────────────────────────── */
+.kpi-sp{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #E9E6E0;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(14,14,16,.05)}
+.kpi-sp-ico{color:#E8A317;flex-shrink:0}
+.kpi-sp-ico svg{width:32px;height:32px;stroke-width:1.5}
+.kpi-sp-lbl{font-size:11px;color:#8C8579}
+.kpi-sp-val{font-size:24px;font-weight:800;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.kpi-sp-foot{font-size:11px;margin-top:2px}
+.kpi-sp-foot.ok{color:#1F8A5B}.kpi-sp-foot.warn{color:#C77A00}.kpi-sp-foot.bad{color:#B42318}
+
+/* ── Icon tile ─────────────────────────────────── */
+.ico-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;background:#fff;border:1px solid #E9E6E0;border-radius:8px}
+.ico-tile svg{width:20px;height:20px;color:#403D38}
+.ico-tile span{font-size:9.5px;color:#B6B0A4;font-family:'Courier New',monospace;text-align:center}
+
+/* ── Icon pastille ─────────────────────────────── */
+.ico-pill{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ico-pill svg{width:18px;height:18px}
+.ico-pill-gold{background:#F4D58A;color:#5F3F00}
+.ico-pill-ok{background:#E6F4ED;color:#1F8A5B}
+.ico-pill-bad{background:#FBE8E6;color:#B42318}
+.ico-pill-info{background:#E3EEFB;color:#2A6FDB}
+.ico-pill-neu{background:#F4F2EE;color:#8C8579}
+
+/* ── Lockup ────────────────────────────────────── */
+.lockup{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.lockup-ico{width:52px;height:52px;border-radius:14px;background:#0E0E10;display:flex;align-items:center;justify-content:center}
+.lockup-ico img{height:28px}
+.lockup-brand{font-size:24px;font-weight:800;letter-spacing:-.03em;color:#0E0E10}
+.lockup-tagline{font-size:12.5px;color:#8C8579;font-weight:500}
+
+/* ── Vision card ───────────────────────────────── */
+.vision-card{background:#fff;border:1px solid #E9E6E0;border-radius:14px;padding:22px 24px;position:relative}
+.vision-card::before{content:'\201C';font-family:Georgia,serif;font-size:64px;color:#E8A317;position:absolute;left:14px;top:16px;line-height:0;font-weight:400;opacity:.5}
+.vision-quote{font-size:15px;font-weight:500;color:#0E0E10;line-height:1.65;padding:0 0 0 18px}
+.vision-source{font-size:11.5px;color:#8C8579;margin-top:12px;display:flex;align-items:center;gap:8px}
+.vision-source::before{content:'';display:block;width:20px;height:1px;background:#D6D2CA}
+
+/* ── Focus ring ────────────────────────────────── */
+.focus-ring-demo{width:48px;height:48px;border-radius:10px;background:#F4D58A;box-shadow:0 0 0 3px rgba(232,163,23,.32)}
+</style>
+
+<!-- PAGE 7 — BRAND : LOGOS & LOCKUPS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Brand — Logos & Lockups</div>
+  </div>
+  <div class="chapter-label">Brand · 01</div>
+  <h2 class="doc">Logos & Lockups</h2>
+  <p class="doc-intro">Le logo Starium existe en 6 déclinaisons. Zone de protection : une hauteur de « S » tout autour. La pointe de l'étoile reste toujours dorée.</p>
+
+  <h3 class="doc">Logo horizontal</h3>
+  <div class="spec-grid2">
+    <div>
+      <div class="spec-area" style="display:flex;align-items:center;justify-content:center;height:80px"><img src="../assets/logo-horizontal.png" alt="Logo horizontal" style="height:28px"></div>
+      <div class="spec-label">Fond clair — usage par défaut</div>
+    </div>
+    <div>
+      <div class="spec-area-dark" style="display:flex;align-items:center;justify-content:center;height:80px"><img src="../assets/logo-horizontal-white.png" alt="Logo blanc" style="height:28px"></div>
+      <div class="spec-label">Fond sombre — sidebar, hero</div>
+    </div>
+  </div>
+
+  <h3 class="doc">Monogramme (icône isolée)</h3>
+  <div class="spec-grid4">
+    <div>
+      <div class="spec-area" style="display:flex;align-items:center;justify-content:center;height:80px"><img src="../assets/icon-starium.png" alt="Icône" style="height:44px"></div>
+      <div class="spec-label">Noir sur clair</div>
+    </div>
+    <div>
+      <div class="spec-area-dark" style="display:flex;align-items:center;justify-content:center;height:80px"><img src="../assets/icon-starium-white.png" alt="Icône blanc" style="height:44px"></div>
+      <div class="spec-label">Blanc sur sombre</div>
+    </div>
+    <div>
+      <div class="spec-area" style="display:flex;align-items:center;justify-content:center;height:80px;background:#E8A317;border-color:#CC8E0E"><img src="../assets/icon-starium.png" alt="Icône gold" style="height:44px"></div>
+      <div class="spec-label">Sur fond or ⚠ réservé</div>
+    </div>
+    <div>
+      <div class="spec-area" style="display:flex;align-items:center;justify-content:center;height:80px">
+        <div style="position:relative"><img src="../assets/icon-starium.png" alt="filigrane" style="height:64px;opacity:.05;position:absolute;top:-12px;left:-12px"><img src="../assets/icon-starium.png" alt="" style="height:44px;position:relative"></div>
+      </div>
+      <div class="spec-label">Filigrane 3–6% opacité</div>
+    </div>
+  </div>
+
+  <h3 class="doc">Lockups — monogramme + wordmark</h3>
+  <div class="spec-grid2">
+    <div class="spec-area" style="display:flex;align-items:center;gap:14px">
+      <div class="lockup-ico"><img src="../assets/icon-starium-white.png" alt="" style="height:28px"></div>
+      <div class="lockup">
+        <div class="lockup-brand">Starium</div>
+        <div class="lockup-tagline">Révélez vos talents.</div>
+      </div>
+    </div>
+    <div class="spec-area-dark" style="display:flex;align-items:center;gap:14px">
+      <div class="lockup-ico"><img src="../assets/icon-starium-white.png" alt="" style="height:28px"></div>
+      <div class="lockup">
+        <div class="lockup-brand" style="color:#FFFFFD">Starium</div>
+        <div class="lockup-tagline" style="color:rgba(255,255,255,.45)">Révélez vos talents.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="doc">Logo vertical</h3>
+  <div class="spec-grid2">
+    <div>
+      <div class="spec-area" style="display:flex;align-items:center;justify-content:center;height:100px"><img src="../assets/logo-vertical.png" alt="Logo vertical" style="height:72px"></div>
+      <div class="spec-label">Couvertures, splash mobile</div>
+    </div>
+    <div>
+      <div class="spec-area-dark" style="display:flex;align-items:center;justify-content:center;height:100px"><img src="../assets/logo-vertical-white.png" alt="Logo vertical blanc" style="height:72px"></div>
+      <div class="spec-label">Couvertures sombres</div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 7</span></div>
+</div>
+
+<!-- PAGE 8 — COULEURS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Couleurs — Marque, Neutres, Sémantiques</div>
+  </div>
+  <div class="chapter-label">Brand · 02</div>
+  <h2 class="doc">Couleurs</h2>
+
+  <h3 class="doc">Couleurs · marque</h3>
+  <div class="spec-grid5">
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#FBEAB5"></div><div class="sw-lg-info"><div class="sw-lg-name">Gold 050</div><div class="sw-lg-hex">#FBEAB5</div><div class="sw-lg-token">--brand-gold-050</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#F4D58A"></div><div class="sw-lg-info"><div class="sw-lg-name">Gold 100</div><div class="sw-lg-hex">#F4D58A</div><div class="sw-lg-token">--brand-gold-100</div></div></div>
+    <div class="sw-lg" style="border:2px solid #E8A317"><div class="sw-lg-color" style="background:#E8A317"></div><div class="sw-lg-info"><div class="sw-lg-name">Gold ★ Principal</div><div class="sw-lg-hex">#E8A317</div><div class="sw-lg-token">--brand-gold</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#CC8E0E"></div><div class="sw-lg-info"><div class="sw-lg-name">Gold 600</div><div class="sw-lg-hex">#CC8E0E</div><div class="sw-lg-token">--brand-gold-600</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#5F3F00"></div><div class="sw-lg-info"><div class="sw-lg-name">Gold 700</div><div class="sw-lg-hex">#5F3F00</div><div class="sw-lg-token">--brand-gold-700</div></div></div>
+  </div>
+  <div class="spec-grid2" style="margin-top:8px">
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#0E0E10;border:1px solid #333"></div><div class="sw-lg-info"><div class="sw-lg-name">Encre — brand-ink</div><div class="sw-lg-hex">#0E0E10</div><div class="sw-lg-token">--brand-ink</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#1A1814;border:1px solid #333"></div><div class="sw-lg-info"><div class="sw-lg-name">Sidebar dark</div><div class="sw-lg-hex">#1A1814</div><div class="sw-lg-token">Valeur directe</div></div></div>
+  </div>
+
+  <h3 class="doc">Couleurs · neutres</h3>
+  <div class="spec-grid5">
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#FAF9F7;border:1px solid #E9E6E0"></div><div class="sw-lg-info"><div class="sw-lg-name">Neutral 50</div><div class="sw-lg-hex">#FAF9F7</div><div class="sw-lg-token">--neutral-50</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#F4F2EE"></div><div class="sw-lg-info"><div class="sw-lg-name">Neutral 100</div><div class="sw-lg-hex">#F4F2EE</div><div class="sw-lg-token">--neutral-100</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#E9E6E0"></div><div class="sw-lg-info"><div class="sw-lg-name">Neutral 200</div><div class="sw-lg-hex">#E9E6E0</div><div class="sw-lg-token">--neutral-200</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#8C8579"></div><div class="sw-lg-info"><div class="sw-lg-name">Neutral 500</div><div class="sw-lg-hex">#8C8579</div><div class="sw-lg-token">--neutral-500</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#403D38"></div><div class="sw-lg-info"><div class="sw-lg-name">Neutral 700</div><div class="sw-lg-hex">#403D38</div><div class="sw-lg-token">--neutral-700</div></div></div>
+  </div>
+
+  <h3 class="doc">Couleurs · sémantiques</h3>
+  <div class="spec-grid4">
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#1F8A5B"></div><div class="sw-lg-info"><div class="sw-lg-name">Succès</div><div class="sw-lg-hex">#1F8A5B / #E6F4ED</div><div class="sw-lg-token">--state-success</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#C77A00"></div><div class="sw-lg-info"><div class="sw-lg-name">Attention</div><div class="sw-lg-hex">#C77A00 / #FFF1DC</div><div class="sw-lg-token">--state-warning</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#B42318"></div><div class="sw-lg-info"><div class="sw-lg-name">Danger</div><div class="sw-lg-hex">#B42318 / #FBE8E6</div><div class="sw-lg-token">--state-danger</div></div></div>
+    <div class="sw-lg"><div class="sw-lg-color" style="background:#2A6FDB"></div><div class="sw-lg-info"><div class="sw-lg-name">Info</div><div class="sw-lg-hex">#2A6FDB / #E3EEFB</div><div class="sw-lg-token">--state-info</div></div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 8</span></div>
+</div>
+
+<!-- PAGE 9 — ICONOGRAPHIE -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Iconographie</div>
+  </div>
+  <div class="chapter-label">Brand · 03</div>
+  <h2 class="doc">Iconographie</h2>
+  <p class="doc-intro">Lucide Icons — stroke 1.75px, outlined, coins légèrement arrondis. Couleur <span class="mono">currentColor</span>. Taille standard 20px (UI), 34px (KPI standalone).</p>
+
+  <h3 class="doc">Iconographie — bibliothèque</h3>
+  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin:12px 0">
+    <!-- Row 1 -->
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>grid</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>target</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>briefcase</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg><span>wallet</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>alert-triangle</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg><span>shield-check</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>users</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>file-text</span></div>
+    <!-- Row 2 -->
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>search</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span>bell</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span>settings</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg><span>refresh-cw</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>plus</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>truck</span></div>
+    <div class="ico-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>book-open</span></div>
+  </div>
+
+  <h3 class="doc">Iconographie · alt — Pastilles colorées</h3>
+  <p class="body" style="font-size:13px">Icône dans une pastille circulaire — usage pour KPI, étapes de workflow, alertes inline. La couleur de la pastille suit l'état sémantique.</p>
+  <div class="spec-row" style="gap:18px;flex-wrap:wrap;margin:16px 0">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="ico-pill ico-pill-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="18" height="18" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+      <span class="spec-label" style="text-align:left;margin-top:0">Gold / Brand</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="ico-pill ico-pill-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="18" height="18" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="spec-label" style="text-align:left;margin-top:0">Succès</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="ico-pill ico-pill-bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="18" height="18" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
+      <span class="spec-label" style="text-align:left;margin-top:0">Danger</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="ico-pill ico-pill-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="18" height="18" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+      <span class="spec-label" style="text-align:left;margin-top:0">Info</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="ico-pill ico-pill-neu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" width="18" height="18" stroke-linecap="round"><circle cx="12" cy="12" r="3"/></svg></div>
+      <span class="spec-label" style="text-align:left;margin-top:0">Neutre</span>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 9</span></div>
+</div>
+
+<!-- PAGE 10 — COMPOSANTS : BOUTONS, BADGES, AVATARS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Boutons, Badges, Avatars</div>
+  </div>
+  <div class="chapter-label">Components · 01</div>
+  <h2 class="doc">Boutons</h2>
+
+  <h3 class="doc">Variantes</h3>
+  <div class="spec-area">
+    <div class="spec-row">
+      <button class="btn btn-p">Primaire</button>
+      <button class="btn btn-s">Secondaire</button>
+      <button class="btn btn-g">Ghost</button>
+      <button class="btn btn-d">Danger</button>
+      <button class="btn btn-p btn-dis">Désactivé</button>
+    </div>
+  </div>
+
+  <h3 class="doc">Tailles</h3>
+  <div class="spec-area">
+    <div class="spec-row" style="align-items:flex-end">
+      <button class="btn btn-p btn-sm">Petit (sm)</button>
+      <button class="btn btn-p">Standard</button>
+      <button class="btn btn-p btn-lg">Grand (lg)</button>
+    </div>
+  </div>
+
+  <h3 class="doc">Avec icône</h3>
+  <div class="spec-area">
+    <div class="spec-row">
+      <button class="btn btn-p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau projet</button>
+      <button class="btn btn-s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporter</button>
+      <button class="btn btn-g"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/></svg>Modifier</button>
+    </div>
+  </div>
+
+  <h3 class="doc">Badges & Statuts</h3>
+  <div class="spec-area">
+    <div class="spec-row" style="flex-wrap:wrap;gap:8px">
+      <span class="chip c-gold"><span class="chip-dot" style="background:#5F3F00"></span>En cours</span>
+      <span class="chip c-ok"><span class="chip-dot" style="background:#1F8A5B"></span>Terminé</span>
+      <span class="chip c-bad"><span class="chip-dot" style="background:#B42318"></span>En retard</span>
+      <span class="chip c-warn"><span class="chip-dot" style="background:#C77A00"></span>Attention</span>
+      <span class="chip c-info"><span class="chip-dot" style="background:#2A6FDB"></span>En révision</span>
+      <span class="chip c-neu"><span class="chip-dot" style="background:#8C8579"></span>En réflexion</span>
+      <span class="chip c-purple"><span class="chip-dot" style="background:#5b4ec8"></span>Archivé</span>
+    </div>
+    <div style="margin-top:12px;font-size:11.5px;color:#8C8579">Priorités :</div>
+    <div class="spec-row" style="flex-wrap:wrap;gap:8px;margin-top:6px">
+      <span class="chip c-bad">Critique</span>
+      <span class="chip c-gold">Vital</span>
+      <span class="chip c-warn">Élevé</span>
+      <span class="chip c-neu">Normal</span>
+    </div>
+  </div>
+
+  <h3 class="doc">Avatars</h3>
+  <div class="spec-area">
+    <div class="spec-row" style="align-items:flex-end;gap:20px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <div class="av av-neu av-xs">SM</div>
+          <div class="av av-neu av-sm">SM</div>
+          <div class="av av-neu">SM</div>
+          <div class="av av-neu av-lg">SM</div>
+        </div>
+        <div class="spec-label">Neutre (défaut)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <div class="av av-gold av-xs">SM</div>
+          <div class="av av-gold av-sm">SM</div>
+          <div class="av av-gold">SM</div>
+          <div class="av av-gold av-lg">SM</div>
+        </div>
+        <div class="spec-label">Or (propriétaire)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div class="av-stack">
+          <div class="av av-neu av-sm">SM</div>
+          <div class="av av-gold av-sm">PD</div>
+          <div class="av av-neu av-sm">JL</div>
+          <div class="av av-neu av-sm" style="background:#E9E6E0;color:#8C8579;font-size:9px">+5</div>
+        </div>
+        <div class="spec-label">Stack d'avatars</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 10</span></div>
+</div>
+
+<!-- PAGE 11 — COMPOSANTS : INPUTS, PROGRESS, TABS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Champs, Progression, Onglets</div>
+  </div>
+  <div class="chapter-label">Components · 02</div>
+  <h2 class="doc">Champs de saisie</h2>
+
+  <div class="spec-area">
+    <div class="spec-grid2">
+      <div class="inp-group">
+        <label class="inp-label">Nom du projet</label>
+        <input class="inp" type="text" placeholder="Ex. : Migration Cloud Azure" value="" readonly>
+        <div class="inp-hint">Nom court, reconnaissable par le CODIR.</div>
+      </div>
+      <div class="inp-group">
+        <label class="inp-label">Priorité</label>
+        <select class="inp"><option>Critique</option><option>Vital</option><option selected>Normal</option></select>
+      </div>
+      <div class="inp-group">
+        <label class="inp-label" style="color:#B42318">Responsable ⚠</label>
+        <input class="inp inp-err" type="text" value="Dupond Pierre" readonly>
+        <div class="inp-error-msg">Utilisateur introuvable.</div>
+      </div>
+      <div class="inp-group">
+        <label class="inp-label">Budget (focus)</label>
+        <div class="inp-addon">
+          <div class="addon-l">€</div>
+          <input class="inp inp-focus" type="text" value="120 000" readonly>
+          <div class="addon-r">HT</div>
+        </div>
+      </div>
+      <div class="inp-group">
+        <label class="inp-label" style="color:#B6B0A4">Champ désactivé</label>
+        <input class="inp inp-dis" type="text" value="Non modifiable" readonly>
+      </div>
+      <div class="inp-group">
+        <label class="inp-label">Recherche</label>
+        <div style="position:relative">
+          <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:#8C8579" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="inp" style="padding-left:34px" type="text" placeholder="Rechercher…" readonly>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="doc">Barres de progression</h3>
+  <div class="spec-area">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:#8C8579;margin-bottom:5px"><span>Terminé — 100 %</span><span style="color:#1F8A5B;font-weight:600">100 %</span></div><div class="pr-bar pr-h6"><div class="pr-fill pr-ok" style="width:100%"></div></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:#8C8579;margin-bottom:5px"><span>En bonne trajectoire — 74 %</span><span style="font-weight:600">74 %</span></div><div class="pr-bar pr-h6"><div class="pr-fill pr-ok" style="width:74%"></div></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:#8C8579;margin-bottom:5px"><span>Attention — 45 %</span><span style="color:#C77A00;font-weight:600">45 %</span></div><div class="pr-bar pr-h6"><div class="pr-fill pr-warn" style="width:45%"></div></div></div>
+      <div><div style="display:flex;justify-content:space-between;font-size:11.5px;color:#8C8579;margin-bottom:5px"><span>En retard — 18 %</span><span style="color:#B42318;font-weight:600">18 %</span></div><div class="pr-bar pr-h6"><div class="pr-fill pr-bad" style="width:18%"></div></div></div>
+      <div style="margin-top:4px"><div style="font-size:11px;color:#B6B0A4;margin-bottom:8px">Hauteurs disponibles : 4px · 6px · 8px · 12px</div><div style="display:flex;flex-direction:column;gap:8px"><div class="pr-bar pr-h4"><div class="pr-fill pr-ok" style="width:65%"></div></div><div class="pr-bar pr-h8"><div class="pr-fill pr-warn" style="width:45%"></div></div><div class="pr-bar pr-h12"><div class="pr-fill pr-bad" style="width:18%"></div></div></div></div>
+    </div>
+  </div>
+
+  <h3 class="doc">Onglets (Tabs)</h3>
+  <div class="spec-area">
+    <div class="tabs-spec">
+      <div class="tab-sp on">Fournisseurs</div>
+      <div class="tab-sp">Commandes (18)</div>
+      <div class="tab-sp">Factures (34)</div>
+    </div>
+    <div style="padding:14px 0 4px;font-size:13px;color:#8C8579;font-style:italic">Contenu de l'onglet actif…</div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 11</span></div>
+</div>
+
+<!-- PAGE 12 — COMPOSANTS : SIDEBAR, KPI, VISION CARD -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Sidebar, KPI Cards, Vision Card</div>
+  </div>
+  <div class="chapter-label">Components · 03</div>
+  <h2 class="doc">Sidebar nav</h2>
+
+  <div style="display:flex;gap:24px;align-items:flex-start;margin:14px 0">
+    <div style="width:200px;flex-shrink:0">
+      <div class="sb-sp">
+        <div class="sb-sp-sec">Gouvernance</div>
+        <div class="sb-sp-item on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          Vision stratégique
+        </div>
+        <div class="sb-sp-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Cycles de pilotage
+        </div>
+        <div class="sb-sp-sec">Projets</div>
+        <div class="sb-sp-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          Portefeuille projets
+        </div>
+        <div class="sb-sp-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          Risques & plans
+        </div>
+        <div class="sb-sp-sec">Finances</div>
+        <div class="sb-sp-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+          Budgets
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:#5F5A52;line-height:2;flex:1">
+      <div style="font-weight:700;color:#0E0E10;margin-bottom:6px">Tokens sidebar</div>
+      Fond : <span class="mono">#1A1814</span><br>
+      Texte items : <span class="mono">#FFFFFD</span><br>
+      Actif fond : <span class="mono">--brand-gold</span><br>
+      Actif texte : <span class="mono">#1A1814</span><br>
+      Hover fond : <span class="mono">rgba(255,255,255,.06)</span><br>
+      Section overline : <span class="mono">rgba(255,255,255,.28)</span>
+    </div>
+  </div>
+
+  <h3 class="doc">KPI Cards</h3>
+  <div class="spec-grid2" style="margin:12px 0">
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+      <div><div class="kpi-sp-lbl">Projets actifs</div><div class="kpi-sp-val">12</div><div class="kpi-sp-foot ok">↑ 2 ce trimestre</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
+      <div><div class="kpi-sp-lbl">Budget engagé</div><div class="kpi-sp-val">3,1 M€</div><div class="kpi-sp-foot warn">74 % du prévu</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div><div class="kpi-sp-lbl">Risques critiques</div><div class="kpi-sp-val">3</div><div class="kpi-sp-foot bad">1 sans plan d'action</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div><div class="kpi-sp-lbl">Équipes saturées</div><div class="kpi-sp-val">2 / 9</div><div class="kpi-sp-foot warn">+ 1 chargée</div></div>
+    </div>
+  </div>
+
+  <h3 class="doc">Card · Vision (citation)</h3>
+  <div class="vision-card">
+    <div class="vision-quote">Devenir la DSI de référence pour les ETI de la région, en délivrant une infrastructure IT sécurisée, agile et alignée sur les ambitions de croissance de nos organisations clientes.</div>
+    <div class="vision-source">Sophie Martin · DSI · Vision 2026–2028 · Version 3.1</div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 12</span></div>
+</div>
+
+<!-- PAGE 13 — KPI CARDS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — KPI Cards</div>
+  </div>
+  <div class="chapter-label">Components · 04</div>
+  <h2 class="doc">KPI Cards</h2>
+  <p class="doc-intro">Icône à gauche, données à droite. Trois indicateurs : valeur principale (Display M), label (Caption), et pied contextuel coloré selon l'état.</p>
+
+  <h3 class="doc">Grille 4 colonnes — usage standard</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0">
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+      <div><div class="kpi-sp-lbl">Projets actifs</div><div class="kpi-sp-val">12</div><div class="kpi-sp-foot ok">↑ 2 ce trimestre</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg></div>
+      <div><div class="kpi-sp-lbl">Budget engagé</div><div class="kpi-sp-val">3,1 M€</div><div class="kpi-sp-foot warn">74 % du prévu</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <div><div class="kpi-sp-lbl">Risques critiques</div><div class="kpi-sp-val">3</div><div class="kpi-sp-foot bad">1 sans plan d'action</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div><div class="kpi-sp-lbl">Équipes saturées</div><div class="kpi-sp-val">2 / 9</div><div class="kpi-sp-foot warn">+ 1 chargée</div></div>
+    </div>
+  </div>
+
+  <h3 class="doc">Grille 3 colonnes</h3>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0">
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div><div class="kpi-sp-lbl">Score alignement</div><div class="kpi-sp-val">82 %</div><div class="kpi-sp-foot ok">↑ 6 pts vs T1</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+      <div><div class="kpi-sp-lbl">Conformité ISO</div><div class="kpi-sp-val">72 %</div><div class="kpi-sp-foot warn">16 écarts ouverts</div></div>
+    </div>
+    <div class="kpi-sp">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
+      <div><div class="kpi-sp-lbl">Demandes en attente</div><div class="kpi-sp-val">5</div><div class="kpi-sp-foot bad">2 en retard</div></div>
+    </div>
+  </div>
+
+  <h3 class="doc">Grille 2 colonnes</h3>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0">
+    <div class="kpi-sp" style="padding:18px 20px">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></div>
+      <div><div class="kpi-sp-lbl">Cycles de pilotage</div><div class="kpi-sp-val" style="font-size:28px">4</div><div class="kpi-sp-foot ok">CODIR T2 en cours</div></div>
+    </div>
+    <div class="kpi-sp" style="padding:18px 20px">
+      <div class="kpi-sp-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div><div class="kpi-sp-lbl">Effectif DSI</div><div class="kpi-sp-val" style="font-size:28px">68</div><div class="kpi-sp-foot ok">9 équipes actives</div></div>
+    </div>
+  </div>
+
+  <h3 class="doc">États du pied (foot)</h3>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:9px;padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#B6B0A4;margin-bottom:5px">ok — succès</div>
+      <div style="font-size:13px;color:#1F8A5B;font-weight:600">↑ 2 ce trimestre</div>
+    </div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:9px;padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#B6B0A4;margin-bottom:5px">warn — attention</div>
+      <div style="font-size:13px;color:#C77A00;font-weight:600">74 % du prévu</div>
+    </div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:9px;padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#B6B0A4;margin-bottom:5px">bad — danger</div>
+      <div style="font-size:13px;color:#B42318;font-weight:600">1 sans plan</div>
+    </div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:9px;padding:12px 14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#B6B0A4;margin-bottom:5px">neu — neutre</div>
+      <div style="font-size:13px;color:#8C8579;font-weight:600">sur 4,2 M€ prévu</div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 13</span></div>
+</div>
+
+<!-- PAGE 14 — RAYONS, OMBRES, SPACING -->
+
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Rayons, Élévation, Spacing</div>
+  </div>
+  <div class="chapter-label">Fondations · Tokens</div>
+  <h2 class="doc">Rayons</h2>
+
+  <div style="display:flex;gap:20px;flex-wrap:wrap;margin:14px 0">
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:4px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">xs · 4px</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:6px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">sm · 6px</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:10px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">md · 10px</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:14px;border:2px solid #E8A317"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#5F3F00;font-weight:700">lg · 14px ★</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:20px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">xl · 20px</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:28px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">2xl · 28px</div></div>
+    <div style="text-align:center"><div class="rad-demo" style="border-radius:999px"></div><div style="font-family:'Courier New',monospace;font-size:10.5px;color:#8C8579">pill · 999px</div></div>
+  </div>
+
+  <h3 class="doc">Élévation · Ombres</h3>
+  <div class="spec-grid4" style="margin:12px 0">
+    <div style="text-align:center"><div class="sh-demo" style="box-shadow:0 1px 2px rgba(14,14,16,.04),0 1px 1px rgba(14,14,16,.03)">shadow-1</div><div class="spec-label">Cards KPI</div></div>
+    <div style="text-align:center"><div class="sh-demo" style="box-shadow:0 2px 6px rgba(14,14,16,.06),0 1px 2px rgba(14,14,16,.04)">shadow-2</div><div class="spec-label">Cards hover</div></div>
+    <div style="text-align:center"><div class="sh-demo" style="box-shadow:0 8px 24px rgba(14,14,16,.08),0 2px 6px rgba(14,14,16,.04)">shadow-3</div><div class="spec-label">Dropdowns</div></div>
+    <div style="text-align:center"><div class="sh-demo" style="box-shadow:0 24px 60px rgba(14,14,16,.12),0 6px 16px rgba(14,14,16,.06)">shadow-4</div><div class="spec-label">Modals</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;margin:14px 0 0">
+    <div class="focus-ring-demo"></div>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#0E0E10">Focus ring — or</div>
+      <div style="font-family:'Courier New',monospace;font-size:11.5px;color:#8C8579;margin-top:3px">0 0 0 3px rgba(232,163,23,.32)</div>
+      <div style="font-size:12px;color:#8C8579;margin-top:2px">Seule ombre colorée autorisée dans le système.</div>
+    </div>
+  </div>
+
+  <h3 class="doc">Échelle de spacing</h3>
+  <div style="margin:12px 0">
+    <div class="sp-row"><div class="sp-tok">--space-1</div><div class="sp-px">4px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:4px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-2</div><div class="sp-px">8px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:8px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-3</div><div class="sp-px">12px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:12px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-4</div><div class="sp-px">16px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:16px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-6</div><div class="sp-px">24px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:24px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-8</div><div class="sp-px">32px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:32px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-12</div><div class="sp-px">48px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:48px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-16</div><div class="sp-px">64px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:64px"></div></div></div>
+    <div class="sp-row"><div class="sp-tok">--space-24</div><div class="sp-px">96px</div><div class="sp-bar-wrap"><div class="sp-bar" style="width:96px"></div></div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 14</span></div>
+</div>
+
+<!-- PAGE 15 — TYPOGRAPHIE VISUELLE -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Typographie — Échelle visuelle</div>
+  </div>
+  <div class="chapter-label">Fondations · Typographie</div>
+  <h2 class="doc">Typographie — Échelle visuelle</h2>
+  <p class="doc-intro">Manrope — une seule famille, 9 graisses. Display pour les titres de page, Body S pour les données de tableau. JetBrains Mono pour tout ce qui est technique.</p>
+  <div style="border-top:1px solid #E9E6E0">
+    <div style="display:flex;align-items:baseline;gap:20px;padding:16px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Display XL</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">800 · 64px · −0.03em</div></div><div style="font-size:48px;font-weight:800;letter-spacing:-.03em;color:#0E0E10;line-height:1">Starium</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:14px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Display L</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">800 · 48px · −0.025em</div></div><div style="font-size:36px;font-weight:800;letter-spacing:-.025em;color:#0E0E10;line-height:1">Vision 2026</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:13px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Display M</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">700 · 36px · −0.02em</div></div><div style="font-size:28px;font-weight:700;letter-spacing:-.02em;color:#0E0E10;line-height:1">Portefeuille projets</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:12px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">H1</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">700 · 28px / 1.2</div></div><div style="font-size:22px;font-weight:700;color:#0E0E10;line-height:1">Budgets &amp; finances</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">H2</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">700 · 22px / 1.25</div></div><div style="font-size:18px;font-weight:700;color:#0E0E10;line-height:1">Axes stratégiques</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:10px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">H3</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">600 · 18px / 1.3</div></div><div style="font-size:16px;font-weight:600;color:#0E0E10;line-height:1">Conformité DORA</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:10px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Body</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">400 · 15px / 1.55</div></div><div style="font-size:14px;font-weight:400;color:#5F5A52;line-height:1.55;flex:1">Définir notre cap, aligner l'organisation et créer de la valeur durable pour l'ensemble de nos parties prenantes.</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:10px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Body S</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">400 · 13px / 1.5</div></div><div style="font-size:13px;font-weight:400;color:#5F5A52;line-height:1.5">Texte de menu, labels de champ, contenu de cellule de tableau, note de bas de card.</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:9px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Caption</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">500 · 12px / 1.4</div></div><div style="font-size:12px;font-weight:500;color:#8C8579">Métadonnée · Horodatage · Sous-titre · Note de bas de page</div></div>
+    <div style="display:flex;align-items:center;gap:20px;padding:9px 0;border-bottom:1px solid #E9E6E0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Overline</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">600 · 11px · UPPERCASE</div></div><div style="font-size:11px;font-weight:600;color:#8C8579;text-transform:uppercase;letter-spacing:.08em">Gouvernance · Pilotage · Référentiel</div></div>
+    <div style="display:flex;align-items:baseline;gap:20px;padding:9px 0"><div style="width:140px;flex-shrink:0"><div style="font-size:11.5px;font-weight:700;color:#0E0E10">Mono</div><div style="font-family:'Courier New',monospace;font-size:10px;color:#B6B0A4;margin-top:2px">JetBrains · 500 · 13px</div></div><div style="font-family:'Courier New',monospace;font-size:12.5px;font-weight:500;color:#5F3F00;background:#F4F2EE;padding:3px 8px;border-radius:4px">--brand-gold: #E8A317;</div></div>
+  </div>
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 15</span></div>
+</div>
+
+<!-- PAGE 16 — TABLEAUX DE DONNÉES -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Tableaux de données</div>
+  </div>
+  <div class="chapter-label">Components · 05</div>
+  <h2 class="doc">Tableaux de données</h2>
+  <p class="doc-intro">Surface principale de l'application. En-têtes overline, données Body S, lignes séparées par un border-bottom subtil. Hover sur fond neutral-50.</p>
+
+  <div style="border:1px solid #E9E6E0;border-radius:12px;overflow:hidden;margin:14px 0">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr style="background:#FAF9F7">
+        <th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:10px 14px;border-bottom:1.5px solid #E9E6E0">Projet</th>
+        <th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:10px 14px;border-bottom:1.5px solid #E9E6E0">Priorité</th>
+        <th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:10px 14px;border-bottom:1.5px solid #E9E6E0">Avancement</th>
+        <th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:10px 14px;border-bottom:1.5px solid #E9E6E0">Responsable</th>
+        <th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C8579;padding:10px 14px;border-bottom:1.5px solid #E9E6E0">Statut</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;font-weight:700;color:#0E0E10">Remplacement SI RH</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-bad">Vital</span></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><div style="display:flex;align-items:center;gap:8px"><div class="pr-bar pr-h6" style="width:80px"><div class="pr-fill pr-ok" style="width:74%"></div></div><span style="font-size:11.5px;color:#8C8579">74 %</span></div></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;color:#5F5A52">S. Martin</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-gold">En cours</span></td></tr>
+        <tr style="background:#FFFAF5"><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;font-weight:700;color:#0E0E10">Conformité DORA</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-bad">Critique</span></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><div style="display:flex;align-items:center;gap:8px"><div class="pr-bar pr-h6" style="width:80px"><div class="pr-fill pr-bad" style="width:33%"></div></div><span style="font-size:11.5px;color:#B42318">33 %</span></div></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;color:#5F5A52">S. Martin</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-bad">En retard</span></td></tr>
+        <tr><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;font-weight:700;color:#0E0E10">Projet CRM</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-warn">Élevé</span></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><div style="display:flex;align-items:center;gap:8px"><div class="pr-bar pr-h6" style="width:80px"><div class="pr-fill pr-ok" style="width:62%"></div></div><span style="font-size:11.5px;color:#8C8579">62 %</span></div></td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE;color:#5F5A52">J. Lambert</td><td style="padding:10px 14px;border-bottom:1px solid #F4F2EE"><span class="chip c-gold">En cours</span></td></tr>
+        <tr><td style="padding:10px 14px;font-weight:700;color:#0E0E10">Modernisation réseau</td><td style="padding:10px 14px"><span class="chip c-neu">Normal</span></td><td style="padding:10px 14px"><div style="display:flex;align-items:center;gap:8px"><div class="pr-bar pr-h6" style="width:80px"><div class="pr-fill pr-ok" style="width:100%"></div></div><span style="font-size:11.5px;color:#1F8A5B">100 %</span></div></td><td style="padding:10px 14px;color:#5F5A52">P. Dupont</td><td style="padding:10px 14px"><span class="chip c-ok">Terminé</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:8px">✓ Toujours</div><div style="font-size:12.5px;color:#5F5A52;line-height:1.8">En-têtes : overline + neutral-500<br>Colonne nom : font-weight 600<br>Hover row : background neutral-50<br>Numériques : tabular-nums<br>Tri actif : flèche + colonne surlignée</div></div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#B42318;margin-bottom:8px">✗ Jamais</div><div style="font-size:12.5px;color:#5F5A52;line-height:1.8">Bordures verticales entre colonnes<br>Fond de ligne coloré sans raison<br>Troncature sans tooltip<br>Plus de 8 colonnes visibles<br>Zebra striping fort</div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 16</span></div>
+</div>
+
+<!-- PAGE 17 — ALERTES & TOPBAR -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Alertes &amp; Topbar</div>
+  </div>
+  <div class="chapter-label">Components · 06</div>
+  <h2 class="doc">Alertes &amp; notifications</h2>
+  <p class="doc-intro">Quatre états sémantiques. Toujours un dot coloré + titre bold + message. Jamais de fond plein non-teinté, jamais d'emoji.</p>
+
+  <div style="display:flex;flex-direction:column;gap:10px;margin:14px 0">
+    <div style="display:flex;gap:12px;padding:13px 16px;border-radius:9px;background:#E6F4ED;font-size:13px"><div style="width:8px;height:8px;border-radius:999px;background:#1F8A5B;flex-shrink:0;margin-top:4px"></div><div><div style="font-weight:700;color:#1F8A5B;margin-bottom:2px">Projet clôturé avec succès</div><div style="color:#1F8A5B;opacity:.85">Le projet « Modernisation réseau » a été livré dans les temps et dans l'enveloppe budgétaire.</div></div></div>
+    <div style="display:flex;gap:12px;padding:13px 16px;border-radius:9px;background:#FFF1DC;font-size:13px"><div style="width:8px;height:8px;border-radius:999px;background:#C77A00;flex-shrink:0;margin-top:4px"></div><div><div style="font-weight:700;color:#C77A00;margin-bottom:2px">Contrat expirant dans 30 jours</div><div style="color:#C77A00;opacity:.85">Le contrat Microsoft Azure arrive à échéance le 31 décembre 2026 — pensez au renouvellement.</div></div></div>
+    <div style="display:flex;gap:12px;padding:13px 16px;border-radius:9px;background:#FBE8E6;font-size:13px"><div style="width:8px;height:8px;border-radius:999px;background:#B42318;flex-shrink:0;margin-top:4px"></div><div><div style="font-weight:700;color:#B42318;margin-bottom:2px">Budget dépassé — action requise</div><div style="color:#B42318;opacity:.85">L'enveloppe « Transformation digitale » dépasse le prévu de 12 %. Arbitrage CODIR nécessaire.</div></div></div>
+    <div style="display:flex;gap:12px;padding:13px 16px;border-radius:9px;background:#E3EEFB;font-size:13px"><div style="width:8px;height:8px;border-radius:999px;background:#2A6FDB;flex-shrink:0;margin-top:4px"></div><div><div style="font-weight:700;color:#2A6FDB;margin-bottom:2px">Nouvelle demande de projet soumise</div><div style="color:#2A6FDB;opacity:.85">Sophie Martin a soumis une demande pour « ERP Finance ». En attente d'arbitrage CODIR T3.</div></div></div>
+  </div>
+
+  <div style="height:1px;background:#E9E6E0;margin:24px 0"></div>
+
+  <h2 class="doc" style="margin-top:0;padding-top:0;border-top:none">Topbar</h2>
+  <p class="body">Fixe, hauteur 64px. Recherche universelle (⌘K) · Sélecteur d'organisation · Notifications · Avatar utilisateur.</p>
+
+  <div style="background:#fff;border:1px solid #E9E6E0;border-radius:10px;height:52px;display:flex;align-items:center;padding:0 16px;gap:12px;margin:14px 0;box-shadow:0 1px 3px rgba(14,14,16,.05)">
+    <div style="display:flex;align-items:center;gap:8px;flex:1;max-width:320px;height:32px;background:#F4F2EE;border-radius:8px;padding:0 11px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8C8579" stroke-width="2" stroke-linecap="round" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font-size:12px;color:#8C8579;flex:1">Rechercher…</span>
+      <span style="font-family:'Courier New',monospace;font-size:10px;background:#fff;border:1px solid #E9E6E0;padding:1px 5px;border-radius:4px;color:#8C8579">⌘K</span>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid #D6D2CA;border-radius:8px;font-size:12px;font-weight:600;color:#0E0E10">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E8A317" stroke-width="1.75" stroke-linecap="round" width="13" height="13"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      Innovatech SA
+      <svg viewBox="0 0 24 24" fill="none" stroke="#8C8579" stroke-width="2" width="11" height="11"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#8C8579;position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="16" height="16"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div style="position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:999px;background:#E8A317;border:1.5px solid #fff"></div>
+    </div>
+    <div style="width:32px;height:32px;border-radius:999px;background:#F4D58A;color:#5F3F00;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">SM</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Tokens topbar</div><div style="font-size:12px;color:#5F5A52;line-height:2">Hauteur : <span class="mono">64px</span><br>Fond : <span class="mono">--bg-surface</span><br>Border : <span class="mono">--border-subtle</span><br>Recherche fond : <span class="mono">--neutral-100</span></div></div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Éléments fixes</div><div style="font-size:12px;color:#5F5A52;line-height:2">Barre de recherche universelle<br>Sélecteur d'organisation (multi-tenant)<br>Cloche notifications (dot or si non lu)<br>Avatar utilisateur connecté</div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 17</span></div>
+</div>
+
+<!-- PAGE 18 — MATRICE SWOT -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Matrice SWOT</div>
+  </div>
+  <div class="chapter-label">Components · 07</div>
+  <h2 class="doc">Matrice SWOT</h2>
+  <p class="doc-intro">Analyse stratégique 2×2 — interne/externe × favorable/défavorable. Bordure gauche colorée par quadrant, lettre-badge dans la teinte de l'état sémantique associé.</p>
+
+  <style>
+  .swot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .swot-col-hd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 6px; }
+  .swot-col-label { text-align: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #8C8579; padding: 7px 0; background: #FAF9F7; border: 1px solid #E9E6E0; border-radius: 7px; }
+  .swot-q { background: #fff; border: 1px solid #E9E6E0; border-radius: 10px; padding: 16px; border-left-width: 3px; }
+  .swot-q-s { border-left-color: #1F8A5B; }
+  .swot-q-w { border-left-color: #E8A317; }
+  .swot-q-o { border-left-color: #2A6FDB; }
+  .swot-q-t { border-left-color: #B42318; }
+  .swot-q-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .swot-badge { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0; font-family: 'Manrope', sans-serif; }
+  .swot-badge-s { background: #E6F4ED; color: #1F8A5B; }
+  .swot-badge-w { background: #F4D58A; color: #5F3F00; }
+  .swot-badge-o { background: #E3EEFB; color: #2A6FDB; }
+  .swot-badge-t { background: #FBE8E6; color: #B42318; }
+  .swot-q-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #0E0E10; }
+  .swot-q-sub { font-size: 11px; color: #8C8579; margin-top: 1px; }
+  .swot-item { background: #FAF9F7; border: 1px solid #E9E6E0; border-radius: 7px; padding: 9px 12px; font-size: 12.5px; color: #403D38; margin-bottom: 7px; }
+  .swot-add { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border: 1px solid #D6D2CA; border-radius: 7px; font-size: 12px; font-weight: 600; color: #8C8579; background: #fff; cursor: default; margin-top: 2px; }
+  .swot-add-icon { width: 14px; height: 14px; color: #8C8579; }
+  </style>
+
+  <!-- En-têtes colonnes -->
+  <div class="swot-col-hd">
+    <div class="swot-col-label">FAVORABLE</div>
+    <div class="swot-col-label">DÉFAVORABLE</div>
+  </div>
+
+  <!-- Grille 2×2 -->
+  <div class="swot-grid">
+
+    <!-- Forces -->
+    <div class="swot-q swot-q-s">
+      <div class="swot-q-hd">
+        <div class="swot-badge swot-badge-s">S</div>
+        <div>
+          <div class="swot-q-title">Forces</div>
+          <div class="swot-q-sub">Interne · favorable</div>
+        </div>
+      </div>
+      <div class="swot-item">Maîtrise des projets d'infrastructure cloud</div>
+      <div class="swot-item">Équipe DSI expérimentée et engagée</div>
+      <div class="swot-item">Score alignement stratégique : 82 %</div>
+      <div class="swot-add">
+        <svg class="swot-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter une ligne
+      </div>
+    </div>
+
+    <!-- Faiblesses -->
+    <div class="swot-q swot-q-w">
+      <div class="swot-q-hd">
+        <div class="swot-badge swot-badge-w">W</div>
+        <div>
+          <div class="swot-q-title">Faiblesses</div>
+          <div class="swot-q-sub">Interne · défavorable</div>
+        </div>
+      </div>
+      <div class="swot-item">Conformité DORA insuffisante (33 %)</div>
+      <div class="swot-item">Deux équipes saturées — PMO &amp; Infrastructure</div>
+      <div class="swot-item">Dépassement budgétaire Transformation +12 %</div>
+      <div class="swot-add">
+        <svg class="swot-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter une ligne
+      </div>
+    </div>
+
+    <!-- Opportunités -->
+    <div class="swot-q swot-q-o">
+      <div class="swot-q-hd">
+        <div class="swot-badge swot-badge-o">O</div>
+        <div>
+          <div class="swot-q-title">Opportunités</div>
+          <div class="swot-q-sub">Externe · favorable</div>
+        </div>
+      </div>
+      <div class="swot-item">Offre cloud Azure en réduction tarifaire</div>
+      <div class="swot-item">IA générative applicable au support IT</div>
+      <div class="swot-item">Partenariats ETI régionaux à développer</div>
+      <div class="swot-add">
+        <svg class="swot-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter une ligne
+      </div>
+    </div>
+
+    <!-- Menaces -->
+    <div class="swot-q swot-q-t">
+      <div class="swot-q-hd">
+        <div class="swot-badge swot-badge-t">T</div>
+        <div>
+          <div class="swot-q-title">Menaces</div>
+          <div class="swot-q-sub">Externe · défavorable</div>
+        </div>
+      </div>
+      <div class="swot-item">Risque cyberattaque non couvert (score 20/25)</div>
+      <div class="swot-item">Réglementation DORA — délais contraints</div>
+      <div class="swot-item">Pénurie de profils IT spécialisés</div>
+      <div class="swot-add">
+        <svg class="swot-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter une ligne
+      </div>
+    </div>
+
+  </div>
+
+  <h3 class="doc">Règles de construction</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px">
+      <div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Couleurs par quadrant</div>
+      <div style="font-size:12.5px;color:#5F5A52;line-height:2">
+        <span style="color:#1F8A5B;font-weight:700">S — Forces</span> : vert succès<br>
+        <span style="color:#5F3F00;font-weight:700">W — Faiblesses</span> : or attention<br>
+        <span style="color:#2A6FDB;font-weight:700">O — Opportunités</span> : bleu info<br>
+        <span style="color:#B42318;font-weight:700">T — Menaces</span> : rouge danger
+      </div>
+    </div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px">
+      <div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Usage</div>
+      <div style="font-size:12.5px;color:#5F5A52;line-height:1.8">
+        Plan stratégique annuel · Revue de portefeuille · Comité de direction · Analyse de risque projet
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 18</span></div>
+</div>
+
+<!-- PAGE 19 — FICHE PROJET : PANNEAU INFORMATIONS + INDICATEURS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Fiche projet</div>
+  </div>
+  <div class="chapter-label">Components · 08</div>
+  <h2 class="doc">Fiche projet — Vue détail</h2>
+  <p class="doc-intro">Layout deux panneaux : Informations (2/3) à gauche avec bordure gauche or, Indicateurs (1/3) à droite en grille 2×2. Overline pour les labels, valeur en poids 700.</p>
+
+  <style>
+  .proj-detail { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin: 16px 0; }
+  .pd-info { border: 1px solid #E9E6E0; border-radius: 12px; border-left: 3px solid #E8A317; padding: 20px 22px; background: #fff; }
+  .pd-info-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .pd-ico { width: 40px; height: 40px; border-radius: 10px; background: #E3EEFB; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .pd-ico svg { width: 20px; height: 20px; color: #2A6FDB; }
+  .pd-info-title { font-size: 15px; font-weight: 700; color: #0E0E10; }
+  .pd-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .pd-field { padding: 9px 0; }
+  .pd-field-lbl { font-size: 12px; color: #8C8579; margin-bottom: 3px; }
+  .pd-field-val { font-size: 13.5px; font-weight: 600; color: #0E0E10; }
+  .pd-field-val.muted { color: #B6B0A4; font-weight: 400; }
+  .pd-divider { height: 1px; background: #E9E6E0; margin: 8px 0; grid-column: 1 / -1; }
+  .pd-field-full { grid-column: 1 / -1; padding: 9px 0; }
+  .tag-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #D6D2CA; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: #8C8579; background: #fff; cursor: default; }
+  .tag-btn svg { width: 12px; height: 12px; }
+
+  .pd-indicators { border: 1px solid #E9E6E0; border-radius: 12px; padding: 16px 18px; background: #fff; }
+  .pd-ind-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #8C8579; margin-bottom: 12px; }
+  .ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ind-cell { border: 1px solid #E9E6E0; border-radius: 9px; padding: 10px 12px; }
+  .ind-cell-full { grid-column: 1 / -1; border: 1px solid #E9E6E0; border-radius: 9px; padding: 10px 12px; }
+  .ind-lbl { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #8C8579; margin-bottom: 6px; }
+  .ind-val { font-size: 20px; font-weight: 800; color: #0E0E10; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .ind-val.muted { color: #B6B0A4; font-size: 16px; font-weight: 400; }
+  </style>
+
+  <div class="proj-detail">
+    <!-- Panneau gauche — Informations -->
+    <div class="pd-info">
+      <div class="pd-info-hd">
+        <div class="pd-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        </div>
+        <div class="pd-info-title">Informations</div>
+      </div>
+      <div class="pd-fields">
+        <div class="pd-field"><div class="pd-field-lbl">Nature</div><div class="pd-field-val">Activité</div></div>
+        <div class="pd-field"><div class="pd-field-lbl">Type</div><div class="pd-field-val">Transformation</div></div>
+        <div class="pd-field"><div class="pd-field-lbl">Statut</div><div class="pd-field-val"><span class="chip c-neu">En cours</span></div></div>
+        <div class="pd-field"><div class="pd-field-lbl">Avancement manuel / dérivé</div><div class="pd-field-val">45 % / 38 %</div></div>
+        <div class="pd-field"><div class="pd-field-lbl">Échéance cible</div><div class="pd-field-val">30 sep. 2026</div></div>
+        <div class="pd-field"><div class="pd-field-lbl">Responsable projet</div><div class="pd-field-val">Paul Dupont</div></div>
+        <div class="pd-divider"></div>
+        <div class="pd-field-full"><div class="pd-field-lbl">Objectif stratégique</div><div class="pd-field-val">Axe 02 — Transformation digitale</div></div>
+        <div class="pd-divider"></div>
+        <div class="pd-field-full"><div class="pd-field-lbl">Direction propriétaire</div><div class="pd-field-val">Innovatech SA — Direction des Systèmes d'Information</div></div>
+        <div class="pd-divider"></div>
+        <div class="pd-field-full"><div class="pd-field-lbl">Catégorie portefeuille</div><div class="pd-field-val">Infrastructure Cloud</div></div>
+        <div class="pd-field-full">
+          <div class="pd-field-lbl">Étiquettes</div>
+          <div style="display:flex;gap:7px;margin-top:4px;flex-wrap:wrap">
+            <span class="chip c-info">Azure</span>
+            <span class="chip c-neu">Migration</span>
+            <span class="chip c-gold">T3 2026</span>
+            <div class="tag-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Ajouter</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panneau droit — Indicateurs -->
+    <div class="pd-indicators">
+      <div class="pd-ind-title">Indicateurs</div>
+      <div class="ind-grid">
+        <div class="ind-cell-full">
+          <div class="ind-lbl">Santé</div>
+          <span class="chip c-gold" style="font-size:12px">Attention</span>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Avancement</div>
+          <div class="ind-val">45 %</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Criticité</div>
+          <div class="ind-val" style="font-size:16px">Normale</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Tâches ouv.</div>
+          <div class="ind-val" style="color:#C77A00">8</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Risques ouv.</div>
+          <div class="ind-val" style="color:#B42318">3</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Risques crit.</div>
+          <div class="ind-val" style="color:#B42318">1</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Jalons</div>
+          <div class="ind-val">5</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Jalons ret.</div>
+          <div class="ind-val" style="color:#B42318">1</div>
+        </div>
+        <div class="ind-cell">
+          <div class="ind-lbl">Priorité</div>
+          <div class="ind-val" style="font-size:16px">Normale</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="doc">Variantes de santé</h3>
+  <div style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
+    <div style="border:1px solid #E9E6E0;border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579">Santé</div>
+      <span class="chip c-ok">Bon</span>
+    </div>
+    <div style="border:1px solid #E9E6E0;border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579">Santé</div>
+      <span class="chip c-gold">Attention</span>
+    </div>
+    <div style="border:1px solid #E9E6E0;border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579">Santé</div>
+      <span class="chip c-bad">Critique</span>
+    </div>
+    <div style="border:1px solid #E9E6E0;border-radius:9px;padding:12px 16px;display:flex;align-items:center;gap:12px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579">Santé</div>
+      <span class="chip c-neu">Non évalué</span>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 19</span></div>
+</div>
+
+<!-- PAGE 20 — PLANNING / GANTT -->
+<div class="page" style="padding:56px 64px">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Planning · Gantt</div>
+  </div>
+  <div class="chapter-label">Components · 09</div>
+  <h2 class="doc">Planning · Gantt</h2>
+  <p class="doc-intro">Vue temporelle du portefeuille. Corps de barre coloré par priorité, remplissage par santé, ligne « aujourd'hui » en or. Groupement par catégorie avec liseré gauche.</p>
+
+  <style>
+  /* ── Gantt specimen ─────────────────────────── */
+  .gantt-wrap { border:1px solid #E9E6E0; border-radius:12px; overflow:hidden; font-size:12px; margin:14px 0; }
+  .gantt-grid { display:grid; grid-template-columns: 220px 1fr; }
+  /* timeline header */
+  .gantt-months { display:grid; grid-template-columns: repeat(9,1fr); background:#FAF9F7; border-bottom:1px solid #E9E6E0; }
+  .gantt-month { text-align:center; padding:6px 0; font-size:9.5px; font-weight:700; color:#8C8579; text-transform:uppercase; letter-spacing:.06em; border-right:1px solid #F4F2EE; }
+  .gantt-month:last-child { border-right:none; }
+  /* header left */
+  .gantt-hd-left { background:#FAF9F7; border-bottom:1px solid #E9E6E0; border-right:1px solid #E9E6E0; padding:7px 14px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#8C8579; display:flex; align-items:center; }
+  /* category row */
+  .gantt-cat-left { padding:8px 14px; font-size:11px; font-weight:700; color:#0E0E10; border-left:3px solid #E8A317; border-right:1px solid #E9E6E0; background:#FBEAB5; display:flex; align-items:center; }
+  .gantt-cat-right { background:#FBEAB5; position:relative; }
+  /* project row */
+  .gantt-row-left { padding:8px 14px 8px 17px; font-size:12px; color:#403D38; border-right:1px solid #E9E6E0; border-bottom:1px solid #F4F2EE; display:flex; align-items:center; line-height:1.35; }
+  .gantt-row-left strong { color:#0E0E10; font-weight:600; display:block; font-size:11.5px; }
+  .gantt-row-left span { color:#8C8579; font-size:10.5px; font-family:'Courier New',monospace; }
+  .gantt-row-right { position:relative; border-bottom:1px solid #F4F2EE; height:44px; }
+  .gantt-row-right:last-child { border-bottom:none; }
+  /* today line */
+  .today-line { position:absolute; top:0; bottom:0; width:2px; background:#E8A317; z-index:3; opacity:.8; }
+  .today-line::after { content:''; position:absolute; top:0; left:-3px; width:8px; height:8px; border-radius:999px; background:#E8A317; }
+  /* bar */
+  .gantt-bar { position:absolute; top:9px; height:26px; border-radius:6px; display:flex; align-items:center; overflow:hidden; }
+  /* priority bodies */
+  .bar-low   { background:#dbeafe; }
+  .bar-med   { background:#fde8e8; }
+  .bar-high  { background:#fde8c8; }
+  .bar-done  { background:#E9E6E0; }
+  /* retard — amber border */
+  .bar-late  { outline:1.5px solid #E8A317; outline-offset:-1px; }
+  /* health fill inside bar */
+  .bar-fill  { height:100%; border-radius:6px 0 0 6px; }
+  .fill-ok   { background:#86efac; }
+  .fill-warn { background:#E8A317; opacity:.7; }
+  .fill-bad  { background:#fca5a5; }
+  /* teal activity accent */
+  .bar-act { border-left:3px solid #0d9488; }
+  /* label chips after bar */
+  .bar-label { position:absolute; top:50%; transform:translateY(-50%); font-size:9.5px; font-weight:700; display:flex; gap:4px; align-items:center; white-space:nowrap; }
+  .bl-chip { padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; }
+  .bl-gold { background:#F4D58A; color:#5F3F00; }
+  .bl-neu  { background:#E9E6E0; color:#5F5A52; }
+  .bl-info { background:#E3EEFB; color:#2A6FDB; }
+  .bl-owner { color:#B6B0A4; }
+  /* legend */
+  .gantt-legend { border-top:1px solid #E9E6E0; padding:16px 18px; background:#FAF9F7; }
+  .gl-title { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8C8579; margin-bottom:10px; }
+  .gl-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+  .gl-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .gl-swatch { width:32px; height:13px; border-radius:4px; flex-shrink:0; }
+  .gl-lbl { font-size:11px; color:#5F5A52; }
+  </style>
+
+  <div class="gantt-wrap">
+    <div class="gantt-grid">
+      <!-- Header -->
+      <div class="gantt-hd-left">Projet par catégorie</div>
+      <div class="gantt-months">
+        <div class="gantt-month">mars 2026</div>
+        <div class="gantt-month">avr. 2026</div>
+        <div class="gantt-month">mai 2026</div>
+        <div class="gantt-month">juin 2026</div>
+        <div class="gantt-month">juil. 2026</div>
+        <div class="gantt-month">août 2026</div>
+        <div class="gantt-month">sep. 2026</div>
+        <div class="gantt-month">oct. 2026</div>
+        <div class="gantt-month">nov. 2026</div>
+      </div>
+
+      <!-- CAT 1 -->
+      <div class="gantt-cat-left">Infrastructure Cloud</div>
+      <div class="gantt-cat-right" style="height:32px"></div>
+
+      <!-- Row 1 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-002</span><strong>Migration Azure</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-high bar-late" style="left:5%;width:70%">
+          <div class="bar-fill fill-warn" style="width:45%"></div>
+        </div>
+        <div class="bar-label" style="left:78%"><span class="bl-chip bl-gold">Cloud</span><span class="bl-owner">P. Dupont</span></div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-007</span><strong>Modernisation réseau</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-done" style="left:0%;width:38%">
+          <div class="bar-fill fill-ok" style="width:100%"></div>
+        </div>
+        <div class="bar-label" style="left:40%"><span class="bl-chip bl-neu">Terminé</span><span class="bl-owner">P. Dupont</span></div>
+      </div>
+
+      <!-- CAT 2 -->
+      <div class="gantt-cat-left">Conformité &amp; Sécurité</div>
+      <div class="gantt-cat-right" style="height:32px"></div>
+
+      <!-- Row 3 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-003</span><strong>Conformité DORA</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-med bar-late" style="left:0%;width:38%">
+          <div class="bar-fill fill-bad" style="width:33%"></div>
+        </div>
+        <div class="bar-label" style="left:40%"><span class="bl-chip bl-info">DORA</span><span class="bl-owner">S. Martin</span></div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-008</span><strong>Cybersécurité SOC</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-high" style="left:5%;width:82%">
+          <div class="bar-fill fill-warn" style="width:55%"></div>
+        </div>
+        <div class="bar-label" style="left:90%"><span class="bl-owner">A. Roux</span></div>
+      </div>
+
+      <!-- CAT 3 -->
+      <div class="gantt-cat-left">Transformation &amp; Métier</div>
+      <div class="gantt-cat-right" style="height:32px"></div>
+
+      <!-- Row 5 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-001</span><strong>Remplacement SI RH</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-high" style="left:0%;width:58%">
+          <div class="bar-fill fill-ok" style="width:74%"></div>
+        </div>
+        <div class="bar-label" style="left:60%"><span class="bl-chip bl-gold">RH</span><span class="bl-owner">S. Martin</span></div>
+      </div>
+
+      <!-- Row 6 -->
+      <div class="gantt-row-left"><div><span>PRJ-2026-004</span><strong>Projet CRM</strong></div></div>
+      <div class="gantt-row-right">
+        <div class="today-line" style="left:38%"></div>
+        <div class="gantt-bar bar-med bar-act" style="left:0%;width:26%">
+          <div class="bar-fill fill-ok" style="width:100%"></div>
+        </div>
+        <div class="bar-label" style="left:28%"><span class="bl-chip bl-neu">Lancé</span><span class="bl-owner">J. Lambert</span></div>
+      </div>
+    </div>
+
+    <!-- LÉGENDE -->
+    <div class="gantt-legend">
+      <div class="gl-grid">
+        <div>
+          <div class="gl-title">Corps de barre (priorité)</div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#dbeafe"></div><div class="gl-lbl">Basse</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#fde8e8"></div><div class="gl-lbl">Moyenne</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#fde8c8"></div><div class="gl-lbl">Haute</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#E9E6E0"></div><div class="gl-lbl">Terminé / Annulé / Archivé</div></div>
+        </div>
+        <div>
+          <div class="gl-title">Avancement (remplissage)</div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#86efac"></div><div class="gl-lbl">Santé bon</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#E8A317;opacity:.7"></div><div class="gl-lbl">Santé attention</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#fca5a5"></div><div class="gl-lbl">Santé critique</div></div>
+        </div>
+        <div>
+          <div class="gl-title">Modificateurs &amp; frise</div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#fde8c8;outline:1.5px solid #E8A317;outline-offset:-1px"></div><div class="gl-lbl">Retard : anneau or</div></div>
+          <div class="gl-row"><div class="gl-swatch" style="background:#dbeafe;border-left:3px solid #0d9488"></div><div class="gl-lbl">Activité : liseré teal</div></div>
+          <div class="gl-row"><div style="width:32px;height:2px;background:#E8A317;margin:4px 0;flex-shrink:0"></div><div class="gl-lbl">Ligne « aujourd'hui » en or</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 20</span></div>
+</div>
+
+<!-- PAGE 21 — GRAPHIQUES & DATAVIZ -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Graphiques &amp; Dataviz</div>
+  </div>
+  <div class="chapter-label">Components · 10</div>
+  <h2 class="doc">Graphiques &amp; Dataviz</h2>
+  <p class="doc-intro">Palette fixe : brand-gold pour la valeur principale, sémantiques pour les secondaires. Jamais de grille opaque — toujours valeur + label. Axes minimalistes.</p>
+
+  <style>
+  .viz-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin:14px 0; }
+  .viz-card { border:1px solid #E9E6E0; border-radius:12px; padding:18px; background:#fff; }
+  .viz-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8C8579; margin-bottom:14px; }
+  .donut-wrap { display:flex; align-items:center; gap:18px; }
+  .donut-legend { display:flex; flex-direction:column; gap:7px; flex:1; }
+  .dl-row { display:flex; align-items:center; gap:8px; font-size:11.5px; color:#403D38; }
+  .dl-dot { width:9px; height:9px; border-radius:999px; flex-shrink:0; }
+  .dl-val { margin-left:auto; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; color:#0E0E10; }
+  .bar-chart { display:flex; flex-direction:column; gap:8px; }
+  .bc-row { display:flex; align-items:center; gap:10px; font-size:11px; }
+  .bc-label { width:78px; flex-shrink:0; color:#5F5A52; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bc-track { flex:1; height:18px; background:#F4F2EE; border-radius:5px; overflow:hidden; }
+  .bc-fill-v { height:100%; border-radius:5px; }
+  .bc-val-v { width:44px; text-align:right; font-size:10.5px; font-weight:700; color:#0E0E10; font-variant-numeric:tabular-nums; flex-shrink:0; }
+  .radar-wrap { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .radar-legend { display:flex; flex-direction:column; gap:5px; width:100%; }
+  </style>
+
+  <div class="viz-row">
+    <!-- DONUT — Budget -->
+    <div class="viz-card">
+      <div class="viz-title">Budget consommé</div>
+      <div class="donut-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="30" fill="none" stroke="#F4F2EE" stroke-width="12"/>
+          <circle cx="40" cy="40" r="30" fill="none" stroke="#E8A317" stroke-width="12" stroke-dasharray="128 188" stroke-dashoffset="47" stroke-linecap="round"/>
+          <circle cx="40" cy="40" r="30" fill="none" stroke="#B42318" stroke-width="12" stroke-dasharray="15 201" stroke-dashoffset="-81" stroke-linecap="round" opacity=".7"/>
+          <text x="40" y="37" text-anchor="middle" font-size="14" font-weight="800" fill="#0E0E10">68%</text>
+          <text x="40" y="50" text-anchor="middle" font-size="8" fill="#8C8579">consommé</text>
+        </svg>
+        <div class="donut-legend">
+          <div class="dl-row"><div class="dl-dot" style="background:#E8A317"></div>Consommé<span class="dl-val">68%</span></div>
+          <div class="dl-row"><div class="dl-dot" style="background:#B42318"></div>Dépassement<span class="dl-val">8%</span></div>
+          <div class="dl-row"><div class="dl-dot" style="background:#F4F2EE;border:1px solid #E9E6E0"></div>Restant<span class="dl-val">24%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BAR — Avancement projets -->
+    <div class="viz-card">
+      <div class="viz-title">Avancement par projet</div>
+      <div class="bar-chart">
+        <div class="bc-row"><span class="bc-label">SI RH</span><div class="bc-track"><div class="bc-fill-v" style="width:74%;background:#1F8A5B"></div></div><span class="bc-val-v">74 %</span></div>
+        <div class="bc-row"><span class="bc-label">CRM</span><div class="bc-track"><div class="bc-fill-v" style="width:62%;background:#E8A317"></div></div><span class="bc-val-v">62 %</span></div>
+        <div class="bc-row"><span class="bc-label">Réseau</span><div class="bc-track"><div class="bc-fill-v" style="width:100%;background:#1F8A5B"></div></div><span class="bc-val-v">100 %</span></div>
+        <div class="bc-row"><span class="bc-label">DORA</span><div class="bc-track"><div class="bc-fill-v" style="width:33%;background:#B42318"></div></div><span class="bc-val-v">33 %</span></div>
+        <div class="bc-row"><span class="bc-label">Azure</span><div class="bc-track"><div class="bc-fill-v" style="width:45%;background:#E8A317"></div></div><span class="bc-val-v">45 %</span></div>
+        <div class="bc-row"><span class="bc-label">SOC</span><div class="bc-track"><div class="bc-fill-v" style="width:55%;background:#2A6FDB"></div></div><span class="bc-val-v">55 %</span></div>
+      </div>
+    </div>
+
+    <!-- RADAR — Alignement stratégique -->
+    <div class="viz-card">
+      <div class="viz-title">Alignement stratégique</div>
+      <div class="radar-wrap">
+        <svg width="120" height="110" viewBox="-60 -55 120 110">
+          <polygon points="0,-40 34.6,-20 34.6,20 0,40 -34.6,20 -34.6,-20" fill="none" stroke="#E9E6E0" stroke-width="1"/>
+          <polygon points="0,-28 24.2,-14 24.2,14 0,28 -24.2,14 -24.2,-14" fill="none" stroke="#E9E6E0" stroke-width="1"/>
+          <polygon points="0,-16 13.9,-8 13.9,8 0,16 -13.9,8 -13.9,-8" fill="none" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="0" y2="-40" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="34.6" y2="-20" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="34.6" y2="20" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="0" y2="40" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="-34.6" y2="20" stroke="#E9E6E0" stroke-width="1"/>
+          <line x1="0" y1="0" x2="-34.6" y2="-20" stroke="#E9E6E0" stroke-width="1"/>
+          <polygon points="0,-33 24.2,-14 19,11 0,36 -22.5,13 -27,-15.6" fill="#E8A317" fill-opacity=".18" stroke="#E8A317" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="0" cy="-33" r="3" fill="#E8A317"/>
+          <circle cx="24.2" cy="-14" r="3" fill="#E8A317"/>
+          <circle cx="19" cy="11" r="3" fill="#E8A317"/>
+          <circle cx="0" cy="36" r="3" fill="#E8A317"/>
+          <circle cx="-22.5" cy="13" r="3" fill="#E8A317"/>
+          <circle cx="-27" cy="-15.6" r="3" fill="#E8A317"/>
+          <text x="0" y="-44" text-anchor="middle" font-size="7" fill="#8C8579">Vision</text>
+          <text x="40" y="-22" font-size="7" fill="#8C8579">Innov.</text>
+          <text x="40" y="26" font-size="7" fill="#8C8579">Perf.</text>
+          <text x="0" y="50" text-anchor="middle" font-size="7" fill="#8C8579">RH</text>
+          <text x="-52" y="26" font-size="7" fill="#8C8579">Risque</text>
+          <text x="-52" y="-18" font-size="7" fill="#8C8579">Sécu.</text>
+        </svg>
+        <div class="radar-legend">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#5F5A52"><span>Vision</span><strong style="color:#0E0E10">82 %</strong></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#5F5A52"><span>Innovation</span><strong style="color:#0E0E10">70 %</strong></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#5F5A52"><span>Sécurité</span><strong style="color:#B42318">55 %</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sparkline tendance -->
+  <div class="viz-card" style="margin-bottom:14px">
+    <div class="viz-title">Évolution portefeuille — projets actifs T1 → T3 2026</div>
+    <div style="position:relative">
+      <svg width="100%" height="70" viewBox="0 0 560 70" preserveAspectRatio="none" style="display:block">
+        <line x1="0" y1="17" x2="560" y2="17" stroke="#F4F2EE" stroke-width="1"/>
+        <line x1="0" y1="35" x2="560" y2="35" stroke="#F4F2EE" stroke-width="1"/>
+        <line x1="0" y1="53" x2="560" y2="53" stroke="#F4F2EE" stroke-width="1"/>
+        <polyline points="0,53 80,44 160,35 240,26 320,35 400,26 480,17 560,26" fill="none" stroke="#E8A317" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <polyline points="0,70 0,53 80,44 160,35 240,26 320,35 400,26 480,17 560,26 560,70" fill="#E8A317" fill-opacity=".08"/>
+        <polyline points="0,62 80,62 160,53 240,53 320,44 400,44 480,35 560,35" fill="none" stroke="#1F8A5B" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>
+        <circle cx="0" cy="53" r="3.5" fill="#E8A317"/>
+        <circle cx="160" cy="35" r="3.5" fill="#E8A317"/>
+        <circle cx="320" cy="35" r="3.5" fill="#E8A317"/>
+        <circle cx="480" cy="17" r="3.5" fill="#E8A317"/>
+        <circle cx="560" cy="26" r="3.5" fill="#E8A317"/>
+      </svg>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#B6B0A4;margin-top:4px">
+        <span>Jan</span><span>Fév</span><span>Mar</span><span>Avr</span><span>Mai</span><span>Jun</span><span>Jul</span><span>Août</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:10px">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#5F5A52"><div style="width:20px;height:2.5px;background:#E8A317;border-radius:2px"></div>Projets actifs</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#5F5A52"><div style="width:20px;height:0;border-top:1.5px dashed #1F8A5B"></div>Projets terminés</div>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 21</span></div>
+</div>
+
+<!-- PAGE 22 — MODALES & DRAWERS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Modales &amp; Drawers</div>
+  </div>
+  <div class="chapter-label">Components · 11</div>
+  <h2 class="doc">Modales &amp; Drawers</h2>
+  <p class="doc-intro">Overlay rgba(14,14,16,.45) sur le fond. Modal centré, radius 16px, shadow elevation-3. Drawer ancré à droite 480px. Structure fixe : header · corps · actions.</p>
+
+  <style>
+  .modal-demo { background:linear-gradient(135deg,#1a1611 0%,#0E0E10 100%); border-radius:12px; padding:24px; display:flex; align-items:center; justify-content:center; margin:14px 0; min-height:190px; position:relative; overflow:hidden; }
+  .modal-overlay { position:absolute; inset:0; background:rgba(14,14,16,.45); border-radius:12px; }
+  .modal-box { background:#fff; border-radius:14px; box-shadow:0 20px 60px rgba(14,14,16,.35); width:340px; z-index:2; position:relative; overflow:hidden; }
+  .modal-hd { padding:20px 22px 0; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .modal-icon-wrap { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .modal-title { font-size:14px; font-weight:700; color:#0E0E10; margin-bottom:3px; }
+  .modal-sub { font-size:12px; color:#8C8579; line-height:1.5; }
+  .modal-close-btn { width:28px; height:28px; border-radius:7px; border:1px solid #E9E6E0; background:#FAF9F7; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#8C8579; cursor:default; }
+  .modal-body-inner { padding:16px 22px; font-size:12.5px; color:#5F5A52; line-height:1.6; border-top:1px solid #F4F2EE; margin-top:14px; }
+  .modal-footer-inner { padding:14px 22px; border-top:1px solid #F4F2EE; display:flex; gap:8px; justify-content:flex-end; }
+  .drawer-demo { border:1px solid #E9E6E0; border-radius:12px; overflow:hidden; display:flex; margin:14px 0; background:#FAF9F7; min-height:210px; }
+  .drawer-bg-area { flex:1; display:flex; align-items:center; justify-content:center; }
+  .drawer-panel { width:210px; background:#fff; border-left:1px solid #E9E6E0; box-shadow:-8px 0 24px rgba(14,14,16,.07); display:flex; flex-direction:column; }
+  .drawer-hd-inner { padding:16px 16px 14px; border-bottom:1px solid #F4F2EE; display:flex; align-items:center; justify-content:space-between; }
+  .drawer-title { font-size:13px; font-weight:700; color:#0E0E10; }
+  .drawer-body-inner { flex:1; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  .d-lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#8C8579; margin-bottom:3px; }
+  .d-val { font-size:12px; color:#0E0E10; font-weight:600; }
+  .drawer-footer-inner { padding:12px 16px; border-top:1px solid #F4F2EE; display:flex; gap:7px; }
+  </style>
+
+  <h3 class="doc">Modal — Confirmation critique</h3>
+  <div class="modal-demo">
+    <div class="modal-overlay"></div>
+    <div class="modal-box">
+      <div class="modal-hd">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="modal-icon-wrap" style="background:#FBE8E6">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="1.75" stroke-linecap="round" width="18" height="18"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <div class="modal-title">Archiver ce projet ?</div>
+            <div class="modal-sub">Cette action est irréversible. Le projet sera archivé et retiré du tableau de bord actif.</div>
+          </div>
+        </div>
+        <div class="modal-close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      <div class="modal-body-inner">Projet : <strong>Remplacement SI RH</strong> · 74 % d'avancement · 8 tâches ouvertes seront également archivées.</div>
+      <div class="modal-footer-inner">
+        <button style="padding:7px 14px;border:1px solid #D6D2CA;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#5F5A52;cursor:default">Annuler</button>
+        <button style="padding:7px 14px;border:none;border-radius:8px;background:#B42318;font-size:12px;font-weight:700;color:#fff;cursor:default">Archiver</button>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="doc">Drawer — Panneau latéral détail</h3>
+  <div class="drawer-demo">
+    <div class="drawer-bg-area"><span style="font-size:12px;color:#B6B0A4;font-style:italic">Contenu principal de la page</span></div>
+    <div class="drawer-panel">
+      <div class="drawer-hd-inner">
+        <div class="drawer-title">Détail projet</div>
+        <div style="width:24px;height:24px;border-radius:6px;border:1px solid #E9E6E0;display:flex;align-items:center;justify-content:center;color:#8C8579;font-size:11px;cursor:default">✕</div>
+      </div>
+      <div class="drawer-body-inner">
+        <div><div class="d-lbl">Projet</div><div class="d-val">Conformité DORA</div></div>
+        <div><div class="d-lbl">Statut</div><div><span class="chip c-bad">En retard</span></div></div>
+        <div><div class="d-lbl">Avancement</div><div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div class="pr-bar pr-h6" style="flex:1"><div class="pr-fill pr-bad" style="width:33%"></div></div><span style="font-size:11px;color:#B42318;font-weight:700">33 %</span></div></div>
+        <div><div class="d-lbl">Responsable</div><div class="d-val">S. Martin</div></div>
+        <div><div class="d-lbl">Risques</div><div class="d-val" style="color:#B42318">3 critiques</div></div>
+      </div>
+      <div class="drawer-footer-inner">
+        <button style="flex:1;padding:7px;border:1px solid #D6D2CA;border-radius:8px;background:#fff;font-size:11px;font-weight:600;color:#5F5A52;cursor:default">Détail</button>
+        <button style="flex:1;padding:7px;border:none;border-radius:8px;background:#E8A317;font-size:11px;font-weight:700;color:#fff;cursor:default">Modifier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL FORMULAIRE -->
+  <h3 class="doc">Modal — Formulaire de saisie</h3>
+  <div class="modal-demo" style="min-height:260px;align-items:flex-start;padding-top:28px">
+    <div class="modal-overlay"></div>
+    <div class="modal-box" style="width:380px">
+      <!-- Header -->
+      <div class="modal-hd">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="modal-icon-wrap" style="background:#E3EEFB">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#2A6FDB" stroke-width="1.75" stroke-linecap="round" width="18" height="18"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div>
+            <div class="modal-title">Nouveau projet</div>
+            <div class="modal-sub">Renseignez les informations essentielles pour créer le projet.</div>
+          </div>
+        </div>
+        <div class="modal-close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+
+      <!-- Corps formulaire -->
+      <div style="padding:16px 22px;border-top:1px solid #F4F2EE;margin-top:14px;display:flex;flex-direction:column;gap:13px">
+
+        <!-- Champ texte — Nom du projet -->
+        <div>
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5F5A52;display:block;margin-bottom:5px">Nom du projet <span style="color:#B42318">*</span></label>
+          <div style="border:1.5px solid #2A6FDB;border-radius:8px;padding:8px 12px;background:#fff;font-size:13px;color:#0E0E10;display:flex;align-items:center;justify-content:space-between">
+            Remplacement SI RH
+            <svg viewBox="0 0 24 24" fill="none" stroke="#B6B0A4" stroke-width="1.75" width="13" height="13"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+        </div>
+
+        <!-- Deux colonnes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <!-- Type -->
+          <div>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5F5A52;display:block;margin-bottom:5px">Type</label>
+            <div style="border:1px solid #D6D2CA;border-radius:8px;padding:8px 10px;background:#fff;font-size:12.5px;color:#0E0E10;display:flex;align-items:center;justify-content:space-between">
+              Transformation
+              <svg viewBox="0 0 24 24" fill="none" stroke="#8C8579" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+          <!-- Priorité -->
+          <div>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5F5A52;display:block;margin-bottom:5px">Priorité</label>
+            <div style="border:1px solid #D6D2CA;border-radius:8px;padding:8px 10px;background:#fff;font-size:12.5px;color:#0E0E10;display:flex;align-items:center;justify-content:space-between">
+              Haute
+              <svg viewBox="0 0 24 24" fill="none" stroke="#8C8579" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Responsable -->
+        <div>
+          <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5F5A52;display:block;margin-bottom:5px">Responsable</label>
+          <div style="border:1px solid #D6D2CA;border-radius:8px;padding:7px 12px;background:#fff;display:flex;align-items:center;gap:8px">
+            <div style="width:24px;height:24px;border-radius:999px;background:#F4D58A;color:#5F3F00;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">SM</div>
+            <span style="font-size:12.5px;color:#0E0E10;flex:1">Sophie Martin</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#8C8579" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+
+        <!-- Erreur inline -->
+        <div style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:#B42318">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2" stroke-linecap="round" width="13" height="13"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          La date d'échéance est requise et ne peut pas être dans le passé.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:12px 22px 16px;border-top:1px solid #F4F2EE;display:flex;gap:8px;justify-content:flex-end">
+        <button style="padding:8px 16px;border:1px solid #D6D2CA;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#5F5A52;cursor:default">Annuler</button>
+        <button style="padding:8px 16px;border:none;border-radius:8px;background:#E8A317;font-size:12px;font-weight:700;color:#fff;cursor:default">Créer le projet</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Tokens modal</div><div style="font-size:12px;color:#5F5A52;line-height:2">Overlay : <span class="mono">rgba(14,14,16,.45)</span><br>Radius : <span class="mono">16px</span><br>Shadow : <span class="mono">elevation-3</span><br>Largeur : <span class="mono">480px (L) · 360px (M)</span></div></div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Tokens drawer</div><div style="font-size:12px;color:#5F5A52;line-height:2">Largeur : <span class="mono">480px</span><br>Ancrage : <span class="mono">droite</span><br>Shadow : <span class="mono">-8px 0 24px rgba(14,14,16,.07)</span><br>Backdrop : <span class="mono">aucun</span></div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 22</span></div>
+</div>
+
+<!-- PAGE 23 — TIMELINE JALONS -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Timeline jalons</div>
+  </div>
+  <div class="chapter-label">Components · 12</div>
+  <h2 class="doc">Timeline jalons</h2>
+  <p class="doc-intro">Vue chronologique des livrables clés. Axe horizontal proportionnel. Marqueur or rempli = atteint · anneau = prévu · rouge = retard. Ligne « aujourd'hui » en pointillés or.</p>
+
+  <style>
+  .tl-wrap { border:1px solid #E9E6E0; border-radius:12px; padding:24px 28px 20px; background:#fff; margin:14px 0; }
+  .tl-project { margin-bottom:32px; }
+  .tl-project:last-child { margin-bottom:0; }
+  .tl-proj-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#8C8579; margin-bottom:14px; }
+  .tl-track { position:relative; height:52px; }
+  .tl-axis { position:absolute; top:18px; left:0; right:0; height:2px; background:#E9E6E0; border-radius:2px; }
+  .tl-axis-fill { position:absolute; top:0; left:0; height:100%; border-radius:2px; }
+  .tl-now { position:absolute; top:-4px; width:2px; background:#E8A317; opacity:.75; }
+  .tl-now::before { content:'Auj.'; position:absolute; top:-13px; left:50%; transform:translateX(-50%); font-size:8px; font-weight:700; color:#E8A317; white-space:nowrap; }
+  .tl-node { position:absolute; top:9px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+  .tl-dot-m { width:18px; height:18px; border-radius:999px; border:2.5px solid #E8A317; background:#fff; z-index:2; flex-shrink:0; }
+  .tl-dot-m.done { background:#E8A317; }
+  .tl-dot-m.late { background:#B42318; border-color:#B42318; }
+  .tl-dot-m.future { border-color:#D6D2CA; }
+  .tl-lbl { position:absolute; top:22px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:9.5px; color:#5F5A52; text-align:center; line-height:1.3; }
+  .tl-lbl strong { display:block; font-weight:700; color:#0E0E10; font-size:10px; }
+  .tl-months-row { display:flex; justify-content:space-between; margin-top:6px; }
+  .tl-m { font-size:9px; color:#B6B0A4; }
+  </style>
+
+  <div class="tl-wrap">
+    <!-- Projet 1 -->
+    <div class="tl-project">
+      <div class="tl-proj-label">Remplacement SI RH</div>
+      <div class="tl-track">
+        <div class="tl-axis"><div class="tl-axis-fill" style="width:62%;background:#E8A317"></div></div>
+        <div class="tl-now" style="left:38%;height:38px"></div>
+        <div class="tl-node" style="left:0%"><div class="tl-dot-m done"></div><div class="tl-lbl"><strong>Lancement</strong><span style="color:#1F8A5B;font-size:8px">✓ Atteint</span></div></div>
+        <div class="tl-node" style="left:22%"><div class="tl-dot-m done"></div><div class="tl-lbl"><strong>Specs validées</strong></div></div>
+        <div class="tl-node" style="left:62%"><div class="tl-dot-m" style="background:#E8A317;border-color:#E8A317"></div><div class="tl-lbl"><strong>Recette UAT</strong><span style="color:#E8A317;font-size:8px">En cours</span></div></div>
+        <div class="tl-node" style="left:85%"><div class="tl-dot-m future"></div><div class="tl-lbl"><strong>Go-live</strong></div></div>
+        <div class="tl-node" style="left:100%"><div class="tl-dot-m future"></div><div class="tl-lbl"><strong>Clôture</strong></div></div>
+      </div>
+      <div class="tl-months-row"><span class="tl-m">Jan 26</span><span class="tl-m">Mar</span><span class="tl-m">Mai</span><span class="tl-m">Juil</span><span class="tl-m">Sep</span><span class="tl-m">Nov</span></div>
+    </div>
+
+    <!-- Projet 2 -->
+    <div class="tl-project">
+      <div class="tl-proj-label">Conformité DORA</div>
+      <div class="tl-track">
+        <div class="tl-axis"><div class="tl-axis-fill" style="width:33%;background:#B42318"></div></div>
+        <div class="tl-now" style="left:38%;height:38px"></div>
+        <div class="tl-node" style="left:0%"><div class="tl-dot-m done"></div><div class="tl-lbl"><strong>Audit initial</strong></div></div>
+        <div class="tl-node" style="left:30%"><div class="tl-dot-m late"></div><div class="tl-lbl"><strong>Plan remédiation</strong><span style="color:#B42318;font-size:8px">⚠ Retard</span></div></div>
+        <div class="tl-node" style="left:60%"><div class="tl-dot-m future"></div><div class="tl-lbl"><strong>Tests</strong></div></div>
+        <div class="tl-node" style="left:100%"><div class="tl-dot-m future"></div><div class="tl-lbl"><strong>Certification</strong></div></div>
+      </div>
+      <div class="tl-months-row"><span class="tl-m">Jan 26</span><span class="tl-m">Mar</span><span class="tl-m">Mai</span><span class="tl-m">Juil</span><span class="tl-m">Sep</span><span class="tl-m">Nov</span></div>
+    </div>
+  </div>
+
+  <!-- Légende -->
+  <div style="display:flex;gap:18px;margin:12px 0;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5F5A52"><div style="width:16px;height:16px;border-radius:999px;background:#E8A317;border:2.5px solid #E8A317;flex-shrink:0"></div>Atteint</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5F5A52"><div style="width:16px;height:16px;border-radius:999px;background:#fff;border:2.5px solid #E8A317;flex-shrink:0"></div>En cours / Prévu</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5F5A52"><div style="width:16px;height:16px;border-radius:999px;background:#B42318;border:2.5px solid #B42318;flex-shrink:0"></div>En retard</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5F5A52"><div style="width:16px;height:16px;border-radius:999px;background:#fff;border:2.5px solid #D6D2CA;flex-shrink:0"></div>Futur</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#5F5A52"><div style="width:2px;height:16px;background:#E8A317;opacity:.75;flex-shrink:0"></div>Aujourd'hui</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0">
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Construction</div><div style="font-size:12px;color:#5F5A52;line-height:1.9">Position : proportionnelle à la date<br>Fill : avancement réel du projet<br>Max jalons par ligne : 6<br>Labels : en dessous du marqueur</div></div>
+    <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px"><div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Usage</div><div style="font-size:12px;color:#5F5A52;line-height:1.9">Fiche projet · Vue calendrier<br>Revue CODIR · Rapport d'avancement<br>Export PDF · Présentation exécutive</div></div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 23</span></div>
+</div>
+
+<!-- PAGE 24 — EMPTY & LOADING STATES -->
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-header-logo"><img src="../assets/logo-horizontal.png" alt="Starium"></div>
+    <div class="doc-header-txt">Charte Design System · v1.0<br>Composants — Empty &amp; Loading states</div>
+  </div>
+  <div class="chapter-label">Components · 13</div>
+  <h2 class="doc">Empty states &amp; Loading</h2>
+  <p class="doc-intro">États vides : icône neutre 44px · titre court · sous-titre · CTA optionnel. Skeleton : fond #F4F2EE + shimmer. Spinner : 24px cercle brand-gold. Jamais de faux contenu coloré.</p>
+
+  <style>
+  @keyframes shimmer-anim { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+  @keyframes spin-anim { to { transform:rotate(360deg); } }
+  .sk { background:#F4F2EE; border-radius:6px; position:relative; overflow:hidden; }
+  .sk::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent); animation:shimmer-anim 1.6s infinite; }
+  .spinner-el { width:24px; height:24px; border-radius:999px; border:3px solid #F4F2EE; border-top-color:#E8A317; animation:spin-anim .7s linear infinite; display:inline-block; }
+  .es-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin:14px 0; }
+  .es-c { border:1px solid #E9E6E0; border-radius:12px; padding:28px 18px 22px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; background:#fff; }
+  .es-ico { width:44px; height:44px; border-radius:12px; background:#FAF9F7; display:flex; align-items:center; justify-content:center; }
+  .es-t { font-size:13px; font-weight:700; color:#0E0E10; }
+  .es-s { font-size:11.5px; color:#8C8579; line-height:1.5; }
+  </style>
+
+  <h3 class="doc">Empty states — 3 variantes</h3>
+  <div class="es-grid">
+    <div class="es-c">
+      <div class="es-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B6B0A4" stroke-width="1.5" stroke-linecap="round" width="22" height="22"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></div>
+      <div class="es-t">Aucun projet</div>
+      <div class="es-s">Votre portefeuille est vide. Créez votre premier projet pour commencer.</div>
+      <button style="padding:7px 16px;border:none;border-radius:8px;background:#E8A317;font-size:12px;font-weight:700;color:#fff;cursor:default;margin-top:4px">Nouveau projet</button>
+    </div>
+    <div class="es-c">
+      <div class="es-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B6B0A4" stroke-width="1.5" stroke-linecap="round" width="22" height="22"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <div class="es-t">Aucun résultat</div>
+      <div class="es-s">Aucun projet ne correspond à vos filtres. Élargissez votre recherche.</div>
+      <button style="padding:7px 16px;border:1px solid #D6D2CA;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#5F5A52;cursor:default;margin-top:4px">Réinitialiser</button>
+    </div>
+    <div class="es-c">
+      <div class="es-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#B6B0A4" stroke-width="1.5" stroke-linecap="round" width="22" height="22"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="es-t">Accès restreint</div>
+      <div class="es-s">Vous n'avez pas les droits pour consulter cette ressource.</div>
+      <button style="padding:7px 16px;border:1px solid #D6D2CA;border-radius:8px;background:#fff;font-size:12px;font-weight:600;color:#5F5A52;cursor:default;margin-top:4px">Demander l'accès</button>
+    </div>
+  </div>
+
+  <h3 class="doc">Skeleton loaders</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0">
+    <!-- KPI skeleton -->
+    <div style="border:1px solid #E9E6E0;border-radius:12px;padding:16px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579;margin-bottom:12px">KPI Card</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="sk" style="width:40px;height:40px;border-radius:10px;flex-shrink:0"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="sk" style="height:10px;width:55%"></div>
+          <div class="sk" style="height:20px;width:80%"></div>
+          <div class="sk" style="height:8px;width:40%"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Table skeleton -->
+    <div style="border:1px solid #E9E6E0;border-radius:12px;padding:16px;background:#fff">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579;margin-bottom:12px">Ligne de tableau</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px"><div class="sk" style="flex:2;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div></div>
+        <div style="display:flex;gap:12px;opacity:.6"><div class="sk" style="flex:2;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div></div>
+        <div style="display:flex;gap:12px;opacity:.35"><div class="sk" style="flex:2;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div><div class="sk" style="flex:1;height:10px"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="doc">Spinner &amp; états inline</h3>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0 16px">
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #E9E6E0;border-radius:9px;padding:11px 16px;background:#fff"><div class="spinner-el"></div><span style="font-size:12.5px;color:#5F5A52">Chargement en cours…</span></div>
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #E9E6E0;border-radius:9px;padding:11px 16px;background:#fff"><div class="spinner-el" style="border-color:#F4F2EE;border-top-color:#2A6FDB"></div><span style="font-size:12.5px;color:#5F5A52">Synchronisation…</span></div>
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #E9E6E0;border-radius:9px;padding:11px 16px;background:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-linecap="round" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:12.5px;color:#1F8A5B;font-weight:600">Données chargées</span></div>
+  </div>
+
+  <div style="background:#FAF9F7;border:1px solid #E9E6E0;border-radius:8px;padding:13px 15px">
+    <div style="font-size:11.5px;font-weight:700;color:#0E0E10;margin-bottom:7px">Règles skeleton</div>
+    <div style="font-size:12px;color:#5F5A52;line-height:1.9;display:grid;grid-template-columns:1fr 1fr;gap:6px 20px">
+      <span>Fond : <span class="mono">#F4F2EE</span></span>
+      <span>Animation : shimmer 1.6s infinite</span>
+      <span>Radius : même que l'élément réel</span>
+      <span>Hauteur : approxime le contenu</span>
+      <span>Opacité décroissante par ligne</span>
+      <span>Jamais de faux texte ou chiffre coloré</span>
+    </div>
+  </div>
+
+  <div class="doc-footer"><span>Starium Design System · Confidentiel</span><span>Page 24</span></div>
+</div>
+
+<script>
+(async () => {
+  // Prepend so page-supplied @page / break rules (deck-stage's margin:0,
+  // author CSS) keep source-order precedence over the baseline.
+  const baseCss = document.createElement('style');
+  baseCss.textContent = "@media print {\n  @page { margin: 0.5cm; }\n  html, body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }\n  section, article, figure, table { break-inside: avoid; }\n  *, *::before, *::after {\n    animation-delay: -99s !important; animation-duration: .001s !important;\n    animation-iteration-count: 1 !important; animation-fill-mode: both !important;\n    animation-play-state: running !important; transition-duration: 0s !important;\n  }\n}";
+  document.head.prepend(baseCss);
+  if (document.readyState === 'loading') {
+    await new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }));
+  }
+  let ds = document.querySelector('deck-stage');
+  // whenDefined never resolves when nothing registers the element, so only
+  // await it when a <deck-stage> tag exists (and race a timeout regardless).
+  if (ds && !customElements.get('deck-stage')) {
+    try {
+      await Promise.race([
+        customElements.whenDefined('deck-stage'),
+        new Promise((r) => setTimeout(r, 3000)),
+      ]);
+    } catch (e) {}
+    ds = document.querySelector('deck-stage');
+  }
+  // dc-runtime assigns window.DCLogic at init and mounts into #dc-root on
+  // DOMContentLoaded; settle on that subtree so React has rendered before
+  // print(). Non-DC pages fall through to weighing body.
+  const isDc = !ds && 'DCLogic' in window;
+  const settleRoot = ds || (isDc ? document.getElementById('dc-root') : null) || document.body;
+  if (settleRoot) {
+    // Weigh only content children — skip script/style/template so inline
+    // Babel/CSS doesn't register as stable "content" before the framework
+    // has mounted anything.
+    const MEDIA = 'img,svg,canvas,video,picture,iframe,embed,object';
+    const weigh = () => {
+      let text = 0, media = 0;
+      for (const c of settleRoot.children) {
+        const t = c.tagName;
+        if (t === 'SCRIPT' || t === 'STYLE' || t === 'TEMPLATE') continue;
+        text += (c.textContent || '').trim().length;
+        media += c.querySelectorAll(MEDIA).length + (c.matches(MEDIA) ? 1 : 0);
+      }
+      return text + media * 100;
+    };
+    // "Non-zero and stable" alone is not sufficient to mean rendered: generic
+    // body can carry a static shell while async main content is pending, and
+    // #dc-root can carry the root DC's static text while child refs are still
+    // .sc-placeholder boxes. Gate generic on readyState 'complete', and never
+    // accept stability while a dc-runtime placeholder is present.
+    const isGeneric = settleRoot === document.body;
+    const deadline = Date.now() + 15000;
+    let last = -1, stable = 0;
+    while (Date.now() < deadline) {
+      const n = weigh();
+      const ready =
+        (!isGeneric || document.readyState === 'complete') &&
+        !settleRoot.querySelector('.sc-placeholder');
+      if (n > 0 && n === last && ready) { if (++stable >= 2) break; } else { stable = 0; }
+      last = n;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+  try { await document.fonts.ready; } catch (e) {}
+  // Jump every animation to its end state so print() never captures a slide
+  // mid-entrance. Ordering matters: the 0s-transition style must be live
+  // BEFORE data-deck-active is set so attribute-keyed transitions don't
+  // start a (now-0s) run from the pre-active base.
+  const st = document.createElement('style');
+  st.textContent = '*,*::before,*::after{animation-delay:-99s !important;animation-duration:.001s !important;animation-iteration-count:1 !important;animation-fill-mode:both !important;animation-play-state:running !important;transition-duration:0s !important}';
+  document.head.appendChild(st);
+  for (const d of document.querySelectorAll('deck-stage')) {
+    for (const c of d.children) {
+      const t = c.tagName;
+      if (t === 'SCRIPT' || t === 'STYLE' || t === 'TEMPLATE') continue;
+      c.setAttribute('data-deck-active', '');
+    }
+  }
+  try {
+    const sweep = () => {
+      for (const a of document.getAnimations()) {
+        try { a.finish(); } catch (e) {
+          try { a.currentTime = (a.effect && a.effect.getComputedTiming().duration) || 0; a.pause(); } catch (e2) {}
+        }
+      }
+    };
+    sweep();
+    await new Promise((r) => requestAnimationFrame(r));
+    sweep();
+    await new Promise((r) => requestAnimationFrame(r));
+  } catch (e) {}
+  setTimeout(() => { try { window.print(); } catch (e) {} }, 200);
+})();
+</script>
+</body>
+</html>
+

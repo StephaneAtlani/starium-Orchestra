@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Starium</title>
+<template id="__bundler_thumbnail" data-bg-color="#0E0E10">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="600" height="800" fill="#0E0E10"/>
+    <rect x="0" y="600" width="600" height="800" fill="#0E0E10"/>
+    <rect x="140" y="330" width="220" height="34" rx="6" fill="#fff"/>
+    <rect x="140" y="380" width="160" height="14" rx="4" fill="#E8A317"/>
+    <rect x="600" y="0" width="600" height="800" fill="#FAF9F7"/>
+    <rect x="700" y="260" width="380" height="18" rx="5" fill="#0E0E10"/>
+    <rect x="700" y="330" width="380" height="44" rx="10" fill="#fff"/>
+    <rect x="700" y="390" width="380" height="44" rx="10" fill="#fff"/>
+    <rect x="700" y="452" width="380" height="44" rx="10" fill="#E8A317"/>
+  </svg>
+</template>
+<style>
+@font-face {
+  font-family: 'Manrope';
+  src: url('../../fonts/Manrope-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --brand-gold:#E8A317; --brand-gold-600:#CC8E0E; --brand-gold-700:#5F3F00;
+  --brand-gold-100:#F4D58A; --brand-gold-050:#FBEAB5; --brand-ink:#0E0E10;
+  --neutral-0:#FFFFFF; --neutral-50:#FAF9F7; --neutral-100:#F4F2EE; --neutral-200:#E9E6E0;
+  --neutral-300:#D6D2CA; --neutral-400:#B6B0A4; --neutral-500:#8C8579; --neutral-600:#5F5A52; --neutral-700:#403D38;
+  --state-danger:#B42318; --state-danger-bg:#FBE8E6;
+  --font-sans:'Manrope',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-pill:999px;
+  --shadow-2:0 2px 6px rgba(14,14,16,.06),0 1px 2px rgba(14,14,16,.04);
+  --shadow-3:0 8px 24px rgba(14,14,16,.12),0 2px 6px rgba(14,14,16,.06);
+  --shadow-focus:0 0 0 3px rgba(232,163,23,.32);
+}
+html,body{height:100%;font-family:var(--font-sans);background:var(--neutral-50);color:var(--brand-ink);-webkit-font-smoothing:antialiased}
+a{color:var(--brand-gold-700)}
+a:hover{color:var(--brand-gold-600)}
+
+.login-shell{display:flex;min-height:100vh}
+
+/* ─── LEFT — brand panel (dark, kept) ─── */
+.login-brand{width:44%;min-width:420px;background:var(--brand-ink);position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:44px}
+.login-brand-watermark{position:absolute;top:-60px;right:-60px;width:420px;height:420px;opacity:.05;pointer-events:none;object-fit:contain}
+.login-brand-logo{height:72px;width:100%;object-fit:scale-down;display:block}
+.login-brand-mid{position:relative;z-index:1;max-width:380px}
+.login-brand-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--brand-gold);margin-bottom:14px}
+.login-brand-title{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:#fff;margin-bottom:14px}
+.login-brand-sub{font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.55)}
+.login-brand-foot{position:relative;z-index:1;font-size:12px;color:rgba(255,255,255,.35)}
+
+/* ─── RIGHT — form panel ─── */
+.login-form-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px}
+.login-form{width:100%;max-width:380px}
+.login-form-head{margin-bottom:32px}
+.login-form-title{font-size:24px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+.login-form-sub{font-size:13.5px;color:var(--neutral-500)}
+
+.field{margin-bottom:18px}
+.field-label{font-size:12.5px;font-weight:700;color:var(--neutral-700);margin-bottom:7px;display:block}
+.input{width:100%;border:1.5px solid var(--neutral-200);border-radius:var(--radius-md);padding:11px 13px;font-family:var(--font-sans);font-size:13.5px;color:var(--brand-ink);background:var(--neutral-0)}
+.input:focus{outline:none;border-color:var(--brand-gold);box-shadow:var(--shadow-focus)}
+.input::placeholder{color:var(--neutral-400)}
+.input-pw-wrap{position:relative}
+.input-pw-wrap .input{padding-right:42px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--neutral-400);cursor:pointer;display:flex;background:none;border:none;padding:2px}
+.pw-toggle:hover{color:var(--neutral-600)}
+.pw-toggle svg{width:17px;height:17px}
+
+.field-error{font-size:11.5px;color:var(--state-danger);margin-top:6px;display:none}
+.field.error .input{border-color:var(--state-danger)}
+.field.error .field-error{display:block}
+
+.login-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.remember{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--neutral-600);cursor:pointer;user-select:none}
+.chk-box{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--neutral-300);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--neutral-0)}
+.chk-box.on{background:var(--brand-gold);border-color:var(--brand-gold)}
+.chk-box svg{width:11px;height:11px;color:var(--brand-ink)}
+.forgot-link{font-size:12.5px;font-weight:600;text-decoration:none}
+
+.btn-submit{width:100%;padding:12px;border-radius:var(--radius-md);border:none;background:var(--brand-gold);color:var(--brand-ink);font-family:var(--font-sans);font-size:14px;font-weight:800;cursor:pointer;transition:filter 120ms}
+.btn-submit:hover{filter:brightness(1.06)}
+.btn-submit:active{filter:brightness(.96)}
+
+.login-divider{display:flex;align-items:center;gap:12px;margin:24px 0;font-size:11.5px;color:var(--neutral-400);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--neutral-200)}
+
+.btn-sso{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px;border-radius:var(--radius-md);border:1.5px solid var(--neutral-200);background:var(--neutral-0);font-family:var(--font-sans);font-size:13px;font-weight:700;color:var(--brand-ink);cursor:pointer;margin-bottom:10px}
+.btn-sso:hover{background:var(--neutral-50)}
+.btn-sso svg{width:17px;height:17px;flex-shrink:0}
+
+.login-footer-note{margin-top:28px;text-align:center;font-size:12.5px;color:var(--neutral-500)}
+.login-footer-note a{font-weight:700;text-decoration:none}
+
+@media(max-width:860px){
+  .login-brand{display:none}
+  .login-form-wrap{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<div class="login-shell">
+  <div class="login-brand">
+    <img class="login-brand-watermark" src="assets-icon-starium-white.png" alt="">
+    <img class="login-brand-logo" src="assets-logo-horizontal-white.png" alt="Starium">
+    <div class="login-brand-mid">
+      <div class="login-brand-eyebrow">Portail de pilotage</div>
+      <div class="login-brand-title">Révélez vos talents.</div>
+      <p class="login-brand-sub">Pilotez vos directions, projets, budgets et ressources depuis un seul endroit.</p>
+    </div>
+    <div class="login-brand-foot">© 2026 Starium — Tous droits réservés</div>
+  </div>
+
+  <div class="login-form-wrap">
+    <div class="login-form">
+      <div class="login-form-head">
+        <div class="login-form-title">Connexion</div>
+        <div class="login-form-sub">Accédez à votre espace Starium</div>
+      </div>
+
+      <form id="login-form" onsubmit="return handleSubmit(event)" novalidate>
+        <div class="field" id="field-email">
+          <label class="field-label" for="email">Adresse e-mail</label>
+          <input class="input" type="email" id="email" placeholder="prenom.nom@entreprise.com" autocomplete="username">
+          <div class="field-error">Merci de renseigner une adresse e-mail valide.</div>
+        </div>
+
+        <div class="field" id="field-pw">
+          <label class="field-label" for="password">Mot de passe</label>
+          <div class="input-pw-wrap">
+            <input class="input" type="password" id="password" placeholder="••••••••••" autocomplete="current-password">
+            <button type="button" class="pw-toggle" onclick="togglePw()" aria-label="Afficher le mot de passe" id="pw-toggle-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-error">Le mot de passe est requis.</div>
+        </div>
+
+        <div class="login-row">
+          <label class="remember" onclick="toggleRemember(event)">
+            <div class="chk-box" id="remember-box"></div>
+            Se souvenir de moi
+          </label>
+          <a class="forgot-link" href="#">Mot de passe oublié ?</a>
+        </div>
+
+        <button type="submit" class="btn-submit" id="submit-btn">Se connecter</button>
+      </form>
+
+      <div class="login-divider">ou</div>
+
+      <button type="button" class="btn-sso" onclick="showToast('Connexion Microsoft — à configurer par votre administrateur')">
+        <svg viewBox="0 0 23 23" width="17" height="17"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+        Se connecter avec Microsoft
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<style>
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;z-index:400;display:flex;align-items:center;gap:11px;background:var(--brand-ink);color:#fff;padding:13px 18px;border-radius:var(--radius-md);box-shadow:var(--shadow-3);font-size:13px;font-weight:600;transition:transform 260ms cubic-bezier(.22,1,.36,1),opacity 200ms;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+
+<script>
+let remembered=false, pwVisible=false;
+function toggleRemember(e){
+  e.preventDefault();
+  remembered=!remembered;
+  document.getElementById('remember-box').classList.toggle('on', remembered);
+  document.getElementById('remember-box').innerHTML = remembered
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+}
+function togglePw(){
+  pwVisible=!pwVisible;
+  const inp=document.getElementById('password');
+  inp.type = pwVisible ? 'text' : 'password';
+}
+function handleSubmit(e){
+  e.preventDefault();
+  const email=document.getElementById('email').value.trim();
+  const pw=document.getElementById('password').value;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  document.getElementById('field-email').classList.toggle('error', !emailOk);
+  document.getElementById('field-pw').classList.toggle('error', !pw);
+  if(!emailOk || !pw) return false;
+  showToast('Connexion en cours…');
+  return false;
+}
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>

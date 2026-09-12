@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=390, initial-scale=1">
+<title>Vision stratégique — Starium Mobile</title>
+<style>
+@font-face {
+  font-family: 'Manrope';
+  src: url('../../fonts/Manrope-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --brand-gold:       #E8A317;
+  --brand-gold-600:   #CC8E0E;
+  --brand-gold-700:   #5F3F00;
+  --brand-gold-100:   #F4D58A;
+  --brand-gold-050:   #FBEAB5;
+  --brand-ink:        #0E0E10;
+  --neutral-0:        #FFFFFF;
+  --neutral-50:       #FAF9F7;
+  --neutral-100:      #F4F2EE;
+  --neutral-200:      #E9E6E0;
+  --neutral-300:      #D6D2CA;
+  --neutral-400:      #B6B0A4;
+  --neutral-500:      #8C8579;
+  --neutral-600:      #5F5A52;
+  --neutral-700:      #403D38;
+  --state-success:    #1F8A5B;
+  --state-success-bg: #E6F4ED;
+  --state-warning:    #C77A00;
+  --state-warning-bg: #FFF1DC;
+  --state-danger:     #B42318;
+  --state-danger-bg:  #FBE8E6;
+  --state-info:       #2A6FDB;
+  --state-info-bg:    #E3EEFB;
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(14,14,16,.04), 0 1px 1px rgba(14,14,16,.03);
+  --shadow-2: 0 2px 8px rgba(14,14,16,.08), 0 1px 3px rgba(14,14,16,.05);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--neutral-50);
+  color: var(--brand-ink);
+  -webkit-font-smoothing: antialiased;
+  width: 390px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+
+/* ── STATUS BAR ── */
+.status-bar {
+  height: 44px;
+  background: var(--brand-ink);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; flex-shrink: 0;
+}
+.status-time { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+.status-icons { display: flex; align-items: center; gap: 6px; color: #fff; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--brand-ink);
+  padding: 12px 16px 14px;
+  display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+}
+.topbar-logo { display: flex; align-items: center; gap: 8px; flex: 1; }
+.topbar-star {
+  width: 30px; height: 30px; background: var(--brand-gold);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+}
+.topbar-brand { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -.02em; }
+.topbar-org {
+  font-size: 11px; color: var(--brand-gold); font-weight: 600;
+  background: rgba(232,163,23,.15); padding: 3px 8px; border-radius: var(--radius-pill);
+}
+.topbar-btn {
+  width: 36px; height: 36px; border: none; background: rgba(255,255,255,.1);
+  border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.8); position: relative;
+}
+.notif-dot {
+  position: absolute; top: 6px; right: 7px; width: 7px; height: 7px;
+  background: var(--brand-gold); border-radius: 999px; border: 1.5px solid var(--brand-ink);
+}
+.avatar {
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--brand-gold-100); color: var(--brand-gold-700);
+  font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--brand-gold); flex-shrink: 0;
+}
+
+/* ── PAGE HEADER (light) ── */
+.page-header {
+  background: var(--neutral-0);
+  border-bottom: 1px solid var(--neutral-200);
+  padding: 14px 16px 18px;
+}
+.ph-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.ph-back {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--neutral-700);
+}
+.ph-breadcrumb {
+  font-size: 11px; font-weight: 600; color: var(--neutral-400);
+  letter-spacing: .02em; text-transform: uppercase;
+}
+.ph-breadcrumb span { color: var(--brand-gold-700); }
+.ph-title-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.ph-title {
+  font-size: 26px; font-weight: 800; color: var(--brand-ink);
+  letter-spacing: -.03em; line-height: 1.05;
+}
+.ph-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: var(--radius-pill);
+  background: var(--state-success-bg); border: 1px solid rgba(31,138,91,.2);
+  font-size: 11px; font-weight: 700; color: var(--state-success);
+  flex-shrink: 0;
+}
+.ph-sub {
+  font-size: 12.5px; color: var(--neutral-500); margin-top: 7px; font-weight: 500;
+}
+
+/* ── VISION CARD ── */
+.vision-card {
+  margin: 16px 16px 0;
+  background: var(--neutral-0);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+}
+.vision-card-top {
+  background: linear-gradient(135deg, #1A1814 0%, #2C2720 100%);
+  padding: 20px 20px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.vision-card-top::before {
+  content: '\201C';
+  position: absolute; top: -8px; left: 12px;
+  font-family: Georgia, serif; font-size: 80px;
+  color: var(--brand-gold); opacity: .9; line-height: 1; font-weight: 400;
+  pointer-events: none;
+}
+.vision-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--brand-gold);
+  margin-bottom: 12px;
+}
+.vision-label-dot { width: 5px; height: 5px; border-radius: 999px; background: var(--brand-gold); }
+.vision-quote {
+  font-size: 14.5px; font-weight: 500; line-height: 1.65;
+  color: rgba(255,255,255,.92); letter-spacing: -.01em;
+  padding-left: 4px;
+}
+.vision-card-bottom {
+  padding: 14px 16px;
+  border-top: 1px solid var(--neutral-100);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.vc-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--radius-pill);
+  font-size: 10.5px; font-weight: 700;
+}
+.vc-chip-blue { background: var(--state-info-bg); color: var(--state-info); }
+.vc-chip-green { background: var(--state-success-bg); color: var(--state-success); }
+.vc-chip-muted { background: var(--neutral-100); color: var(--neutral-500); }
+
+/* ── KPI STRIP ── */
+.kpi-strip-wrap {
+  padding: 20px 0 4px; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kpi-strip-wrap::-webkit-scrollbar { display: none; }
+.kpi-strip { display: flex; gap: 10px; padding: 0 16px; width: max-content; }
+.kpi-card {
+  background: var(--neutral-0); border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg); padding: 14px 16px;
+  min-width: 110px; box-shadow: var(--shadow-1); flex-shrink: 0;
+}
+.kpi-card-label {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--neutral-400); margin-bottom: 6px; white-space: nowrap;
+}
+.kpi-card-value {
+  font-size: 28px; font-weight: 800; letter-spacing: -.04em;
+  color: var(--brand-ink); line-height: 1; font-variant-numeric: tabular-nums;
+}
+.kpi-card-value.v-ok     { color: var(--state-success); }
+.kpi-card-value.v-warn   { color: var(--state-warning); }
+.kpi-card-value.v-danger { color: var(--state-danger); }
+.kpi-card-value.v-neu    { color: var(--neutral-700); }
+.kpi-card-sub { font-size: 10px; color: var(--neutral-400); margin-top: 3px; white-space: nowrap; }
+
+/* ── SECTION HEADER ── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 16px 10px;
+}
+.section-title { font-size: 13.5px; font-weight: 700; color: var(--brand-ink); letter-spacing: -.01em; }
+.section-action {
+  font-size: 12px; font-weight: 600; color: var(--brand-gold-700);
+  background: none; border: none; cursor: pointer; padding: 0;
+}
+
+/* ── AXIS CARDS ── */
+.axis-list { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+
+.axis-card {
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-1);
+}
+.axis-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 14px;
+}
+.axis-card-left { display: flex; align-items: flex-start; gap: 12px; flex: 1; }
+.axis-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+}
+.axis-icon.ok   { background: var(--state-success-bg); }
+.axis-icon.warn { background: var(--state-warning-bg); }
+.axis-icon svg  { }
+.axis-title { font-size: 14px; font-weight: 700; color: var(--brand-ink); letter-spacing: -.01em; line-height: 1.25; margin-bottom: 4px; }
+.axis-index { font-size: 10.5px; font-weight: 600; color: var(--neutral-400); letter-spacing: .02em; }
+
+.axis-pct {
+  font-size: 28px; font-weight: 800; letter-spacing: -.04em;
+  line-height: 1; flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.axis-pct.ok   { color: var(--state-success); }
+.axis-pct.warn { color: var(--state-warning); }
+
+.axis-prog-track {
+  width: 100%; height: 6px; background: var(--neutral-200);
+  border-radius: var(--radius-pill); overflow: hidden; margin-bottom: 10px;
+}
+.axis-prog-fill { height: 100%; border-radius: var(--radius-pill); transition: width 600ms ease; }
+.axis-prog-fill.ok   { background: var(--state-success); }
+.axis-prog-fill.warn { background: var(--brand-gold); }
+
+.axis-card-foot {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.axis-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+}
+.axis-status-dot { width: 6px; height: 6px; border-radius: 999px; flex-shrink: 0; }
+.axis-status-dot.ok   { background: var(--state-success); }
+.axis-status-dot.warn { background: var(--state-warning); }
+.axis-status-txt.ok   { color: var(--state-success); }
+.axis-status-txt.warn { color: var(--state-warning); }
+.axis-detail-link {
+  font-size: 12px; font-weight: 600; color: var(--brand-gold-700);
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 3px;
+}
+
+/* ── OBJECTIFS PROGRESS SUMMARY ── */
+.obj-summary-card {
+  margin: 16px 16px 0;
+  background: var(--neutral-0);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-1);
+}
+.obj-summary-title { font-size: 13px; font-weight: 700; color: var(--brand-ink); margin-bottom: 14px; }
+.obj-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.obj-row:last-child { margin-bottom: 0; }
+.obj-label { font-size: 12.5px; color: var(--neutral-600); font-weight: 500; flex: 1; }
+.obj-track { width: 80px; height: 5px; background: var(--neutral-200); border-radius: var(--radius-pill); overflow: hidden; flex-shrink: 0; }
+.obj-fill { height: 100%; border-radius: var(--radius-pill); }
+.obj-fill.ok   { background: var(--state-success); }
+.obj-fill.warn { background: var(--brand-gold); }
+.obj-fill.bad  { background: var(--state-danger); }
+.obj-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
+.obj-val.ok   { color: var(--state-success); }
+.obj-val.warn { color: var(--state-warning); }
+.obj-val.bad  { color: var(--state-danger); }
+
+/* ── ACTION BUTTONS ── */
+.action-row {
+  display: flex; gap: 10px; padding: 16px 16px 0;
+}
+.btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px 14px; border-radius: var(--radius-md);
+  font-family: var(--font-sans); font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; transition: all 100ms;
+}
+.btn-primary { background: var(--brand-gold); color: var(--brand-ink); }
+.btn-secondary { background: var(--neutral-100); color: var(--neutral-700); border: 1.5px solid var(--neutral-200); }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 390px; height: 80px; background: var(--neutral-0);
+  border-top: 1px solid var(--neutral-200);
+  display: flex; align-items: flex-start; padding: 10px 0 0;
+  z-index: 200; box-shadow: 0 -4px 20px rgba(14,14,16,.08);
+  border-top-left-radius: 20px; border-top-right-radius: 20px;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; padding: 0 4px; background: none; border: none;
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+}
+.nav-icon { width: 44px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
+.nav-item.active .nav-icon { background: var(--brand-gold-050); }
+.nav-item.active .nav-icon svg { stroke: var(--brand-gold-700); }
+.nav-item svg { stroke: var(--neutral-400); }
+.nav-label { font-size: 10px; font-weight: 700; color: var(--neutral-400); letter-spacing: .01em; }
+.nav-item.active .nav-label { color: var(--brand-gold-700); }
+.nav-badge {
+  position: absolute; top: 4px; right: 8px; width: 16px; height: 16px;
+  border-radius: 999px; background: var(--state-danger); color: #fff;
+  font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--neutral-0);
+}
+.nav-icon-wrap { position: relative; }
+
+/* ── ORION ASSISTANT ── */
+.orion-fab {
+  position: fixed; right: 16px; bottom: 96px;
+  width: 60px; height: 60px; border-radius: 999px;
+  border: none; cursor: pointer; padding: 0;
+  background: radial-gradient(circle at 50% 38%, #FBEAB5, #E8A317 78%);
+  box-shadow: 0 6px 20px rgba(232,163,23,.45), 0 2px 6px rgba(14,14,16,.2);
+  z-index: 300; display: flex; align-items: center; justify-content: center;
+  transition: transform 120ms; animation: orion-bob 3.2s ease-in-out infinite;
+}
+.orion-fab:active { transform: scale(.92); }
+.orion-fab img { width: 56px; height: 56px; border-radius: 999px; display: block; }
+.orion-fab.hidden { opacity: 0; pointer-events: none; transform: scale(.6); }
+@keyframes orion-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+.orion-ping {
+  position: absolute; top: -2px; right: -2px;
+  background: var(--state-danger); color:#fff; font-size: 10px; font-weight: 800;
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  border: 2px solid var(--neutral-0); display:flex; align-items:center; justify-content:center;
+}
+.orion-hint {
+  position: absolute; right: 70px; top: 50%; transform: translateY(-50%);
+  background: var(--brand-ink); color: #fff; font-size: 12px; font-weight: 600;
+  white-space: nowrap; padding: 7px 11px; border-radius: 10px; box-shadow: var(--shadow-2);
+}
+.orion-hint::after {
+  content:''; position:absolute; right:-4px; top:50%; transform:translateY(-50%) rotate(45deg);
+  width:9px; height:9px; background: var(--brand-ink);
+}
+.orion-overlay {
+  position: fixed; inset: 0; background: rgba(14,14,16,.45);
+  z-index: 400; opacity: 0; pointer-events: none; transition: opacity 200ms;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.orion-overlay.open { opacity: 1; pointer-events: auto; }
+.orion-sheet {
+  width: 390px; max-width: 100%; background: var(--neutral-0);
+  border-radius: 22px 22px 0 0; box-shadow: 0 -10px 40px rgba(14,14,16,.25);
+  display: flex; flex-direction: column; max-height: 80vh;
+  transform: translateY(100%); transition: transform 260ms cubic-bezier(.22,1,.36,1);
+  overflow: hidden;
+}
+.orion-overlay.open .orion-sheet { transform: translateY(0); }
+.orion-grab { width: 40px; height: 4px; border-radius: 999px; background: var(--neutral-300); margin: 8px auto 0; }
+.orion-head { display:flex; align-items:center; gap: 11px; padding: 12px 16px 14px; border-bottom: 1px solid var(--neutral-100); }
+.orion-head-av { width: 42px; height: 42px; border-radius: 999px; flex-shrink:0; box-shadow: 0 2px 8px rgba(232,163,23,.35); }
+.orion-head-name { font-size: 15px; font-weight: 800; color: var(--brand-ink); letter-spacing:-.01em; display:flex; align-items:center; gap:6px; }
+.orion-head-tag { font-size:10px; font-weight:700; color:var(--brand-gold-700); background:var(--brand-gold-050); padding:2px 7px; border-radius:999px; }
+.orion-head-status { font-size: 11.5px; color: var(--state-success); font-weight: 600; display:flex; align-items:center; gap:5px; margin-top:2px; }
+.orion-head-status::before { content:''; width:6px;height:6px;border-radius:999px;background:var(--state-success); }
+.orion-close { margin-left:auto; width:34px;height:34px; border:none; background:var(--neutral-100); border-radius:10px; display:flex;align-items:center;justify-content:center; cursor:pointer; color:var(--neutral-600); }
+.orion-body { flex:1; overflow-y:auto; padding: 16px; display:flex; flex-direction:column; gap:12px; background: var(--neutral-50); }
+.orion-msg { display:flex; gap:8px; align-items:flex-end; max-width: 88%; }
+.orion-msg.bot { align-self:flex-start; }
+.orion-msg.user { align-self:flex-end; flex-direction:row-reverse; }
+.orion-msg-av { width:26px;height:26px;border-radius:999px;flex-shrink:0; }
+.orion-bubble { padding: 10px 13px; border-radius: 14px; font-size: 13.5px; line-height:1.5; }
+.orion-msg.bot .orion-bubble { background: var(--neutral-0); border:1px solid var(--neutral-200); color: var(--brand-ink); border-bottom-left-radius:4px; }
+.orion-msg.user .orion-bubble { background: var(--brand-ink); color:#fff; border-bottom-right-radius:4px; }
+.orion-sugg-wrap { padding: 0 16px 10px; overflow-x:auto; scrollbar-width:none; background:var(--neutral-50); }
+.orion-sugg-wrap::-webkit-scrollbar{display:none;}
+.orion-sugg { display:flex; gap:8px; width:max-content; padding-top: 4px; }
+.orion-chip { white-space:nowrap; padding: 8px 13px; border-radius: 999px; background: var(--brand-gold-050); border: 1px solid var(--brand-gold-100); color: var(--brand-gold-700); font-size: 12.5px; font-weight: 600; cursor:pointer; font-family: var(--font-sans); }
+.orion-chip:active { background: var(--brand-gold-100); }
+.orion-input { display:flex; align-items:center; gap:8px; padding: 12px 16px; border-top: 1px solid var(--neutral-100); background: var(--neutral-0); }
+.orion-input input { flex:1; border: 1px solid var(--neutral-200); border-radius: 999px; padding: 11px 16px; font-size: 13.5px; font-family: var(--font-sans); outline:none; color: var(--brand-ink); background: var(--neutral-50); }
+.orion-input input:focus { border-color: var(--brand-gold); background:#fff; }
+.orion-send { width: 42px; height: 42px; border-radius: 999px; flex-shrink:0; background: var(--brand-gold); border:none; cursor:pointer; display:flex;align-items:center;justify-content:center; color: var(--brand-ink); }
+.orion-send:active { background: var(--brand-gold-600); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 6s4-2 11-2 11 2 11 2"/><path d="M5 9s3-1.5 7-1.5 7 1.5 7 1.5"/><path d="M9 12.5s1.5-.5 3-.5 3 .5 3 .5"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="2" y="7" width="16" height="11" rx="2"/><path d="M22 11v2" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-star">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-ink)" stroke-width="2.5" stroke-linecap="round" width="16" height="16"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <span class="topbar-brand">Starium</span>
+    </div>
+    <span class="topbar-org">Innovatech SA</span>
+    <div style="display:flex;align-items:center;gap:4px">
+      <button class="topbar-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </button>
+      <div class="avatar">SM</div>
+    </div>
+  </div>
+
+  <!-- PAGE HEADER (light) -->
+  <div class="page-header" style="border-radius: 0px 0px 10px 10px">
+    <div class="ph-top">
+      <button class="ph-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="ph-breadcrumb">Gouvernance <span>› Vision</span></div>
+    </div>
+    <div class="ph-title-row">
+      <h1 class="ph-title">Vision stratégique</h1>
+      <span class="ph-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg>
+        Active
+      </span>
+    </div>
+    <p class="ph-sub">Horizon 2026–2028 · Innovatech SA</p>
+  </div>
+
+  <!-- VISION CARD (overlap on hero) -->
+  <div class="vision-card">
+    <div class="vision-card-top">
+      <div class="vision-label">
+        <div class="vision-label-dot"></div>
+        Notre vision
+      </div>
+      <p class="vision-quote">Devenir la DSI de référence pour les ETI de la région, en délivrant une infrastructure IT sécurisée, agile et alignée sur les ambitions de croissance de nos organisations clientes, tout en maîtrisant les risques et les coûts.</p>
+    </div>
+    <div class="vision-card-bottom">
+      <span class="vc-chip vc-chip-blue">Horizon 2028</span>
+      <span class="vc-chip vc-chip-green">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="9" height="9"><polyline points="20 6 9 17 4 12"/></svg>
+        Validé CODIR
+      </span>
+      <span class="vc-chip vc-chip-muted">v3.1</span>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip-wrap">
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-card-label">Alignement</div>
+        <div class="kpi-card-value v-ok">82 %</div>
+        <div class="kpi-card-sub">↑ 6 pts vs T1</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Axes</div>
+        <div class="kpi-card-value v-neu">4</div>
+        <div class="kpi-card-sub">100 % couverts</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Objectifs</div>
+        <div class="kpi-card-value v-ok">14</div>
+        <div class="kpi-card-sub">sur 18 · 78 %</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-card-label">Alertes</div>
+        <div class="kpi-card-value v-warn">3</div>
+        <div class="kpi-card-sub">dont 1 critique</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AXES STRATÉGIQUES -->
+  <div class="section-header">
+    <span class="section-title">4 axes stratégiques</span>
+    <button class="section-action">Voir tout ›</button>
+  </div>
+
+  <div class="axis-list">
+
+    <!-- AXE 1 — Performance opérationnelle -->
+    <div class="axis-card">
+      <div class="axis-card-head">
+        <div class="axis-card-left">
+          <div class="axis-icon ok">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--state-success)" stroke-width="1.75" stroke-linecap="round" width="20" height="20"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <div>
+            <div class="axis-index">Axe 01</div>
+            <div class="axis-title">Performance opérationnelle</div>
+          </div>
+        </div>
+        <div class="axis-pct ok">85 %</div>
+      </div>
+      <div class="axis-prog-track"><div class="axis-prog-fill ok" style="width:85%"></div></div>
+      <div class="axis-card-foot">
+        <div class="axis-status">
+          <div class="axis-status-dot ok"></div>
+          <span class="axis-status-txt ok">En bonne trajectoire</span>
+        </div>
+        <button class="axis-detail-link">
+          Détail
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- AXE 2 — Transformation digitale -->
+    <div class="axis-card">
+      <div class="axis-card-head">
+        <div class="axis-card-left">
+          <div class="axis-icon ok">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--state-success)" stroke-width="1.75" stroke-linecap="round" width="20" height="20"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </div>
+          <div>
+            <div class="axis-index">Axe 02</div>
+            <div class="axis-title">Transformation digitale</div>
+          </div>
+        </div>
+        <div class="axis-pct ok">72 %</div>
+      </div>
+      <div class="axis-prog-track"><div class="axis-prog-fill ok" style="width:72%"></div></div>
+      <div class="axis-card-foot">
+        <div class="axis-status">
+          <div class="axis-status-dot ok"></div>
+          <span class="axis-status-txt ok">En bonne trajectoire</span>
+        </div>
+        <button class="axis-detail-link">
+          Détail
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- AXE 3 — Maîtrise des risques -->
+    <div class="axis-card" style="border-color:var(--state-warning-bg)">
+      <div class="axis-card-head">
+        <div class="axis-card-left">
+          <div class="axis-icon warn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--state-warning)" stroke-width="1.75" stroke-linecap="round" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <div class="axis-index">Axe 03</div>
+            <div class="axis-title">Maîtrise des risques</div>
+          </div>
+        </div>
+        <div class="axis-pct warn">65 %</div>
+      </div>
+      <div class="axis-prog-track"><div class="axis-prog-fill warn" style="width:65%"></div></div>
+      <div class="axis-card-foot">
+        <div class="axis-status">
+          <div class="axis-status-dot warn"></div>
+          <span class="axis-status-txt warn">Attention requise</span>
+        </div>
+        <button class="axis-detail-link">
+          Détail
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- AXE 4 — Développement humain -->
+    <div class="axis-card">
+      <div class="axis-card-head">
+        <div class="axis-card-left">
+          <div class="axis-icon ok">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--state-success)" stroke-width="1.75" stroke-linecap="round" width="20" height="20"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div class="axis-index">Axe 04</div>
+            <div class="axis-title">Développement humain</div>
+          </div>
+        </div>
+        <div class="axis-pct ok">80 %</div>
+      </div>
+      <div class="axis-prog-track"><div class="axis-prog-fill ok" style="width:80%"></div></div>
+      <div class="axis-card-foot">
+        <div class="axis-status">
+          <div class="axis-status-dot ok"></div>
+          <span class="axis-status-txt ok">En bonne trajectoire</span>
+        </div>
+        <button class="axis-detail-link">
+          Détail
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- OBJECTIFS SUMMARY -->
+  <div class="obj-summary-card">
+    <div class="obj-summary-title">Objectifs — 18 au total</div>
+    <div class="obj-row">
+      <span class="obj-label">En trajectoire</span>
+      <div class="obj-track"><div class="obj-fill ok" style="width:78%"></div></div>
+      <span class="obj-val ok">14</span>
+    </div>
+    <div class="obj-row">
+      <span class="obj-label">À surveiller</span>
+      <div class="obj-track"><div class="obj-fill warn" style="width:17%"></div></div>
+      <span class="obj-val warn">3</span>
+    </div>
+    <div class="obj-row">
+      <span class="obj-label">En retard</span>
+      <div class="obj-track"><div class="obj-fill bad" style="width:5%"></div></div>
+      <span class="obj-val bad">1</span>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="action-row">
+    <button class="btn btn-secondary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exporter
+    </button>
+    <button class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Modifier la vision
+    </button>
+  </div>
+
+  <div style="height:32px"></div>
+
+</div><!-- /shell -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" style="border-radius: 10px 10px 0px 0px">
+  <button class="nav-item">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Dashboard</span>
+  </button>
+  <button class="nav-item active">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Vision</span>
+  </button>
+  <button class="nav-item" style="position:relative">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Projets</span>
+  </button>
+  <button class="nav-item" style="position:relative">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div class="nav-badge">3</div>
+      </div>
+    </div>
+    <span class="nav-label">Risques</span>
+  </button>
+  <button class="nav-item">
+    <div class="nav-icon-wrap">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" width="22" height="22"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </div>
+    </div>
+    <span class="nav-label">Profil</span>
+  </button>
+</nav>
+
+<!-- ORION ASSISTANT -->
+<button class="orion-fab" id="orionFab" onclick="orionOpen()" aria-label="Ouvrir Orion">
+  <span class="orion-hint">Besoin d'aide ?</span>
+  <img src="../../assets/orion.png" alt="Orion">
+  <span class="orion-ping">1</span>
+</button>
+
+<div class="orion-overlay" id="orionOverlay" onclick="if(event.target===this)orionClose()">
+  <div class="orion-sheet">
+    <div class="orion-grab"></div>
+    <div class="orion-head">
+      <img class="orion-head-av" src="../../assets/orion.png" alt="Orion">
+      <div>
+        <div class="orion-head-name">Orion <span class="orion-head-tag">IA</span></div>
+        <div class="orion-head-status">Assistant Starium · en ligne</div>
+      </div>
+      <button class="orion-close" onclick="orionClose()" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="orion-body" id="orionBody">
+      <div class="orion-msg bot">
+        <img class="orion-msg-av" src="../../assets/orion.png" alt="">
+        <div class="orion-bubble">Bonjour 👋 Je suis Orion. Sur la <b>Vision stratégique</b>, l'alignement global est à <b>82&nbsp;%</b>. L'axe « Maîtrise des risques » mérite ton attention (65&nbsp;%). Que veux-tu savoir&nbsp;?</div>
+      </div>
+    </div>
+    <div class="orion-sugg-wrap">
+      <div class="orion-sugg">
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Résume la vision</button>
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Quels axes en retard&nbsp;?</button>
+        <button class="orion-chip" onclick="orionAsk(this.textContent)">Générer un rapport CODIR</button>
+      </div>
+    </div>
+    <div class="orion-input">
+      <input id="orionInput" type="text" placeholder="Pose ta question à Orion…" onkeydown="if(event.key==='Enter')orionSend()">
+      <button class="orion-send" onclick="orionSend()" aria-label="Envoyer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function orionOpen(){ document.getElementById('orionOverlay').classList.add('open'); document.getElementById('orionFab').classList.add('hidden'); var p=document.querySelector('.orion-ping'); if(p)p.remove(); }
+function orionClose(){ document.getElementById('orionOverlay').classList.remove('open'); document.getElementById('orionFab').classList.remove('hidden'); }
+function orionAddMsg(text, who){
+  var body=document.getElementById('orionBody');
+  var m=document.createElement('div'); m.className='orion-msg '+who;
+  if(who==='bot'){ m.innerHTML='<img class="orion-msg-av" src="../../assets/orion.png" alt=""><div class="orion-bubble">'+text+'</div>'; }
+  else { m.innerHTML='<div class="orion-bubble"></div>'; m.querySelector('.orion-bubble').textContent=text; }
+  body.appendChild(m); body.scrollTop=body.scrollHeight;
+}
+var orionReplies={
+ 'Résume la vision':"En bref&nbsp;: devenir la DSI de référence des ETI régionales — infra sécurisée, agile, alignée croissance, à coûts maîtrisés. Horizon 2028, validé CODIR (v3.1).",
+ 'Quels axes en retard\u00a0?':"Un seul axe sous tension&nbsp;: <b>Axe 03 — Maîtrise des risques</b> à 65&nbsp;% (attention requise). Les 3 autres sont en bonne trajectoire (72–85&nbsp;%).",
+ 'Générer un rapport CODIR':"Je prépare une synthèse CODIR&nbsp;: 4 axes, 18 objectifs (14 en trajectoire), 3 alertes. Je te l'envoie en PDF dans un instant 📄"
+};
+function orionReply(q){
+  var key=q.replace(/\u00a0/g,'\u00a0');
+  var r=orionReplies[q]||"Bonne question — je regarde les données de la vision et je reviens vers toi avec une réponse détaillée.";
+  setTimeout(function(){ orionAddMsg(r,'bot'); }, 600);
+}
+function orionAsk(q){ orionAddMsg(q,'user'); orionReply(q); }
+function orionSend(){ var i=document.getElementById('orionInput'); var v=i.value.trim(); if(!v)return; orionAddMsg(v,'user'); i.value=''; orionReply(v); }
+</script>
+
+</body>
+</html>

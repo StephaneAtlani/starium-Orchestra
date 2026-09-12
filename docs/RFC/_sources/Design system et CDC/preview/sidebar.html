@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Sidebar nav" subtitle="Sections en overline + item actif tinté or" viewport="700x380" -->
+<html><head><meta charset="utf-8"><title>Sidebar nav</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .sb { background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:14px; padding:16px; width:248px; }
+  .sb-section { font:var(--text-overline); letter-spacing:var(--tracking-overline); text-transform:uppercase; color:var(--fg-3); padding:12px 12px 6px; }
+  .sb-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; font:var(--text-body-s); font-weight:500; color:var(--fg-2); cursor:pointer; }
+  .sb-item:hover { background:var(--neutral-100); color:var(--fg-1); }
+  .sb-item.active { background:var(--brand-gold-100); color:var(--brand-gold-700); font-weight:600; }
+  .ico { width:18px; height:18px; }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:flex;gap:16px;">
+    <nav class="sb">
+      <div class="sb-section">Gouvernance</div>
+      <div class="sb-item active"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Vision stratégique</div>
+      <div class="sb-item"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>Cycles de pilotage</div>
+      <div class="sb-item"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Objectifs stratégiques</div>
+      <div class="sb-section">Pilotage</div>
+      <div class="sb-item"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Projets</div>
+      <div class="sb-item"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Budgets</div>
+      <div class="sb-item"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Ressources</div>
+    </nav>
+    <div style="font:var(--text-body-s);color:var(--fg-3);max-width:300px;">
+      Sidebar 248px · sections en overline tracké · item actif sur fond <span class="mono">--brand-gold-100</span>, texte <span class="mono">--brand-gold-700</span>. Hover : fond <span class="mono">--neutral-100</span>.
+    </div>
+  </div>
+</div>
+</body></html>

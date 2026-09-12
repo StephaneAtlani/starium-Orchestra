@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche Projet — Conformité DORA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#ECEAE3;font-family:'Manrope',-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding:48px 24px 80px;color:#0E0E10}
+.page{background:#fff;max-width:816px;margin:0 auto 28px;padding:60px 72px;border-radius:3px;box-shadow:0 2px 16px rgba(0,0,0,.09)}
+
+/* Cover band */
+.band{height:6px;border-radius:3px 3px 0 0;margin:-60px -72px 44px;background:linear-gradient(90deg,#E8A317 0%,#F4D58A 100%)}
+
+.proj-id{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#8C8579;margin-bottom:8px;display:flex;justify-content:space-between}
+.proj-type{display:inline-flex;align-items:center;gap:6px;background:#FBE8E6;color:#B42318;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 12px;border-radius:999px;margin-bottom:16px}
+h1.proj{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.08;margin-bottom:8px}
+.proj-sub{font-size:15px;color:#5F5A52;font-weight:400;margin-bottom:32px;line-height:1.55}
+.meta-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid #E9E6E0;border-radius:10px;overflow:hidden;margin-bottom:32px}
+.ms-cell{padding:12px 16px;border-right:1px solid #E9E6E0}
+.ms-cell:last-child{border-right:none}
+.ms-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C8579;margin-bottom:4px}
+.ms-val{font-size:14px;font-weight:700;color:#0E0E10}
+.ms-sub{font-size:11px;color:#8C8579;margin-top:2px}
+
+/* Section */
+h2.sec{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#403D38;margin:28px 0 12px;display:flex;align-items:center;gap:8px}
+h2.sec::before{content:'';display:block;width:3px;height:14px;background:#E8A317;border-radius:2px}
+p.body{font-size:13.5px;color:#403D38;line-height:1.7;margin-bottom:10px}
+
+/* Progress indicator */
+.prog-big{margin:16px 0 24px}
+.prog-bar{height:12px;background:#E9E6E0;border-radius:999px;overflow:hidden;margin:8px 0 6px}
+.prog-fill{height:100%;border-radius:999px;background:#B42318}
+.prog-meta{display:flex;justify-content:space-between;font-size:12px;color:#8C8579}
+.prog-val{font-size:32px;font-weight:800;letter-spacing:-.03em;color:#B42318;font-variant-numeric:tabular-nums}
+
+/* Objectives */
+.obj-list{margin:12px 0}
+.obj-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #F4F2EE}
+.obj-row:last-child{border-bottom:none}
+.obj-check{width:18px;height:18px;border-radius:5px;border:2px solid;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+.obj-check.done{border-color:#1F8A5B;background:#E6F4ED;color:#1F8A5B}
+.obj-check.wip{border-color:#C77A00;background:#FFF1DC;color:#C77A00}
+.obj-check.todo{border-color:#D6D2CA;background:#F4F2EE;color:#8C8579}
+.obj-txt{flex:1;font-size:13.5px;color:#403D38}
+.obj-own{font-size:11.5px;color:#8C8579;white-space:nowrap}
+
+/* Phase timeline */
+.phases{margin:12px 0 24px}
+.phase-row{display:flex;align-items:stretch;gap:0;margin-bottom:4px}
+.ph-dot{display:flex;flex-direction:column;align-items:center;width:20px;flex-shrink:0;gap:0}
+.ph-circle{width:14px;height:14px;border-radius:999px;border:2px solid;flex-shrink:0}
+.ph-circle.done{background:#1F8A5B;border-color:#1F8A5B}
+.ph-circle.active{background:#E8A317;border-color:#E8A317}
+.ph-circle.todo{background:#fff;border-color:#D6D2CA}
+.ph-line{flex:1;width:2px;background:#E9E6E0;margin:2px auto}
+.ph-body{padding:0 0 20px 12px;flex:1}
+.ph-name{font-size:13.5px;font-weight:700;color:#0E0E10}
+.ph-dates{font-size:11.5px;color:#8C8579;margin-top:2px}
+.ph-desc{font-size:12.5px;color:#5F5A52;margin-top:4px;line-height:1.5}
+
+/* Risks */
+.risk-item{border-left:3px solid;padding:10px 14px;border-radius:0 8px 8px 0;background:#FAF9F7;margin-bottom:8px}
+.risk-crit{border-color:#B42318}
+.risk-warn{border-color:#C77A00}
+.risk-t{font-size:13.5px;font-weight:700;color:#0E0E10;margin-bottom:3px}
+.risk-m{font-size:12px;color:#8C8579}
+
+/* Team */
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.t-card{border:1px solid #E9E6E0;border-radius:9px;padding:12px 14px;background:#FAF9F7}
+.t-av{width:32px;height:32px;border-radius:999px;background:#F4D58A;color:#5F3F00;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-bottom:8px}
+.t-name{font-size:13px;font-weight:700;color:#0E0E10}
+.t-role{font-size:11.5px;color:#8C8579;margin-top:2px}
+.t-charge{font-size:11px;color:#1F8A5B;margin-top:4px}
+
+/* Footer */
+.df{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #E9E6E0;padding-top:14px;margin-top:36px;font-size:11px;color:#B6B0A4}
+
+@media print{
+  body{background:none;padding:0}
+  .page{box-shadow:none;border-radius:0;margin:0;max-width:none;break-after:page}
+  .page:last-child{break-after:auto}
+  @page{margin:.75in}
+  .obj-row,.risk-item,.phase-row{break-inside:avoid}
+  h2.sec{break-after:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 — EN-TÊTE & SYNTHÈSE -->
+<div class="page">
+  <div class="band"></div>
+  <div class="proj-id">
+    <span>PRJ-2026-003 · Innovatech SA · DSI</span>
+    <span>Mis à jour le 30 juin 2026</span>
+  </div>
+  <div class="proj-type">⚠ Priorité critique</div>
+  <h1 class="proj">Conformité DORA</h1>
+  <p class="proj-sub">Digital Operational Resilience Act — Mise en conformité complète du SI d'Innovatech SA avec les exigences réglementaires européennes avant l'audit du 1er juillet 2026.</p>
+
+  <div class="meta-strip">
+    <div class="ms-cell"><div class="ms-lbl">Chef de projet</div><div class="ms-val">Sophie Martin</div><div class="ms-sub">DSI</div></div>
+    <div class="ms-cell"><div class="ms-lbl">Budget alloué</div><div class="ms-val">85 j/h</div><div class="ms-sub">+ 45 k€ additionnel</div></div>
+    <div class="ms-cell"><div class="ms-lbl">Échéance initiale</div><div class="ms-val" style="color:#B42318">30 juin 2026</div><div class="ms-sub">Révisée au 31 août</div></div>
+    <div class="ms-cell"><div class="ms-lbl">Statut</div><div class="ms-val" style="color:#B42318">En retard</div><div class="ms-sub">Décision CODIR</div></div>
+  </div>
+
+  <h2 class="sec">Avancement global</h2>
+  <div class="prog-big">
+    <div class="prog-val">33 %</div>
+    <div class="prog-bar"><div class="prog-fill" style="width:33%"></div></div>
+    <div class="prog-meta"><span>Démarrage : 1er janvier 2026</span><span>Échéance révisée : 31 août 2026</span></div>
+  </div>
+
+  <h2 class="sec">Contexte réglementaire</h2>
+  <p class="body">Le règlement DORA (Digital Operational Resilience Act, UE 2022/2554) s'applique à Innovatech SA en tant que prestataire de services IT pour des entités financières régulées. Il exige notamment la mise en place de tests de résilience opérationnelle, d'un registre des incidents ICT et d'un cadre de gestion des risques liés aux tiers.</p>
+  <p class="body">L'audit de conformité a été fixé au 1er juillet 2026 par l'autorité compétente. Le plan de remédiation accéléré, approuvé par le CODIR le 30 juin 2026, cible désormais le 31 août 2026.</p>
+
+  <div class="df"><span>Innovatech SA · Fiche projet PRJ-2026-003 · Confidentiel</span><span>Page 1</span></div>
+</div>
+
+<!-- PAGE 2 — OBJECTIFS & LIVRABLES -->
+<div class="page">
+  <div class="band"></div>
+
+  <h2 class="sec">Objectifs & Livrables</h2>
+  <div class="obj-list">
+    <div class="obj-row"><div class="obj-check done">✓</div><div class="obj-txt">Cartographie des actifs ICT critiques (Article 8 DORA)</div><div class="obj-own">P. Dupont</div></div>
+    <div class="obj-row"><div class="obj-check done">✓</div><div class="obj-txt">Politique de gestion des risques ICT documentée (Article 9)</div><div class="obj-own">S. Martin</div></div>
+    <div class="obj-row"><div class="obj-check wip">~</div><div class="obj-txt">Registre des incidents ICT opérationnel (Article 17)</div><div class="obj-own">A. Roux</div></div>
+    <div class="obj-row"><div class="obj-check wip">~</div><div class="obj-txt">Procédures de classification et de rapport des incidents</div><div class="obj-own">A. Roux</div></div>
+    <div class="obj-row"><div class="obj-check todo">○</div><div class="obj-txt">Plan de tests de résilience opérationnelle (Article 25)</div><div class="obj-own">P. Dupont</div></div>
+    <div class="obj-row"><div class="obj-check todo">○</div><div class="obj-txt">Évaluation des risques tiers — fournisseurs IT critiques (Article 28)</div><div class="obj-own">J. Lambert</div></div>
+    <div class="obj-row"><div class="obj-check todo">○</div><div class="obj-txt">Contrats fournisseurs mis à jour avec clauses DORA obligatoires</div><div class="obj-own">J. Lambert</div></div>
+    <div class="obj-row"><div class="obj-check todo">○</div><div class="obj-txt">Formation et sensibilisation de l'équipe DSI (40h)</div><div class="obj-own">M. Clermont</div></div>
+    <div class="obj-row"><div class="obj-check todo">○</div><div class="obj-txt">Rapport de conformité final soumis à l'autorité</div><div class="obj-own">S. Martin</div></div>
+  </div>
+
+  <h2 class="sec">Phases du projet</h2>
+  <div class="phases">
+    <div class="phase-row">
+      <div class="ph-dot"><div class="ph-circle done"></div><div class="ph-line"></div></div>
+      <div class="ph-body"><div class="ph-name">Phase 1 — Diagnostic & cartographie</div><div class="ph-dates">Janvier – Février 2026 · Terminé</div><div class="ph-desc">Inventaire des actifs ICT, identification des exigences applicables, gap analysis initiale.</div></div>
+    </div>
+    <div class="phase-row">
+      <div class="ph-dot"><div class="ph-circle active"></div><div class="ph-line"></div></div>
+      <div class="ph-body"><div class="ph-name">Phase 2 — Remédiation prioritaire</div><div class="ph-dates">Mars – Août 2026 · En cours (33 %)</div><div class="ph-desc">Mise en place du registre incidents, politiques ICT, procédures de test. Phase étendue suite à la décision CODIR.</div></div>
+    </div>
+    <div class="phase-row">
+      <div class="ph-dot"><div class="ph-circle todo"></div><div class="ph-line"></div></div>
+      <div class="ph-body"><div class="ph-name">Phase 3 — Tests de résilience</div><div class="ph-dates">Septembre 2026 · Non démarré</div><div class="ph-desc">Exercices de simulation, tests de continuité, validation avec tiers critiques.</div></div>
+    </div>
+    <div class="phase-row">
+      <div class="ph-dot"><div class="ph-circle todo"></div></div>
+      <div class="ph-body"><div class="ph-name">Phase 4 — Audit & certification</div><div class="ph-dates">Octobre 2026 · Non démarré</div><div class="ph-desc">Audit externe, rapport de conformité, soumission à l'autorité de supervision.</div></div>
+    </div>
+  </div>
+
+  <div class="df"><span>Innovatech SA · Fiche projet PRJ-2026-003 · Confidentiel</span><span>Page 2</span></div>
+</div>
+
+<!-- PAGE 3 — RISQUES & ÉQUIPE -->
+<div class="page">
+  <div class="band"></div>
+
+  <h2 class="sec">Risques identifiés</h2>
+  <div class="risk-item risk-crit">
+    <div class="risk-t">Délai insuffisant pour les tests de résilience</div>
+    <div class="risk-m">Probabilité : Élevée · Impact : Critique · Score : 16/25<br>Mitigation : Extension de l'échéance approuvée en CODIR. Tests à démarrer dès le 1er août.</div>
+  </div>
+  <div class="risk-item risk-crit">
+    <div class="risk-t">Disponibilité équipe infrastructure insuffisante</div>
+    <div class="risk-m">Probabilité : Élevée · Impact : Élevé · Score : 12/25<br>Mitigation : Renforcement en prestation externe — budget inclus dans les 45 k€ additionnels.</div>
+  </div>
+  <div class="risk-item risk-warn">
+    <div class="risk-t">Non-conformité des contrats fournisseurs Microsoft / AWS</div>
+    <div class="risk-m">Probabilité : Moyenne · Impact : Élevé · Score : 8/25<br>Mitigation : Revue contractuelle en cours avec le service juridique — délai estimé 3 semaines.</div>
+  </div>
+  <div class="risk-item risk-warn">
+    <div class="risk-t">Interprétation divergente des exigences Article 28</div>
+    <div class="risk-m">Probabilité : Moyenne · Impact : Moyen · Score : 6/25<br>Mitigation : Consultation d'un cabinet spécialisé programmée pour mi-juillet.</div>
+  </div>
+
+  <h2 class="sec">Équipe projet</h2>
+  <div class="team-grid">
+    <div class="t-card"><div class="t-av">SM</div><div class="t-name">Sophie Martin</div><div class="t-role">Chef de projet · DSI</div><div class="t-charge">40 % · Décisions, arbitrages</div></div>
+    <div class="t-card"><div class="t-av">AR</div><div class="t-name">Antoine Roux</div><div class="t-role">IT Sécurité</div><div class="t-charge">80 % · Registre incidents, tests</div></div>
+    <div class="t-card"><div class="t-av">PD</div><div class="t-name">Paul Dupont</div><div class="t-role">Infrastructure</div><div class="t-charge">60 % · Cartographie, résilience</div></div>
+    <div class="t-card"><div class="t-av">JL</div><div class="t-name">Jean Lambert</div><div class="t-role">PMO</div><div class="t-charge">30 % · Contrats, tiers</div></div>
+    <div class="t-card"><div class="t-av">MC</div><div class="t-name">Marie Clermont</div><div class="t-role">Data & Formation</div><div class="t-charge">20 % · Formation équipe</div></div>
+    <div class="t-card" style="border:1.5px dashed #D6D2CA;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:#FAF9F7">
+      <div style="font-size:20px;color:#D6D2CA">+</div>
+      <div style="font-size:12px;color:#8C8579;text-align:center">Prestation externe<br>à recruter</div>
+    </div>
+  </div>
+
+  <h2 class="sec">Prochaines étapes immédiates</h2>
+  <div class="obj-list">
+    <div class="obj-row"><div class="obj-check todo">1</div><div class="obj-txt">Lancer l'appel d'offres prestataire externe (délai : 15 juillet 2026)</div><div class="obj-own">S. Martin</div></div>
+    <div class="obj-row"><div class="obj-check todo">2</div><div class="obj-txt">Démarrer le registre des incidents ICT en production (délai : 8 juillet)</div><div class="obj-own">A. Roux</div></div>
+    <div class="obj-row"><div class="obj-check todo">3</div><div class="obj-txt">Revue contractuelle Microsoft & AWS (délai : 21 juillet)</div><div class="obj-own">J. Lambert</div></div>
+    <div class="obj-row"><div class="obj-check todo">4</div><div class="obj-txt">Formation DORA équipe DSI — session 1 (délai : 31 juillet)</div><div class="obj-own">M. Clermont</div></div>
+  </div>
+
+  <div class="df"><span>Innovatech SA · Fiche projet PRJ-2026-003 · Confidentiel</span><span>Page 3</span></div>
+</div>
+
+</body>
+</html>

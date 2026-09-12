@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Avatars" subtitle="Initiales sur fond neutre, stack, tailles" viewport="700x180" -->
+<html><head><meta charset="utf-8"><title>Avatar & user</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .av { width:36px; height:36px; border-radius:999px; background:var(--neutral-200); color:var(--neutral-700); display:flex; align-items:center; justify-content:center; font:var(--text-caption); font-weight:600; overflow:hidden; }
+  .av-lg { width:48px; height:48px; }
+  .av-xs { width:24px; height:24px; font-size:10px; }
+  .stack { display:flex; }
+  .stack > * + * { margin-left:-8px; border:2px solid var(--bg-surface); }
+  .user { display:flex; align-items:center; gap:10px; }
+  .user .name { font:var(--text-body); font-weight:600; color:var(--fg-1); }
+  .user .role { font:var(--text-caption); color:var(--fg-3); }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;align-items:center;gap:24px;">
+      <div class="av av-lg">SM</div>
+      <div class="user">
+        <div class="av">SM</div>
+        <div><div class="name">Sophie Martin</div><div class="role">Directrice Stratégie</div></div>
+      </div>
+      <div class="stack">
+        <div class="av">CD</div><div class="av">JM</div><div class="av">NB</div><div class="av" style="background:var(--brand-gold-100);color:var(--brand-gold-700);">+4</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div class="av av-xs">CD</div><span class="body-s">Claire Dubois</span>
+      <div class="av av-xs">JM</div><span class="body-s">Julien Moreau</span>
+      <div class="av av-xs">NB</div><span class="body-s">Nadia Benali</span>
+      <div class="av av-xs">ML</div><span class="body-s">Marc Lemaire</span>
+    </div>
+  </div>
+</div>
+</body></html>

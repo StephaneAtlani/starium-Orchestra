@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Champs de saisie" subtitle="Text input + focus + error + recherche ⌘K" viewport="700x240" -->
+<html><head><meta charset="utf-8"><title>Inputs</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .field label { font:var(--text-caption); color:var(--fg-2); font-weight:500; }
+  .input { height:40px; border:1px solid var(--border-strong); border-radius:10px; padding:0 12px; background:var(--bg-surface); font:var(--text-body); color:var(--fg-1); }
+  .input::placeholder { color:var(--fg-4); }
+  .input.focused { border-color:var(--brand-gold); box-shadow:var(--shadow-focus); outline:none; }
+  .input.error { border-color:var(--state-danger); box-shadow:0 0 0 3px rgba(180,35,24,0.18); }
+  .search { display:flex; align-items:center; gap:8px; height:40px; border:1px solid var(--border-strong); border-radius:10px; padding:0 12px; background:var(--bg-surface); }
+  .kbd { font:var(--text-mono); font-size:11px; color:var(--fg-3); border:1px solid var(--border-subtle); padding:1px 6px; border-radius:4px; background:var(--neutral-100); }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="field"><label>Nom de la vision</label><input class="input" value="Vision stratégique 2026"></div>
+    <div class="field"><label>Responsable</label><input class="input" placeholder="Sélectionner…"></div>
+    <div class="field"><label>État</label><input class="input focused" value="Saisie en cours"></div>
+    <div class="field"><label>Échéance</label><input class="input error" value="31/02/2026"><span class="caption" style="font:var(--text-caption);color:var(--state-danger);">Date invalide.</span></div>
+    <div class="field" style="grid-column:1/-1;"><label>Recherche globale</label>
+      <div class="search"><span style="color:var(--fg-3);">⌕</span><span style="flex:1;color:var(--fg-4);font:var(--text-body);">Rechercher…</span><span class="kbd">⌘ K</span></div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Points projet — Cahier des charges des écrans</title>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#14100C"/><rect x="20" y="24" width="60" height="10" rx="2" fill="#F5A623"/><rect x="20" y="40" width="26" height="36" rx="2" fill="#fff" opacity=".85"/><rect x="50" y="40" width="30" height="16" rx="2" fill="#fff" opacity=".5"/><rect x="50" y="60" width="30" height="16" rx="2" fill="#fff" opacity=".3"/></svg></template>
+<style>
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-SemiBold.ttf') format('truetype');font-weight:600}
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-Bold.ttf') format('truetype');font-weight:700}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');font-weight:100 900}
+doc-page:not(:defined){visibility:hidden}
+.page{font-family:'Manrope',system-ui,sans-serif;color:#14100C;background:#fff;box-sizing:border-box}
+.page *{box-sizing:border-box}
+h1,h2,h3,h4{font-family:'Outfit',system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+a{color:#C77A00}a:hover{color:#8A5400}
+/* ─── cover ─── */
+.cover{padding:16mm 18mm;display:flex;flex-direction:column}
+.cv-top{display:flex;align-items:center;gap:10mm}
+.cv-mark{font-family:'Outfit';font-weight:700;font-size:11pt;letter-spacing:.34em}
+.cv-rule{flex:1;height:2px;background:#F5A623}
+.cv-kicker{font-size:8.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8C8579}
+.cover h1{font-size:50pt;font-weight:700;line-height:.98;margin-top:20mm}
+.cv-lede{font-size:12pt;line-height:1.5;color:#5F5A52;max-width:170mm;margin:7mm 0 0;font-weight:500;text-wrap:pretty}
+.cv-grid{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7mm;border-top:1px solid #E9E6E0;padding-top:7mm}
+.cv-num{font-family:'Outfit';font-weight:700;font-size:24pt;color:#C77A00;line-height:1}
+.cv-lbl{font-size:8.5pt;line-height:1.4;color:#5F5A52;font-weight:600;margin-top:2mm}
+.cv-foot{display:flex;justify-content:space-between;font-size:8.5pt;color:#8C8579;font-weight:600;margin-top:6mm}
+/* ─── generic doc page ─── */
+.std{padding:13mm 15mm;display:flex;flex-direction:column}
+.std-h{border-bottom:1px solid #E9E6E0;padding-bottom:5mm;margin-bottom:6mm}
+.std-k{font-size:8pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.std h2{font-size:23pt;font-weight:700;line-height:1.08}
+.std-h p{font-size:10pt;line-height:1.5;color:#5F5A52;font-weight:500;margin:4mm 0 0;max-width:205mm;text-wrap:pretty}
+.std-note{margin-top:auto;font-size:8.5pt;line-height:1.5;color:#5F5A52;font-weight:600;border-top:1px solid #E9E6E0;padding-top:4mm;text-wrap:pretty}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm}
+.tri-h{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.tri ul,.lst{margin:0;padding-left:4.2mm;list-style:none}
+.tri li,.lst li{font-size:8.6pt;line-height:1.45;color:#5F5A52;font-weight:500;margin-bottom:2.2mm;position:relative;text-wrap:pretty}
+.tri li::before,.lst li::before{content:'';position:absolute;left:-4.2mm;top:1.6mm;width:1.4mm;height:1.4mm;border-radius:99px;background:#F5A623}
+.tri li b,.lst li b{color:#14100C;font-weight:700}
+.tb{width:100%;border-collapse:collapse;font-size:8.4pt}
+.tb th{text-align:left;font-size:7.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579;padding:0 3mm 2.5mm 0;border-bottom:1px solid #E9E6E0}
+.tb td{padding:2.8mm 3mm 2.8mm 0;border-bottom:1px solid #E9E6E0;color:#5F5A52;font-weight:500;line-height:1.4;vertical-align:top;text-wrap:pretty}
+.tb .s{font-weight:700;color:#14100C}
+.tb code,code{font-family:ui-monospace,Menlo,monospace;font-size:7.8pt;background:#F4F2EE;padding:.5mm 1.4mm;border-radius:1mm;color:#403D38}
+.pill{display:inline-block;color:#fff;font-weight:800;font-size:7.2pt;padding:1.1mm 2.4mm;border-radius:1.4mm;white-space:nowrap}
+/* ─── section divider ─── */
+.divider{padding:18mm;display:flex;align-items:center;background:#14100C;color:#fff}
+.dv-in{max-width:200mm}
+.dv-kick{font-size:9pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#F5A623;margin-bottom:6mm}
+.divider h2{font-size:32pt;font-weight:700;line-height:1.02}
+.divider p{font-size:11pt;line-height:1.55;color:rgba(255,255,255,.74);margin:6mm 0 0;font-weight:500;max-width:175mm;text-wrap:pretty}
+.dv-steps{display:flex;flex-wrap:wrap;gap:3mm;margin-top:9mm}
+.dv-steps span{font-size:8.5pt;font-weight:700;padding:2mm 4.5mm;border:1px solid rgba(255,255,255,.28);border-radius:99px}
+/* ─── screen blueprint page ─── */
+.scr{padding:10mm 12mm;display:flex;flex-direction:column;overflow:hidden}
+.sh{display:flex;align-items:flex-start;gap:5mm;border-bottom:1px solid #E9E6E0;padding-bottom:3.5mm;flex-shrink:0}
+.sh-n{font-family:'Outfit';font-weight:700;font-size:19pt;color:#C77A00;line-height:.9;min-width:15mm}
+.sh-t{flex:1}
+.scr h3{font-size:16.5pt;font-weight:700;line-height:1.1}
+.sh-p{font-size:7.8pt;font-weight:600;color:#8C8579;margin-top:1.6mm;font-family:ui-monospace,Menlo,monospace}
+.sh-k{font-size:7.2pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:#14100C;padding:1.5mm 3.2mm;border-radius:1.4mm;white-space:nowrap}
+.bp{display:grid;grid-template-columns:1.42fr 1fr;gap:7mm;margin-top:4.5mm;min-height:0;flex:1}
+.blk{margin-bottom:4mm}
+.blk:last-child{margin-bottom:0}
+.blk-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2.4mm}
+.role{font-size:9pt;line-height:1.45;margin:0;font-weight:600;color:#14100C;text-wrap:pretty}
+.zon ol{margin:0;padding-left:6mm;counter-reset:z;list-style:none}
+.zon li{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin-bottom:2mm;position:relative;counter-increment:z;text-wrap:pretty}
+.zon li::before{content:counter(z);position:absolute;left:-6mm;top:.2mm;width:3.7mm;height:3.7mm;border-radius:99px;background:#14100C;color:#fff;font-size:6.2pt;font-weight:800;display:flex;align-items:center;justify-content:center}
+.zon li b{color:#14100C;font-weight:700}
+.shot{position:relative;border:1px solid #D6D2CA;border-radius:2mm;overflow:hidden;background:#FAF9F7;margin:0}
+.shot img{display:block;width:100%;height:auto}
+.pin{position:absolute;width:4.4mm;height:4.4mm;border-radius:99px;background:#C77A00;color:#fff;font-family:'Outfit';font-weight:700;font-size:6.6pt;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 0 0 1mm rgba(255,255,255,.94),0 .5mm 1.4mm rgba(0,0,0,.35)}
+.shot-cap{font-size:6.8pt;font-weight:700;color:#8C8579;margin-top:1.8mm;letter-spacing:.04em}
+.todo{border:1px dashed #C77A00;background:#FFF1DC;border-radius:1.6mm;padding:2.2mm 2.8mm;margin-bottom:3.5mm}
+.todo-t{font-size:7.2pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00}
+.todo-p{font-size:8pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:1.2mm 0 0;text-wrap:pretty}
+/* wireframe kit */
+.wf{border:1px solid #D6D2CA;border-radius:2mm;background:#FAF9F7;padding:2.6mm;display:flex;flex-direction:column;gap:2.2mm;margin-bottom:3.5mm}
+.wf-cap{font-size:6.8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579;margin-bottom:1mm}
+.wb{border:1px solid #D6D2CA;border-radius:1.4mm;background:#fff;padding:2.2mm 2.6mm;position:relative}
+.wb.ink{background:#14100C;border-color:#14100C}
+.wb.tint{background:#FCEDC4;border-color:#F8D999}
+.wb.sunk{background:#F4F2EE}
+.wb.dash{border-style:dashed}
+.wt{font-size:7.4pt;font-weight:700;color:#14100C;line-height:1.3}
+.wb.ink .wt{color:#fff}
+.wm{font-size:6.6pt;font-weight:600;color:#8C8579;line-height:1.35;margin-top:.8mm}
+.wb.ink .wm{color:rgba(255,255,255,.6)}
+.wrow{display:flex;gap:2.2mm}
+.wrow>*{flex:1;margin:0}
+.wcol{display:flex;flex-direction:column;gap:2.2mm}
+.wn{position:absolute;top:-1.8mm;left:-1.8mm;width:3.6mm;height:3.6mm;border-radius:99px;background:#C77A00;color:#fff;font-size:6pt;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:'Outfit'}
+.wbtn{display:inline-block;font-size:6.6pt;font-weight:800;padding:1.2mm 2.6mm;border-radius:1.2mm;background:#14100C;color:#fff;white-space:nowrap}
+.wbtn.sec{background:#fff;color:#14100C;border:1px solid #D6D2CA}
+.wbtn.gold{background:#F5A623;color:#14100C}
+.wbar{display:flex;gap:1.6mm;align-items:center;flex-wrap:wrap}
+.wchip{font-size:6.4pt;font-weight:700;padding:.9mm 2mm;border-radius:99px;background:#F4F2EE;color:#5F5A52;border:1px solid #E9E6E0}
+.wchip.on{background:#14100C;color:#fff;border-color:#14100C}
+.wgrid4{display:grid;grid-template-columns:repeat(4,1fr);gap:2.2mm}
+.wgrid3{display:grid;grid-template-columns:repeat(3,1fr);gap:2.2mm}
+.wgrid2{display:grid;grid-template-columns:repeat(2,1fr);gap:2.2mm}
+.wside{display:grid;grid-template-columns:1fr 1.9fr;gap:2.2mm}
+.wside.rev{grid-template-columns:1.9fr 1fr}
+/* footer strip of a screen page */
+.sf{margin-top:3.5mm;display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:6mm;border-top:1px solid #E9E6E0;padding-top:3.5mm;flex-shrink:0}
+.sf-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2mm}
+.sf-h.mt{margin-top:3.2mm}
+.sf p{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.sf ul{margin:0;padding-left:4mm;list-style:none}
+.sf li{font-size:8.3pt;line-height:1.4;color:#5F5A52;font-weight:500;margin-bottom:1.7mm;position:relative;text-wrap:pretty}
+.sf li::before{content:'';position:absolute;left:-4mm;top:1.5mm;width:1.3mm;height:1.3mm;border-radius:99px;background:#F5A623}
+.sf li b{color:#14100C;font-weight:700}
+/* behaviour page */
+.bhv{padding:11mm 13mm;display:flex;flex-direction:column;overflow:hidden}
+.bhv-h{display:flex;align-items:baseline;gap:4mm;border-bottom:1px solid #E9E6E0;padding-bottom:4mm;margin-bottom:5mm;flex-shrink:0}
+.bhv-h .n{font-family:'Outfit';font-weight:700;font-size:12pt;color:#C77A00}
+.bhv-h h4{font-size:14pt;font-weight:700;flex:1}
+.bhv-h .tag{font-size:7pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579}
+.bhv-cols{display:grid;grid-template-columns:1fr 1fr;gap:8mm;min-height:0;flex:1}
+.ac{border:1px solid #E9E6E0;border-radius:2mm;padding:3.4mm 4mm;background:#FAF9F7;margin-bottom:2.6mm}
+.ac-t{font-size:8pt;font-weight:800;color:#14100C;margin-bottom:1.6mm}
+.ac-l{font-size:8pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.ac-l em{font-style:normal;font-weight:800;color:#C77A00;letter-spacing:.04em;text-transform:uppercase;font-size:6.8pt;margin-right:1.2mm}
+.msg{font-size:8pt;line-height:1.4;color:#5F5A52;font-weight:500;padding-left:4.6mm;position:relative;margin-bottom:2mm;text-wrap:pretty}
+.msg::before{content:'';position:absolute;left:0;top:1.3mm;width:2.6mm;height:2.6mm;border-radius:.6mm;background:#B42318}
+.msg.warn::before{background:#C77A00}
+.msg.ok::before{background:#1F8A5B}
+.msg q{font-weight:700;color:#14100C;quotes:'« ' ' »'}
+.rc{display:grid;grid-template-columns:repeat(2,1fr);gap:9mm;align-items:start}
+.rc-t{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;padding-bottom:2mm;border-bottom:1px solid #E9E6E0;margin-bottom:3mm}
+.rc .ac{background:#fff;border-color:#E9E6E0}
+</style>
+</head>
+<body>
+<doc-page size="a4" orientation="landscape">
+
+<!-- ══════════ COUVERTURE ══════════ -->
+<section class="page cover">
+<div class="cv-top"><div class="cv-mark">STARIUM</div><div class="cv-rule"></div><div class="cv-kicker">Cahier des charges · écrans</div></div>
+<h1>Points projet</h1>
+<p class="cv-lede">Spécification écran par écran du parcours complet d'un point de gouvernance : du tableau de bord à la clôture. Pour chaque écran, la capture réelle de l'application annotée zone par zone, les écarts qui restent à développer, les interactions, les états, les messages affichés et les critères de recette.</p>
+<div class="cv-grid">
+<div><div class="cv-num">09</div><div class="cv-lbl">écrans spécifiés<br>6 capturés dans l'app, 2 à créer</div></div>
+<div><div class="cv-num">26</div><div class="cv-lbl">pages de spécification<br>plan, comportement, annexe recette</div></div>
+<div><div class="cv-num">05</div><div class="cv-lbl">états du point<br>à préparer → historique</div></div>
+<div><div class="cv-num">48</div><div class="cv-lbl">critères de recette<br>vérifiables un par un</div></div>
+</div>
+<div class="cv-foot"><span>Refonte Portail Client · module Points projet</span><span>Septembre 2026</span></div>
+</section>
+
+<!-- ══════════ LECTURE ══════════ -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Mode d'emploi</div><h2>Comment lire ce document</h2><p>Chaque écran occupe deux pages. La première porte le plan : un schéma de blocs numérotés et la description de chaque zone. La seconde porte le comportement : interactions, états, messages, critères de recette. Rien n'est laissé à l'interprétation — si une règle n'est pas écrite ici, elle n'existe pas.</p></div>
+<div class="tri">
+<div><div class="tri-h">Page « plan » — ce qu'elle donne</div><ul>
+<li><b>Capture réelle de l'application</b>, avec des pastilles numérotées posées sur chaque zone. Les six écrans qui existent aujourd'hui sont montrés tels quels — pas de wireframe.</li>
+<li><b>Zones numérotées</b> : les pastilles de la capture renvoient à la liste. Une zone = un composant ou un groupe.</li>
+<li><b>Rôle</b> : à quoi sert l'écran, en une phrase. Sert d'arbitre quand une question n'est pas tranchée.</li>
+<li><b>Écarts entre la maquette et la cible</b> : ce qui manque sur la capture et reste à développer. C'est la liste de travail réelle.</li>
+<li><b>Bandeau bas</b> : d'où l'on arrive, où l'on va, et les cas particuliers.</li>
+</ul></div>
+<div><div class="tri-h">Page « comportement » — ce qu'elle donne</div><ul>
+<li><b>Interactions</b> : chaque élément cliquable, et ce qu'il déclenche exactement.</li>
+<li><b>États de l'écran</b> : normal, vide, chargement, erreur, lecture seule. Tous sont à produire.</li>
+<li><b>Messages</b> : le texte exact affiché à l'utilisateur, entre guillemets. À reprendre mot pour mot.</li>
+<li><b>Contrôles</b> : ce qui bloque, ce qui avertit sans bloquer.</li>
+<li>Les <b>critères de recette</b> de tous les écrans sont regroupés dans l'annexe recette, en fin de document — quatre pages à donner telles quelles au testeur.</li>
+</ul></div>
+<div><div class="tri-h">Conventions</div><ul>
+<li>Les écrans <b>05 Démarrer la séance</b> et <b>07 Clôture</b> n'existent pas dans la maquette : leur page porte un bandeau ambre « écran à créer » et un schéma de blocs à la place de la capture.</li>
+<li>Sur les six autres écrans, ce qui n'est pas visible sur la capture est listé dans « Écarts entre la maquette et la cible ».</li>
+<li>Les libellés entre guillemets sont définitifs. Les libellés sans guillemets sont indicatifs.</li>
+<li>Aucun écran ne se recharge : la navigation entre sous-onglets et entre points se fait sans perte de contexte.</li>
+<li>Toute saisie est enregistrée au fil de la frappe. Il n'y a pas de bouton « Enregistrer » sur les écrans de travail.</li>
+</ul></div>
+</div>
+<div class="std-note">Ordre d'implémentation recommandé : 01 Dashboard, 03 Préparer, 06 Déroulement, 09 Ajouts à la volée, 07 Clôture, puis 02, 04, 05, 08. Les trois écrans de travail portent 80 % de la valeur du module ; les modales et les écrans de transition sont plus rapides une fois qu'ils existent.</div>
+</section>
+
+<!-- ══════════ PARCOURS ══════════ -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Cadrage</div><h2>Le parcours et ses huit écrans</h2><p>Un point projet se traverse toujours dans le même ordre. Chaque écran a une sortie unique vers l'écran suivant, et un seul geste la déclenche. C'est cette linéarité qui rend le module implémentable sans ambiguïté.</p></div>
+<table class="tb">
+<thead><tr><th style="width:8mm">#</th><th style="width:44mm">Écran</th><th style="width:26mm">Nature</th><th style="width:30mm">État du point</th><th>Le geste qui fait sortir de l'écran</th><th style="width:38mm">Écran suivant</th></tr></thead>
+<tbody>
+<tr><td class="s">01</td><td class="s">Dashboard Points projet</td><td>Onglet de liste</td><td><span class="pill" style="background:#8C8579">tous</span></td><td>Clic sur « Créer un point », ou sur l'action de ligne d'un point existant</td><td>02, ou 03 / 06 / 07 selon l'état</td></tr>
+<tr><td class="s">02</td><td class="s">Créer un point</td><td>Modale</td><td><span class="pill" style="background:#C77A00">à préparer</span></td><td>« Créer » ou « Créer et préparer »</td><td>Retour au 01, ou 03</td></tr>
+<tr><td class="s">03</td><td class="s">Préparer la séance</td><td>Écran de travail</td><td><span class="pill" style="background:#C77A00">à préparer</span></td><td>« Figer l'ordre du jour »</td><td>04</td></tr>
+<tr><td class="s">04</td><td class="s">Envoyer la convocation</td><td>Modale deux volets</td><td><span class="pill" style="background:#2A6FDB">à venir</span></td><td>« Envoyer les convocations »</td><td>Retour au 03, suivi des réponses</td></tr>
+<tr><td class="s">05</td><td class="s">Démarrer la séance</td><td>Écran de lancement</td><td><span class="pill" style="background:#2A6FDB">à venir</span></td><td>« Démarrer la séance »</td><td>06</td></tr>
+<tr><td class="s">06</td><td class="s">Déroulement de la séance</td><td>Écran de travail live</td><td><span class="pill" style="background:#1F8A5B">en cours</span></td><td>Dernier point traité, puis « Clôturer la séance »</td><td>07</td></tr>
+<tr><td class="s">07</td><td class="s">Clôture de la séance</td><td>Écran de contrôle</td><td><span class="pill" style="background:#1F8A5B">en cours</span></td><td>« Confirmer la clôture »</td><td>08</td></tr>
+<tr><td class="s">08</td><td class="s">Compte-rendu &amp; diffusion</td><td>Écran de travail</td><td><span class="pill" style="background:#C2542B">à finaliser</span></td><td>« Diffuser le compte-rendu »</td><td>Historique, lecture seule</td></tr>
+<tr><td class="s">09</td><td class="s">Ajouts à la volée</td><td>Gestes transverses</td><td><span class="pill" style="background:#8C8579">03 et 06</span></td><td>Aucune sortie : l'ajout se fait en place</td><td>On reste sur l'écran</td></tr>
+</tbody></table>
+<div class="std-note">Les retours arrière autorisés : 04 → 03 (rouvrir l'ordre du jour, ce qui renotifie les participants) et 08 → 08 (corriger avant diffusion). Tous les autres retours sont refusés : une séance démarrée ne se dé-démarre pas, un compte-rendu diffusé ne se réécrit pas.</div>
+</section>
+
+<!-- ══════════ 01 · DASHBOARD — PLAN ══════════ -->
+<section class="page scr" data-screen-label="01 Dashboard · plan">
+<header class="sh"><div class="sh-n">01</div><div class="sh-t"><h3>Dashboard « Points projet »</h3><div class="sh-p">Projets › Refonte Portail Client › Points projet</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/sm-A1-preparer.png" alt="Dashboard Points projet"><span class="pin" style="left:23%;top:46%">1</span><span class="pin" style="left:23%;top:57%">2</span><span class="pin" style="left:23%;top:67%">3</span><span class="pin" style="left:92%;top:67%">4</span><span class="pin" style="left:28%;top:78%">5</span><span class="pin" style="left:85%;top:74%">6</span></figure><div class="shot-cap">Capture réelle · onglet « Points projet », sous-onglet « À préparer »</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Point d'entrée unique du module. Regroupe toutes les instances de gouvernance du projet, réparties par état d'avancement. C'est la file de travail du chef de projet : ce qu'il doit préparer, ce qui arrive, ce qu'il doit finaliser.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>Barre d'onglets de la fiche projet.</b> « Points projet » en dernière position, souligné en ambre quand actif. Le bloc d'en-tête projet au-dessus n'appartient pas au module.</li>
+<li><b>Bandeau de 4 indicateurs.</b> Prochain point · Points ce trimestre · Actions issues des points · Décisions COPIL à appliquer. Valeur en gros, précision colorée en dessous.</li>
+<li><b>Barre de 6 sous-onglets</b> avec compteur collé au libellé : À préparer, À venir, En cours, À finaliser, Historique, Séries.</li>
+<li><b>« Créer un point ».</b> Bouton primaire noir, aligné à droite de la barre de sous-onglets.</li>
+<li><b>Carte de point.</b> Pastille date ambre, intitulé, badge de type, badge de cadence, ligne méta horaire / lieu / nombre de points / état du brief, avatars des convoqués, état de préparation, action « Préparer › » à droite.</li>
+<li><b>Colonne « Continuité du pilotage ».</b> Quatre compteurs de flux : actions ouvertes reportées, sujets reportés, décisions COPIL à appliquer, sujets remontés au COPIL.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>L'<b>état vide</b> de la liste n'est pas maquetté : à produire pour chacun des six sous-onglets.</li>
+<li>Le <b>débordement d'avatars « +N »</b> n'apparaît pas (4 convoqués seulement dans la maquette).</li>
+<li>Le <b>squelette de chargement</b> n'est pas maquetté.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Action de ligne selon l'état du point</div><ul>
+<li><b>À préparer</b> → « Préparer › » mène à l'écran 03</li>
+<li><b>À venir</b> → « Préparer › » (ajustement) ; « Démarrer › » apparaît le jour de la séance</li>
+<li><b>En cours</b> → « Reprendre la conduite › » mène à l'écran 06 exactement où il a été quitté</li>
+<li><b>À finaliser</b> → « Finaliser › » mène à l'écran 08</li>
+<li><b>Historique</b> → « Consulter › » ouvre le compte-rendu en lecture seule</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>Onglet « Points projet » de la fiche projet. Notification d'un point à préparer ou d'un CR en retard.</p><div class="sf-h mt">Sortie</div><p>Écran 02, 03, 05, 06, 07 ou 08 selon l'action de ligne actionnée.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Point dont l'heure est dépassée sans démarrage : la carte reste dans « À venir », pastille date en rouge, mention « en retard » à la place du badge de préparation.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 01 · DASHBOARD — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="01 Dashboard · comportement">
+<div class="bhv-h"><div class="n">01</div><h4>Dashboard « Points projet » — comportement</h4><div class="tag">Interactions · états · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Clic sur un sous-onglet</b> → filtre la liste sans rechargement de page, met à jour l'onglet actif, conserve la position de défilement en haut. Les indicateurs ne changent pas.</li>
+<li><b>Clic sur « Créer un point »</b> → ouvre la modale 02, champ intitulé focalisé.</li>
+<li><b>Clic sur l'action de ligne</b> → navigue vers l'écran de travail correspondant à l'état du point.</li>
+<li><b>Clic sur la carte hors action</b> → même destination que l'action de ligne. La carte entière est cliquable.</li>
+<li><b>Clic sur un avatar</b> → infobulle nom + rôle. Pas de navigation.</li>
+<li><b>Clic sur « +N »</b> → déroule la liste nominative complète des convoqués.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>Chargement</b> — quatre cartes indicateur et trois cartes de liste en squelette. Jamais d'écran blanc, jamais de spinner centré.</li>
+<li><b>Vide global</b> — aucun point sur le projet : bandeau indicateurs à zéro, état vide de la liste avec le bouton de création mis en avant.</li>
+<li><b>Vide de sous-onglet</b> — le sous-onglet reste cliquable avec son compteur à zéro ; la liste affiche son propre état vide, texte adapté au sous-onglet.</li>
+<li><b>Erreur de chargement</b> — bandeau d'erreur en haut de la liste avec un bouton « Réessayer ». Les indicateurs déjà chargés restent affichés.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg ok">Vide global : <q>Aucun point projet pour l'instant. Créez le premier point de gouvernance de ce projet.</q></div>
+<div class="msg ok">Vide « À préparer » : <q>Rien à préparer. Tous les points à venir ont leur ordre du jour figé.</q></div>
+<div class="msg ok">Vide « À finaliser » : <q>Aucun compte-rendu en attente. Bonne gouvernance.</q></div>
+<div class="msg warn">Point en retard de tenue : <q>Séance non démarrée — prévue le 16 mai à 09:30</q></div>
+<div class="msg">Erreur de chargement : <q>Les points de ce projet n'ont pas pu être chargés.</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Règles d'affichage</div><ul class="lst">
+<li>Tri : <b>À préparer</b>, <b>À venir</b> par date croissante. <b>En cours</b>, <b>À finaliser</b>, <b>Historique</b> par date décroissante.</li>
+<li>Les avatars affichent au maximum quatre visages, le reste en « +N ». L'ordre suit celui de la convocation, pas l'alphabet.</li>
+<li>Un point passé non démarré reste visible : il ne disparaît jamais silencieusement.</li>
+<li>Les compteurs de sous-onglet se recalculent à chaque changement d'état, sans rechargement.</li>
+<li>Un seul point peut être « En cours » à la fois. Si un second est démarré, le premier est signalé dans son sous-onglet.</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 02 · CRÉER — PLAN ══════════ -->
+<section class="page scr" data-screen-label="02 Créer un point · plan">
+<header class="sh"><div class="sh-n">02</div><div class="sh-t"><h3>Créer un point</h3><div class="sh-p">Points projet › Créer un point — modale</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/sm-A7-creer.png" alt="Modale Créer un point projet"><span class="pin" style="left:32%;top:18%">1</span><span class="pin" style="left:40%;top:32%">2</span><span class="pin" style="left:31%;top:41%">3</span><span class="pin" style="left:31%;top:50%">4</span><span class="pin" style="left:31%;top:60%">5</span><span class="pin" style="left:31%;top:70%">6</span><span class="pin" style="left:65%;top:82%">7</span></figure><div class="shot-cap">Capture réelle · modale « Créer un point projet »</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Création d'une séance en un seul écran. Le type choisi et la série rattachée pré-remplissent le reste : modèle d'ordre du jour, cadence, participants. L'utilisateur valide plus qu'il ne saisit — c'est le critère de réussite de cette modale.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> Icône, titre « Créer un point projet », sous-titre « La préparation détaillée s'ouvre après la création. », croix de fermeture.</li>
+<li><b>Type d'instance</b> — champ obligatoire, astérisque ambre. Choix segmentés, une seule sélection, fond ambre clair sur l'option retenue.</li>
+<li><b>Titre</b> — champ texte pleine largeur, placeholder « Ex : COPROJ — Semaine 22 ».</li>
+<li><b>Objectif de la séance</b> — une ligne, placeholder « Ex : suivi hebdomadaire des chantiers et blocages ».</li>
+<li><b>Équipe ou série</b> et <b>Date (facultative)</b> — deux champs sur une ligne. La série porte la cadence et l'équipe permanente ; sans date, le point rejoint la prochaine occurrence de la série.</li>
+<li><b>Modèle d'ordre du jour</b> — liste déroulante, « Modèle COPROJ standard (5 points) ». Détermine les lignes pré-remplies de l'écran 03.</li>
+<li><b>Pied de modale.</b> « Annuler » en secondaire, « Créer et préparer » en primaire noir.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>La maquette n'offre que <b>deux types</b> : COPROJ et COPIL. <b>COTECH, CODIR, Revue et Ad hoc</b> restent à ajouter, chacun avec son modèle d'ordre du jour.</li>
+<li><b>Horaire, durée, lieu et participants</b> sont absents : soit hérités de la série, soit à ajouter à la modale. À trancher avant développement.</li>
+<li>Il n'existe pas de bouton <b>« Créer »</b> seul : la création enchaîne toujours sur la préparation.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Effet du changement de type</div><ul>
+<li>Intitulé, horaire, durée, récurrence, participants, ordre du jour et bandeau de règle sont tous rechargés</li>
+<li>Une valeur modifiée à la main est <b>écrasée</b> par le changement de type — un avertissement le signale avant</li>
+<li>Le sous-titre d'en-tête et la couleur d'accent de la pastille suivent le type</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>Bouton « Créer un point » du dashboard, ou clic sur un jour vide du calendrier — la date est alors pré-remplie.</p><div class="sf-h mt">Sortie</div><p>« Créer » ferme et retourne au dashboard. « Créer et préparer » enchaîne sur l'écran 03.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Type « Ad hoc » : la récurrence est positionnée sur « Ponctuel » et le bandeau de règle annonce qu'aucune série ne sera générée.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 02 · CRÉER — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="02 Créer un point · comportement">
+<div class="bhv-h"><div class="n">02</div><h4>Créer un point — comportement</h4><div class="tag">Interactions · validations · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Ouverture</b> → la modale apparaît par-dessus l'écran assombri, le focus est placé dans l'intitulé avec le texte présélectionné.</li>
+<li><b>Clic sur une pastille de type</b> → recharge les zones 3 à 7. Si l'utilisateur avait modifié un champ, une confirmation le prévient d'abord.</li>
+<li><b>Clic sur un avatar</b> → coche ou décoche. Un participant décoché passe en avatar atténué, il n'est pas retiré de la liste.</li>
+<li><b>Clic sur « + Ajouter »</b> → champ de recherche dans l'annuaire, résultats filtrés à la frappe.</li>
+<li><b>Ligne d'ordre du jour</b> → intitulé et durée éditables en place, poignée de réordonnancement à gauche, suppression à droite.</li>
+<li><b>Échap, croix, clic hors modale</b> → ferme après confirmation si un champ a été modifié, sans confirmation sinon.</li>
+<li><b>« Créer »</b> → crée le point, ferme la modale, revient au dashboard avec la nouvelle carte mise en évidence et un toast.</li>
+<li><b>« Créer et préparer »</b> → crée le point et ouvre directement l'écran 03.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Contrôles bloquants</div>
+<div class="msg">Intitulé vide : <q>Donnez un intitulé à la séance.</q> — les deux boutons de création sont désactivés.</div>
+<div class="msg">Date dans le passé : <q>La date de séance est déjà passée. Choisissez une date à venir.</q></div>
+<div class="msg">Aucun participant coché : <q>Convoquez au moins un participant.</q></div>
+<div class="msg">Ordre du jour vide : <q>Un point projet a besoin d'au moins une ligne à l'ordre du jour.</q></div>
+</div>
+<div class="blk"><div class="blk-h">Avertissements non bloquants</div>
+<div class="msg warn">Durée cumulée de l'ordre du jour supérieure à la durée de séance : <q>L'ordre du jour dépasse la durée prévue de 15 min.</q></div>
+<div class="msg warn">Changement de type après modification : <q>Changer de type réinitialise l'intitulé, l'horaire, les participants et l'ordre du jour. Continuer ?</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de la modale</div><ul class="lst">
+<li><b>Normal</b> — type COPROJ pré-sélectionné, tout pré-rempli, actions actives.</li>
+<li><b>Invalide</b> — message sous le champ fautif, bordure du champ en rouge, boutons de création désactivés. Le message apparaît à la sortie du champ, pas à la frappe.</li>
+<li><b>Envoi en cours</b> — bouton primaire en attente, libellé inchangé, modale non fermable.</li>
+<li><b>Échec de création</b> — bandeau d'erreur en haut de la modale, saisie intégralement conservée.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Retour au dashboard après création</div><ul class="lst">
+<li>La nouvelle carte s'insère en tête du sous-onglet « À préparer », qui devient actif.</li>
+<li>Elle est mise en évidence 1,6 s puis reprend son apparence normale.</li>
+<li>Un toast confirme : <b>« COPROJ — Semaine 21 créé. »</b> avec une action « Préparer » et une action « Annuler la création ».</li>
+<li>L'annulation reste possible pendant l'affichage du toast, 6 s.</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 03 · PRÉPARER — PLAN ══════════ -->
+<section class="page scr" data-screen-label="03 Préparer · plan">
+<header class="sh"><div class="sh-n">03</div><div class="sh-t"><h3>Préparer la séance</h3><div class="sh-p">Points projet › COPIL — Mai › Préparer</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/sm-A8-preparation.png" alt="Modale Préparer l’instance"><span class="pin" style="left:32%;top:9%">1</span><span class="pin" style="left:31%;top:23%">2</span><span class="pin" style="left:29%;top:31%">3</span><span class="pin" style="left:30%;top:42%">4</span><span class="pin" style="left:29%;top:67%">5</span><span class="pin" style="left:30%;top:86%">6</span><span class="pin" style="left:63%;top:91%">7</span></figure><div class="shot-cap">Capture réelle · modale « Préparer l’instance »</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Construction de l'ordre du jour avant la séance. C'est l'écran qui détermine la qualité du comité : un ordre du jour typé, minuté et porté produit une séance qui décide. Tout ce qui vient de l'amont doit y arriver sans saisie.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> « Préparer l'instance », sous-titre « Ordre du jour, supports et points à arbitrer ».</li>
+<li><b>Bandeau de séance.</b> Fond bleuté typé COPROJ : pastille date, intitulé, badge de type, horaire et lieu.</li>
+<li><b>Section « ORDRE DU JOUR »</b> avec le lien « + Ajouter un point » aligné à droite du titre de section.</li>
+<li><b>Ligne de point.</b> Poignée de réordonnancement, numéro en pastille ambre, intitulé éditable, durée cible, croix de suppression.</li>
+<li><b>Section « SUPPORTS DE SÉANCE »</b> avec « + Joindre un fichier ». Une ligne par fichier : icône, nom, format et poids, lien « Voir ».</li>
+<li><b>Section « POINTS À ARBITRER ».</b> Les sujets qui attendent une décision en séance, repris de l'amont ou ajoutés ici.</li>
+<li><b>Pied de modale.</b> « Enregistrer le brouillon », « Démarrer la séance », « Envoyer la convocation » en primaire.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li><b>Porteur</b> et <b>nature</b> (information / décision / arbitrage) manquent sur chaque ligne : ce sont eux qui pilotent les contrôles avant de figer. À ajouter.</li>
+<li>La <b>durée cumulée</b> comparée à la durée de séance n'est pas affichée.</li>
+<li>Le <b>panneau de reprise</b> existe hors de la modale, dans la colonne « Continuité du pilotage » : il doit être rapatrié dans la préparation, chaque élément ajoutable en un clic.</li>
+<li>Il n'y a pas d'action « <b>Figer l'ordre du jour</b> » : la maquette fige implicitement à l'envoi de la convocation.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Ce que la reprise apporte, sans saisie</div><ul>
+<li><b>Actions ouvertes</b> du point précédent de la même série, avec porteur et échéance</li>
+<li><b>Décisions non appliquées</b> redescendues du niveau supérieur</li>
+<li><b>Sujets remontés</b> par les instances de niveau inférieur depuis la dernière séance</li>
+<li>Pour un COPIL : <b>synthèse consolidée</b> des COPROJ tenus depuis la séance précédente</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>« Préparer › » depuis le dashboard, « Créer et préparer » depuis la modale 02.</p><div class="sf-h mt">Sortie</div><p>« Figer l'ordre du jour » → ouvre la modale de convocation 04. Le point passe en « À venir » à l'envoi.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Ordre du jour déjà figé : l'écran s'ouvre en lecture, avec un bouton « Rouvrir l'ordre du jour » qui prévient que les participants seront renotifiés.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 03 · PRÉPARER — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="03 Préparer · comportement">
+<div class="bhv-h"><div class="n">03</div><h4>Préparer la séance — comportement</h4><div class="tag">Interactions · contrôles · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Glisser une ligne</b> → réordonne, renumérote, met à jour la durée cumulée. Enregistré au relâchement.</li>
+<li><b>Frappe dans un intitulé</b> → enregistré sans bouton, mention « Enregistré automatiquement » mise à jour.</li>
+<li><b>Choix d'une nature « décision » ou « arbitrage »</b> → le porteur devient obligatoire, un contrôle apparaît s'il manque.</li>
+<li><b>Clic sur « Ajouter à l'ordre du jour »</b> dans le panneau de reprise → l'élément quitte le panneau, devient une ligne d'ordre du jour, conserve la mention de son origine.</li>
+<li><b>Retirer un sujet remonté</b> → demande une justification, tracée et visible dans la séance d'origine.</li>
+<li><b>Dépôt d'un fichier</b> → rattaché au point courant, ou à la séance si aucun point n'est sélectionné.</li>
+<li><b>Clic sur un contrôle manquant</b> → défile jusqu'au champ concerné et le focalise.</li>
+<li><b>« Figer l'ordre du jour »</b> → ouvre la modale 04. L'ordre du jour devient non éditable en arrière-plan.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Contrôles bloquants avant de figer</div>
+<div class="msg">Point de nature décision ou arbitrage sans porteur : <q>Le point « Go/No Go recette » attend une décision : désignez un porteur.</q></div>
+<div class="msg">Ligne sans intitulé : <q>Une ligne de l'ordre du jour est vide. Complétez-la ou supprimez-la.</q></div>
+<div class="msg">Aucun participant : <q>Convoquez au moins un participant avant de figer l'ordre du jour.</q></div>
+</div>
+<div class="blk"><div class="blk-h">Avertissements non bloquants</div>
+<div class="msg warn">Dépassement : <q>1 h 45 d'ordre du jour pour 1 h 30 de séance — 15 min de trop.</q></div>
+<div class="msg warn">Point sans durée : <q>3 points n'ont pas de durée cible.</q></div>
+<div class="msg warn">Document manquant sur un point de décision : <q>Aucun support rattaché au point de décision.</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>Non figé</b> — état de travail par défaut. Tout est éditable, la barre basse propose « Figer l'ordre du jour ».</li>
+<li><b>Prêt à figer</b> — aucun contrôle bloquant : le bloc contrôles affiche « Prêt à figer », le bouton primaire passe en ambre plein.</li>
+<li><b>Figé</b> — lecture seule, bandeau en haut « Ordre du jour figé le 14 mai à 17:32 · 6 participants convoqués », bouton « Rouvrir l'ordre du jour ».</li>
+<li><b>Rouvert</b> — retour à l'état de travail, bandeau d'avertissement « Les participants seront renotifiés à la prochaine convocation ».</li>
+<li><b>Reprise vide</b> — première séance d'une série : le panneau ambre affiche « Aucun élément à reprendre — c'est la première séance de cette série. »</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Durée cumulée — comportement du compteur</div><ul class="lst">
+<li>Affichée en permanence dans l'en-tête, sous la forme <b>cumul / durée de séance</b>.</li>
+<li>Neutre tant que le cumul est inférieur ou égal à la durée. Ambre au-delà. Jamais rouge : ce n'est pas une erreur.</li>
+<li>Recalculée à chaque modification de durée, ajout, suppression ou réordonnancement.</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 04 · CONVOCATION — PLAN ══════════ -->
+<section class="page scr" data-screen-label="04 Convocation · plan">
+<header class="sh"><div class="sh-n">04</div><div class="sh-t"><h3>Envoyer la convocation</h3><div class="sh-p">Préparer › Figer l'ordre du jour › Convocation — modale</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/spec-04-convocation.png" alt="Modale Envoyer les convocations"><span class="pin" style="left:17%;top:9%">1</span><span class="pin" style="left:27%;top:20%">2</span><span class="pin" style="left:27%;top:33%">3</span><span class="pin" style="left:27%;top:46%">4</span><span class="pin" style="left:27%;top:58%">5</span><span class="pin" style="left:27%;top:74%">6</span><span class="pin" style="left:69%;top:18%">7</span><span class="pin" style="left:69%;top:57%">8</span><span class="pin" style="left:69%;top:73%">9</span><span class="pin" style="left:80%;top:90%">10</span></figure><div class="shot-cap">Capture réelle · modale « Envoyer les convocations », deux volets</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Diffusion de la convocation aux participants. L'écran garantit une chose : l'émetteur voit exactement ce que le participant va recevoir, avant d'envoyer. L'aperçu n'est pas un supplément, c'est le cœur de l'écran.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> « Envoyer les convocations » et, en sous-titre, le rappel de la séance : intitulé, horaire, lieu.</li>
+<li><b>« EXPÉDITEUR ».</b> Carte en lecture : avatar, nom, rôle, adresse d'envoi.</li>
+<li><b>« DESTINATAIRES · 7 PERSONNES ».</b> Un jeton nominatif par participant, avec croix de retrait, puis un jeton pointillé « + Ajouter ».</li>
+<li><b>« OBJET ».</b> Pré-rempli à partir du type et de la date : « COPIL — Comité de pilotage — Q2 · 23 Mai ».</li>
+<li><b>« MESSAGE D'INTRODUCTION ».</b> Zone de texte pré-remplie, redimensionnable, librement modifiable.</li>
+<li><b>« CONTENU DE L'ENVOI ».</b> Cases à cocher, chacune suivie d'une ligne qui explique son effet pour le participant.</li>
+<li><b>« APERÇU REÇU PAR LE PARTICIPANT ».</b> Volet droit. En-tête coloré selon le type, avec sigle, intitulé, date, horaire et lieu.</li>
+<li><b>Ordre du jour de l'aperçu.</b> Numéro ambre, intitulé, durée cible — le reflet exact de l'écran 03.</li>
+<li><b>« PIÈCES JOINTES (5) ».</b> Une ligne par fichier, invitation .ics comprise.</li>
+<li><b>Pied de modale.</b> « Annuler », « M'envoyer un test », « Envoyer les convocations » en primaire.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>La <b>demande de confirmation de présence</b> et la <b>relance automatique à J-2</b> ne figurent pas dans la liste de contenu : à ajouter.</li>
+<li>Le <b>suivi nominatif des réponses</b> au retour dans l'écran 03 reste à produire.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Ce que l'envoi déclenche</div><ul>
+<li>Le point passe de « À préparer » à <b>« À venir »</b></li>
+<li>L'ordre du jour devient non éditable sans réouverture explicite</li>
+<li>Le bloc de suivi des réponses apparaît dans l'écran 03</li>
+<li>La relance à J-2 est programmée si l'option était cochée</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>« Figer l'ordre du jour » depuis l'écran 03. Également accessible depuis la carte d'un point à venir, pour renvoyer.</p><div class="sf-h mt">Sortie</div><p>Retour à l'écran 03, complété du bloc de suivi des réponses.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Renvoi d'une convocation déjà envoyée : l'en-tête indique « 2ᵉ envoi » et le message pré-rempli mentionne la mise à jour de l'ordre du jour.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 04 · CONVOCATION — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="04 Convocation · comportement">
+<div class="bhv-h"><div class="n">04</div><h4>Envoyer la convocation — comportement</h4><div class="tag">Aperçu · envoi · suivi · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Bascule d'une option</b> → l'aperçu se recompose immédiatement, sans rechargement ni clignotement. Le récapitulatif de la barre d'action suit.</li>
+<li><b>Décocher un destinataire</b> → le compteur d'en-tête et de barre décrémente. Le participant reste convoqué à la séance.</li>
+<li><b>Frappe dans le message</b> → l'aperçu reflète le texte au fil de la saisie.</li>
+<li><b>Clic dans l'aperçu</b> → aucun effet. L'aperçu n'est pas interactif.</li>
+<li><b>« Envoyer les convocations »</b> → envoi, fermeture de la modale, retour à l'écran 03, toast de confirmation.</li>
+<li><b>« Relancer les non-répondants »</b> → renvoie la demande de confirmation aux seuls participants en attente, et le confirme nominativement.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Suivi des réponses — bloc de l'écran 03</div><ul class="lst">
+<li>Trois compteurs en tête : <b>acceptés</b>, <b>refusés</b>, <b>en attente</b>.</li>
+<li>Liste nominative en dessous : nom, rôle, statut, date de réponse.</li>
+<li>Un refus affiche le motif s'il a été saisi par le participant.</li>
+<li>Le bouton de relance n'apparaît que s'il reste au moins un participant en attente.</li>
+<li>Une réponse reçue met le bloc à jour sans rechargement de l'écran.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg ok">Toast d'envoi : <q>6 convocations envoyées.</q></div>
+<div class="msg ok">Toast de relance : <q>Relance envoyée à 2 participants.</q></div>
+<div class="msg">Aucun destinataire coché : <q>Cochez au moins un destinataire.</q> — l'envoi est désactivé.</div>
+<div class="msg">Échec d'envoi partiel : <q>4 convocations envoyées, 2 en échec. Réessayer pour les 2 destinataires concernés ?</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>Premier envoi</b> — toutes les options cochées, tous les destinataires cochés.</li>
+<li><b>Renvoi</b> — en-tête « 2ᵉ envoi », options conservées de l'envoi précédent, message pré-rempli mentionnant la mise à jour.</li>
+<li><b>Envoi en cours</b> — bouton primaire en attente, modale non fermable, aperçu figé.</li>
+<li><b>Échec partiel</b> — la modale reste ouverte, liste des destinataires en échec, réessai ciblé possible.</li>
+<li><b>Aperçu minimal</b> — toutes les options décochées : l'aperçu affiche le message nu et le prévient : « Aucune pièce jointe, aucune invitation calendrier. »</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 05 · DÉMARRER — PLAN ══════════ -->
+<section class="page scr" data-screen-label="05 Démarrer · plan">
+<header class="sh"><div class="sh-n">05</div><div class="sh-t"><h3>Démarrer la séance</h3><div class="sh-p">Points projet › COPIL — Mai › Démarrer</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div class="todo"><div class="todo-t">Écran à créer — absent de la maquette</div><p class="todo-p">La maquette démarre la séance directement depuis le pied de la modale « Préparer l'instance ». Il n'existe aucun sas d'émargement. Le plan ci-dessous est donc un schéma de blocs à implémenter, pas une capture.</p></div><div class="wf">
+<div class="wf-cap">Plan de l'écran de lancement · une colonne centrée, 880 px</div>
+<div class="wb ink"><span class="wn">1</span><div class="wt">COPIL — Mai · aujourd'hui 14:00 – 15:30</div><div class="wm">Salle Horizon / Teams · badge de type · « Prêt à démarrer »</div></div>
+<div class="wb"><span class="wn">2</span><div class="wt">Émargement — qui est présent ?</div><div class="wcol" style="margin-top:1.6mm;gap:1.2mm"><div class="wrow"><div class="wb sunk" style="flex:2.4"><div class="wt">M. Dubois · Chef de projet</div><div class="wm">A accepté la convocation</div></div><div class="wb" style="flex:1"><div class="wbar"><span class="wchip on">Présent</span><span class="wchip">Absent</span><span class="wchip">Excusé</span></div></div></div><div class="wrow"><div class="wb sunk" style="flex:2.4"><div class="wt">C. Lasserre · Sponsor</div><div class="wm">A refusé — « en déplacement »</div></div><div class="wb" style="flex:1"><div class="wbar"><span class="wchip">Présent</span><span class="wchip">Absent</span><span class="wchip on">Excusé</span></div></div></div></div><div class="wm" style="margin-top:1.4mm">Position initiale déduite de la réponse à la convocation · modifiable</div></div>
+<div class="wb"><span class="wn">3</span><div class="wt">Ordre du jour de la séance — 5 points · 1 h 15 prévues</div><div class="wm">Liste en lecture seule : n° · intitulé · porteur · durée · nature</div></div>
+<div class="wb tint"><span class="wn">4</span><div class="wt">À traiter en priorité</div><div class="wm">2 arbitrages attendus · 3 actions reportées du point précédent · 1 décision du COPIL à appliquer</div></div>
+<div class="wb dash"><span class="wn">5</span><div class="wt">Contrôles avant démarrage</div><div class="wm">Affiché seulement si un contrôle échoue — ordre du jour non figé, aucun présent</div></div>
+<div class="wb"><span class="wn">6</span><div class="wbar"><span class="wm" style="flex:1">4 présents · 1 excusé · 1 absent</span><span class="wbtn sec">Ajuster l'ordre du jour</span><span class="wbtn gold">Démarrer la séance</span></div></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Sas d'entrée en séance. Deux gestes seulement : constater qui est là, et lancer. L'écran existe pour que l'émargement soit fait avant le premier point, pas reconstitué après coup — c'est lui qui donne sa valeur probante au compte-rendu.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête de séance.</b> Identité de la séance et confirmation qu'elle est prête à démarrer.</li>
+<li><b>Émargement.</b> Une ligne par convoqué : nom, rôle, réponse donnée à la convocation, puis trois positions exclusives — présent, absent, excusé. La position initiale est déduite de la réponse : accepté donne présent, refusé donne excusé, sans réponse donne absent.</li>
+<li><b>Ordre du jour.</b> En lecture seule. Sert de dernière relecture avant d'entrer en séance.</li>
+<li><b>À traiter en priorité.</b> Bloc ambre : ce que la séance doit absolument trancher, repris de la préparation.</li>
+<li><b>Contrôles.</b> Masqué si tout est en ordre.</li>
+<li><b>Barre d'action.</b> Décompte de l'émargement à gauche, « Démarrer la séance » en primaire à droite.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Ce que le démarrage enregistre</div><ul class="lst">
+<li><b>L'heure réelle de démarrage</b>, distincte de l'heure planifiée.</li>
+<li><b>L'émargement d'ouverture</b>, qui reste modifiable en séance jusqu'à la clôture.</li>
+<li><b>Le passage du point en « En cours »</b>, visible immédiatement au dashboard.</li>
+<li><b>L'ouverture du premier point</b> de l'ordre du jour, avec son minuteur.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Disponibilité de l'écran</div><ul>
+<li>Accessible dès <b>30 min avant</b> l'heure planifiée, et jusqu'à ce que la séance soit démarrée</li>
+<li>Avant cette fenêtre, la carte du dashboard propose « Préparer › », pas « Démarrer › »</li>
+<li>Un démarrage <b>anticipé</b> ou <b>tardif</b> est autorisé : l'heure réelle est enregistrée telle quelle</li>
+<li>Une séance déjà démarrée redirige vers l'écran 06, sans repasser par ici</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>« Démarrer › » sur la carte du point, le jour de la séance. Ou reprise directe si la séance est déjà en cours.</p><div class="sf-h mt">Sortie</div><p>« Démarrer la séance » → écran 06, premier point ouvert, chronomètre lancé.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Ordre du jour non figé : le démarrage est refusé, et « Ajuster l'ordre du jour » renvoie à l'écran 03.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 05 · DÉMARRER — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="05 Démarrer · comportement">
+<div class="bhv-h"><div class="n">05</div><h4>Démarrer la séance — comportement</h4><div class="tag">Émargement · lancement · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Clic sur une position d'émargement</b> → bascule exclusive, enregistrée immédiatement, décompte de la barre mis à jour.</li>
+<li><b>Clic sur « Tous présents »</b> → positionne tout le monde sur présent en un geste, réponses à la convocation ignorées.</li>
+<li><b>Clic sur « Ajuster l'ordre du jour »</b> → ouvre l'écran 03 en réouverture, avec l'avertissement de renotification.</li>
+<li><b>Clic sur « Démarrer la séance »</b> → enregistre l'heure réelle, fait basculer l'état, ouvre l'écran 06 sur le premier point.</li>
+<li><b>Ajout d'un participant non convoqué</b> → possible ici, marqué « présent, non convoqué » au compte-rendu.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Contrôles</div>
+<div class="msg">Ordre du jour non figé : <q>L'ordre du jour n'est pas figé. Figez-le avant de démarrer la séance.</q></div>
+<div class="msg">Aucun présent : <q>Aucun participant n'est marqué présent. Une séance sans présent ne peut pas démarrer.</q></div>
+<div class="msg warn">Séance d'un autre point déjà en cours : <q>Une séance est déjà en cours sur ce projet : COPROJ — Semaine 20. Clôturez-la avant d'en démarrer une autre.</q></div>
+<div class="msg warn">Quorum non atteint pour un COPIL : <q>2 sponsors sur 3 sont absents. Les arbitrages pris pourront être contestés.</q></div>
+</div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>Prêt</b> — ordre du jour figé, au moins un présent : bouton primaire actif.</li>
+<li><b>Bloqué</b> — bloc de contrôles visible, bouton primaire désactivé, chaque contrôle cliquable vers sa correction.</li>
+<li><b>Trop tôt</b> — hors fenêtre de 30 min : l'écran affiche l'heure d'ouverture du démarrage et propose la préparation.</li>
+<li><b>En retard</b> — heure planifiée dépassée : mention « Séance prévue à 14:00 — il est 14:22 », sans blocage.</li>
+</ul></div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Règles de l'émargement</div><ul class="lst">
+<li>Trois positions seulement : <b>présent</b>, <b>absent</b>, <b>excusé</b>. Pas d'état intermédiaire, pas de champ libre.</li>
+<li><b>Excusé</b> signifie absent avec motif connu : la distinction figure au compte-rendu.</li>
+<li>L'émargement reste modifiable pendant toute la séance, et se <b>fige à la clôture</b>.</li>
+<li>Le taux de présence du compte-rendu est calculé sur cet émargement figé, jamais sur les réponses à la convocation.</li>
+<li>Un participant ajouté en séance n'apparaît pas rétroactivement dans la convocation.</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 06 · DÉROULEMENT — PLAN ══════════ -->
+<section class="page scr" data-screen-label="06 Déroulement · plan">
+<header class="sh"><div class="sh-n">06</div><div class="sh-t"><h3>Déroulement de la séance</h3><div class="sh-p">Points projet › COPIL — Mai › En séance</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/sm-A9-seance.png" alt="Modale Animer la séance"><span class="pin" style="left:26%;top:9%">1</span><span class="pin" style="left:22%;top:21%">2</span><span class="pin" style="left:18%;top:31%">3</span><span class="pin" style="left:18%;top:56%">4</span><span class="pin" style="left:44%;top:29%">5</span><span class="pin" style="left:44%;top:37%">6</span><span class="pin" style="left:42%;top:46%">7</span><span class="pin" style="left:42%;top:58%">8</span><span class="pin" style="left:44%;top:73%">9</span><span class="pin" style="left:72%;top:82%">10</span><span class="pin" style="left:70%;top:91%">11</span></figure><div class="shot-cap">Capture réelle · modale « Animer la séance », point 1 sur 5</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Animation du comité. On déroule l'ordre du jour point par point et on saisit ce qui se dit au moment où ça se dit. L'objectif est qu'à la fin de la séance le compte-rendu soit déjà écrit — pas à rédiger le lendemain.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> « Animer la séance », puis séance, horaire et lieu en sous-titre.</li>
+<li><b>Barre de séance.</b> Pastille rouge « EN SÉANCE », chronomètre depuis le démarrage réel, décompte des présents, avancement « Point 1/5 · 0 traité ».</li>
+<li><b>« PRÉSENCE ».</b> Colonne gauche, une ligne par participant avec une bascule verte. Modifiable pendant toute la séance.</li>
+<li><b>« ORDRE DU JOUR ».</b> Stepper vertical : numéro, intitulé tronqué, badge de nature, durée cible. Le point courant est surligné en ambre.</li>
+<li><b>En-tête du point courant.</b> « Point 1 — … », durée prévue et nature en sous-ligne.</li>
+<li><b>Bascule de mode.</b> « Présentation / info » ou « Décision / arbitrage » — change la nature des champs de saisie en dessous.</li>
+<li><b>« RELEVÉ DE PRÉSENTATION ».</b> Champ de saisie et bouton « Noter ». Mention « Aucun élément relevé » tant que rien n'est consigné.</li>
+<li><b>« DOCUMENTS PRÉSENTÉS ».</b> Liste des supports de séance à lier, ou collage d'un lien externe avec bouton « Lier ».</li>
+<li><b>« Cette présentation mène à une décision → ».</b> Bascule le point en mode décision sans perdre le relevé déjà saisi.</li>
+<li><b>« Valider ce point › ».</b> Clôt le point courant et avance le stepper.</li>
+<li><b>Pied de modale.</b> « Suspendre » et « Clôturer &amp; générer le CR ».</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>Pas de <b>minuteur par point</b> : seul le chronomètre global existe. À ajouter, avec la durée réelle consommée affichée dans le stepper.</li>
+<li>Les quatre natures d'objet (<b>décision, action, risque, arbitrage</b>) passent par la bascule (6) et non par quatre boutons distincts. À trancher.</li>
+<li>Pas de <b>zone de notes libres</b> sur le point courant.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Le minuteur du point courant</div><ul>
+<li>Démarre au passage sur le point, s'arrête au passage au suivant</li>
+<li>Neutre jusqu'à la durée cible, <b>ambre au dépassement</b>. Jamais bloquant, jamais d'alerte sonore</li>
+<li>La durée réelle consommée reste affichée dans le stepper après le passage au point suivant</li>
+<li>Revenir sur un point déjà traité <b>reprend</b> son minuteur là où il s'était arrêté</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>« Démarrer la séance » depuis l'écran 05, ou « Reprendre la conduite › » depuis le dashboard.</p><div class="sf-h mt">Sortie</div><p>« Clôturer la séance » → écran 07.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Reprise après fermeture de l'onglet : l'écran se réouvre sur le point qui était courant, avec le chronomètre global recalculé depuis l'heure réelle de démarrage.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 06 · DÉROULEMENT — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="06 Déroulement · comportement">
+<div class="bhv-h"><div class="n">06</div><h4>Déroulement de la séance — comportement</h4><div class="tag">Saisie live · persistance · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Clic sur un point du stepper</b> → bascule le point courant. Le minuteur du point quitté s'arrête, celui du point ouvert démarre ou reprend. Aucune confirmation.</li>
+<li><b>« Point suivant › »</b> → marque le point courant comme traité et ouvre le suivant. Sur le dernier point, le bouton devient « Clôturer la séance ».</li>
+<li><b>Clic sur « + Décision »</b> → formulaire court en place, focalisé. Validation par Entrée, annulation par Échap.</li>
+<li><b>Routage d'une décision</b> → « router en action » pré-remplit le libellé de l'action ; le lien reste visible dans le compte-rendu.</li>
+<li><b>Verdict d'arbitrage</b> → trois boutons exclusifs. « Reporté » demande l'instance de destination.</li>
+<li><b>Frappe dans les notes</b> → enregistré en continu, mention « Enregistré » mise à jour.</li>
+<li><b>Modification de l'émargement</b> → enregistrée immédiatement, décompte de la barre mis à jour.</li>
+<li><b>« Clôturer la séance »</b> → passe à l'écran 07. Aucune donnée n'est figée à ce stade.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Persistance — la règle non négociable</div><ul class="lst">
+<li>Chaque saisie est enregistrée <b>au moment où elle est faite</b>. Aucun bouton « Enregistrer » n'existe sur cet écran.</li>
+<li>Fermer l'onglet, perdre le réseau, changer de poste : rien n'est perdu.</li>
+<li>La reprise rouvre <b>le point qui était courant</b>, pas le premier point.</li>
+<li>Le chronomètre global est recalculé depuis l'heure réelle de démarrage, jamais depuis l'ouverture de l'écran.</li>
+<li>Hors réseau, la saisie continue localement et se synchronise au retour ; un indicateur discret signale l'état.</li>
+</ul></div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>En séance</b> — état normal, tout est saisissable.</li>
+<li><b>Dépassement de point</b> — minuteur ambre, mention « +4 min » à côté. Aucun blocage.</li>
+<li><b>Dépassement de séance</b> — chronomètre global ambre, mention « séance prévue 1 h 30 ».</li>
+<li><b>Hors réseau</b> — bandeau discret « Saisie enregistrée localement — synchronisation en attente ».</li>
+<li><b>Reprise</b> — bandeau à l'ouverture : « Séance reprise — démarrée à 14:22, point 3 sur 5 ».</li>
+<li><b>Séance oubliée</b> — plus de 24 h sans clôture : bandeau rouge « Séance non clôturée depuis hier 15:30 » et invitation à clôturer.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg warn">Dépassement de point : <q>+4 min sur ce point</q></div>
+<div class="msg">Action sans porteur au moment de clôturer : <q>2 actions n'ont pas de porteur. Une action sans porteur ne peut pas être diffusée.</q></div>
+<div class="msg">Arbitrage sans verdict : <q>L'arbitrage « Renfort UX 0,5 ETP » attend un verdict : adopté, rejeté ou reporté.</q></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 09 · AJOUTS EN SÉANCE ══════════ -->
+<section class="page scr" data-screen-label="09 Ajouts en séance · plan">
+<header class="sh"><div class="sh-n">09</div><div class="sh-t"><h3>Ajouter un point, un fichier, un participant</h3><div class="sh-p">Préparer l'instance · Animer la séance — ajouts à la volée</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4mm">
+<div><figure class="shot"><img src="screenshots/pp/sm-A8-preparation.png" alt="Ajouts en préparation"><span class="pin" style="left:88%;top:31%">1</span><span class="pin" style="left:88%;top:67%">2</span><span class="pin" style="left:71%;top:42%">3</span></figure><div class="shot-cap">Avant la séance · « Préparer l'instance »</div></div>
+<div><figure class="shot"><img src="screenshots/pp/sm-A9-seance.png" alt="Ajouts en séance"><span class="pin" style="left:27%;top:31%">4</span><span class="pin" style="left:48%;top:58%">5</span><span class="pin" style="left:62%;top:64%">6</span><span class="pin" style="left:18%;top:80%">7</span></figure><div class="shot-cap">Pendant la séance · « Animer la séance »</div></div>
+</div>
+<div class="blk" style="margin-top:4mm"><div class="blk-h">Le principe</div><p class="role">Une séance ne se déroule jamais comme elle a été préparée. Un sujet surgit, un document manque, un invité de dernière minute arrive. Si ces trois gestes ne sont pas possibles <b>sans quitter la séance</b>, l'animateur prend ses notes ailleurs — et le compte-rendu est perdu.</p></div>
+</div>
+<div>
+<div class="blk zon"><div class="blk-h">Les sept points d'ajout</div><ol>
+<li><b>« + Ajouter un point »</b> (préparation) — ajoute une ligne vide en fin d'ordre du jour, focalisée immédiatement. Entrée valide et enchaîne sur une nouvelle ligne.</li>
+<li><b>« + Joindre un fichier »</b> (préparation) — sélecteur de fichier, ou dépôt direct dans la zone. Le fichier est rattaché au point sélectionné, ou à la séance à défaut.</li>
+<li><b>Croix de suppression de ligne</b> — retire un point non traité. Une ligne reprise de l'amont demande une justification.</li>
+<li><b>Ajout d'un participant en séance</b> — sous la liste de présence, un champ de recherche dans l'annuaire. Le participant est marqué « présent, non convoqué ».</li>
+<li><b>« Lier un support de séance »</b> — liste déroulante des documents déjà rattachés à la séance, à lier au point courant.</li>
+<li><b>« …ou coller un lien externe » + « Lier »</b> — pour ce qui n'est pas un fichier : ticket, tableau, note partagée.</li>
+<li><b>« + Ajouter un point » en séance</b> — à ajouter : insère un point à la suite du point courant, sans décaler la numérotation des points déjà traités.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>Le geste <b>7 — ajouter un point pendant la séance</b> n'existe pas. C'est le manque le plus gênant : un sujet imprévu n'a nulle part où aller.</li>
+<li>Le geste <b>4 — ajouter un participant en séance</b> n'existe pas : la liste de présence est figée sur les convoqués.</li>
+<li>On ne peut pas <b>joindre un nouveau fichier pendant la séance</b> : seuls les supports préparés sont liables (geste 5).</li>
+<li>Aucun <b>report de point</b> vers la séance suivante : un point non traité disparaît.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Ce qu'un ajout en séance ne doit jamais faire</div><ul>
+<li><b>Renuméroter</b> les points déjà traités — leur numéro figure déjà dans les notes prises</li>
+<li><b>Réinitialiser</b> le chronomètre de séance ou le minuteur du point courant</li>
+<li><b>Faire perdre</b> la saisie en cours sur le point courant</li>
+<li><b>Renotifier</b> les participants : la séance est en cours, la convocation est derrière nous</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>Les gestes 1 à 3 depuis l'écran 03, les gestes 4 à 7 depuis l'écran 06, à tout moment de la séance.</p><div class="sf-h mt">Sortie</div><p>Aucune navigation : chaque ajout se fait en place et l'animateur reste sur son point.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Point ajouté puis non traité à la clôture : il est signalé dans le bloc ambre de l'écran 07 et proposé à l'ordre du jour de la séance suivante.</p></div>
+</div>
+</section>
+<section class="page bhv" data-screen-label="09 Ajouts en séance · comportement">
+<div class="bhv-h"><div class="n">09</div><h4>Ajouts à la volée — comportement</h4><div class="tag">Gestes · numérotation · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Ajouter un point — en préparation et en séance</div><ul class="lst">
+<li><b>En préparation</b> : la nouvelle ligne s'ajoute en fin de liste, vide et focalisée. Entrée valide et ouvre une ligne suivante. Échap sur une ligne vide la supprime.</li>
+<li><b>En séance</b> : le point s'insère <b>juste après le point courant</b>. Les points déjà traités gardent leur numéro ; les points à venir sont décalés.</li>
+<li>Un point ajouté en séance porte la mention <b>« ajouté en séance »</b> au compte-rendu — la différence entre ordre du jour arrêté et sujet surgi est tracée.</li>
+<li>Sa durée cible est vide : le minuteur tourne sans référence, sans signalement de dépassement.</li>
+<li>Le compteur d'avancement de la barre de séance passe de « Point 3/5 » à « Point 3/6 » immédiatement.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Joindre un fichier ou un lien</div><ul class="lst">
+<li><b>Dépôt</b> ou sélection de fichier, rattaché au point courant. Le rattachement est visible dans la ligne du point.</li>
+<li>Pendant l'envoi, la ligne du fichier affiche sa progression. Un échec laisse la ligne en erreur avec un bouton « Réessayer », sans bloquer la séance.</li>
+<li><b>Lien externe</b> : collage puis « Lier ». Le titre de la page est récupéré si possible, sinon l'URL fait office de libellé.</li>
+<li>Un fichier joint en séance est <b>diffusé avec le compte-rendu</b>, au même titre qu'un support préparé.</li>
+<li>Aucun fichier n'est supprimable après diffusion du compte-rendu.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Ajouter un participant en séance</div><ul class="lst">
+<li>Recherche dans l'annuaire sous la liste de présence, résultats filtrés à la frappe.</li>
+<li>Le participant arrive en <b>« présent »</b>, avec la mention « non convoqué ».</li>
+<li>Il n'est <b>pas ajouté rétroactivement</b> à la convocation, et ne reçoit pas d'invitation.</li>
+<li>Il reçoit le compte-rendu à la diffusion, comme les autres présents.</li>
+<li>Le décompte de présence de la barre de séance l'inclut aussitôt : « 5/6 » devient « 6/7 ».</li>
+</ul></div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg ok">Point ajouté en séance : <q>Point ajouté à la suite du point courant.</q></div>
+<div class="msg ok">Participant ajouté : <q>C. Martin ajoutée — présente, non convoquée.</q></div>
+<div class="msg warn">Suppression d'un point repris de l'amont : <q>Ce point vient du COPROJ S19. Indiquez pourquoi il est retiré.</q></div>
+<div class="msg warn">Point ajouté sans durée : <q>Ce point n'a pas de durée cible — le minuteur tourne sans référence.</q></div>
+<div class="msg">Échec d'envoi de fichier : <q>« Support COPIL Q2.pptx » n'a pas pu être joint.</q> avec « Réessayer ».</div>
+<div class="msg">Fichier trop lourd : <q>Fichier limité à 25 Mo. « Support COPIL Q2.pptx » en fait 41 Mo.</q></div>
+</div>
+<div class="blk"><div class="blk-h">États</div><ul class="lst">
+<li><b>Ligne en saisie</b> — champ focalisé, bordure ambre, aucune validation tant que l'intitulé est vide.</li>
+<li><b>Fichier en cours d'envoi</b> — ligne présente avec sa progression, le reste de l'écran reste utilisable.</li>
+<li><b>Fichier en erreur</b> — ligne rouge, bouton « Réessayer », suppression possible.</li>
+<li><b>Annuaire vide</b> — aucun résultat : <q>Aucun collaborateur ne correspond.</q> avec la possibilité de saisir un nom libre pour un intervenant externe.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Critères de recette</div>
+<div class="ac"><div class="ac-t">R09.1 — Insertion sans renumérotation</div><p class="ac-l"><em>Étant donné</em> une séance au point 3 sur 5 avec les points 1 et 2 traités, <em>quand</em> j'ajoute un point, <em>alors</em> il devient le point 4, les points 1 et 2 gardent leur numéro, et l'avancement affiche « Point 3/6 ».</p></div>
+<div class="ac"><div class="ac-t">R09.2 — Ajout sans perte de saisie</div><p class="ac-l"><em>Étant donné</em> un relevé en cours de frappe sur le point courant, <em>quand</em> j'ajoute un point puis reviens, <em>alors</em> le texte saisi est intact et le minuteur n'a pas été réinitialisé.</p></div>
+<div class="ac"><div class="ac-t">R09.3 — Fichier joint en séance diffusé</div><p class="ac-l"><em>Étant donné</em> un fichier joint pendant la séance, <em>quand</em> je diffuse le compte-rendu, <em>alors</em> il figure parmi les documents de séance envoyés.</p></div>
+<div class="ac"><div class="ac-t">R09.4 — Participant non convoqué tracé</div><p class="ac-l"><em>Quand</em> j'ajoute un participant en séance, <em>alors</em> il apparaît au compte-rendu parmi les présents avec la mention « non convoqué », et n'a reçu aucune invitation.</p></div>
+<div class="ac"><div class="ac-t">R09.5 — Retrait justifié</div><p class="ac-l"><em>Étant donné</em> un point repris du point précédent, <em>quand</em> je le supprime, <em>alors</em> une justification est demandée et reste visible dans la séance d'origine.</p></div>
+<div class="ac"><div class="ac-t">R09.6 — Échec de fichier non bloquant</div><p class="ac-l"><em>Étant donné</em> un envoi de fichier en échec, <em>alors</em> la séance reste pleinement utilisable et la ligne propose un réessai.</p></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 07 · CLÔTURE — PLAN ══════════ -->
+<section class="page scr" data-screen-label="07 Clôture · plan">
+<header class="sh"><div class="sh-n">07</div><div class="sh-t"><h3>Clôture de la séance</h3><div class="sh-p">En séance › Clôturer la séance</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<div class="todo"><div class="todo-t">Écran à créer — absent de la maquette</div><p class="todo-p">La maquette clôture directement via « Clôturer &amp; générer le CR », sans écran de contrôle. Les trois contrôles bloquants n'existent nulle part aujourd'hui. Le plan ci-dessous est un schéma de blocs à implémenter, pas une capture.</p></div><div class="wf">
+<div class="wf-cap">Plan de l'écran de contrôle · une colonne centrée, 900 px</div>
+<div class="wb ink"><span class="wn">1</span><div class="wt">Clôturer COPIL — Mai</div><div class="wm">Séance de 1 h 34 · 5 points traités · démarrée 14:22, clôture 15:56</div></div>
+<div class="wb"><span class="wn">2</span><div class="wgrid4"><div class="wb sunk"><div class="wt">5</div><div class="wm">décisions actées</div></div><div class="wb sunk"><div class="wt">4</div><div class="wm">actions créées</div></div><div class="wb sunk"><div class="wt">2</div><div class="wm">risques identifiés</div></div><div class="wb sunk"><div class="wt">4/6</div><div class="wm">présents</div></div></div></div>
+<div class="wb"><span class="wn">3</span><div class="wt">À corriger avant de clôturer — 2</div><div class="wcol" style="margin-top:1.4mm;gap:1.2mm"><div class="wb" style="border-color:#F3B1AB;background:#FBE8E6"><div class="wt">Action « Cadrer le renfort UX » sans porteur</div><div class="wm">Corriger ›</div></div><div class="wb" style="border-color:#F3B1AB;background:#FBE8E6"><div class="wt">Arbitrage « Renfort UX 0,5 ETP » sans verdict</div><div class="wm">Corriger ›</div></div></div></div>
+<div class="wb tint"><span class="wn">4</span><div class="wt">À signaler, sans blocage — 2</div><div class="wm">1 action sans échéance · point 4 traité en 4 min sur 15 prévues</div></div>
+<div class="wb"><span class="wn">5</span><div class="wt">Émargement définitif</div><div class="wm">4 présents · 1 excusé · 1 absent — dernière occasion de corriger. Figé à la clôture.</div></div>
+<div class="wb"><span class="wn">6</span><div class="wt">Sujets à remonter — 2</div><div class="wm">Destination proposée : CODIR du 12 juin. Modifiable, ou retirable avec justification.</div></div>
+<div class="wb"><span class="wn">7</span><div class="wbar"><span class="wm" style="flex:1">2 corrections requises</span><span class="wbtn sec">Reprendre la séance</span><span class="wbtn gold">Confirmer la clôture</span></div></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Écran de contrôle, pas de rédaction. Il vérifie que la séance est exploitable avant de la fermer : rien d'ambigu, rien d'orphelin. C'est le seul point du parcours où le système refuse d'avancer tant que le contenu n'est pas complet.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> Durée réelle de la séance, nombre de points traités, heures de démarrage et de clôture.</li>
+<li><b>Bilan chiffré.</b> Quatre compteurs : décisions, actions, risques, taux de présence. Chacun cliquable vers le détail.</li>
+<li><b>À corriger.</b> Bloc rouge. Un élément par ligne, avec un lien « Corriger › » qui ramène au point concerné de l'écran 06. Le bloc disparaît quand il est vide.</li>
+<li><b>À signaler.</b> Bloc ambre. N'empêche pas la clôture, mais reste visible.</li>
+<li><b>Émargement définitif.</b> Dernière occasion de corriger qui était là. Figé à la confirmation.</li>
+<li><b>Sujets à remonter.</b> Ce que la séance transmet au niveau supérieur, avec la destination proposée.</li>
+<li><b>Barre d'action.</b> Compte des corrections requises à gauche, « Reprendre la séance » et « Confirmer la clôture » à droite.</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Ce que la clôture déclenche</div><ul class="lst">
+<li><b>L'émargement est figé</b> et fait foi. Il n'est plus modifiable.</li>
+<li><b>L'heure de clôture est enregistrée</b>, la durée réelle calculée.</li>
+<li><b>Le point passe en « À finaliser »</b> et apparaît dans ce sous-onglet.</li>
+<li><b>Le compte-rendu est généré</b> depuis la saisie de séance, et l'écran 08 s'ouvre.</li>
+<li><b>Les sujets à remonter alimentent</b> l'ordre du jour de l'instance de destination.</li>
+<li>Aucune action n'est encore engagée, aucun risque enregistré : cela n'arrive qu'à la diffusion.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Les trois contrôles bloquants — et rien d'autre</div><ul>
+<li><b>Action sans porteur</b> — une tâche sans responsable n'est pas une action</li>
+<li><b>Arbitrage sans verdict</b> — un arbitrage non tranché doit être explicitement reporté</li>
+<li><b>Aucun présent à l'émargement</b> — une séance sans présent n'a pas eu lieu</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>« Clôturer la séance » depuis l'écran 06, quel que soit le point courant.</p><div class="sf-h mt">Sortie</div><p>« Confirmer la clôture » → écran 08. « Reprendre la séance » → retour à l'écran 06.</p></div>
+<div><div class="sf-h">Cas particuliers</div><p>Clôture avec des points non traités : autorisée, signalée dans le bloc ambre, et les points non traités sont proposés à l'ordre du jour de la séance suivante.</p></div>
+</div>
+</section>
+
+<!-- ══════════ 07 · CLÔTURE — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="07 Clôture · comportement">
+<div class="bhv-h"><div class="n">07</div><h4>Clôture de la séance — comportement</h4><div class="tag">Contrôles · irréversibilité · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Clic sur « Corriger › »</b> → retour à l'écran 06, sur le point qui porte l'élément incomplet, formulaire ouvert et focalisé.</li>
+<li><b>Retour à l'écran de clôture</b> → les contrôles sont recalculés. Une correction faite fait disparaître sa ligne.</li>
+<li><b>Clic sur un compteur du bilan</b> → déroule la liste des éléments comptés, en lecture.</li>
+<li><b>Modification de l'émargement</b> → possible jusqu'à la confirmation, pas après.</li>
+<li><b>Changement de destination d'un sujet à remonter</b> → liste des instances éligibles, à venir uniquement.</li>
+<li><b>« Reprendre la séance »</b> → retour à l'écran 06 sans rien figer. La séance reste « En cours ».</li>
+<li><b>« Confirmer la clôture »</b> → demande une confirmation explicite, puis fige et ouvre l'écran 08.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg">Bloc à corriger, en-tête : <q>2 éléments empêchent la clôture.</q></div>
+<div class="msg">Action sans porteur : <q>« Cadrer le renfort UX » — aucun porteur désigné.</q></div>
+<div class="msg">Arbitrage sans verdict : <q>« Renfort UX 0,5 ETP » — aucun verdict posé.</q></div>
+<div class="msg warn">Points non traités : <q>2 points n'ont pas été traités. Ils seront proposés à l'ordre du jour de la prochaine séance.</q></div>
+<div class="msg warn">Confirmation de clôture : <q>Clôturer fige l'émargement et génère le compte-rendu. L'émargement ne sera plus modifiable. Confirmer ?</q></div>
+<div class="msg ok">Bloc à corriger vide : <q>Séance complète — prête à être clôturée.</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>Bloqué</b> — au moins un contrôle rouge : bouton primaire désactivé, compte des corrections dans la barre.</li>
+<li><b>Prêt</b> — aucun contrôle rouge : bloc vert « Séance complète », bouton primaire en ambre plein.</li>
+<li><b>Confirmation</b> — modale de confirmation par-dessus, rappelant l'irréversibilité de l'émargement.</li>
+<li><b>Clôture en cours</b> — bouton en attente, écran non quittable.</li>
+<li><b>Échec de clôture</b> — bandeau d'erreur, séance intacte et toujours « En cours ». Aucune donnée perdue.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Ce qui est irréversible, ce qui ne l'est pas</div><ul class="lst">
+<li><b>Irréversible</b> — l'émargement, l'heure de clôture, la durée réelle de la séance.</li>
+<li><b>Encore modifiable en 08</b> — le texte du compte-rendu, les porteurs, les échéances, les libellés de décision.</li>
+<li><b>Irréversible après diffusion</b> — l'intégralité du compte-rendu. La correction passe alors par un rectificatif daté.</li>
+<li>Une séance clôturée ne repasse jamais en « En cours ».</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ 08 · CR & DIFFUSION — PLAN ══════════ -->
+<section class="page scr" data-screen-label="08 Compte-rendu · plan">
+<header class="sh"><div class="sh-n">08</div><div class="sh-t"><h3>Compte-rendu &amp; diffusion</h3><div class="sh-p">Points projet › COPIL — Mai › Finaliser</div></div><div class="sh-k">Plan</div></header>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/pp/sm-08-cr.png" alt="Modale Compte-rendu de l’instance"><span class="pin" style="left:32%;top:9%">1</span><span class="pin" style="left:31%;top:23%">2</span><span class="pin" style="left:35%;top:34%">3</span><span class="pin" style="left:29%;top:42%">4</span><span class="pin" style="left:31%;top:49%">5</span><span class="pin" style="left:29%;top:85%">6</span><span class="pin" style="left:63%;top:91%">7</span></figure><div class="shot-cap">Capture réelle · modale « Compte-rendu de l’instance »</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle</div><p class="role">Relecture et diffusion. Le compte-rendu est déjà écrit — il a été produit par la saisie en séance. Cet écran sert à relire, compléter les manques, puis diffuser. Rien n'est retapé : si un rédacteur doit ressaisir la séance ici, l'écran 06 a échoué.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>En-tête.</b> « Compte-rendu de l'instance », sous-titre « Décisions actées, actions et relevé de présence ».</li>
+<li><b>Bandeau de séance</b> sur fond ambre : pastille date, intitulé, badge de type, badge d'état « Tenu », horaire et lieu.</li>
+<li><b>Trois compteurs.</b> Décisions actées, actions ouvertes, présents sous la forme « 6/9 ».</li>
+<li><b>Section « DÉCISIONS ACTÉES ».</b> Titre de section avec pictogramme de validation.</li>
+<li><b>Ligne de décision.</b> Pastille verte, libellé en gras, portée en sous-ligne — « Enveloppe 120 k€ confirmée ».</li>
+<li><b>Section « PLAN D'ACTION ».</b> Les actions issues de la séance, avec porteur et échéance.</li>
+<li><b>Pied de modale.</b> « Fermer » et « Télécharger le CR ».</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Écarts entre la maquette et la cible</div><ul class="lst">
+<li>La maquette est un <b>écran de lecture</b> : l'édition du texte, des porteurs et des échéances avant diffusion reste à produire.</li>
+<li>Les sections <b>risques</b>, <b>arbitrages</b> et <b>sujets remontés</b> manquent.</li>
+<li>Il n'y a <b>ni destinataires ni bouton de diffusion</b> : le CR est téléchargeable mais pas diffusable. C'est le manque le plus structurant de cet écran.</li>
+<li>Le <b>rectificatif</b> après diffusion n'existe pas.</li>
+</ul></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Contrôles avant diffusion</div><ul>
+<li><b>Bloquant</b> — action sans porteur : <q>2 actions n'ont pas de porteur.</q></li>
+<li><b>Bloquant</b> — arbitrage sans verdict, si un verdict a été retiré depuis la clôture</li>
+<li><b>Avertissement</b> — action sans échéance, synthèse laissée telle quelle, CR tenu depuis plus de 5 jours ouvrés</li>
+</ul></div>
+<div><div class="sf-h">Entrée</div><p>Confirmation de clôture depuis l'écran 07, ou « Finaliser › » depuis le sous-onglet « À finaliser ».</p><div class="sf-h mt">Sortie</div><p>« Diffuser le compte-rendu » → le point passe en « Historique », le CR devient lecture seule.</p></div>
+<div><div class="sf-h">Après diffusion</div><p>Le même écran s'ouvre en lecture seule, bandeau « Diffusé le 25 mai à 09:12 à 6 destinataires », et propose « Publier un rectificatif ».</p></div>
+</div>
+</section>
+
+<!-- ══════════ 08 · CR & DIFFUSION — COMPORTEMENT ══════════ -->
+<section class="page bhv" data-screen-label="08 Compte-rendu · comportement">
+<div class="bhv-h"><div class="n">08</div><h4>Compte-rendu &amp; diffusion — comportement</h4><div class="tag">Édition · diffusion · verrouillage · recette</div></div>
+<div class="bhv-cols">
+<div>
+<div class="blk"><div class="blk-h">Interactions</div><ul class="lst">
+<li><b>Édition d'un libellé ou de la synthèse</b> → en place, enregistrée à la frappe, mention de dernière modification actualisée.</li>
+<li><b>Désignation d'un porteur manquant</b> → sélection parmi les convoqués. Le contrôle correspondant disparaît immédiatement.</li>
+<li><b>Clic sur un contrôle</b> → défile jusqu'à la section concernée et focalise le champ.</li>
+<li><b>Clic sur une décision</b> → déroule les objets qu'elle a produits : action, risque, sujet remonté.</li>
+<li><b>« Télécharger en PDF »</b> → génère le document avec la mise en forme définitive, même avant diffusion, filigrané « Projet de compte-rendu ».</li>
+<li><b>« Diffuser le compte-rendu »</b> → confirmation explicite, puis diffusion, verrouillage et bascule en « Historique ».</li>
+<li><b>« Publier un rectificatif »</b> (après diffusion) → crée une entrée liée, l'original reste intact et consultable.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Messages exacts</div>
+<div class="msg">Action sans porteur : <q>2 actions n'ont pas de porteur. Une action sans porteur ne peut pas être diffusée.</q></div>
+<div class="msg warn">Action sans échéance : <q>1 action n'a pas d'échéance. Elle sera diffusée sans date cible.</q></div>
+<div class="msg warn">Retard de restitution : <q>Séance tenue il y a 7 jours ouvrés — le compte-rendu n'est pas encore diffusé.</q></div>
+<div class="msg warn">Confirmation : <q>Diffuser envoie le compte-rendu à 6 destinataires, engage 4 actions et verrouille le document. Confirmer ?</q></div>
+<div class="msg ok">Toast de diffusion : <q>Compte-rendu diffusé à 6 destinataires · 4 actions engagées.</q></div>
+</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">États de l'écran</div><ul class="lst">
+<li><b>À finaliser</b> — état de travail : tout éditable sauf l'émargement et les documents de séance.</li>
+<li><b>Prêt à diffuser</b> — aucun contrôle bloquant : bloc vert, bouton primaire en ambre plein.</li>
+<li><b>Diffusion en cours</b> — bouton en attente, écran non quittable.</li>
+<li><b>Diffusé</b> — lecture seule intégrale, bandeau de diffusion, action « Publier un rectificatif ».</li>
+<li><b>Rectifié</b> — bandeau en tête du CR : « Rectificatif publié le 02 juin — voir les modifications ». L'original reste accessible.</li>
+</ul></div>
+<div class="blk"><div class="blk-h">Verrouillage — ce qui reste vivant après diffusion</div><ul class="lst">
+<li>Le <b>texte du compte-rendu</b> est figé. Aucune correction directe.</li>
+<li>Le <b>statut des actions</b> continue d'évoluer : il reflète le plan d'action, pas l'instant de la séance.</li>
+<li>Les <b>liens d'origine</b> sont permanents : une action retrouve toujours sa séance et son point.</li>
+<li>Un <b>rectificatif</b> est une entrée liée, datée, jamais un écrasement.</li>
+</ul></div>
+</div>
+</div>
+</section>
+
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe recette · 1 / 4</div><h2>Critères de recette — écrans 01 et 02</h2><p>Chaque critère est vérifiable seul, sans connaissance du reste du document. Tant qu'un critère n'est pas vrai, l'écran concerné n'est pas livré.</p></div>
+<div class="rc"><div><div class="rc-t">01 · Dashboard « Points projet »</div>
+<div class="ac"><div class="ac-t">R01.1 — Filtrage sans rechargement</div>
+<div class="ac"><div class="ac-t">R01.2 — Action de ligne contextuelle</div>
+<div class="ac"><div class="ac-t">R01.3 — Compteurs vivants</div>
+<div class="ac"><div class="ac-t">R01.4 — Retard visible</div>
+<div class="ac"><div class="ac-t">R01.5 — Squelette de chargement</div></div>
+<div><div class="rc-t">02 · Créer un point</div>
+<div class="ac"><div class="ac-t">R02.1 — Pré-remplissage complet</div>
+<div class="ac"><div class="ac-t">R02.2 — Création en un geste</div>
+<div class="ac"><div class="ac-t">R02.3 — Enchaînement direct</div>
+<div class="ac"><div class="ac-t">R02.4 — Saisie préservée à l'échec</div>
+<div class="ac"><div class="ac-t">R02.5 — Fermeture protégée</div></div></div>
+</section>
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe recette · 2 / 4</div><h2>Critères de recette — écrans 03 et 04</h2><p>Chaque critère est vérifiable seul, sans connaissance du reste du document. Tant qu'un critère n'est pas vrai, l'écran concerné n'est pas livré.</p></div>
+<div class="rc"><div><div class="rc-t">03 · Préparer la séance</div>
+<div class="ac"><div class="ac-t">R03.1 — Reprise sans saisie</div>
+<div class="ac"><div class="ac-t">R03.2 — Enregistrement continu</div>
+<div class="ac"><div class="ac-t">R03.3 — Contrôle de porteur</div>
+<div class="ac"><div class="ac-t">R03.4 — Dépassement signalé sans blocage</div>
+<div class="ac"><div class="ac-t">R03.5 — Réouverture tracée</div></div>
+<div><div class="rc-t">04 · Envoyer la convocation</div>
+<div class="ac"><div class="ac-t">R04.1 — Aperçu fidèle et vivant</div>
+<div class="ac"><div class="ac-t">R04.2 — Décochage sans désinvitation</div>
+<div class="ac"><div class="ac-t">R04.3 — Bascule d'état du point</div>
+<div class="ac"><div class="ac-t">R04.4 — Suivi nominatif</div>
+<div class="ac"><div class="ac-t">R04.5 — Relance ciblée</div>
+<div class="ac"><div class="ac-t">R04.6 — Échec partiel récupérable</div></div></div>
+</section>
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe recette · 3 / 4</div><h2>Critères de recette — écrans 05 et 06</h2><p>Chaque critère est vérifiable seul, sans connaissance du reste du document. Tant qu'un critère n'est pas vrai, l'écran concerné n'est pas livré.</p></div>
+<div class="rc"><div><div class="rc-t">05 · Démarrer la séance</div>
+<div class="ac"><div class="ac-t">R05.1 — Position initiale déduite</div>
+<div class="ac"><div class="ac-t">R05.2 — Heure réelle enregistrée</div>
+<div class="ac"><div class="ac-t">R05.3 — Démarrage refusé sans ordre du jour figé</div>
+<div class="ac"><div class="ac-t">R05.4 — Séance unique</div>
+<div class="ac"><div class="ac-t">R05.5 — Passage d'état immédiat</div></div>
+<div><div class="rc-t">06 · Déroulement de la séance</div>
+<div class="ac"><div class="ac-t">R06.1 — Reprise exacte</div>
+<div class="ac"><div class="ac-t">R06.2 — Minuteur par point</div>
+<div class="ac"><div class="ac-t">R06.3 — Routage tracé</div>
+<div class="ac"><div class="ac-t">R06.4 — Saisie sans bouton</div>
+<div class="ac"><div class="ac-t">R06.5 — Navigation libre</div></div></div>
+</section>
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe recette · 4 / 4</div><h2>Critères de recette — écrans 07 et 08</h2><p>Chaque critère est vérifiable seul, sans connaissance du reste du document. Tant qu'un critère n'est pas vrai, l'écran concerné n'est pas livré.</p></div>
+<div class="rc"><div><div class="rc-t">07 · Clôture de la séance</div>
+<div class="ac"><div class="ac-t">R07.1 — Blocage sur les trois contrôles</div>
+<div class="ac"><div class="ac-t">R07.2 — Correction en aller-retour</div>
+<div class="ac"><div class="ac-t">R07.3 — Émargement figé</div>
+<div class="ac"><div class="ac-t">R07.4 — Reprise sans effet de bord</div>
+<div class="ac"><div class="ac-t">R07.5 — Remontée alimentée</div></div>
+<div><div class="rc-t">08 · Compte-rendu & diffusion</div>
+<div class="ac"><div class="ac-t">R08.1 — Généré, pas ressaisi</div>
+<div class="ac"><div class="ac-t">R08.2 — Diffusion bloquée</div>
+<div class="ac"><div class="ac-t">R08.3 — Engagement à la diffusion</div>
+<div class="ac"><div class="ac-t">R08.4 — Verrouillage effectif</div>
+<div class="ac"><div class="ac-t">R08.5 — Rectificatif non destructeur</div>
+<div class="ac"><div class="ac-t">R08.6 — Statut d'action vivant</div></div></div>
+</section>
+<!-- ══════════ ANNEXE · CE QUI EST HORS PÉRIMÈTRE ══════════ -->
+<section class="page std">
+<div class="std-h"><div class="std-k">Annexe</div><h2>Périmètre, et ce qui n'en fait pas partie</h2><p>Ce qui suit délimite explicitement ce que les huit écrans ne font pas. Un développement qui déborde de ce cadre est hors sujet, même s'il semble utile.</p></div>
+<div class="tri">
+<div><div class="tri-h">Dans le périmètre</div><ul>
+<li>Les huit écrans spécifiés, dans leurs états normal, vide, chargement, erreur et lecture seule</li>
+<li>Les cinq états du point et les transitions décrites au cadrage</li>
+<li>La reprise automatique depuis le point précédent et depuis les niveaux inférieurs</li>
+<li>La remontée des sujets vers l'instance supérieure</li>
+<li>La convocation, le suivi des réponses et la relance</li>
+<li>La génération du compte-rendu depuis la saisie de séance</li>
+<li>Le verrouillage après diffusion et le mécanisme de rectificatif</li>
+</ul></div>
+<div><div class="tri-h">Hors périmètre</div><ul>
+<li><b>Les séries récurrentes</b> — génération automatique de séances sur une cadence. Le sous-onglet existe, son écran de configuration est spécifié séparément.</li>
+<li><b>Le calendrier mensuel</b> — vue de planification transverse.</li>
+<li><b>La vue « Cycles de pilotage »</b> — agrégat tous projets, écran distinct.</li>
+<li><b>Le plan d'action projet</b> et le <b>registre des risques</b> — destinations des objets, pas écrans de ce module.</li>
+<li><b>La visioconférence</b> — le lien est stocké et diffusé, rien de plus.</li>
+<li><b>La transcription automatique</b> et l'assistance à la rédaction.</li>
+</ul></div>
+<div><div class="tri-h">Points à trancher avant développement</div><ul>
+<li>Un participant peut-il émarger lui-même, ou seul l'animateur tient l'émargement ?</li>
+<li>Qui a le droit de diffuser un compte-rendu : l'animateur seul, ou tout membre de l'équipe projet ?</li>
+<li>Un sponsor absent peut-il contester un arbitrage pris en son absence, et par quel geste ?</li>
+<li>Combien de temps une séance non clôturée reste-t-elle reprenable avant clôture automatique ?</li>
+<li>La relance à J-2 est-elle systématique ou laissée au choix à chaque convocation ?</li>
+</ul></div>
+</div>
+<div class="std-note">Les cinq questions ci-dessus n'empêchent pas de démarrer : elles portent sur des droits et des délais, pas sur la structure des écrans. Elles doivent être tranchées avant la recette, pas avant le développement.</div>
+</section>
+
+</doc-page>
+<script src="doc-page.js"></script>
+</body>
+</html>

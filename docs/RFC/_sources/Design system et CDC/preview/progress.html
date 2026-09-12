@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Barres de progression" subtitle="Linéaires, couleur selon état de pilotage" viewport="700x240" -->
+<html><head><meta charset="utf-8"><title>Progress</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .row { display:grid; grid-template-columns:1fr 60px; gap:12px; align-items:center; }
+  .track { height:6px; border-radius:999px; background:var(--neutral-200); overflow:hidden; }
+  .fill { height:100%; border-radius:999px; }
+  .pct { font:var(--text-body-s); font-weight:600; color:var(--fg-1); font-variant-numeric:tabular-nums; text-align:right; }
+  .label { font:var(--text-body-s); color:var(--fg-2); }
+</style></head>
+<body>
+<div class="card-frame">
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="row"><div><div class="label">Performance opérationnelle</div><div class="track" style="margin-top:6px;"><div class="fill" style="width:85%;background:var(--state-success);"></div></div></div><div class="pct">85%</div></div>
+    <div class="row"><div><div class="label">Transformation digitale</div><div class="track" style="margin-top:6px;"><div class="fill" style="width:72%;background:var(--state-success);"></div></div></div><div class="pct">72%</div></div>
+    <div class="row"><div><div class="label">Maîtrise des risques</div><div class="track" style="margin-top:6px;"><div class="fill" style="width:65%;background:var(--state-warning);"></div></div></div><div class="pct">65%</div></div>
+    <div class="row"><div><div class="label">Développement humain</div><div class="track" style="margin-top:6px;"><div class="fill" style="width:80%;background:var(--state-success);"></div></div></div><div class="pct">80%</div></div>
+    <div class="row"><div><div class="label">Réduction de l'empreinte carbone</div><div class="track" style="margin-top:6px;"><div class="fill" style="width:45%;background:var(--state-danger);"></div></div></div><div class="pct">45%</div></div>
+  </div>
+</div>
+</body></html>
