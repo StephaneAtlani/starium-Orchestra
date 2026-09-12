@@ -133,6 +133,9 @@ export function ProjectReviewPrepareCdcPanel({
   });
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingDurationId, setEditingDurationId] = useState<string | null>(
+    null,
+  );
   const seededDurationsRef = useRef(false);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
 
@@ -179,6 +182,7 @@ export function ProjectReviewPrepareCdcPanel({
 
   const focusItem = useCallback((itemId: string, field?: string) => {
     setExpandedId(itemId);
+    if (field === 'duration') setEditingDurationId(itemId);
     const li = rowRefs.current.get(itemId);
     li?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (!field || !li) return;
@@ -324,22 +328,22 @@ export function ProjectReviewPrepareCdcPanel({
         </div>
       ) : null}
 
-      {/* Bandeau séance — CDC */}
+      {/* Bandeau séance — CDC p.8 */}
       <div
-        className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-sky-500/20 bg-sky-500/10 px-4 py-3"
+        className="flex flex-wrap items-center gap-3 rounded-[var(--radius-lg)] border border-[color:var(--state-info)]/20 bg-[color:var(--state-info-bg)] px-4 py-3"
         role="region"
         aria-label="Bandeau de séance"
       >
         <div className="flex size-12 shrink-0 flex-col items-center justify-center rounded-[var(--radius-md)] bg-card text-center shadow-sm">
-          <span className="text-[0.65rem] font-semibold uppercase text-muted-foreground">
+          <span className="text-lg font-bold tabular-nums leading-none text-foreground">
+            {detail.reviewDate ? new Date(detail.reviewDate).getDate() : '·'}
+          </span>
+          <span className="mt-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
             {detail.reviewDate
               ? new Date(detail.reviewDate).toLocaleDateString('fr-FR', {
                   month: 'short',
                 })
               : '—'}
-          </span>
-          <span className="text-lg font-bold tabular-nums leading-none text-foreground">
-            {detail.reviewDate ? new Date(detail.reviewDate).getDate() : '·'}
           </span>
         </div>
         <div className="min-w-0 flex-1">
@@ -347,9 +351,9 @@ export function ProjectReviewPrepareCdcPanel({
             <p className="text-base font-semibold text-foreground">
               {displayLabel(detail.title, 'Point projet')}
             </p>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-2 py-0.5 text-[11px] font-medium text-foreground">
               <span
-                className="size-1.5 rounded-full bg-muted-foreground/70"
+                className="size-1.5 rounded-full bg-[color:var(--state-info)]"
                 aria-hidden
               />
               {badge}
@@ -421,6 +425,12 @@ export function ProjectReviewPrepareCdcPanel({
               <ol className="space-y-2">
                 {sortedItems.map((item, index) => {
                   const expanded = expandedId === item.id;
+                  const editingDuration = editingDurationId === item.id;
+                  const minutes =
+                    item.plannedDurationMinutes != null &&
+                    item.plannedDurationMinutes > 0
+                      ? item.plannedDurationMinutes
+                      : DEFAULT_POINT_MINUTES;
                   return (
                     <li
                       key={item.id}
@@ -430,41 +440,18 @@ export function ProjectReviewPrepareCdcPanel({
                       }}
                       className="rounded-[var(--radius-md)] border border-border/70 bg-card"
                     >
-                      <div className="flex items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
+                      {/* Ligne CDC : grip · nº or · titre · durée · × */}
+                      <div className="flex min-h-11 items-center gap-2 px-2.5 py-2 sm:px-3">
                         {editable ? (
-                          <>
-                            <span
-                              className="hidden text-muted-foreground sm:inline"
-                              aria-hidden
-                            >
-                              <GripVertical className="size-4" />
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 shrink-0"
-                              aria-label={`Monter le point ${index + 1}`}
-                              disabled={index === 0}
-                              onClick={() => void moveItem(index, -1)}
-                            >
-                              <ChevronUp className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 shrink-0"
-                              aria-label={`Descendre le point ${index + 1}`}
-                              disabled={index === sortedItems.length - 1}
-                              onClick={() => void moveItem(index, 1)}
-                            >
-                              <ChevronDown className="size-3.5" />
-                            </Button>
-                          </>
+                          <span
+                            className="shrink-0 text-muted-foreground"
+                            aria-hidden
+                          >
+                            <GripVertical className="size-4" />
+                          </span>
                         ) : null}
                         <span
-                          className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[color:var(--brand-gold)] bg-[color:var(--brand-gold)]/15 text-xs font-semibold tabular-nums"
+                          className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[color:var(--brand-gold)] bg-[color:var(--brand-gold)]/15 text-xs font-semibold tabular-nums text-foreground"
                           aria-hidden
                         >
                           {index + 1}
@@ -476,7 +463,7 @@ export function ProjectReviewPrepareCdcPanel({
                           defaultValue={item.title ?? ''}
                           disabled={!editable}
                           placeholder="Intitulé du point"
-                          className="h-10 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+                          className="h-10 min-w-0 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
                           onFocus={() => setExpandedId(item.id)}
                           onBlur={(e) => {
                             const next = e.target.value.trim();
@@ -486,40 +473,53 @@ export function ProjectReviewPrepareCdcPanel({
                             });
                           }}
                         />
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Input
-                            id={`odj-dur-${item.id}`}
-                            data-prepare-field="duration"
-                            type="number"
-                            min={1}
-                            inputMode="numeric"
-                            disabled={!editable}
-                            className="h-9 w-14 tabular-nums"
-                            key={`${item.id}-d-${item.plannedDurationMinutes}`}
-                            defaultValue={
-                              item.plannedDurationMinutes != null &&
-                              item.plannedDurationMinutes > 0
-                                ? String(item.plannedDurationMinutes)
-                                : String(DEFAULT_POINT_MINUTES)
-                            }
-                            aria-label={`Durée du point ${index + 1} en minutes`}
-                            onBlur={(e) => {
-                              const raw = e.target.value.trim();
-                              const n = raw ? Number(raw) : DEFAULT_POINT_MINUTES;
-                              const next =
-                                Number.isFinite(n) && n > 0
-                                  ? Math.round(n)
+                        {editingDuration && editable ? (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Input
+                              id={`odj-dur-${item.id}`}
+                              data-prepare-field="duration"
+                              type="number"
+                              min={1}
+                              inputMode="numeric"
+                              autoFocus
+                              className="h-9 w-14 tabular-nums"
+                              key={`${item.id}-d-${item.plannedDurationMinutes}`}
+                              defaultValue={String(minutes)}
+                              aria-label={`Durée du point ${index + 1} en minutes`}
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim();
+                                const n = raw
+                                  ? Number(raw)
                                   : DEFAULT_POINT_MINUTES;
-                              if (next === item.plannedDurationMinutes) return;
-                              void patchItem(item, {
-                                plannedDurationMinutes: next,
-                              });
+                                const next =
+                                  Number.isFinite(n) && n > 0
+                                    ? Math.round(n)
+                                    : DEFAULT_POINT_MINUTES;
+                                setEditingDurationId(null);
+                                if (next === item.plannedDurationMinutes) return;
+                                void patchItem(item, {
+                                  plannedDurationMinutes: next,
+                                });
+                              }}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              min
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-[var(--control-radius)] px-2 py-1 text-sm tabular-nums text-muted-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                            disabled={!editable}
+                            aria-label={`Durée ${minutes} minutes — modifier`}
+                            onClick={() => {
+                              setExpandedId(item.id);
+                              setEditingDurationId(item.id);
                             }}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            min
-                          </span>
-                        </div>
+                          >
+                            {formatDurationMinutesFr(minutes)}
+                          </button>
+                        )}
                         {editable ? (
                           <Button
                             type="button"
@@ -534,70 +534,98 @@ export function ProjectReviewPrepareCdcPanel({
                         ) : null}
                       </div>
                       {expanded && editable ? (
-                        <div className="grid gap-2 border-t border-border/60 px-3 py-2 sm:grid-cols-2">
-                          <div>
-                            <label
-                              className="mb-1 block text-xs text-muted-foreground"
-                              htmlFor={`odj-type-${item.id}`}
+                        <div className="space-y-2 border-t border-border/60 px-3 py-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-9 gap-1"
+                              disabled={index === 0}
+                              aria-label={`Monter le point ${index + 1}`}
+                              onClick={() => void moveItem(index, -1)}
                             >
-                              Nature
-                            </label>
-                            <select
-                              id={`odj-type-${item.id}`}
-                              data-prepare-field="type"
-                              className="starium-form-select min-h-10 w-full"
-                              value={item.itemType}
-                              onChange={(e) => {
-                                void patchItem(item, {
-                                  itemType: e.target
-                                    .value as ProjectReviewAgendaItemType,
-                                });
-                              }}
+                              <ChevronUp className="size-3.5" aria-hidden />
+                              Monter
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-9 gap-1"
+                              disabled={index === sortedItems.length - 1}
+                              aria-label={`Descendre le point ${index + 1}`}
+                              onClick={() => void moveItem(index, 1)}
                             >
-                              {PREPARE_ITEM_TYPES.map((t) => (
-                                <option key={t} value={t}>
-                                  {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[t]}
-                                </option>
-                              ))}
-                            </select>
+                              <ChevronDown className="size-3.5" aria-hidden />
+                              Descendre
+                            </Button>
                           </div>
-                          <div>
-                            <label
-                              className="mb-1 block text-xs text-muted-foreground"
-                              htmlFor={`odj-owner-${item.id}`}
-                            >
-                              Porteur
-                            </label>
-                            <select
-                              id={`odj-owner-${item.id}`}
-                              data-prepare-field="owner"
-                              className="starium-form-select min-h-10 w-full"
-                              value={item.ownerUserId ?? ''}
-                              onChange={(e) => {
-                                void patchItem(item, {
-                                  ownerUserId: e.target.value.trim() || null,
-                                });
-                              }}
-                            >
-                              <option value="">Non désigné</option>
-                              {(assignable.data?.users ?? []).map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {displayNameFromUser(u)}
-                                </option>
-                              ))}
-                              {item.ownerUserId &&
-                              item.ownerDisplayName &&
-                              !(assignable.data?.users ?? []).some(
-                                (u) => u.id === item.ownerUserId,
-                              ) ? (
-                                <option value={item.ownerUserId}>
-                                  {displayLabel(
-                                    item.ownerDisplayName,
-                                    'Porteur',
-                                  )}
-                                </option>
-                              ) : null}
-                            </select>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <label
+                                className="mb-1 block text-xs text-muted-foreground"
+                                htmlFor={`odj-type-${item.id}`}
+                              >
+                                Nature
+                              </label>
+                              <select
+                                id={`odj-type-${item.id}`}
+                                data-prepare-field="type"
+                                className="starium-form-select min-h-10 w-full"
+                                value={item.itemType}
+                                onChange={(e) => {
+                                  void patchItem(item, {
+                                    itemType: e.target
+                                      .value as ProjectReviewAgendaItemType,
+                                  });
+                                }}
+                              >
+                                {PREPARE_ITEM_TYPES.map((t) => (
+                                  <option key={t} value={t}>
+                                    {PROJECT_REVIEW_AGENDA_ITEM_TYPE_LABEL[t]}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label
+                                className="mb-1 block text-xs text-muted-foreground"
+                                htmlFor={`odj-owner-${item.id}`}
+                              >
+                                Porteur
+                              </label>
+                              <select
+                                id={`odj-owner-${item.id}`}
+                                data-prepare-field="owner"
+                                className="starium-form-select min-h-10 w-full"
+                                value={item.ownerUserId ?? ''}
+                                onChange={(e) => {
+                                  void patchItem(item, {
+                                    ownerUserId: e.target.value.trim() || null,
+                                  });
+                                }}
+                              >
+                                <option value="">Non désigné</option>
+                                {(assignable.data?.users ?? []).map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {displayNameFromUser(u)}
+                                  </option>
+                                ))}
+                                {item.ownerUserId &&
+                                item.ownerDisplayName &&
+                                !(assignable.data?.users ?? []).some(
+                                  (u) => u.id === item.ownerUserId,
+                                ) ? (
+                                  <option value={item.ownerUserId}>
+                                    {displayLabel(
+                                      item.ownerDisplayName,
+                                      'Porteur',
+                                    )}
+                                  </option>
+                                ) : null}
+                              </select>
+                            </div>
                           </div>
                         </div>
                       ) : null}
