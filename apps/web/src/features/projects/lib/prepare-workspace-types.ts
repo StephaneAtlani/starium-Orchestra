@@ -14,6 +14,10 @@ export type PrepWorkspacePayload = {
   customBlocks: PrepWorkspaceCustomBlock[];
   templateId: string | null;
   templateEditorOpen?: boolean;
+  /** Objectif séance (vue simple — bloc Objectif). */
+  goal?: string;
+  /** Durées custom des blocs standards (minutes). */
+  blockDurations?: Record<string, number>;
 };
 
 export const PREP_TYPE_CODE = {
@@ -89,6 +93,8 @@ export function defaultPrepWorkspace(
     selectedBlockIds,
     customBlocks: [],
     templateId: null,
+    goal: '',
+    blockDurations: {},
   };
 }
 
@@ -131,12 +137,23 @@ export function parsePrepWorkspace(
     typeof o.templateId === 'string' || o.templateId === null
       ? (o.templateId as string | null)
       : null;
+  const goal = typeof o.goal === 'string' ? o.goal : '';
+  const blockDurations: Record<string, number> = {};
+  if (o.blockDurations && typeof o.blockDurations === 'object' && !Array.isArray(o.blockDurations)) {
+    for (const [k, v] of Object.entries(o.blockDurations as Record<string, unknown>)) {
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+        blockDurations[k] = v;
+      }
+    }
+  }
   return {
     mode,
     selectedBlockIds,
     customBlocks,
     templateId,
     templateEditorOpen: o.templateEditorOpen === true,
+    goal,
+    blockDurations,
   };
 }
 

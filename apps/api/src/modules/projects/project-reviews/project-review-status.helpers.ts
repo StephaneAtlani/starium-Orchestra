@@ -41,10 +41,14 @@ export function isReviewUpdateAllowed(status: ProjectReviewStatus): boolean {
   return isReviewContentEditable(status) || isReviewPlanningEditable(status);
 }
 
+/**
+ * Champs interdits en PREPARING / SCHEDULED (phase planning).
+ * `contentPayload` est autorisé : atelier Préparer (`prepWorkspace`), REX brouillon, etc.
+ * Décisions / actions / participants passent par endpoints dédiés.
+ */
 const SCHEDULED_FORBIDDEN_UPDATE_FIELDS = [
   'decisions',
   'actionItems',
-  'contentPayload',
   'participants',
   'nextReviewDate',
   'reviewType',

@@ -1356,6 +1356,12 @@ export class ProjectReviewsService {
     if (dto.location !== undefined) {
       data.location = dto.location?.trim() ?? null;
     }
+    if (dto.contentPayload !== undefined) {
+      data.contentPayload =
+        dto.contentPayload === null
+          ? Prisma.DbNull
+          : (dto.contentPayload as Prisma.InputJsonValue);
+    }
 
     if (Object.keys(data).length > 0) {
       await this.prisma.projectReview.update({

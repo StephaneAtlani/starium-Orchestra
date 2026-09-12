@@ -22,11 +22,13 @@ import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { PrepareWorkspaceBanner } from './prepare-workspace-banner';
 import { PrepareWorkspaceModelCard } from './prepare-workspace-model-card';
 import { PrepareWorkspaceParticipants } from './prepare-workspace-participants';
-import { PrepareWorkspaceOdj } from './prepare-workspace-odj';
+import { PrepareWorkspaceOdj, type PrepareOdjPointTarget } from './prepare-workspace-odj';
 import { PrepareWorkspaceReprise } from './prepare-workspace-reprise';
 import { PrepareTemplateEditorDialog } from './prepare-template-editor-dialog';
+import { PrepareWorkspacePointDialog } from './prepare-workspace-point-dialog';
 import type { PrepareLockIssue } from '../lib/project-review-prepare-guards';
 import type { PrepareLockFocusTarget } from '../lib/project-review-prepare-guards';
+import type { ProjectReviewAgendaItemApi } from '../types/project.types';
 import '../styles/prepare-workspace.css';
 
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -87,12 +89,18 @@ export function ProjectReviewPrepareWorkspace({
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
+  const [pointOpen, setPointOpen] = useState(false);
+  const [pointIndex, setPointIndex] = useState<number | null>(null);
+  const [pointItem, setPointItem] = useState<ProjectReviewAgendaItemApi | null>(
+    null,
+  );
 
   const {
     update,
     createAgendaItem,
     updateAgendaItem,
     deleteAgendaItem,
+    reorderAgendaItems,
   } = useProjectReviewMutations(projectId);
 
   const templatesQuery = usePrepareTemplatesQuery(projectId, typeCode, {
@@ -187,6 +195,164 @@ export function ProjectReviewPrepareWorkspace({
     const next = { ...prep, selectedBlockIds: nextIds };
     await persistPrep(next);
     await syncBlockAgenda(blockId, !on);
+  };
+
+  const syncAgendaOrderFromBlocks = useCallback(
+    async (orderedBlockIds: string[]) => {
+      const items = detail.agendaItems ?? [];
+      const pwItems = orderedBlockIds
+        .map((blockId) =>
+          items.find((i) => parsePwBlockIdFromNotes(i.notes) === blockId),
+        )
+        .filter((i): i is ProjectReviewAgendaItemApi => !!i);
+      const others = items.filter((i) => !parsePwBlockIdFromNotes(i.notes));
+      const ordered = [...pwItems, ...others];
+      if (ordered.length === 0) return;
+      try {
+        await reorderAgendaItems.mutateAsync({
+          reviewId: detail.id,
+          items: ordered.map((item, orderIndex) => ({
+            id: item.id,
+            orderIndex,
+          })),
+        });
+      } catch (err) {
+        toast.error(apiErrorMessage(err, 'Réordonnancement impossible'));
+      }
+    },
+    [detail.agendaItems, detail.id, reorderAgendaItems],
+  );
+
+  const onReorderSelectedBlocks = async (orderedIds: string[]) => {
+    const next = { ...prep, selectedBlockIds: orderedIds };
+    await persistPrep(next);
+    await syncAgendaOrderFromBlocks(orderedIds);
+  };
+
+  const onReorderAgendaItems = async (orderedIds: string[]) => {
+    try {
+      await reorderAgendaItems.mutateAsync({
+        reviewId: detail.id,
+        items: orderedIds.map((id, orderIndex) => ({ id, orderIndex })),
+      });
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Réordonnancement impossible'));
+    }
+  };
+
+  const onBlockDurationChange = async (blockId: string, minutes: number) => {
+    const next = {
+      ...prep,
+      blockDurations: { ...(prep.blockDurations ?? {}), [blockId]: minutes },
+    };
+    await persistPrep(next);
+    const existing = (detail.agendaItems ?? []).find(
+      (i) => parsePwBlockIdFromNotes(i.notes) === blockId,
+    );
+    if (!existing) return;
+    try {
+      await updateAgendaItem.mutateAsync({
+        reviewId: detail.id,
+        agendaItemId: existing.id,
+        body: { plannedDurationMinutes: minutes },
+      });
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Durée non enregistrée'));
+    }
+  };
+
+  const goalPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onGoalChange = useCallback(
+    (goal: string) => {
+      const next = { ...prepRef.current, goal };
+      setPrep(next);
+      if (goalPersistTimer.current) clearTimeout(goalPersistTimer.current);
+      goalPersistTimer.current = setTimeout(() => {
+        void persistPrep({ ...prepRef.current, goal });
+      }, 400);
+    },
+    [persistPrep],
+  );
+
+  const odjMeta = useMemo(
+    () => {
+      const sourceActions =
+        previousDetail?.actionItems ?? detail.actionItems ?? [];
+      const openActionsCount = sourceActions.filter(
+        (a) => a.status !== 'DONE' && a.status !== 'CANCELLED',
+      ).length;
+      const openArbitrationCount = (
+        previousDetail?.agendaItems ??
+        detail.agendaItems ??
+        []
+      ).filter(
+        (item) =>
+          item.itemType === 'ARBITRATION' && !(item.decisionSummary?.trim()),
+      ).length;
+      return {
+        participantCount: (detail.participants ?? []).length,
+        openActionsCount,
+        openArbitrationCount,
+        openRisksCount: 0,
+        goal: prep.goal ?? '',
+        onGoalChange,
+      };
+    },
+    [
+      detail.actionItems,
+      detail.agendaItems,
+      detail.participants,
+      onGoalChange,
+      prep.goal,
+      previousDetail?.actionItems,
+      previousDetail?.agendaItems,
+    ],
+  );
+
+  const ensureAgendaForBlock = async (
+    blockId: string,
+  ): Promise<ProjectReviewAgendaItemApi | null> => {
+    const existing = (detail.agendaItems ?? []).find(
+      (i) => parsePwBlockIdFromNotes(i.notes) === blockId,
+    );
+    if (existing) return existing;
+    const block = findStdBlock(blockId);
+    if (!block) return null;
+    try {
+      const created = await createAgendaItem.mutateAsync({
+        reviewId: detail.id,
+        body: {
+          title: block.title,
+          itemType: 'INFORMATION',
+          plannedDurationMinutes: block.defaultMin,
+          notes: pwBlockNotesMarker(blockId),
+        },
+      });
+      return created as ProjectReviewAgendaItemApi;
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Impossible d’ouvrir le point'));
+      return null;
+    }
+  };
+
+  const onOpenPoint = async (target: PrepareOdjPointTarget) => {
+    setPointIndex(target.index);
+    if (target.kind === 'agenda') {
+      const item =
+        (detail.agendaItems ?? []).find((i) => i.id === target.agendaItemId) ??
+        null;
+      setPointItem(item);
+      setPointOpen(!!item);
+      return;
+    }
+    if (!prep.selectedBlockIds.includes(target.blockId)) {
+      const nextIds = [...prep.selectedBlockIds, target.blockId];
+      await persistPrep({ ...prep, selectedBlockIds: nextIds });
+    }
+    const item = await ensureAgendaForBlock(target.blockId);
+    setPointItem(item);
+    setPointOpen(!!item);
   };
 
   const onModeChange = async (mode: PrepWorkspacePayload['mode']) => {
@@ -313,10 +479,16 @@ export function ProjectReviewPrepareWorkspace({
               blocks={blocks}
               selectedBlockIds={prep.selectedBlockIds}
               onToggleBlock={(id) => void onToggleBlock(id)}
+              onReorderSelectedBlocks={(ids) => void onReorderSelectedBlocks(ids)}
+              onReorderAgendaItems={onReorderAgendaItems}
+              onOpenPoint={(t) => void onOpenPoint(t)}
+              onBlockDurationChange={(id, min) => void onBlockDurationChange(id, min)}
+              blockDurations={prep.blockDurations ?? {}}
               agendaItems={detail.agendaItems ?? []}
               sessionDurationMinutes={detail.durationMinutes}
               canEdit={canEdit}
               agendaLocked={agendaLocked}
+              meta={odjMeta}
               agendaListRef={agendaListRef as React.RefObject<HTMLElement>}
               durationCounterRef={
                 durationCounterRef as React.RefObject<HTMLElement>
@@ -419,6 +591,19 @@ export function ProjectReviewPrepareWorkspace({
           });
           void templatesQuery.refetch();
         }}
+      />
+
+      <PrepareWorkspacePointDialog
+        open={pointOpen}
+        onOpenChange={(next) => {
+          setPointOpen(next);
+          if (!next) setPointItem(null);
+        }}
+        projectId={projectId}
+        detail={detail}
+        agendaItem={pointItem}
+        canEdit={canEdit && !agendaLocked}
+        pointIndex={pointIndex}
       />
     </div>
   );
