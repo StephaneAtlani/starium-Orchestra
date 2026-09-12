@@ -33,6 +33,7 @@ import type {
   ProjectTeamMemberRefApi,
 } from '../../types/project.types';
 import { ProjectTeamDirectoryPersonDialog } from './project-team-directory-person-dialog';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 
 const CREATE_DRAFT_ID = '__create__';
 
@@ -529,80 +530,82 @@ export function ProjectTeamsEditorDialog({
         </>
       }
     >
-      <div className="grid min-h-0 max-h-[min(78vh,720px)] flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(13rem,16rem)_1fr]">
-        <aside className="flex min-h-0 flex-col overflow-hidden border-b border-border/70 md:border-b-0 md:border-r">
-          <ul
-            className="starium-scroll starium-scroll--edges min-h-0 flex-1 space-y-1 overflow-y-auto p-3"
-            role="listbox"
-            aria-label="Liste des équipes"
+      <div className="grid h-full min-h-0 max-h-[min(78vh,720px)] flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden md:grid-cols-[minmax(13rem,16rem)_1fr]">
+        <aside className="flex h-full min-h-0 flex-col overflow-hidden border-b border-border/70 md:border-b-0 md:border-r">
+          <StariumScrollArea
+            className="min-h-0 flex-1"
+            viewportClassName="space-y-1 p-3"
+            reveal="always"
           >
-            {teams.map((team) => {
-              const active = selectedId === team.id;
-              const color = resolveTeamColorToken(team.colorToken);
-              const count = team.memberCount ?? team.members?.length ?? 0;
-              const teamName = displayLabel(team.name, 'Équipe');
-              const teamLabel = team.label?.trim() || null;
-              return (
-                <li key={team.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    onClick={() => selectExisting(team)}
-                    className={cn(
-                      'flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
-                      'min-h-11 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]',
-                      active
-                        ? 'bg-muted/60 ring-1 ring-border/70'
-                        : 'hover:bg-muted/40',
-                    )}
+            <ul role="listbox" aria-label="Liste des équipes" className="space-y-1">
+              {teams.map((team) => {
+                const active = selectedId === team.id;
+                const color = resolveTeamColorToken(team.colorToken);
+                const count = team.memberCount ?? team.members?.length ?? 0;
+                const teamName = displayLabel(team.name, 'Équipe');
+                const teamLabel = team.label?.trim() || null;
+                return (
+                  <li key={team.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => selectExisting(team)}
+                      className={cn(
+                        'flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
+                        'min-h-11 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]',
+                        active
+                          ? 'bg-muted/60 ring-1 ring-border/70'
+                          : 'hover:bg-muted/40',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'mt-1.5 size-2.5 shrink-0 rounded-full',
+                          PROJECT_TEAM_COLOR_SWATCH[color],
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {teamName}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {memberCountLabel(count)}
+                          {teamLabel ? ` · ${teamLabel}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+              {selectedId === CREATE_DRAFT_ID ? (
+                <li>
+                  <div
+                    className="flex w-full items-start gap-2 rounded-lg bg-muted/60 px-2.5 py-2 ring-1 ring-border/70"
+                    aria-current="true"
                   >
                     <span
                       className={cn(
                         'mt-1.5 size-2.5 shrink-0 rounded-full',
-                        PROJECT_TEAM_COLOR_SWATCH[color],
+                        PROJECT_TEAM_COLOR_SWATCH[draft.colorToken],
                       )}
                       aria-hidden
                     />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">
-                        {teamName}
+                        {displayLabel(draft.name, 'Nouvelle équipe')}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {memberCountLabel(count)}
-                        {teamLabel ? ` · ${teamLabel}` : ''}
+                        {memberCountLabel(draft.members.length)}
+                        {draft.label.trim() ? ` · ${draft.label.trim()}` : ''}
                       </span>
                     </span>
-                  </button>
+                  </div>
                 </li>
-              );
-            })}
-            {selectedId === CREATE_DRAFT_ID ? (
-              <li>
-                <div
-                  className="flex w-full items-start gap-2 rounded-lg bg-muted/60 px-2.5 py-2 ring-1 ring-border/70"
-                  aria-current="true"
-                >
-                  <span
-                    className={cn(
-                      'mt-1.5 size-2.5 shrink-0 rounded-full',
-                      PROJECT_TEAM_COLOR_SWATCH[draft.colorToken],
-                    )}
-                    aria-hidden
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">
-                      {displayLabel(draft.name, 'Nouvelle équipe')}
-                    </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {memberCountLabel(draft.members.length)}
-                      {draft.label.trim() ? ` · ${draft.label.trim()}` : ''}
-                    </span>
-                  </span>
-                </div>
-              </li>
-            ) : null}
-          </ul>
+              ) : null}
+            </ul>
+          </StariumScrollArea>
           {canEdit ? (
             <div className="border-t border-border/70 p-3">
               <button
@@ -616,7 +619,11 @@ export function ProjectTeamsEditorDialog({
           ) : null}
         </aside>
 
-        <div className="starium-form starium-scroll starium-scroll--edges min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <StariumScrollArea
+          className="starium-form h-full min-h-0"
+          viewportClassName="starium-form space-y-4 p-4 sm:p-5"
+          reveal="always"
+        >
           <div className="starium-form-field">
             <label htmlFor="team-name" className="starium-form-label">
               Nom de l’équipe
@@ -881,7 +888,7 @@ export function ProjectTeamsEditorDialog({
             Cette équipe est proposée dans la préparation de chaque point projet
             : un clic convoque tous ses membres.
           </p>
-        </div>
+        </StariumScrollArea>
       </div>
     </StariumModal>
 

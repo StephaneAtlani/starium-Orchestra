@@ -61,7 +61,7 @@ Le corps de modale doit **montrer** qu’il y a plus de contenu — tout le mond
 
 | Mécanisme | Où |
 |-----------|-----|
-| Scrollbar fine stylée (track + thumb tokens) | **Toujours visible** dès qu’il y a overflow ; thumb plus contrasté au `:hover`. Corps + `.starium-scroll` + `.overflow-y-auto` sous `[data-slot="dialog-content"]` |
+| Scrollbar fine stylée (track + thumb tokens) | **Souris** : masquée au repos, **visible au survol** (`:hover` / `data-scroll-hover`, largeur 0→12px). **Tactile** : fine toujours visible. Corps + `.starium-scroll` + `.overflow-y-auto` sous dialog |
 | `scrollbar-gutter: stable` | Même périmètre — évite le jump de layout |
 | Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
 
@@ -212,7 +212,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Inputs bruts `border-input` hors `.starium-form-*` | Classes formulaire DS |
 | `Statement`, UUID, IDs en UI | Libellés métier français |
 | Scroll sur `DialogContent` | Scroll uniquement sur `DialogBody` |
-| Scrollbar invisible / overlay sans indice | Scrollbar fine **toujours visible** si overflow + ombres `starium-scroll--edges` |
+| Scrollbar invisible / overlay sans indice | **`StariumScrollArea`** (rail HTML custom) sur les panneaux scrollables denses ; sinon scrollbar native au survol |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---

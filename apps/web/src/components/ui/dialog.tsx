@@ -271,19 +271,34 @@ DialogHeader.displayName = "DialogHeader"
 DialogBody.displayName = "DialogBody"
 DialogFooter.displayName = "DialogFooter"
 
-function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+function DialogBody({
+  className,
+  onMouseEnter,
+  onMouseLeave,
+  ...props
+}: React.ComponentProps<"div">) {
   const chrome = React.useContext(DialogChromeContext)
+  const [scrollHover, setScrollHover] = React.useState(false)
 
   return (
     <div
       data-slot="dialog-body"
+      {...props}
+      data-scroll-hover={scrollHover ? true : undefined}
       className={cn(
         chrome.layout === "starium"
           ? "starium-modal__body"
           : "starium-modal__scroll starium-scroll--edges min-h-0 flex-1 overflow-y-auto overscroll-contain",
         className,
       )}
-      {...props}
+      onMouseEnter={(e) => {
+        setScrollHover(true)
+        onMouseEnter?.(e)
+      }}
+      onMouseLeave={(e) => {
+        setScrollHover(false)
+        onMouseLeave?.(e)
+      }}
     />
   )
 }
