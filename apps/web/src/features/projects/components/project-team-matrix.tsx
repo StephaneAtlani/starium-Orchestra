@@ -54,6 +54,11 @@ import type {
   ProjectTeamMemberGovernanceCircleRefApi,
   ProjectTeamRoleApi,
 } from '../types/project.types';
+import { firstDisplayLabel } from '@/lib/display-label';
+import {
+  PROJECT_TEAM_COLOR_SWATCH,
+  resolveTeamColorToken,
+} from '../lib/project-team-color';
 import {
   circleShortLabel,
   governanceCircleDisplayLabel,
@@ -82,15 +87,29 @@ function GovernanceCircleBadges({
   }
   return (
     <div className="flex flex-wrap justify-end gap-0.5">
-      {circles.map((circle) => (
-        <RegistryBadge
-          key={circle.id}
-          title={governanceCircleDisplayLabel(circle)}
-          className="h-4 border border-violet-500/25 bg-violet-500/10 px-1 text-[9px] font-normal text-foreground dark:border-violet-400/30 dark:bg-violet-500/15"
-        >
-          {circleShortLabel(circle)}
-        </RegistryBadge>
-      ))}
+      {circles.map((circle) => {
+        const color = resolveTeamColorToken(circle.colorToken);
+        const title = firstDisplayLabel(
+          [circle.label, governanceCircleDisplayLabel(circle)],
+          'Équipe',
+        );
+        return (
+          <RegistryBadge
+            key={circle.id}
+            title={title}
+            className="h-4 gap-1 border border-border/60 bg-muted/30 px-1 text-[9px] font-normal text-foreground"
+          >
+            <span
+              className={cn(
+                'size-1.5 shrink-0 rounded-full',
+                PROJECT_TEAM_COLOR_SWATCH[color],
+              )}
+              aria-hidden
+            />
+            {circleShortLabel(circle)}
+          </RegistryBadge>
+        );
+      })}
     </div>
   );
 }
@@ -359,7 +378,7 @@ function TeamRoleRow({
         <TableRow className="bg-muted/15 hover:bg-muted/15">
           <TableCell colSpan={3} className="py-2 whitespace-normal">
             <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
-              Appartenances — {editingMember.displayName}
+              Équipes — {editingMember.displayName}
             </p>
             <ProjectTeamGovernanceCirclesField
               idPrefix={`team-member-${editingMember.id}`}
@@ -415,6 +434,9 @@ export function ProjectTeamMatrix({
   const invalidate = () => {
     void queryClient.invalidateQueries({
       queryKey: projectQueryKeys.team(clientId, projectId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: projectQueryKeys.governanceCircles(clientId, projectId),
     });
     void queryClient.invalidateQueries({
       queryKey: projectQueryKeys.raciMatrix(clientId, projectId),
@@ -494,6 +516,7 @@ export function ProjectTeamMatrix({
       circleIds: string[];
     }) => updateProjectTeamMemberCircles(authFetch, projectId, memberId, circleIds),
     onSuccess: () => {
+      toast.success('Équipes mises à jour');
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message || 'Erreur'),

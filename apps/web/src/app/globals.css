@@ -2758,7 +2758,7 @@ table.starium-dt {
   background: color-mix(in srgb, var(--foreground) 62%, var(--brand-gold));
 }
 .starium-scroll-area__rail-track {
-  background: color-mix(in srgb, var(--muted) 70%, transparent);
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 .starium-modal-seg-title {
   margin: 0 0 12px;

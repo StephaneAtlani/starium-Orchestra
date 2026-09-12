@@ -48,6 +48,7 @@ describe('ProjectTeamService', () => {
     };
     project: { findFirst: jest.Mock; update: jest.Mock };
     clientUser: { findFirst: jest.Mock };
+    user: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -99,6 +100,7 @@ describe('ProjectTeamService', () => {
       },
       project: { findFirst: jest.fn(), update: jest.fn() },
       clientUser: { findFirst: jest.fn() },
+      user: { findUnique: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
         fn({
           projectTeamMember: prisma.projectTeamMember,
@@ -106,6 +108,7 @@ describe('ProjectTeamService', () => {
           projectRaciAction: prisma.projectRaciAction,
           projectRaciCell: prisma.projectRaciCell,
           project: prisma.project,
+          projectTeamGovernanceMembership: prisma.projectTeamGovernanceMembership,
         }),
       ),
     };
@@ -203,18 +206,37 @@ describe('ProjectTeamService', () => {
       prisma.projectTeamMember.findFirst.mockResolvedValue({
         identityKey: 'u:u1',
       });
-      prisma.projectTeamGovernanceMembership.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.user.findUnique.mockResolvedValue({
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@b.c',
+      });
+      prisma.projectTeamGovernanceMembership.findMany
+        .mockResolvedValueOnce([]) // existing memberships for identity (replace)
+        .mockResolvedValueOnce([]) // siblings for sortOrder
+        .mockResolvedValueOnce([
+          {
+            identityKey: 'u:u1',
+            circle: {
+              id: 'c-copil',
+              name: 'Comité de pilotage',
+              systemKind: 'COPIL',
+              label: null,
+              colorToken: 'VIOLET',
+            },
+          },
+          {
+            identityKey: 'u:u1',
+            circle: {
+              id: 'c-coproj',
+              name: 'Comité de projet',
+              systemKind: 'COPROJ',
+              label: null,
+              colorToken: 'BLUE',
+            },
+          },
+        ]); // loadGovernance after getTeam
       prisma.projectTeamGovernanceMembership.createMany.mockResolvedValue({ count: 2 });
-      prisma.projectTeamGovernanceMembership.findMany.mockResolvedValue([
-        {
-          identityKey: 'u:u1',
-          circle: { id: 'c-copil', name: 'Comité de pilotage', systemKind: 'COPIL' },
-        },
-        {
-          identityKey: 'u:u1',
-          circle: { id: 'c-coproj', name: 'Comité de projet', systemKind: 'COPROJ' },
-        },
-      ]);
       prisma.projectTeamRole.findMany.mockResolvedValue([]);
       prisma.projectTeamMember.findMany.mockResolvedValue([
         {
@@ -236,8 +258,20 @@ describe('ProjectTeamService', () => {
 
       expect(prisma.projectTeamGovernanceMembership.createMany).toHaveBeenCalled();
       expect(updated.governanceCircles).toEqual([
-        { id: 'c-copil', name: 'Comité de pilotage', systemKind: 'COPIL' },
-        { id: 'c-coproj', name: 'Comité de projet', systemKind: 'COPROJ' },
+        {
+          id: 'c-copil',
+          name: 'Comité de pilotage',
+          systemKind: 'COPIL',
+          label: null,
+          colorToken: 'VIOLET',
+        },
+        {
+          id: 'c-coproj',
+          name: 'Comité de projet',
+          systemKind: 'COPROJ',
+          label: null,
+          colorToken: 'BLUE',
+        },
       ]);
     });
   });

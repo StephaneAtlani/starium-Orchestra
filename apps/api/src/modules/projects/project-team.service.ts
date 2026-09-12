@@ -28,6 +28,8 @@ export type ProjectTeamMemberGovernanceCircleRef = {
   id: string;
   name: string;
   systemKind: ProjectGovernanceCircleSystemKind | null;
+  label: string | null;
+  colorToken: string | null;
 };
 
 export type ProjectTeamRoleResponse = {
@@ -160,7 +162,13 @@ export class ProjectTeamService {
       where: { clientId, projectId },
       include: {
         circle: {
-          select: { id: true, name: true, systemKind: true },
+          select: {
+            id: true,
+            name: true,
+            systemKind: true,
+            label: true,
+            colorToken: true,
+          },
         },
       },
     });
@@ -171,18 +179,32 @@ export class ProjectTeamService {
         id: row.circle.id,
         name: row.circle.name,
         systemKind: row.circle.systemKind,
+        label: row.circle.label ?? null,
+        colorToken: row.circle.colorToken ?? null,
       });
       map.set(row.identityKey, cur);
     }
     return map;
   }
 
+  /**
+   * Aligne les tags roster ↔ memberships d’équipes (même table).
+   * Différentiel : ne détruit pas les fiches membres des équipes conservées
+   * (sortOrder, displayName, resourceId…).
+   */
   private async replaceGovernanceCirclesForIdentity(
-    db: Pick<PrismaService, 'projectTeamGovernanceMembership'>,
+    db: {
+      projectTeamGovernanceMembership: PrismaService['projectTeamGovernanceMembership'];
+    },
     clientId: string,
     projectId: string,
     identityKey: string,
     circleIds: string[] | undefined,
+    memberMeta?: {
+      userId?: string | null;
+      displayName?: string | null;
+      email?: string | null;
+    },
   ): Promise<void> {
     if (circleIds === undefined) return;
     await assertGovernanceCircleIdsBelongToProject(
@@ -192,17 +214,65 @@ export class ProjectTeamService {
       circleIds,
     );
     const unique = [...new Set(circleIds)];
-    await db.projectTeamGovernanceMembership.deleteMany({
-      where: { projectId, identityKey },
+    const existing = await db.projectTeamGovernanceMembership.findMany({
+      where: { clientId, projectId, identityKey },
+      select: { circleId: true },
     });
-    if (unique.length === 0) return;
+    const existingIds = new Set(existing.map((e) => e.circleId));
+    const targetIds = new Set(unique);
+
+    const toRemove = [...existingIds].filter((id) => !targetIds.has(id));
+    if (toRemove.length > 0) {
+      await db.projectTeamGovernanceMembership.deleteMany({
+        where: {
+          clientId,
+          projectId,
+          identityKey,
+          circleId: { in: toRemove },
+        },
+      });
+    }
+
+    const toAdd = unique.filter((id) => !existingIds.has(id));
+    if (toAdd.length === 0) return;
+
+    const siblings = await db.projectTeamGovernanceMembership.findMany({
+      where: { clientId, projectId, circleId: { in: toAdd } },
+      select: { circleId: true, sortOrder: true },
+    });
+    const maxByCircle = new Map<string, number>();
+    for (const s of siblings) {
+      maxByCircle.set(
+        s.circleId,
+        Math.max(maxByCircle.get(s.circleId) ?? -1, s.sortOrder),
+      );
+    }
+
+    const userId =
+      memberMeta?.userId?.trim() ||
+      (identityKey.startsWith('u:') ? identityKey.slice(2) : null);
+    const resourceId = identityKey.startsWith('r:')
+      ? identityKey.slice(2)
+      : null;
+
     await db.projectTeamGovernanceMembership.createMany({
-      data: unique.map((circleId) => ({
-        clientId,
-        projectId,
-        identityKey,
-        circleId,
-      })),
+      data: toAdd.map((circleId) => {
+        const sortOrder = (maxByCircle.get(circleId) ?? -1) + 1;
+        maxByCircle.set(circleId, sortOrder);
+        return {
+          clientId,
+          projectId,
+          circleId,
+          identityKey,
+          userId: userId || null,
+          resourceId: userId ? null : resourceId,
+          displayName: memberMeta?.displayName?.trim() || null,
+          email: userId
+            ? null
+            : memberMeta?.email?.trim().toLowerCase() || null,
+          sortOrder,
+        };
+      }),
     });
   }
 
@@ -768,14 +838,23 @@ export class ProjectTeamService {
           where: { id: projectId },
           data: { sponsorUserId: userIdTrim! },
         });
+        const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
+        const sponsorDisplay =
+          user
+            ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
+            : userIdTrim!;
         await this.replaceGovernanceCirclesForIdentity(
           this.prisma,
           clientId,
           projectId,
           identityKey,
           dto.circleIds,
+          {
+            userId: userIdTrim!,
+            displayName: sponsorDisplay,
+            email: user?.email ?? null,
+          },
         );
-        const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
         const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
         return {
           id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.SPONSOR),
@@ -785,10 +864,7 @@ export class ProjectTeamService {
           systemKind: role.systemKind,
           memberKind: 'USER',
           userId: userIdTrim!,
-          displayName:
-            user
-              ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
-              : userIdTrim!,
+          displayName: sponsorDisplay,
           email: user?.email ?? '',
           affiliation: null,
           identityKey,
@@ -805,14 +881,26 @@ export class ProjectTeamService {
               ownerAffiliation: null,
             },
           });
+          const user = await this.prisma.user.findUnique({
+            where: { id: userIdTrim! },
+          });
+          const ownerDisplay =
+            user
+              ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+                user.email
+              : userIdTrim!;
           await this.replaceGovernanceCirclesForIdentity(
             this.prisma,
             clientId,
             projectId,
             identityKey,
             dto.circleIds,
+            {
+              userId: userIdTrim!,
+              displayName: ownerDisplay,
+              email: user?.email ?? null,
+            },
           );
-          const user = await this.prisma.user.findUnique({ where: { id: userIdTrim! } });
           const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
           return {
             id: this.virtualMemberId(projectId, ProjectTeamRoleSystemKind.OWNER),
@@ -822,10 +910,7 @@ export class ProjectTeamService {
             systemKind: role.systemKind,
             memberKind: 'USER',
             userId: userIdTrim!,
-            displayName:
-              user
-                ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
-                : userIdTrim!,
+            displayName: ownerDisplay,
             email: user?.email ?? '',
             affiliation: null,
             identityKey,
@@ -846,6 +931,11 @@ export class ProjectTeamService {
           projectId,
           identityKey,
           dto.circleIds,
+          {
+            userId: null,
+            displayName: freeTrim!.slice(0, 200),
+            email: null,
+          },
         );
         const circlesByIdentity = await this.loadGovernanceCirclesByIdentity(clientId, projectId);
         return {
@@ -874,6 +964,16 @@ export class ProjectTeamService {
           projectId,
           identityKey,
           dto.circleIds,
+          {
+            userId: created.userId,
+            displayName: created.user
+              ? [created.user.firstName, created.user.lastName]
+                  .filter(Boolean)
+                  .join(' ')
+                  .trim() || created.user.email
+              : created.freeLabel,
+            email: created.user?.email ?? null,
+          },
         );
         await this.syncProjectSponsorOwner(tx, projectId, clientId);
         return created;
@@ -900,13 +1000,45 @@ export class ProjectTeamService {
     dto: UpdateProjectTeamMemberCirclesDto,
   ): Promise<ProjectTeamMemberResponse> {
     await this.getProjectOrThrow(clientId, projectId);
-    const identityKey = await this.resolveMemberIdentityKey(clientId, projectId, memberId);
+    const identityKey = await this.resolveMemberIdentityKey(
+      clientId,
+      projectId,
+      memberId,
+    );
+
+    let memberMeta:
+      | { userId?: string | null; displayName?: string | null; email?: string | null }
+      | undefined;
+    if (identityKey.startsWith('u:')) {
+      const uid = identityKey.slice(2);
+      const user = await this.prisma.user.findUnique({ where: { id: uid } });
+      memberMeta = {
+        userId: uid,
+        displayName: user
+          ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() ||
+            user.email
+          : null,
+        email: user?.email ?? null,
+      };
+    } else {
+      const named = await this.prisma.projectTeamMember.findFirst({
+        where: { clientId, projectId, identityKey },
+        select: { freeLabel: true },
+      });
+      memberMeta = {
+        userId: null,
+        displayName: named?.freeLabel ?? null,
+        email: null,
+      };
+    }
+
     await this.replaceGovernanceCirclesForIdentity(
       this.prisma,
       clientId,
       projectId,
       identityKey,
       dto.circleIds,
+      memberMeta,
     );
     const team = await this.getTeam(clientId, projectId);
     const updated = team.find((m) => m.id === memberId);

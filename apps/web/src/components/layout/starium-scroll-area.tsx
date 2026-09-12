@@ -44,16 +44,17 @@ export function StariumScrollArea({
     const el = viewportRef.current;
     if (!el) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
-    const hasOverflow = scrollHeight > clientHeight + 1;
+    const overflowPx = scrollHeight - clientHeight;
+    const hasOverflow = overflowPx > 8;
     setOverflow(hasOverflow);
     if (!hasOverflow) return;
     const ratio = clientHeight / scrollHeight;
     const height = Math.max(40, Math.round(clientHeight * ratio));
-    const maxTop = clientHeight - height;
+    const maxTop = Math.max(0, clientHeight - height);
     const top =
-      scrollHeight <= clientHeight
+      overflowPx <= 0
         ? 0
-        : Math.round((scrollTop / (scrollHeight - clientHeight)) * maxTop);
+        : Math.round((scrollTop / overflowPx) * maxTop);
     setThumb({ top, height });
   }, []);
 

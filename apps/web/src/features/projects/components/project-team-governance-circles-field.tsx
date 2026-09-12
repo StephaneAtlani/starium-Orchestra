@@ -57,7 +57,7 @@ export function ProjectTeamGovernanceCirclesField({
   if (options.length === 0) {
     return (
       <p className="text-[11px] italic text-muted-foreground">
-        Aucun cercle de gouvernance configuré pour ce projet.
+        Aucune équipe configurée — créez-en dans l’onglet Équipes.
       </p>
     );
   }
@@ -70,12 +70,13 @@ export function ProjectTeamGovernanceCirclesField({
           compact ? 'text-[11px] uppercase tracking-wide text-muted-foreground' : 'text-xs',
         )}
       >
-        Appartenance
+        Équipes
       </legend>
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Par défaut : Comité de pilotage (COPIL) et Comité de projet (COPROJ). Ajoutez d’autres
-          cercles dans les options du projet. Une ressource peut en cumuler plusieurs.
+          Les tags viennent des équipes du projet (onglet Équipes). Cocher ajoute
+          la personne à l’équipe ; décocher la retire — même source que la
+          convocation des points.
         </p>
       ) : null}
       <ul
@@ -87,13 +88,14 @@ export function ProjectTeamGovernanceCirclesField({
         {options.map((circle) => {
           const inputId = `${idPrefix}-${circle.id}`;
           const checked = value.includes(circle.id);
+          const label = governanceCircleDisplayLabel(circle);
           return (
             <li key={circle.id}>
               <Label
                 htmlFor={inputId}
                 className={cn(
                   'flex min-h-11 cursor-pointer items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-2.5 py-2 text-xs font-normal',
-                  checked && 'border-violet-900/35 bg-violet-900/10 dark:border-violet-700/40 dark:bg-violet-950/40',
+                  checked && 'border-border bg-card shadow-[var(--shadow-1)]',
                   disabled && 'cursor-not-allowed opacity-60',
                 )}
               >
@@ -105,11 +107,15 @@ export function ProjectTeamGovernanceCirclesField({
                   onCheckedChange={(next) => toggle(circle.id, next === true)}
                 />
                 <span className="min-w-0">
-                  <span className="block font-medium text-foreground">
-                    {governanceCircleDisplayLabel(circle)}
-                  </span>
-                  {circle.systemKind ? (
-                    <span className="text-[10px] text-muted-foreground">Cercle système</span>
+                  <span className="block font-medium text-foreground">{label}</span>
+                  {circle.label?.trim() ? (
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {circle.label.trim()}
+                    </span>
+                  ) : circle.systemKind ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      Équipe système
+                    </span>
                   ) : null}
                 </span>
               </Label>

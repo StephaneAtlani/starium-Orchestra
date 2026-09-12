@@ -491,9 +491,9 @@ export function ProjectTeamsEditorDialog({
       title="Équipes du projet"
       description="COPIL, COPROJ, COTECH… Composez les instances du projet une fois ; elles se retrouvent dans la préparation de chaque point."
       icon={Users}
-      size="xl"
-      contentClassName="sm:max-w-5xl"
-      bodyClassName="!flex !min-h-0 !flex-col !p-0"
+      size="full"
+      contentClassName="sm:max-w-6xl !h-[min(90dvh,calc(100dvh-2rem))] !max-h-[min(90dvh,calc(100dvh-2rem))]"
+      bodyClassName="!flex !min-h-0 !flex-1 !flex-col !overflow-hidden !p-0"
       footer={
         <>
           {!draft.isNew && canEdit ? (
@@ -530,12 +530,12 @@ export function ProjectTeamsEditorDialog({
         </>
       }
     >
-      <div className="grid h-full min-h-0 max-h-[min(78vh,720px)] flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden md:grid-cols-[minmax(13rem,16rem)_1fr]">
+      <div className="grid h-full min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden md:grid-cols-[minmax(14rem,17rem)_1fr]">
         <aside className="flex h-full min-h-0 flex-col overflow-hidden border-b border-border/70 md:border-b-0 md:border-r">
           <StariumScrollArea
             className="min-h-0 flex-1"
             viewportClassName="space-y-1 p-3"
-            reveal="always"
+            reveal="hover"
           >
             <ul role="listbox" aria-label="Liste des équipes" className="space-y-1">
               {teams.map((team) => {
@@ -622,7 +622,7 @@ export function ProjectTeamsEditorDialog({
         <StariumScrollArea
           className="starium-form h-full min-h-0"
           viewportClassName="starium-form space-y-4 p-4 sm:p-5"
-          reveal="always"
+          reveal="hover"
         >
           <div className="starium-form-field">
             <label htmlFor="team-name" className="starium-form-label">

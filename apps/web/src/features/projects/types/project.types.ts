@@ -716,6 +716,8 @@ export type ProjectTeamMemberGovernanceCircleRefApi = {
   id: string;
   name: string;
   systemKind: ProjectGovernanceCircleSystemKindApi | null;
+  label?: string | null;
+  colorToken?: ProjectTeamColorToken | null;
 };
 
 export type ProjectTeamMemberApi = {
