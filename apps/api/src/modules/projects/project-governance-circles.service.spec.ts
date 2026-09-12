@@ -99,4 +99,162 @@ describe('ProjectGovernanceCirclesService (RFC-PROJ-023)', () => {
   it('accepte colorToken enum', () => {
     expect(Object.values(ProjectTeamColorToken)).toContain('BROWN');
   });
+
+  it('crée une équipe avec membre n: sans e-mail (identité libre)', async () => {
+    const createdRow = {
+      id: 'team-new',
+      clientId,
+      projectId,
+      name: 'Comité ad hoc',
+      label: null,
+      colorToken: ProjectTeamColorToken.GREEN,
+      pilotIdentityKey: null,
+      sortOrder: 3,
+      systemKind: null,
+    };
+    const membershipCreate = jest.fn().mockResolvedValue({});
+    const prisma = {
+      projectGovernanceCircle: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'a' })
+          .mockResolvedValueOnce({ id: 'b' })
+          .mockResolvedValueOnce({ id: 'c' })
+          .mockResolvedValueOnce(null), // name available
+        aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } }),
+        create: jest.fn().mockResolvedValue(createdRow),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...createdRow,
+            memberships: [
+              {
+                identityKey: 'n:alice dupont',
+                userId: null,
+                resourceId: null,
+                displayName: 'Alice Dupont',
+                firstName: null,
+                lastName: null,
+                companyName: null,
+                email: null,
+                sortOrder: 0,
+              },
+            ],
+          },
+        ]),
+      },
+      projectReviewTeamConvocation: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn(async (fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          projectGovernanceCircle: {
+            create: jest.fn().mockResolvedValue(createdRow),
+          },
+          projectTeamGovernanceMembership: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+            create: membershipCreate,
+          },
+        }),
+      ),
+    };
+
+    const svc = buildService(prisma);
+    const out = await svc.create(clientId, projectId, {
+      name: 'Comité ad hoc',
+      members: [
+        {
+          identityKey: 'n:alice dupont',
+          displayName: 'Alice Dupont',
+          sortOrder: 0,
+        },
+      ],
+    });
+
+    expect(membershipCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          identityKey: 'n:alice dupont',
+          resourceId: null,
+          userId: null,
+        }),
+      }),
+    );
+    expect(out.name).toBe('Comité ad hoc');
+  });
+
+  it('accepte membre r: sans resourceId explicite (dérivé de la clé)', async () => {
+    const createdRow = {
+      id: 'team-r',
+      clientId,
+      projectId,
+      name: 'Ops',
+      label: null,
+      colorToken: ProjectTeamColorToken.TEAL,
+      pilotIdentityKey: null,
+      sortOrder: 3,
+      systemKind: null,
+    };
+    const membershipCreate = jest.fn().mockResolvedValue({});
+    const prisma = {
+      projectGovernanceCircle: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'a' })
+          .mockResolvedValueOnce({ id: 'b' })
+          .mockResolvedValueOnce({ id: 'c' })
+          .mockResolvedValueOnce(null),
+        aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } }),
+        create: jest.fn().mockResolvedValue(createdRow),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...createdRow,
+            memberships: [
+              {
+                identityKey: 'r:res-1',
+                userId: null,
+                resourceId: 'res-1',
+                displayName: 'Bob',
+                firstName: null,
+                lastName: null,
+                companyName: null,
+                email: null,
+                sortOrder: 0,
+              },
+            ],
+          },
+        ]),
+      },
+      projectReviewTeamConvocation: {
+        groupBy: jest.fn().mockResolvedValue([]),
+      },
+      user: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn(async (fn: (tx: any) => Promise<unknown>) =>
+        fn({
+          projectGovernanceCircle: {
+            create: jest.fn().mockResolvedValue(createdRow),
+          },
+          projectTeamGovernanceMembership: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+            create: membershipCreate,
+          },
+        }),
+      ),
+    };
+
+    const svc = buildService(prisma);
+    await svc.create(clientId, projectId, {
+      name: 'Ops',
+      members: [{ identityKey: 'r:res-1', displayName: 'Bob', sortOrder: 0 }],
+    });
+
+    expect(membershipCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          identityKey: 'r:res-1',
+          resourceId: 'res-1',
+        }),
+      }),
+    );
+  });
 });

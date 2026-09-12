@@ -62,6 +62,7 @@ type DraftTeam = {
 type DirectoryPerson = {
   identityKey: string;
   userId: string | null;
+  resourceId?: string | null;
   displayName: string;
   subtitle?: string | null;
   firstName?: string | null;
@@ -69,6 +70,19 @@ type DirectoryPerson = {
   companyName?: string | null;
   email?: string | null;
 };
+
+/** API `parseApiFormError` renvoie un objet `{ message }`, pas `Error`. */
+function teamSaveErrorMessage(
+  err: unknown,
+  fallback = 'Enregistrement impossible.',
+): string {
+  if (err instanceof Error && err.message.trim()) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m;
+  }
+  return fallback;
+}
 
 type Props = {
   projectId: string;
@@ -242,6 +256,7 @@ export function ProjectTeamsEditorDialog({
       map.set(fp.identityKey, {
         identityKey: fp.identityKey,
         userId: null,
+        resourceId: null,
         displayName: displayLabel(fp.label, 'Personne'),
       });
     }
@@ -251,6 +266,9 @@ export function ProjectTeamsEditorDialog({
       map.set(m.identityKey, {
         identityKey: m.identityKey,
         userId: m.userId,
+        resourceId: m.identityKey.startsWith('r:')
+          ? m.identityKey.slice(2)
+          : null,
         displayName: displayLabel(m.displayName, 'Personne'),
         subtitle: m.email || m.roleName || null,
         email: m.email || null,
@@ -263,6 +281,9 @@ export function ProjectTeamsEditorDialog({
         map.set(m.identityKey, {
           identityKey: m.identityKey,
           userId: m.userId,
+          resourceId:
+            m.resourceId ??
+            (m.identityKey.startsWith('r:') ? m.identityKey.slice(2) : null),
           displayName: displayLabel(m.displayName, 'Personne'),
           subtitle: m.companyName || m.email || null,
           firstName: m.firstName ?? null,
@@ -326,6 +347,12 @@ export function ProjectTeamsEditorDialog({
   const addMember = (person: DirectoryPerson | DraftMember) => {
     if (!canEdit) return;
     if (selectedKeys.has(person.identityKey)) return;
+    const resourceId = person.userId
+      ? null
+      : ('resourceId' in person ? person.resourceId?.trim() || null : null) ||
+        (person.identityKey.startsWith('r:')
+          ? person.identityKey.slice(2) || null
+          : null);
     setDraft((prev) => ({
       ...prev,
       members: [
@@ -333,8 +360,7 @@ export function ProjectTeamsEditorDialog({
         {
           identityKey: person.identityKey,
           userId: person.userId,
-          resourceId:
-            'resourceId' in person ? person.resourceId?.trim() || null : null,
+          resourceId,
           displayName: displayLabel(person.displayName, 'Membre'),
           firstName: person.userId
             ? null
@@ -453,7 +479,7 @@ export function ProjectTeamsEditorDialog({
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Enregistrement impossible.');
+      toast.error(teamSaveErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -474,7 +500,7 @@ export function ProjectTeamsEditorDialog({
       );
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Suppression impossible.');
+      toast.error(teamSaveErrorMessage(e, 'Suppression impossible.'));
     } finally {
       setSaving(false);
       setConfirmDelete(false);

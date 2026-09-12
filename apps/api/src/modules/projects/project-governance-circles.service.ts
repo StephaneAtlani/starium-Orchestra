@@ -375,51 +375,81 @@ export class ProjectGovernanceCirclesService {
         continue;
       }
 
-      if (identityKey.startsWith('r:') && m.resourceId) {
-        resolved.push(m);
+      // Ressource RH déjà connue (`r:<id>`) — ne pas exiger d’e-mail ni recreer.
+      if (identityKey.startsWith('r:')) {
+        const resourceId =
+          m.resourceId?.trim() || identityKey.slice(2).trim() || null;
+        if (!resourceId) {
+          throw new BadRequestException(
+            'Ressource invalide pour ce membre d’équipe',
+          );
+        }
+        resolved.push({
+          ...m,
+          identityKey: `r:${resourceId}`,
+          userId: undefined,
+          resourceId,
+        });
         continue;
       }
 
       const email = m.email?.trim().toLowerCase();
-      if (!email) {
-        throw new BadRequestException(
-          'E-mail requis pour créer la ressource humaine externe',
-        );
+      if (email) {
+        const lastName =
+          m.lastName?.trim() ||
+          m.displayName?.trim().split(/\s+/).slice(-1)[0] ||
+          'Externe';
+        const firstName =
+          m.firstName?.trim() ||
+          m.displayName?.trim().split(/\s+/).slice(0, -1).join(' ') ||
+          null;
+
+        const resource = await this.resources.ensureExternalHuman(clientId, {
+          firstName,
+          name: lastName,
+          email,
+          companyName: m.companyName,
+        });
+
+        const newKey = `r:${resource.id}`;
+        keyMap.set(identityKey, newKey);
+        const displayName =
+          [resource.firstName, resource.name].filter(Boolean).join(' ').trim() ||
+          m.displayName?.trim() ||
+          email;
+
+        resolved.push({
+          identityKey: newKey,
+          userId: undefined,
+          resourceId: resource.id,
+          displayName,
+          firstName: resource.firstName,
+          lastName: resource.name,
+          companyName: resource.companyName,
+          email: resource.email,
+          sortOrder: m.sortOrder,
+        });
+        continue;
       }
 
-      const lastName =
-        m.lastName?.trim() ||
-        m.displayName?.trim().split(/\s+/).slice(-1)[0] ||
-        'Externe';
-      const firstName =
-        m.firstName?.trim() ||
-        m.displayName?.trim().split(/\s+/).slice(0, -1).join(' ') ||
-        null;
-
-      const resource = await this.resources.ensureExternalHuman(clientId, {
-        firstName,
-        name: lastName,
-        email,
-        companyName: m.companyName,
-      });
-
-      const newKey = `r:${resource.id}`;
-      keyMap.set(identityKey, newKey);
-      const displayName =
-        [resource.firstName, resource.name].filter(Boolean).join(' ').trim() ||
+      // Identité « nom libre » (roster `n:…`) — membership sans Resource.
+      const freeLabel =
         m.displayName?.trim() ||
-        email;
-
+        (identityKey.startsWith('n:') ? identityKey.slice(2) : '');
+      if (!freeLabel) {
+        throw new BadRequestException(
+          'E-mail ou nom requis pour ajouter ce membre à l’équipe',
+        );
+      }
       resolved.push({
-        identityKey: newKey,
+        ...m,
+        identityKey: identityKey.startsWith('n:')
+          ? identityKey
+          : `n:${freeLabel.replace(/\s+/g, ' ').toLowerCase().slice(0, 120)}`,
         userId: undefined,
-        resourceId: resource.id,
-        displayName,
-        firstName: resource.firstName,
-        lastName: resource.name,
-        companyName: resource.companyName,
-        email: resource.email,
-        sortOrder: m.sortOrder,
+        resourceId: null,
+        displayName: freeLabel,
+        email: null,
       });
     }
 
