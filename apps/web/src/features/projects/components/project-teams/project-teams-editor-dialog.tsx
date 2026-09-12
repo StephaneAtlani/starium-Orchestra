@@ -492,7 +492,7 @@ export function ProjectTeamsEditorDialog({
       icon={Users}
       size="xl"
       contentClassName="sm:max-w-5xl"
-      bodyClassName="!p-0"
+      bodyClassName="!flex !min-h-0 !flex-col !p-0"
       footer={
         <>
           {!draft.isNew && canEdit ? (
@@ -529,10 +529,10 @@ export function ProjectTeamsEditorDialog({
         </>
       }
     >
-      <div className="grid max-h-[min(78vh,720px)] grid-cols-1 md:grid-cols-[minmax(13rem,16rem)_1fr]">
-        <aside className="flex flex-col border-b border-border/70 md:border-b-0 md:border-r">
+      <div className="grid min-h-0 max-h-[min(78vh,720px)] flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(13rem,16rem)_1fr]">
+        <aside className="flex min-h-0 flex-col overflow-hidden border-b border-border/70 md:border-b-0 md:border-r">
           <ul
-            className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3"
+            className="starium-scroll starium-scroll--edges min-h-0 flex-1 space-y-1 overflow-y-auto p-3"
             role="listbox"
             aria-label="Liste des équipes"
           >
@@ -616,7 +616,7 @@ export function ProjectTeamsEditorDialog({
           ) : null}
         </aside>
 
-        <div className="starium-form min-h-0 overflow-y-auto p-4 sm:p-5">
+        <div className="starium-form starium-scroll starium-scroll--edges min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5">
           <div className="starium-form-field">
             <label htmlFor="team-name" className="starium-form-label">
               Nom de l’équipe

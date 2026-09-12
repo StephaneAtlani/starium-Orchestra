@@ -280,7 +280,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         chrome.layout === "starium"
           ? "starium-modal__body"
-          : "starium-modal__scroll min-h-0 flex-1 overflow-y-auto overscroll-contain",
+          : "starium-modal__scroll starium-scroll--edges min-h-0 flex-1 overflow-y-auto overscroll-contain",
         className,
       )}
       {...props}

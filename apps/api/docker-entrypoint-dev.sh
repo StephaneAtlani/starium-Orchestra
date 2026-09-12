@@ -154,6 +154,42 @@ assert_generated_client_has_review_descent() {
   echo "[api-dev] client Prisma OK (projectReviewDescent présent sous .prisma/client)"
 }
 
+assert_generated_client_has_team_membership_resource() {
+  found=0
+  for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+    if [ -d "$d" ] && grep -rq 'ProjectTeamGovernanceMembership' "$d" 2>/dev/null \
+      && grep -rq 'resourceId' "$d"/index.d.ts 2>/dev/null; then
+      # Vérifie que le modèle membership expose resourceId (pas seulement d’autres modèles).
+      if grep -A 40 'export type ProjectTeamGovernanceMembershipAvgAggregateOutputType' "$d"/index.d.ts 2>/dev/null \
+        | head -1 >/dev/null \
+        && node -e "
+const {Prisma}=require('@prisma/client');
+const f=Prisma.ProjectTeamGovernanceMembershipScalarFieldEnum;
+if (!f.resourceId) process.exit(2);
+if (!f.firstName || !f.email) process.exit(3);
+" 2>/dev/null; then
+        found=1
+        break
+      fi
+    fi
+  done
+  # Fallback sans node (cwd) : grep ciblé dans le ScalarFieldEnum du membership
+  if [ "$found" != 1 ]; then
+    for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+      if [ -f "$d/index.d.ts" ] && grep -A 25 'ProjectTeamGovernanceMembershipScalarFieldEnum' "$d/index.d.ts" \
+        | grep -q 'resourceId'; then
+        found=1
+        break
+      fi
+    done
+  fi
+  if [ "$found" != 1 ]; then
+    echo "[api-dev] ERREUR: client Prisma sans ProjectTeamGovernanceMembership.resourceId (RFC-PROJ-023 — regenerate)." >&2
+    exit 1
+  fi
+  echo "[api-dev] client Prisma OK (ProjectTeamGovernanceMembership.resourceId)"
+}
+
 assert_rbac_package_present
 echo "[api-dev] pnpm install (sync workspace deps)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
@@ -167,6 +203,7 @@ api_prisma_generate
 assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
 assert_generated_client_has_review_descent
+assert_generated_client_has_team_membership_resource
 build_rbac_permissions
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
@@ -186,5 +223,6 @@ api_prisma_generate
 assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
 assert_generated_client_has_review_descent
+assert_generated_client_has_team_membership_resource
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev

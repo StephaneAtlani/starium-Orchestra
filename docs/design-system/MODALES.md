@@ -52,12 +52,23 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 | Titre | `.starium-modal__title` | Via `DialogTitle` |
 | Sous-titre | `.starium-modal__subtitle` | Via `DialogDescription` — **une phrase** |
 | Fermeture | `.starium-modal__close` | **Haut droite** du header (`margin-left: auto`) ; `aria-label="Fermer"` |
-| Corps | `.starium-modal__body` | Padding `22px` ; seule zone scrollable |
+| Corps | `.starium-modal__body` | Padding `20px` ; seule zone scrollable ; **scrollbar fine toujours stylée** + `scrollbar-gutter: stable` ; ombres de débordement (sauf `p-0`) |
 | Pied | `.starium-modal__footer` | Bordure haute ; boutons alignés à droite, gap `10px` |
+
+## 2.1 Scroll du corps (souris / molette)
+
+Le corps de modale doit **montrer** qu’il y a plus de contenu — tout le monde n’a pas de trackpad.
+
+| Mécanisme | Où |
+|-----------|-----|
+| Scrollbar fine stylée (track + thumb tokens) | **Toujours visible** dès qu’il y a overflow ; thumb plus contrasté au `:hover`. Corps + `.starium-scroll` + `.overflow-y-auto` sous `[data-slot="dialog-content"]` |
+| `scrollbar-gutter: stable` | Même périmètre — évite le jump de layout |
+| Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
+
+Sous-panneaux scrollables (ex. liste + détail côte à côte) : ajouter `starium-scroll starium-scroll--edges` sur la zone `overflow-y-auto`.
 
 ---
 
-## 3. Tailles (`size` sur `DialogContent` / `StariumModal`)
 
 | `size` | Largeur desktop | Usage type |
 |--------|-----------------|------------|
@@ -201,6 +212,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Inputs bruts `border-input` hors `.starium-form-*` | Classes formulaire DS |
 | `Statement`, UUID, IDs en UI | Libellés métier français |
 | Scroll sur `DialogContent` | Scroll uniquement sur `DialogBody` |
+| Scrollbar invisible / overlay sans indice | Scrollbar fine **toujours visible** si overflow + ombres `starium-scroll--edges` |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---
