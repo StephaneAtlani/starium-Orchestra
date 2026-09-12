@@ -69,7 +69,7 @@ describe('home-dashboard-metrics', () => {
     ]);
   });
 
-  it('countHealth ignores completed projects', () => {
+  it('countHealth ignores completed and draft projects', () => {
     const items = [
       project({ id: '1', name: 'A', computedHealth: 'GREEN' }),
       project({
@@ -78,7 +78,13 @@ describe('home-dashboard-metrics', () => {
         status: 'COMPLETED',
         computedHealth: 'RED',
       }),
-      project({ id: '3', name: 'C', computedHealth: 'ORANGE' }),
+      project({
+        id: '3',
+        name: 'Draft',
+        status: 'DRAFT',
+        computedHealth: 'RED',
+      }),
+      project({ id: '4', name: 'C', computedHealth: 'ORANGE' }),
     ];
     expect(countHealth(items)).toEqual({ green: 1, orange: 1, red: 0 });
   });
@@ -266,6 +272,7 @@ describe('home-dashboard-metrics', () => {
   it('spark helpers never invent points', () => {
     expect(sparkFromBudgetPoints([])).toBeNull();
     expect(sparkFromProjectCreations(undefined, 3)).toBeNull();
+    expect(sparkFromProjectCreations(0, 0)).toBeNull();
     expect(sparkFromCriticalRiskDetectedDates([])).toBeNull();
     expect(sparkFromUpcomingMilestonesByWeek([])).toBeNull();
     expect(

@@ -50,6 +50,13 @@ export function selectPriorityProjects(
     .slice(0, limit);
 }
 
+/** Statuts pilotés (alignés KPI « projets actifs » / API isActiveProjectStatus). */
+const ACTIVE_PORTFOLIO_STATUSES = new Set([
+  'PLANNED',
+  'IN_PROGRESS',
+  'ON_HOLD',
+]);
+
 export function countHealth(
   items: ProjectListItem[],
 ): { green: number; orange: number; red: number } {
@@ -57,9 +64,8 @@ export function countHealth(
   let orange = 0;
   let red = 0;
   for (const p of items) {
-    if (p.status === 'COMPLETED' || p.status === 'CANCELLED' || p.status === 'ARCHIVED') {
-      continue;
-    }
+    // Exclure DRAFT / clos — sinon le donut gonfle hors « projets actifs ».
+    if (!ACTIVE_PORTFOLIO_STATUSES.has(p.status)) continue;
     if (p.computedHealth === 'GREEN') green += 1;
     else if (p.computedHealth === 'ORANGE') orange += 1;
     else red += 1;
@@ -223,6 +229,8 @@ export function sparkFromProjectCreations(
   createdThisMonth: number | undefined,
 ): number[] | null {
   if (createdPreviousMonth == null || createdThisMonth == null) return null;
+  // Pas de courbe décorative à plat sur 0 / 0.
+  if (createdPreviousMonth === 0 && createdThisMonth === 0) return null;
   return dynamicSparkSeries([createdPreviousMonth, createdThisMonth]);
 }
 

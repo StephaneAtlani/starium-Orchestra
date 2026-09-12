@@ -31,10 +31,7 @@ import {
 } from '@/features/budgets/types/budget-dashboard.types';
 import { listClientRisks } from '@/features/projects/api/projects.api';
 import { projectQueryKeys } from '@/features/projects/lib/project-query-keys';
-import {
-  formatPortfolioBudgetCompact,
-  projectBudgetConsumptionPercent,
-} from '@/features/projects/lib/projects-list-display';
+import { formatPortfolioBudgetCompact } from '@/features/projects/lib/projects-list-display';
 import {
   projectNew,
   projectsList,
@@ -231,12 +228,18 @@ export function HomeDashboardPage() {
     };
   }, [budgetQuery.data, exerciseOptionsQuery.data, period]);
 
-  const budgetPct = summary
-    ? projectBudgetConsumptionPercent(
-        summary.totalTargetBudgetAmount,
-        summary.totalConsumedBudgetAmount,
-      )
-    : null;
+  /**
+   * Budget KPI = même source que la courbe (exercice / cockpit),
+   * pas le résumé portefeuille projets (liens FIXED souvent vides → « — » trompeur).
+   */
+  const cockpitKpis = useMemo(
+    () => (budgetQuery.data ? getCockpitKpiData(budgetQuery.data)?.kpis : null),
+    [budgetQuery.data],
+  );
+  const budgetPct =
+    cockpitKpis && cockpitKpis.totalBudget > 0
+      ? cockpitKpis.consumptionRate * 100
+      : null;
 
   const createdDelta = summary
     ? summary.projectsCreatedThisMonth - summary.projectsCreatedPreviousMonth
@@ -257,7 +260,10 @@ export function HomeDashboardPage() {
   );
 
   const loadingKpis =
-    summaryQuery.isLoading || projectsQuery.isLoading || risksQuery.isLoading;
+    summaryQuery.isLoading ||
+    projectsQuery.isLoading ||
+    risksQuery.isLoading ||
+    budgetQuery.isLoading;
   const exerciseSubtitle = budgetChart.yearLabel
     ? `Réalisé vs budget cible — ${budgetChart.yearLabel}`
     : 'Réalisé vs budget cible sur l’exercice actif';
@@ -334,9 +340,11 @@ export function HomeDashboardPage() {
                   : '—'
             }
             subtitle={
-              summary
-                ? `${formatPortfolioBudgetCompact(summary.totalConsumedBudgetAmount)} / ${formatPortfolioBudgetCompact(summary.totalTargetBudgetAmount)}`
-                : 'Cible portefeuille'
+              cockpitKpis
+                ? `${formatPortfolioBudgetCompact(String(cockpitKpis.consumed))} / ${formatPortfolioBudgetCompact(String(cockpitKpis.totalBudget))}`
+                : budgetQuery.isLoading
+                  ? 'Chargement…'
+                  : 'Exercice actif'
             }
             icon={Wallet}
             iconWrapperClassName="bg-[color:var(--state-info-bg)] text-[color:var(--state-info)]"
