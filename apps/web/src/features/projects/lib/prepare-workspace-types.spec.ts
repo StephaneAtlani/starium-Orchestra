@@ -8,7 +8,9 @@ import {
   parsePrepWorkspace,
   parsePwBlockIdFromNotes,
   pwBlockNotesMarker,
+  resolveBlockOrderIds,
   reviewTypeToTypeCode,
+  selectedIdsInBlockOrder,
 } from './prepare-workspace-types';
 
 describe('prepare-workspace-types', () => {
@@ -26,6 +28,7 @@ describe('prepare-workspace-types', () => {
         prepWorkspace: {
           mode: 'sections',
           selectedBlockIds: ['presents', 'objectif'],
+          blockOrderIds: ['objectif', 'presents', 'tour'],
           customBlocks: [],
           templateId: null,
         },
@@ -34,6 +37,7 @@ describe('prepare-workspace-types', () => {
     );
     expect(parsed.mode).toBe('sections');
     expect(parsed.selectedBlockIds).toEqual(['presents', 'objectif']);
+    expect(parsed.blockOrderIds).toEqual(['objectif', 'presents', 'tour']);
 
     const merged = mergeContentPayloadWithPrep(
       { committeeMood: 'GREEN' },
@@ -41,6 +45,26 @@ describe('prepare-workspace-types', () => {
     );
     expect(merged.committeeMood).toBe('GREEN');
     expect(merged.prepWorkspace).toEqual(parsed);
+  });
+
+  it('garde la position des blocs retirés (pas selected-first)', () => {
+    const catalog = [
+      'presents',
+      'objectif',
+      'tour',
+      'actions',
+      'avancement',
+    ];
+    expect(resolveBlockOrderIds(catalog, undefined)).toEqual(catalog);
+    expect(
+      resolveBlockOrderIds(catalog, ['tour', 'presents', 'objectif']),
+    ).toEqual(['tour', 'presents', 'objectif', 'actions', 'avancement']);
+    expect(
+      selectedIdsInBlockOrder(
+        ['presents', 'actions'],
+        ['presents', 'objectif', 'tour', 'actions'],
+      ),
+    ).toEqual(['presents', 'actions']);
   });
 
   it('marqueurs notes [pw:]', () => {

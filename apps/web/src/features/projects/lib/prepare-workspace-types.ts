@@ -20,6 +20,11 @@ export type PrepPlanningPayload = {
 export type PrepWorkspacePayload = {
   mode: PrepWorkspaceMode;
   selectedBlockIds: string[];
+  /**
+   * Ordre d’affichage de tous les blocs standards (actifs + retirés).
+   * Un bloc désactivé reste à sa place (sans numéro) — aligné kit `pwOrder`.
+   */
+  blockOrderIds?: string[];
   customBlocks: PrepWorkspaceCustomBlock[];
   templateId: string | null;
   templateEditorOpen?: boolean;
@@ -102,11 +107,38 @@ export function defaultPrepWorkspace(
   return {
     mode: 'simple',
     selectedBlockIds,
+    blockOrderIds: [...selectedBlockIds],
     customBlocks: [],
     templateId: null,
     goal: '',
     blockDurations: {},
   };
+}
+
+/** Ordre d’affichage ODJ vue simple : tous les blocs, retirés inclus (position stable). */
+export function resolveBlockOrderIds(
+  catalogIds: string[],
+  blockOrderIds?: string[] | null,
+): string[] {
+  const valid = new Set(catalogIds);
+  let order = (blockOrderIds ?? []).filter((id) => valid.has(id));
+  if (order.length === 0) {
+    // Legacy : pas d’ordre persisté → catalogue (pas selected-first, sinon les off partent en bas).
+    order = [...catalogIds];
+  }
+  for (const id of catalogIds) {
+    if (!order.includes(id)) order.push(id);
+  }
+  return order;
+}
+
+/** Réordonne les IDs sélectionnés selon l’ordre d’affichage (actifs uniquement). */
+export function selectedIdsInBlockOrder(
+  selectedBlockIds: string[],
+  blockOrderIds: string[],
+): string[] {
+  const selected = new Set(selectedBlockIds);
+  return blockOrderIds.filter((id) => selected.has(id));
 }
 
 export function parsePrepWorkspace(
@@ -128,6 +160,9 @@ export function parsePrepWorkspace(
   const selectedBlockIds = Array.isArray(o.selectedBlockIds)
     ? o.selectedBlockIds.filter((id): id is string => typeof id === 'string')
     : fallbackSelected;
+  const blockOrderIds = Array.isArray(o.blockOrderIds)
+    ? o.blockOrderIds.filter((id): id is string => typeof id === 'string')
+    : undefined;
   const customBlocks = Array.isArray(o.customBlocks)
     ? o.customBlocks
         .filter(
@@ -172,6 +207,7 @@ export function parsePrepWorkspace(
   return {
     mode,
     selectedBlockIds,
+    blockOrderIds,
     customBlocks,
     templateId,
     templateEditorOpen: o.templateEditorOpen === true,

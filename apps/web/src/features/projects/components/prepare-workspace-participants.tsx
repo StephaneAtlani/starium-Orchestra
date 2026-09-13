@@ -91,6 +91,8 @@ export function PrepareWorkspaceParticipants({
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorTeamId, setEditorTeamId] = useState<string | null>(null);
+  /** Onglets d’ajout : personne (autocomplete) | équipe (convocation). */
+  const [inviteTab, setInviteTab] = useState<'person' | 'team'>('person');
 
   const [memberQuery, setMemberQuery] = useState('');
   const [listOpen, setListOpen] = useState(false);
@@ -98,6 +100,7 @@ export function PrepareWorkspaceParticipants({
   const [memberError, setMemberError] = useState<string | null>(null);
 
   const memberInputId = useId();
+  const tabsId = useId();
   const listboxId = `${memberInputId}-listbox`;
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -314,171 +317,271 @@ export function PrepareWorkspaceParticipants({
       </div>
 
       {canEdit ? (
-        <div ref={containerRef} className="prepare-workspace__ac">
-          <label className="sr-only" htmlFor={memberInputId}>
-            Rechercher un membre ou saisir un e-mail
-          </label>
-          <input
-            ref={inputRef}
-            id={memberInputId}
-            type="text"
-            role="combobox"
-            aria-expanded={listOpen}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            aria-activedescendant={
-              listOpen && optionCount > 0
-                ? `${listboxId}-opt-${activeIdx}`
-                : undefined
-            }
-            aria-invalid={memberError ? true : undefined}
-            aria-describedby={
-              memberError ? `${memberInputId}-error` : `${memberInputId}-hint`
-            }
-            className="prepare-workspace__ac-input"
-            value={memberQuery}
-            disabled={pending || assignable.isLoading}
-            placeholder="Nom, prénom ou e-mail…"
-            autoComplete="off"
-            onFocus={() => setListOpen(true)}
-            onChange={(e) => {
-              setMemberQuery(e.target.value);
-              setMemberError(null);
-              setListOpen(true);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setListOpen(true);
-                setActiveIdx((i) =>
-                  optionCount === 0 ? 0 : (i + 1) % optionCount,
-                );
-                return;
-              }
-              if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setListOpen(true);
-                setActiveIdx((i) =>
-                  optionCount === 0
-                    ? 0
-                    : (i - 1 + optionCount) % optionCount,
-                );
-                return;
-              }
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commitActive();
-                return;
-              }
-              if (e.key === 'Escape') {
+        <div className="prepare-workspace__add prepare-workspace__add--invite">
+          <div
+            className="prepare-workspace__seg"
+            role="tablist"
+            aria-label="Mode de convocation"
+          >
+            <button
+              type="button"
+              role="tab"
+              id={`${tabsId}-person`}
+              aria-selected={inviteTab === 'person'}
+              aria-controls={`${tabsId}-panel-person`}
+              tabIndex={inviteTab === 'person' ? 0 : -1}
+              className={`prepare-workspace__seg-btn${inviteTab === 'person' ? ' is-on' : ''}`}
+              onClick={() => {
+                setInviteTab('person');
                 setListOpen(false);
-              }
-            }}
-          />
-
-          {listOpen ? (
-            <ul
-              id={listboxId}
-              role="listbox"
-              className="prepare-workspace__ac-list"
-              aria-label="Suggestions de membres"
+                requestAnimationFrame(() => inputRef.current?.focus());
+              }}
             >
-              {assignable.isLoading ? (
-                <li className="prepare-workspace__ac-empty">Chargement…</li>
-              ) : null}
-
-              {!assignable.isLoading &&
-              suggestions.length === 0 &&
-              !showFreeEmailOption ? (
-                <li className="prepare-workspace__ac-empty">
-                  {memberQuery.trim()
-                    ? 'Aucun membre — saisissez un e-mail complet pour inviter'
-                    : availableMembers.length === 0
-                      ? 'Tous les membres sont déjà convoqués'
-                      : 'Tapez pour filtrer les membres'}
-                </li>
-              ) : null}
-
-              {suggestions.map((u, idx) => {
-                const label = memberLabel(u);
-                return (
-                  <li key={u.id} role="presentation">
-                    <button
-                      type="button"
-                      id={`${listboxId}-opt-${idx}`}
-                      role="option"
-                      aria-selected={activeIdx === idx}
-                      className={`prepare-workspace__ac-opt${activeIdx === idx ? ' is-active' : ''}`}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onMouseEnter={() => setActiveIdx(idx)}
-                      onClick={() => void onAddMember(u)}
-                    >
-                      <UserInitialsAvatar
-                        displayName={label}
-                        seed={u.id}
-                        size="sm"
-                        className="prepare-workspace__part-av"
-                      />
-                      <span className="prepare-workspace__ac-opt-body">
-                        <span className="prepare-workspace__ac-opt-t">
-                          {label}
-                        </span>
-                        <span className="prepare-workspace__ac-opt-s">
-                          Membre
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-
-              {showFreeEmailOption ? (
-                <li role="presentation">
-                  <button
-                    type="button"
-                    id={`${listboxId}-opt-${suggestions.length}`}
-                    role="option"
-                    aria-selected={activeIdx === suggestions.length}
-                    className={`prepare-workspace__ac-opt${activeIdx === suggestions.length ? ' is-active' : ''}`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseEnter={() => setActiveIdx(suggestions.length)}
-                    onClick={() => void onAddExternal(freeEmail)}
-                  >
-                    <span className="prepare-workspace__ac-opt-body">
-                      <span className="prepare-workspace__ac-opt-t">
-                        Inviter {freeEmail}
-                      </span>
-                      <span className="prepare-workspace__ac-opt-s">
-                        Externe par e-mail
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ) : null}
-
-              {freeEmailAlready ? (
-                <li className="prepare-workspace__ac-empty">
-                  Cet e-mail est déjà convoqué
-                </li>
-              ) : null}
-            </ul>
-          ) : null}
-
-          {memberError ? (
-            <p
-              id={`${memberInputId}-error`}
-              className="prepare-workspace__add-hint is-error"
-              role="alert"
+              Personne
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id={`${tabsId}-team`}
+              aria-selected={inviteTab === 'team'}
+              aria-controls={`${tabsId}-panel-team`}
+              tabIndex={inviteTab === 'team' ? 0 : -1}
+              className={`prepare-workspace__seg-btn${inviteTab === 'team' ? ' is-on' : ''}`}
+              onClick={() => {
+                setInviteTab('team');
+                setListOpen(false);
+                clearMemberField();
+              }}
             >
-              {memberError}
-            </p>
+              Équipe
+            </button>
+          </div>
+
+          {inviteTab === 'person' ? (
+            <div
+              ref={containerRef}
+              id={`${tabsId}-panel-person`}
+              role="tabpanel"
+              aria-labelledby={`${tabsId}-person`}
+              className="prepare-workspace__ac"
+            >
+              <label className="sr-only" htmlFor={memberInputId}>
+                Rechercher un membre ou saisir un e-mail
+              </label>
+              <input
+                ref={inputRef}
+                id={memberInputId}
+                type="text"
+                role="combobox"
+                aria-expanded={listOpen}
+                aria-controls={listboxId}
+                aria-autocomplete="list"
+                aria-activedescendant={
+                  listOpen && optionCount > 0
+                    ? `${listboxId}-opt-${activeIdx}`
+                    : undefined
+                }
+                aria-invalid={memberError ? true : undefined}
+                aria-describedby={
+                  memberError
+                    ? `${memberInputId}-error`
+                    : `${memberInputId}-hint`
+                }
+                className="prepare-workspace__ac-input"
+                value={memberQuery}
+                disabled={pending || assignable.isLoading}
+                placeholder="Nom, prénom ou e-mail…"
+                autoComplete="off"
+                onFocus={() => setListOpen(true)}
+                onChange={(e) => {
+                  setMemberQuery(e.target.value);
+                  setMemberError(null);
+                  setListOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setListOpen(true);
+                    setActiveIdx((i) =>
+                      optionCount === 0 ? 0 : (i + 1) % optionCount,
+                    );
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setListOpen(true);
+                    setActiveIdx((i) =>
+                      optionCount === 0
+                        ? 0
+                        : (i - 1 + optionCount) % optionCount,
+                    );
+                    return;
+                  }
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitActive();
+                    return;
+                  }
+                  if (e.key === 'Escape') {
+                    setListOpen(false);
+                  }
+                }}
+              />
+
+              {listOpen ? (
+                <ul
+                  id={listboxId}
+                  role="listbox"
+                  className="prepare-workspace__ac-list"
+                  aria-label="Suggestions de membres"
+                >
+                  {assignable.isLoading ? (
+                    <li className="prepare-workspace__ac-empty">Chargement…</li>
+                  ) : null}
+
+                  {!assignable.isLoading &&
+                  suggestions.length === 0 &&
+                  !showFreeEmailOption ? (
+                    <li className="prepare-workspace__ac-empty">
+                      {memberQuery.trim()
+                        ? 'Aucun membre — saisissez un e-mail complet pour inviter'
+                        : availableMembers.length === 0
+                          ? 'Tous les membres sont déjà convoqués'
+                          : 'Tapez pour filtrer les membres'}
+                    </li>
+                  ) : null}
+
+                  {suggestions.map((u, idx) => {
+                    const label = memberLabel(u);
+                    return (
+                      <li key={u.id} role="presentation">
+                        <button
+                          type="button"
+                          id={`${listboxId}-opt-${idx}`}
+                          role="option"
+                          aria-selected={activeIdx === idx}
+                          className={`prepare-workspace__ac-opt${activeIdx === idx ? ' is-active' : ''}`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onMouseEnter={() => setActiveIdx(idx)}
+                          onClick={() => void onAddMember(u)}
+                        >
+                          <UserInitialsAvatar
+                            displayName={label}
+                            seed={u.id}
+                            size="sm"
+                            className="prepare-workspace__part-av"
+                          />
+                          <span className="prepare-workspace__ac-opt-body">
+                            <span className="prepare-workspace__ac-opt-t">
+                              {label}
+                            </span>
+                            <span className="prepare-workspace__ac-opt-s">
+                              Membre
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+
+                  {showFreeEmailOption ? (
+                    <li role="presentation">
+                      <button
+                        type="button"
+                        id={`${listboxId}-opt-${suggestions.length}`}
+                        role="option"
+                        aria-selected={activeIdx === suggestions.length}
+                        className={`prepare-workspace__ac-opt${activeIdx === suggestions.length ? ' is-active' : ''}`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setActiveIdx(suggestions.length)}
+                        onClick={() => void onAddExternal(freeEmail)}
+                      >
+                        <span className="prepare-workspace__ac-opt-body">
+                          <span className="prepare-workspace__ac-opt-t">
+                            Inviter {freeEmail}
+                          </span>
+                          <span className="prepare-workspace__ac-opt-s">
+                            Externe par e-mail
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ) : null}
+
+                  {freeEmailAlready ? (
+                    <li className="prepare-workspace__ac-empty">
+                      Cet e-mail est déjà convoqué
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
+
+              {memberError ? (
+                <p
+                  id={`${memberInputId}-error`}
+                  className="prepare-workspace__add-hint is-error"
+                  role="alert"
+                >
+                  {memberError}
+                </p>
+              ) : (
+                <p
+                  id={`${memberInputId}-hint`}
+                  className="prepare-workspace__add-hint"
+                >
+                  Membres du client — ou e-mail externe
+                </p>
+              )}
+            </div>
           ) : (
-            <p
-              id={`${memberInputId}-hint`}
-              className="prepare-workspace__add-hint"
+            <div
+              id={`${tabsId}-panel-team`}
+              role="tabpanel"
+              aria-labelledby={`${tabsId}-team`}
+              className="prepare-workspace__team-pane"
             >
-              Membres du client — ou e-mail externe
-            </p>
+              {teams.length === 0 ? (
+                <div className="prepare-workspace__empty">
+                  Aucune équipe — créez-en une via Gérer
+                </div>
+              ) : (
+                <>
+                  <label className="sr-only" htmlFor="pw-convene-team">
+                    Convoquer une équipe
+                  </label>
+                  <Select
+                    value={null}
+                    onValueChange={(v) => {
+                      if (v) void onConvene(v);
+                    }}
+                    disabled={teamsQuery.isLoading || pending}
+                  >
+                    <SelectTrigger
+                      id="pw-convene-team"
+                      className="min-h-11 w-full"
+                      aria-label="Convoquer une équipe"
+                    >
+                      <SelectValue placeholder="Convoquer une équipe…">
+                        {() => 'Convoquer une équipe…'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {displayLabel(t.name, 'Équipe')} —{' '}
+                          {memberCountLabel(
+                            t.memberCount ?? t.members?.length ?? 0,
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="prepare-workspace__add-hint">
+                    Convoque tous les membres de l’équipe en un clic
+                  </p>
+                </>
+              )}
+            </div>
           )}
         </div>
       ) : null}
@@ -531,49 +634,6 @@ export function PrepareWorkspaceParticipants({
           })}
         </ul>
       )}
-
-      {canEdit ? (
-        <div className="prepare-workspace__add">
-          {teams.length === 0 ? (
-            <div className="prepare-workspace__empty">
-              Aucune équipe — créez-en une via Gérer
-            </div>
-          ) : (
-            <>
-              <label className="sr-only" htmlFor="pw-convene-team">
-                Convoquer une équipe
-              </label>
-              <Select
-                value={null}
-                onValueChange={(v) => {
-                  if (v) void onConvene(v);
-                }}
-                disabled={teamsQuery.isLoading || pending}
-              >
-                <SelectTrigger
-                  id="pw-convene-team"
-                  className="min-h-11 w-full"
-                  aria-label="Convoquer une équipe"
-                >
-                  <SelectValue placeholder="Convoquer une équipe…">
-                    {() => 'Convoquer une équipe…'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {displayLabel(t.name, 'Équipe')} —{' '}
-                      {memberCountLabel(
-                        t.memberCount ?? t.members?.length ?? 0,
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-        </div>
-      ) : null}
 
       <ProjectTeamsEditorDialog
         open={editorOpen}

@@ -12,7 +12,9 @@ import {
   parsePrepWorkspace,
   parsePwBlockIdFromNotes,
   pwBlockNotesMarker,
+  resolveBlockOrderIds,
   reviewTypeToTypeCode,
+  selectedIdsInBlockOrder,
   type PrepWorkspacePayload,
 } from '../lib/prepare-workspace-types';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
@@ -201,11 +203,17 @@ export function ProjectReviewPrepareWorkspace({
   );
 
   const onToggleBlock = async (blockId: string) => {
+    const catalogIds = blocks.map((b) => b.id);
+    const order = resolveBlockOrderIds(catalogIds, prep.blockOrderIds);
     const on = prep.selectedBlockIds.includes(blockId);
-    const nextIds = on
+    const nextSelected = on
       ? prep.selectedBlockIds.filter((id) => id !== blockId)
-      : [...prep.selectedBlockIds, blockId];
-    const next = { ...prep, selectedBlockIds: nextIds };
+      : selectedIdsInBlockOrder([...prep.selectedBlockIds, blockId], order);
+    const next = {
+      ...prep,
+      selectedBlockIds: nextSelected,
+      blockOrderIds: order,
+    };
     await persistPrep(next);
     await syncBlockAgenda(blockId, !on);
   };
@@ -236,10 +244,18 @@ export function ProjectReviewPrepareWorkspace({
     [detail.agendaItems, detail.id, reorderAgendaItems],
   );
 
-  const onReorderSelectedBlocks = async (orderedIds: string[]) => {
-    const next = { ...prep, selectedBlockIds: orderedIds };
+  const onReorderBlocks = async (orderedIds: string[]) => {
+    const nextSelected = selectedIdsInBlockOrder(
+      prep.selectedBlockIds,
+      orderedIds,
+    );
+    const next = {
+      ...prep,
+      blockOrderIds: orderedIds,
+      selectedBlockIds: nextSelected,
+    };
     await persistPrep(next);
-    await syncAgendaOrderFromBlocks(orderedIds);
+    await syncAgendaOrderFromBlocks(nextSelected);
   };
 
   const onReorderAgendaItems = async (orderedIds: string[]) => {
@@ -398,9 +414,17 @@ export function ProjectReviewPrepareWorkspace({
     }
     let nextPrep = prep;
     if (!prep.selectedBlockIds.includes(target.blockId)) {
+      const order = resolveBlockOrderIds(
+        blocks.map((b) => b.id),
+        prep.blockOrderIds,
+      );
       nextPrep = {
         ...prep,
-        selectedBlockIds: [...prep.selectedBlockIds, target.blockId],
+        blockOrderIds: order,
+        selectedBlockIds: selectedIdsInBlockOrder(
+          [...prep.selectedBlockIds, target.blockId],
+          order,
+        ),
       };
     }
     if (target.blockId === 'planning' && !nextPrep.planning) {
@@ -434,6 +458,10 @@ export function ProjectReviewPrepareWorkspace({
         ...prep,
         templateId: null,
         selectedBlockIds: fallbackIds,
+        blockOrderIds: resolveBlockOrderIds(
+          blocks.map((b) => b.id),
+          undefined,
+        ),
       });
       return;
     }
@@ -444,6 +472,16 @@ export function ProjectReviewPrepareWorkspace({
       Array.isArray((payload as PrepWorkspacePayload).selectedBlockIds)
         ? (payload as PrepWorkspacePayload).selectedBlockIds
         : fallbackIds;
+    const fromTplOrder =
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as PrepWorkspacePayload).blockOrderIds)
+        ? (payload as PrepWorkspacePayload).blockOrderIds
+        : undefined;
+    const order = resolveBlockOrderIds(
+      blocks.map((b) => b.id),
+      fromTplOrder?.length ? fromTplOrder : undefined,
+    );
     const mode =
       payload &&
       typeof payload === 'object' &&
@@ -453,7 +491,8 @@ export function ProjectReviewPrepareWorkspace({
     await persistPrep({
       ...prep,
       templateId: id,
-      selectedBlockIds: selected,
+      selectedBlockIds: selectedIdsInBlockOrder(selected, order),
+      blockOrderIds: order,
       mode,
       customBlocks:
         payload &&
@@ -536,8 +575,9 @@ export function ProjectReviewPrepareWorkspace({
               onModeChange={(m) => void onModeChange(m)}
               blocks={blocks}
               selectedBlockIds={prep.selectedBlockIds}
+              blockOrderIds={prep.blockOrderIds}
               onToggleBlock={(id) => void onToggleBlock(id)}
-              onReorderSelectedBlocks={(ids) => void onReorderSelectedBlocks(ids)}
+              onReorderBlocks={(ids) => void onReorderBlocks(ids)}
               onReorderAgendaItems={onReorderAgendaItems}
               onOpenPoint={(t) => void onOpenPoint(t)}
               onBlockDurationChange={(id, min) => void onBlockDurationChange(id, min)}
@@ -642,12 +682,21 @@ export function ProjectReviewPrepareWorkspace({
         }
         initialSelectedBlockIds={prep.selectedBlockIds}
         onSaved={async (tpl) => {
+          const selected = Array.isArray(tpl.payload?.selectedBlockIds)
+            ? (tpl.payload.selectedBlockIds as string[])
+            : prepRef.current.selectedBlockIds;
+          const fromTplOrder = Array.isArray(tpl.payload?.blockOrderIds)
+            ? (tpl.payload.blockOrderIds as string[])
+            : undefined;
+          const order = resolveBlockOrderIds(
+            blocks.map((b) => b.id),
+            fromTplOrder?.length ? fromTplOrder : undefined,
+          );
           await persistPrep({
             ...prepRef.current,
             templateId: tpl.id,
-            selectedBlockIds: Array.isArray(tpl.payload?.selectedBlockIds)
-              ? (tpl.payload.selectedBlockIds as string[])
-              : prepRef.current.selectedBlockIds,
+            selectedBlockIds: selectedIdsInBlockOrder(selected, order),
+            blockOrderIds: order,
           });
           void templatesQuery.refetch();
         }}

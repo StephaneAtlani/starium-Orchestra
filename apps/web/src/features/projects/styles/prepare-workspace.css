@@ -921,6 +921,14 @@
   border-top: 1px solid color-mix(in oklab, var(--pw-border) 75%, transparent);
 }
 
+/* Zone d’ajout au-dessus de la liste : pas de séparateur haut */
+.prepare-workspace__add--invite {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .prepare-workspace__seg {
   display: flex;
   flex-wrap: wrap;
@@ -933,7 +941,7 @@
 
 .prepare-workspace__seg-btn {
   flex: 1 1 auto;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding: 0.3rem 0.55rem;
   border: 0;
   border-radius: var(--radius-pill);
@@ -951,6 +959,17 @@
 .prepare-workspace__seg-btn.is-on {
   background: var(--pw-ink);
   color: var(--pw-surface);
+}
+
+.prepare-workspace__seg-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.prepare-workspace__team-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .prepare-workspace__add-row {
@@ -978,7 +997,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .prepare-workspace__ac-input {

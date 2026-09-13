@@ -22,6 +22,7 @@ import {
 import type { PrepStdBlock } from '../lib/prepare-workspace-blocks';
 import {
   parsePwBlockIdFromNotes,
+  resolveBlockOrderIds,
   type PrepWorkspaceMode,
 } from '../lib/prepare-workspace-types';
 import type { ProjectReviewAgendaItemApi } from '../types/project.types';
@@ -46,8 +47,11 @@ type Props = {
   onModeChange: (mode: PrepWorkspaceMode) => void;
   blocks: PrepStdBlock[];
   selectedBlockIds: string[];
+  /** Ordre d’affichage (actifs + retirés). */
+  blockOrderIds?: string[];
   onToggleBlock: (blockId: string) => void;
-  onReorderSelectedBlocks: (orderedIds: string[]) => void;
+  /** Réordonne tous les blocs (y compris retirés) — IDs catalogue. */
+  onReorderBlocks: (orderedIds: string[]) => void;
   onReorderAgendaItems: (orderedIds: string[]) => Promise<void>;
   onOpenPoint: (target: PrepareOdjPointTarget) => void;
   onBlockDurationChange: (blockId: string, minutes: number) => void;
@@ -118,8 +122,9 @@ export function PrepareWorkspaceOdj({
   onModeChange,
   blocks,
   selectedBlockIds,
+  blockOrderIds,
   onToggleBlock,
-  onReorderSelectedBlocks,
+  onReorderBlocks,
   onReorderAgendaItems,
   onOpenPoint,
   onBlockDurationChange,
@@ -141,18 +146,20 @@ export function PrepareWorkspaceOdj({
   const editable = canEdit && !agendaLocked;
 
   const selected = new Set(selectedBlockIds);
-  const orderedSelectedBlocks = useMemo(() => {
+  const displayOrderIds = useMemo(
+    () =>
+      resolveBlockOrderIds(
+        blocks.map((b) => b.id),
+        blockOrderIds,
+      ),
+    [blocks, blockOrderIds],
+  );
+  const orderedBlocks = useMemo(() => {
     const byId = new Map(blocks.map((b) => [b.id, b]));
-    const ordered: PrepStdBlock[] = [];
-    for (const id of selectedBlockIds) {
-      const b = byId.get(id);
-      if (b) ordered.push(b);
-    }
-    for (const b of blocks) {
-      if (!selected.has(b.id)) ordered.push(b);
-    }
-    return ordered;
-  }, [blocks, selected, selectedBlockIds]);
+    return displayOrderIds
+      .map((id) => byId.get(id))
+      .filter((b): b is PrepStdBlock => !!b);
+  }, [blocks, displayOrderIds]);
 
   const customItems = useMemo(
     () => agendaItems.filter((i) => !isPwItem(i)),
@@ -164,7 +171,7 @@ export function PrepareWorkspaceOdj({
     [agendaItems],
   );
 
-  const blockMinutes = orderedSelectedBlocks
+  const blockMinutes = orderedBlocks
     .filter((b) => selected.has(b.id))
     .reduce(
       (s, b) => s + (blockDurations[b.id] ?? b.defaultMin),
@@ -203,8 +210,8 @@ export function PrepareWorkspaceOdj({
     }
   };
 
-  const moveSelected = (blockId: string, delta: number) => {
-    const ids = selectedBlockIds.filter((id) => selected.has(id));
+  const moveBlock = (blockId: string, delta: number) => {
+    const ids = [...displayOrderIds];
     const index = ids.indexOf(blockId);
     if (index < 0) return;
     const next = index + delta;
@@ -212,7 +219,7 @@ export function PrepareWorkspaceOdj({
     const copy = [...ids];
     const [removed] = copy.splice(index, 1);
     copy.splice(next, 0, removed!);
-    onReorderSelectedBlocks(copy);
+    onReorderBlocks(copy);
   };
 
   const moveAgenda = async (itemId: string, delta: number) => {
@@ -227,16 +234,12 @@ export function PrepareWorkspaceOdj({
     await onReorderAgendaItems(copy);
   };
 
-  const onDropSelected = (targetId: string) => {
+  const onDropBlock = (targetId: string) => {
     if (!dragId || dragId === targetId) {
       setDragId(null);
       return;
     }
-    if (!selected.has(dragId) || !selected.has(targetId)) {
-      setDragId(null);
-      return;
-    }
-    const ids = selectedBlockIds.filter((id) => selected.has(id));
+    const ids = [...displayOrderIds];
     const from = ids.indexOf(dragId);
     const to = ids.indexOf(targetId);
     if (from < 0 || to < 0) {
@@ -246,7 +249,7 @@ export function PrepareWorkspaceOdj({
     const copy = [...ids];
     const [removed] = copy.splice(from, 1);
     copy.splice(to, 0, removed!);
-    onReorderSelectedBlocks(copy);
+    onReorderBlocks(copy);
     setDragId(null);
   };
 
@@ -356,22 +359,23 @@ export function PrepareWorkspaceOdj({
             role="list"
             aria-label="Blocs standards"
           >
-            {orderedSelectedBlocks.map((b) => {
+            {orderedBlocks.map((b) => {
               const on = selected.has(b.id);
               const index = on ? ++selectedIndex : null;
               const dur = blockDurations[b.id] ?? b.defaultMin;
+              const orderPos = displayOrderIds.indexOf(b.id);
               return (
                 <div
                   key={b.id}
                   role="listitem"
-                  draggable={editable && on}
+                  draggable={editable}
                   onDragStart={() => {
-                    if (editable && on) setDragId(b.id);
+                    if (editable) setDragId(b.id);
                   }}
                   onDragOver={(e) => {
-                    if (editable && on) e.preventDefault();
+                    if (editable) e.preventDefault();
                   }}
-                  onDrop={() => onDropSelected(b.id)}
+                  onDrop={() => onDropBlock(b.id)}
                   className={`prepare-workspace__item${on ? '' : ' is-off'}${dragId === b.id ? ' is-dragging' : ''}`}
                 >
                   <div className="prepare-workspace__item-row">
@@ -476,21 +480,21 @@ export function PrepareWorkspaceOdj({
                       <span className="prepare-workspace__off-l">retiré</span>
                     )}
 
-                    {on && editable ? (
+                    {editable ? (
                       <span className="prepare-workspace__updn">
                         <button
                           type="button"
                           aria-label={`Monter ${b.title}`}
-                          disabled={index === 1}
-                          onClick={() => moveSelected(b.id, -1)}
+                          disabled={orderPos <= 0}
+                          onClick={() => moveBlock(b.id, -1)}
                         >
                           <ChevronUp className="size-2.5" aria-hidden />
                         </button>
                         <button
                           type="button"
                           aria-label={`Descendre ${b.title}`}
-                          disabled={index === selected.size}
-                          onClick={() => moveSelected(b.id, 1)}
+                          disabled={orderPos < 0 || orderPos >= displayOrderIds.length - 1}
+                          onClick={() => moveBlock(b.id, 1)}
                         >
                           <ChevronDown className="size-2.5" aria-hidden />
                         </button>
