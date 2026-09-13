@@ -44,7 +44,6 @@ export type PrepareOdjMeta = {
 
 type Props = {
   mode: PrepWorkspaceMode;
-  onModeChange: (mode: PrepWorkspaceMode) => void;
   blocks: PrepStdBlock[];
   selectedBlockIds: string[];
   /** Ordre d’affichage (actifs + retirés). */
@@ -119,7 +118,6 @@ function blockMeta(
 
 export function PrepareWorkspaceOdj({
   mode,
-  onModeChange,
   blocks,
   selectedBlockIds,
   blockOrderIds,
@@ -337,15 +335,6 @@ export function PrepareWorkspaceOdj({
             ) : null}
           </p>
         </div>
-        <button
-          type="button"
-          className="prepare-workspace__modesw"
-          onClick={() =>
-            onModeChange(mode === 'simple' ? 'sections' : 'simple')
-          }
-        >
-          {mode === 'simple' ? 'Organiser par sections' : 'Vue simple'}
-        </button>
       </div>
 
       <StariumScrollArea

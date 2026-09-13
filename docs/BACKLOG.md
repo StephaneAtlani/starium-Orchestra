@@ -65,7 +65,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | --- | --- | --- |
 | NTH.1 | Triggers alertes Achats / Capacité | RFC-038 |
 | NTH.2 | `task-line` — afficher FK tâche→ligne (sans event) | LIAISONS |
-| NTH.3 | `docs-project` — liste documents projet (silo) | PROJ-DOC-001 |
+| NTH.3 | `docs-project` — silo Documents projet (onglet + upload + picker) | [PROJ-DOC-002](./RFC/RFC-PROJ-DOC-002%20—%20Silo%20Documents%20projet,%20upload%20et%20rattachements.md) |
 | NTH.4 | BUD-043 L3 (KPI / timeline hub import) | BUD-043 |
 | NTH.5 | Import polish gros fichiers / export | BUD-043 / 018 |
 

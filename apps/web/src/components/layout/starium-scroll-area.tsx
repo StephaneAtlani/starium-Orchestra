@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { cn } from '@/lib/utils';
 
+type ScrollLayout = 'fill' | 'flow' | 'auto';
+
 type Props = {
   children: ReactNode;
   className?: string;
@@ -21,7 +23,27 @@ type Props = {
    * `always` : rail toujours visible dès qu’il y a overflow.
    */
   reveal?: 'hover' | 'always';
+  /**
+   * `flow` (défaut via auto) : le contenu définit la hauteur — pour modales auto-size.
+   * `fill` : viewport `absolute inset-0` — parent **doit** avoir une hauteur définie (`h-full`, etc.).
+   * `auto` : `fill` si `className` contient une hauteur explicite, sinon `flow`.
+   */
+  layout?: ScrollLayout;
 } & Omit<ComponentPropsWithoutRef<'div'>, 'children' | 'className'>;
+
+function resolveScrollLayout(
+  layout: ScrollLayout | undefined,
+  className?: string,
+): 'fill' | 'flow' {
+  if (layout === 'fill' || layout === 'flow') return layout;
+  if (
+    className &&
+    /(?:^|[\s])(?:!)?h-(?:full|screen|svh|lvh|dvh|\d|\[)/.test(className)
+  ) {
+    return 'fill';
+  }
+  return 'flow';
+}
 
 /**
  * Zone scrollable avec **barre custom** (rail HTML) — fiable sous macOS
@@ -32,6 +54,7 @@ export function StariumScrollArea({
   className,
   viewportClassName,
   reveal = 'hover',
+  layout = 'auto',
   ...props
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -39,6 +62,8 @@ export function StariumScrollArea({
   const [hover, setHover] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [thumb, setThumb] = useState({ top: 0, height: 48 });
+  const resolved = resolveScrollLayout(layout, className);
+  const fill = resolved === 'fill';
 
   const sync = useCallback(() => {
     const el = viewportRef.current;
@@ -130,6 +155,7 @@ export function StariumScrollArea({
     <div
       {...props}
       data-starium-scroll=""
+      data-scroll-layout={resolved}
       data-scroll-hover={hover || dragging ? true : undefined}
       className={cn('relative min-h-0', className)}
       onMouseEnter={() => {
@@ -143,9 +169,12 @@ export function StariumScrollArea({
       <div
         ref={viewportRef}
         className={cn(
-          'starium-scroll-area__viewport absolute inset-0 overflow-x-hidden overflow-y-auto overscroll-contain',
+          'starium-scroll-area__viewport overflow-x-hidden overflow-y-auto overscroll-contain',
           /* Cache la scrollbar native — on affiche le rail custom. */
           '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+          fill
+            ? 'absolute inset-0'
+            : 'relative max-h-full w-full',
           viewportClassName,
         )}
       >

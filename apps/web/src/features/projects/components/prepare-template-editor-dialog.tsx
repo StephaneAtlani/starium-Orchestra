@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { LayoutTemplate } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, LayoutTemplate } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,11 @@ import {
 } from '../api/project-reviews.api';
 import { blocksForTypeCode } from '../lib/prepare-workspace-blocks';
 import type { PrepTypeCode } from '../lib/prepare-workspace-types';
-import { typeCodeLabel } from '../lib/prepare-workspace-types';
+import {
+  resolveBlockOrderIds,
+  selectedIdsInBlockOrder,
+  typeCodeLabel,
+} from '../lib/prepare-workspace-types';
 import { projectQueryKeys } from '../lib/project-query-keys';
 
 type Props = {
@@ -27,6 +31,8 @@ type Props = {
   mode: 'create' | 'edit';
   templateId: string | null;
   initialSelectedBlockIds: string[];
+  /** Même sémantique que l’ODJ : ordre de tous les blocs (actifs + retirés). */
+  initialBlockOrderIds?: string[];
   initialName?: string;
   onSaved: (tpl: ProjectReviewPrepareTemplateApi) => void | Promise<void>;
 };
@@ -48,6 +54,7 @@ export function PrepareTemplateEditorDialog({
   mode,
   templateId,
   initialSelectedBlockIds,
+  initialBlockOrderIds,
   initialName,
   onSaved,
 }: Props) {
@@ -56,9 +63,13 @@ export function PrepareTemplateEditorDialog({
   const clientId = activeClient?.id ?? '';
   const qc = useQueryClient();
   const blocks = blocksForTypeCode(typeCode);
+  const catalogIds = useMemo(() => blocks.map((b) => b.id), [blocks]);
 
   const [name, setName] = useState('');
   const [selected, setSelected] = useState<string[]>(initialSelectedBlockIds);
+  const [orderIds, setOrderIds] = useState<string[]>(() =>
+    resolveBlockOrderIds(catalogIds, initialBlockOrderIds),
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -68,13 +79,48 @@ export function PrepareTemplateEditorDialog({
         ? initialName.trim()
         : `Modèle ${typeCodeLabel(typeCode)}`,
     );
-    setSelected(initialSelectedBlockIds);
-  }, [open, mode, typeCode, initialSelectedBlockIds, initialName]);
+    const order = resolveBlockOrderIds(catalogIds, initialBlockOrderIds);
+    setOrderIds(order);
+    setSelected(
+      selectedIdsInBlockOrder(initialSelectedBlockIds, order),
+    );
+  }, [
+    open,
+    mode,
+    typeCode,
+    catalogIds,
+    initialSelectedBlockIds,
+    initialBlockOrderIds,
+    initialName,
+  ]);
+
+  const orderedBlocks = useMemo(() => {
+    const byId = new Map(blocks.map((b) => [b.id, b]));
+    return orderIds
+      .map((id) => byId.get(id))
+      .filter((b): b is (typeof blocks)[number] => !!b);
+  }, [blocks, orderIds]);
 
   const toggle = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      return selectedIdsInBlockOrder([...prev, id], orderIds);
+    });
+  };
+
+  const moveBlock = (blockId: string, delta: number) => {
+    setOrderIds((prev) => {
+      const ids = [...prev];
+      const index = ids.indexOf(blockId);
+      if (index < 0) return prev;
+      const next = index + delta;
+      if (next < 0 || next >= ids.length) return prev;
+      const copy = [...ids];
+      const [removed] = copy.splice(index, 1);
+      copy.splice(next, 0, removed!);
+      setSelected((sel) => selectedIdsInBlockOrder(sel, copy));
+      return copy;
+    });
   };
 
   const onSave = async () => {
@@ -85,9 +131,11 @@ export function PrepareTemplateEditorDialog({
     }
     setSaving(true);
     try {
+      const order = resolveBlockOrderIds(catalogIds, orderIds);
       const payload = {
         mode: 'simple' as const,
-        selectedBlockIds: selected,
+        selectedBlockIds: selectedIdsInBlockOrder(selected, order),
+        blockOrderIds: order,
         customBlocks: [],
       };
       let tpl: ProjectReviewPrepareTemplateApi;
@@ -130,6 +178,8 @@ export function PrepareTemplateEditorDialog({
       description={`Personnalisez les blocs pour ${typeCodeLabel(typeCode)}`}
       icon={LayoutTemplate}
       size="md"
+      overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
+      contentClassName="!z-[101]"
       footer={
         <>
           <Button
@@ -165,26 +215,50 @@ export function PrepareTemplateEditorDialog({
           />
         </div>
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold">Blocs inclus</legend>
+          <legend className="mb-2 text-sm font-semibold">
+            Blocs inclus (même ordre que l&apos;ODJ)
+          </legend>
           <ul className="space-y-1.5">
-            {blocks.map((b) => {
+            {orderedBlocks.map((b, orderPos) => {
               const on = selected.includes(b.id);
               return (
                 <li key={b.id}>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border/70 px-3">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggle(b.id)}
-                      className="size-4"
-                    />
-                    <span className="flex-1 text-sm font-semibold">
-                      {b.title}
+                  <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 px-2">
+                    <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 px-1">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggle(b.id)}
+                        className="size-4 shrink-0"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                        {b.title}
+                      </span>
+                      <span className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">
+                        {b.defaultMin} min
+                      </span>
+                    </label>
+                    <span className="flex shrink-0 flex-col">
+                      <button
+                        type="button"
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                        aria-label={`Monter ${b.title}`}
+                        disabled={orderPos <= 0}
+                        onClick={() => moveBlock(b.id, -1)}
+                      >
+                        <ChevronUp className="size-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                        aria-label={`Descendre ${b.title}`}
+                        disabled={orderPos >= orderedBlocks.length - 1}
+                        onClick={() => moveBlock(b.id, 1)}
+                      >
+                        <ChevronDown className="size-3.5" aria-hidden />
+                      </button>
                     </span>
-                    <span className="text-xs font-bold tabular-nums text-muted-foreground">
-                      {b.defaultMin} min
-                    </span>
-                  </label>
+                  </div>
                 </li>
               );
             })}

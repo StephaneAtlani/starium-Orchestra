@@ -203,7 +203,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 | Id | De | Vers | Statut | Pont | RFC |
 | --- | --- | --- | --- | --- | --- |
 | `task-line` | Projets | Budgets | partial | `ProjectTask.budgetLineId` · `ProjectActivity.budgetLineId` — pas d’event auto | RFC-PROJ-011 |
-| `docs-project` | Projets | GED | partial | `ProjectDocument` (silo) | RFC-PROJ-DOC-001 |
+| `docs-project` | Projets | GED | partial → **live** via DOC-002 | `ProjectDocument` (silo) + attachments Points/Meetings | [RFC-PROJ-DOC-001](../RFC/RFC-PROJ-DOC-001%20—%20Modèle.md) · [RFC-PROJ-DOC-002](../RFC/RFC-PROJ-DOC-002%20—%20Silo%20Documents%20projet,%20upload%20et%20rattachements.md) |
 | `fut-license-resource` | Licences SI | RH | partial | `ResourceType.LICENSE` ≠ module RFC-037 | RFC-RES-001 vs RFC-037 |
 | `fut-cmdb-resource` | CMDB | RH | partial | `ResourceType.MATERIAL` ≠ inventaire IT | RFC-RES-001 |
 | `ui-line-projects` | Budgets | Projets | live | Vue inverse `ProjectBudgetLink` (écran ligne + KPI fiche) | [RFC-PROJ-010-B](../RFC/RFC-PROJ-010-B%20%E2%80%94%20Vue%20inverse%20BudgetLine%20projets%20et%20KPI%20cockpit.md) |

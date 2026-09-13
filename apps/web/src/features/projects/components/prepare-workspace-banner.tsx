@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { projectReviewTypeBadge } from '../constants/project-enum-labels';
+import {
+  PROJECT_REVIEW_MEETING_MODE_LABEL,
+  projectReviewTypeBadge,
+} from '../constants/project-enum-labels';
 import { displayLabel } from '@/lib/display-label';
 import { cn } from '@/lib/utils';
 import type { ProjectReviewDetail } from '../types/project.types';
@@ -47,6 +50,13 @@ export function PrepareWorkspaceBanner({
   const [sessionOpen, setSessionOpen] = useState(false);
   const { day, month, time } = partsFromIso(detail.reviewDate);
   const badge = projectReviewTypeBadge(detail.reviewType);
+  const meetingLabel = detail.meetingMode
+    ? PROJECT_REVIEW_MEETING_MODE_LABEL[detail.meetingMode]
+    : null;
+  const metaLine = ["Préparation de l'instance", meetingLabel]
+    .filter(Boolean)
+    .join(' · ');
+  const locationLine = detail.location?.trim() || null;
 
   const body = (
     <>
@@ -56,25 +66,25 @@ export function PrepareWorkspaceBanner({
         <span className="prepare-workspace__date-time">{time}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-extrabold text-foreground">
+        <div className="flex min-w-0 flex-nowrap items-center gap-2">
+          <h3 className="min-w-0 truncate text-sm font-extrabold text-foreground">
             {displayLabel(detail.title, 'Point sans titre')}
           </h3>
-          <span className="inline-flex rounded-[var(--radius-pill)] bg-[color:var(--brand-ink)] px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-white">
+          <span className="inline-flex shrink-0 rounded-[var(--radius-pill)] bg-[color:var(--brand-ink)] px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-white">
             {badge}
           </span>
         </div>
-        <p className="mt-1 text-xs font-semibold text-muted-foreground">
-          {canEdit
-            ? 'Cliquez pour modifier la session'
-            : "Préparation de l'instance"}
+        <p className="mt-1 truncate text-xs font-semibold text-muted-foreground">
+          {metaLine}
         </p>
+        {locationLine ? (
+          <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">
+            {locationLine}
+          </p>
+        ) : null}
       </div>
       {canEdit ? (
-        <span
-          className="prepare-workspace__banner-edit"
-          aria-hidden
-        >
+        <span className="prepare-workspace__banner-edit" aria-hidden>
           <Pencil className="size-3.5" />
         </span>
       ) : null}

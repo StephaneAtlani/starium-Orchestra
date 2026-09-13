@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import {
   blocksForTypeCode,
   defaultSelectedBlockIds,
@@ -127,6 +129,8 @@ export function ProjectReviewPrepareWorkspace({
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const [pointOpen, setPointOpen] = useState(false);
   const [pointIndex, setPointIndex] = useState<number | null>(null);
   const [pointItem, setPointItem] = useState<ProjectReviewAgendaItemApi | null>(
@@ -598,22 +602,13 @@ export function ProjectReviewPrepareWorkspace({
     setPointOpen(!!item);
   };
 
-  const onModeChange = async (mode: PrepWorkspacePayload['mode']) => {
-    const next = { ...prep, mode };
-    await persistPrep(next);
-    if (mode === 'sections') {
-      for (const id of next.selectedBlockIds) {
-        await syncBlockAgenda(id, true);
-      }
-    }
-  };
-
   const onSelectTemplate = async (id: string | null) => {
     const tpl = id ? templates.find((t) => t.id === id) : null;
     if (!tpl) {
       await persistPrep({
         ...prep,
         templateId: null,
+        mode: 'simple',
         selectedBlockIds: fallbackIds,
         blockOrderIds: resolveBlockOrderIds(
           blocks.map((b) => b.id),
@@ -639,18 +634,12 @@ export function ProjectReviewPrepareWorkspace({
       blocks.map((b) => b.id),
       fromTplOrder?.length ? fromTplOrder : undefined,
     );
-    const mode =
-      payload &&
-      typeof payload === 'object' &&
-      (payload as PrepWorkspacePayload).mode === 'sections'
-        ? 'sections'
-        : 'simple';
     await persistPrep({
       ...prep,
       templateId: id,
       selectedBlockIds: selectedIdsInBlockOrder(selected, order),
       blockOrderIds: order,
-      mode,
+      mode: 'simple',
       customBlocks:
         payload &&
         typeof payload === 'object' &&
@@ -690,49 +679,88 @@ export function ProjectReviewPrepareWorkspace({
         </div>
       ) : null}
 
-      <div className="prepare-workspace min-h-0 flex-1">
-        <div className="prepare-workspace__col prepare-workspace__col--left">
-          <StariumScrollArea
-            className="h-full min-h-0 w-full flex-1"
-            viewportClassName="prepare-workspace__viewport"
-            reveal="hover"
-          >
-            <PrepareWorkspaceBanner
-              projectId={projectId}
-              detail={detail}
-              canEdit={canEdit}
-            />
-            <PrepareWorkspaceModelCard
-              typeCode={typeCode}
-              templates={templates}
-              templatesLoading={templatesQuery.isLoading}
-              selectedTemplateId={prep.templateId}
-              canEdit={canEdit && !agendaLocked}
-              onSelectTemplate={(id) => void onSelectTemplate(id)}
-              onCreate={() => {
-                setEditorMode('create');
-                setEditorOpen(true);
-              }}
-              onEdit={() => {
-                setEditorMode('edit');
-                setEditorOpen(true);
-              }}
-            />
-            <PrepareWorkspaceParticipants
-              projectId={projectId}
-              reviewId={detail.id}
-              participants={detail.participants ?? []}
-              canEdit={canEdit && !agendaLocked}
-              sectionRef={participantsRef as React.RefObject<HTMLElement>}
-            />
-          </StariumScrollArea>
+      <div
+        className={cn(
+          'prepare-workspace min-h-0 flex-1',
+          !leftOpen && 'prepare-workspace--left-collapsed',
+          !rightOpen && 'prepare-workspace--right-collapsed',
+        )}
+      >
+        <div
+          className={cn(
+            'prepare-workspace__col prepare-workspace__col--left',
+            !leftOpen && 'is-collapsed',
+          )}
+        >
+          {leftOpen ? (
+            <>
+              <div className="prepare-workspace__col-bar">
+                <span className="prepare-workspace__col-bar-t">Session</span>
+                <button
+                  type="button"
+                  className="prepare-workspace__col-toggle"
+                  aria-expanded={true}
+                  aria-controls="pw-col-left"
+                  onClick={() => setLeftOpen(false)}
+                  aria-label="Replier la colonne session"
+                >
+                  <PanelLeftClose className="size-4" aria-hidden />
+                </button>
+              </div>
+              <StariumScrollArea
+                id="pw-col-left"
+                className="h-full min-h-0 w-full flex-1"
+                viewportClassName="prepare-workspace__viewport"
+                reveal="hover"
+              >
+                <PrepareWorkspaceBanner
+                  projectId={projectId}
+                  detail={detail}
+                  canEdit={canEdit}
+                />
+                <PrepareWorkspaceModelCard
+                  typeCode={typeCode}
+                  templates={templates}
+                  templatesLoading={templatesQuery.isLoading}
+                  selectedTemplateId={prep.templateId}
+                  canEdit={canEdit && !agendaLocked}
+                  onSelectTemplate={(id) => void onSelectTemplate(id)}
+                  onCreate={() => {
+                    setEditorMode('create');
+                    setEditorOpen(true);
+                  }}
+                  onEdit={() => {
+                    setEditorMode('edit');
+                    setEditorOpen(true);
+                  }}
+                />
+                <PrepareWorkspaceParticipants
+                  projectId={projectId}
+                  reviewId={detail.id}
+                  participants={detail.participants ?? []}
+                  canEdit={canEdit && !agendaLocked}
+                  sectionRef={participantsRef as React.RefObject<HTMLElement>}
+                />
+              </StariumScrollArea>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="prepare-workspace__col-rail"
+              aria-expanded={false}
+              onClick={() => setLeftOpen(true)}
+              aria-label="Déplier la colonne session"
+            >
+              <PanelLeftOpen className="size-4 shrink-0" aria-hidden />
+              <span className="prepare-workspace__col-rail-t">Session</span>
+            </button>
+          )}
         </div>
 
         <div className="prepare-workspace__col prepare-workspace__col--mid">
           <div className="prepare-workspace__viewport prepare-workspace__viewport--odj flex min-h-0 flex-1 flex-col overflow-hidden">
             <PrepareWorkspaceOdj
-              mode={prep.mode}
-              onModeChange={(m) => void onModeChange(m)}
+              mode="simple"
               blocks={blocks}
               selectedBlockIds={prep.selectedBlockIds}
               blockOrderIds={prep.blockOrderIds}
@@ -791,42 +819,75 @@ export function ProjectReviewPrepareWorkspace({
           </div>
         </div>
 
-        <div className="prepare-workspace__col prepare-workspace__col--right">
-          <StariumScrollArea
-            className="h-full min-h-0 w-full flex-1"
-            viewportClassName="prepare-workspace__viewport"
-            reveal="hover"
-          >
-            <PrepareWorkspaceReprise
-              projectId={projectId}
-              reviewId={detail.id}
-              reviewDate={detail.reviewDate}
-              previousDetail={previousDetail}
-              previousLoading={previousLoading}
-              previousError={previousError}
-              canEdit={canEdit}
-              agendaLocked={agendaLocked}
-              resumedTitles={(detail.agendaItems ?? []).map((i) => i.title)}
-              onAddToOdj={async ({ title, itemType, description }) => {
-                try {
-                  await createAgendaItem.mutateAsync({
-                    reviewId: detail.id,
-                    body: {
-                      title,
-                      itemType,
-                      description: description ?? null,
-                      plannedDurationMinutes: 10,
-                    },
-                  });
-                  toast.success('Sujet ajouté à l’ordre du jour');
-                } catch (err) {
-                  toast.error(
-                    apiErrorMessage(err, 'Impossible d’ajouter le sujet'),
-                  );
-                }
-              }}
-            />
-          </StariumScrollArea>
+        <div
+          className={cn(
+            'prepare-workspace__col prepare-workspace__col--right',
+            !rightOpen && 'is-collapsed',
+          )}
+        >
+          {rightOpen ? (
+            <>
+              <div className="prepare-workspace__col-bar prepare-workspace__col-bar--end">
+                <button
+                  type="button"
+                  className="prepare-workspace__col-toggle"
+                  aria-expanded={true}
+                  aria-controls="pw-col-right"
+                  onClick={() => setRightOpen(false)}
+                  aria-label="Replier la colonne à reprendre"
+                >
+                  <PanelRightClose className="size-4" aria-hidden />
+                </button>
+              </div>
+              <StariumScrollArea
+                id="pw-col-right"
+                className="h-full min-h-0 w-full flex-1"
+                viewportClassName="prepare-workspace__viewport"
+                reveal="hover"
+              >
+                <PrepareWorkspaceReprise
+                  projectId={projectId}
+                  reviewId={detail.id}
+                  reviewDate={detail.reviewDate}
+                  previousDetail={previousDetail}
+                  previousLoading={previousLoading}
+                  previousError={previousError}
+                  canEdit={canEdit}
+                  agendaLocked={agendaLocked}
+                  resumedTitles={(detail.agendaItems ?? []).map((i) => i.title)}
+                  onAddToOdj={async ({ title, itemType, description }) => {
+                    try {
+                      await createAgendaItem.mutateAsync({
+                        reviewId: detail.id,
+                        body: {
+                          title,
+                          itemType,
+                          description: description ?? null,
+                          plannedDurationMinutes: 10,
+                        },
+                      });
+                      toast.success('Sujet ajouté à l’ordre du jour');
+                    } catch (err) {
+                      toast.error(
+                        apiErrorMessage(err, 'Impossible d’ajouter le sujet'),
+                      );
+                    }
+                  }}
+                />
+              </StariumScrollArea>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="prepare-workspace__col-rail"
+              aria-expanded={false}
+              onClick={() => setRightOpen(true)}
+              aria-label="Déplier la colonne à reprendre"
+            >
+              <PanelRightOpen className="size-4 shrink-0" aria-hidden />
+              <span className="prepare-workspace__col-rail-t">À reprendre</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -840,7 +901,26 @@ export function ProjectReviewPrepareWorkspace({
         initialName={
           templates.find((t) => t.id === prep.templateId)?.name
         }
-        initialSelectedBlockIds={prep.selectedBlockIds}
+        initialSelectedBlockIds={(() => {
+          if (editorMode !== 'edit' || !prep.templateId) {
+            return prep.selectedBlockIds;
+          }
+          const tpl = templates.find((t) => t.id === prep.templateId);
+          const fromTpl = tpl?.payload?.selectedBlockIds;
+          return Array.isArray(fromTpl)
+            ? (fromTpl as string[])
+            : prep.selectedBlockIds;
+        })()}
+        initialBlockOrderIds={(() => {
+          if (editorMode !== 'edit' || !prep.templateId) {
+            return prep.blockOrderIds;
+          }
+          const tpl = templates.find((t) => t.id === prep.templateId);
+          const fromTpl = tpl?.payload?.blockOrderIds;
+          return Array.isArray(fromTpl) && fromTpl.length > 0
+            ? (fromTpl as string[])
+            : prep.blockOrderIds;
+        })()}
         onSaved={async (tpl) => {
           const selected = Array.isArray(tpl.payload?.selectedBlockIds)
             ? (tpl.payload.selectedBlockIds as string[])

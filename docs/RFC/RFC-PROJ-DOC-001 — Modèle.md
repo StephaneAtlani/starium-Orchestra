@@ -4,6 +4,8 @@
 
 **Implémenté (MVP)** — registre métier en base, API REST sous `/api/projects/:projectId/documents`, audit, tests service ; UI web **lecture seule** sur la fiche projet. **Hors scope livré (DOC-001)** : upload/téléchargement binaire côté API MVP, création API avec `storageType=MICROSOFT` (enum présent pour compat future). La **sync Microsoft** des documents (`ProjectDocumentMicrosoftSync`, endpoint sync) est couverte par **[RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md)** (backend) ; elle s’appuie sur la lecture disque `PROJECT_DOCUMENTS_STORAGE_ROOT` pour les entrées `STARIUM`.
 
+**Suite produit** : onglet silo, upload, picker et rattachements partout → **[RFC-PROJ-DOC-002](./RFC-PROJ-DOC-002%20—%20Silo%20Documents%20projet,%20upload%20et%20rattachements.md)**.
+
 ## Réalisation dans le repo
 
 * **Prisma** : `apps/api/prisma/schema.prisma` (`ProjectDocument`, enums) ; migration `apps/api/prisma/migrations/20260325161000_add_project_documents_registry/`
@@ -23,6 +25,7 @@ Haute
 
 ## Débloque
 
+* RFC-PROJ-DOC-002 — Silo Documents projet, upload et rattachements
 * RFC-PROJ-INT-009 — Sync documents vers Teams / SharePoint
 * Futures fonctionnalités documentaires projet
 * Traçabilité documentaire projet

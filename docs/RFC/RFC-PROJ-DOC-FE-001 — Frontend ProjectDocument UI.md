@@ -4,7 +4,7 @@ Voici une proposition de RFC complète.
 
 ## Statut
 
-Draft
+**Supersédée** — ne pas implémenter telle quelle. Spec produit + UX cible : **[RFC-PROJ-DOC-002](./RFC-PROJ-DOC-002%20—%20Silo%20Documents%20projet,%20upload%20et%20rattachements.md)** (onglet silo, upload, picker, enums Prisma DOC-001).
 
 ## Dépendances
 

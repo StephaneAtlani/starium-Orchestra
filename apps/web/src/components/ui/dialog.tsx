@@ -300,12 +300,15 @@ function DialogBody({
         data-slot="dialog-body"
         {...props}
         className={cn(
-          "starium-modal__body starium-modal__body--rail flex min-h-0 flex-1 flex-col !overflow-hidden !p-0",
+          /* flex-auto (pas flex-1) : le corps contribue à la hauteur intrinsèque de la modale.
+           * flex-1 = basis 0% → collapse à ~0 avec StariumScrollArea absolute. */
+          "starium-modal__body starium-modal__body--rail flex min-h-0 flex-auto flex-col !overflow-hidden !p-0",
           className,
         )}
       >
         <StariumScrollArea
-          className="min-h-0 w-full flex-1"
+          layout="flow"
+          className="min-h-0 w-full max-h-full"
           viewportClassName={cn(
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),

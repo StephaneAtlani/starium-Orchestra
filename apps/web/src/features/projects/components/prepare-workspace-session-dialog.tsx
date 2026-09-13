@@ -142,7 +142,6 @@ export function PrepareWorkspaceSessionDialog({
       size="lg"
       overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
       contentClassName="!z-[101]"
-      bodyClassName="!overflow-hidden"
       footer={
         <>
           <Button

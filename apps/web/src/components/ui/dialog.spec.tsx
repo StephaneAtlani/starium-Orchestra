@@ -115,6 +115,12 @@ describe('DialogBody', () => {
     );
     const body = document.querySelector('[data-slot="dialog-body"]');
     expect(body?.className).toContain('starium-modal__body');
+    expect(body?.className).toContain('flex-auto');
+    expect(
+      body?.querySelector('[data-starium-scroll]')?.getAttribute(
+        'data-scroll-layout',
+      ),
+    ).toBe('flow');
   });
 
   it('layout starium — accent data attribute', () => {

@@ -49,4 +49,34 @@ describe('StariumScrollArea', () => {
     );
     expect(screen.getByText('Zone scrollable')).toBeInTheDocument();
   });
+
+  it('layout auto : fill si h-* explicite, flow sinon', () => {
+    const { container: fillContainer } = render(
+      <StariumScrollArea className="h-full w-full">
+        <p>Fill</p>
+      </StariumScrollArea>,
+    );
+    expect(
+      fillContainer.querySelector('[data-starium-scroll]')?.getAttribute(
+        'data-scroll-layout',
+      ),
+    ).toBe('fill');
+    expect(
+      fillContainer.querySelector('.starium-scroll-area__viewport')?.className,
+    ).toMatch(/absolute/);
+
+    const { container: flowContainer } = render(
+      <StariumScrollArea className="w-full">
+        <p>Flow</p>
+      </StariumScrollArea>,
+    );
+    expect(
+      flowContainer.querySelector('[data-starium-scroll]')?.getAttribute(
+        'data-scroll-layout',
+      ),
+    ).toBe('flow');
+    expect(
+      flowContainer.querySelector('.starium-scroll-area__viewport')?.className,
+    ).toMatch(/relative/);
+  });
 });
