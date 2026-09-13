@@ -6,6 +6,7 @@ import {
 import {
   Prisma,
   ProjectReviewSeriesFrequency,
+  ProjectReviewSeriesOccurrenceTitleFormat,
   ProjectReviewStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -25,6 +26,11 @@ import {
   formatProjectReviewUserDisplayName,
   projectReviewUserSelect,
 } from './project-review-user-display';
+import {
+  assertMeetingFieldsCoherence,
+  assertValidMeetingUrl,
+  inferMeetingModeFromFields,
+} from './project-review-meeting.validation';
 import { PROJECT_REVIEW_SERIES_FREQUENCY_LABEL } from './project-review-ui-state';
 
 function parseUserIdList(value: Prisma.JsonValue): string[] {
@@ -89,6 +95,67 @@ function formatTitleDateFr(date: Date): string {
   }).format(date);
 }
 
+function formatTitleDateLongFr(date: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
+function isoWeekNumberParis(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const y = Number(parts.find((p) => p.type === 'year')?.value);
+  const m = Number(parts.find((p) => p.type === 'month')?.value);
+  const d = Number(parts.find((p) => p.type === 'day')?.value);
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  return Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function formatOccurrenceTitle(params: {
+  seriesTitle: string;
+  occurrence: Date;
+  format: ProjectReviewSeriesOccurrenceTitleFormat;
+  customPattern: string | null;
+}): string {
+  const title = params.seriesTitle.trim() || 'Point';
+  const week = String(isoWeekNumberParis(params.occurrence));
+  const date = formatTitleDateFr(params.occurrence);
+  const dateLong = formatTitleDateLongFr(params.occurrence);
+  const applyPattern = (pattern: string) =>
+    pattern
+      .replaceAll('{title}', title)
+      .replaceAll('{week}', week)
+      .replaceAll('{date}', date)
+      .replaceAll('{dateLong}', dateLong)
+      .trim();
+
+  switch (params.format) {
+    case ProjectReviewSeriesOccurrenceTitleFormat.WEEK:
+      return `${title} — Semaine ${week}`;
+    case ProjectReviewSeriesOccurrenceTitleFormat.LONG_DATE:
+      return `${title} — ${dateLong}`;
+    case ProjectReviewSeriesOccurrenceTitleFormat.CUSTOM: {
+      const pattern = params.customPattern?.trim();
+      if (pattern) return applyPattern(pattern);
+      return `${title} — Semaine ${week}`;
+    }
+    case ProjectReviewSeriesOccurrenceTitleFormat.SHORT_DATE:
+    default:
+      return `${title} — ${date}`;
+  }
+}
+
 @Injectable()
 export class ProjectReviewSeriesService {
   constructor(
@@ -150,10 +217,13 @@ export class ProjectReviewSeriesService {
       durationMinutes: number;
       meetingMode: CreateProjectReviewSeriesDto['meetingMode'] | null;
       location: string | null;
+      meetingUrl: string | null;
       defaultObjective: string | null;
       permanentParticipantUserIds: Prisma.JsonValue;
       anchorDate: Date;
       horizonCount: number;
+      occurrenceTitleFormat: ProjectReviewSeriesOccurrenceTitleFormat;
+      occurrenceTitleCustom: string | null;
       isActive: boolean;
       createdByUserId: string | null;
       createdAt: Date;
@@ -173,11 +243,14 @@ export class ProjectReviewSeriesService {
       durationMinutes: row.durationMinutes,
       meetingMode: row.meetingMode,
       location: row.location,
+      meetingUrl: row.meetingUrl,
       defaultObjective: row.defaultObjective,
       permanentParticipantUserIds: parseUserIdList(row.permanentParticipantUserIds),
       permanentParticipants: participants,
       anchorDate: row.anchorDate.toISOString(),
       horizonCount: row.horizonCount,
+      occurrenceTitleFormat: row.occurrenceTitleFormat,
+      occurrenceTitleCustom: row.occurrenceTitleCustom,
       isActive: row.isActive,
       createdByUserId: row.createdByUserId,
       createdAt: row.createdAt.toISOString(),
@@ -228,6 +301,13 @@ export class ProjectReviewSeriesService {
     const userIds = [...new Set(dto.permanentParticipantUserIds)];
     await this.assertParticipantUsers(clientId, userIds);
 
+    const location = dto.location?.trim() || null;
+    const meetingUrl = dto.meetingUrl?.trim() || null;
+    assertValidMeetingUrl(meetingUrl);
+    const meetingMode =
+      dto.meetingMode ?? inferMeetingModeFromFields(location, meetingUrl);
+    assertMeetingFieldsCoherence(meetingMode, meetingUrl, location);
+
     const created = await this.prisma.projectReviewSeries.create({
       data: {
         clientId,
@@ -236,12 +316,17 @@ export class ProjectReviewSeriesService {
         reviewType: dto.reviewType,
         frequency: dto.frequency,
         durationMinutes: dto.durationMinutes,
-        meetingMode: dto.meetingMode ?? null,
-        location: dto.location?.trim() || null,
+        meetingMode,
+        location,
+        meetingUrl,
         defaultObjective: dto.defaultObjective?.trim() || null,
         permanentParticipantUserIds: userIds,
         anchorDate: new Date(dto.anchorDate),
         horizonCount: dto.horizonCount ?? 4,
+        occurrenceTitleFormat:
+          dto.occurrenceTitleFormat ??
+          ProjectReviewSeriesOccurrenceTitleFormat.SHORT_DATE,
+        occurrenceTitleCustom: dto.occurrenceTitleCustom?.trim() || null,
         createdByUserId: context?.actorUserId ?? null,
       },
       include: { _count: { select: { reviews: true } } },
@@ -286,6 +371,30 @@ export class ProjectReviewSeriesService {
     }
 
     const wasActive = existing.isActive;
+
+    const nextLocation =
+      dto.location !== undefined
+        ? dto.location?.trim() || null
+        : existing.location;
+    const nextMeetingUrl =
+      dto.meetingUrl !== undefined
+        ? dto.meetingUrl?.trim() || null
+        : existing.meetingUrl;
+    const nextMeetingMode =
+      dto.meetingMode !== undefined
+        ? dto.meetingMode
+        : dto.location !== undefined || dto.meetingUrl !== undefined
+          ? inferMeetingModeFromFields(nextLocation, nextMeetingUrl)
+          : existing.meetingMode;
+    if (
+      dto.meetingMode !== undefined ||
+      dto.location !== undefined ||
+      dto.meetingUrl !== undefined
+    ) {
+      assertValidMeetingUrl(nextMeetingUrl);
+      assertMeetingFieldsCoherence(nextMeetingMode, nextMeetingUrl, nextLocation);
+    }
+
     const updated = await this.prisma.projectReviewSeries.update({
       where: { id: seriesId },
       data: {
@@ -295,11 +404,14 @@ export class ProjectReviewSeriesService {
         ...(dto.durationMinutes !== undefined
           ? { durationMinutes: dto.durationMinutes }
           : {}),
-        ...(dto.meetingMode !== undefined
-          ? { meetingMode: dto.meetingMode }
-          : {}),
-        ...(dto.location !== undefined
-          ? { location: dto.location?.trim() || null }
+        ...(dto.meetingMode !== undefined ||
+        dto.location !== undefined ||
+        dto.meetingUrl !== undefined
+          ? {
+              meetingMode: nextMeetingMode,
+              location: nextLocation,
+              meetingUrl: nextMeetingUrl,
+            }
           : {}),
         ...(dto.defaultObjective !== undefined
           ? { defaultObjective: dto.defaultObjective?.trim() || null }
@@ -312,6 +424,14 @@ export class ProjectReviewSeriesService {
           : {}),
         ...(dto.horizonCount !== undefined
           ? { horizonCount: dto.horizonCount }
+          : {}),
+        ...(dto.occurrenceTitleFormat !== undefined
+          ? { occurrenceTitleFormat: dto.occurrenceTitleFormat }
+          : {}),
+        ...(dto.occurrenceTitleCustom !== undefined
+          ? {
+              occurrenceTitleCustom: dto.occurrenceTitleCustom?.trim() || null,
+            }
           : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
@@ -414,8 +534,14 @@ export class ProjectReviewSeriesService {
             durationMinutes: series.durationMinutes,
             meetingMode: series.meetingMode,
             location: series.location,
+            meetingUrl: series.meetingUrl,
             objective: series.defaultObjective,
-            title: `${series.title} — ${formatTitleDateFr(occurrence)}`,
+            title: formatOccurrenceTitle({
+              seriesTitle: series.title,
+              occurrence,
+              format: series.occurrenceTitleFormat,
+              customPattern: series.occurrenceTitleCustom,
+            }),
             agendaLockedAt: null,
             createdByUserId: context?.actorUserId ?? null,
             participants: {

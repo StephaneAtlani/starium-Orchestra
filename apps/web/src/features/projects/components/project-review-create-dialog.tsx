@@ -263,6 +263,7 @@ export function ProjectReviewCreateDialog({
         meetingMode: (selectedSeries.meetingMode ??
           getCreateDefaultsForType(formType).meetingMode) as ProjectReviewMeetingMode,
         location: selectedSeries.location?.trim() || undefined,
+        meetingUrl: selectedSeries.meetingUrl?.trim() || undefined,
       };
     }
     const d = getCreateDefaultsForType(formType);
@@ -270,6 +271,7 @@ export function ProjectReviewCreateDialog({
       durationMinutes: d.durationMinutes,
       meetingMode: d.meetingMode,
       location: undefined as string | undefined,
+      meetingUrl: undefined as string | undefined,
     };
   }, [selectedSeries, formType]);
 
@@ -470,6 +472,9 @@ export function ProjectReviewCreateDialog({
         meetingMode: meetingDefaults.meetingMode,
         ...(meetingDefaults.location
           ? { location: meetingDefaults.location }
+          : {}),
+        ...(meetingDefaults.meetingUrl
+          ? { meetingUrl: meetingDefaults.meetingUrl }
           : {}),
         ...(participants.length > 0 ? { participants } : {}),
         ...(contentPayload ? { contentPayload } : {}),

@@ -69,3 +69,16 @@ export function assertMeetingFieldsCoherence(
     );
   }
 }
+
+/** Dérive le mode depuis Lieu + Vidéoconférence (pattern UI à deux champs). */
+export function inferMeetingModeFromFields(
+  location: string | null | undefined,
+  meetingUrl: string | null | undefined,
+): ProjectReviewMeetingMode | null {
+  const hasLoc = Boolean(location?.trim());
+  const hasUrl = Boolean(meetingUrl?.trim());
+  if (hasLoc && hasUrl) return 'HYBRID';
+  if (hasUrl) return 'REMOTE';
+  if (hasLoc) return 'ONSITE';
+  return null;
+}

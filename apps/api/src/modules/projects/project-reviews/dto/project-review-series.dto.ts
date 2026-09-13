@@ -8,6 +8,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -16,6 +17,7 @@ import {
 import type {
   ProjectReviewMeetingMode,
   ProjectReviewSeriesFrequency,
+  ProjectReviewSeriesOccurrenceTitleFormat,
   ProjectReviewType,
 } from '@prisma/client';
 import { PROJECT_REVIEW_TYPE_VALUES } from './project-review-type-values';
@@ -27,6 +29,13 @@ export const PROJECT_REVIEW_SERIES_FREQUENCY_VALUES = [
   'MONTHLY',
   'QUARTERLY',
 ] as const satisfies readonly ProjectReviewSeriesFrequency[];
+
+export const PROJECT_REVIEW_SERIES_OCCURRENCE_TITLE_FORMAT_VALUES = [
+  'WEEK',
+  'SHORT_DATE',
+  'LONG_DATE',
+  'CUSTOM',
+] as const satisfies readonly ProjectReviewSeriesOccurrenceTitleFormat[];
 
 export class CreateProjectReviewSeriesDto {
   @IsString()
@@ -55,6 +64,10 @@ export class CreateProjectReviewSeriesDto {
   location?: string | null;
 
   @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  meetingUrl?: string | null;
+
+  @IsOptional()
   @IsString()
   @MaxLength(20000)
   defaultObjective?: string | null;
@@ -72,6 +85,15 @@ export class CreateProjectReviewSeriesDto {
   @Min(1)
   @Max(12)
   horizonCount?: number;
+
+  @IsOptional()
+  @IsIn([...PROJECT_REVIEW_SERIES_OCCURRENCE_TITLE_FORMAT_VALUES])
+  occurrenceTitleFormat?: ProjectReviewSeriesOccurrenceTitleFormat;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  occurrenceTitleCustom?: string | null;
 }
 
 export class UpdateProjectReviewSeriesDto {
@@ -105,6 +127,10 @@ export class UpdateProjectReviewSeriesDto {
   location?: string | null;
 
   @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  meetingUrl?: string | null;
+
+  @IsOptional()
   @IsString()
   @MaxLength(20000)
   defaultObjective?: string | null;
@@ -124,6 +150,15 @@ export class UpdateProjectReviewSeriesDto {
   @Min(1)
   @Max(12)
   horizonCount?: number;
+
+  @IsOptional()
+  @IsIn([...PROJECT_REVIEW_SERIES_OCCURRENCE_TITLE_FORMAT_VALUES])
+  occurrenceTitleFormat?: ProjectReviewSeriesOccurrenceTitleFormat;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  occurrenceTitleCustom?: string | null;
 
   @IsOptional()
   @IsBoolean()

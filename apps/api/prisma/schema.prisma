@@ -1735,6 +1735,14 @@ enum ProjectReviewSeriesFrequency {
   QUARTERLY
 }
 
+/// Format du titre des séances générées depuis une série
+enum ProjectReviewSeriesOccurrenceTitleFormat {
+  WEEK
+  SHORT_DATE
+  LONG_DATE
+  CUSTOM
+}
+
 /// RFC-PROJ-DOC-001 — registre métier documentaire projet (sans stockage binaire MVP)
 enum ProjectDocumentStorageType {
   STARIUM
@@ -2759,6 +2767,8 @@ model ProjectReviewSeries {
   durationMinutes Int
   meetingMode ProjectReviewMeetingMode?
   location    String?
+  /// Lien visio par défaut des séances générées (DCP indirecte — hors snapshot CR)
+  meetingUrl  String?
   defaultObjective String?
 
   /// IDs User du client — jamais d’e-mail stocké ici (RGPD)
@@ -2767,6 +2777,10 @@ model ProjectReviewSeries {
   anchorDate   DateTime
   /// Nb d’occurrences cibles à maintenir dans le futur (défaut 4, max 12)
   horizonCount Int     @default(4)
+  /// Format du titre des séances générées (semaine / date / personnalisé)
+  occurrenceTitleFormat ProjectReviewSeriesOccurrenceTitleFormat @default(SHORT_DATE)
+  /// Motif libre si CUSTOM — jetons {title} {week} {date} {dateLong}
+  occurrenceTitleCustom String?
   isActive     Boolean @default(true)
 
   createdByUserId String?

@@ -1118,6 +1118,12 @@ export type ProjectReviewSeriesFrequency =
   | 'MONTHLY'
   | 'QUARTERLY';
 
+export type ProjectReviewSeriesOccurrenceTitleFormat =
+  | 'WEEK'
+  | 'SHORT_DATE'
+  | 'LONG_DATE'
+  | 'CUSTOM';
+
 export type ProjectReviewSeriesApi = {
   id: string;
   clientId: string;
@@ -1129,11 +1135,14 @@ export type ProjectReviewSeriesApi = {
   durationMinutes: number;
   meetingMode: ProjectReviewMeetingMode | null;
   location: string | null;
+  meetingUrl: string | null;
   defaultObjective: string | null;
   permanentParticipantUserIds: string[];
   permanentParticipants: Array<{ userId: string; displayName: string }>;
   anchorDate: string;
   horizonCount: number;
+  occurrenceTitleFormat: ProjectReviewSeriesOccurrenceTitleFormat;
+  occurrenceTitleCustom: string | null;
   isActive: boolean;
   createdByUserId: string | null;
   createdAt: string;
