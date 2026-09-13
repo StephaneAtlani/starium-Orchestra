@@ -102,3 +102,40 @@ export function ctaLabelForUiState(uiState: ProjectReviewUiState): string {
       return 'Ouvrir';
   }
 }
+
+/**
+ * Projet terminé / annulé / archivé : plus de réunion de pilotage.
+ * Seul le retour d’expérience reste actionnable (Continuer) ; le reste → Consulter.
+ */
+export function resolveReviewListPresentation(opts: {
+  reviewType: string;
+  status: ProjectReviewStatus;
+  agendaLockedAt?: string | null;
+  conductClosedAt?: string | null;
+  apiUiState?: ProjectReviewUiState | null;
+  /** Projet COMPLETED | CANCELLED | ARCHIVED */
+  pilotageMeetingsLocked: boolean;
+}): { uiState: ProjectReviewUiState; ctaLabel: string } {
+  const live =
+    opts.apiUiState ??
+    resolveReviewUiState({
+      status: opts.status,
+      agendaLockedAt: opts.agendaLockedAt,
+      conductClosedAt: opts.conductClosedAt,
+    }) ??
+    'history';
+
+  if (!opts.pilotageMeetingsLocked) {
+    return { uiState: live, ctaLabel: ctaLabelForUiState(live) };
+  }
+
+  if (opts.reviewType !== 'POST_MORTEM') {
+    return { uiState: 'history', ctaLabel: 'Consulter' };
+  }
+
+  if (live === 'history') {
+    return { uiState: 'history', ctaLabel: 'Consulter' };
+  }
+
+  return { uiState: live, ctaLabel: 'Continuer' };
+}

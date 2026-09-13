@@ -385,6 +385,8 @@ function DialogContent({
   modalAccent = "gold",
   ref,
   onPointerDown,
+  onMouseEnter,
+  onMouseLeave,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
@@ -405,6 +407,7 @@ function DialogContent({
     (hasStariumHeader !== false && hasDialogHeaderChild(children))
   const normalizedChildren =
     panelLayout === "starium" ? normalizeStariumDialogChildren(children) : children
+  const [scrollHover, setScrollHover] = React.useState(false)
 
   const closeBtnClass =
     panelLayout === "chat"
@@ -456,9 +459,18 @@ function DialogContent({
           data-modal-accent={
             panelLayout === "starium" ? modalAccent : undefined
           }
+          data-scroll-hover={scrollHover ? true : undefined}
           className={cn(popupClassName, className)}
-          onPointerDown={onPointerDown}
           {...props}
+          onPointerDown={onPointerDown}
+          onMouseEnter={(e) => {
+            setScrollHover(true)
+            onMouseEnter?.(e)
+          }}
+          onMouseLeave={(e) => {
+            setScrollHover(false)
+            onMouseLeave?.(e)
+          }}
         >
           {normalizedChildren}
           {showCloseButton &&

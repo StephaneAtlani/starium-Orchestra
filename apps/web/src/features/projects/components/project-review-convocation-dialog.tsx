@@ -19,7 +19,7 @@ import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { useAuth } from '@/context/auth-context';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
-import { PROJECT_REVIEW_TYPE_BADGE } from '../constants/project-enum-labels';
+import { PROJECT_REVIEW_TYPE_BADGE, PROJECT_REVIEW_TYPE_LABEL } from '../constants/project-enum-labels';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { formatProjectDateLong } from '../lib/projects-list-display';
 import type { ProjectReviewDetail } from '../types/project.types';
@@ -114,20 +114,20 @@ function senderLabel(user: {
   };
 }
 
-function defaultSubject(detail: ProjectReviewDetail, badge: string): string {
-  const title = displayLabel(detail.title, badge);
+function defaultSubject(detail: ProjectReviewDetail, typeLabel: string): string {
+  const title = displayLabel(detail.title, typeLabel);
   const when = detail.reviewDate
     ? new Date(detail.reviewDate).toLocaleDateString('fr-FR', {
         day: 'numeric',
         month: 'long',
       })
     : 'Date à définir';
-  return `${badge} — ${title} · ${when}`;
+  return `${typeLabel} — ${title} · ${when}`;
 }
 
-function defaultMessage(detail: ProjectReviewDetail, badge: string): string {
-  const title = displayLabel(detail.title, badge);
-  return `Bonjour,\n\nVous êtes convié au ${badge} « ${title} ». Vous trouverez ci-dessous l'ordre du jour arrêté ainsi que les supports de séance.\n\nMerci de confirmer votre présence et de préparer les points dont vous êtes porteur.`;
+function defaultMessage(detail: ProjectReviewDetail, typeLabel: string): string {
+  const title = displayLabel(detail.title, typeLabel);
+  return `Bonjour,\n\nVous êtes convié à la séance « ${title} » (${typeLabel}).\n\nVous trouverez ci-dessous l'ordre du jour arrêté ainsi que les supports de séance.\n\nMerci de confirmer votre présence et de préparer les points dont vous êtes porteur.`;
 }
 
 function formatWhenLine(detail: ProjectReviewDetail): string {
@@ -170,6 +170,8 @@ export function ProjectReviewConvocationDialog({
 
   const participants = detail.participants ?? [];
   const badge = PROJECT_REVIEW_TYPE_BADGE[detail.reviewType] ?? 'Point';
+  const typeLabel =
+    PROJECT_REVIEW_TYPE_LABEL[detail.reviewType] ?? badge;
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
@@ -182,8 +184,8 @@ export function ProjectReviewConvocationDialog({
   useEffect(() => {
     if (!open) return;
     setSelectedIds(participants.map((p) => p.id));
-    setSubject(defaultSubject(detail, badge));
-    setMessage(defaultMessage(detail, badge));
+    setSubject(defaultSubject(detail, typeLabel));
+    setMessage(defaultMessage(detail, typeLabel));
     setOpts(defaultOpts());
     setError(null);
     setSubmitting(false);
@@ -198,10 +200,14 @@ export function ProjectReviewConvocationDialog({
     [user],
   );
 
+  const meetingTitle = useMemo(
+    () => displayLabel(detail.title, typeLabel),
+    [detail.title, typeLabel],
+  );
+
   const subtitle = useMemo(() => {
-    const title = displayLabel(detail.title, badge);
-    return `${title} · ${formatWhenLine(detail)}`;
-  }, [detail, badge]);
+    return `${meetingTitle} · ${formatWhenLine(detail)}`;
+  }, [detail, meetingTitle]);
 
   const selected = useMemo(
     () => participants.filter((p) => selectedIds.includes(p.id)),
@@ -212,12 +218,22 @@ export function ProjectReviewConvocationDialog({
     [participants, selectedIds],
   );
 
+  /** Déduplique les lignes ODJ issues d’un sync blocs trop agressif. */
   const agendaItems = useMemo(() => {
-    const items = [...(detail.agendaItems ?? [])];
-    items.sort(
-      (a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0),
+    const items = [...(detail.agendaItems ?? [])].sort(
+      (a, b) => a.orderIndex - b.orderIndex,
     );
-    return items;
+    const seenPw = new Set<string>();
+    const out: typeof items = [];
+    for (const item of items) {
+      const pw = item.notes?.match(/^\[pw:([^\]]+)\]/)?.[1] ?? null;
+      if (pw) {
+        if (seenPw.has(pw)) continue;
+        seenPw.add(pw);
+      }
+      out.push(item);
+    }
+    return out;
   }, [detail.agendaItems]);
 
   const supportAttachments = useMemo(() => {
@@ -419,8 +435,6 @@ export function ProjectReviewConvocationDialog({
       setTesting(false);
     }
   };
-
-  const meetingTitle = displayLabel(detail.title, badge);
 
   return (
     <StariumModal

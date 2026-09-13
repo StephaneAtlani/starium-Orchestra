@@ -96,6 +96,23 @@ export function ProjectReviewPrepareWorkspace({
   );
   const prepRef = useRef(prep);
   prepRef.current = prep;
+  const agendaItemsRef = useRef(detail.agendaItems ?? []);
+  agendaItemsRef.current = detail.agendaItems ?? [];
+  const pwSyncInFlight = useRef(new Set<string>());
+  /** Blocs déjà poussés vers l’ODJ dans cette session (évite les courses stale). */
+  const pwSyncedIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    pwSyncedIds.current = new Set();
+    pwSyncInFlight.current = new Set();
+  }, [detail.id]);
+
+  useEffect(() => {
+    for (const item of detail.agendaItems ?? []) {
+      const id = parsePwBlockIdFromNotes(item.notes);
+      if (id) pwSyncedIds.current.add(id);
+    }
+  }, [detail.agendaItems]);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
@@ -148,59 +165,71 @@ export function ProjectReviewPrepareWorkspace({
     [agendaLocked, canEdit, detail.contentPayload, detail.id, update],
   );
 
-  const flush = useCallback(async () => {
-    await persistPrep(prepRef.current);
-  }, [persistPrep]);
-
-  useEffect(() => {
-    onRegisterFlush?.(flush);
-  }, [flush, onRegisterFlush]);
-
   const syncBlockAgenda = useCallback(
     async (blockId: string, selected: boolean) => {
       if (!canEdit || agendaLocked) return;
       const block = findStdBlock(blockId);
       if (!block) return;
       const marker = pwBlockNotesMarker(blockId);
-      const existing = (detail.agendaItems ?? []).find(
+      const items = agendaItemsRef.current;
+      const existing = items.find(
         (i) => parsePwBlockIdFromNotes(i.notes) === blockId,
       );
-      if (selected && !existing) {
+      if (selected) {
+        if (existing || pwSyncedIds.current.has(blockId)) return;
+        if (pwSyncInFlight.current.has(blockId)) return;
+        pwSyncInFlight.current.add(blockId);
         try {
           await createAgendaItem.mutateAsync({
             reviewId: detail.id,
             body: {
               title: block.title,
               itemType: 'INFORMATION',
-              plannedDurationMinutes: block.defaultMin,
+              plannedDurationMinutes:
+                prepRef.current.blockDurations?.[blockId] ?? block.defaultMin,
               notes: marker,
             },
           });
+          pwSyncedIds.current.add(blockId);
         } catch (err) {
           toast.error(apiErrorMessage(err, 'Impossible d’ajouter le bloc'));
+        } finally {
+          pwSyncInFlight.current.delete(blockId);
         }
         return;
       }
-      if (!selected && existing) {
+      if (existing) {
         try {
           await deleteAgendaItem.mutateAsync({
             reviewId: detail.id,
             agendaItemId: existing.id,
           });
+          pwSyncedIds.current.delete(blockId);
         } catch (err) {
           toast.error(apiErrorMessage(err, 'Impossible de retirer le bloc'));
         }
       }
     },
-    [
-      agendaLocked,
-      canEdit,
-      createAgendaItem,
-      deleteAgendaItem,
-      detail.agendaItems,
-      detail.id,
-    ],
+    [agendaLocked, canEdit, createAgendaItem, deleteAgendaItem, detail.id],
   );
+
+  const ensureSelectedBlocksOnAgenda = useCallback(async () => {
+    if (!canEdit || agendaLocked) return;
+    if (prepRef.current.mode !== 'simple') return;
+    const selected = prepRef.current.selectedBlockIds;
+    for (const id of selected) {
+      await syncBlockAgenda(id, true);
+    }
+  }, [agendaLocked, canEdit, syncBlockAgenda]);
+
+  const flush = useCallback(async () => {
+    await persistPrep(prepRef.current);
+    await ensureSelectedBlocksOnAgenda();
+  }, [ensureSelectedBlocksOnAgenda, persistPrep]);
+
+  useEffect(() => {
+    onRegisterFlush?.(flush);
+  }, [flush, onRegisterFlush]);
 
   const onToggleBlock = async (blockId: string) => {
     const catalogIds = blocks.map((b) => b.id);
@@ -512,7 +541,10 @@ export function ProjectReviewPrepareWorkspace({
           aria-live="assertive"
         >
           <p className="text-sm font-semibold text-destructive">
-            Contrôles bloquants
+            Impossible d’envoyer la convocation
+          </p>
+          <p className="mt-0.5 text-xs text-destructive/90">
+            Réglez les points suivants, puis réessayez.
           </p>
           <ul className="mt-1 list-inside list-disc text-sm text-destructive">
             {lockIssues.map((issue) => (

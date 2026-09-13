@@ -6,6 +6,7 @@ import {
   Calendar,
   DollarSign,
   Flag,
+  Folder,
   Pencil,
   Share2,
   Tag,
@@ -134,7 +135,7 @@ export function ProjectSynthesisBanner({
           className="starium-proj-head__folder"
           aria-hidden
         >
-          <EntityVisualMark visual={project.visual} size="lg" className="size-[52px] rounded-2xl border-0" />
+          <Folder className="size-[26px]" strokeWidth={1.75} />
         </div>
 
         <div className="starium-proj-head__titlewrap">

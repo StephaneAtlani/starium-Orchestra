@@ -88,7 +88,7 @@ export function collectPrepareLockIssues(input: {
   if (items.length < 1) {
     issues.push({
       message: PREPARE_LOCK_MSG.noAgendaItem,
-      focus: { kind: 'participants' },
+      focus: { kind: 'agenda-title', itemId: '' },
     });
     return issues;
   }

@@ -162,15 +162,26 @@ export function ProjectReviewPrepareDialog({
     }
   };
 
-  const onSendConvocation = () => {
-    if (!detail) return;
-    if (!ready) {
-      setRevealLockIssues(true);
-      toast.error(lockIssues[0]?.message ?? 'Contrôles bloquants non résolus');
-      return;
+  const onSendConvocation = async () => {
+    if (!detail || !canEdit) return;
+    try {
+      if (flushPrepRef.current) {
+        await flushPrepRef.current();
+      }
+      const { data: refreshed } = await detailQuery.refetch();
+      const next = refreshed ?? detail;
+      const issues = prepareLockIssuesFromDetail(next);
+      if (issues.length > 0) {
+        setRevealLockIssues(true);
+        toast.error(issues[0]?.message ?? 'Contrôles bloquants non résolus');
+        if (issues[0]) focusIssue(issues[0].focus);
+        return;
+      }
+      setRevealLockIssues(false);
+      setConvocationOpen(true);
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Préparation impossible'));
     }
-    setRevealLockIssues(false);
-    setConvocationOpen(true);
   };
 
   return (
@@ -214,8 +225,14 @@ export function ProjectReviewPrepareDialog({
                 <Button
                   type="button"
                   className="min-h-11 sm:min-h-9 gap-1.5"
-                  disabled={!canEdit || !ready}
-                  onClick={onSendConvocation}
+                  disabled={!canEdit}
+                  aria-disabled={!canEdit || !ready}
+                  title={
+                    !ready && lockIssues[0]
+                      ? lockIssues[0].message
+                      : undefined
+                  }
+                  onClick={() => void onSendConvocation()}
                 >
                   <Send className="size-4" aria-hidden />
                   Envoyer la convocation
@@ -249,7 +266,7 @@ export function ProjectReviewPrepareDialog({
               detail={detail}
               canEdit={canEdit}
               agendaLocked={agendaLocked}
-              revealLockIssues={revealLockIssues}
+              revealLockIssues={revealLockIssues || lockIssues.length > 0}
               previousDetail={
                 previousReviewId ? previousDetailQuery.data : null
               }

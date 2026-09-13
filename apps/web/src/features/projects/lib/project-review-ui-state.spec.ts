@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ctaLabelForUiState,
   parsePointsStateParam,
+  resolveReviewListPresentation,
   resolveReviewUiState,
 } from './project-review-ui-state';
 
@@ -30,6 +31,32 @@ describe('project-review-ui-state (RFC-PROJ-013-7)', () => {
     expect(ctaLabelForUiState('history')).toBe('Consulter');
     expect(ctaLabelForUiState('to_prepare')).toBe('Préparer');
     expect(ctaLabelForUiState('upcoming')).toBe('Préparer');
+  });
+
+  it('projet clos : COPIL → Consulter, REX brouillon → Continuer', () => {
+    expect(
+      resolveReviewListPresentation({
+        reviewType: 'COPIL',
+        status: 'IN_PROGRESS',
+        pilotageMeetingsLocked: true,
+      }),
+    ).toEqual({ uiState: 'history', ctaLabel: 'Consulter' });
+
+    expect(
+      resolveReviewListPresentation({
+        reviewType: 'POST_MORTEM',
+        status: 'IN_PROGRESS',
+        pilotageMeetingsLocked: true,
+      }),
+    ).toEqual({ uiState: 'in_progress', ctaLabel: 'Continuer' });
+
+    expect(
+      resolveReviewListPresentation({
+        reviewType: 'POST_MORTEM',
+        status: 'FINALIZED',
+        pilotageMeetingsLocked: true,
+      }),
+    ).toEqual({ uiState: 'history', ctaLabel: 'Consulter' });
   });
 
   it('parsePointsStateParam defaults', () => {

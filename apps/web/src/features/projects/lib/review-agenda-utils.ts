@@ -1,4 +1,5 @@
 import type { ProjectReviewAgendaItemApi } from '../types/project.types';
+import { isPostMortemEligibleProjectStatus } from './project-review-post-mortem';
 
 export function sortReviewAgendaItems(
   items: ProjectReviewAgendaItemApi[],
@@ -73,7 +74,15 @@ export function shouldShowAnimateSession(opts: {
   editorPhase: string;
   conductClosedAt: string | null | undefined;
   reviewType: string;
+  /** Projet COMPLETED | CANCELLED | ARCHIVED → pas d’animation de réunion. */
+  projectStatus?: string | null;
 }): boolean {
+  if (
+    opts.projectStatus &&
+    isPostMortemEligibleProjectStatus(opts.projectStatus)
+  ) {
+    return false;
+  }
   return (
     opts.editorPhase === 'conduct' &&
     !opts.conductClosedAt &&

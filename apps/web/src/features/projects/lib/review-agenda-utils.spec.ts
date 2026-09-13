@@ -129,5 +129,21 @@ describe('review-agenda-utils', () => {
         reviewType: 'COPIL',
       }),
     ).toBe(false);
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'conduct',
+        conductClosedAt: null,
+        reviewType: 'COPIL',
+        projectStatus: 'CANCELLED',
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowAnimateSession({
+        editorPhase: 'conduct',
+        conductClosedAt: null,
+        reviewType: 'COPIL',
+        projectStatus: 'ARCHIVED',
+      }),
+    ).toBe(false);
   });
 });

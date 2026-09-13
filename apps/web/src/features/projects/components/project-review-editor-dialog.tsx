@@ -3649,6 +3649,7 @@ export function ProjectReviewEditorDialog({
       editorPhase,
       conductClosedAt: d.conductClosedAt,
       reviewType: d.reviewType,
+      projectStatus,
     }) ? (
       <ProjectReviewAnimateSession
         projectId={projectId}

@@ -12,7 +12,7 @@ import {
 } from '../constants/project-enum-labels';
 import type { ProjectReviewListItem } from '../types/project.types';
 import {
-  ctaLabelForUiState,
+  resolveReviewListPresentation,
   resolveReviewUiState,
   type ProjectReviewUiState,
 } from '../lib/project-review-ui-state';
@@ -146,11 +146,13 @@ function typeBadgeTone(reviewType: string): string {
 function ReviewListCard({
   row,
   uiState,
+  ctaLabel,
   flash,
   onOpen,
 }: {
   row: ProjectReviewListItem;
   uiState: ProjectReviewUiState;
+  ctaLabel: string;
   flash: boolean;
   onOpen: (id: string) => void;
 }) {
@@ -186,7 +188,7 @@ function ReviewListCard({
 
   const footer = prepFooter(uiState, row);
   const FooterIcon = footer.Icon;
-  const actionLabel = ctaLabelForUiState(uiState);
+  const actionLabel = ctaLabel;
   const preview = (row.participantsPreview ?? []).filter((p) =>
     p.displayName?.trim(),
   );
@@ -330,11 +332,14 @@ export function ProjectReviewsTable({
   rows,
   flashId,
   onOpen,
+  pilotageMeetingsLocked = false,
 }: {
   uiState: ProjectReviewUiState;
   rows: ProjectReviewListItem[];
   flashId: string | null;
   onOpen: (id: string) => void;
+  /** Projet clos : pas d’Animer/Préparer hors REX. */
+  pilotageMeetingsLocked?: boolean;
 }) {
   const caption = {
     to_prepare: 'Points à préparer',
@@ -352,12 +357,20 @@ export function ProjectReviewsTable({
       data-testid="project-reviews-list"
     >
       {rows.map((row) => {
-        const state = rowUiState(row) ?? uiState;
+        const presentation = resolveReviewListPresentation({
+          reviewType: row.reviewType,
+          status: row.status,
+          agendaLockedAt: row.agendaLockedAt,
+          conductClosedAt: row.conductClosedAt,
+          apiUiState: rowUiState(row),
+          pilotageMeetingsLocked,
+        });
         return (
           <div key={row.id} role="listitem">
             <ReviewListCard
               row={row}
-              uiState={state}
+              uiState={presentation.uiState}
+              ctaLabel={presentation.ctaLabel}
               flash={flashId === row.id}
               onOpen={onOpen}
             />

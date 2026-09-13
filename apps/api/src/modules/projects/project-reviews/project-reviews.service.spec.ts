@@ -227,6 +227,7 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
       auditLogs as unknown as AuditLogsService,
       invitations as unknown as ProjectReviewInvitationsService,
       emailReport as never,
+      { dedupePwBlockItems: jest.fn().mockResolvedValue(0) } as never,
     );
   });
 
@@ -604,6 +605,22 @@ describe('ProjectReviewsService (RFC-PROJ-013-2 Phase A)', () => {
     await expect(
       service.start(clientId, projectId, reviewId, {}),
     ).rejects.toThrow('La revue est déjà en cours.');
+  });
+
+  it('start COPIL sur projet annulé → 400', async () => {
+    projects.getProjectForScope.mockResolvedValueOnce({
+      id: projectId,
+      status: ProjectStatus.CANCELLED,
+    });
+    prisma.projectReview.findFirst.mockResolvedValue(
+      reviewRow({
+        status: ProjectReviewStatus.SCHEDULED,
+        reviewType: ProjectReviewType.COPIL,
+      }),
+    );
+    await expect(
+      service.start(clientId, projectId, reviewId, {}),
+    ).rejects.toThrow(/retour d'expérience/);
   });
 
   it('finalize refuse SCHEDULED', async () => {

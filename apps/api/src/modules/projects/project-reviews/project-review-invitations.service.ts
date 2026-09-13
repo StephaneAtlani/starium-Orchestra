@@ -24,6 +24,7 @@ import {
   buildProjectReviewInvitationTitle,
 } from './project-review-invitation-labels';
 import { ProjectReviewEmailInvitationsService } from './project-review-email-invitations.service';
+import { ProjectReviewAgendaService } from './project-review-agenda.service';
 import {
   ProjectReviewMicrosoftMeetingService,
   type ProjectReviewMeetingOptions,
@@ -98,6 +99,7 @@ export class ProjectReviewInvitationsService {
     private readonly auditLogs: AuditLogsService,
     private readonly emailInvitations: ProjectReviewEmailInvitationsService,
     private readonly microsoftMeeting: ProjectReviewMicrosoftMeetingService,
+    private readonly agenda: ProjectReviewAgendaService,
   ) {}
 
   private auditMeta(context?: AuditContext) {
@@ -148,6 +150,9 @@ export class ProjectReviewInvitationsService {
     context: AuditContext | undefined,
     options: ProjectReviewInviteOptions,
   ): Promise<InviteProjectReviewResultDto> {
+    // Purge des doublons atelier PW avant construction mail / ICS / Teams.
+    await this.agenda.dedupePwBlockItems(clientId, projectId, reviewId);
+
     const { project, review } = await this.loadScopedReview(
       clientId,
       projectId,

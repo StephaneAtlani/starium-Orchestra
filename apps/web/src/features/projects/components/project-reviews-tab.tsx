@@ -354,6 +354,7 @@ export function ProjectReviewsTab({
                 rows={list.data}
                 flashId={flashId}
                 onOpen={openEditor}
+                pilotageMeetingsLocked
               />
             </div>
           )}

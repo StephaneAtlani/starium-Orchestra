@@ -133,6 +133,7 @@ describe('ProjectReviewInvitationsService (RFC-PROJ-013-1 Phase 3)', () => {
       auditLogs as unknown as AuditLogsService,
       emailInvitations as unknown as ProjectReviewEmailInvitationsService,
       microsoftMeeting as unknown as ProjectReviewMicrosoftMeetingService,
+      { dedupePwBlockItems: jest.fn().mockResolvedValue(0) } as never,
     );
   });
 

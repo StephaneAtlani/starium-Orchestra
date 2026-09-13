@@ -25,6 +25,11 @@ import { AGENDA_LOCKED_STRUCTURE_ERROR } from './project-review-ui-state';
 import { CreateProjectReviewAgendaItemDto } from './dto/create-agenda-item.dto';
 import { ReorderProjectReviewAgendaItemsDto } from './dto/reorder-agenda-items.dto';
 import { UpdateProjectReviewAgendaItemDto } from './dto/update-agenda-item.dto';
+import {
+  dedupeAgendaItemsByPwBlock,
+  parsePwBlockIdFromNotes,
+  pwBlockNotesMarker,
+} from './project-review-pw-blocks';
 
 @Injectable()
 export class ProjectReviewAgendaService {
@@ -84,6 +89,61 @@ export class ProjectReviewAgendaService {
     };
   }
 
+  /**
+   * Supprime les doublons ODJ issus du sync atelier PW (`[pw:blockId]`).
+   * Conserve la 1ʳᵉ occurrence (orderIndex croissant).
+   */
+  async dedupePwBlockItems(
+    clientId: string,
+    projectId: string,
+    reviewId: string,
+  ): Promise<number> {
+    await this.loadReview(clientId, projectId, reviewId);
+    const items = await this.prisma.projectReviewAgendaItem.findMany({
+      where: { clientId, projectReviewId: reviewId },
+      orderBy: { orderIndex: 'asc' },
+      select: { id: true, notes: true },
+    });
+    const { duplicateIds } = dedupeAgendaItemsByPwBlock(items);
+    if (duplicateIds.length === 0) return 0;
+    await this.prisma.projectReviewAgendaItem.deleteMany({
+      where: {
+        clientId,
+        projectReviewId: reviewId,
+        id: { in: duplicateIds },
+      },
+    });
+    return duplicateIds.length;
+  }
+
+  /** Après course concurrente éventuelle : une seule ligne par `[pw:]`. */
+  private async keepFirstPwBlockItem(
+    clientId: string,
+    reviewId: string,
+    pwBlockId: string,
+  ) {
+    const marker = pwBlockNotesMarker(pwBlockId);
+    const items = await this.prisma.projectReviewAgendaItem.findMany({
+      where: {
+        clientId,
+        projectReviewId: reviewId,
+        notes: { startsWith: marker },
+      },
+      orderBy: { orderIndex: 'asc' },
+    });
+    if (items.length === 0) return null;
+    if (items.length > 1) {
+      await this.prisma.projectReviewAgendaItem.deleteMany({
+        where: {
+          clientId,
+          projectReviewId: reviewId,
+          id: { in: items.slice(1).map((i) => i.id) },
+        },
+      });
+    }
+    return items[0];
+  }
+
   async create(
     clientId: string,
     projectId: string,
@@ -97,6 +157,17 @@ export class ProjectReviewAgendaService {
 
     if (dto.ownerUserId) {
       await this.projects.assertClientUser(clientId, dto.ownerUserId);
+    }
+
+    const notes = dto.notes?.trim() ?? null;
+    const pwBlockId = parsePwBlockIdFromNotes(notes);
+    if (pwBlockId) {
+      const existing = await this.keepFirstPwBlockItem(
+        clientId,
+        reviewId,
+        pwBlockId,
+      );
+      if (existing) return existing;
     }
 
     const maxOrder = await this.prisma.projectReviewAgendaItem.aggregate({
@@ -117,9 +188,21 @@ export class ProjectReviewAgendaService {
         orderIndex,
         plannedDurationMinutes: dto.plannedDurationMinutes ?? null,
         ownerUserId: dto.ownerUserId ?? null,
-        notes: dto.notes?.trim() ?? null,
+        notes,
       },
     });
+
+    if (pwBlockId) {
+      const kept = await this.keepFirstPwBlockItem(
+        clientId,
+        reviewId,
+        pwBlockId,
+      );
+      // Course concurrente : une autre ligne a gagné — on ne logue pas la nôtre (supprimée).
+      if (kept && kept.id !== created.id) {
+        return kept;
+      }
+    }
 
     await this.auditLogs.create({
       clientId,

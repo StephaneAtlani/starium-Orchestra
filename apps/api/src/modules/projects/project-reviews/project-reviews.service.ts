@@ -76,6 +76,7 @@ import {
 } from './project-review-ui-state';
 import { firstPrepareLockError } from './project-review-prepare-guards';
 import { ProjectReviewInvitationsService } from './project-review-invitations.service';
+import { ProjectReviewAgendaService } from './project-review-agenda.service';
 import {
   formatProjectReviewUserDisplayName,
   projectReviewUserSelect,
@@ -181,6 +182,7 @@ export class ProjectReviewsService {
     private readonly auditLogs: AuditLogsService,
     private readonly invitations: ProjectReviewInvitationsService,
     private readonly emailReport: ProjectReviewEmailReportService,
+    private readonly agenda: ProjectReviewAgendaService,
   ) {}
 
   private async validateLinkedTasks(
@@ -992,6 +994,8 @@ export class ProjectReviewsService {
     reviewId: string,
     context?: AuditContext,
   ) {
+    await this.agenda.dedupePwBlockItems(clientId, projectId, reviewId);
+
     await this.projects.getProjectForScope(clientId, projectId);
     const review = await this.prisma.projectReview.findFirst({
       where: { id: reviewId, clientId, projectId },
@@ -1876,12 +1880,21 @@ export class ProjectReviewsService {
     reviewId: string,
     context?: AuditContext,
   ) {
-    await this.projects.getProjectForScope(clientId, projectId);
+    const project = await this.projects.getProjectForScope(clientId, projectId);
 
     const existing = await this.prisma.projectReview.findFirst({
       where: { id: reviewId, clientId, projectId },
     });
     if (!existing) throw new NotFoundException('Review not found');
+
+    if (
+      isPostMortemEligibleProjectStatus(project.status) &&
+      existing.reviewType !== ProjectReviewType.POST_MORTEM
+    ) {
+      throw new BadRequestException(
+        "Lorsque le projet est terminé, annulé ou archivé, aucune nouvelle réunion de pilotage ne peut être démarrée. Seul un retour d'expérience reste possible.",
+      );
+    }
 
     if (
       existing.status === ProjectReviewStatus.IN_PROGRESS ||

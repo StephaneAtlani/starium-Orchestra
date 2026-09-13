@@ -155,7 +155,7 @@ export class ProjectReviewEmailInvitationsService {
     });
     const introMessage =
       input.emailMessage?.trim() ||
-      `Bonjour,\n\nVous êtes convié au ${meetingTitle} « ${input.projectName} ». Merci de confirmer votre présence.`;
+      `Bonjour,\n\nVous êtes convié à la séance « ${meetingTitle} » du projet « ${input.projectName} ».\n\nMerci de confirmer votre présence.`;
     const subject =
       input.emailSubject?.trim() ||
       buildProjectReviewInvitationTitle(input.projectName);
