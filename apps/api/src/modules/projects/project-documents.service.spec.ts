@@ -116,6 +116,9 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
           status: { not: 'DELETED' },
         }),
         take: 200,
+        include: expect.objectContaining({
+          uploadedByUser: expect.any(Object),
+        }),
       }),
     );
   });

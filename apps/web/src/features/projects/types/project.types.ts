@@ -541,6 +541,12 @@ export type ProjectDocumentApi = {
   description: string | null;
   tags: string[] | null;
   uploadedByUserId: string | null;
+  uploadedByUser: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;

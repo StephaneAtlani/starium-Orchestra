@@ -41,6 +41,35 @@ describe('StariumScrollArea', () => {
     expect(rail?.className).toMatch(/opacity-0/);
   });
 
+  it('n’affiche aucun rail en reveal=never même au survol', () => {
+    const { container } = render(
+      <div style={{ height: 120, width: 240 }}>
+        <StariumScrollArea className="h-full w-full" reveal="never">
+          <div style={{ height: 400 }}>Contenu long</div>
+        </StariumScrollArea>
+      </div>,
+    );
+
+    const root = container.querySelector('[data-starium-scroll]');
+    const viewport = container.querySelector(
+      '.starium-scroll-area__viewport',
+    ) as HTMLDivElement;
+    Object.defineProperty(viewport, 'clientHeight', {
+      configurable: true,
+      value: 120,
+    });
+    Object.defineProperty(viewport, 'scrollHeight', {
+      configurable: true,
+      value: 400,
+    });
+    fireEvent.scroll(viewport);
+    fireEvent.mouseEnter(root!);
+
+    expect(container.querySelector('.starium-scroll-area__rail-track')).toBeNull();
+    expect(root).toHaveAttribute('data-reveal', 'never');
+    expect(root).not.toHaveAttribute('data-scroll-hover');
+  });
+
   it('expose un libellé accessible via children', () => {
     render(
       <StariumScrollArea className="h-40">

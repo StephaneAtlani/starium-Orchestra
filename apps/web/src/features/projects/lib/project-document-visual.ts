@@ -37,7 +37,7 @@ export function projectDocumentBadgeClass(tone: ProjectDocumentVisualTone): stri
       return 'starium-ds-badge starium-ds-badge--info starium-ds-badge--nodot';
     case 'fig':
     case 'link':
-      return 'starium-ds-badge starium-ds-badge--nodot bg-[color:var(--purple-bg)] text-[color:var(--purple)]';
+      return 'starium-ds-badge starium-ds-badge--purple starium-ds-badge--nodot';
     case 'img':
       return 'starium-ds-badge starium-ds-badge--warn starium-ds-badge--nodot';
     default:

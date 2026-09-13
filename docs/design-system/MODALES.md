@@ -52,20 +52,20 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 | Titre | `.starium-modal__title` | Via `DialogTitle` |
 | Sous-titre | `.starium-modal__subtitle` | Via `DialogDescription` — **une phrase** |
 | Fermeture | `.starium-modal__close` | **Haut droite** du header (`margin-left: auto`) ; `aria-label="Fermer"` |
-| Corps | `.starium-modal__body` | Padding `20px` ; seule zone scrollable ; **scrollbar fine toujours stylée** + `scrollbar-gutter: stable` ; ombres de débordement (sauf `p-0`) |
+| Corps | `.starium-modal__body` | Padding `20px` ; seule zone scrollable ; **scrollbar / rail masqués** (`reveal="never"`) ; ombres de débordement (sauf `p-0`) |
 | Pied | `.starium-modal__footer` | Bordure haute ; boutons alignés à droite, gap `10px` |
 
 ## 2.1 Scroll du corps (souris / molette)
 
-Le corps de modale doit **montrer** qu’il y a plus de contenu — tout le monde n’a pas de trackpad.
+Le corps reste scrollable (molette / trackpad / clavier). **Aucun rail ni scrollbar native ne s’affiche** au survol dans les modales.
 
 | Mécanisme | Où |
 |-----------|-----|
-| Scrollbar fine stylée | **Rail HTML custom** (`StariumScrollArea`) — pas la scrollbar native macOS (invisible). Affiché au **`:hover` CSS** sur `[data-starium-scroll]` + drag. `DialogBody` l’utilise par défaut ; layouts `overflow-hidden` (atelier / convoc) branchent `StariumScrollArea` sur chaque panneau. |
-| `scrollbar-gutter: stable` | Même périmètre — évite le jump de layout |
+| Scroll masqué | `DialogBody` → `StariumScrollArea` **`reveal="never"`** (scrollbar native cachée, **pas de rail custom** au hover). Scroll molette / trackpad / focus clavier. |
+| Rail custom (`hover` / `edge` / `always`) | Réservé aux **panneaux page / atelier** denses — pas au corps des modales formulaire. |
 | Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
 
-Sous-panneaux scrollables (ex. liste + détail côte à côte) : ajouter `starium-scroll starium-scroll--edges` sur la zone `overflow-y-auto`.
+Sous-panneaux scrollables (ex. liste + détail côte à côte) : ajouter `starium-scroll starium-scroll--edges` sur la zone `overflow-y-auto`, ou `StariumScrollArea` avec `reveal` adapté.
 
 ---
 
@@ -212,7 +212,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Inputs bruts `border-input` hors `.starium-form-*` | Classes formulaire DS |
 | `Statement`, UUID, IDs en UI | Libellés métier français |
 | Scroll sur `DialogContent` | Scroll uniquement sur `DialogBody` |
-| Scrollbar invisible / overlay sans indice | **`StariumScrollArea`** (rail HTML custom) sur les panneaux scrollables denses (ex. atelier Préparer 3 col) ; sinon scrollbar native au survol |
+| Scrollbar / rail qui apparaît au survol dans une **modale** | Corps modale = `reveal="never"` ; rail `hover`/`edge` seulement hors modale (atelier / page) |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---

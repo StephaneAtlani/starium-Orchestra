@@ -23,11 +23,13 @@ type Props = {
   /** Classes sur le viewport scrollable (padding, etc.). */
   viewportClassName?: string;
   /**
-   * `hover` (défaut) : rail visible au survol de toute la zone (modales).
+   * `hover` (défaut composant) : rail visible au survol de toute la zone.
    * `edge` : rail visible seulement près du bord droit (workspace page).
    * `always` : rail toujours visible dès qu’il y a overflow.
+   * `never` : **aucun rail** — scrollbar native déjà masquée ; scroll molette / trackpad
+   *           uniquement (norme modales Starium : pas d’apparition à la souris).
    */
-  reveal?: 'hover' | 'edge' | 'always';
+  reveal?: 'hover' | 'edge' | 'always' | 'never';
   /**
    * `flow` (défaut via auto) : le contenu définit la hauteur — pour modales auto-size.
    * `fill` : viewport `absolute inset-0` — parent **doit** avoir une hauteur définie (`h-full`, etc.).
@@ -171,13 +173,15 @@ export function StariumScrollArea({
   };
 
   const revealActive =
-    reveal === 'always' ||
-    dragging ||
-    (reveal === 'hover' && hover) ||
-    (reveal === 'edge' && nearEdge);
+    reveal !== 'never' &&
+    (reveal === 'always' ||
+      dragging ||
+      (reveal === 'hover' && hover) ||
+      (reveal === 'edge' && nearEdge));
 
-  /** Affordance : rail uniquement au survol / edge / always / drag. */
+  /** Affordance : rail uniquement au survol / edge / always / drag — jamais en `never`. */
   const railVisible = overflow && revealActive;
+  const showRailChrome = overflow && reveal !== 'never';
 
   return (
     <div
@@ -220,7 +224,7 @@ export function StariumScrollArea({
         {children}
       </div>
 
-      {overflow ? (
+      {showRailChrome ? (
         <div
           role="presentation"
           aria-hidden

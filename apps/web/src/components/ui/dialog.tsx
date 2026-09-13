@@ -313,7 +313,7 @@ function DialogBody({
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),
           )}
-          reveal="edge"
+          reveal="never"
         >
           {children}
         </StariumScrollArea>

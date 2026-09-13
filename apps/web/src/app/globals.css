@@ -1859,9 +1859,6 @@ table.starium-dt {
   background: var(--neutral-100, var(--muted));
   color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
 }
-.starium-ds-badge--nodot::before {
-  display: none;
-}
 
 /* Rail activité documents (mock .activity-card / .act-*) */
 .starium-activity-card {
@@ -2039,6 +2036,13 @@ table.starium-dt {
 .starium-ds-badge--neutral {
   background: var(--neutral-100, var(--muted));
   color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
+}
+.starium-ds-badge--purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+.starium-ds-badge--nodot::before {
+  display: none;
 }
 .starium-dt-flag {
   display: inline-flex;
@@ -3266,27 +3270,30 @@ table.starium-dt {
   opacity: 0.72;
 }
 
-/* Segmented toggle DS */
+/* Segmented toggle DS (mock .seg-toggle / .seg-btn) */
 .starium-seg-toggle {
   display: flex;
-  padding: 3px;
-  border-radius: var(--radius-md, 10px);
-  background: var(--neutral-100, var(--muted));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--control-radius, 999px);
+  background: var(--neutral-0, var(--card));
 }
 .starium-seg-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 16px;
+  padding: 7px 16px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--control-radius, 999px);
   background: none;
   font-size: 12px;
   font-weight: 700;
-  color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
+  color: var(--ds-text-muted-color, var(--neutral-500, var(--muted-foreground)));
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
+  transition: color var(--duration-fast, 120ms) var(--ease-standard, ease);
 }
 .starium-seg-btn svg {
   flex-shrink: 0;
@@ -3295,9 +3302,9 @@ table.starium-dt {
   color: var(--brand-ink, var(--foreground));
 }
 .starium-seg-btn--active {
-  background: var(--neutral-0, var(--card));
-  color: var(--brand-ink, var(--foreground));
-  box-shadow: var(--shadow-1);
+  background: var(--control-active-bg, var(--brand-ink));
+  color: var(--control-active-fg, #fff);
+  box-shadow: none;
 }
 .starium-seg-btn:focus-visible {
   outline: 2px solid var(--ring);

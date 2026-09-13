@@ -30,6 +30,12 @@ import {
   PROJECT_DOCUMENT_MIME_TO_EXT,
 } from './project-documents.constants';
 
+const UPLOADED_BY_INCLUDE = {
+  uploadedByUser: {
+    select: { id: true, firstName: true, lastName: true, email: true },
+  },
+} as const;
+
 @Injectable()
 export class ProjectDocumentsService {
   constructor(
@@ -101,6 +107,7 @@ export class ProjectDocumentsService {
       where,
       orderBy,
       take,
+      include: UPLOADED_BY_INCLUDE,
     });
   }
 
@@ -115,6 +122,7 @@ export class ProjectDocumentsService {
         projectId,
         status: { not: 'DELETED' },
       },
+      include: UPLOADED_BY_INCLUDE,
     });
     if (!doc) throw new NotFoundException('Project document not found');
     return doc;
@@ -158,6 +166,7 @@ export class ProjectDocumentsService {
         ...(dto.tags !== undefined && { tags: dto.tags as Prisma.InputJsonValue }),
         uploadedByUserId: context?.actorUserId ?? null,
       },
+      include: UPLOADED_BY_INCLUDE,
     });
 
     await this.auditLogs.create({
@@ -227,6 +236,7 @@ export class ProjectDocumentsService {
         description: fields.description?.trim() ?? null,
         uploadedByUserId: context.actorUserId,
       },
+      include: UPLOADED_BY_INCLUDE,
     });
 
     await this.auditLogs.create({
@@ -304,6 +314,7 @@ export class ProjectDocumentsService {
         projectId,
         status: { not: 'DELETED' },
       },
+      include: UPLOADED_BY_INCLUDE,
     });
     if (!existing) throw new NotFoundException('Project document not found');
 
@@ -320,6 +331,7 @@ export class ProjectDocumentsService {
     const updated = await this.prisma.projectDocument.update({
       where: { id: documentId },
       data,
+      include: UPLOADED_BY_INCLUDE,
     });
 
     const oldSnap = projectDocumentEntityAuditSnapshot(existing);
@@ -355,6 +367,7 @@ export class ProjectDocumentsService {
     await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: { id: documentId, clientId, projectId, status: { not: 'DELETED' } },
+      include: UPLOADED_BY_INCLUDE,
     });
     if (!existing) throw new NotFoundException('Project document not found');
     if (existing.status === 'ARCHIVED') return existing;
@@ -363,6 +376,7 @@ export class ProjectDocumentsService {
     const updated = await this.prisma.projectDocument.update({
       where: { id: documentId },
       data: { status: 'ARCHIVED', archivedAt: now },
+      include: UPLOADED_BY_INCLUDE,
     });
 
     await this.auditLogs.create({
