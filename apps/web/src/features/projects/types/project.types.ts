@@ -1166,6 +1166,7 @@ export type InviteProjectReviewPayload = {
   includeAgenda?: boolean;
   includeDocs?: boolean;
   includeRsvp?: boolean;
+  includeBrief?: boolean;
   emailSubject?: string;
   emailMessage?: string;
   forceOverwriteMeetingUrl?: boolean;

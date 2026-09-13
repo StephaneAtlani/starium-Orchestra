@@ -47,6 +47,7 @@ export type ProjectReviewInviteOptions = {
   includeAgenda?: boolean;
   includeDocs?: boolean;
   includeRsvp?: boolean;
+  includeBrief?: boolean;
   emailSubject?: string | null;
   emailMessage?: string | null;
 };
@@ -133,6 +134,12 @@ export class ProjectReviewInvitationsService {
             title: true,
             plannedDurationMinutes: true,
             orderIndex: true,
+            objective: true,
+            expectedDecision: true,
+            notes: true,
+            ownerUser: {
+              select: { firstName: true, lastName: true, email: true },
+            },
           },
           orderBy: { orderIndex: 'asc' },
         },
@@ -329,6 +336,7 @@ export class ProjectReviewInvitationsService {
           includeAgenda: options.includeAgenda === true,
           includeDocs: options.includeDocs === true,
           includeRsvp: options.includeRsvp === true,
+          includeBrief: options.includeBrief === true,
           emailSubject: options.emailSubject,
           emailMessage: options.emailMessage,
         });

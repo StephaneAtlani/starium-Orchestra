@@ -51,6 +51,11 @@ export class InviteProjectReviewDto {
   @IsBoolean()
   includeRsvp?: boolean;
 
+  /** Inclut le brief de préparation (points + consignes) dans le mail. */
+  @IsOptional()
+  @IsBoolean()
+  includeBrief?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(200)

@@ -168,6 +168,7 @@ export function ProjectReviewPrepareDialog({
       if (flushPrepRef.current) {
         await flushPrepRef.current();
       }
+      // Le flush crée les lignes ODJ ; refetch pour le contrôle lock.
       const { data: refreshed } = await detailQuery.refetch();
       const next = refreshed ?? detail;
       const issues = prepareLockIssuesFromDetail(next);

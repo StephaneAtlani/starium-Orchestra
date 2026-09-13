@@ -25,6 +25,12 @@ export type InvitationAgendaLine = {
   durationMinutes?: number | null;
 };
 
+export type InvitationBriefLine = {
+  title: string;
+  ownerLabel?: string | null;
+  prepNote?: string | null;
+};
+
 export type InvitationAttachmentLine = {
   filename: string;
   hint?: string | null;
@@ -37,6 +43,7 @@ export type BuildProjectReviewInvitationEmailInput = {
   whenLine: string;
   message: string;
   agendaItems?: InvitationAgendaLine[];
+  briefItems?: InvitationBriefLine[];
   attachments?: InvitationAttachmentLine[];
   includeRsvp?: boolean;
   actionUrl?: string | null;
@@ -73,6 +80,25 @@ export function buildProjectReviewInvitationEmailHtml(
               })
               .join('')}
           </table>
+        </div>`
+      : '';
+
+  const brief =
+    input.briefItems && input.briefItems.length > 0
+      ? `<div style="margin:20px 0 0;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${C.textMuted};margin:0 0 10px;">Brief de préparation</div>
+          ${input.briefItems
+            .map((item) => {
+              const owner = item.ownerLabel?.trim() || 'Porteur à définir';
+              const prep =
+                item.prepNote?.trim() ||
+                'Préparer ce point avant la séance.';
+              return `<div style="padding:10px 12px;margin:0 0 8px;border:1px solid ${C.border};border-radius:10px;background:${C.surfaceMuted};">
+                  <div style="font-size:13px;font-weight:700;color:${C.text};">${escapeHtml(item.title)} <span style="font-weight:600;color:${C.textMuted};">· ${escapeHtml(owner)}</span></div>
+                  <div style="margin-top:4px;font-size:12px;line-height:1.45;color:${C.textMuted};">${escapeHtml(prep)}</div>
+                </div>`;
+            })
+            .join('')}
         </div>`
       : '';
 
@@ -141,6 +167,7 @@ export function buildProjectReviewInvitationEmailHtml(
         <tr><td style="padding:22px 24px;">
           <p style="margin:0;font-size:14px;line-height:1.55;color:${C.text};">${body}</p>
           ${agenda}
+          ${brief}
           ${attachments}
           ${join}
           ${open}

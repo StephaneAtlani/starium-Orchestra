@@ -220,8 +220,7 @@
 .convoc-mail__card {
   display: flex;
   flex-direction: column;
-  max-height: min(70dvh, 36rem);
-  overflow: hidden;
+  /* Pas de max-height / overflow:hidden : le scroll est sur StariumScrollArea parent */
   border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
   border-radius: var(--radius-lg);
   background: var(--card);
@@ -323,6 +322,44 @@
   font-weight: 700;
   color: var(--muted-foreground);
   white-space: nowrap;
+}
+
+.convoc-mail__brief {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.convoc-mail__brief-r {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--muted) 35%, var(--card));
+}
+
+.convoc-mail__brief-t {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.35;
+}
+
+.convoc-mail__brief-owner {
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.convoc-mail__brief-m {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--muted-foreground);
 }
 
 .convoc-mail__att {

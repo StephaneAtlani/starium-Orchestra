@@ -284,7 +284,7 @@ export function ProjectReviewConvocationDialog({
     if (opts.brief) {
       files.push({
         key: 'brief',
-        name: 'brief-preparation.pdf',
+        name: 'Brief de préparation.pdf',
         hint: 'Brief de préparation',
         kind: 'brief',
       });
@@ -375,6 +375,7 @@ export function ProjectReviewConvocationDialog({
             includeAgenda: opts.odj,
             includeDocs: opts.docs,
             includeRsvp: opts.rsvp,
+            includeBrief: opts.brief,
             emailSubject: subject.trim() || undefined,
             emailMessage: message.trim() || undefined,
           },
@@ -410,6 +411,7 @@ export function ProjectReviewConvocationDialog({
           includeAgenda: opts.odj,
           includeDocs: opts.docs,
           includeRsvp: opts.rsvp,
+          includeBrief: opts.brief,
           emailSubject: subject.trim() || undefined,
           emailMessage: message.trim() || undefined,
         },
@@ -680,6 +682,40 @@ export function ProjectReviewConvocationDialog({
                           );
                         })}
                       </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {opts.brief ? (
+                  <div className="convoc-mail__sec">
+                    <div className="convoc-mail__st">Brief de préparation</div>
+                    {agendaItems.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Aucun point — rien à préparer pour le moment.
+                      </p>
+                    ) : (
+                      <ul className="convoc-mail__brief">
+                        {agendaItems.map((item) => {
+                          const owner =
+                            item.ownerDisplayName?.trim() || 'Porteur à définir';
+                          const prep =
+                            item.objective?.trim() ||
+                            item.expectedDecision?.trim() ||
+                            'Préparer ce point avant la séance.';
+                          return (
+                            <li key={`brief-${item.id}`} className="convoc-mail__brief-r">
+                              <span className="convoc-mail__brief-t">
+                                {displayLabel(item.title, 'Point')}
+                                <span className="convoc-mail__brief-owner">
+                                  {' '}
+                                  · {owner}
+                                </span>
+                              </span>
+                              <span className="convoc-mail__brief-m">{prep}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
                   </div>
                 ) : null}

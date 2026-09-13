@@ -101,6 +101,14 @@ export class ProjectReviewEmailInvitationsService {
         title: string;
         plannedDurationMinutes: number | null;
         orderIndex?: number;
+        objective?: string | null;
+        expectedDecision?: string | null;
+        notes?: string | null;
+        ownerUser?: {
+          firstName: string | null;
+          lastName: string | null;
+          email: string | null;
+        } | null;
       }[];
     };
     participants: ParticipantRow[];
@@ -110,6 +118,7 @@ export class ProjectReviewEmailInvitationsService {
     includeAgenda?: boolean;
     includeDocs?: boolean;
     includeRsvp?: boolean;
+    includeBrief?: boolean;
     emailSubject?: string | null;
     emailMessage?: string | null;
   }): Promise<ProjectReviewEmailInviteResult> {
@@ -187,6 +196,26 @@ export class ProjectReviewEmailInvitationsService {
             }))
         : undefined;
 
+    const briefForMail =
+      input.includeBrief && input.review.agendaItems?.length
+        ? [...input.review.agendaItems]
+            .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+            .map((a) => {
+              const ownerName = [a.ownerUser?.firstName, a.ownerUser?.lastName]
+                .map((p) => p?.trim())
+                .filter(Boolean)
+                .join(' ');
+              return {
+                title: a.title,
+                ownerLabel: ownerName || a.ownerUser?.email?.trim() || null,
+                prepNote:
+                  a.objective?.trim() ||
+                  a.expectedDecision?.trim() ||
+                  null,
+              };
+            })
+        : undefined;
+
     let organizerEmail: string | null = null;
     let organizerName: string | null = null;
     if (input.context?.actorUserId) {
@@ -261,12 +290,38 @@ export class ProjectReviewEmailInvitationsService {
       }
     }
 
+    if (input.includeBrief) {
+      attachmentLines.push({
+        filename: 'Brief de préparation.pdf',
+        hint: 'Brief de préparation',
+      });
+      if (briefForMail?.length) {
+        const briefLines = [
+          `Brief de préparation — ${meetingTitle} — ${input.projectName}`,
+          '',
+          ...briefForMail.map((b) => {
+            const owner = b.ownerLabel?.trim() || 'Porteur à définir';
+            const prep =
+              b.prepNote?.trim() || 'Préparer ce point avant la séance.';
+            return `- ${b.title} · ${owner}\n  ${prep}`;
+          }),
+          '',
+        ];
+        fileAttachments.push({
+          filename: 'brief-preparation.txt',
+          content: `${briefLines.join('\n')}\n`,
+          contentType: 'text/plain; charset=UTF-8',
+        });
+      }
+    }
+
     const htmlBody = buildProjectReviewInvitationEmailHtml({
       kickLabel: buildProjectReviewInvitationKickLabel(input.review.reviewType),
       meetingTitle: `${meetingTitle} — ${input.projectName}`,
       whenLine,
       message: introMessage,
       agendaItems: agendaForMail,
+      briefItems: briefForMail,
       attachments: attachmentLines,
       includeRsvp: input.includeRsvp === true,
       actionUrl,

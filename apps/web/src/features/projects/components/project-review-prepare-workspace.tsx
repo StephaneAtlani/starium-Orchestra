@@ -107,11 +107,14 @@ export function ProjectReviewPrepareWorkspace({
     pwSyncInFlight.current = new Set();
   }, [detail.id]);
 
+  /** Source de vérité = ODJ API (jamais un Set session stale après purge/dédup). */
   useEffect(() => {
+    const next = new Set<string>();
     for (const item of detail.agendaItems ?? []) {
       const id = parsePwBlockIdFromNotes(item.notes);
-      if (id) pwSyncedIds.current.add(id);
+      if (id) next.add(id);
     }
+    pwSyncedIds.current = next;
   }, [detail.agendaItems]);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -176,11 +179,15 @@ export function ProjectReviewPrepareWorkspace({
         (i) => parsePwBlockIdFromNotes(i.notes) === blockId,
       );
       if (selected) {
-        if (existing || pwSyncedIds.current.has(blockId)) return;
+        // Ne se fier qu’à l’ODJ réel — pas au Set session (stale après dédup/purge).
+        if (existing) {
+          pwSyncedIds.current.add(blockId);
+          return;
+        }
         if (pwSyncInFlight.current.has(blockId)) return;
         pwSyncInFlight.current.add(blockId);
         try {
-          await createAgendaItem.mutateAsync({
+          const created = await createAgendaItem.mutateAsync({
             reviewId: detail.id,
             body: {
               title: block.title,
@@ -191,8 +198,18 @@ export function ProjectReviewPrepareWorkspace({
             },
           });
           pwSyncedIds.current.add(blockId);
+          if (
+            created?.id &&
+            !agendaItemsRef.current.some((i) => i.id === created.id)
+          ) {
+            agendaItemsRef.current = [
+              ...agendaItemsRef.current,
+              created as ProjectReviewAgendaItemApi,
+            ];
+          }
         } catch (err) {
           toast.error(apiErrorMessage(err, 'Impossible d’ajouter le bloc'));
+          throw err;
         } finally {
           pwSyncInFlight.current.delete(blockId);
         }
@@ -205,8 +222,12 @@ export function ProjectReviewPrepareWorkspace({
             agendaItemId: existing.id,
           });
           pwSyncedIds.current.delete(blockId);
+          agendaItemsRef.current = agendaItemsRef.current.filter(
+            (i) => i.id !== existing.id,
+          );
         } catch (err) {
           toast.error(apiErrorMessage(err, 'Impossible de retirer le bloc'));
+          throw err;
         }
       }
     },
@@ -215,8 +236,15 @@ export function ProjectReviewPrepareWorkspace({
 
   const ensureSelectedBlocksOnAgenda = useCallback(async () => {
     if (!canEdit || agendaLocked) return;
-    if (prepRef.current.mode !== 'simple') return;
     const selected = prepRef.current.selectedBlockIds;
+    if (selected.length === 0) return;
+    // Recalcule depuis l’ODJ courant avant sync (évite faux « déjà synchronisé »).
+    const present = new Set<string>();
+    for (const item of agendaItemsRef.current) {
+      const id = parsePwBlockIdFromNotes(item.notes);
+      if (id) present.add(id);
+    }
+    pwSyncedIds.current = present;
     for (const id of selected) {
       await syncBlockAgenda(id, true);
     }
@@ -230,6 +258,22 @@ export function ProjectReviewPrepareWorkspace({
   useEffect(() => {
     onRegisterFlush?.(flush);
   }, [flush, onRegisterFlush]);
+
+  /** À l’ouverture : pousse les blocs cochés vers l’ODJ si l’API est vide. */
+  useEffect(() => {
+    if (!canEdit || agendaLocked) return;
+    const selected = prep.selectedBlockIds;
+    if (selected.length === 0) return;
+    const missing = selected.filter(
+      (id) =>
+        !(detail.agendaItems ?? []).some(
+          (i) => parsePwBlockIdFromNotes(i.notes) === id,
+        ),
+    );
+    if (missing.length === 0) return;
+    void ensureSelectedBlocksOnAgenda();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une fois par revue / ODJ
+  }, [detail.id, agendaLocked, canEdit]);
 
   const onToggleBlock = async (blockId: string) => {
     const catalogIds = blocks.map((b) => b.id);

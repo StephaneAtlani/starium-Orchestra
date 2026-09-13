@@ -289,6 +289,7 @@ export class ProjectReviewsController {
         includeAgenda: dto.includeAgenda,
         includeDocs: dto.includeDocs,
         includeRsvp: dto.includeRsvp,
+        includeBrief: dto.includeBrief,
         emailSubject: dto.emailSubject,
         emailMessage: dto.emailMessage,
       },
