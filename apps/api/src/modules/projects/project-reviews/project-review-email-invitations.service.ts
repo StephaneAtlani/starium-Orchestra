@@ -14,9 +14,15 @@ import {
 import {
   buildProjectReviewEntityLabel,
   buildProjectReviewInvitationActionUrl,
+  buildProjectReviewInvitationKickLabel,
   buildProjectReviewInvitationMessage,
   buildProjectReviewInvitationTitle,
+  buildProjectReviewInvitationWhenLine,
 } from './project-review-invitation-labels';
+import {
+  buildProjectReviewInvitationEmailHtml,
+  buildProjectReviewInvitationEmailText,
+} from './project-review-invitation-email.builder';
 import {
   buildProjectReviewInvitationIcs,
   icsAttachmentFilename,
@@ -41,7 +47,8 @@ type ParticipantRow = {
   id: string;
   userId: string | null;
   externalEmail: string | null;
-  user?: { email: string } | null;
+  displayName?: string | null;
+  user?: { email: string; firstName?: string | null; lastName?: string | null } | null;
 };
 
 @Injectable()
@@ -90,13 +97,20 @@ export class ProjectReviewEmailInvitationsService {
       meetingUrl: string | null;
       title?: string | null;
       durationMinutes?: number | null;
-      agendaItems?: { plannedDurationMinutes: number | null }[];
+      agendaItems?: {
+        title: string;
+        plannedDurationMinutes: number | null;
+        orderIndex?: number;
+      }[];
     };
     participants: ParticipantRow[];
     context?: AuditContext;
     blockingOnFailure: boolean;
-    /** Joint un .ics METHOD:REQUEST au mail (pas Graph). */
     attachIcs?: boolean;
+    includeAgenda?: boolean;
+    includeRsvp?: boolean;
+    emailSubject?: string | null;
+    emailMessage?: string | null;
   }): Promise<ProjectReviewEmailInviteResult> {
     const result: ProjectReviewEmailInviteResult = {
       emailed: 0,
@@ -117,13 +131,34 @@ export class ProjectReviewEmailInvitationsService {
       return result;
     }
 
-    const title = buildProjectReviewInvitationTitle(input.projectName);
-    const message = buildProjectReviewInvitationMessage({
+    const meetingTitle = buildProjectReviewEntityLabel({
+      title: input.review.title ?? null,
+      reviewType: input.review.reviewType,
+    });
+    const durationMinutes = resolveInvitationDurationMinutes({
+      durationMinutes: input.review.durationMinutes,
+      agendaItems: input.review.agendaItems,
+    });
+    const whenLine = buildProjectReviewInvitationWhenLine({
+      reviewType: input.review.reviewType,
+      reviewDate: input.review.reviewDate,
+      meetingMode: input.review.meetingMode,
+      location: input.review.location,
+      durationMinutes,
+    });
+    const defaultMessage = buildProjectReviewInvitationMessage({
       reviewType: input.review.reviewType,
       reviewDate: input.review.reviewDate,
       meetingMode: input.review.meetingMode,
       location: input.review.location,
     });
+    const introMessage =
+      input.emailMessage?.trim() ||
+      `Bonjour,\n\nVous êtes convié au ${meetingTitle} « ${input.projectName} ». Merci de confirmer votre présence.`;
+    const subject =
+      input.emailSubject?.trim() ||
+      buildProjectReviewInvitationTitle(input.projectName);
+
     let appBaseUrl: string;
     try {
       appBaseUrl = requireProjectReviewReportAppBaseUrl();
@@ -141,46 +176,58 @@ export class ProjectReviewEmailInvitationsService {
     const now = new Date();
     const pseudonymizedRecipients: string[] = [];
 
-    let calendarIcs: { filename: string; content: string } | null = null;
-    if (input.attachIcs) {
-      const typeLabel = buildProjectReviewEntityLabel({
-        title: input.review.title ?? null,
-        reviewType: input.review.reviewType,
+    const agendaForMail =
+      input.includeAgenda && input.review.agendaItems?.length
+        ? [...input.review.agendaItems]
+            .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+            .map((a) => ({
+              title: a.title,
+              durationMinutes: a.plannedDurationMinutes,
+            }))
+        : undefined;
+
+    let organizerEmail: string | null = null;
+    let organizerName: string | null = null;
+    if (input.context?.actorUserId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: input.context.actorUserId },
+        select: { email: true, firstName: true, lastName: true },
       });
-      let organizerEmail: string | null = null;
-      let organizerName: string | null = null;
-      if (input.context?.actorUserId) {
-        const actor = await this.prisma.user.findUnique({
-          where: { id: input.context.actorUserId },
-          select: { email: true, firstName: true, lastName: true },
-        });
-        organizerEmail = actor?.email?.trim() || null;
-        const name = [actor?.firstName, actor?.lastName]
-          .map((p) => p?.trim())
-          .filter(Boolean)
-          .join(' ');
-        organizerName = name || null;
-      }
-      const durationMinutes = resolveInvitationDurationMinutes({
-        durationMinutes: input.review.durationMinutes,
-        agendaItems: input.review.agendaItems,
-      });
-      const content = buildProjectReviewInvitationIcs({
-        reviewId: input.reviewId,
-        summary: `${typeLabel} — ${input.projectName}`,
-        description: message,
-        location: input.review.location,
-        meetingUrl: meetingJoinUrl,
-        startsAt: input.review.reviewDate,
-        durationMinutes,
-        organizerEmail,
-        organizerName,
-      });
-      calendarIcs = {
-        filename: icsAttachmentFilename(typeLabel),
-        content,
-      };
+      organizerEmail = actor?.email?.trim() || null;
+      const name = [actor?.firstName, actor?.lastName]
+        .map((p) => p?.trim())
+        .filter(Boolean)
+        .join(' ');
+      organizerName = name || null;
     }
+
+    const icsFilename = icsAttachmentFilename(meetingTitle);
+    const attachmentLines = input.attachIcs
+      ? [{ filename: icsFilename, hint: 'Invitation calendrier' }]
+      : [];
+
+    const htmlBody = buildProjectReviewInvitationEmailHtml({
+      kickLabel: buildProjectReviewInvitationKickLabel(input.review.reviewType),
+      meetingTitle: `${meetingTitle} — ${input.projectName}`,
+      whenLine,
+      message: introMessage,
+      agendaItems: agendaForMail,
+      attachments: attachmentLines,
+      includeRsvp: input.includeRsvp === true,
+      actionUrl,
+      meetingJoinUrl,
+      footerNote: input.includeRsvp
+        ? 'Envoyé depuis Starium Orchestra. Les réponses sont enregistrées dans la préparation de la séance.'
+        : 'Envoyé depuis Starium Orchestra.',
+    });
+    const textBody = buildProjectReviewInvitationEmailText({
+      meetingTitle: `${meetingTitle} — ${input.projectName}`,
+      whenLine,
+      message: introMessage,
+      actionUrl,
+      meetingJoinUrl,
+      agendaItems: agendaForMail,
+    });
 
     for (const participant of input.participants) {
       const recipient = participant.userId
@@ -194,6 +241,34 @@ export class ProjectReviewEmailInvitationsService {
         continue;
       }
 
+      const attendeeName =
+        participant.displayName?.trim() ||
+        [participant.user?.firstName, participant.user?.lastName]
+          .map((p) => p?.trim())
+          .filter(Boolean)
+          .join(' ') ||
+        null;
+
+      let calendarIcs: { filename: string; content: string } | null = null;
+      if (input.attachIcs) {
+        calendarIcs = {
+          filename: icsFilename,
+          content: buildProjectReviewInvitationIcs({
+            reviewId: input.reviewId,
+            summary: `${meetingTitle} — ${input.projectName}`,
+            description: `${introMessage}\n\n${defaultMessage}`,
+            location: input.review.location,
+            meetingUrl: meetingJoinUrl,
+            startsAt: input.review.reviewDate,
+            durationMinutes,
+            organizerEmail,
+            organizerName,
+            attendeeEmail: recipient,
+            attendeeName,
+          }),
+        };
+      }
+
       try {
         await this.emailService.queueEmail({
           clientId: input.clientId,
@@ -201,10 +276,11 @@ export class ProjectReviewEmailInvitationsService {
           createdByUserId: input.context?.actorUserId,
           recipient,
           templateKey: 'project_review_invitation',
-          title,
-          message,
+          title: subject,
+          message: textBody,
           actionUrl,
           meetingJoinUrl,
+          htmlBody,
           calendarIcs,
         });
 
@@ -239,6 +315,8 @@ export class ProjectReviewEmailInvitationsService {
           emailedCount: result.emailed,
           recipients: pseudonymizedRecipients,
           attachIcs: Boolean(input.attachIcs),
+          includeAgenda: Boolean(input.includeAgenda),
+          includeRsvp: Boolean(input.includeRsvp),
         },
         ...this.auditMeta(input.context),
       });

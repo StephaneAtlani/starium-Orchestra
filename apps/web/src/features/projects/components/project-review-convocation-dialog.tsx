@@ -316,9 +316,12 @@ export function ProjectReviewConvocationDialog({
           body: {
             participantIds: [selfParticipantId],
             channels: ['email'],
-            // Test = e-mail seul, sans Graph ni .ics.
             createCalendarEvent: false,
-            attachIcs: false,
+            attachIcs: opts.ics,
+            includeAgenda: opts.odj,
+            includeRsvp: opts.rsvp,
+            emailSubject: subject.trim() || undefined,
+            emailMessage: message.trim() || undefined,
           },
         });
         toast.success(`E-mail de test envoyé à ${user.email}`);
@@ -347,9 +350,12 @@ export function ProjectReviewConvocationDialog({
         body: {
           participantIds: selectedIds,
           channels: ['in_app', 'email'],
-          // .ics = pièce jointe invitation, jamais Graph calendrier.
           createCalendarEvent: false,
           attachIcs: opts.ics,
+          includeAgenda: opts.odj,
+          includeRsvp: opts.rsvp,
+          emailSubject: subject.trim() || undefined,
+          emailMessage: message.trim() || undefined,
         },
       });
       const count = Math.max(

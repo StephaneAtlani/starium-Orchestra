@@ -286,6 +286,10 @@ export class ProjectReviewsController {
           forceOverwriteMeetingUrl: dto.forceOverwriteMeetingUrl,
         },
         attachIcs: dto.attachIcs,
+        includeAgenda: dto.includeAgenda,
+        includeRsvp: dto.includeRsvp,
+        emailSubject: dto.emailSubject,
+        emailMessage: dto.emailMessage,
       },
     );
   }

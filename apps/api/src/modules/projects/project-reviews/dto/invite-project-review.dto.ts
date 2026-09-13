@@ -4,6 +4,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  MaxLength,
 } from 'class-validator';
 
 const INVITE_NOTIFICATION_CHANNELS = ['in_app', 'email'] as const;
@@ -34,6 +35,26 @@ export class InviteProjectReviewDto {
   @IsOptional()
   @IsBoolean()
   attachIcs?: boolean;
+
+  /** Inclut l’ordre du jour dans le corps HTML du mail. */
+  @IsOptional()
+  @IsBoolean()
+  includeAgenda?: boolean;
+
+  /** Affiche les boutons Je serai présent / Je décline dans le mail. */
+  @IsOptional()
+  @IsBoolean()
+  includeRsvp?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  emailSubject?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  emailMessage?: string;
 
   @IsOptional()
   @IsBoolean()

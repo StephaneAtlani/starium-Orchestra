@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Statut** | 📝 Draft — **source produit active** pour le parcours linéaire |
-| **Date** | 2026-09-11 |
+| **Date** | 2026-09-13 (P3 convocation e-mail / `.ics` aligné code) |
 | **Parents** | RFC-PROJ-013-5 (catalogue 20 écrans — historique) ; 013-6 ; 013-7 ; 013-8 |
 | **Source produit** | [*Points projet — Cahier des charges · Écrans*](./_sources/Point_projet-CDC-ecrans.pdf) (24 p., 11 sept. 2026) |
 | **Règle UX** | **Zéro écart visuel** avec les captures / plans du CDC (zones, libellés, pieds de modale, pastilles, messages exacts). Toute livraison d’écran = maquette CDC + critères de recette annexes. |
@@ -17,7 +17,7 @@
 | Dashboard (listes / KPI / cartes) | 013-7 + itérations UI | Messages vides / retard / squelettes partiels ; CTA « Préparer › » ok |
 | Créer (modale) | 013-7 split + defaults | Pas pastilles types CDC ; pas ODJ éditable inline ; pas toast undo 6 s ; champs horaire/lieu absents ou hérités série |
 | Préparer | Éditeur + ODJ | Pas compteur durée cumulée ; porteur/nature incomplets ; figer n’ouvre pas systématiquement convocation 04 |
-| Convocation | Invitations / e-mail | Pas aperçu 2 volets vivant ; pas suivi nominatif réponses dans prépa |
+| Convocation | Modale 04 + e-mail branded + `.ics` | Aperçu 2 volets ✅ ; envoi `attachIcs` / ODJ / RSVP ✅ ; suivi nominatif réponses / relance J-2 **prévu** |
 | Démarrer | Absent | CDC **écran à créer** (émargement) |
 | Animer | 013-6 | À aligner libellés / stepper / messages |
 | Clôture | `closeConduct` direct | CDC **écran à créer** (3 contrôles bloquants) |
@@ -177,12 +177,12 @@ Alignement 013-8 : édition live, diffusion, verrouillage. R08.*
 - [x] CTA « Figer l’ordre du jour » → coquille 04 (schedule + lock + invite à l’envoi).
 - [x] Tests guards Vitest / Jest + DELETE agenda item.
 
-### Phase P3 — 04 Convocation ← **prochaine**
+### Phase P3 — 04 Convocation ← **en cours**
 
-1. Modale 2 volets aperçu vivant.  
-2. Envoi = lock + invitations + passage À venir.  
-3. Suivi réponses dans 03.  
-4. Relance J-2 optionnelle (job BullMQ si absent).
+- [x] Modale 2 volets aperçu vivant (`project-review-convocation-dialog.tsx`).
+- [x] Envoi = `schedule` si besoin + `lock-agenda` + `POST …/invite` (`attachIcs` = `.ics` mail, **pas** Graph ; HTML branded ; objet/message UI).
+- [ ] Suivi réponses nominatif dans 03.
+- [ ] Relance J-2 optionnelle (job BullMQ si absent).
 
 ### Phase P4 — 05 Démarrer + 07 Clôture (nouveaux écrans)
 

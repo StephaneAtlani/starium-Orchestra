@@ -81,7 +81,7 @@ Permissions métier : `projects.read`, `projects.create`, `projects.update`, `pr
 | POST | `/projects/:projectId/reviews/:reviewId/start-review` | `projects.update` — alias `start` (rétrocompat) |
 | POST | `/projects/:projectId/reviews/:reviewId/finalize` | `projects.update` — finalisation + snapshot v2 (+ descentes COPIL→COPRO si décisions `VALIDATED`, RFC-PROJ-013-8 F3.1) |
 | POST | `/projects/:projectId/reviews/:reviewId/cancel` | `projects.update` — annulation |
-| POST | `/projects/:projectId/reviews/:reviewId/invite` | `projects.update` — invitations (revue `SCHEDULED`) — voir [API.md](../API.md) §21 |
+| POST | `/projects/:projectId/reviews/:reviewId/invite` | `projects.update` — canaux + Graph opt-in + `attachIcs` / HTML convocation — voir [API.md](../API.md) §21 |
 | GET/POST | `…/reviews/:reviewId/escalations` (+ cancel / consolidate) | remontées COPRO→COPIL (RFC-PROJ-013-8 F3) |
 | GET | `…/reviews/:reviewId/descents` (+ cancel / consolidate) | descentes COPIL→COPRO (RFC-PROJ-013-8 F3.1) |
 | POST/PATCH/DELETE | `…/reviews/:reviewId/attachments` | pièces jointes (RFC-PROJ-013-2) |

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
 import { Job, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { QUEUE_CONNECTION, EMAIL_QUEUE_NAME } from '../queue/queue.constants';
+import type { SendEmailJobPayload } from '../queue/queue.service';
 import { EmailService } from './email.service';
 
 @Injectable()
@@ -33,7 +34,7 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
 
     this.worker = new Worker(
       EMAIL_QUEUE_NAME,
-      async (job: Job<{ emailDeliveryId: string; mimeHtml?: string | null }>) => {
+      async (job: Job<SendEmailJobPayload>) => {
         if (job.name !== 'send_email') return;
         const id = job.data.emailDeliveryId;
         const mimeHtmlLen = job.data.mimeHtml?.length ?? 0;

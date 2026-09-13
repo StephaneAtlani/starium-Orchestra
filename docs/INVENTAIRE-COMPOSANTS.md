@@ -399,7 +399,7 @@ Fiche cockpit `/budgets/[budgetId]` — RFC-FE-BUD-032. Barrel : `features/budge
 - `project-review-editor-dialog` - `features/projects/components/project-review-editor-dialog.tsx` - éditeur point projet / REX ; phase prepare = panneau CDC 03 + pied figer → 04.
 - `project-review-prepare-dialog` - `features/projects/components/project-review-prepare-dialog.tsx` - CDC 03 modale « Préparer l'instance » (dashboard overlay).
 - `project-review-prepare-cdc-panel` - `features/projects/components/project-review-prepare-cdc-panel.tsx` - zones CDC 03 (bandeau, ODJ, supports, arbitrages, reprise, compteur durée).
-- `project-review-convocation-dialog` - `features/projects/components/project-review-convocation-dialog.tsx` - coquille 04 envoi convocations (aperçu 2 volets = P3).
+- `project-review-convocation-dialog` - `features/projects/components/project-review-convocation-dialog.tsx` - CDC 04 : 2 volets édition/aperçu ; envoi invite (`attachIcs`, ODJ, RSVP, sujet/message) via `StariumModal`.
 - `project-review-animate-session` - `features/projects/components/project-review-animate-session.tsx` - écran 09 Animer la séance (présence, ODJ, timers, décision V1, close-conduct).
 - `project-review-finalize-checklist` - `features/projects/components/project-review-finalize-checklist.tsx` - contrôles soft finalisation (écran 11) + cases opt-in push tâches/risques.
 - `project-review-escalations-screen` - `features/projects/components/project-review-escalations-screen.tsx` - écran 10 articulation (remontées COPRO→COPIL + décisions COPIL→COPROJ F3.1).

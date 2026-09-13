@@ -3157,7 +3157,12 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 - **POST /api/projects/:projectId/reviews/:reviewId/consolidate-descents** — **COPRO** : injecte les descentes `PENDING` éligibles dans l’ODJ. Audit `injected` si count > 0. **`projects.update`**
 - Finalize **COPIL** : crée auto les `ProjectReviewDescent` pour décisions `VALIDATED` vers le prochain COPRO (injection si cible + ODJ ouvert).
 - **POST /api/projects/:projectId/reviews/:reviewId/cancel** — Annulation + `cancelledAt`/`cancelledByUserId`. **`projects.update`**
-- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** uniquement (legacy `PLANNED` toléré). Body : `channels`, `createTeamsMeeting`, `createCalendarEvent`, etc. **`projects.update`**
+- **POST /api/projects/:projectId/reviews/:reviewId/invite** — Revue **`SCHEDULED`** (legacy `PLANNED` toléré). Body :
+  - **Canaux** : `channels?` (`in_app` \| `email`, défaut `['in_app']`)
+  - **Microsoft (opt-in Graph)** : `createTeamsMeeting?`, `createCalendarEvent?`, `forceOverwriteMeetingUrl?` (défaut `false`) — `createCalendarEvent` crée un événement Outlook via Graph (lien Microsoft projet requis)
+  - **E-mail convocation (UI 04)** : `attachIcs?` (joint un `.ics` `METHOD:REQUEST` au mail — **pas** Graph), `includeAgenda?`, `includeRsvp?`, `emailSubject?` (≤200), `emailMessage?` (≤5000)
+  - Cible : `participantIds?`
+  - **`projects.update`** ; isolation client actif
 - **GET /api/projects/:projectId/reviews/:reviewId/report-preview** — Aperçu compte rendu HTML/texte (**`FINALIZED` uniquement** ; KPI météo du comité inclus). **`projects.read`**
 - **POST /api/projects/:projectId/reviews/:reviewId/send-report** — Envoi async e-mail aux participants (**`FINALIZED` uniquement**). **`projects.update`**
 

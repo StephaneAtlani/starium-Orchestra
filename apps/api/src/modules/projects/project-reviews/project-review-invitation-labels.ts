@@ -75,6 +75,37 @@ export function buildProjectReviewEntityLabel(input: {
   return REVIEW_TYPE_LABEL[input.reviewType] ?? input.reviewType;
 }
 
+/** Ligne « quand » pour bandeau mail / aperçu. */
+export function buildProjectReviewInvitationWhenLine(input: {
+  reviewType: ProjectReviewType;
+  reviewDate: Date;
+  meetingMode: ProjectReviewMeetingMode | null;
+  location: string | null;
+  durationMinutes?: number | null;
+}): string {
+  const typeLabel = REVIEW_TYPE_LABEL[input.reviewType] ?? input.reviewType;
+  const parts = [typeLabel, formatReviewDateFr(input.reviewDate)];
+  if (input.durationMinutes && input.durationMinutes > 0) {
+    parts.push(`${input.durationMinutes} min`);
+  }
+  if (input.meetingMode) {
+    parts.push(MEETING_MODE_LABEL[input.meetingMode] ?? input.meetingMode);
+  }
+  if (
+    (input.meetingMode === 'ONSITE' || input.meetingMode === 'HYBRID') &&
+    input.location?.trim()
+  ) {
+    parts.push(input.location.trim());
+  }
+  return parts.join(' · ');
+}
+
+export function buildProjectReviewInvitationKickLabel(
+  reviewType: ProjectReviewType,
+): string {
+  return `${REVIEW_TYPE_LABEL[reviewType] ?? reviewType} · convocation`;
+}
+
 export function buildProjectReviewInvitationActionUrl(
   projectId: string,
   reviewId: string,

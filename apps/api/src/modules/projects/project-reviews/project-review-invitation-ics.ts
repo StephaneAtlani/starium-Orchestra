@@ -34,6 +34,9 @@ export type BuildProjectReviewIcsInput = {
   durationMinutes: number | null;
   organizerEmail?: string | null;
   organizerName?: string | null;
+  /** Destinataire de cette invitation (PARTSTAT=NEEDS-ACTION). */
+  attendeeEmail?: string | null;
+  attendeeName?: string | null;
 };
 
 export function buildProjectReviewInvitationIcs(
@@ -86,6 +89,14 @@ export function buildProjectReviewInvitationIcs(
       : '';
     lines.push(
       `ORGANIZER${cn}:mailto:${input.organizerEmail.trim().toLowerCase()}`,
+    );
+  }
+  if (input.attendeeEmail?.trim()) {
+    const cn = input.attendeeName?.trim()
+      ? `;CN=${escapeIcsText(input.attendeeName.trim())}`
+      : '';
+    lines.push(
+      `ATTENDEE${cn};ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${input.attendeeEmail.trim().toLowerCase()}`,
     );
   }
   lines.push('STATUS:CONFIRMED', 'SEQUENCE:0', 'END:VEVENT', 'END:VCALENDAR');

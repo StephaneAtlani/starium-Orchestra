@@ -43,6 +43,10 @@ export type ProjectReviewInviteOptions = {
   meetingOptions?: ProjectReviewMeetingOptions;
   /** Joint un .ics au mail — indépendant de createCalendarEvent (Graph). */
   attachIcs?: boolean;
+  includeAgenda?: boolean;
+  includeRsvp?: boolean;
+  emailSubject?: string | null;
+  emailMessage?: string | null;
 };
 
 function defaultResult(): InviteProjectReviewResultDto {
@@ -121,7 +125,14 @@ export class ProjectReviewInvitationsService {
           orderBy: { createdAt: 'asc' },
           include: { user: true },
         },
-        agendaItems: { select: { plannedDurationMinutes: true } },
+        agendaItems: {
+          select: {
+            title: true,
+            plannedDurationMinutes: true,
+            orderIndex: true,
+          },
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
     if (!review) throw new NotFoundException('Review not found');
@@ -309,6 +320,10 @@ export class ProjectReviewInvitationsService {
           context,
           blockingOnFailure: emailOnly,
           attachIcs: options.attachIcs === true,
+          includeAgenda: options.includeAgenda === true,
+          includeRsvp: options.includeRsvp === true,
+          emailSubject: options.emailSubject,
+          emailMessage: options.emailMessage,
         });
         result.emailed = emailResult.emailed;
         result.skippedNoEmail = emailResult.skippedNoEmail;

@@ -40,7 +40,9 @@ export function renderTemplate(
   const text =
     templateKey === 'project_review_report' && input.htmlBody?.trim()
       ? `${input.title}${joinLine}${actionLine}\n\n(Compte rendu complet au format HTML.)`
-      : `${input.message}${joinLine}${actionLine}`;
+      : templateKey === 'project_review_invitation' && input.htmlBody?.trim()
+        ? input.message
+        : `${input.message}${joinLine}${actionLine}`;
   const htmlJoin = input.meetingJoinUrl
     ? `<p><a href="${input.meetingJoinUrl}">Rejoindre la réunion</a></p>`
     : '';
@@ -50,6 +52,8 @@ export function renderTemplate(
   const html =
     templateKey === 'project_review_report' && input.htmlBody?.trim()
       ? `${input.htmlBody}${htmlAction}`
-      : `<h3>${input.title}</h3><p>${input.message}</p>${htmlJoin}${htmlAction}`;
+      : templateKey === 'project_review_invitation' && input.htmlBody?.trim()
+        ? input.htmlBody
+        : `<h3>${input.title}</h3><p>${input.message}</p>${htmlJoin}${htmlAction}`;
   return { subject, text, html };
 }

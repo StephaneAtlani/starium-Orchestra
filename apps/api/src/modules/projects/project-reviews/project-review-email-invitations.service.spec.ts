@@ -28,6 +28,7 @@ describe('ProjectReviewEmailInvitationsService', () => {
       emailService as unknown as EmailService,
       auditLogs as unknown as AuditLogsService,
     );
+    process.env.APP_PUBLIC_URL = 'http://localhost:3002';
   });
 
   it('envoie email à un externe avec externalEmail', async () => {
@@ -59,6 +60,7 @@ describe('ProjectReviewEmailInvitationsService', () => {
       expect.objectContaining({
         templateKey: 'project_review_invitation',
         recipient: 'ext@example.com',
+        htmlBody: expect.stringContaining('convocation'),
         actionUrl: expect.stringMatching(
           /^https?:\/\/.+\/projects\/p1\?openReview=r1$/,
         ),
@@ -68,7 +70,7 @@ describe('ProjectReviewEmailInvitationsService', () => {
       expect.objectContaining({
         action: PROJECT_AUDIT_ACTION.PROJECT_REVIEW_EMAILED,
         newValue: expect.objectContaining({
-          recipients: expect.arrayContaining([expect.stringMatching(/^e\*\*\*@/)]) ,
+          recipients: expect.arrayContaining([expect.stringMatching(/^e\*\*\*@/)]),
         }),
       }),
     );
@@ -95,42 +97,52 @@ describe('ProjectReviewEmailInvitationsService', () => {
     expect(emailService.queueEmail).not.toHaveBeenCalled();
   });
 
-  it('attachIcs true → queueEmail reçoit un calendarIcs METHOD:REQUEST', async () => {
+  it('attachIcs + sujet/message UI → HTML branded et calendarIcs', async () => {
     await service.sendInvitations({
       clientId: 'c1',
       projectId: 'p1',
       reviewId: 'r1',
-      projectName: 'Projet',
+      projectName: 'Data — lakehouse',
       review: {
-        reviewType: 'COPIL',
-        reviewDate: new Date('2025-06-01T10:00:00.000Z'),
+        reviewType: 'MILESTONE_REVIEW',
+        reviewDate: new Date('2026-09-22T10:00:00.000Z'),
         meetingMode: ProjectReviewMeetingMode.REMOTE,
         location: null,
         meetingUrl: 'https://teams.example/join',
-        durationMinutes: 45,
+        title: 'Revue jalon go-live',
+        durationMinutes: 60,
+        agendaItems: [
+          { title: 'Go / no-go', plannedDurationMinutes: 20, orderIndex: 0 },
+          { title: 'Risques', plannedDurationMinutes: 15, orderIndex: 1 },
+        ],
       },
       participants: [
         {
           id: 'part1',
           userId: null,
           externalEmail: 'ext@example.com',
+          displayName: 'Olivier',
           user: null,
         },
       ],
       blockingOnFailure: false,
       attachIcs: true,
+      includeAgenda: true,
+      includeRsvp: true,
+      emailSubject: 'Revue jalon — Data · 22 sept. 10:00',
+      emailMessage:
+        "Bonjour,\n\nVous êtes convié à la revue jalon. Merci de confirmer.",
     });
 
-    expect(emailService.queueEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        calendarIcs: expect.objectContaining({
-          filename: expect.stringMatching(/\.ics$/),
-          content: expect.stringContaining('METHOD:REQUEST'),
-        }),
-      }),
-    );
-    expect(emailService.queueEmail.mock.calls[0][0].calendarIcs.content).toContain(
-      'BEGIN:VEVENT',
-    );
+    const call = emailService.queueEmail.mock.calls[0][0];
+    expect(call.title).toBe('Revue jalon — Data · 22 sept. 10:00');
+    expect(call.htmlBody).toContain('Revue jalon');
+    expect(call.htmlBody).toContain('Ordre du jour');
+    expect(call.htmlBody).toContain('Go / no-go');
+    expect(call.htmlBody).toContain('Je serai présent');
+    expect(call.htmlBody).toContain('invitation-');
+    expect(call.calendarIcs.content).toContain('METHOD:REQUEST');
+    expect(call.calendarIcs.content).toContain('ATTENDEE');
+    expect(call.calendarIcs.content).toContain('mailto:ext@example.com');
   });
 });
