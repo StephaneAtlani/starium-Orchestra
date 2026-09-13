@@ -60,8 +60,9 @@ describe('project-review-ui-state (RFC-PROJ-013-7)', () => {
   });
 
   it('parsePointsStateParam defaults', () => {
-    expect(parsePointsStateParam(null)).toBe('to_prepare');
+    expect(parsePointsStateParam(null)).toBe('all');
+    expect(parsePointsStateParam('all')).toBe('all');
     expect(parsePointsStateParam('series')).toBe('series');
-    expect(parsePointsStateParam('nope')).toBe('to_prepare');
+    expect(parsePointsStateParam('nope')).toBe('all');
   });
 });

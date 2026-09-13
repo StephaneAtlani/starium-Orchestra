@@ -59,6 +59,7 @@ export function ProjectReviewsTab({
   const [prepareReviewId, setPrepareReviewId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [seriesCreateRequestKey, setSeriesCreateRequestKey] = useState(0);
 
   const list = useProjectReviewsQuery(projectId);
   const summary = useProjectReviewsSummaryQuery(projectId, {
@@ -208,6 +209,7 @@ export function ProjectReviewsTab({
 
   const filteredRows = useMemo(() => {
     if (activeTab === 'series' || !list.data) return [];
+    if (activeTab === 'all') return list.data;
     return list.data.filter((row) => {
       const state =
         row.uiState ??
@@ -223,6 +225,7 @@ export function ProjectReviewsTab({
   const tabCounts = useMemo(() => {
     const fromSummary = summary.data?.countsByUiState;
     const counts: Partial<Record<ProjectReviewUiState, number>> & {
+      all?: number;
       series?: number;
     } = {
       ...(fromSummary ?? {}),
@@ -248,6 +251,13 @@ export function ProjectReviewsTab({
       }
       Object.assign(counts, local);
     }
+    const stateSum =
+      (counts.to_prepare ?? 0) +
+      (counts.upcoming ?? 0) +
+      (counts.in_progress ?? 0) +
+      (counts.to_finalize ?? 0) +
+      (counts.history ?? 0);
+    counts.all = list.data?.length ?? stateSum;
     return counts;
   }, [summary.data, list.data, series.data]);
 
@@ -269,7 +279,8 @@ export function ProjectReviewsTab({
   const showPrimaryCta =
     canEdit && !(postMortemEligible && finalizedPostMortem && !draftPostMortem);
 
-  const emptyTitle: Record<ProjectReviewUiState, string> = {
+  const emptyTitle: Record<Exclude<ProjectReviewsTabState, 'series'>, string> = {
+    all: 'Aucun point projet',
     to_prepare: 'Aucun point à préparer',
     upcoming: 'Aucun point à venir',
     in_progress: 'Aucun point en cours',
@@ -296,15 +307,26 @@ export function ProjectReviewsTab({
             modelsOpen={templatesOpen}
             onOpenModels={() => setTemplatesOpen(true)}
           />
-          {canEdit && activeTab !== 'series' ? (
-            <Button
-              type="button"
-              className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
-              onClick={onPrimaryReviewAction}
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Créer un point
-            </Button>
+          {canEdit ? (
+            activeTab === 'series' ? (
+              <Button
+                type="button"
+                className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
+                onClick={() => setSeriesCreateRequestKey((k) => k + 1)}
+              >
+                <Plus className="size-3.5" aria-hidden />
+                Nouvelle série
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
+                onClick={onPrimaryReviewAction}
+              >
+                <Plus className="size-3.5" aria-hidden />
+                Créer un point
+              </Button>
+            )
           ) : null}
         </div>
       ) : null}
@@ -373,7 +395,11 @@ export function ProjectReviewsTab({
         </div>
       ) : activeTab === 'series' ? (
         <div className="starium-tablecard p-4">
-          <ProjectReviewSeriesPanel projectId={projectId} canEdit={canEdit} />
+          <ProjectReviewSeriesPanel
+            projectId={projectId}
+            canEdit={canEdit}
+            createRequestKey={seriesCreateRequestKey}
+          />
         </div>
       ) : (
         <div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -295,9 +295,12 @@ function SeriesFormDialog({
 export function ProjectReviewSeriesPanel({
   projectId,
   canEdit,
+  createRequestKey = 0,
 }: {
   projectId: string;
   canEdit: boolean;
+  /** Incrémenté par la toolbar parente pour ouvrir « Nouvelle série ». */
+  createRequestKey?: number;
 }) {
   const list = useProjectReviewSeriesQuery(projectId);
   const { create, update, generate } = useProjectReviewSeriesMutations(projectId);
@@ -309,21 +312,13 @@ export function ProjectReviewSeriesPanel({
     setFormOpen(true);
   };
 
+  useEffect(() => {
+    if (!canEdit || createRequestKey <= 0) return;
+    openCreate();
+  }, [canEdit, createRequestKey]);
+
   return (
     <div className="flex flex-col gap-3">
-      {canEdit ? (
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className="starium-btn starium-btn-primary min-h-11"
-            onClick={openCreate}
-          >
-            <Plus strokeWidth={2.5} aria-hidden />
-            Nouvelle série
-          </button>
-        </div>
-      ) : null}
-
       {list.isLoading ? (
         <div className="p-6">
           <LoadingState rows={3} />

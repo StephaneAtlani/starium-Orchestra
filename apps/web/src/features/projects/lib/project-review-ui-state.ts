@@ -9,7 +9,7 @@ export type ProjectReviewUiState =
   | 'to_finalize'
   | 'history';
 
-export type ProjectReviewsTabState = ProjectReviewUiState | 'series';
+export type ProjectReviewsTabState = ProjectReviewUiState | 'all' | 'series';
 
 export type ResolveReviewUiStateInput = {
   status: ProjectReviewStatus;
@@ -58,6 +58,7 @@ export const PROJECT_REVIEW_UI_STATE_LABEL: Record<ProjectReviewUiState, string>
   };
 
 export const PROJECT_REVIEWS_TAB_ORDER: ProjectReviewsTabState[] = [
+  'all',
   'to_prepare',
   'upcoming',
   'in_progress',
@@ -67,6 +68,7 @@ export const PROJECT_REVIEWS_TAB_ORDER: ProjectReviewsTabState[] = [
 ];
 
 export const PROJECT_REVIEWS_TAB_LABEL: Record<ProjectReviewsTabState, string> = {
+  all: 'Tout',
   ...PROJECT_REVIEW_UI_STATE_LABEL,
   series: 'Séries',
 };
@@ -75,6 +77,7 @@ export function parsePointsStateParam(
   value: string | null,
 ): ProjectReviewsTabState {
   if (
+    value === 'all' ||
     value === 'to_prepare' ||
     value === 'upcoming' ||
     value === 'in_progress' ||
@@ -84,7 +87,7 @@ export function parsePointsStateParam(
   ) {
     return value;
   }
-  return 'to_prepare';
+  return 'all';
 }
 
 export function ctaLabelForUiState(uiState: ProjectReviewUiState): string {

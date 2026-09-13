@@ -17,7 +17,10 @@ export function ProjectReviewsStateTabs({
   onOpenModels,
 }: {
   active: ProjectReviewsTabState;
-  counts: Partial<Record<ProjectReviewUiState, number>> & { series?: number };
+  counts: Partial<Record<ProjectReviewUiState, number>> & {
+    all?: number;
+    series?: number;
+  };
   onChange: (next: ProjectReviewsTabState) => void;
   modelsOpen?: boolean;
   onOpenModels?: () => void;
@@ -50,7 +53,9 @@ export function ProjectReviewsStateTabs({
           const count =
             key === 'series'
               ? (counts.series ?? 0)
-              : (counts[key as ProjectReviewUiState] ?? 0);
+              : key === 'all'
+                ? (counts.all ?? 0)
+                : (counts[key as ProjectReviewUiState] ?? 0);
           return (
             <button
               key={key}

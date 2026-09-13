@@ -334,20 +334,23 @@ export function ProjectReviewsTable({
   onOpen,
   pilotageMeetingsLocked = false,
 }: {
-  uiState: ProjectReviewUiState;
+  uiState: ProjectReviewUiState | 'all';
   rows: ProjectReviewListItem[];
   flashId: string | null;
   onOpen: (id: string) => void;
   /** Projet clos : pas d’Animer/Préparer hors REX. */
   pilotageMeetingsLocked?: boolean;
 }) {
-  const caption = {
-    to_prepare: 'Points à préparer',
-    upcoming: 'Points à venir',
-    in_progress: 'Points en cours',
-    to_finalize: 'Points à finaliser',
-    history: 'Historique des points projet',
-  }[uiState];
+  const caption =
+    uiState === 'all'
+      ? 'Tous les points projet'
+      : {
+          to_prepare: 'Points à préparer',
+          upcoming: 'Points à venir',
+          in_progress: 'Points en cours',
+          to_finalize: 'Points à finaliser',
+          history: 'Historique des points projet',
+        }[uiState];
 
   return (
     <div
