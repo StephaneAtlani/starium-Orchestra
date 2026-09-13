@@ -49,7 +49,7 @@ export function StariumTableWrap({
         onPointerDown={pan.onPointerDown}
         data-slot="starium-table-wrap"
         className={cn(
-          'starium-table-wrap relative',
+          'starium-table-wrap starium-scroll-hover relative',
           pan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
           hasOverflow &&
             'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden',

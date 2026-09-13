@@ -239,7 +239,7 @@ export default function BudgetsListPage() {
                     </div>
                     <CardContent
                       className={cn(
-                        'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        'starium-scroll-hover min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
                         viewMode === 'table' &&
                           (tablePan.isPanning
                             ? 'cursor-grabbing select-none touch-none'

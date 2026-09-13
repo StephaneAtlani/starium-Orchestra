@@ -2675,6 +2675,99 @@ table.starium-dt {
 }
 
 /**
+ * Scrollbar tableaux — souris fine :
+ * masquée au repos, visible dès que le curseur (ou le focus) est sur le conteneur scrollable.
+ * Cibles : TableContainer, StariumTableWrap, et `.starium-scroll-hover` (CardContent noWrapper).
+ */
+@media (hover: hover) and (pointer: fine) {
+  [data-slot='table-container'],
+  [data-slot='starium-table-wrap'],
+  .starium-table-wrap,
+  .starium-scroll-hover {
+    scrollbar-width: none;
+  }
+
+  [data-slot='table-container']:is(:hover, :focus-within),
+  [data-slot='starium-table-wrap']:is(:hover, :focus-within),
+  .starium-table-wrap:is(:hover, :focus-within),
+  .starium-scroll-hover:is(:hover, :focus-within) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
+      color-mix(in srgb, var(--muted) 80%, var(--card));
+  }
+
+  [data-slot='table-container']::-webkit-scrollbar,
+  [data-slot='starium-table-wrap']::-webkit-scrollbar,
+  .starium-table-wrap::-webkit-scrollbar,
+  .starium-scroll-hover::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
+  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar,
+  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar,
+  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar,
+  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-track,
+  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-track,
+  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-track,
+  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--muted) 85%, var(--card));
+    border-radius: var(--radius-pill);
+  }
+
+  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
+  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
+  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
+  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
+    border-radius: var(--radius-pill);
+    border: 2px solid color-mix(in srgb, var(--muted) 85%, var(--card));
+    background-clip: padding-box;
+    min-height: 2.5rem;
+  }
+
+  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
+  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
+  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
+  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  [data-slot='table-container'],
+  [data-slot='starium-table-wrap'],
+  .starium-table-wrap,
+  .starium-scroll-hover {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 40%, var(--border))
+      color-mix(in srgb, var(--muted) 70%, var(--card));
+  }
+
+  [data-slot='table-container']::-webkit-scrollbar,
+  [data-slot='starium-table-wrap']::-webkit-scrollbar,
+  .starium-table-wrap::-webkit-scrollbar,
+  .starium-scroll-hover::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  [data-slot='table-container']::-webkit-scrollbar-thumb,
+  [data-slot='starium-table-wrap']::-webkit-scrollbar-thumb,
+  .starium-table-wrap::-webkit-scrollbar-thumb,
+  .starium-scroll-hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+    border-radius: var(--radius-pill);
+  }
+}
+
+/**
  * Ombres de débordement : indiquent qu’il y a du contenu hors viewport.
  */
 .starium-modal__body:not(.p-0):not(.\!p-0),

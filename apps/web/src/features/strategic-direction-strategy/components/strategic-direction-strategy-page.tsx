@@ -962,7 +962,7 @@ export function StrategicDirectionStrategyPage() {
             data-slot="table-container"
             onPointerDown={tablePan.onPointerDown}
             className={cn(
-              'min-h-0 flex-1 overflow-auto',
+              'starium-scroll-hover min-h-0 flex-1 overflow-auto',
               tablePan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
             )}
           >

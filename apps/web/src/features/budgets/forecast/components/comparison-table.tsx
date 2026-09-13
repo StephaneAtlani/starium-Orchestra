@@ -399,7 +399,7 @@ export function ComparisonTable({ data, isLoading, error }: ComparisonTableProps
         ref={pan.scrollRef}
         onPointerDown={pan.onPointerDown}
         className={cn(
-          'max-h-[min(70vh,560px)] overflow-auto rounded-md border border-border',
+          'starium-scroll-hover max-h-[min(70vh,560px)] overflow-auto rounded-md border border-border',
           pan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
         )}
       >
