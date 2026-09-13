@@ -6,7 +6,7 @@
 
 ## Périmètre de ce lot
 
-> **Phases 1–3 livrées.** Phase 1 : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`. Phase 2 : invitations **in-app** (§13). Phase 3 : **email** (HTML branded + option **`attachIcs`**), **Teams** et **calendrier Graph** via la même route `POST .../invite` (§14) — canaux (`in_app` \| `email`) **séparés** des actions Microsoft (`createTeamsMeeting`, `createCalendarEvent`) et de `attachIcs` ; toutes **opt-in** par défaut.
+> **Phases 1–3 livrées.** Phase 1 : cycle `PLANNED` / `IN_REVIEW`, champs réunion, `creationMode`, `start-review`. Phase 2 : invitations **in-app** (§13). Phase 3 : **email**, **Teams** et **calendrier** Microsoft via la même route `POST .../invite` (§14) — canaux de notification (`in_app` \| `email`) **séparés** des actions Microsoft (`createTeamsMeeting`, `createCalendarEvent`), toutes **opt-in** par défaut.
 >
 > **RFC-PROJ-013-2 (implémentée)** : le cycle métier cible est désormais **`PREPARING` → `SCHEDULED` → `IN_PROGRESS`** ; `PLANNED`/`IN_REVIEW` restent en lecture legacy (migrés en base). Les routes invitations, Teams et email de cette RFC restent valides sur une revue **`SCHEDULED`**. L’éditeur expose **« Planifier »** (in-app + e-mail, avec confirmation) et **« Démarrer le point »** (confirmation) en footer modale — voir RFC-PROJ-013-2 §15.5–15.6. Détail : [RFC-PROJ-013-2](./RFC-PROJ-013-2%20—%20Point%20projet%20de%20pilotage%20(COPIL,%20COPROJ,%20revues,%20arbitrages).md).
 
@@ -780,10 +780,7 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 | **`in_app`** (canal) | Participant avec `userId` actif | Défaut si `channels` absent |
 | **`email`** (canal) | Externe `externalEmail` ou interne `User.email` | **Uniquement si** `channels` contient `email` ; SMTP ou log-only |
 | **`createTeamsMeeting`** (action) | Revue `REMOTE`/`HYBRID` + lien Microsoft | Défaut **`false`** — opt-in explicite |
-| **`createCalendarEvent`** (action Graph) | Événement Outlook + attendees via Microsoft Graph | Défaut **`false`** — opt-in ; **distinct** de `attachIcs` |
-| **`attachIcs`** (option e-mail) | Fichier `.ics` `METHOD:REQUEST` joint au mail (nodemailer `icalEvent`) | Défaut **`false`** — option UI « Invitation calendrier (.ics) » |
-| **`includeAgenda`** / **`includeRsvp`** | ODJ + boutons RSVP dans le HTML e-mail | Défaut **`false`** |
-| **`emailSubject`** / **`emailMessage`** | Objet et intro du mail (modale 04) | Optionnels ; sinon titres/messages générés |
+| **`createCalendarEvent`** (action) | Événement Outlook + attendees | Défaut **`false`** — opt-in explicite |
 
 **DTO `InviteProjectReviewDto` (livré)** :
 
@@ -791,18 +788,11 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 {
   participantIds?: string[];
   channels?: ('in_app' | 'email')[];  // défaut = ['in_app'] ; whitelist stricte
-  createTeamsMeeting?: boolean;       // défaut false — Graph Teams
-  createCalendarEvent?: boolean;      // défaut false — Graph calendrier
+  createTeamsMeeting?: boolean;       // défaut false
+  createCalendarEvent?: boolean;      // défaut false
   forceOverwriteMeetingUrl?: boolean; // défaut false
-  attachIcs?: boolean;                // défaut false — .ics joint au mail (pas Graph)
-  includeAgenda?: boolean;            // défaut false
-  includeRsvp?: boolean;              // défaut false
-  emailSubject?: string;              // max 200
-  emailMessage?: string;              // max 5000
 }
 ```
-
-> **Ne pas confondre** : l’option UI « Invitation calendrier (.ics) » envoie **`attachIcs: true`** et **`createCalendarEvent: false`**. Graph calendrier reste un opt-in séparé (écran invitations Microsoft / API).
 
 > **`trigger` reste interne** (manual \| auto_create \| auto_date_change) — jamais exposé au client.
 
@@ -836,15 +826,13 @@ Compléter la diffusion d'invitation pour une revue **`PLANNED`** :
 
 ### 14.4.1 Template
 
-* Template **`project_review_invitation`** : si `htmlBody` fourni (flux convocation), HTML **branded** (bandeau type · titre · quand · message · ODJ optionnel · liste PJ · CTA visio / Starium · RSVP) via `project-review-invitation-email.builder.ts` ; sinon repli historique `<h3>` + liens.
-* Sujet = `emailSubject` (UI) ou titre généré « Point projet planifié — {projectName} ».
-* **Join URL Teams** : bouton « Rejoindre la réunion » **uniquement** si `meetingUrl` présent — acceptable en email ; **interdit** dans metadata notification in-app.
-* **`.ics`** : si `attachIcs=true`, génération `project-review-invitation-ics.ts` (VEVENT + ATTENDEE destinataire) passée à `EmailService` (`calendarIcs` / nodemailer `icalEvent`) — **sans** `createCalendarEvent` Graph.
+* Nouveau template **`project_review_invitation`** dans `email.templates.ts` (sujet : « Point projet — {projectName} », corps : type, date, lieu, CTA vers `/projects/{projectId}?openReview={reviewId}`).
+* **Join URL Teams** : lien bouton « Rejoindre la réunion » **uniquement** si `meetingUrl` présent — acceptable en email (destinataire invité) ; **interdit** dans notification in-app metadata (Phase 2 inchangée).
 
 ### 14.4.2 File d'envoi
 
-* `EmailService.queueEmail({ …, templateKey: 'project_review_invitation', title, message, actionUrl, htmlBody?, calendarIcs? })`.
-* `EmailDelivery.projectReviewId` renseigné ; corps HTML persisté.
+* `EmailService.queueEmail({ clientId, recipient, templateKey: 'project_review_invitation', title, message, actionUrl })`.
+* Lier optionnellement `EmailDelivery` à la revue via metadata interne ou colonne `projectReviewId` (migration additive recommandée).
 * Compteurs réponse invite : `emailed`, `skippedNoEmail`, `emailFailed`.
 
 ### 14.4.3 RGPD email
@@ -923,7 +911,7 @@ Contraintes :
 
 | Méthode | Route | Évolution |
 | ------- | ----- | --------- |
-| `POST` | `…/reviews/:reviewId/invite` | Body : `channels?`, `createTeamsMeeting?`, `createCalendarEvent?`, `forceOverwriteMeetingUrl?`, `attachIcs?`, `includeAgenda?`, `includeRsvp?`, `emailSubject?`, `emailMessage?` |
+| `POST` | `…/reviews/:reviewId/invite` | Body : `channels?`, `createTeamsMeeting?`, `createCalendarEvent?`, `forceOverwriteMeetingUrl?` |
 | `PATCH` | `…/reviews/:reviewId/participants/:id` | Accepte `externalEmail` (externes uniquement) |
 
 **Réponse `InviteProjectReviewResultDto` (livré)** :
@@ -951,17 +939,16 @@ Contraintes :
 
 ## 14.9 Backend — fichiers livrés
 
-**Créés** : `project-review-microsoft-meeting.service.ts`, `project-review-email-invitations.service.ts`, `project-review-invitation-privacy.helpers.ts`, `project-review-invitation-ics.ts`, `project-review-invitation-email.builder.ts`, migration `20260705140000`, template `project_review_invitation`, specs associées.
+**Créés** : `project-review-microsoft-meeting.service.ts`, `project-review-email-invitations.service.ts`, `project-review-invitation-privacy.helpers.ts`, migration `20260705140000`, template `project_review_invitation`, specs associées.
 
-**Modifiés** : `project-review-invitations.service.ts`, DTOs invite/participants/résultat, `microsoft-graph.service.ts`, `microsoft.constants.ts` (scopes), `email.templates.ts`, `email.service.ts`, `email.processor.ts` (`SendEmailJobPayload.calendarIcs`), `project-audit.constants.ts`, `projects.module.ts` (`EmailModule`, `MicrosoftModule`).
+**Modifiés** : `project-review-invitations.service.ts`, DTOs invite/participants/résultat, `microsoft-graph.service.ts`, `microsoft.constants.ts` (scopes), `email.templates.ts`, `email.service.ts`, `project-audit.constants.ts`, `projects.module.ts` (`EmailModule`, `MicrosoftModule`).
 
 ## 14.10 Frontend (livré)
 
 * `review-participants-section.tsx` — `externalEmail` externes, badges `lastEmailedAt`.
-* `review-invitations-section.tsx` — cases **notification** (in-app, email) vs **actions Microsoft** (Teams, calendrier Graph) ; confirmation overwrite URL ; `aria-live`.
-* `project-review-convocation-dialog.tsx` (CDC 04) — objet/message/options (`attachIcs`, ODJ, RSVP…) ; envoi `channels: ['in_app','email']` + `attachIcs` **sans** `createCalendarEvent` ; aperçu 2 volets aligné HTML réel.
+* `review-invitations-section.tsx` — cases **notification** (in-app, email) vs **actions Microsoft** (Teams, calendrier) ; confirmation overwrite URL ; `aria-live`.
 * `project-review-editor-dialog.tsx` — props réunion + badge Teams.
-* `project-reviews.api.ts` / mutations — body/réponse Phase 3 + champs convocation.
+* `project-reviews.api.ts` / mutations — body/réponse Phase 3.
 
 **RGAA**
 
