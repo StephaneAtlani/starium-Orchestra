@@ -95,6 +95,46 @@
   border-radius: var(--pw-radius);
   background: color-mix(in oklab, var(--pw-gold-050) 70%, var(--pw-surface));
   border: 1px solid color-mix(in oklab, var(--pw-gold) 35%, transparent);
+  text-align: left;
+  width: 100%;
+}
+
+.prepare-workspace__banner--interactive {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.prepare-workspace__banner--interactive:hover {
+  border-color: color-mix(in oklab, var(--pw-gold) 55%, transparent);
+  background: color-mix(in oklab, var(--pw-gold-050) 90%, var(--pw-surface));
+}
+
+.prepare-workspace__banner--interactive:focus-visible {
+  outline: 2px solid var(--ring, var(--pw-gold));
+  outline-offset: 2px;
+}
+
+.prepare-workspace__banner-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex-shrink: 0;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  color: var(--pw-gold-700);
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prepare-workspace__banner--interactive {
+    transition: none;
+  }
 }
 
 .prepare-workspace__date-tile {

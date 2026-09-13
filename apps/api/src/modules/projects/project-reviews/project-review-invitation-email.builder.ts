@@ -90,9 +90,8 @@ export function buildProjectReviewInvitationEmailHtml(
           ${input.briefItems
             .map((item) => {
               const owner = item.ownerLabel?.trim() || 'Porteur à définir';
-              const prep =
-                item.prepNote?.trim() ||
-                'Préparer ce point avant la séance.';
+              const prep = item.prepNote?.trim();
+              if (!prep) return '';
               return `<div style="padding:10px 12px;margin:0 0 8px;border:1px solid ${C.border};border-radius:10px;background:${C.surfaceMuted};">
                   <div style="font-size:13px;font-weight:700;color:${C.text};">${escapeHtml(item.title)} <span style="font-weight:600;color:${C.textMuted};">· ${escapeHtml(owner)}</span></div>
                   <div style="margin-top:4px;font-size:12px;line-height:1.45;color:${C.textMuted};">${escapeHtml(prep)}</div>
@@ -101,6 +100,10 @@ export function buildProjectReviewInvitationEmailHtml(
             .join('')}
         </div>`
       : '';
+
+  const briefHasContent =
+    input.briefItems?.some((b) => Boolean(b.prepNote?.trim())) ?? false;
+  const briefBlock = briefHasContent ? brief : '';
 
   const attachments =
     input.attachments && input.attachments.length > 0
@@ -167,7 +170,7 @@ export function buildProjectReviewInvitationEmailHtml(
         <tr><td style="padding:22px 24px;">
           <p style="margin:0;font-size:14px;line-height:1.55;color:${C.text};">${body}</p>
           ${agenda}
-          ${brief}
+          ${briefBlock}
           ${attachments}
           ${join}
           ${open}

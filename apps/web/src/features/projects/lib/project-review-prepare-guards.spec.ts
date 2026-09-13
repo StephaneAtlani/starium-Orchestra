@@ -102,4 +102,36 @@ describe('project-review-prepare-guards (CDC P2)', () => {
     expect(sumAgendaPlannedMinutes(input.agendaItems)).toBe(30);
     expect(canFreezePrepare(input)).toBe(true);
   });
+
+  it('ne bloque pas sur durée manquante ni dépassement séance', () => {
+    const input = {
+      agendaItems: [
+        {
+          id: 'a1',
+          title: 'Ouverture',
+          itemType: 'INFORMATION',
+          plannedDurationMinutes: null,
+          ownerUserId: null,
+        },
+        {
+          id: 'a2',
+          title: 'Suite',
+          itemType: 'INFORMATION',
+          plannedDurationMinutes: 90,
+          ownerUserId: null,
+        },
+      ],
+      participantCount: 1,
+      sessionDurationMinutes: 45,
+      attachments: [],
+    };
+    expect(canFreezePrepare(input)).toBe(true);
+    expect(
+      collectPrepareLockIssues(input).some(
+        (i) =>
+          i.focus.kind === 'agenda-duration' ||
+          i.focus.kind === 'duration-overrun',
+      ),
+    ).toBe(false);
+  });
 });

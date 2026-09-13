@@ -34,6 +34,7 @@ import {
 } from './project-review-invitation-privacy.helpers';
 import { buildAppAbsoluteLink } from './project-review-report-branding.helpers';
 import { requireProjectReviewReportAppBaseUrl } from './project-review-report.builder';
+import { resolveAgendaBriefPrepNote } from './project-review-brief.helpers';
 
 export type ProjectReviewEmailInviteResult = {
   emailed: number;
@@ -103,6 +104,8 @@ export class ProjectReviewEmailInvitationsService {
         orderIndex?: number;
         objective?: string | null;
         expectedDecision?: string | null;
+        description?: string | null;
+        itemType?: string | null;
         notes?: string | null;
         ownerUser?: {
           firstName: string | null;
@@ -208,10 +211,9 @@ export class ProjectReviewEmailInvitationsService {
               return {
                 title: a.title,
                 ownerLabel: ownerName || a.ownerUser?.email?.trim() || null,
-                prepNote:
-                  a.objective?.trim() ||
-                  a.expectedDecision?.trim() ||
-                  null,
+                prepNote: resolveAgendaBriefPrepNote({
+                  objective: a.objective,
+                }),
               };
             })
         : undefined;
@@ -291,19 +293,20 @@ export class ProjectReviewEmailInvitationsService {
     }
 
     if (input.includeBrief) {
-      attachmentLines.push({
-        filename: 'Brief de préparation.pdf',
-        hint: 'Brief de préparation',
-      });
-      if (briefForMail?.length) {
+      const filledBriefs = (briefForMail ?? []).filter((b) =>
+        Boolean(b.prepNote?.trim()),
+      );
+      if (filledBriefs.length > 0) {
+        attachmentLines.push({
+          filename: 'Brief de préparation.txt',
+          hint: 'Brief de préparation',
+        });
         const briefLines = [
           `Brief de préparation — ${meetingTitle} — ${input.projectName}`,
           '',
-          ...briefForMail.map((b) => {
+          ...filledBriefs.map((b) => {
             const owner = b.ownerLabel?.trim() || 'Porteur à définir';
-            const prep =
-              b.prepNote?.trim() || 'Préparer ce point avant la séance.';
-            return `- ${b.title} · ${owner}\n  ${prep}`;
+            return `- ${b.title} · ${owner}\n  ${b.prepNote!.trim()}`;
           }),
           '',
         ];
@@ -321,7 +324,7 @@ export class ProjectReviewEmailInvitationsService {
       whenLine,
       message: introMessage,
       agendaItems: agendaForMail,
-      briefItems: briefForMail,
+      briefItems: (briefForMail ?? []).filter((b) => Boolean(b.prepNote?.trim())),
       attachments: attachmentLines,
       includeRsvp: input.includeRsvp === true,
       actionUrl,

@@ -340,6 +340,11 @@
   background: color-mix(in oklab, var(--muted) 35%, var(--card));
 }
 
+.convoc-mail__brief-r.is-empty {
+  border-style: dashed;
+  opacity: 0.9;
+}
+
 .convoc-mail__brief-t {
   display: block;
   font-size: 0.75rem;

@@ -136,6 +136,8 @@ export class ProjectReviewInvitationsService {
             orderIndex: true,
             objective: true,
             expectedDecision: true,
+            description: true,
+            itemType: true,
             notes: true,
             ownerUser: {
               select: { firstName: true, lastName: true, email: true },

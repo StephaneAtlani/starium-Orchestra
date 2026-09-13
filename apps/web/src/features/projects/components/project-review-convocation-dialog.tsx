@@ -23,6 +23,7 @@ import { toast } from '@/lib/toast';
 import { PROJECT_REVIEW_TYPE_BADGE, PROJECT_REVIEW_TYPE_LABEL } from '../constants/project-enum-labels';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { formatProjectDateLong } from '../lib/projects-list-display';
+import { resolveAgendaBriefPrepNote } from '../lib/review-agenda-brief';
 import type { ProjectReviewDetail } from '../types/project.types';
 import './project-review-convocation.css';
 
@@ -85,7 +86,7 @@ const OPT_DEFS: Array<{
   {
     id: 'brief',
     title: 'Brief de préparation',
-    hint: 'Ce que chaque participant doit préparer avant la séance.',
+    hint: 'Inclut, pour chaque point, le brief saisi dans Préparer l’instance.',
     defaultOn: false,
   },
 ];
@@ -282,15 +283,21 @@ export function ProjectReviewConvocationDialog({
       }
     }
     if (opts.brief) {
+      const filled = agendaItems.filter((i) =>
+        Boolean(resolveAgendaBriefPrepNote({ objective: i.objective })),
+      ).length;
       files.push({
         key: 'brief',
-        name: 'Brief de préparation.pdf',
+        name:
+          filled > 0
+            ? 'Brief de préparation.txt'
+            : 'Brief de préparation (aucun texte saisi)',
         hint: 'Brief de préparation',
-        kind: 'brief',
+        kind: filled > 0 ? 'brief' : 'empty',
       });
     }
     return files;
-  }, [opts.ics, opts.docs, opts.brief, supportAttachments, badge]);
+  }, [opts.ics, opts.docs, opts.brief, supportAttachments, badge, agendaItems]);
 
   const attachmentCountLabel = useMemo(() => {
     const real = attachments.filter((a) => a.kind !== 'empty').length;
@@ -698,12 +705,14 @@ export function ProjectReviewConvocationDialog({
                         {agendaItems.map((item) => {
                           const owner =
                             item.ownerDisplayName?.trim() || 'Porteur à définir';
-                          const prep =
-                            item.objective?.trim() ||
-                            item.expectedDecision?.trim() ||
-                            'Préparer ce point avant la séance.';
+                          const prep = resolveAgendaBriefPrepNote({
+                            objective: item.objective,
+                          });
                           return (
-                            <li key={`brief-${item.id}`} className="convoc-mail__brief-r">
+                            <li
+                              key={`brief-${item.id}`}
+                              className={`convoc-mail__brief-r${prep ? '' : ' is-empty'}`}
+                            >
                               <span className="convoc-mail__brief-t">
                                 {displayLabel(item.title, 'Point')}
                                 <span className="convoc-mail__brief-owner">
@@ -711,7 +720,10 @@ export function ProjectReviewConvocationDialog({
                                   · {owner}
                                 </span>
                               </span>
-                              <span className="convoc-mail__brief-m">{prep}</span>
+                              <span className="convoc-mail__brief-m">
+                                {prep ??
+                                  'Brief non renseigné — à saisir dans Préparer › point.'}
+                              </span>
                             </li>
                           );
                         })}

@@ -50,6 +50,12 @@ function apiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+const DEFAULT_POINT_MINUTES = 10;
+
+function hasPositiveDuration(minutes: number | null | undefined): boolean {
+  return typeof minutes === 'number' && minutes > 0;
+}
+
 export type ProjectReviewPrepareWorkspaceProps = {
   projectId: string;
   detail: ProjectReviewDetail;
@@ -101,10 +107,12 @@ export function ProjectReviewPrepareWorkspace({
   const pwSyncInFlight = useRef(new Set<string>());
   /** Blocs déjà poussés vers l’ODJ dans cette session (évite les courses stale). */
   const pwSyncedIds = useRef(new Set<string>());
+  const seededDurationsRef = useRef(false);
 
   useEffect(() => {
     pwSyncedIds.current = new Set();
     pwSyncInFlight.current = new Set();
+    seededDurationsRef.current = false;
   }, [detail.id]);
 
   /** Source de vérité = ODJ API (jamais un Set session stale après purge/dédup). */
@@ -182,6 +190,24 @@ export function ProjectReviewPrepareWorkspace({
         // Ne se fier qu’à l’ODJ réel — pas au Set session (stale après dédup/purge).
         if (existing) {
           pwSyncedIds.current.add(blockId);
+          const minutes =
+            prepRef.current.blockDurations?.[blockId] ?? block.defaultMin;
+          if (!hasPositiveDuration(existing.plannedDurationMinutes)) {
+            try {
+              await updateAgendaItem.mutateAsync({
+                reviewId: detail.id,
+                agendaItemId: existing.id,
+                body: { plannedDurationMinutes: minutes },
+              });
+              agendaItemsRef.current = agendaItemsRef.current.map((i) =>
+                i.id === existing.id
+                  ? { ...i, plannedDurationMinutes: minutes }
+                  : i,
+              );
+            } catch (err) {
+              toast.error(apiErrorMessage(err, 'Durée non enregistrée'));
+            }
+          }
           return;
         }
         if (pwSyncInFlight.current.has(blockId)) return;
@@ -231,7 +257,14 @@ export function ProjectReviewPrepareWorkspace({
         }
       }
     },
-    [agendaLocked, canEdit, createAgendaItem, deleteAgendaItem, detail.id],
+    [
+      agendaLocked,
+      canEdit,
+      createAgendaItem,
+      deleteAgendaItem,
+      detail.id,
+      updateAgendaItem,
+    ],
   );
 
   const ensureSelectedBlocksOnAgenda = useCallback(async () => {
@@ -250,10 +283,39 @@ export function ProjectReviewPrepareWorkspace({
     }
   }, [agendaLocked, canEdit, syncBlockAgenda]);
 
+  /** Aligne plannedDurationMinutes API sur les durées affichées (blocs / défaut 10). */
+  const ensureAgendaDurations = useCallback(async () => {
+    if (!canEdit || agendaLocked) return;
+    const missing = agendaItemsRef.current.filter(
+      (item) =>
+        item.title?.trim() && !hasPositiveDuration(item.plannedDurationMinutes),
+    );
+    if (missing.length === 0) return;
+
+    await Promise.all(
+      missing.map(async (item) => {
+        const blockId = parsePwBlockIdFromNotes(item.notes);
+        const block = blockId ? findStdBlock(blockId) : null;
+        const minutes = block
+          ? (prepRef.current.blockDurations?.[block.id] ?? block.defaultMin)
+          : DEFAULT_POINT_MINUTES;
+        await updateAgendaItem.mutateAsync({
+          reviewId: detail.id,
+          agendaItemId: item.id,
+          body: { plannedDurationMinutes: minutes },
+        });
+        agendaItemsRef.current = agendaItemsRef.current.map((i) =>
+          i.id === item.id ? { ...i, plannedDurationMinutes: minutes } : i,
+        );
+      }),
+    );
+  }, [agendaLocked, canEdit, detail.id, updateAgendaItem]);
+
   const flush = useCallback(async () => {
     await persistPrep(prepRef.current);
     await ensureSelectedBlocksOnAgenda();
-  }, [ensureSelectedBlocksOnAgenda, persistPrep]);
+    await ensureAgendaDurations();
+  }, [ensureAgendaDurations, ensureSelectedBlocksOnAgenda, persistPrep]);
 
   useEffect(() => {
     onRegisterFlush?.(flush);
@@ -274,6 +336,28 @@ export function ProjectReviewPrepareWorkspace({
     void ensureSelectedBlocksOnAgenda();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- une fois par revue / ODJ
   }, [detail.id, agendaLocked, canEdit]);
+
+  /** Seed des durées manquantes (comme le panneau CDC) — l’UI montrait déjà les défauts. */
+  useEffect(() => {
+    if (!canEdit || agendaLocked || seededDurationsRef.current) return;
+    const missing = (detail.agendaItems ?? []).filter(
+      (item) =>
+        item.title?.trim() && !hasPositiveDuration(item.plannedDurationMinutes),
+    );
+    if (missing.length === 0) {
+      seededDurationsRef.current = true;
+      return;
+    }
+    seededDurationsRef.current = true;
+    void ensureAgendaDurations().catch(() => {
+      seededDurationsRef.current = false;
+    });
+  }, [
+    agendaLocked,
+    canEdit,
+    detail.agendaItems,
+    ensureAgendaDurations,
+  ]);
 
   const onToggleBlock = async (blockId: string) => {
     const catalogIds = blocks.map((b) => b.id);
@@ -614,9 +698,9 @@ export function ProjectReviewPrepareWorkspace({
             reveal="hover"
           >
             <PrepareWorkspaceBanner
-              title={detail.title}
-              reviewType={detail.reviewType}
-              reviewDate={detail.reviewDate}
+              projectId={projectId}
+              detail={detail}
+              canEdit={canEdit}
             />
             <PrepareWorkspaceModelCard
               typeCode={typeCode}

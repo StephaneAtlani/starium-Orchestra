@@ -112,31 +112,7 @@ export function collectPrepareLockIssues(input: {
     });
   }
 
-  const withoutDuration = items.filter(
-    (item) =>
-      item.title?.trim() &&
-      !(
-        typeof item.plannedDurationMinutes === 'number' &&
-        item.plannedDurationMinutes > 0
-      ),
-  );
-  if (withoutDuration.length > 0) {
-    issues.push({
-      message: PREPARE_LOCK_MSG.noDuration(withoutDuration.length),
-      focus: { kind: 'agenda-duration', itemId: withoutDuration[0]!.id },
-    });
-  }
-
-  const session = input.sessionDurationMinutes;
-  if (typeof session === 'number' && session > 0) {
-    const cumul = sumAgendaPlannedMinutes(items);
-    if (cumul > session) {
-      issues.push({
-        message: formatDurationOverrunMessage(cumul, session),
-        focus: { kind: 'duration-overrun' },
-      });
-    }
-  }
+  // Durées (manquantes / dépassement séance) : indicatives uniquement — non bloquantes.
 
   const attachedIds = new Set(
     input.attachments

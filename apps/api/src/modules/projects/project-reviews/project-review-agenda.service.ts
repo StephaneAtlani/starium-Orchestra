@@ -167,7 +167,22 @@ export class ProjectReviewAgendaService {
         reviewId,
         pwBlockId,
       );
-      if (existing) return existing;
+      if (existing) {
+        // Idempotent : si l’existant n’a pas de durée, compléter depuis le DTO.
+        const wantsDuration =
+          typeof dto.plannedDurationMinutes === 'number' &&
+          dto.plannedDurationMinutes > 0;
+        const hasDuration =
+          typeof existing.plannedDurationMinutes === 'number' &&
+          existing.plannedDurationMinutes > 0;
+        if (wantsDuration && !hasDuration) {
+          return this.prisma.projectReviewAgendaItem.update({
+            where: { id: existing.id },
+            data: { plannedDurationMinutes: dto.plannedDurationMinutes },
+          });
+        }
+        return existing;
+      }
     }
 
     const maxOrder = await this.prisma.projectReviewAgendaItem.aggregate({

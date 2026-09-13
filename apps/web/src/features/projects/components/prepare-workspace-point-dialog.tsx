@@ -28,6 +28,7 @@ import {
   parsePwBlockIdFromNotes,
   type PrepPlanningPayload,
 } from '../lib/prepare-workspace-types';
+import { briefPlaceholderForAgendaNotes } from '../lib/review-agenda-brief';
 import type {
   ProjectReviewAgendaItemApi,
   ProjectReviewAttachmentApi,
@@ -161,6 +162,7 @@ export function PrepareWorkspacePointDialog({
   });
 
   const [note, setNote] = useState('');
+  const [brief, setBrief] = useState('');
   const [linked, setLinked] = useState<LinkedItem[]>([]);
   const [pickCat, setPickCat] = useState<RefCat | null>(null);
   const [linkDraft, setLinkDraft] = useState('');
@@ -169,8 +171,10 @@ export function PrepareWorkspacePointDialog({
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteRef = useRef(note);
+  const briefRef = useRef(brief);
   const linkedRef = useRef(linked);
   noteRef.current = note;
+  briefRef.current = brief;
   linkedRef.current = linked;
 
   useEffect(() => {
@@ -178,6 +182,7 @@ export function PrepareWorkspacePointDialog({
     const desc = agendaItem.description ?? '';
     setLinked(parseLinkedFromDescription(desc));
     setNote(stripLinkedLines(desc));
+    setBrief(agendaItem.objective?.trim() ?? '');
     setPickCat(null);
     setLinkDraft('');
     setSavedAt(null);
@@ -237,7 +242,11 @@ export function PrepareWorkspacePointDialog({
   );
 
   const persist = useCallback(
-    async (nextNote: string, nextLinked: LinkedItem[]) => {
+    async (
+      nextNote: string,
+      nextLinked: LinkedItem[],
+      nextBrief: string,
+    ) => {
       if (!agendaItem || !canEdit) return;
       setSaving(true);
       try {
@@ -246,6 +255,7 @@ export function PrepareWorkspacePointDialog({
           agendaItemId: agendaItem.id,
           body: {
             description: composeDescription(nextNote, nextLinked) || null,
+            objective: nextBrief.trim() || null,
           },
         });
         setSavedAt(new Date());
@@ -263,11 +273,11 @@ export function PrepareWorkspacePointDialog({
   );
 
   const schedulePersist = useCallback(
-    (nextNote: string, nextLinked: LinkedItem[]) => {
+    (nextNote: string, nextLinked: LinkedItem[], nextBrief: string) => {
       if (!canEdit) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        void persist(nextNote, nextLinked);
+        void persist(nextNote, nextLinked, nextBrief);
       }, 450);
     },
     [canEdit, persist],
@@ -275,7 +285,12 @@ export function PrepareWorkspacePointDialog({
 
   const onNoteChange = (value: string) => {
     setNote(value);
-    schedulePersist(value, linkedRef.current);
+    schedulePersist(value, linkedRef.current, briefRef.current);
+  };
+
+  const onBriefChange = (value: string) => {
+    setBrief(value);
+    schedulePersist(noteRef.current, linkedRef.current, value);
   };
 
   const addLinked = useCallback(
@@ -287,7 +302,7 @@ export function PrepareWorkspacePointDialog({
       const next = [...linkedRef.current, item];
       setLinked(next);
       setPickCat(null);
-      schedulePersist(noteRef.current, next);
+      schedulePersist(noteRef.current, next, briefRef.current);
     },
     [schedulePersist],
   );
@@ -296,7 +311,7 @@ export function PrepareWorkspacePointDialog({
     (key: string) => {
       const next = linkedRef.current.filter((l) => l.key !== key);
       setLinked(next);
-      schedulePersist(noteRef.current, next);
+      schedulePersist(noteRef.current, next, briefRef.current);
     },
     [schedulePersist],
   );
@@ -317,7 +332,7 @@ export function PrepareWorkspacePointDialog({
       : line;
     setNote(nextNote);
     setLinkDraft('');
-    schedulePersist(nextNote, linkedRef.current);
+    schedulePersist(nextNote, linkedRef.current, briefRef.current);
   };
 
   const pickerItems = useMemo(() => {
@@ -449,7 +464,11 @@ export function PrepareWorkspacePointDialog({
       clearTimeout(saveTimer.current);
       saveTimer.current = null;
       if (canEdit && agendaItem) {
-        await persist(noteRef.current, linkedRef.current);
+        await persist(
+          noteRef.current,
+          linkedRef.current,
+          briefRef.current,
+        );
       }
     }
     onOpenChange(false);
@@ -502,16 +521,53 @@ export function PrepareWorkspacePointDialog({
           reveal="hover"
         >
         {isPlanning && planning && onPlanningChange ? (
-          <PrepareWorkspacePlanningPanel
-            gantt={gantt}
-            loading={ganttLoading}
-            error={ganttError}
-            value={planning}
-            canEdit={canEdit}
-            onChange={onPlanningChange}
-          />
+          <div className="prepare-point space-y-3">
+            <div>
+              <p className="prepare-point__grp" id="prepare-point-brief-label-pl">
+                Brief de préparation
+              </p>
+              <p className="prepare-point__hint">
+                Texte envoyé aux participants si « Brief de préparation » est
+                coché à la convocation.
+              </p>
+              <Textarea
+                value={brief}
+                disabled={!canEdit}
+                onChange={(e) => onBriefChange(e.target.value)}
+                placeholder={briefPlaceholderForAgendaNotes(agendaItem.notes)}
+                rows={3}
+                className="prepare-point__note"
+                aria-labelledby="prepare-point-brief-label-pl"
+              />
+            </div>
+            <PrepareWorkspacePlanningPanel
+              gantt={gantt}
+              loading={ganttLoading}
+              error={ganttError}
+              value={planning}
+              canEdit={canEdit}
+              onChange={onPlanningChange}
+            />
+          </div>
         ) : (
         <div className="prepare-point">
+          <p className="prepare-point__grp" id="prepare-point-brief-label">
+            Brief de préparation
+          </p>
+          <p className="prepare-point__hint">
+            Texte envoyé aux participants si « Brief de préparation » est coché
+            à la convocation.
+          </p>
+          <Textarea
+            value={brief}
+            disabled={!canEdit}
+            onChange={(e) => onBriefChange(e.target.value)}
+            placeholder={briefPlaceholderForAgendaNotes(agendaItem.notes)}
+            rows={3}
+            className="prepare-point__note"
+            aria-labelledby="prepare-point-brief-label"
+          />
+
           <p className="prepare-point__grp">Informations</p>
           <Textarea
             value={note}
