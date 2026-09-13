@@ -11,6 +11,7 @@ import { MobileBottomNav } from './mobile-bottom-nav';
 import { MobileNavMenu } from './mobile-nav-menu';
 import { WorkspaceBreadcrumbProvider } from './workspace-breadcrumb-context';
 import { BrowserNotificationsBridge } from '@/features/notifications/components/browser-notifications-bridge';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 
 /** Élément DOM pour le plein écran « sans sidebar » : colonne header + main (+ drawer). */
 export const STARIUM_APP_WORKSPACE_DOM_ID = 'starium-app-workspace';
@@ -45,8 +46,21 @@ export function AppShell({ children }: AppShellProps) {
             className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--starium-background)]"
           >
             <WorkspaceHeader contentClassName={contentWrapper} />
-            <main className="starium-main starium-workspace-sheet min-h-0 flex-1 overflow-auto md:pb-0">
-              <div className={`${contentWrapper} min-h-full py-6 sm:py-8 max-md:pt-5 md:pt-6`}>{children}</div>
+            <main className="starium-main starium-workspace-sheet relative min-h-0 flex-1 overflow-hidden md:pb-0">
+              {/*
+                Rail HTML au survol — la scrollbar native macOS overlay est invisible.
+                Même pattern que les modales (StariumScrollArea).
+              */}
+              <StariumScrollArea
+                layout="fill"
+                reveal="edge"
+                className="absolute inset-0"
+                data-slot="workspace-scroll"
+              >
+                <div className={`${contentWrapper} min-h-full py-6 sm:py-8 max-md:pt-5 md:pt-6`}>
+                  {children}
+                </div>
+              </StariumScrollArea>
             </main>
             <MobileBottomNav />
             <MobileNavMenu />
@@ -59,4 +73,3 @@ export function AppShell({ children }: AppShellProps) {
     </ChatDrawerProvider>
   );
 }
-

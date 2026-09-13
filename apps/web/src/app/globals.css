@@ -2568,15 +2568,13 @@ table.starium-dt {
     scrollbar-width: none;
   }
 
-  /* Survol du panneau entier → toutes les zones overflow affichent la barre */
+  /* Proximité bord droit (`data-scroll-hover`) → barres natives sur zones overflow */
   [data-slot="dialog-content"][data-scroll-hover],
   [data-slot="dialog-content"][data-scroll-hover] *,
-  [data-slot="dialog-content"]:is(:hover, :focus-within),
-  [data-slot="dialog-content"] *:is(:hover, :focus-within),
   [data-slot="dialog-content"] [data-scroll-hover],
-  .starium-modal__body:is(:hover, :focus-within, [data-scroll-hover]),
-  .starium-modal__scroll:is(:hover, :focus-within, [data-scroll-hover]),
-  .starium-scroll:is(:hover, :focus-within, [data-scroll-hover]) {
+  .starium-modal__body[data-scroll-hover],
+  .starium-modal__scroll[data-scroll-hover],
+  .starium-scroll[data-scroll-hover] {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
       color-mix(in srgb, var(--muted) 80%, var(--card));
@@ -2594,36 +2592,30 @@ table.starium-dt {
 
   [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar,
   [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar,
-  [data-slot="dialog-content"]:is(:hover, :focus-within)::-webkit-scrollbar,
-  [data-slot="dialog-content"] *:is(:hover, :focus-within)::-webkit-scrollbar,
   [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar,
-  .starium-modal__body:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar,
-  .starium-modal__scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar,
-  .starium-scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar {
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar {
     width: 12px;
     height: 12px;
   }
 
   [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-track,
   [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-track,
-  [data-slot="dialog-content"]:is(:hover, :focus-within)::-webkit-scrollbar-track,
-  [data-slot="dialog-content"] *:is(:hover, :focus-within)::-webkit-scrollbar-track,
   [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-track,
-  .starium-modal__body:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-track,
-  .starium-modal__scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-track,
-  .starium-scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-track {
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-track,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-track,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-track {
     background: color-mix(in srgb, var(--muted) 85%, var(--card));
     border-radius: var(--radius-pill);
   }
 
   [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-thumb,
   [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-thumb,
-  [data-slot="dialog-content"]:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
-  [data-slot="dialog-content"] *:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
   [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-thumb,
-  .starium-modal__body:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb,
-  .starium-modal__scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb,
-  .starium-scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb {
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-thumb,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-thumb,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-thumb {
     background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
     border-radius: var(--radius-pill);
     border: 2px solid color-mix(in srgb, var(--muted) 85%, var(--card));
@@ -2633,12 +2625,10 @@ table.starium-dt {
 
   [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-thumb:hover,
   [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-thumb:hover,
-  [data-slot="dialog-content"]:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
-  [data-slot="dialog-content"] *:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
   [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-thumb:hover,
-  .starium-modal__body:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb:hover,
-  .starium-modal__scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb:hover,
-  .starium-scroll:is(:hover, :focus-within, [data-scroll-hover])::-webkit-scrollbar-thumb:hover {
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-thumb:hover,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-thumb:hover,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
   }
 }
@@ -2747,41 +2737,6 @@ table.starium-dt {
   .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
   .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
-  }
-
-  /* Page : barre verticale du main visible au survol du tableau */
-  main.starium-workspace-sheet:has(.starium-scroll-hover) {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-  }
-  main.starium-workspace-sheet:has(.starium-scroll-hover:hover),
-  main.starium-workspace-sheet:has(.starium-scroll-hover:focus-within),
-  main.starium-workspace-sheet:has(.starium-scroll-hover):is(:hover, :focus-within) {
-    scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
-      color-mix(in srgb, var(--muted) 80%, var(--card));
-  }
-  main.starium-workspace-sheet:has(.starium-scroll-hover)::-webkit-scrollbar {
-    -webkit-appearance: none;
-    width: 11px;
-    height: 11px;
-  }
-  main.starium-workspace-sheet:has(.starium-scroll-hover)::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: var(--radius-pill);
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  main.starium-workspace-sheet:has(.starium-scroll-hover:hover)::-webkit-scrollbar-thumb,
-  main.starium-workspace-sheet:has(.starium-scroll-hover:focus-within)::-webkit-scrollbar-thumb,
-  main.starium-workspace-sheet:has(.starium-scroll-hover):is(:hover, :focus-within)::-webkit-scrollbar-thumb {
-    background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
-    border-color: color-mix(in srgb, var(--muted) 85%, var(--card));
-  }
-  main.starium-workspace-sheet:has(.starium-scroll-hover:hover)::-webkit-scrollbar-track,
-  main.starium-workspace-sheet:has(.starium-scroll-hover:focus-within)::-webkit-scrollbar-track,
-  main.starium-workspace-sheet:has(.starium-scroll-hover):is(:hover, :focus-within)::-webkit-scrollbar-track {
-    background: color-mix(in srgb, var(--muted) 85%, var(--card));
-    border-radius: var(--radius-pill);
   }
 }
 
@@ -2934,11 +2889,13 @@ table.starium-dt {
   }
 }
 /**
- * Affichage rail au survol — CSS natif (fiable) + état React (drag / data-scroll-hover).
- * Ne pas se fier uniquement au state React : souris sur la zone = barre visible.
+ * Affichage rail :
+ * - `reveal=hover` (modales) : toute la zone au survol
+ * - `reveal=edge` (workspace) : uniquement via `data-scroll-hover` (proximité bord droit)
+ * - tactile : toujours visible s’il y a overflow
  */
 @media (hover: hover) and (pointer: fine) {
-  [data-starium-scroll]:hover > .starium-scroll-area__rail-track,
+  [data-starium-scroll][data-reveal='hover']:hover > .starium-scroll-area__rail-track,
   [data-starium-scroll][data-scroll-hover] > .starium-scroll-area__rail-track {
     opacity: 1 !important;
     pointer-events: auto !important;
@@ -4772,6 +4729,22 @@ main.starium-workspace-sheet:has(.starium-conduct-page) {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+main.starium-workspace-sheet:has(.starium-conduct-page) .starium-scroll-area__viewport {
+  overflow: hidden !important;
+}
+
+main.starium-workspace-sheet:has(.starium-conduct-page) .starium-scroll-area__rail-track {
+  display: none !important;
+}
+
+main.starium-workspace-sheet:has(.starium-conduct-page) [data-slot='workspace-scroll'] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner {

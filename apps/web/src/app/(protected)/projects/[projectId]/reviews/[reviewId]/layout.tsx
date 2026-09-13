@@ -14,12 +14,18 @@ export default function ProjectReviewConductLayout({
   useEffect(() => {
     const main = document.querySelector<HTMLElement>(MAIN_SELECTOR);
     const inner = main?.querySelector<HTMLElement>(INNER_SELECTOR);
+    const viewport = main?.querySelector<HTMLElement>('.starium-scroll-area__viewport');
     if (!main) return;
 
     const previousMainOverflow = main.style.overflow;
     const previousMainClassName = main.className;
     main.style.overflow = 'hidden';
     main.classList.add('flex', 'min-h-0', 'flex-col');
+
+    const previousViewportOverflow = viewport?.style.overflow ?? '';
+    if (viewport) {
+      viewport.style.overflow = 'hidden';
+    }
 
     const previousInnerClassName = inner?.className ?? '';
     if (inner) {
@@ -39,6 +45,9 @@ export default function ProjectReviewConductLayout({
     return () => {
       main.style.overflow = previousMainOverflow;
       main.className = previousMainClassName;
+      if (viewport) {
+        viewport.style.overflow = previousViewportOverflow;
+      }
       if (inner) {
         inner.className = previousInnerClassName;
       }

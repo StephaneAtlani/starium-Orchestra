@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
 import { XIcon } from "lucide-react"
 import type { StariumModalAccent } from "@/components/layout/starium-modal-accent"
-import { StariumScrollArea } from "@/components/layout/starium-scroll-area"
+import { StariumScrollArea, STARIUM_SCROLL_EDGE_REVEAL_PX } from "@/components/layout/starium-scroll-area"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
 
@@ -313,7 +313,7 @@ function DialogBody({
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),
           )}
-          reveal="hover"
+          reveal="edge"
         >
           {children}
         </StariumScrollArea>
@@ -445,6 +445,14 @@ function DialogContent({
     panelLayout === "starium" ? normalizeStariumDialogChildren(children) : children
   const [scrollHover, setScrollHover] = React.useState(false)
 
+  const updateScrollEdgeHover = React.useCallback(
+    (clientX: number, target: HTMLElement) => {
+      const rect = target.getBoundingClientRect()
+      setScrollHover(rect.right - clientX <= STARIUM_SCROLL_EDGE_REVEAL_PX)
+    },
+    [],
+  )
+
   const closeBtnClass =
     panelLayout === "chat"
       ? "absolute right-5 top-5 z-20 inline-flex size-11 shrink-0 items-center justify-center rounded-md border-0 bg-transparent p-0 text-white shadow-none transition-colors hover:bg-transparent hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-0 md:size-9"
@@ -500,8 +508,11 @@ function DialogContent({
           {...props}
           onPointerDown={onPointerDown}
           onMouseEnter={(e) => {
-            setScrollHover(true)
+            updateScrollEdgeHover(e.clientX, e.currentTarget)
             onMouseEnter?.(e)
+          }}
+          onMouseMove={(e) => {
+            updateScrollEdgeHover(e.clientX, e.currentTarget)
           }}
           onMouseLeave={(e) => {
             setScrollHover(false)

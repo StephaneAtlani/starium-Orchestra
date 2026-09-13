@@ -7,11 +7,15 @@ import {
   useState,
   type ComponentPropsWithoutRef,
   type PointerEvent as ReactPointerEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
 import { cn } from '@/lib/utils';
 
 type ScrollLayout = 'fill' | 'flow' | 'auto';
+
+/** Distance (px) au bord droit pour révéler le rail en mode `edge`. */
+export const STARIUM_SCROLL_EDGE_REVEAL_PX = 40;
 
 type Props = {
   children: ReactNode;
@@ -19,10 +23,11 @@ type Props = {
   /** Classes sur le viewport scrollable (padding, etc.). */
   viewportClassName?: string;
   /**
-   * `hover` (défaut) : rail visible au survol / pendant le drag.
+   * `hover` (défaut) : rail visible au survol de toute la zone (modales).
+   * `edge` : rail visible seulement près du bord droit (workspace page).
    * `always` : rail toujours visible dès qu’il y a overflow.
    */
-  reveal?: 'hover' | 'always';
+  reveal?: 'hover' | 'edge' | 'always';
   /**
    * `flow` (défaut via auto) : le contenu définit la hauteur — pour modales auto-size.
    * `fill` : viewport `absolute inset-0` — parent **doit** avoir une hauteur définie (`h-full`, etc.).
@@ -57,9 +62,11 @@ export function StariumScrollArea({
   layout = 'auto',
   ...props
 }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState(false);
   const [hover, setHover] = useState(false);
+  const [nearEdge, setNearEdge] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [thumb, setThumb] = useState({ top: 0, height: 48 });
   const resolved = resolveScrollLayout(layout, className);
@@ -147,27 +154,59 @@ export function StariumScrollArea({
     el.scrollTop = (nextTop / track) * maxScroll;
   };
 
-  const railFull = reveal === 'always' || hover || dragging;
-  /** Affordance : rail uniquement au survol / always / drag (pas de fantôme macOS). */
-  const railVisible = overflow && railFull;
+  const updateEdgeProximity = useCallback(
+    (clientX: number) => {
+      if (reveal !== 'edge') return;
+      const root = rootRef.current;
+      if (!root) return;
+      const rect = root.getBoundingClientRect();
+      const distFromRight = rect.right - clientX;
+      setNearEdge(distFromRight <= STARIUM_SCROLL_EDGE_REVEAL_PX);
+    },
+    [reveal],
+  );
+
+  const onMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
+    updateEdgeProximity(e.clientX);
+  };
+
+  const revealActive =
+    reveal === 'always' ||
+    dragging ||
+    (reveal === 'hover' && hover) ||
+    (reveal === 'edge' && nearEdge);
+
+  /** Affordance : rail uniquement au survol / edge / always / drag. */
+  const railVisible = overflow && revealActive;
 
   return (
     <div
       {...props}
+      ref={rootRef}
       data-starium-scroll=""
       data-scroll-layout={resolved}
-      data-scroll-hover={hover || dragging ? true : undefined}
+      data-reveal={reveal}
+      data-scroll-hover={revealActive ? true : undefined}
       className={cn('relative min-h-0', className)}
-      onMouseEnter={() => {
-        setHover(true);
+      onMouseEnter={(e) => {
+        if (reveal === 'hover') {
+          setHover(true);
+        } else if (reveal === 'edge') {
+          updateEdgeProximity(e.clientX);
+        }
         sync();
       }}
+      onMouseMove={reveal === 'edge' ? onMouseMove : undefined}
       onMouseLeave={() => {
-        if (!dragging) setHover(false);
+        if (!dragging) {
+          setHover(false);
+          setNearEdge(false);
+        }
       }}
     >
       <div
         ref={viewportRef}
+        data-slot="starium-scroll-viewport"
         className={cn(
           'starium-scroll-area__viewport overflow-x-hidden overflow-y-auto overscroll-contain',
           /* Cache la scrollbar native — on affiche le rail custom. */
@@ -186,7 +225,7 @@ export function StariumScrollArea({
           role="presentation"
           aria-hidden
           className={cn(
-            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-20 w-3 rounded-full transition-opacity duration-[var(--duration-fast)]',
+            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-30 w-3 rounded-full transition-opacity duration-[var(--duration-fast)]',
             railVisible
               ? 'pointer-events-auto opacity-100'
               : 'pointer-events-none opacity-0',
