@@ -35,6 +35,11 @@ type QueueEmailInput = {
   actionUrl?: string | null;
   meetingJoinUrl?: string | null;
   htmlBody?: string | null;
+  /** Invitation .ics jointe (METHOD:REQUEST) — calendrier nuage du destinataire. */
+  calendarIcs?: {
+    filename: string;
+    content: string;
+  } | null;
 };
 
 @Injectable()
@@ -182,11 +187,16 @@ export class EmailService {
       `[EMAIL] livraison créée id=${delivery.id} → ${input.recipient} template=${input.templateKey}`,
     );
 
+    const deliveryOptions = {
+      mimeHtml: rendered.html,
+      calendarIcs: input.calendarIcs ?? null,
+    };
+
     if (this.shouldProcessEmailDeliveriesInline()) {
       this.logger.log(
         `[EMAIL] mode=inline (pas de worker) emailDeliveryId=${delivery.id}`,
       );
-      await this.processEmailDelivery(delivery.id, { mimeHtml: rendered.html });
+      await this.processEmailDelivery(delivery.id, deliveryOptions);
       return;
     }
 
@@ -197,6 +207,7 @@ export class EmailService {
       await this.queueService.enqueueSendEmail({
         emailDeliveryId: delivery.id,
         mimeHtml: rendered.html,
+        calendarIcs: input.calendarIcs ?? null,
       });
     } catch (error) {
       if ((process.env.NODE_ENV ?? 'development') === 'production') {
@@ -210,7 +221,7 @@ export class EmailService {
       this.logger.warn(
         `enqueueSendEmail failed (${errMsg}) — traitement inline (hors production).`,
       );
-      await this.processEmailDelivery(delivery.id, { mimeHtml: rendered.html });
+      await this.processEmailDelivery(delivery.id, deliveryOptions);
     }
   }
 
@@ -237,7 +248,10 @@ export class EmailService {
 
   async processEmailDelivery(
     emailDeliveryId: string,
-    options?: { mimeHtml?: string | null },
+    options?: {
+      mimeHtml?: string | null;
+      calendarIcs?: { filename: string; content: string } | null;
+    },
   ): Promise<void> {
     const delivery = await this.prisma.emailDelivery.findUnique({
       where: { id: emailDeliveryId },
@@ -355,12 +369,25 @@ export class EmailService {
         );
       } else {
         const transporter = await this.getTransporter();
+        const calendarIcs = options?.calendarIcs;
+        const icsContent = calendarIcs?.content?.trim();
+        const icsFilename =
+          calendarIcs?.filename?.trim() || 'invitation.ics';
         const sent = await transporter.sendMail({
           from: process.env.SMTP_FROM!,
           to: delivery.recipient,
           subject,
           text,
           html,
+          ...(icsContent
+            ? {
+                icalEvent: {
+                  filename: icsFilename,
+                  method: 'REQUEST',
+                  content: icsContent,
+                },
+              }
+            : {}),
         });
         this.logger.log(
           formatSmtpSendResultLogLine(

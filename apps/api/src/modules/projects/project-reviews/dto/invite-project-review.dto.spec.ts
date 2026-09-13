@@ -15,6 +15,7 @@ describe('InviteProjectReviewDto (Phase 3)', () => {
     const dto = plainToInstance(InviteProjectReviewDto, {
       channels: ['in_app', 'email'],
       createTeamsMeeting: true,
+      attachIcs: true,
     });
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);

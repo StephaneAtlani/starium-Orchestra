@@ -27,6 +27,14 @@ export class InviteProjectReviewDto {
   @IsBoolean()
   createCalendarEvent?: boolean;
 
+  /**
+   * Joint un fichier .ics (METHOD:REQUEST) au mail de convocation.
+   * Ne crée pas d’événement dans un calendrier Microsoft Graph.
+   */
+  @IsOptional()
+  @IsBoolean()
+  attachIcs?: boolean;
+
   @IsOptional()
   @IsBoolean()
   forceOverwriteMeetingUrl?: boolean;

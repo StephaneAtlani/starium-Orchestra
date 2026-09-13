@@ -54,7 +54,7 @@ const OPT_DEFS: Array<{
   {
     id: 'ics',
     title: 'Invitation calendrier (.ics)',
-    hint: "Le rendez-vous s'ajoute à l'agenda du participant, avec le lieu et le lien visio.",
+    hint: 'Fichier .ics joint au mail — le rendez-vous s’ajoute à l’agenda du participant (lieu + lien visio).',
     defaultOn: true,
   },
   {
@@ -165,7 +165,7 @@ export function ProjectReviewConvocationDialog({
   onSent,
 }: ProjectReviewConvocationDialogProps) {
   const { user } = useAuth();
-  const { scheduleReview, lockAgenda, inviteReview } =
+  const { scheduleReview, lockAgenda, inviteReview, createParticipant } =
     useProjectReviewMutations(projectId);
 
   const participants = detail.participants ?? [];
@@ -244,6 +244,7 @@ export function ProjectReviewConvocationDialog({
   }, [opts.ics, opts.docs, opts.brief, detail.attachments, badge]);
 
   const canSend = selectedIds.length > 0 && !submitting && !testing;
+  const canTest = Boolean(user?.email) && !submitting && !testing;
 
   const removeRecipient = (id: string) => {
     setSelectedIds((prev) => prev.filter((x) => x !== id));
@@ -259,8 +260,31 @@ export function ProjectReviewConvocationDialog({
     setOpts((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const ensureSelfParticipantId = async (): Promise<string> => {
+    if (!user) throw new Error('Session utilisateur absente');
+    const existing = participants.find((p) => p.userId === user.id);
+    if (existing) return existing.id;
+    const name = firstDisplayLabel(
+      [
+        [user.firstName, user.lastName].filter(Boolean).join(' ').trim(),
+        user.email,
+      ],
+      'Vous',
+    );
+    const created = await createParticipant.mutateAsync({
+      reviewId: detail.id,
+      body: {
+        userId: user.id,
+        displayName: name,
+        roleLabel: user.jobTitle?.trim() || null,
+        externalEmail: null,
+      },
+    });
+    return created.id;
+  };
+
   const runInvite = async (mode: 'send' | 'test') => {
-    if (selectedIds.length === 0) {
+    if (mode === 'send' && selectedIds.length === 0) {
       setError('Ajoutez au moins un destinataire.');
       return;
     }
@@ -269,26 +293,35 @@ export function ProjectReviewConvocationDialog({
     setError(null);
     try {
       if (mode === 'test') {
-        const self = participants.find((p) => p.userId && p.userId === user?.id);
-        if (!self || !selectedIds.includes(self.id)) {
-          setError(
-            'Ajoutez-vous aux destinataires pour recevoir un e-mail de test.',
-          );
+        if (!user?.email) {
+          setError('Compte sans e-mail — impossible d’envoyer un test.');
           return;
+        }
+        const selfParticipantId = await ensureSelfParticipantId();
+        if (detail.status === 'PREPARING') {
+          const iso = scheduleReviewDateIso ?? detail.reviewDate;
+          if (!iso) {
+            setError(
+              'Renseignez la date de séance avant d’envoyer un test.',
+            );
+            return;
+          }
+          await scheduleReview.mutateAsync({
+            reviewId: detail.id,
+            reviewDate: iso,
+          });
         }
         await inviteReview.mutateAsync({
           reviewId: detail.id,
           body: {
-            participantIds: [self.id],
+            participantIds: [selfParticipantId],
             channels: ['email'],
-            createCalendarEvent: opts.ics,
+            // Test = e-mail seul, sans Graph ni .ics.
+            createCalendarEvent: false,
+            attachIcs: false,
           },
         });
-        toast.success(
-          user?.email
-            ? `E-mail de test envoyé à ${user.email}`
-            : 'E-mail de test envoyé',
-        );
+        toast.success(`E-mail de test envoyé à ${user.email}`);
         return;
       }
 
@@ -308,12 +341,15 @@ export function ProjectReviewConvocationDialog({
       if (!detail.agendaLockedAt) {
         await lockAgenda.mutateAsync(detail.id);
       }
+
       const result = await inviteReview.mutateAsync({
         reviewId: detail.id,
         body: {
           participantIds: selectedIds,
           channels: ['in_app', 'email'],
-          createCalendarEvent: opts.ics,
+          // .ics = pièce jointe invitation, jamais Graph calendrier.
+          createCalendarEvent: false,
+          attachIcs: opts.ics,
         },
       });
       const count = Math.max(
@@ -322,7 +358,7 @@ export function ProjectReviewConvocationDialog({
         selectedIds.length,
       );
       toast.success(
-        `${count} convocation${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''}${opts.ics ? ' · invitation calendrier' : ''}.`,
+        `${count} convocation${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''}.`,
       );
       onOpenChange(false);
       onSent?.();
@@ -352,7 +388,8 @@ export function ProjectReviewConvocationDialog({
       description={subtitle}
       icon={Send}
       size="xl"
-      contentClassName="sm:max-w-[min(1080px,96vw)] h-[min(92dvh,calc(100dvh-2rem))]"
+      overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
+      contentClassName="!z-[101] sm:max-w-[min(1080px,96vw)] h-[min(92dvh,calc(100dvh-2rem))]"
       bodyClassName="!p-0 !overflow-hidden flex min-h-0 flex-1 flex-col"
       footer={
         <>
@@ -369,7 +406,7 @@ export function ProjectReviewConvocationDialog({
             type="button"
             variant="outline"
             className="min-h-11 sm:min-h-9"
-            disabled={!canSend}
+            disabled={!canTest}
             onClick={() => void runInvite('test')}
           >
             <Globe className="size-4" aria-hidden />

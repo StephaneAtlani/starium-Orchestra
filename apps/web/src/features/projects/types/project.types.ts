@@ -1161,6 +1161,8 @@ export type InviteProjectReviewPayload = {
   channels?: ('in_app' | 'email')[];
   createTeamsMeeting?: boolean;
   createCalendarEvent?: boolean;
+  /** Joint un fichier .ics au mail (pas de création calendrier Microsoft). */
+  attachIcs?: boolean;
   forceOverwriteMeetingUrl?: boolean;
 };
 

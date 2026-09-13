@@ -285,6 +285,7 @@ export class ProjectReviewsController {
           createCalendarEvent: dto.createCalendarEvent,
           forceOverwriteMeetingUrl: dto.forceOverwriteMeetingUrl,
         },
+        attachIcs: dto.attachIcs,
       },
     );
   }

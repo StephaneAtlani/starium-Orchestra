@@ -6,12 +6,18 @@ import { ProjectReviewEmailInvitationsService } from './project-review-email-inv
 
 describe('ProjectReviewEmailInvitationsService', () => {
   let service: ProjectReviewEmailInvitationsService;
-  let prisma: { projectReviewParticipant: { update: jest.Mock } };
+  let prisma: {
+    projectReviewParticipant: { update: jest.Mock };
+    user: { findUnique: jest.Mock };
+  };
   let emailService: { queueEmail: jest.Mock; isLogOnlyMode: jest.Mock };
   let auditLogs: { create: jest.Mock };
 
   beforeEach(() => {
-    prisma = { projectReviewParticipant: { update: jest.fn().mockResolvedValue({}) } };
+    prisma = {
+      projectReviewParticipant: { update: jest.fn().mockResolvedValue({}) },
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
     emailService = {
       queueEmail: jest.fn().mockResolvedValue(undefined),
       isLogOnlyMode: jest.fn().mockReturnValue(true),
@@ -87,5 +93,44 @@ describe('ProjectReviewEmailInvitationsService', () => {
 
     expect(result.skippedNoEmail).toBe(1);
     expect(emailService.queueEmail).not.toHaveBeenCalled();
+  });
+
+  it('attachIcs true → queueEmail reçoit un calendarIcs METHOD:REQUEST', async () => {
+    await service.sendInvitations({
+      clientId: 'c1',
+      projectId: 'p1',
+      reviewId: 'r1',
+      projectName: 'Projet',
+      review: {
+        reviewType: 'COPIL',
+        reviewDate: new Date('2025-06-01T10:00:00.000Z'),
+        meetingMode: ProjectReviewMeetingMode.REMOTE,
+        location: null,
+        meetingUrl: 'https://teams.example/join',
+        durationMinutes: 45,
+      },
+      participants: [
+        {
+          id: 'part1',
+          userId: null,
+          externalEmail: 'ext@example.com',
+          user: null,
+        },
+      ],
+      blockingOnFailure: false,
+      attachIcs: true,
+    });
+
+    expect(emailService.queueEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        calendarIcs: expect.objectContaining({
+          filename: expect.stringMatching(/\.ics$/),
+          content: expect.stringContaining('METHOD:REQUEST'),
+        }),
+      }),
+    );
+    expect(emailService.queueEmail.mock.calls[0][0].calendarIcs.content).toContain(
+      'BEGIN:VEVENT',
+    );
   });
 });

@@ -41,6 +41,8 @@ export type ProjectReviewInviteOptions = {
   trigger: ProjectReviewInviteTrigger;
   channels?: ProjectReviewNotificationChannel[];
   meetingOptions?: ProjectReviewMeetingOptions;
+  /** Joint un .ics au mail — indépendant de createCalendarEvent (Graph). */
+  attachIcs?: boolean;
 };
 
 function defaultResult(): InviteProjectReviewResultDto {
@@ -299,10 +301,14 @@ export class ProjectReviewInvitationsService {
             meetingMode: currentReview.meetingMode,
             location: currentReview.location,
             meetingUrl,
+            title: currentReview.title,
+            durationMinutes: currentReview.durationMinutes,
+            agendaItems: review.agendaItems,
           },
           participants,
           context,
           blockingOnFailure: emailOnly,
+          attachIcs: options.attachIcs === true,
         });
         result.emailed = emailResult.emailed;
         result.skippedNoEmail = emailResult.skippedNoEmail;

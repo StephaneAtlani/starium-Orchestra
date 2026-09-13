@@ -12,11 +12,20 @@ import {
   PROJECT_AUDIT_RESOURCE_TYPE,
 } from '../project-audit.constants';
 import {
+  buildProjectReviewEntityLabel,
   buildProjectReviewInvitationActionUrl,
   buildProjectReviewInvitationMessage,
   buildProjectReviewInvitationTitle,
 } from './project-review-invitation-labels';
-import { normalizeExternalEmail, pseudonymizeEmail } from './project-review-invitation-privacy.helpers';
+import {
+  buildProjectReviewInvitationIcs,
+  icsAttachmentFilename,
+  resolveInvitationDurationMinutes,
+} from './project-review-invitation-ics';
+import {
+  normalizeExternalEmail,
+  pseudonymizeEmail,
+} from './project-review-invitation-privacy.helpers';
 import { buildAppAbsoluteLink } from './project-review-report-branding.helpers';
 import { requireProjectReviewReportAppBaseUrl } from './project-review-report.builder';
 
@@ -70,15 +79,24 @@ export class ProjectReviewEmailInvitationsService {
     reviewId: string;
     projectName: string;
     review: {
-      reviewType: Parameters<typeof buildProjectReviewInvitationMessage>[0]['reviewType'];
+      reviewType: Parameters<
+        typeof buildProjectReviewInvitationMessage
+      >[0]['reviewType'];
       reviewDate: Date;
-      meetingMode: Parameters<typeof buildProjectReviewInvitationMessage>[0]['meetingMode'];
+      meetingMode: Parameters<
+        typeof buildProjectReviewInvitationMessage
+      >[0]['meetingMode'];
       location: string | null;
       meetingUrl: string | null;
+      title?: string | null;
+      durationMinutes?: number | null;
+      agendaItems?: { plannedDurationMinutes: number | null }[];
     };
     participants: ParticipantRow[];
     context?: AuditContext;
     blockingOnFailure: boolean;
+    /** Joint un .ics METHOD:REQUEST au mail (pas Graph). */
+    attachIcs?: boolean;
   }): Promise<ProjectReviewEmailInviteResult> {
     const result: ProjectReviewEmailInviteResult = {
       emailed: 0,
@@ -123,6 +141,47 @@ export class ProjectReviewEmailInvitationsService {
     const now = new Date();
     const pseudonymizedRecipients: string[] = [];
 
+    let calendarIcs: { filename: string; content: string } | null = null;
+    if (input.attachIcs) {
+      const typeLabel = buildProjectReviewEntityLabel({
+        title: input.review.title ?? null,
+        reviewType: input.review.reviewType,
+      });
+      let organizerEmail: string | null = null;
+      let organizerName: string | null = null;
+      if (input.context?.actorUserId) {
+        const actor = await this.prisma.user.findUnique({
+          where: { id: input.context.actorUserId },
+          select: { email: true, firstName: true, lastName: true },
+        });
+        organizerEmail = actor?.email?.trim() || null;
+        const name = [actor?.firstName, actor?.lastName]
+          .map((p) => p?.trim())
+          .filter(Boolean)
+          .join(' ');
+        organizerName = name || null;
+      }
+      const durationMinutes = resolveInvitationDurationMinutes({
+        durationMinutes: input.review.durationMinutes,
+        agendaItems: input.review.agendaItems,
+      });
+      const content = buildProjectReviewInvitationIcs({
+        reviewId: input.reviewId,
+        summary: `${typeLabel} — ${input.projectName}`,
+        description: message,
+        location: input.review.location,
+        meetingUrl: meetingJoinUrl,
+        startsAt: input.review.reviewDate,
+        durationMinutes,
+        organizerEmail,
+        organizerName,
+      });
+      calendarIcs = {
+        filename: icsAttachmentFilename(typeLabel),
+        content,
+      };
+    }
+
     for (const participant of input.participants) {
       const recipient = participant.userId
         ? participant.user?.email?.trim()
@@ -146,6 +205,7 @@ export class ProjectReviewEmailInvitationsService {
           message,
           actionUrl,
           meetingJoinUrl,
+          calendarIcs,
         });
 
         await this.prisma.projectReviewParticipant.update({
@@ -178,6 +238,7 @@ export class ProjectReviewEmailInvitationsService {
           reviewId: input.reviewId,
           emailedCount: result.emailed,
           recipients: pseudonymizedRecipients,
+          attachIcs: Boolean(input.attachIcs),
         },
         ...this.auditMeta(input.context),
       });

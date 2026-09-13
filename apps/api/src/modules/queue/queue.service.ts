@@ -18,6 +18,11 @@ export type SendEmailJobPayload = {
   emailDeliveryId: string;
   /** Repli si la colonne emailBodyHtml n’est pas encore lue (jobs en file avant migration). */
   mimeHtml?: string | null;
+  /** Invitation calendrier (.ics) jointe au mail — pas de création Graph. */
+  calendarIcs?: {
+    filename: string;
+    content: string;
+  } | null;
 };
 
 export type LicenseExpirationScanJobPayload = {
