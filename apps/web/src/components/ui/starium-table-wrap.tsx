@@ -4,6 +4,10 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { useHasHorizontalOverflow } from '@/hooks/use-has-horizontal-overflow';
 import { useTablePan } from '@/hooks/use-table-pan';
+import {
+  TableHorizontalScrollRail,
+  useHorizontalScrollRail,
+} from '@/components/ui/table-horizontal-scroll-rail';
 
 type TablePanApi = ReturnType<typeof useTablePan>;
 
@@ -41,6 +45,7 @@ export function StariumTableWrap({
 }: StariumTableWrapProps) {
   const pan = useTablePan();
   const hasOverflow = useHasHorizontalOverflow(pan.scrollRef);
+  const rail = useHorizontalScrollRail(pan.scrollRef);
 
   return (
     <StariumTablePanContext.Provider value={pan}>
@@ -60,9 +65,25 @@ export function StariumTableWrap({
           (scrollLabel ? 'Clic maintenu et glisser pour parcourir le tableau' : undefined)
         }
         aria-label={scrollLabel}
+        onMouseEnter={() => {
+          rail.setHover(true);
+          rail.sync();
+        }}
+        onMouseLeave={() => {
+          if (!rail.dragging) rail.setHover(false);
+        }}
         {...props}
       >
         {children}
+        {rail.overflow ? (
+          <TableHorizontalScrollRail
+            visible={rail.railVisible}
+            thumb={rail.thumb}
+            dragging={rail.dragging}
+            onRailPointerDown={rail.onRailPointerDown}
+            onThumbPointerDown={rail.onThumbPointerDown}
+          />
+        ) : null}
       </div>
     </StariumTablePanContext.Provider>
   );

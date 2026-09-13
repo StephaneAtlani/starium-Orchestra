@@ -36,6 +36,10 @@ import { downloadBudgetsPortfolioCsv } from '@/features/budgets/lib/budget-portf
 import { usePermissions } from '@/hooks/use-permissions';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useTablePan } from '@/hooks/use-table-pan';
+import {
+  TableHorizontalScrollRail,
+  useHorizontalScrollRail,
+} from '@/components/ui/table-horizontal-scroll-rail';
 import type { BudgetSummaryKpi } from '@/features/budgets/types/budget-reporting.types';
 
 /**
@@ -54,6 +58,7 @@ export default function BudgetsListPage() {
   const { filters, setFilters, reset } = useBudgetsListFilters();
   const { activeClient } = useActiveClient();
   const tablePan = useTablePan();
+  const tableHRail = useHorizontalScrollRail(tablePan.scrollRef);
   const { has, isLoading: permsLoading, isSuccess: permsSuccess } = usePermissions();
   const canReadBudgets = permsSuccess && has('budgets.read');
   const [sortKey, setSortKey] = useState<BudgetsTableSortKey>('name');
@@ -239,7 +244,7 @@ export default function BudgetsListPage() {
                     </div>
                     <CardContent
                       className={cn(
-                        'starium-scroll-hover min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        'starium-scroll-hover relative min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
                         viewMode === 'table' &&
                           (tablePan.isPanning
                             ? 'cursor-grabbing select-none touch-none'
@@ -247,6 +252,21 @@ export default function BudgetsListPage() {
                       )}
                       ref={viewMode === 'table' ? tablePan.scrollRef : undefined}
                       onPointerDown={viewMode === 'table' ? tablePan.onPointerDown : undefined}
+                      onMouseEnter={
+                        viewMode === 'table'
+                          ? () => {
+                              tableHRail.setHover(true);
+                              tableHRail.sync();
+                            }
+                          : undefined
+                      }
+                      onMouseLeave={
+                        viewMode === 'table'
+                          ? () => {
+                              if (!tableHRail.dragging) tableHRail.setHover(false);
+                            }
+                          : undefined
+                      }
                     >
                       {viewMode === 'cards' ? (
                         <div className="p-3 sm:p-4">
@@ -267,6 +287,15 @@ export default function BudgetsListPage() {
                           }}
                         />
                       )}
+                      {viewMode === 'table' && tableHRail.overflow ? (
+                        <TableHorizontalScrollRail
+                          visible={tableHRail.railVisible}
+                          thumb={tableHRail.thumb}
+                          dragging={tableHRail.dragging}
+                          onRailPointerDown={tableHRail.onRailPointerDown}
+                          onThumbPointerDown={tableHRail.onThumbPointerDown}
+                        />
+                      ) : null}
                     </CardContent>
                     <CardFooter className="starium-table-footer p-0">
                       <PaginationSummary

@@ -43,6 +43,10 @@ import {
   Presentation,
 } from 'lucide-react';
 import { useTablePan } from '@/hooks/use-table-pan';
+import {
+  TableHorizontalScrollRail,
+  useHorizontalScrollRail,
+} from '@/components/ui/table-horizontal-scroll-rail';
 import { useUpdateProjectStatus } from '@/features/projects/hooks/use-update-project-status';
 import {
   persistProjectsTableColumnDensity,
@@ -59,6 +63,7 @@ export default function ProjectsPortfolioPage() {
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
   const tablePan = useTablePan();
+  const tableHRail = useHorizontalScrollRail(tablePan.scrollRef);
   const {
     has,
     hasIntent,
@@ -344,7 +349,7 @@ export default function ProjectsPortfolioPage() {
                   <>
                     <CardContent
                       className={cn(
-                        'starium-scroll-hover min-h-0 flex-1 overflow-x-auto overflow-y-visible p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        'starium-scroll-hover relative min-h-0 flex-1 overflow-x-auto overflow-y-visible p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
                         viewMode === 'table' &&
                           (tablePan.isPanning
                             ? 'cursor-grabbing select-none touch-none'
@@ -352,6 +357,21 @@ export default function ProjectsPortfolioPage() {
                       )}
                       ref={viewMode === 'table' ? tablePan.scrollRef : undefined}
                       onPointerDown={viewMode === 'table' ? tablePan.onPointerDown : undefined}
+                      onMouseEnter={
+                        viewMode === 'table'
+                          ? () => {
+                              tableHRail.setHover(true);
+                              tableHRail.sync();
+                            }
+                          : undefined
+                      }
+                      onMouseLeave={
+                        viewMode === 'table'
+                          ? () => {
+                              if (!tableHRail.dragging) tableHRail.setHover(false);
+                            }
+                          : undefined
+                      }
                     >
                       {viewMode === 'table' ? (
                         <ProjectsListTable
@@ -374,6 +394,15 @@ export default function ProjectsPortfolioPage() {
                           }}
                         />
                       )}
+                      {viewMode === 'table' && tableHRail.overflow ? (
+                        <TableHorizontalScrollRail
+                          visible={tableHRail.railVisible}
+                          thumb={tableHRail.thumb}
+                          dragging={tableHRail.dragging}
+                          onRailPointerDown={tableHRail.onRailPointerDown}
+                          onThumbPointerDown={tableHRail.onThumbPointerDown}
+                        />
+                      ) : null}
                     </CardContent>
                     <CardFooter className="starium-table-footer p-0">
                       <PaginationSummary

@@ -5,6 +5,10 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useTablePan } from "@/hooks/use-table-pan"
 import { useHasHorizontalOverflow } from "@/hooks/use-has-horizontal-overflow"
+import {
+  TableHorizontalScrollRail,
+  useHorizontalScrollRail,
+} from "@/components/ui/table-horizontal-scroll-rail"
 
 function Table({
   className,
@@ -25,6 +29,7 @@ function Table({
 function TableContainer({ children }: { children: React.ReactNode }) {
   const pan = useTablePan();
   const hasOverflow = useHasHorizontalOverflow(pan.scrollRef);
+  const rail = useHorizontalScrollRail(pan.scrollRef);
   return (
     <div
       ref={pan.scrollRef}
@@ -36,8 +41,24 @@ function TableContainer({ children }: { children: React.ReactNode }) {
         hasOverflow &&
           "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden",
       )}
+      onMouseEnter={() => {
+        rail.setHover(true);
+        rail.sync();
+      }}
+      onMouseLeave={() => {
+        if (!rail.dragging) rail.setHover(false);
+      }}
     >
       {children}
+      {rail.overflow ? (
+        <TableHorizontalScrollRail
+          visible={rail.railVisible}
+          thumb={rail.thumb}
+          dragging={rail.dragging}
+          onRailPointerDown={rail.onRailPointerDown}
+          onThumbPointerDown={rail.onThumbPointerDown}
+        />
+      ) : null}
     </div>
   );
 }

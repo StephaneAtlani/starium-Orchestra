@@ -15,7 +15,10 @@ type ScrollPanSession = {
   startScrollLeft: number;
   startScrollTop: number;
   active: boolean;
-  scrollEl: HTMLElement;
+  /** Conteneur overflow-x (souvent le wrap tableau). */
+  scrollElX: HTMLElement | null;
+  /** Conteneur overflow-y (souvent le `main` page si le wrap n’a pas de scroll Y). */
+  scrollElY: HTMLElement | null;
 };
 
 export type UseScrollPanOptions<T extends HTMLElement = HTMLDivElement> = {
@@ -23,7 +26,7 @@ export type UseScrollPanOptions<T extends HTMLElement = HTMLDivElement> = {
   resolveScrollEl?: (event: ReactPointerEvent<T>) => HTMLElement | null;
 };
 
-function isScrollableAxis(el: HTMLElement, axis: 'x' | 'y'): boolean {
+export function isScrollableAxis(el: HTMLElement, axis: 'x' | 'y'): boolean {
   const style = getComputedStyle(el);
   const overflow = axis === 'x' ? style.overflowX : style.overflowY;
   const canScroll =
@@ -34,13 +37,26 @@ function isScrollableAxis(el: HTMLElement, axis: 'x' | 'y'): boolean {
     : el.scrollHeight > el.clientHeight + 1;
 }
 
-function isScrollableElement(el: HTMLElement): boolean {
-  return isScrollableAxis(el, 'y') || isScrollableAxis(el, 'x');
+export function findScrollableAncestor(
+  start: HTMLElement | null,
+  axis: 'x' | 'y',
+  boundary?: HTMLElement | null,
+): HTMLElement | null {
+  let el: HTMLElement | null = start;
+  while (el && el !== document.documentElement && el !== document.body) {
+    if (isScrollableAxis(el, axis)) return el;
+    if (boundary && el === boundary) break;
+    el = el.parentElement;
+  }
+  return null;
 }
 
 /**
  * Grab/pan sur conteneur scrollable — souris et doigt (Pointer Events).
  * Seuil de déplacement pour ne pas bloquer le clic sur lignes interactives.
+ *
+ * Dual-axis : X sur le nœud ref (wrap tableau), Y sur le même nœud s’il
+ * scrolle verticalement, sinon sur l’ancêtre overflow-y (ex. `main` page).
  */
 export function useScrollPan<T extends HTMLElement = HTMLDivElement>(
   options?: UseScrollPanOptions<T>,
@@ -62,18 +78,28 @@ export function useScrollPan<T extends HTMLElement = HTMLDivElement>(
       const target = e.target as HTMLElement;
       if (target.closest(INTERACTIVE_SELECTOR)) return;
 
-      const el = resolveScrollEl?.(e) ?? scrollRef.current;
-      if (!el || !isScrollableElement(el)) return;
+      const primary = resolveScrollEl?.(e) ?? scrollRef.current;
+      if (!primary) return;
+
+      const scrollElX = isScrollableAxis(primary, 'x')
+        ? primary
+        : findScrollableAncestor(primary, 'x');
+      const scrollElY = isScrollableAxis(primary, 'y')
+        ? primary
+        : findScrollableAncestor(primary.parentElement, 'y');
+
+      if (!scrollElX && !scrollElY) return;
 
       didPanRef.current = false;
       sessionRef.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
-        startScrollLeft: el.scrollLeft,
-        startScrollTop: el.scrollTop,
+        startScrollLeft: scrollElX?.scrollLeft ?? 0,
+        startScrollTop: scrollElY?.scrollTop ?? 0,
         active: false,
-        scrollEl: el,
+        scrollElX,
+        scrollElY,
       };
 
       const onMove = (ev: PointerEvent) => {
@@ -90,8 +116,12 @@ export function useScrollPan<T extends HTMLElement = HTMLDivElement>(
           setIsPanning(true);
         }
 
-        session.scrollEl.scrollLeft = session.startScrollLeft - dx;
-        session.scrollEl.scrollTop = session.startScrollTop - dy;
+        if (session.scrollElX) {
+          session.scrollElX.scrollLeft = session.startScrollLeft - dx;
+        }
+        if (session.scrollElY) {
+          session.scrollElY.scrollTop = session.startScrollTop - dy;
+        }
         ev.preventDefault();
       };
 
@@ -141,12 +171,8 @@ export function findVerticalScrollableAncestor(
   start: HTMLElement,
   boundary: HTMLElement,
 ): HTMLElement | null {
-  let el: HTMLElement | null = start;
-  while (el && el !== boundary) {
-    if (isScrollableAxis(el, 'y')) return el;
-    el = el.parentElement;
-  }
-  return isScrollableAxis(boundary, 'y') ? boundary : null;
+  return findScrollableAncestor(start, 'y', boundary) ??
+    (isScrollableAxis(boundary, 'y') ? boundary : null);
 }
 
 /** Cible scroll modale : corps Starium, sinon ancêtre overflow-y scrollable. */
