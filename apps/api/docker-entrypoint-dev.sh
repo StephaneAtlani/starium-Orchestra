@@ -190,6 +190,24 @@ if (!f.firstName || !f.email) process.exit(3);
   echo "[api-dev] client Prisma OK (ProjectTeamGovernanceMembership.resourceId)"
 }
 
+# RFC-PROJ-023 — liaison équipe ↔ modèle de préparation (include prepareTemplate).
+assert_generated_client_has_circle_prepare_template() {
+  found=0
+  for d in /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client; do
+    if [ -f "$d/index.d.ts" ] \
+      && grep -q 'prepareTemplateId' "$d/index.d.ts" \
+      && grep -q 'prepareTemplate:' "$d/index.d.ts"; then
+      found=1
+      break
+    fi
+  done
+  if [ "$found" != 1 ]; then
+    echo "[api-dev] ERREUR: client Prisma sans ProjectGovernanceCircle.prepareTemplate (migration circle_prepare_template — regenerate)." >&2
+    exit 1
+  fi
+  echo "[api-dev] client Prisma OK (ProjectGovernanceCircle.prepareTemplate)"
+}
+
 assert_rbac_package_present
 echo "[api-dev] pnpm install (sync workspace deps)..."
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
@@ -204,6 +222,7 @@ assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
 assert_generated_client_has_review_descent
 assert_generated_client_has_team_membership_resource
+assert_generated_client_has_circle_prepare_template
 build_rbac_permissions
 echo "[api-dev] prisma db seed..."
 pnpm --filter @starium-orchestra/api exec prisma db seed
@@ -224,5 +243,6 @@ assert_generated_client_has_bucket_fields
 assert_generated_client_has_email_body_html
 assert_generated_client_has_review_descent
 assert_generated_client_has_team_membership_resource
+assert_generated_client_has_circle_prepare_template
 echo "[api-dev] nest start --watch"
 exec pnpm run start:dev

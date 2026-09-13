@@ -57,18 +57,31 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 
 ## 2.1 Scroll du corps (modèle unique — socle)
 
-**Une seule implémentation** : `DialogBody` enveloppe le contenu dans
-`StariumScrollArea` (`reveal="hover"`, `layout="flow"`,
-`max-h-[min(70dvh,560px)]`) — **même contrat** que Préparer (point non planning).
-Le plafond est en **dvh/px**, jamais `max-h-full` (sinon dépendance circulaire →
-pas d’overflow → rail invisible).
+**Une seule implémentation** : `DialogBody` (layout `starium`, hors atelier) enveloppe le
+contenu dans **`StariumScrollArea`** :
+
+| Prop / classe | Valeur obligatoire |
+|---------------|-------------------|
+| `reveal` | `"hover"` — rail HTML au survol (fiable macOS) |
+| `layout` | `"flow"` — hauteur intrinsèque jusqu’au plafond |
+| `className` (root) | `max-h-[min(70dvh,560px)]` + `overflow-hidden` (classe `.starium-modal__body-scroll`) |
+| Viewport | `max-h-[inherit]` (socle `StariumScrollArea` en flow) + padding `px-5 py-5` |
+
+Même contrat que Préparer (point non planning) / Convocation / Équipes.
 
 | Cas | Comportement |
 |-----|----------------|
-| Formulaire standard | Rail HTML au survol dès overflow ; molette / trackpad toujours |
-| Atelier / mail | `bodyClassName` avec `!overflow-hidden` ; **pas** de rail socle ; enfants `StariumScrollArea` |
+| Formulaire standard | Rail au survol dès overflow ; molette / trackpad toujours |
+| Atelier / mail | `bodyClassName` avec `!overflow-hidden` → **pas** de rail socle ; enfants `StariumScrollArea` |
 
-**Interdit** : scrollbar native CSS, `reveal="never"` sur le socle, `max-h-full` sur le scroll du corps.
+### Piège (ne plus reproduire)
+
+`max-h-full` (% du parent) sur un viewport `layout="flow"` dont la hauteur parent dépend du
+contenu → le navigateur ignore le % → **0 overflow** → **0 rail**, contenu clipé par le
+panneau. Toujours un plafond **dvh/px** sur le root + **`max-h-[inherit]`** sur le viewport.
+
+**Interdit** : scrollbar native CSS sur le corps, `reveal="never"` / `reveal="edge"` sur le
+socle formulaire, `max-h-full` sur le scroll du corps.
 
 ---
 
@@ -218,6 +231,7 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Scroll / overflow re-câblé dans chaque feature | Corriger le **socle** `DialogBody` — formulaire = `StariumModal` sans hack overflow |
 | Scrollbar absente au survol du corps | Socle = **`StariumScrollArea` `reveal="hover"`** (rail HTML) — jamais scrollbar native CSS |
 | `reveal="never"` / `reveal="edge"` sur le corps formulaire | **Interdit** sur le socle — réserve `edge` au workspace page |
+| `max-h-full` / `%` sur viewport flow | Plafond **dvh/px** sur le root + `max-h-[inherit]` sur le viewport |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---
@@ -245,10 +259,12 @@ champs starium-form-*, pied Annuler (outline) + action primaire. Ne pas changer 
 
 | Fichier | Rôle |
 |---------|------|
-| `apps/web/src/components/ui/dialog.tsx` | Socle Base UI, layout `starium` / `legacy`, **auto-wrap `DialogBody`**, sous-composants |
+| `apps/web/src/components/ui/dialog.tsx` | Socle Base UI, layout `starium` / `legacy`, **`DialogBody` + rail `StariumScrollArea`**, sous-composants |
+| `apps/web/src/components/layout/starium-scroll-area.tsx` | Rail custom (`reveal=hover\|edge\|always\|never`, `layout=flow\|fill`) |
 | `apps/web/src/components/layout/form-dialog-shell.tsx` | `StariumModal` |
-| `apps/web/src/app/globals.css` | Classes `.starium-modal__*`, `.starium-form-*` |
-| `apps/web/src/components/ui/dialog.spec.tsx` | Tests layout starium |
+| `apps/web/src/app/globals.css` | Classes `.starium-modal__*`, `.starium-modal__body-scroll`, `.starium-form-*`, styles rail |
+| `apps/web/src/components/ui/dialog.spec.tsx` | Tests layout starium + rail socle |
+| `apps/web/src/components/layout/starium-scroll-area.spec.tsx` | Tests reveal hover / never / layout |
 
 **Audit CI** : `node scripts/audit-modals.mjs` (structure obligatoire ; signale aussi les formulaires legacy).
 

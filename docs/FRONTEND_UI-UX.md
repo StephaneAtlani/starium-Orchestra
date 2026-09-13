@@ -722,11 +722,11 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (layout **`starium
 | ------- | ------- |
 | **Layout** | **`layout="starium"`** (défaut). Exception : **`layout="legacy"`** (bottom-sheet) — interdit pour le neuf. **`sidePanel`** / **`chatWidget`** inchangés. |
 | **Backdrop** | `bg-black/40`, léger flou ; `forceRender` pour dialogues imbriqués. |
-| **Panneau** | Centré tous viewports, `bg-card`, `rounded-xl`, `max-h-[86vh]`, `p-0`, pas de blur vitré. Scroll dans **`DialogBody`** uniquement. |
+| **Panneau** | Centré tous viewports, `bg-card`, `rounded-xl`, `max-h-[86vh]`, `p-0`, pas de blur vitré. Scroll **uniquement** dans **`DialogBody`** via **`StariumScrollArea` `reveal="hover"`** (rail HTML — voir [MODALES.md §2.1](./design-system/MODALES.md#21-scroll-du-corps-modèle-unique--socle)). |
 | **Tailles** | **`size`** : `sm`, **`md`** (défaut, 520px), **`lg`** (560px), `xl`, `full`. |
 | **Header** | `.starium-modal__header` : icône or (`DialogHeaderIcon`) + titres + croix **haut droite** (`.starium-modal__close`). |
 | **Fermeture** | `showCloseButton` (défaut `true`) ; `aria-label="Fermer"`. |
-| **Corps** | `.starium-modal__body` ; formulaires `.starium-form` + `.starium-form-*`. |
+| **Corps** | `.starium-modal__body` (+ `--rail` en formulaire) ; formulaires `.starium-form` + `.starium-form-*`. |
 | **Statut** | `.starium-modal__status` — bandeau sous le header (icône + badge + hint ; variante riche dans l’éditeur point projet) |
 | **Pied** | `.starium-modal__footer` : Annuler `outline` + primaire encre (pilule), alignés à droite. |
 
@@ -745,7 +745,8 @@ Implémentation : **`apps/web/src/components/ui/dialog.tsx`** (layout **`starium
 
 **Prompt refactor** : migrer vers `MODALES.md` ; supprimer header legacy (`-mx-4 -mt-4`) ; ne pas changer l’API.
 
-**Interdit** : `layout="legacy"` sur du neuf ; croix haut gauche ; inputs hors `.starium-form-*`.
+**Interdit** : `layout="legacy"` sur du neuf ; croix haut gauche ; inputs hors `.starium-form-*` ;
+scrollbar native / `max-h-full` sur le corps formulaire (rail `StariumScrollArea` uniquement — [MODALES.md §2.1](./design-system/MODALES.md#21-scroll-du-corps-modèle-unique--socle)).
 
 ---
 

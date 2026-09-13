@@ -152,6 +152,7 @@ Cibles tactiles `min-h-11 sm:min-h-9`. Pas de pied si flux **autosave** seul (à
 | Inputs bruts hors `.starium-form-*` | Classes formulaire DS |
 | Scroll sur `DialogContent` | Scroll sur `DialogBody` uniquement via **`StariumScrollArea` `reveal="hover"`** |
 | Scrollbar native CSS / `reveal="never"` sur le corps formulaire | Rail HTML socle — même pattern que Préparer |
+| `max-h-full` sur viewport `layout="flow"` | Plafond **dvh/px** sur le root ; viewport en **`max-h-[inherit]`** (sinon 0 overflow / 0 rail) |
 | `bodyClassName="overflow-y-auto"` « pour que ça marche » | Laisser le défaut ; `!overflow-hidden` seulement pour atelier imbriqué |
 | Bouton unique pleine largeur sans raison | Annuler `outline` + primaire à droite |
 | ID technique en UI | Libellé métier |
