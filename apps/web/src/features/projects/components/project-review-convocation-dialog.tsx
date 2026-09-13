@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { UserInitialsAvatar } from '@/components/ui/user-initials-avatar';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
+import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
 import { useAuth } from '@/context/auth-context';
 import { displayLabel, firstDisplayLabel } from '@/lib/display-label';
 import { toast } from '@/lib/toast';
@@ -494,7 +495,11 @@ export function ProjectReviewConvocationDialog({
         ) : null}
 
         <div className="convoc-mail__grid">
-          <div className="convoc-mail__comp">
+          <StariumScrollArea
+            className="convoc-mail__comp"
+            viewportClassName="convoc-mail__pane"
+            reveal="hover"
+          >
             <div className="convoc-mail__fld">
               <div className="convoc-mail__lbl">Expéditeur</div>
               <div className="convoc-mail__from">
@@ -619,9 +624,13 @@ export function ProjectReviewConvocationDialog({
                 })}
               </div>
             </div>
-          </div>
+          </StariumScrollArea>
 
-          <div className="convoc-mail__prev">
+          <StariumScrollArea
+            className="convoc-mail__prev"
+            viewportClassName="convoc-mail__pane"
+            reveal="hover"
+          >
             <div className="convoc-mail__lbl">
               Aperçu reçu par le participant
             </div>
@@ -718,7 +727,7 @@ export function ProjectReviewConvocationDialog({
                   : ''}
               </div>
             </div>
-          </div>
+          </StariumScrollArea>
         </div>
       </div>
     </StariumModal>

@@ -61,7 +61,7 @@ Le corps de modale doit **montrer** qu’il y a plus de contenu — tout le mond
 
 | Mécanisme | Où |
 |-----------|-----|
-| Scrollbar fine stylée (track + thumb tokens) | **Souris** : masquée au repos, **visible au survol du panneau** (`data-scroll-hover` sur `dialog-content` + tout descendant `*`). Couvre aussi les `overflow-y: auto` définis en CSS feature (pas seulement Tailwind). **Tactile** : fine toujours visible. |
+| Scrollbar fine stylée | **Rail HTML custom** (`StariumScrollArea`) — pas la scrollbar native macOS (invisible). Affiché au **`:hover` CSS** sur `[data-starium-scroll]` + drag. `DialogBody` l’utilise par défaut ; layouts `overflow-hidden` (atelier / convoc) branchent `StariumScrollArea` sur chaque panneau. |
 | `scrollbar-gutter: stable` | Même périmètre — évite le jump de layout |
 | Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
 

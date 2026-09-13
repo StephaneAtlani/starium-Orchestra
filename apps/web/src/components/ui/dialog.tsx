@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
 import { XIcon } from "lucide-react"
 import type { StariumModalAccent } from "@/components/layout/starium-modal-accent"
+import { StariumScrollArea } from "@/components/layout/starium-scroll-area"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
 
@@ -271,35 +272,67 @@ DialogHeader.displayName = "DialogHeader"
 DialogBody.displayName = "DialogBody"
 DialogFooter.displayName = "DialogFooter"
 
+/** Corps avec scroll délégué aux enfants (atelier 3 col, mail 2 col, etc.). */
+function dialogBodyHasNestedScroll(className?: string): boolean {
+  if (!className) return false
+  return /(?:^|[\s])!?overflow-hidden(?:[\s]|$)/.test(className)
+}
+
+function dialogBodyViewportPaddingClass(className?: string): string {
+  if (!className) return "px-5 py-5"
+  if (/(?:^|[\s])!?p-0(?:[\s]|$)/.test(className)) return "p-0"
+  return "px-5 py-5"
+}
+
 function DialogBody({
   className,
+  children,
   onMouseEnter,
   onMouseLeave,
   ...props
 }: React.ComponentProps<"div">) {
   const chrome = React.useContext(DialogChromeContext)
-  const [scrollHover, setScrollHover] = React.useState(false)
+  const nestedScroll = dialogBodyHasNestedScroll(className)
+
+  if (chrome.layout === "starium" && !nestedScroll) {
+    return (
+      <div
+        data-slot="dialog-body"
+        {...props}
+        className={cn(
+          "starium-modal__body starium-modal__body--rail flex min-h-0 flex-1 flex-col !overflow-hidden !p-0",
+          className,
+        )}
+      >
+        <StariumScrollArea
+          className="min-h-0 w-full flex-1"
+          viewportClassName={cn(
+            "starium-modal__body-viewport",
+            dialogBodyViewportPaddingClass(className),
+          )}
+          reveal="hover"
+        >
+          {children}
+        </StariumScrollArea>
+      </div>
+    )
+  }
 
   return (
     <div
       data-slot="dialog-body"
       {...props}
-      data-scroll-hover={scrollHover ? true : undefined}
       className={cn(
         chrome.layout === "starium"
           ? "starium-modal__body"
           : "starium-modal__scroll starium-scroll--edges min-h-0 flex-1 overflow-y-auto overscroll-contain",
         className,
       )}
-      onMouseEnter={(e) => {
-        setScrollHover(true)
-        onMouseEnter?.(e)
-      }}
-      onMouseLeave={(e) => {
-        setScrollHover(false)
-        onMouseLeave?.(e)
-      }}
-    />
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {children}
+    </div>
   )
 }
 

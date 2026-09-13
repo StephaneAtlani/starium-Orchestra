@@ -62,6 +62,10 @@ export function StariumScrollArea({
     const el = viewportRef.current;
     if (!el) return;
     sync();
+    if (typeof ResizeObserver === 'undefined') {
+      el.addEventListener('scroll', sync, { passive: true });
+      return () => el.removeEventListener('scroll', sync);
+    }
     const ro = new ResizeObserver(() => sync());
     ro.observe(el);
     if (el.firstElementChild) ro.observe(el.firstElementChild);
@@ -119,18 +123,19 @@ export function StariumScrollArea({
   };
 
   const railFull = reveal === 'always' || hover || dragging;
-  /** Affordance : rail fantôme dès overflow, plein au survol / always. */
-  const railOpacityClass = !overflow
-    ? 'opacity-0'
-    : railFull
-      ? 'opacity-100'
-      : 'opacity-40';
+  /** Affordance : rail uniquement au survol / always / drag (pas de fantôme macOS). */
+  const railVisible = overflow && railFull;
 
   return (
     <div
       {...props}
+      data-starium-scroll=""
+      data-scroll-hover={hover || dragging ? true : undefined}
       className={cn('relative min-h-0', className)}
-      onMouseEnter={() => setHover(true)}
+      onMouseEnter={() => {
+        setHover(true);
+        sync();
+      }}
       onMouseLeave={() => {
         if (!dragging) setHover(false);
       }}
@@ -152,8 +157,10 @@ export function StariumScrollArea({
           role="presentation"
           aria-hidden
           className={cn(
-            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-20 w-3 rounded-full transition-opacity duration-[var(--duration-fast)] pointer-events-auto',
-            railOpacityClass,
+            'starium-scroll-area__rail-track absolute inset-y-1 right-0.5 z-20 w-3 rounded-full transition-opacity duration-[var(--duration-fast)]',
+            railVisible
+              ? 'pointer-events-auto opacity-100'
+              : 'pointer-events-none opacity-0',
           )}
           onPointerDown={onRailPointerDown}
         >

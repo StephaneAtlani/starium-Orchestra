@@ -2725,6 +2725,10 @@ table.starium-dt {
   line-height: 1.5;
   background-color: var(--card);
 }
+.starium-modal__body.starium-modal__body--rail {
+  padding: 0;
+  overflow: hidden;
+}
 .starium-modal__body .starium-form {
   gap: 16px;
 }
@@ -2760,8 +2764,26 @@ table.starium-dt {
 }
 .starium-scroll-area__rail-track {
   width: 0.75rem;
-  background: color-mix(in srgb, var(--muted) 70%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--muted) 55%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--border) 90%, var(--foreground) 10%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card) 40%, transparent);
+}
+/**
+ * Affichage rail au survol — CSS natif (fiable) + état React (drag / data-scroll-hover).
+ * Ne pas se fier uniquement au state React : souris sur la zone = barre visible.
+ */
+@media (hover: hover) and (pointer: fine) {
+  [data-starium-scroll]:hover > .starium-scroll-area__rail-track,
+  [data-starium-scroll][data-scroll-hover] > .starium-scroll-area__rail-track {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  [data-starium-scroll] > .starium-scroll-area__rail-track {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }
 .starium-modal-seg-title {
   margin: 0 0 12px;

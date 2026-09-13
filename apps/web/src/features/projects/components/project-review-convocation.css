@@ -27,12 +27,15 @@
 
 .convoc-mail__comp,
 .convoc-mail__prev {
+  position: relative;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.convoc-mail__pane {
   padding: 1.1rem 1.25rem;
-  scrollbar-gutter: stable;
+  box-sizing: border-box;
 }
 
 .convoc-mail__comp {
@@ -259,9 +262,6 @@
 .convoc-mail__body {
   padding: 1.1rem 1.2rem;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 }
 
 .convoc-mail__p {
