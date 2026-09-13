@@ -106,6 +106,6 @@ describe('StariumScrollArea', () => {
     ).toBe('flow');
     expect(
       flowContainer.querySelector('.starium-scroll-area__viewport')?.className,
-    ).toMatch(/relative/);
+    ).toMatch(/max-h-\[inherit\]/);
   });
 });

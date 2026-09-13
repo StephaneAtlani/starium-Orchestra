@@ -2548,6 +2548,14 @@ table.starium-dt {
   padding: 0;
   scrollbar-gutter: auto;
 }
+/*
+ * Plafond absolu (dvh/px) — jamais max-height % du parent (dépendance circulaire
+ * contenu ↔ corps → pas d’overflow → rail jamais visible). Aligné Préparer.
+ */
+.starium-modal__body-scroll {
+  max-height: min(70dvh, 560px);
+  overflow: hidden;
+}
 .starium-modal__body:not(.starium-modal__body--rail),
 .starium-modal__scroll {
   min-height: 0;

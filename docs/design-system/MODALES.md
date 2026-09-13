@@ -58,15 +58,17 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 ## 2.1 Scroll du corps (modèle unique — socle)
 
 **Une seule implémentation** : `DialogBody` enveloppe le contenu dans
-`StariumScrollArea` (`reveal="hover"`) — **même rail custom** que Préparer / Convocation /
-Équipes. Fiable sous macOS (scrollbar native overlay = invisible).
+`StariumScrollArea` (`reveal="hover"`, `layout="flow"`,
+`max-h-[min(70dvh,560px)]`) — **même contrat** que Préparer (point non planning).
+Le plafond est en **dvh/px**, jamais `max-h-full` (sinon dépendance circulaire →
+pas d’overflow → rail invisible).
 
 | Cas | Comportement |
 |-----|----------------|
-| Formulaire standard | Rail HTML au survol dès qu’il y a overflow ; molette / trackpad toujours |
+| Formulaire standard | Rail HTML au survol dès overflow ; molette / trackpad toujours |
 | Atelier / mail | `bodyClassName` avec `!overflow-hidden` ; **pas** de rail socle ; enfants `StariumScrollArea` |
 
-**Interdit** : re-câbler une scrollbar native CSS sur le corps, ou `reveal="never"` sur le socle.
+**Interdit** : scrollbar native CSS, `reveal="never"` sur le socle, `max-h-full` sur le scroll du corps.
 
 ---
 

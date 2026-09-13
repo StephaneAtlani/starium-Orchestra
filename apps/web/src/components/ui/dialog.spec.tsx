@@ -120,6 +120,7 @@ describe('DialogBody', () => {
     const scroll = body?.querySelector('[data-starium-scroll]');
     expect(scroll).toBeTruthy();
     expect(scroll).toHaveAttribute('data-reveal', 'hover');
+    expect(scroll?.className).toMatch(/max-h-\[min\(70dvh,560px\)\]/);
     expect(body?.querySelector('[data-slot="starium-scroll-viewport"]')).toBeTruthy();
   });
 

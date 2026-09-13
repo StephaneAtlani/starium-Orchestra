@@ -216,7 +216,9 @@ export function StariumScrollArea({
           '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
           fill
             ? 'absolute inset-0'
-            : 'relative max-h-full w-full',
+            /* flow : hériter le max-h du root (dvh/px). max-h-full % est ignoré
+             * quand la hauteur du parent dépend du contenu → 0 overflow → 0 rail. */
+            : 'relative w-full max-h-[inherit]',
           viewportClassName,
         )}
       >

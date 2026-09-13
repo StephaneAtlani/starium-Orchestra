@@ -287,6 +287,7 @@ function dialogBodyViewportPaddingClass(className?: string): string {
 /**
  * Corps modale Starium — modèle unique (toutes les StariumModal) :
  * - rail custom `StariumScrollArea` `reveal="hover"` (comme Préparer / Convocation) ;
+ * - plafond `max-h` en dvh (pas `max-h-full` : circulaire → 0 overflow → 0 rail) ;
  * - `overflow-hidden` dans `className` : pas de rail socle, scroll délégué aux enfants.
  */
 function DialogBody({
@@ -305,15 +306,17 @@ function DialogBody({
         data-slot="dialog-body"
         {...props}
         className={cn(
-          /* flex-auto (pas flex-1) : hauteur intrinsèque ; shrink sous max-h du panneau.
-           * flex-1 basis 0% + StariumScrollArea absolute → collapse. */
           "starium-modal__body starium-modal__body--rail flex min-h-0 flex-auto flex-col !overflow-hidden !p-0",
           className,
         )}
       >
+        {/*
+          Même contrat que prepare-workspace / équipes :
+          `layout="flow"` + max-h en dvh (jamais max-h-full %).
+        */}
         <StariumScrollArea
           layout="flow"
-          className="min-h-0 w-full max-h-full"
+          className="starium-modal__body-scroll min-h-0 w-full max-h-[min(70dvh,560px)] overflow-hidden"
           viewportClassName={cn(
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),
