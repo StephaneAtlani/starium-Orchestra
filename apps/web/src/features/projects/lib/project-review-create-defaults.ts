@@ -119,16 +119,49 @@ export function defaultCreateTitleForType(
 ): string {
   const label = getCreateDefaultsForType(reviewType).menuLabel;
   if (reviewType === 'OTHER') return `${label} — décision urgente`;
-  if (reviewType === 'PROJECT_REVIEW') return `${label} — revue`;
+  if (reviewType === 'PROJECT_REVIEW') {
+    return `${label} — ${now.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })}`;
+  }
   if (reviewType === 'CODIR_REVIEW') {
     const q = Math.floor(now.getMonth() / 3) + 1;
     return `${label} — Q${q} ${now.getFullYear()}`;
   }
   if (reviewType === 'COPIL') {
-    return `${label} — ${now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`;
+    const month = now.toLocaleDateString('fr-FR', {
+      month: 'long',
+      year: 'numeric',
+    });
+    return `${label} — ${month.charAt(0).toUpperCase()}${month.slice(1)}`;
   }
   const week = isoWeekNumber(now);
   return `${label} — Semaine ${week}`;
+}
+
+/** Parse `YYYY-MM-DD` (input date) → Date locale (midi, stable DST). */
+export function dateFromCreateDateOnly(
+  dateOnly: string | null | undefined,
+): Date | null {
+  if (!dateOnly?.trim()) return null;
+  const [y, m, day] = dateOnly.split('-').map(Number);
+  if (!y || !m || !day) return null;
+  const d = new Date(y, m - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Titre auto selon type + date saisie (sinon aujourd’hui). */
+export function autoCreateTitleForTypeAndDate(
+  reviewType: ProjectReviewType,
+  dateOnly?: string | null,
+): string {
+  if (reviewType === 'POST_MORTEM') return 'Retour d’expérience';
+  return defaultCreateTitleForType(
+    reviewType,
+    dateFromCreateDateOnly(dateOnly) ?? new Date(),
+  );
 }
 
 function isoWeekNumber(d: Date): number {

@@ -28,9 +28,9 @@ import {
 } from '../lib/project-review-agenda-presets';
 import {
   agendaModelLabelForType,
+  autoCreateTitleForTypeAndDate,
   datetimeFromDateOnlyAndType,
   defaultCreateDatetimeForType,
-  defaultCreateTitleForType,
   getCreateDefaultsForType,
   objectivePlaceholderForType,
   PROJECT_REVIEW_CREATE_DEFAULTS,
@@ -203,6 +203,8 @@ export function ProjectReviewCreateDialog({
   const [prepareTemplateId, setPrepareTemplateId] = useState<string | null>(
     null,
   );
+  /** false dès que l’utilisateur édite le titre à la main. */
+  const [titleAuto, setTitleAuto] = useState(true);
   const [formTouched, setFormTouched] = useState(false);
   const [titleBlurred, setTitleBlurred] = useState(false);
   const [dateBlurred, setDateBlurred] = useState(false);
@@ -272,13 +274,11 @@ export function ProjectReviewCreateDialog({
   }, [selectedSeries, formType]);
 
   const applyTypeDefaults = (type: ProjectReviewType, keepSeries = false) => {
-    const title =
-      type === 'POST_MORTEM'
-        ? 'Retour d’expérience'
-        : defaultCreateTitleForType(type);
+    const title = autoCreateTitleForTypeAndDate(type, null);
     const objectiveValue = '';
     setFormType(type);
     setFormTitle(title);
+    setTitleAuto(true);
     setObjective(objectiveValue);
     setDateOnly('');
     if (!keepSeries) setSeriesId('');
@@ -293,6 +293,17 @@ export function ProjectReviewCreateDialog({
     setTitleBlurred(false);
     setDateBlurred(false);
     setSubmitError(null);
+  };
+
+  const syncAutoTitle = (type: ProjectReviewType, nextDateOnly: string) => {
+    if (!titleAuto || type === 'POST_MORTEM') return;
+    const title = autoCreateTitleForTypeAndDate(type, nextDateOnly);
+    setFormTitle(title);
+    baselineRef.current = {
+      ...baselineRef.current,
+      title,
+      dateOnly: nextDateOnly,
+    };
   };
 
   useEffect(() => {
@@ -691,11 +702,16 @@ export function ProjectReviewCreateDialog({
             className={cn(titleError && 'border-destructive')}
             onChange={(e) => {
               setFormTitle(e.target.value);
+              setTitleAuto(false);
               markDirty();
             }}
             onBlur={() => setTitleBlurred(true)}
           />
-          {titleError ? (
+          {!titleError && titleAuto && !postMortemEligible ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Généré automatiquement selon le type et la date — modifiable.
+            </p>
+          ) : null}          {titleError ? (
             <p
               id="create-review-title-err"
               className="mt-1 text-xs text-destructive"
@@ -774,7 +790,9 @@ export function ProjectReviewCreateDialog({
                   disabled={submitting}
                   className={cn(dateError && 'border-destructive')}
                   onChange={(e) => {
-                    setDateOnly(e.target.value);
+                    const next = e.target.value;
+                    setDateOnly(next);
+                    syncAutoTitle(formType, next);
                     markDirty();
                   }}
                   onBlur={() => setDateBlurred(true)}

@@ -78,7 +78,7 @@ export function PrepareTemplateEditorDialog({
 }: Props) {
   const authFetch = useAuthenticatedFetch();
   const qc = useQueryClient();
-  const blocks = blocksForTypeCode(typeCode);
+  const blocks = useMemo(() => blocksForTypeCode(typeCode), [typeCode]);
   const catalogIds = useMemo(() => blocks.map((b) => b.id), [blocks]);
 
   const [name, setName] = useState('');
@@ -88,6 +88,8 @@ export function PrepareTemplateEditorDialog({
   );
   const [saving, setSaving] = useState(false);
 
+  // Reset uniquement à l’ouverture / changement de modèle ou de type — pas à chaque
+  // nouvelle référence de tableau passée par le parent (évite max update depth).
   useEffect(() => {
     if (!open) return;
     setName(
@@ -98,15 +100,8 @@ export function PrepareTemplateEditorDialog({
     const order = resolveBlockOrderIds(catalogIds, initialBlockOrderIds);
     setOrderIds(order);
     setSelected(selectedIdsInBlockOrder(initialSelectedBlockIds, order));
-  }, [
-    open,
-    mode,
-    typeCode,
-    catalogIds,
-    initialSelectedBlockIds,
-    initialBlockOrderIds,
-    initialName,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapshot à open/type/template
+  }, [open, mode, typeCode, templateId, catalogIds]);
 
   const orderedBlocks = useMemo(() => {
     const byId = new Map(blocks.map((b) => [b.id, b]));

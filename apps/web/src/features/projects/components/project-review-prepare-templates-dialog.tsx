@@ -197,6 +197,23 @@ export function ProjectReviewPrepareTemplatesDialog({
     ? asPrepTypeCode(editing.typeCode)
     : createType;
 
+  const editorInitialSelectedBlockIds = useMemo(() => {
+    if (editorMode === 'edit' && editing) {
+      const fromTpl = payloadStringArray(editing.payload, 'selectedBlockIds');
+      return fromTpl.length > 0
+        ? fromTpl
+        : defaultSelectedBlockIds(editorTypeCode);
+    }
+    return defaultSelectedBlockIds(editorTypeCode);
+  }, [editorMode, editing, editorTypeCode]);
+
+  const editorInitialBlockOrderIds = useMemo(() => {
+    if (editorMode === 'edit' && editing) {
+      return payloadStringArray(editing.payload, 'blockOrderIds');
+    }
+    return undefined;
+  }, [editorMode, editing]);
+
   const confirmTarget = confirmDeleteId
     ? items.find((t) => t.id === confirmDeleteId)
     : null;
@@ -421,24 +438,8 @@ export function ProjectReviewPrepareTemplatesDialog({
         mode={editorMode}
         templateId={editing?.id ?? null}
         initialName={editing?.name}
-        initialSelectedBlockIds={
-          editorMode === 'edit' && editing
-            ? (() => {
-                const fromTpl = payloadStringArray(
-                  editing.payload,
-                  'selectedBlockIds',
-                );
-                return fromTpl.length > 0
-                  ? fromTpl
-                  : defaultSelectedBlockIds(editorTypeCode);
-              })()
-            : defaultSelectedBlockIds(editorTypeCode)
-        }
-        initialBlockOrderIds={
-          editorMode === 'edit' && editing
-            ? payloadStringArray(editing.payload, 'blockOrderIds')
-            : undefined
-        }
+        initialSelectedBlockIds={editorInitialSelectedBlockIds}
+        initialBlockOrderIds={editorInitialBlockOrderIds}
         onSaved={async () => {
           await invalidateTemplates();
         }}
