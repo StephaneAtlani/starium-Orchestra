@@ -3147,6 +3147,7 @@ export function ProjectReviewEditorDialog({
                     onPointerMove={conductTabsDragScroll.onPointerMove}
                     onPointerUp={conductTabsDragScroll.onPointerUp}
                     onPointerCancel={conductTabsDragScroll.onPointerCancel}
+                    onClickCapture={conductTabsDragScroll.onClickCapture}
                     onWheel={onConductTabsWheel}
                     aria-label="Sections du point — glisser horizontalement pour parcourir les onglets"
                   >

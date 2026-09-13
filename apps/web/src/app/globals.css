@@ -105,6 +105,7 @@ html.dark {
   align-items: center;
   gap: 4px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   border-radius: var(--radius-md, 10px);
   border: 1px solid var(--neutral-200, var(--border));
@@ -112,6 +113,7 @@ html.dark {
   padding: 7px 10px;
   margin-bottom: 18px;
   box-shadow: var(--shadow-1);
+  -webkit-overflow-scrolling: touch;
 }
 .starium-project-workspace-tabs::-webkit-scrollbar {
   display: none;
@@ -6728,6 +6730,9 @@ main.starium-workspace-sheet:has(.starium-conduct-page) .starium-workspace-inner
     background-color: var(--control-bg, var(--card));
     border: 1.5px solid var(--control-border, var(--border));
     box-shadow: none;
+    flex-wrap: nowrap;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .starium-tab-btn {
     display: inline-flex;

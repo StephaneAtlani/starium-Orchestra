@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
 import { cn } from '@/lib/utils';
 
 export type WorkspaceTabBarItem = {
@@ -193,6 +194,8 @@ export function WorkspaceTabBar({
   mobileAriaLabel?: string;
   'data-testid'?: string;
 }) {
+  const dragScroll = useHorizontalDragScroll<HTMLElement>();
+
   return (
     <div data-testid={dataTestId}>
       <WorkspaceTabBarMobileSelect
@@ -204,9 +207,18 @@ export function WorkspaceTabBar({
         mobileAriaLabel={mobileAriaLabel ?? ariaLabel}
       />
       <nav
-        className="starium-project-workspace-tabs relative z-0 hidden min-w-0 md:flex"
+        ref={dragScroll.ref}
+        className={cn(
+          'starium-project-workspace-tabs relative z-0 hidden min-w-0 md:flex',
+          dragScroll.className,
+        )}
         role="tablist"
         aria-label={ariaLabel}
+        onPointerDown={dragScroll.onPointerDown}
+        onPointerMove={dragScroll.onPointerMove}
+        onPointerUp={dragScroll.onPointerUp}
+        onPointerCancel={dragScroll.onPointerCancel}
+        onClickCapture={dragScroll.onClickCapture}
       >
         {items.map((item) => (
           <WorkspaceTabBarDesktopItem

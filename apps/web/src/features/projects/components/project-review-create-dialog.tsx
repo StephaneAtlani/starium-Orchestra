@@ -5,6 +5,13 @@ import { ClipboardPen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { displayLabel } from '@/lib/display-label';
@@ -14,6 +21,7 @@ import { useProjectReviewMutations } from '../hooks/use-project-review-mutations
 import { useProjectReviewSeriesQuery } from '../hooks/use-project-review-series';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
 import { useProjectTeamsQuery } from '../hooks/use-project-governance-circles-query';
+import { usePrepareTemplatesQuery } from '../hooks/use-prepare-templates-query';
 import {
   cloneAgendaPresetRows,
   getAgendaPresetForReviewType,
@@ -28,6 +36,18 @@ import {
   PROJECT_REVIEW_CREATE_DEFAULTS,
   titlePlaceholderForType,
 } from '../lib/project-review-create-defaults';
+import {
+  blocksForTypeCode,
+  defaultSelectedBlockIds,
+} from '../lib/prepare-workspace-blocks';
+import {
+  defaultPrepWorkspace,
+  mergeContentPayloadWithPrep,
+  resolveBlockOrderIds,
+  reviewTypeToTypeCode,
+  selectedIdsInBlockOrder,
+  type PrepWorkspacePayload,
+} from '../lib/prepare-workspace-types';
 import type {
   ProjectAssignableUser,
   ProjectReviewAgendaItemType,
@@ -180,6 +200,9 @@ export function ProjectReviewCreateDialog({
   const [objective, setObjective] = useState('');
   const [dateOnly, setDateOnly] = useState('');
   const [seriesId, setSeriesId] = useState('');
+  const [prepareTemplateId, setPrepareTemplateId] = useState<string | null>(
+    null,
+  );
   const [formTouched, setFormTouched] = useState(false);
   const [titleBlurred, setTitleBlurred] = useState(false);
   const [dateBlurred, setDateBlurred] = useState(false);
@@ -193,6 +216,22 @@ export function ProjectReviewCreateDialog({
     seriesId: '',
     type: defaultType as ProjectReviewType,
   });
+
+  const prepTypeCode = reviewTypeToTypeCode(formType);
+  const templatesQuery = usePrepareTemplatesQuery(projectId, prepTypeCode, {
+    enabled: open && !postMortemEligible,
+  });
+  const prepareTemplates = templatesQuery.data?.items ?? [];
+
+  const teamLinkedTemplateId = useMemo(() => {
+    const kind =
+      formType === 'COPIL' ? 'COPIL' : formType === 'COPRO' ? 'COPROJ' : null;
+    if (!kind) return null;
+    const team = (teamsQuery.data?.items ?? []).find(
+      (t) => t.systemKind === kind,
+    );
+    return team?.prepareTemplateId ?? null;
+  }, [formType, teamsQuery.data?.items]);
 
   const seriesForType = useMemo(() => {
     const items = seriesQuery.data ?? [];
@@ -269,6 +308,26 @@ export function ProjectReviewCreateDialog({
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on open / prefill
   }, [open, defaultType]);
+
+  // Préselection modèle : lien équipe si dispo, sinon défaut type.
+  useEffect(() => {
+    if (!open || postMortemEligible) return;
+    const items = templatesQuery.data?.items ?? [];
+    if (
+      teamLinkedTemplateId &&
+      items.some((t) => t.id === teamLinkedTemplateId)
+    ) {
+      setPrepareTemplateId(teamLinkedTemplateId);
+      return;
+    }
+    setPrepareTemplateId(null);
+  }, [
+    open,
+    postMortemEligible,
+    formType,
+    teamLinkedTemplateId,
+    templatesQuery.data?.items,
+  ]);
 
   // Auto-sélection série unique du type
   useEffect(() => {
@@ -359,6 +418,35 @@ export function ProjectReviewCreateDialog({
       }));
 
     try {
+      const selectedTpl = prepareTemplateId
+        ? prepareTemplates.find((t) => t.id === prepareTemplateId)
+        : null;
+      let contentPayload: Record<string, unknown> | undefined;
+      if (selectedTpl) {
+        const catalogIds = blocksForTypeCode(prepTypeCode).map((b) => b.id);
+        const rawSelected = Array.isArray(selectedTpl.payload?.selectedBlockIds)
+          ? (selectedTpl.payload.selectedBlockIds as string[])
+          : defaultSelectedBlockIds(prepTypeCode);
+        const rawOrder = Array.isArray(selectedTpl.payload?.blockOrderIds)
+          ? (selectedTpl.payload.blockOrderIds as string[])
+          : undefined;
+        const order = resolveBlockOrderIds(
+          catalogIds,
+          rawOrder?.length ? rawOrder : undefined,
+        );
+        const prep: PrepWorkspacePayload = {
+          ...defaultPrepWorkspace(
+            selectedIdsInBlockOrder(rawSelected, order),
+          ),
+          templateId: selectedTpl.id,
+          blockOrderIds: order,
+          customBlocks: Array.isArray(selectedTpl.payload?.customBlocks)
+            ? (selectedTpl.payload.customBlocks as PrepWorkspacePayload['customBlocks'])
+            : [],
+        };
+        contentPayload = mergeContentPayloadWithPrep({}, prep);
+      }
+
       const created = await create.mutateAsync({
         reviewDate,
         reviewType: formType,
@@ -373,6 +461,7 @@ export function ProjectReviewCreateDialog({
           ? { location: meetingDefaults.location }
           : {}),
         ...(participants.length > 0 ? { participants } : {}),
+        ...(contentPayload ? { contentPayload } : {}),
       });
 
       if (!postMortemEligible && agendaItems.length > 0) {
@@ -420,16 +509,9 @@ export function ProjectReviewCreateDialog({
     Math.max(agendaItems.length, 0),
   );
 
-  const teamLinkedModelLabel = useMemo(() => {
-    const kind =
-      formType === 'COPIL' ? 'COPIL' : formType === 'COPRO' ? 'COPROJ' : null;
-    if (!kind) return null;
-    const team = (teamsQuery.data?.items ?? []).find(
-      (t) => t.systemKind === kind,
-    );
-    const name = team?.prepareTemplateName?.trim();
-    return name ? name : null;
-  }, [formType, teamsQuery.data?.items]);
+  const selectedPrepareTemplate = prepareTemplateId
+    ? prepareTemplates.find((t) => t.id === prepareTemplateId)
+    : null;
 
   const typePills = postMortemEligible
     ? (['POST_MORTEM'] as ProjectReviewType[])
@@ -534,6 +616,64 @@ export function ProjectReviewCreateDialog({
             })}
           </div>
         </div>
+
+        {!postMortemEligible ? (
+          <div className="starium-form-field">
+            <label
+              className="starium-form-label"
+              htmlFor="create-review-prepare-model"
+            >
+              Modèle de préparation
+            </label>
+            <Select
+              value={prepareTemplateId ?? '__default__'}
+              onValueChange={(v) => {
+                setPrepareTemplateId(!v || v === '__default__' ? null : v);
+                markDirty();
+              }}
+              disabled={submitting || templatesQuery.isLoading}
+            >
+              <SelectTrigger
+                id="create-review-prepare-model"
+                className="starium-form-select min-h-11 w-full"
+                aria-describedby="create-review-prepare-model-hint"
+              >
+                <SelectValue placeholder={agendaModelLabel}>
+                  {(value) => {
+                    if (!value || value === '__default__') {
+                      return agendaModelLabel;
+                    }
+                    const t = prepareTemplates.find((row) => row.id === value);
+                    return t
+                      ? displayLabel(t.name, 'Modèle sans nom')
+                      : 'Modèle';
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">{agendaModelLabel}</SelectItem>
+                {prepareTemplates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {displayLabel(t.name, 'Modèle sans nom')}
+                    {t.id === teamLinkedTemplateId ? ' · équipe' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p
+              id="create-review-prepare-model-hint"
+              className="mt-1 text-xs text-muted-foreground"
+            >
+              {selectedPrepareTemplate
+                ? selectedPrepareTemplate.id === teamLinkedTemplateId
+                  ? 'Modèle lié à l’équipe — appliqué à la préparation.'
+                  : 'Ce modèle sera appliqué à la préparation du point.'
+                : prepareTemplates.length === 0
+                  ? 'Aucun modèle enregistré pour ce type — utilisez Préparer ou Modèles pour en créer.'
+                  : 'Modèle standard du type, ou un modèle enregistré.'}
+            </p>
+          </div>
+        ) : null}
 
         {/* Zone 3 — Titre */}
         <div className="starium-form-field">
@@ -656,47 +796,21 @@ export function ProjectReviewCreateDialog({
               </div>
             </div>
 
-            {/* Zone 6 — Modèle ODJ */}
-            <div className="starium-form-field">
-              <label
-                className="starium-form-label"
-                htmlFor="create-review-agenda-model"
-              >
-                Modèle d&apos;ordre du jour
-              </label>
-              <select
-                id="create-review-agenda-model"
-                className="starium-form-select min-h-11 w-full"
-                value="standard"
-                disabled
-                aria-readonly="true"
-                aria-describedby="create-review-agenda-model-hint"
-              >
-                <option value="standard">
-                  {teamLinkedModelLabel
-                    ? `${teamLinkedModelLabel} (équipe)`
-                    : agendaModelLabel}
-                </option>
-              </select>
-              <p
-                id="create-review-agenda-model-hint"
-                className="mt-1 text-xs text-muted-foreground"
-              >
-                {teamLinkedModelLabel
-                  ? 'Modèle lié à l’équipe COPIL/COPROJ — appliqué à la préparation.'
-                  : 'Liez un modèle à l’équipe dans Équipes projet, ou créez-en un dans Préparer.'}
-              </p>
-              {agendaError ? (
-                <p className="mt-1 text-xs text-destructive" role="alert">
-                  {agendaError}
-                </p>
-              ) : null}
-              {participantError ? (
-                <p className="mt-1 text-xs text-destructive" role="alert">
-                  {participantError}
-                </p>
-              ) : null}
-            </div>
+            {/* Zone 6 — erreurs ODJ / participants */}
+            {agendaError || participantError ? (
+              <div className="space-y-1" aria-live="polite">
+                {agendaError ? (
+                  <p className="text-xs text-destructive" role="alert">
+                    {agendaError}
+                  </p>
+                ) : null}
+                {participantError ? (
+                  <p className="text-xs text-destructive" role="alert">
+                    {participantError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

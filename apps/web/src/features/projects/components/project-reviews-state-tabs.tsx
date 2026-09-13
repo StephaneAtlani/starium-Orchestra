@@ -1,6 +1,7 @@
 'use client';
 
 import { LayoutTemplate } from 'lucide-react';
+import { useHorizontalDragScroll } from '@/hooks/use-horizontal-drag-scroll';
 import { cn } from '@/lib/utils';
 import {
   PROJECT_REVIEWS_TAB_LABEL,
@@ -25,8 +26,22 @@ export function ProjectReviewsStateTabs({
   modelsOpen?: boolean;
   onOpenModels?: () => void;
 }) {
+  const dragScroll = useHorizontalDragScroll();
+
   return (
-    <div className="starium-tab-group w-full max-w-full overflow-x-auto">
+    <div
+      ref={dragScroll.ref}
+      className={cn(
+        'starium-tab-group w-full max-w-full overflow-x-auto',
+        '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        dragScroll.className,
+      )}
+      onPointerDown={dragScroll.onPointerDown}
+      onPointerMove={dragScroll.onPointerMove}
+      onPointerUp={dragScroll.onPointerUp}
+      onPointerCancel={dragScroll.onPointerCancel}
+      onClickCapture={dragScroll.onClickCapture}
+    >
       {onOpenModels ? (
         <button
           type="button"
