@@ -315,7 +315,7 @@ export function ProjectsListTableDesktop({
           isExtended ? 'min-w-[54rem]' : 'min-w-[48rem]',
         )}
       >
-        <TableHeader className="sticky top-0 z-50 [&_tr]:border-b-0">
+        <TableHeader className="[&_tr]:border-b-0">
           <TableRow className="starium-projects-table-label-row border-0 hover:bg-transparent">
             <TableHead
               rowSpan={2}

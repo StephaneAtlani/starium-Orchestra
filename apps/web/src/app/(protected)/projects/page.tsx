@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RequireActiveClient } from '@/components/RequireActiveClient';
 import { PageContainer } from '@/components/layout/page-container';
@@ -20,6 +20,7 @@ import { PaginationSummary } from '@/features/budgets/components/pagination-summ
 import { useProjectsListFilters } from '@/features/projects/hooks/use-projects-list-filters';
 import { useProjectsListQuery } from '@/features/projects/hooks/use-projects-list-query';
 import { usePortfolioSummaryQuery } from '@/features/projects/hooks/use-portfolio-summary-query';
+import { useProjectsViewportPageLimit } from '@/features/projects/hooks/use-projects-viewport-page-limit';
 import { ProjectsPortfolioKpi } from '@/features/projects/components/projects-portfolio-kpi';
 import { ProjectsToolbar } from '@/features/projects/components/projects-toolbar';
 import { ProjectsListTable } from '@/features/projects/components/projects-list-table';
@@ -95,6 +96,19 @@ export default function ProjectsPortfolioPage() {
   const { data: summary, isLoading: summaryLoading } = usePortfolioSummaryQuery({
     enabled: listEnabled,
   });
+
+  const onViewportLimitChange = useCallback(
+    (limit: number) => {
+      if (filters.limit === limit) return;
+      setFilters({ limit, page: 1 });
+    },
+    [filters.limit, setFilters],
+  );
+  const tableAnchorRef = useProjectsViewportPageLimit(
+    onViewportLimitChange,
+    listEnabled && viewMode === 'table',
+    `${summaryLoading}:${viewMode}`,
+  );
 
   const apiErr = error ? (error as unknown as ApiFormError) : undefined;
 
@@ -323,14 +337,15 @@ export default function ProjectsPortfolioPage() {
                 </div>
 
                 <Card
+                  ref={tableAnchorRef}
                   size="sm"
-                  className="starium-panel max-md:max-h-none max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-hidden md:max-h-[min(75vh,800px)]"
+                  className="starium-panel max-md:border-0 max-md:bg-transparent max-md:shadow-none overflow-visible md:max-h-none"
                 >
                 {data ? (
                   <>
                     <CardContent
                       className={cn(
-                        'min-h-0 flex-1 overflow-auto p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
+                        'min-h-0 flex-1 overflow-x-auto overflow-y-visible p-0 group-data-[size=sm]/card:px-0 group-data-[size=sm]/card:pt-0',
                         viewMode === 'table' &&
                           (tablePan.isPanning
                             ? 'cursor-grabbing select-none touch-none'
