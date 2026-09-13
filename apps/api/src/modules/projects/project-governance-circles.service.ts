@@ -4,7 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ProjectTeamColorToken } from '@prisma/client';
+import {
+  Prisma,
+  ProjectGovernanceCircleSystemKind,
+  ProjectTeamColorToken,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ResourcesService } from '../resources/resources.service';
 import { ProjectsService } from './projects.service';
@@ -39,6 +43,24 @@ function assertTeamName(name: string): string {
     throw new BadRequestException('Le nom de l’équipe est limité à 24 caractères');
   }
   return n;
+}
+
+/** `undefined` = ne pas toucher ; `null` = détacher. */
+function normalizePrepareTemplateIdInput(
+  raw: string | null | undefined,
+): string | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  const t = raw.trim();
+  return t.length === 0 ? null : t;
+}
+
+function expectedPrepTypeCodeForSystemKind(
+  systemKind: ProjectGovernanceCircleSystemKind | null,
+): string | null {
+  if (systemKind === ProjectGovernanceCircleSystemKind.COPIL) return 'COPIL';
+  if (systemKind === ProjectGovernanceCircleSystemKind.COPROJ) return 'COPROJ';
+  return null;
 }
 
 @Injectable()
@@ -105,6 +127,11 @@ export class ProjectGovernanceCirclesService {
         dto.members,
         dto.pilotIdentityKey,
       );
+      const prepareTemplateId = await this.resolvePrepareTemplateId(
+        clientId,
+        normalizePrepareTemplateIdInput(dto.prepareTemplateId),
+        null,
+      );
       const created = await this.prisma.$transaction(async (tx) => {
         const row = await tx.projectGovernanceCircle.create({
           data: {
@@ -116,6 +143,9 @@ export class ProjectGovernanceCirclesService {
             pilotIdentityKey: resolved.pilotIdentityKey,
             sortOrder: dto.sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
             systemKind: null,
+            ...(prepareTemplateId !== undefined
+              ? { prepareTemplateId }
+              : {}),
           },
         });
         if (resolved.members?.length) {
@@ -180,6 +210,11 @@ export class ProjectGovernanceCirclesService {
           ? dto.pilotIdentityKey
           : existing.pilotIdentityKey,
       );
+      const prepareTemplateId = await this.resolvePrepareTemplateId(
+        clientId,
+        normalizePrepareTemplateIdInput(dto.prepareTemplateId),
+        existing.systemKind,
+      );
       await this.prisma.$transaction(async (tx) => {
         await tx.projectGovernanceCircle.update({
           where: { id: teamId },
@@ -193,6 +228,7 @@ export class ProjectGovernanceCirclesService {
               ? { pilotIdentityKey: resolved.pilotIdentityKey }
               : {}),
             ...(dto.sortOrder != null ? { sortOrder: dto.sortOrder } : {}),
+            ...(prepareTemplateId !== undefined ? { prepareTemplateId } : {}),
           },
         });
         if (resolved.members) {
@@ -531,6 +567,32 @@ export class ProjectGovernanceCirclesService {
     }
   }
 
+  private async resolvePrepareTemplateId(
+    clientId: string,
+    prepareTemplateId: string | null | undefined,
+    systemKind: ProjectGovernanceCircleSystemKind | null,
+  ): Promise<string | null | undefined> {
+    if (prepareTemplateId === undefined) return undefined;
+    if (prepareTemplateId === null) return null;
+
+    const tpl = await this.prisma.projectReviewPrepareTemplate.findFirst({
+      where: { id: prepareTemplateId, clientId },
+      select: { id: true, typeCode: true, name: true },
+    });
+    if (!tpl) {
+      throw new BadRequestException(
+        'Modèle de point introuvable pour ce client',
+      );
+    }
+    const expected = expectedPrepTypeCodeForSystemKind(systemKind);
+    if (expected && tpl.typeCode.toUpperCase() !== expected) {
+      throw new BadRequestException(
+        `Ce modèle (${tpl.typeCode}) ne correspond pas au type d’équipe ${expected}`,
+      );
+    }
+    return tpl.id;
+  }
+
   private async loadTeamResponses(
     clientId: string,
     projectId: string,
@@ -544,6 +606,9 @@ export class ProjectGovernanceCirclesService {
       },
       include: {
         memberships: { orderBy: { sortOrder: 'asc' } },
+        prepareTemplate: {
+          select: { id: true, name: true, typeCode: true },
+        },
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
@@ -624,6 +689,8 @@ export class ProjectGovernanceCirclesService {
         members,
         reviewConvocationCount: countByTeam.get(row.id) ?? 0,
         pilotDisplayName,
+        prepareTemplateName: row.prepareTemplate?.name ?? null,
+        prepareTemplateTypeCode: row.prepareTemplate?.typeCode ?? null,
       });
     });
   }

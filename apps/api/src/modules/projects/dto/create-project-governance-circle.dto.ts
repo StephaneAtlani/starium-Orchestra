@@ -93,6 +93,13 @@ export class CreateProjectTeamDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  /** Lien permanent vers un modèle de point (prepare template) du client. `null` = détacher. */
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsString()
+  @MaxLength(64)
+  prepareTemplateId?: string | null;
 }
 
 export class UpdateProjectTeamDto {
@@ -126,6 +133,13 @@ export class UpdateProjectTeamDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  /** Lien permanent vers un modèle de point. `null` = détacher. Omis = inchangé. */
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsString()
+  @MaxLength(64)
+  prepareTemplateId?: string | null;
 }
 
 /** @deprecated Use CreateProjectTeamDto — kept for alias governance-circles. */

@@ -13,6 +13,7 @@ import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { useProjectReviewSeriesQuery } from '../hooks/use-project-review-series';
 import { useProjectTeamQuery } from '../hooks/use-project-team-queries';
+import { useProjectTeamsQuery } from '../hooks/use-project-governance-circles-query';
 import {
   cloneAgendaPresetRows,
   getAgendaPresetForReviewType,
@@ -161,6 +162,7 @@ export function ProjectReviewCreateDialog({
 }: ProjectReviewCreateDialogProps) {
   const { create, createAgendaItem } = useProjectReviewMutations(projectId);
   const teamQuery = useProjectTeamQuery(projectId, { enabled: open });
+  const teamsQuery = useProjectTeamsQuery(projectId, { enabled: open });
   const assignable = useProjectAssignableUsers({ enabled: open });
   const seriesQuery = useProjectReviewSeriesQuery(projectId, {
     enabled: open && !postMortemEligible,
@@ -418,6 +420,17 @@ export function ProjectReviewCreateDialog({
     Math.max(agendaItems.length, 0),
   );
 
+  const teamLinkedModelLabel = useMemo(() => {
+    const kind =
+      formType === 'COPIL' ? 'COPIL' : formType === 'COPRO' ? 'COPROJ' : null;
+    if (!kind) return null;
+    const team = (teamsQuery.data?.items ?? []).find(
+      (t) => t.systemKind === kind,
+    );
+    const name = team?.prepareTemplateName?.trim();
+    return name ? name : null;
+  }, [formType, teamsQuery.data?.items]);
+
   const typePills = postMortemEligible
     ? (['POST_MORTEM'] as ProjectReviewType[])
     : PROJECT_REVIEW_CREATE_DEFAULTS.map((d) => d.reviewType).filter((t) =>
@@ -657,9 +670,22 @@ export function ProjectReviewCreateDialog({
                 value="standard"
                 disabled
                 aria-readonly="true"
+                aria-describedby="create-review-agenda-model-hint"
               >
-                <option value="standard">{agendaModelLabel}</option>
+                <option value="standard">
+                  {teamLinkedModelLabel
+                    ? `${teamLinkedModelLabel} (équipe)`
+                    : agendaModelLabel}
+                </option>
               </select>
+              <p
+                id="create-review-agenda-model-hint"
+                className="mt-1 text-xs text-muted-foreground"
+              >
+                {teamLinkedModelLabel
+                  ? 'Modèle lié à l’équipe COPIL/COPROJ — appliqué à la préparation.'
+                  : 'Liez un modèle à l’équipe dans Équipes projet, ou créez-en un dans Préparer.'}
+              </p>
               {agendaError ? (
                 <p className="mt-1 text-xs text-destructive" role="alert">
                   {agendaError}

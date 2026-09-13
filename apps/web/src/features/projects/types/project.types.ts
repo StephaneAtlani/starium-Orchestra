@@ -707,6 +707,10 @@ export type ProjectGovernanceCircleApi = {
   memberCount?: number;
   reviewConvocationCount?: number;
   members?: ProjectTeamMemberRefApi[];
+  /** Lien permanent équipe ↔ modèle de point (atelier Préparer). */
+  prepareTemplateId?: string | null;
+  prepareTemplateName?: string | null;
+  prepareTemplateTypeCode?: string | null;
 };
 
 /** Alias produit « équipe » (même payload que le cercle). */

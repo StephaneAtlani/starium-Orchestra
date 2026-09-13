@@ -21,6 +21,7 @@ import {
 } from '../lib/prepare-workspace-types';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import { usePrepareTemplatesQuery } from '../hooks/use-prepare-templates-query';
+import { useProjectTeamsQuery } from '../hooks/use-project-governance-circles-query';
 import { useProjectGanttQuery } from '../hooks/use-project-gantt-query';
 import type { ProjectReviewDetail } from '../types/project.types';
 import { StariumScrollArea } from '@/components/layout/starium-scroll-area';
@@ -149,6 +150,17 @@ export function ProjectReviewPrepareWorkspace({
     enabled: true,
   });
   const templates = templatesQuery.data?.items ?? [];
+  const teamsQuery = useProjectTeamsQuery(projectId, { enabled: true });
+  const teamLinkedTemplateId = useMemo(() => {
+    const kind =
+      typeCode === 'COPIL' ? 'COPIL' : typeCode === 'COPROJ' ? 'COPROJ' : null;
+    if (!kind) return null;
+    const team = (teamsQuery.data?.items ?? []).find(
+      (t) => t.systemKind === kind,
+    );
+    return team?.prepareTemplateId ?? null;
+  }, [teamsQuery.data?.items, typeCode]);
+  const autoAppliedTeamTemplateRef = useRef<string | null>(null);
   const ganttQuery = useProjectGanttQuery(projectId, { enabled: true });
   const planModel = useMemo(
     () => buildPrepPlanModel(ganttQuery.data),
@@ -157,6 +169,7 @@ export function ProjectReviewPrepareWorkspace({
 
   useEffect(() => {
     setPrep(parsePrepWorkspace(detail.contentPayload, fallbackIds));
+    autoAppliedTeamTemplateRef.current = null;
   }, [detail.id, detail.contentPayload, fallbackIds]);
 
   const persistPrep = useCallback(
@@ -648,6 +661,24 @@ export function ProjectReviewPrepareWorkspace({
           : [],
     });
   };
+
+  useEffect(() => {
+    if (!canEdit || agendaLocked) return;
+    if (prep.templateId) return;
+    if (!teamLinkedTemplateId) return;
+    if (autoAppliedTeamTemplateRef.current === teamLinkedTemplateId) return;
+    if (!templates.some((t) => t.id === teamLinkedTemplateId)) return;
+    autoAppliedTeamTemplateRef.current = teamLinkedTemplateId;
+    void onSelectTemplate(teamLinkedTemplateId);
+    // Intentionnel : appliquer une fois le modèle lié à l’équipe COPIL/COPROJ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSelectTemplate / prep évoluent
+  }, [
+    agendaLocked,
+    canEdit,
+    prep.templateId,
+    teamLinkedTemplateId,
+    templates,
+  ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">

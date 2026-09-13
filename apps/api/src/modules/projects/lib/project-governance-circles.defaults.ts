@@ -71,6 +71,10 @@ export type ProjectGovernanceCircleResponse = {
   memberCount: number;
   reviewConvocationCount: number;
   members: ProjectTeamMemberResponse[];
+  /** Lien permanent équipe ↔ modèle de point. */
+  prepareTemplateId: string | null;
+  prepareTemplateName: string | null;
+  prepareTemplateTypeCode: string | null;
 };
 
 export function mapGovernanceCircle(
@@ -84,11 +88,14 @@ export function mapGovernanceCircle(
     pilotIdentityKey?: string | null;
     systemKind: ProjectGovernanceCircleSystemKind | null;
     sortOrder: number;
+    prepareTemplateId?: string | null;
   },
   extras?: {
     members?: ProjectTeamMemberResponse[];
     reviewConvocationCount?: number;
     pilotDisplayName?: string | null;
+    prepareTemplateName?: string | null;
+    prepareTemplateTypeCode?: string | null;
   },
 ): ProjectGovernanceCircleResponse {
   const members = extras?.members ?? [];
@@ -107,5 +114,8 @@ export function mapGovernanceCircle(
     memberCount: members.length,
     reviewConvocationCount: extras?.reviewConvocationCount ?? 0,
     members,
+    prepareTemplateId: row.prepareTemplateId ?? null,
+    prepareTemplateName: extras?.prepareTemplateName ?? null,
+    prepareTemplateTypeCode: extras?.prepareTemplateTypeCode ?? null,
   };
 }

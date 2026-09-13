@@ -8,23 +8,31 @@ import { projectQueryKeys } from '../lib/project-query-keys';
 
 export function usePrepareTemplatesQuery(
   projectId: string,
-  typeCode: string,
+  typeCode?: string | null,
   options?: { enabled?: boolean },
 ) {
   const authFetch = useAuthenticatedFetch();
   const { activeClient, initialized } = useActiveClient();
   const clientId = activeClient?.id ?? '';
+  const code = typeCode?.trim() || '';
 
   return useQuery({
-    queryKey: projectQueryKeys.prepareTemplates(clientId, projectId, typeCode),
+    queryKey: projectQueryKeys.prepareTemplates(
+      clientId,
+      projectId,
+      code || '__all__',
+    ),
     queryFn: () =>
-      listProjectReviewPrepareTemplates(authFetch, projectId, typeCode),
+      listProjectReviewPrepareTemplates(
+        authFetch,
+        projectId,
+        code || undefined,
+      ),
     enabled:
       initialized &&
-      (options?.enabled !== false) &&
+      options?.enabled !== false &&
       !!clientId &&
-      !!projectId &&
-      !!typeCode,
+      !!projectId,
     staleTime: 30_000,
   });
 }

@@ -20,6 +20,18 @@ import { useProjectAssignableUsers } from '../../hooks/use-project-assignable-us
 import { useProjectTeamsQuery } from '../../hooks/use-project-governance-circles-query';
 import { useProjectTeamQuery } from '../../hooks/use-project-team-queries';
 import { useProjectTeamsMutations } from '../../hooks/use-project-teams-mutations';
+import { usePrepareTemplatesQuery } from '../../hooks/use-prepare-templates-query';
+import {
+  PREP_TYPE_CODE,
+  type PrepTypeCode,
+} from '../../lib/prepare-workspace-types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   PROJECT_TEAM_COLOR_LABEL,
   PROJECT_TEAM_COLOR_SWATCH,
@@ -55,6 +67,8 @@ type DraftTeam = {
   label: string;
   colorToken: ProjectTeamColorToken;
   pilotIdentityKey: string | null;
+  prepareTemplateId: string | null;
+  systemKind: ProjectGovernanceCircleApi['systemKind'];
   members: DraftMember[];
   isNew: boolean;
 };
@@ -152,6 +166,8 @@ function teamToDraft(team: ProjectGovernanceCircleApi): DraftTeam {
     label: team.label ?? '',
     colorToken: resolveTeamColorToken(team.colorToken),
     pilotIdentityKey: team.pilotIdentityKey ?? null,
+    prepareTemplateId: team.prepareTemplateId ?? null,
+    systemKind: team.systemKind,
     members,
     isNew: false,
   };
@@ -164,6 +180,8 @@ function emptyDraft(colorToken: ProjectTeamColorToken = 'GREEN'): DraftTeam {
     label: '',
     colorToken,
     pilotIdentityKey: null,
+    prepareTemplateId: null,
+    systemKind: null,
     members: [],
     isNew: true,
   };
@@ -200,6 +218,25 @@ export function ProjectTeamsEditorDialog({
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const templateTypeCode: PrepTypeCode | undefined =
+    draft.systemKind === 'COPIL'
+      ? PREP_TYPE_CODE.COPIL
+      : draft.systemKind === 'COPROJ'
+        ? PREP_TYPE_CODE.COPROJ
+        : undefined;
+  const templatesQuery = usePrepareTemplatesQuery(
+    projectId,
+    templateTypeCode ?? null,
+    { enabled: open && Boolean(projectId) },
+  );
+  const templateOptions = useMemo(() => {
+    const items = templatesQuery.data?.items ?? [];
+    if (!templateTypeCode) return items;
+    return items.filter(
+      (t) => t.typeCode.toUpperCase() === templateTypeCode,
+    );
+  }, [templatesQuery.data?.items, templateTypeCode]);
 
   const syncFromProps = useCallback(() => {
     if (startInCreate || !initialTeamId) {
@@ -443,6 +480,7 @@ export function ProjectTeamsEditorDialog({
       label: draft.label.trim() || null,
       colorToken: draft.colorToken,
       pilotIdentityKey: draft.pilotIdentityKey,
+      prepareTemplateId: draft.prepareTemplateId,
       members: members.map((m) => ({
         identityKey: m.identityKey,
         userId: m.userId,
@@ -720,6 +758,59 @@ export function ProjectTeamsEditorDialog({
                 );
               })}
             </div>
+          </div>
+
+          <div className="starium-form-field">
+            <label
+              className="starium-form-label"
+              htmlFor="team-prepare-template"
+            >
+              Modèle de point
+            </label>
+            <Select
+              value={draft.prepareTemplateId ?? '__none__'}
+              onValueChange={(v) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  prepareTemplateId: !v || v === '__none__' ? null : v,
+                }))
+              }
+              disabled={readOnly || templatesQuery.isLoading}
+            >
+              <SelectTrigger
+                id="team-prepare-template"
+                className="min-h-11 w-full"
+                aria-describedby="team-prepare-template-hint"
+              >
+                <SelectValue placeholder="Aucun modèle lié">
+                  {(value) => {
+                    if (!value || value === '__none__') {
+                      return 'Aucun modèle lié';
+                    }
+                    const t = templateOptions.find((row) => row.id === value);
+                    return t
+                      ? displayLabel(t.name, 'Modèle sans nom')
+                      : 'Modèle';
+                  }}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Aucun modèle lié</SelectItem>
+                {templateOptions.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {displayLabel(t.name, 'Modèle sans nom')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p
+              id="team-prepare-template-hint"
+              className="mt-1 text-xs text-muted-foreground"
+            >
+              {templateTypeCode
+                ? `Modèles ${templateTypeCode} — appliqué à la préparation des points de ce type.`
+                : 'Créez un modèle dans l’atelier Préparer, puis liez-le ici.'}
+            </p>
           </div>
 
           <div className="starium-form-field">

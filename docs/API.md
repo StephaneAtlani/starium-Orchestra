@@ -2941,8 +2941,8 @@ Référence : **RFC-PROJ-001**, **RFC-PROJ-010** (liens budget), **RFC-PROJ-011*
 - **GET /api/projects/team-roles** — Rôles équipe du client (Sponsor / Responsable système + rôles personnalisés). **`projects.read`**
 - **POST /api/projects/team-roles** / **PATCH|DELETE /api/projects/team-roles/:roleId** — CRUD rôles (renommage interdit sur rôles système). **`projects.update`**
 - **GET /api/projects/:projectId/team** — Rôles + membres affectés (dont membres virtuels Sponsor / Responsable). **`projects.read`**
-- **GET|POST /api/projects/:projectId/teams** — Liste / création d’équipes convocables (nom 2–24, `label`, `colorToken`, `pilotIdentityKey`, `members[]`). **`projects.read`** / **`projects.update`**
-- **PATCH|DELETE /api/projects/:projectId/teams/:teamId** — Mise à jour / suppression (y compris seed `systemKind`). **`projects.update`**
+- **GET|POST /api/projects/:projectId/teams** — Liste / création d’équipes convocables (nom 2–24, `label`, `colorToken`, `pilotIdentityKey`, `prepareTemplateId?`, `members[]`). Réponse enrichie : `prepareTemplateId`, `prepareTemplateName`, `prepareTemplateTypeCode`. **`projects.read`** / **`projects.update`**
+- **PATCH|DELETE /api/projects/:projectId/teams/:teamId** — Mise à jour / suppression (y compris seed `systemKind`) ; `prepareTemplateId: null` détache le modèle. COPIL/COPROJ n’acceptent qu’un modèle de même `typeCode`. **`projects.update`**
 - **POST /api/projects/:projectId/reviews/:reviewId/participants/convene-team** — Body `{ teamId }` ; fusion anti-doublon des membres dans les participants du point ; refuse équipe vide ; trace `ProjectReviewTeamConvocation`. **`projects.update`**
 - **GET /api/projects/:projectId/team-raci** — `{ actions, actors, cells }` ; `actors[].id` = `identityKey` ; cellules `{ actionId, identityKey, kind }` ; provisionne **8 actions BPM par défaut** si le projet n’en a encore aucune. **`projects.read`**
 - **PATCH /api/projects/:projectId/team-raci** — Body `{ actionId, identityKey, kind }` ; `kind: null` efface la cellule ; réponse = matrice complète. **`projects.update`**

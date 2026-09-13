@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectTeamColorToken } from '@prisma/client';
 import { ProjectGovernanceCirclesService } from './project-governance-circles.service';
 
@@ -256,5 +260,59 @@ describe('ProjectGovernanceCirclesService (RFC-PROJ-023)', () => {
         }),
       }),
     );
+  });
+
+  it('refuse un modèle d’un autre client', async () => {
+    const prisma = {
+      projectGovernanceCircle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'team-1',
+          name: 'COPIL',
+          systemKind: 'COPIL',
+          clientId,
+          projectId,
+          pilotIdentityKey: null,
+        }),
+      },
+      projectReviewPrepareTemplate: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      $transaction: jest.fn(),
+    };
+    const svc = buildService(prisma);
+    await expect(
+      svc.update(clientId, projectId, 'team-1', {
+        prepareTemplateId: 'tpl-foreign',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('refuse un modèle COPROJ sur une équipe COPIL', async () => {
+    const prisma = {
+      projectGovernanceCircle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'team-1',
+          name: 'COPIL',
+          systemKind: 'COPIL',
+          clientId,
+          projectId,
+          pilotIdentityKey: null,
+        }),
+      },
+      projectReviewPrepareTemplate: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'tpl-1',
+          typeCode: 'COPROJ',
+          name: 'Modèle COPROJ',
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const svc = buildService(prisma);
+    await expect(
+      svc.update(clientId, projectId, 'team-1', {
+        prepareTemplateId: 'tpl-1',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

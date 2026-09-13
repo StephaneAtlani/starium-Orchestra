@@ -2669,7 +2669,8 @@ model ProjectReviewPrepareTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client             Client                    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  governanceCircles  ProjectGovernanceCircle[]
 
   @@index([clientId, typeCode])
   @@map("project_review_prepare_templates")
@@ -3073,19 +3074,23 @@ model ProjectGovernanceCircle {
   /// Renseigné pour les cercles seed (supprimables depuis RFC-PROJ-023 H8).
   systemKind ProjectGovernanceCircleSystemKind?
   sortOrder  Int                               @default(0)
+  /// Lien permanent équipe ↔ modèle de point (atelier Préparer) — RFC-PROJ-023 C.
+  prepareTemplateId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client      Client                            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  project     Project                           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  memberships ProjectTeamGovernanceMembership[]
+  client          Client                         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project         Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  prepareTemplate ProjectReviewPrepareTemplate?  @relation(fields: [prepareTemplateId], references: [id], onDelete: SetNull)
+  memberships     ProjectTeamGovernanceMembership[]
   reviewConvocations ProjectReviewTeamConvocation[]
 
   @@unique([projectId, systemKind])
   @@unique([projectId, name])
   @@index([clientId])
   @@index([clientId, projectId])
+  @@index([prepareTemplateId])
 }
 
 /// Appartenance d’une personne (identityKey) à une équipe de pilotage — ordre d’ajout conservé.
