@@ -29,6 +29,7 @@ import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
 import { ProjectReviewsTable } from './project-reviews-table';
 import { ProjectReviewSeriesPanel } from './project-review-series-panel';
 import { ProjectReviewPrepareTemplatesDialog } from './project-review-prepare-templates-dialog';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   parsePointsStateParam,
@@ -293,24 +294,27 @@ export function ProjectReviewsTab({
             counts={tabCounts}
             onChange={(next) => setPointsState(next)}
           />
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <button
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <Button
               type="button"
-              className="starium-btn starium-btn-secondary min-h-11"
+              variant="outline"
+              className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
+              aria-haspopup="dialog"
+              aria-expanded={templatesOpen}
               onClick={() => setTemplatesOpen(true)}
             >
-              <LayoutTemplate strokeWidth={2.5} aria-hidden />
+              <LayoutTemplate className="size-3.5" aria-hidden />
               Modèles
-            </button>
+            </Button>
             {canEdit && activeTab !== 'series' ? (
-              <button
+              <Button
                 type="button"
-                className="starium-btn starium-btn-primary min-h-11"
+                className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
                 onClick={onPrimaryReviewAction}
               >
-                <Plus strokeWidth={2.5} aria-hidden />
+                <Plus className="size-3.5" aria-hidden />
                 Créer un point
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>

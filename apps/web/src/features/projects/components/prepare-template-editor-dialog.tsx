@@ -4,7 +4,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, LayoutTemplate } from 'lucide-react';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
@@ -13,9 +22,13 @@ import {
   updateProjectReviewPrepareTemplate,
   type ProjectReviewPrepareTemplateApi,
 } from '../api/project-reviews.api';
-import { blocksForTypeCode } from '../lib/prepare-workspace-blocks';
-import type { PrepTypeCode } from '../lib/prepare-workspace-types';
 import {
+  blocksForTypeCode,
+  defaultSelectedBlockIds,
+} from '../lib/prepare-workspace-blocks';
+import {
+  PREP_TYPE_CODE,
+  type PrepTypeCode,
   resolveBlockOrderIds,
   selectedIdsInBlockOrder,
   typeCodeLabel,
@@ -26,6 +39,9 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   typeCode: PrepTypeCode;
+  /** Création depuis la bibliothèque : choix du type dans l’éditeur. */
+  typeCodeEditable?: boolean;
+  onTypeCodeChange?: (typeCode: PrepTypeCode) => void;
   mode: 'create' | 'edit';
   templateId: string | null;
   initialSelectedBlockIds: string[];
@@ -34,6 +50,8 @@ type Props = {
   initialName?: string;
   onSaved: (tpl: ProjectReviewPrepareTemplateApi) => void | Promise<void>;
 };
+
+const ALL_TYPE_CODES = Object.values(PREP_TYPE_CODE);
 
 function apiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -49,6 +67,8 @@ export function PrepareTemplateEditorDialog({
   onOpenChange,
   projectId,
   typeCode,
+  typeCodeEditable = false,
+  onTypeCodeChange,
   mode,
   templateId,
   initialSelectedBlockIds,
@@ -77,9 +97,7 @@ export function PrepareTemplateEditorDialog({
     );
     const order = resolveBlockOrderIds(catalogIds, initialBlockOrderIds);
     setOrderIds(order);
-    setSelected(
-      selectedIdsInBlockOrder(initialSelectedBlockIds, order),
-    );
+    setSelected(selectedIdsInBlockOrder(initialSelectedBlockIds, order));
   }, [
     open,
     mode,
@@ -116,6 +134,22 @@ export function PrepareTemplateEditorDialog({
       copy.splice(next, 0, removed!);
       setSelected((sel) => selectedIdsInBlockOrder(sel, copy));
       return copy;
+    });
+  };
+
+  const changeType = (next: PrepTypeCode) => {
+    onTypeCodeChange?.(next);
+    const defaults = defaultSelectedBlockIds(next);
+    const nextCatalog = blocksForTypeCode(next).map((b) => b.id);
+    const order = resolveBlockOrderIds(nextCatalog, defaults);
+    setOrderIds(order);
+    setSelected(selectedIdsInBlockOrder(defaults, order));
+    setName((prev) => {
+      const auto = `Modèle ${typeCodeLabel(typeCode)}`;
+      if (!prev.trim() || prev.trim() === auto) {
+        return `Modèle ${typeCodeLabel(next)}`;
+      }
+      return prev;
     });
   };
 
@@ -178,21 +212,19 @@ export function PrepareTemplateEditorDialog({
       description={`Personnalisez les blocs pour ${typeCodeLabel(typeCode)}`}
       icon={LayoutTemplate}
       size="md"
-      overlayClassName="!z-[100] bg-black/55 dark:bg-black/70"
-      contentClassName="!z-[101]"
       footer={
         <>
           <Button
             type="button"
             variant="outline"
-            className="min-h-11"
+            className="min-h-11 sm:min-h-9"
             onClick={() => onOpenChange(false)}
           >
             Annuler
           </Button>
           <Button
             type="button"
-            className="min-h-11"
+            className="min-h-11 sm:min-h-9"
             disabled={saving}
             onClick={() => void onSave()}
           >
@@ -202,61 +234,113 @@ export function PrepareTemplateEditorDialog({
       }
     >
       <div className="starium-form space-y-4">
-        <div className="space-y-1.5">
-          <label htmlFor="pw-tpl-name" className="text-sm font-semibold">
+        {typeCodeEditable && mode === 'create' ? (
+          <div className="starium-form-field">
+            <label className="starium-form-label" htmlFor="pw-tpl-type">
+              Type de point
+            </label>
+            <Select
+              value={typeCode}
+              onValueChange={(v) => {
+                if (!v) return;
+                const next = (ALL_TYPE_CODES as string[]).includes(v)
+                  ? (v as PrepTypeCode)
+                  : PREP_TYPE_CODE.ADHOC;
+                changeType(next);
+              }}
+            >
+              <SelectTrigger
+                id="pw-tpl-type"
+                className="starium-form-select min-h-11 w-full"
+              >
+                <SelectValue>
+                  {(value) =>
+                    value
+                      ? typeCodeLabel(
+                          (ALL_TYPE_CODES as string[]).includes(String(value))
+                            ? (String(value) as PrepTypeCode)
+                            : PREP_TYPE_CODE.ADHOC,
+                        )
+                      : 'Choisir un type'
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ALL_TYPE_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {typeCodeLabel(code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+
+        <div className="starium-form-field">
+          <label htmlFor="pw-tpl-name" className="starium-form-label">
             Nom du modèle
           </label>
           <Input
             id="pw-tpl-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="min-h-11"
+            className="starium-form-input !h-11 !min-h-11"
             autoComplete="off"
           />
         </div>
+
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold">
+          <legend className="starium-modal-seg-title mb-2">
             Blocs inclus (même ordre que l&apos;ODJ)
           </legend>
           <ul className="space-y-1.5">
             {orderedBlocks.map((b, orderPos) => {
               const on = selected.includes(b.id);
+              const checkId = `pw-tpl-block-${b.id}`;
               return (
                 <li key={b.id}>
-                  <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 px-2">
-                    <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 px-1">
-                      <input
-                        type="checkbox"
+                  <div className="flex min-h-11 items-center gap-2 rounded-lg border border-border/70 bg-muted/30 px-2 py-1">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                      <Checkbox
+                        id={checkId}
                         checked={on}
-                        onChange={() => toggle(b.id)}
-                        className="size-4 shrink-0"
+                        onCheckedChange={() => toggle(b.id)}
+                        aria-label={b.title}
+                        className="size-5"
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      <label
+                        htmlFor={checkId}
+                        className="min-w-0 flex-1 cursor-pointer truncate text-sm font-semibold text-foreground"
+                      >
                         {b.title}
-                      </span>
+                      </label>
                       <span className="shrink-0 text-xs font-bold tabular-nums text-muted-foreground">
                         {b.defaultMin} min
                       </span>
-                    </label>
-                    <span className="flex shrink-0 flex-col">
-                      <button
+                    </div>
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <IconButton
                         type="button"
-                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                        size="icon-sm"
+                        variant="ghost"
                         aria-label={`Monter ${b.title}`}
                         disabled={orderPos <= 0}
+                        className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
                         onClick={() => moveBlock(b.id, -1)}
                       >
                         <ChevronUp className="size-3.5" aria-hidden />
-                      </button>
-                      <button
+                      </IconButton>
+                      <IconButton
                         type="button"
-                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"
+                        size="icon-sm"
+                        variant="ghost"
                         aria-label={`Descendre ${b.title}`}
                         disabled={orderPos >= orderedBlocks.length - 1}
+                        className="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
                         onClick={() => moveBlock(b.id, 1)}
                       >
                         <ChevronDown className="size-3.5" aria-hidden />
-                      </button>
+                      </IconButton>
                     </span>
                   </div>
                 </li>

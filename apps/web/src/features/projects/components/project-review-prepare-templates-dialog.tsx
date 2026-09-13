@@ -8,13 +8,6 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { useQueryClient } from '@tanstack/react-query';
 import { displayLabel } from '@/lib/display-label';
@@ -66,6 +59,28 @@ function apiErrorMessage(err: unknown, fallback: string): string {
   }
   if (err instanceof Error && err.message) return err.message;
   return fallback;
+}
+
+function FilterCount({
+  count,
+  active,
+}: {
+  count: number;
+  active: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+        active
+          ? 'bg-[color:var(--brand-gold)]/20 text-[color:var(--brand-gold-700)]'
+          : 'bg-muted text-muted-foreground',
+      )}
+      aria-hidden
+    >
+      {count}
+    </span>
+  );
 }
 
 export function ProjectReviewPrepareTemplatesDialog({
@@ -143,6 +158,9 @@ export function ProjectReviewPrepareTemplatesDialog({
   const openCreate = () => {
     setEditorMode('create');
     setEditing(null);
+    setCreateType(
+      filterType !== 'ALL' ? filterType : PREP_TYPE_CODE.COPROJ,
+    );
     setEditorOpen(true);
   };
 
@@ -152,17 +170,18 @@ export function ProjectReviewPrepareTemplatesDialog({
     setEditorOpen(true);
   };
 
-  const onDelete = async (templateId: string) => {
-    if (confirmDeleteId !== templateId) {
-      setConfirmDeleteId(templateId);
-      return;
-    }
+  const requestDelete = (templateId: string) => {
+    setConfirmDeleteId(templateId);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
     setDeleting(true);
     try {
       await deleteProjectReviewPrepareTemplate(
         authFetch,
         projectId,
-        templateId,
+        confirmDeleteId,
       );
       toast.success('Modèle supprimé');
       setConfirmDeleteId(null);
@@ -178,6 +197,10 @@ export function ProjectReviewPrepareTemplatesDialog({
     ? asPrepTypeCode(editing.typeCode)
     : createType;
 
+  const confirmTarget = confirmDeleteId
+    ? items.find((t) => t.id === confirmDeleteId)
+    : null;
+
   return (
     <>
       <StariumModal
@@ -186,8 +209,8 @@ export function ProjectReviewPrepareTemplatesDialog({
           if (!next) setConfirmDeleteId(null);
           onOpenChange(next);
         }}
-        title="Tous les modèles"
-        description="Modèles de préparation des points projet — créer, modifier ou supprimer."
+        title="Modèles de préparation"
+        description="Bibliothèque des modèles d’ordre du jour par type de point."
         icon={LayoutTemplate}
         size="xl"
         footer={
@@ -206,86 +229,50 @@ export function ProjectReviewPrepareTemplatesDialog({
                 className="min-h-11 sm:min-h-9"
                 onClick={openCreate}
               >
-                <Plus className="size-4" aria-hidden />
+                <Plus className="size-3.5" aria-hidden />
                 Créer un modèle
               </Button>
             ) : null}
           </>
         }
       >
-        <div className="starium-form space-y-4">
-          {canEdit ? (
-            <div className="starium-form-field">
-              <label
-                className="starium-form-label"
-                htmlFor="prep-tpl-create-type"
-              >
-                Type pour un nouveau modèle
-              </label>
-              <Select
-                value={createType}
-                onValueChange={(v) => {
-                  if (v) setCreateType(asPrepTypeCode(v));
-                }}
-              >
-                <SelectTrigger
-                  id="prep-tpl-create-type"
-                  className="min-h-11 w-full sm:max-w-sm"
-                >
-                  <SelectValue>
-                    {(value) =>
-                      value
-                        ? typeCodeLabel(asPrepTypeCode(String(value)))
-                        : 'Choisir un type'
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {ALL_TYPE_CODES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {typeCodeLabel(code)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          {typeFilters.length > 1 ? (
+        <div className="space-y-4">
+          {typeFilters.length > 0 ? (
             <div
-              role="tablist"
+              role="group"
               aria-label="Filtrer par type de modèle"
               className="starium-tab-group w-full max-w-full overflow-x-auto"
             >
               <button
                 type="button"
-                role="tab"
-                aria-selected={filterType === 'ALL'}
-                className="starium-tab-btn min-h-11 shrink-0"
+                aria-pressed={filterType === 'ALL'}
+                className={cn(
+                  'starium-tab-btn min-h-11 shrink-0',
+                  filterType === 'ALL' && 'starium-tab-btn--active',
+                )}
                 onClick={() => setFilterType('ALL')}
               >
                 Tous
-                <span className="ml-1.5 tabular-nums text-xs opacity-80">
-                  {items.length}
-                </span>
+                <FilterCount count={items.length} active={filterType === 'ALL'} />
               </button>
               {typeFilters.map((code) => {
                 const count = items.filter(
                   (t) => asPrepTypeCode(t.typeCode) === code,
                 ).length;
+                const active = filterType === code;
                 return (
                   <button
                     key={code}
                     type="button"
-                    role="tab"
-                    aria-selected={filterType === code}
-                    className="starium-tab-btn min-h-11 shrink-0 whitespace-nowrap"
+                    aria-pressed={active}
+                    className={cn(
+                      'starium-tab-btn min-h-11 shrink-0 whitespace-nowrap',
+                      active && 'starium-tab-btn--active',
+                    )}
                     onClick={() => setFilterType(code)}
                   >
                     {typeCodeLabel(code)}
-                    <span className="ml-1.5 tabular-nums text-xs opacity-80">
-                      {count}
-                    </span>
+                    <FilterCount count={count} active={active} />
                   </button>
                 );
               })}
@@ -305,8 +292,12 @@ export function ProjectReviewPrepareTemplatesDialog({
               description="Créez un modèle pour personnaliser les blocs d’ordre du jour d’un type de point."
               action={
                 canEdit ? (
-                  <Button type="button" onClick={openCreate}>
-                    <Plus className="size-4" aria-hidden />
+                  <Button
+                    type="button"
+                    className="min-h-11 sm:min-h-9"
+                    onClick={openCreate}
+                  >
+                    <Plus className="size-3.5" aria-hidden />
                     Créer un modèle
                   </Button>
                 ) : undefined
@@ -314,86 +305,110 @@ export function ProjectReviewPrepareTemplatesDialog({
               className="py-10"
             />
           ) : (
-            <ul className="space-y-5" aria-live="polite">
+            <div className="space-y-5" aria-live="polite">
               {grouped.map((group) => (
-                <li key={group.typeCode}>
-                  <h3 className="starium-modal-seg-title mb-2">
+                <section key={group.typeCode} aria-labelledby={`tpl-g-${group.typeCode}`}>
+                  <h3
+                    id={`tpl-g-${group.typeCode}`}
+                    className="starium-modal-seg-title mb-1.5"
+                  >
                     {typeCodeLabel(group.typeCode)}
                   </h3>
-                  <ul className="divide-y divide-border/70 rounded-[var(--radius-lg)] border border-border/70 bg-card">
+                  <ul className="space-y-0.5">
                     {group.items.map((tpl) => {
                       const blockCount = payloadStringArray(
                         tpl.payload,
                         'selectedBlockIds',
                       ).length;
-                      const confirming = confirmDeleteId === tpl.id;
+                      const label = displayLabel(tpl.name, 'Modèle sans nom');
                       return (
-                        <li
-                          key={tpl.id}
-                          className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {displayLabel(tpl.name, 'Modèle sans nom')}
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {blockCount > 0
-                                ? `${blockCount} bloc${blockCount > 1 ? 's' : ''} sélectionné${blockCount > 1 ? 's' : ''}`
-                                : 'Blocs non précisés'}
-                            </p>
-                          </div>
-                          {canEdit ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <IconButton
-                                type="button"
-                                size="icon"
-                                variant="outline"
-                                aria-label={`Modifier ${displayLabel(tpl.name, 'le modèle')}`}
-                                className="min-h-11 min-w-11"
-                                onClick={() => openEdit(tpl)}
-                              >
-                                <Pencil className="size-4" aria-hidden />
-                              </IconButton>
-                              <Button
-                                type="button"
-                                variant={confirming ? 'destructive' : 'outline'}
-                                className={cn(
-                                  'min-h-11',
-                                  confirming && 'min-w-[10rem]',
-                                )}
-                                disabled={deleting}
-                                onClick={() => void onDelete(tpl.id)}
-                                onBlur={() => {
-                                  if (confirmDeleteId === tpl.id) {
-                                    setConfirmDeleteId(null);
-                                  }
-                                }}
-                              >
-                                {confirming ? (
-                                  'Confirmer'
-                                ) : (
-                                  <>
-                                    <Trash2
-                                      className="size-4"
-                                      aria-hidden
-                                    />
-                                    <span className="sr-only sm:not-sr-only sm:ml-1.5">
-                                      Supprimer
-                                    </span>
-                                  </>
-                                )}
-                              </Button>
+                        <li key={tpl.id}>
+                          <div className="flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-muted/40 focus-within:shadow-[var(--shadow-focus)]">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {label}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {blockCount > 0
+                                  ? `${blockCount} bloc${blockCount > 1 ? 's' : ''}`
+                                  : 'Blocs non précisés'}
+                              </p>
                             </div>
-                          ) : null}
+                            {canEdit ? (
+                              <div className="flex shrink-0 items-center gap-1">
+                                <IconButton
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label={`Modifier ${label}`}
+                                  className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground"
+                                  onClick={() => openEdit(tpl)}
+                                >
+                                  <Pencil className="size-4" aria-hidden />
+                                </IconButton>
+                                <IconButton
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  aria-label={`Supprimer ${label}`}
+                                  className="min-h-11 min-w-11 text-muted-foreground hover:text-destructive"
+                                  onClick={() => requestDelete(tpl.id)}
+                                >
+                                  <Trash2 className="size-4" aria-hidden />
+                                </IconButton>
+                              </div>
+                            ) : null}
+                          </div>
                         </li>
                       );
                     })}
                   </ul>
-                </li>
+                </section>
               ))}
-            </ul>
+            </div>
           )}
         </div>
+      </StariumModal>
+
+      <StariumModal
+        open={Boolean(confirmTarget)}
+        onOpenChange={(next) => {
+          if (!next) setConfirmDeleteId(null);
+        }}
+        title="Supprimer le modèle"
+        description={
+          confirmTarget
+            ? `« ${displayLabel(confirmTarget.name, 'Modèle sans nom')} » ne sera plus proposé à la préparation ni lié aux équipes.`
+            : undefined
+        }
+        icon={Trash2}
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 sm:min-h-9"
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-11 sm:min-h-9"
+              disabled={deleting || !confirmDeleteId}
+              onClick={() => void confirmDelete()}
+            >
+              Supprimer
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Cette action est définitive. Les points déjà préparés ne sont pas
+          modifiés.
+        </p>
       </StariumModal>
 
       <PrepareTemplateEditorDialog
@@ -401,6 +416,8 @@ export function ProjectReviewPrepareTemplatesDialog({
         onOpenChange={setEditorOpen}
         projectId={projectId}
         typeCode={editorTypeCode}
+        typeCodeEditable={editorMode === 'create'}
+        onTypeCodeChange={setCreateType}
         mode={editorMode}
         templateId={editing?.id ?? null}
         initialName={editing?.name}
