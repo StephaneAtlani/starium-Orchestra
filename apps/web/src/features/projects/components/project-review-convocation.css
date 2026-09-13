@@ -305,6 +305,11 @@
   color: var(--foreground);
 }
 
+.convoc-mail__odj-owner {
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
 .convoc-mail__odj-d {
   font-size: 0.6875rem;
   font-weight: 700;

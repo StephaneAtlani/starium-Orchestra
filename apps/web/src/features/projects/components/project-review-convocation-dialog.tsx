@@ -39,29 +39,62 @@ type MailOpts = {
   ics: boolean;
   odj: boolean;
   docs: boolean;
+  rsvp: boolean;
+  relance: boolean;
+  brief: boolean;
 };
 
+/** Aligné kit `MOPTS` (Refonte Portail / mail modal). */
 const OPT_DEFS: Array<{
   id: keyof MailOpts;
   title: string;
   hint: string;
+  defaultOn: boolean;
 }> = [
   {
     id: 'ics',
     title: 'Invitation calendrier (.ics)',
-    hint: 'Ajoute la séance au calendrier du participant',
+    hint: "Le rendez-vous s'ajoute à l'agenda du participant, avec le lieu et le lien visio.",
+    defaultOn: true,
   },
   {
     id: 'odj',
     title: 'Ordre du jour',
-    hint: 'Points et durées figés de la séance',
+    hint: 'Les points, leur porteur et leur durée cible, tels que préparés.',
+    defaultOn: true,
   },
   {
     id: 'docs',
     title: 'Supports de séance',
-    hint: 'Fichiers joints à la préparation',
+    hint: 'Les fichiers joints à la préparation, en pièce jointe.',
+    defaultOn: true,
+  },
+  {
+    id: 'rsvp',
+    title: 'Demander confirmation de présence',
+    hint: 'Boutons Accepter / Décliner dans le message, suivi des réponses.',
+    defaultOn: true,
+  },
+  {
+    id: 'relance',
+    title: 'Rappel automatique 24 h avant',
+    hint: 'Relance uniquement les destinataires sans réponse.',
+    defaultOn: false,
+  },
+  {
+    id: 'brief',
+    title: 'Brief de préparation',
+    hint: 'Ce que chaque participant doit préparer avant la séance.',
+    defaultOn: false,
   },
 ];
+
+function defaultOpts(): MailOpts {
+  return OPT_DEFS.reduce((acc, o) => {
+    acc[o.id] = o.defaultOn;
+    return acc;
+  }, {} as MailOpts);
+}
 
 function senderLabel(user: {
   firstName: string | null;
@@ -141,11 +174,7 @@ export function ProjectReviewConvocationDialog({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [opts, setOpts] = useState<MailOpts>({
-    ics: true,
-    odj: true,
-    docs: true,
-  });
+  const [opts, setOpts] = useState<MailOpts>(defaultOpts);
   const [submitting, setSubmitting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +184,7 @@ export function ProjectReviewConvocationDialog({
     setSelectedIds(participants.map((p) => p.id));
     setSubject(defaultSubject(detail, badge));
     setMessage(defaultMessage(detail, badge));
-    setOpts({ ics: true, odj: true, docs: true });
+    setOpts(defaultOpts());
     setError(null);
     setSubmitting(false);
     setTesting(false);
@@ -205,8 +234,14 @@ export function ProjectReviewConvocationDialog({
         files.push({ name, hint: 'Support de séance' });
       }
     }
+    if (opts.brief) {
+      files.push({
+        name: 'brief-preparation.pdf',
+        hint: 'Brief de préparation',
+      });
+    }
     return files;
-  }, [opts.ics, opts.docs, detail.attachments, badge]);
+  }, [opts.ics, opts.docs, opts.brief, detail.attachments, badge]);
 
   const canSend = selectedIds.length > 0 && !submitting && !testing;
 
@@ -511,17 +546,28 @@ export function ProjectReviewConvocationDialog({
                       </p>
                     ) : (
                       <div className="convoc-mail__odj">
-                        {agendaItems.map((item, i) => (
-                          <div key={item.id} className="convoc-mail__odj-r">
-                            <span className="convoc-mail__odj-n">{i + 1}</span>
-                            <span className="convoc-mail__odj-t">
-                              {displayLabel(item.title, 'Point')}
-                            </span>
-                            <span className="convoc-mail__odj-d">
-                              {agendaDurationLabel(item.plannedDurationMinutes)}
-                            </span>
-                          </div>
-                        ))}
+                        {agendaItems.map((item, i) => {
+                          const owner = item.ownerDisplayName?.trim() || null;
+                          return (
+                            <div key={item.id} className="convoc-mail__odj-r">
+                              <span className="convoc-mail__odj-n">{i + 1}</span>
+                              <span className="convoc-mail__odj-t">
+                                {displayLabel(item.title, 'Point')}
+                                {owner ? (
+                                  <span className="convoc-mail__odj-owner">
+                                    {' '}
+                                    · {owner}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="convoc-mail__odj-d">
+                                {agendaDurationLabel(
+                                  item.plannedDurationMinutes,
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -536,7 +582,8 @@ export function ProjectReviewConvocationDialog({
                       <div key={a.name + a.hint} className="convoc-mail__att">
                         {a.hint.includes('calendrier') ? (
                           <Calendar className="size-3.5 shrink-0" aria-hidden />
-                        ) : a.hint.includes('Support') ? (
+                        ) : a.hint.includes('Support') ||
+                          a.hint.includes('Brief') ? (
                           <Paperclip className="size-3.5 shrink-0" aria-hidden />
                         ) : (
                           <FileText className="size-3.5 shrink-0" aria-hidden />
@@ -547,14 +594,19 @@ export function ProjectReviewConvocationDialog({
                   </div>
                 ) : null}
 
-                <div className="convoc-mail__cta" aria-hidden>
-                  <span className="convoc-mail__btn-y">Je serai présent</span>
-                  <span className="convoc-mail__btn-n">Je décline</span>
-                </div>
+                {opts.rsvp ? (
+                  <div className="convoc-mail__cta" aria-hidden>
+                    <span className="convoc-mail__btn-y">Je serai présent</span>
+                    <span className="convoc-mail__btn-n">Je décline</span>
+                  </div>
+                ) : null}
               </div>
               <div className="convoc-mail__foot">
                 Envoyé depuis Starium Orchestra. Les réponses sont enregistrées
                 dans la préparation de la séance.
+                {opts.relance
+                  ? ' Un rappel sera envoyé 24 h avant aux personnes sans réponse.'
+                  : ''}
               </div>
             </div>
           </div>
