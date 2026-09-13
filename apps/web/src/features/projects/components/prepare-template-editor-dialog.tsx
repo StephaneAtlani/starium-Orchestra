@@ -6,7 +6,6 @@ import { StariumModal } from '@/components/layout/form-dialog-shell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
-import { useActiveClient } from '@/hooks/use-active-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
 import {
@@ -21,7 +20,6 @@ import {
   selectedIdsInBlockOrder,
   typeCodeLabel,
 } from '../lib/prepare-workspace-types';
-import { projectQueryKeys } from '../lib/project-query-keys';
 
 type Props = {
   open: boolean;
@@ -59,8 +57,6 @@ export function PrepareTemplateEditorDialog({
   onSaved,
 }: Props) {
   const authFetch = useAuthenticatedFetch();
-  const { activeClient } = useActiveClient();
-  const clientId = activeClient?.id ?? '';
   const qc = useQueryClient();
   const blocks = blocksForTypeCode(typeCode);
   const catalogIds = useMemo(() => blocks.map((b) => b.id), [blocks]);
@@ -154,11 +150,15 @@ export function PrepareTemplateEditorDialog({
         });
       }
       await qc.invalidateQueries({
-        queryKey: projectQueryKeys.prepareTemplates(
-          clientId,
-          projectId,
-          typeCode,
-        ),
+        predicate: (q) => {
+          const key = q.queryKey;
+          return (
+            Array.isArray(key) &&
+            key[0] === 'project' &&
+            key[1] === projectId &&
+            key[2] === 'prepare-templates'
+          );
+        },
       });
       toast.success('Modèle enregistré');
       await onSaved(tpl);

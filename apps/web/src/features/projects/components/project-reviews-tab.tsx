@@ -28,6 +28,7 @@ import { ProjectReviewsContinuityPanel } from './project-reviews-continuity-pane
 import { ProjectReviewsStateTabs } from './project-reviews-state-tabs';
 import { ProjectReviewsTable } from './project-reviews-table';
 import { ProjectReviewSeriesPanel } from './project-review-series-panel';
+import { ProjectReviewPrepareTemplatesDialog } from './project-review-prepare-templates-dialog';
 import { cn } from '@/lib/utils';
 import {
   parsePointsStateParam,
@@ -35,7 +36,7 @@ import {
   type ProjectReviewsTabState,
   type ProjectReviewUiState,
 } from '../lib/project-review-ui-state';
-import { Plus } from 'lucide-react';
+import { LayoutTemplate, Plus } from 'lucide-react';
 
 export function ProjectReviewsTab({
   projectId,
@@ -56,6 +57,7 @@ export function ProjectReviewsTab({
     useState<ProjectReviewCreateMenuType | null>(null);
   const [prepareReviewId, setPrepareReviewId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const list = useProjectReviewsQuery(projectId);
   const summary = useProjectReviewsSummaryQuery(projectId, {
@@ -291,18 +293,35 @@ export function ProjectReviewsTab({
             counts={tabCounts}
             onChange={(next) => setPointsState(next)}
           />
-          {canEdit && activeTab !== 'series' ? (
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <button
               type="button"
-              className="starium-btn starium-btn-primary min-h-11"
-              onClick={onPrimaryReviewAction}
+              className="starium-btn starium-btn-secondary min-h-11"
+              onClick={() => setTemplatesOpen(true)}
             >
-              <Plus strokeWidth={2.5} aria-hidden />
-              Créer un point
+              <LayoutTemplate strokeWidth={2.5} aria-hidden />
+              Modèles
             </button>
-          ) : null}
+            {canEdit && activeTab !== 'series' ? (
+              <button
+                type="button"
+                className="starium-btn starium-btn-primary min-h-11"
+                onClick={onPrimaryReviewAction}
+              >
+                <Plus strokeWidth={2.5} aria-hidden />
+                Créer un point
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
+
+      <ProjectReviewPrepareTemplatesDialog
+        open={templatesOpen}
+        onOpenChange={setTemplatesOpen}
+        projectId={projectId}
+        canEdit={canEdit}
+      />
 
       {postMortemEligible && showPrimaryCta ? (
         <div className="flex items-center justify-end">
