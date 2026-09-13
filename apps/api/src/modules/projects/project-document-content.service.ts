@@ -3,102 +3,67 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as fs from 'node:fs';
-import { createReadStream } from 'node:fs';
-import type { ReadStream } from 'node:fs';
-import * as path from 'node:path';
-
-const ENV_PROJECT_DOCUMENTS_STORAGE_ROOT = 'PROJECT_DOCUMENTS_STORAGE_ROOT';
+import { Readable } from 'node:stream';
+import { ProcurementObjectStorageService } from '../procurement/s3/procurement-object-storage.service';
 
 /**
- * Binaires ProjectDocument STARIUM sur disque (RFC-PROJ-INT-009 + DOC-002).
- * Racine + clientId + projectId + segments(storageKey), sans `..`.
+ * Binaires ProjectDocument STARIUM via le stockage documents client (LOCAL/S3 plateforme),
+ * domaine `projets` — même modèle que contrats / commandes / factures.
  */
 @Injectable()
 export class ProjectDocumentContentService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly storage: ProcurementObjectStorageService) {}
 
-  private resolveRoot(): string {
-    const root = this.config.get<string>(ENV_PROJECT_DOCUMENTS_STORAGE_ROOT);
-    if (!root?.trim()) {
+  async writeStariumObject(params: {
+    clientId: string;
+    body: Buffer;
+    contentType: string;
+    extension: string;
+  }): Promise<{ storageBucket: string; storageKey: string; checksumSha256: string }> {
+    const { bucket, objectKey, checksumSha256 } = await this.storage.putObject({
+      clientId: params.clientId,
+      domain: 'projets',
+      body: params.body,
+      contentType: params.contentType,
+      extension: params.extension,
+    });
+    return {
+      storageBucket: bucket,
+      storageKey: objectKey,
+      checksumSha256,
+    };
+  }
+
+  async openStariumReadStream(
+    storageBucket: string | null | undefined,
+    storageKey: string | null | undefined,
+  ): Promise<{ stream: Readable; contentType?: string }> {
+    const bucket = storageBucket?.trim();
+    const key = storageKey?.trim();
+    if (!bucket || !key) {
       throw new UnprocessableEntityException(
-        'PROJECT_DOCUMENTS_STORAGE_ROOT non configuré : impossible d’accéder aux fichiers STARIUM',
+        'Document STARIUM incomplet : bucket ou clé de stockage manquants (configurer le stockage documents client).',
       );
     }
-    return path.resolve(root.trim());
+    return this.storage.getObjectStream(bucket, key);
   }
 
-  private safeRelativeSegments(storageKey: string): string[] {
-    const norm = storageKey.replace(/\\/g, '/').trim();
-    const parts = norm.split('/').filter((p) => p.length > 0);
-    for (const p of parts) {
-      if (p === '.' || p === '..') {
-        throw new UnprocessableEntityException('storageKey invalide');
-      }
-    }
-    if (parts.length === 0) {
-      throw new UnprocessableEntityException('storageKey vide');
-    }
-    return parts;
+  async readStariumBuffer(
+    storageBucket: string | null | undefined,
+    storageKey: string | null | undefined,
+  ): Promise<Buffer> {
+    const { stream } = await this.openStariumReadStream(storageBucket, storageKey);
+    return this.readableToBuffer(stream);
   }
 
-  /**
-   * Chemin absolu attendu : `{root}/{clientId}/{projectId}/{storageKey segments...}`.
-   */
-  resolveAbsolutePath(
-    clientId: string,
-    projectId: string,
-    storageKey: string,
-  ): string {
-    const root = path.resolve(this.resolveRoot());
-    for (const id of [clientId, projectId]) {
-      if (!id?.trim() || id.includes('/') || id.includes('\\')) {
-        throw new UnprocessableEntityException('Identifiant client/projet invalide');
-      }
+  private async readableToBuffer(stream: Readable): Promise<Buffer> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
-    const segments = this.safeRelativeSegments(storageKey);
-    const full = path.resolve(path.join(root, clientId, projectId, ...segments));
-    const rel = path.relative(root, full);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new UnprocessableEntityException('Chemin document hors racine');
-    }
-    return full;
-  }
-
-  readStariumBuffer(
-    clientId: string,
-    projectId: string,
-    storageKey: string,
-  ): Buffer {
-    const full = this.resolveAbsolutePath(clientId, projectId, storageKey);
-    if (!fs.existsSync(full)) {
+    if (chunks.length === 0) {
       throw new NotFoundException('Fichier document introuvable sur le stockage');
     }
-    return fs.readFileSync(full);
-  }
-
-  writeStariumBuffer(
-    clientId: string,
-    projectId: string,
-    storageKey: string,
-    buffer: Buffer,
-  ): string {
-    const full = this.resolveAbsolutePath(clientId, projectId, storageKey);
-    fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, buffer);
-    return full;
-  }
-
-  openStariumReadStream(
-    clientId: string,
-    projectId: string,
-    storageKey: string,
-  ): ReadStream {
-    const full = this.resolveAbsolutePath(clientId, projectId, storageKey);
-    if (!fs.existsSync(full)) {
-      throw new NotFoundException('Fichier document introuvable sur le stockage');
-    }
-    return createReadStream(full);
+    return Buffer.concat(chunks);
   }
 }

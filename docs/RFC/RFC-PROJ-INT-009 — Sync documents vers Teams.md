@@ -6,13 +6,13 @@ Voici une **RFC propre, directement exploitable** (alignée avec ton archi, RFC-
 
 ## Statut
 
-**Implémenté** — backend API, Prisma `ProjectDocumentMicrosoftSync`, lecture fichiers STARIUM (`PROJECT_DOCUMENTS_STORAGE_ROOT`), extension `MicrosoftGraphService` (upload simple < 4 Mo, session au-delà). **Hors livré** : UI dédiée (bouton sync / statuts) — voir plan frontend dans `_Plan de déploement - Microsofr.md`.
+**Implémenté** — backend API, Prisma `ProjectDocumentMicrosoftSync`, lecture fichiers STARIUM via **stockage documents client** (LOCAL/S3, domaine `projets`), extension `MicrosoftGraphService` (upload simple < 4 Mo, session au-delà). **Hors livré** : UI dédiée (bouton sync / statuts) — voir plan frontend dans `_Plan de déploement - Microsofr.md`.
 
 ## Réalisation dans le repo
 
 * **Prisma** : `apps/api/prisma/schema.prisma` (`ProjectDocumentMicrosoftSync`, relations `Client` / `Project` / `ProjectDocument` / `ProjectMicrosoftLink`) ; migration `apps/api/prisma/migrations/20260326240000_add_project_document_microsoft_sync/`
 * **Backend** : `POST .../microsoft-link/sync-documents` dans `apps/api/src/modules/microsoft/project-microsoft-links.controller.ts` ; logique `syncDocuments` dans `project-microsoft-links.service.ts` ; persistance `filesDriveId` / `filesFolderId` sur `PUT` du lien projet ; module `apps/api/src/modules/microsoft/microsoft.module.ts` importe `ProjectsModule` pour `ProjectDocumentContentService`
-* **Lecture binaire** : `apps/api/src/modules/projects/project-document-content.service.ts` (env **`PROJECT_DOCUMENTS_STORAGE_ROOT`**)
+* **Lecture binaire** : `apps/api/src/modules/projects/project-document-content.service.ts` → `ProcurementObjectStorageService` (domaine `projets`)
 * **Graph** : `apps/api/src/modules/microsoft/microsoft-graph.service.ts` (`ensureFolderUnderDriveRoot`, `uploadOrReplaceDriveFile`, seuil `MICROSOFT_GRAPH_SIMPLE_UPLOAD_MAX_BYTES` dans `microsoft.constants.ts`)
 * **Tests** : `project-microsoft-links.service.spec.ts`, `project-microsoft-links.controller.spec.ts`
 

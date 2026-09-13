@@ -535,6 +535,7 @@ export type ProjectDocumentApi = {
   category: ProjectDocumentCategory;
   status: ProjectDocumentStatus;
   storageType: ProjectDocumentStorageType;
+  storageBucket: string | null;
   storageKey: string | null;
   externalUrl: string | null;
   description: string | null;

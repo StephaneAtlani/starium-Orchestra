@@ -30,6 +30,7 @@ import { ProjectReviewAttachmentsService } from './project-reviews/project-revie
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectDocumentContentService } from './project-document-content.service';
+import { ProcurementModule } from '../procurement/procurement.module';
 import { ProjectTaskBucketsController } from './project-task-buckets.controller';
 import { ProjectTaskBucketsService } from './project-task-buckets.service';
 import { ProjectGovernanceCirclesController, ProjectTeamsController } from './project-governance-circles.controller';
@@ -81,6 +82,7 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     EmailModule,
     forwardRef(() => MicrosoftModule),
     PlatformUploadModule,
+    ProcurementModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

@@ -31,7 +31,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
     assertCanAdminProject: jest.Mock;
   };
   let content: {
-    writeStariumBuffer: jest.Mock;
+    writeStariumObject: jest.Mock;
     openStariumReadStream: jest.Mock;
     readStariumBuffer: jest.Mock;
   };
@@ -55,6 +55,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
       category: 'GENERAL',
       status: 'ACTIVE',
       storageType: 'STARIUM',
+      storageBucket: 'local',
       storageKey: 'k1',
       externalUrl: null,
       description: null,
@@ -85,8 +86,15 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
       assertCanAdminProject: jest.fn().mockResolvedValue(undefined),
     };
     content = {
-      writeStariumBuffer: jest.fn().mockReturnValue('/tmp/file'),
-      openStariumReadStream: jest.fn().mockReturnValue({ pipe: jest.fn() }),
+      writeStariumObject: jest.fn().mockResolvedValue({
+        storageBucket: 'local',
+        storageKey: 'Projets/uuid.pdf',
+        checksumSha256: 'abc',
+      }),
+      openStariumReadStream: jest.fn().mockResolvedValue({
+        stream: { pipe: jest.fn() },
+        contentType: 'application/pdf',
+      }),
       readStariumBuffer: jest.fn(),
     };
     service = new ProjectDocumentsService(
@@ -195,11 +203,13 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
     expect(auditLogs.create).not.toHaveBeenCalled();
   });
 
-  it('upload PDF ok écrit disque + crée STARIUM', async () => {
+  it('upload PDF ok via stockage client + crée STARIUM', async () => {
     const created = baseDoc({
       storageType: 'STARIUM',
       mimeType: 'application/pdf',
       extension: 'pdf',
+      storageBucket: 'local',
+      storageKey: 'Projets/uuid.pdf',
     });
     prisma.projectDocument.create.mockResolvedValue(created);
 
@@ -215,11 +225,20 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
       meta: {},
     });
 
-    expect(content.writeStariumBuffer).toHaveBeenCalledWith(
+    expect(content.writeStariumObject).toHaveBeenCalledWith({
       clientId,
-      projectId,
-      expect.stringMatching(/\.pdf$/),
-      file.buffer,
+      body: file.buffer,
+      contentType: 'application/pdf',
+      extension: '.pdf',
+    });
+    expect(prisma.projectDocument.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          storageBucket: 'local',
+          storageKey: 'Projets/uuid.pdf',
+          storageType: 'STARIUM',
+        }),
+      }),
     );
     expect(res).toEqual(created);
     expect(projects.assertCanWriteProject).toHaveBeenCalled();
@@ -245,7 +264,7 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
         meta: {},
       }),
     ).rejects.toThrow(UnprocessableEntityException);
-    expect(content.writeStariumBuffer).not.toHaveBeenCalled();
+    expect(content.writeStariumObject).not.toHaveBeenCalled();
     expect(prisma.projectDocument.create).not.toHaveBeenCalled();
   });
 
@@ -317,15 +336,20 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
   });
 });
 
-describe('ProjectDocumentContentService path guards', () => {
-  const { ConfigService } = require('@nestjs/config');
-  const { ProjectDocumentContentService: Svc } = require('./project-document-content.service');
-
-  it('rejette storageKey avec ..', () => {
-    const config = { get: () => '/tmp/starium-docs-test' };
-    const svc = new Svc(config as InstanceType<typeof ConfigService>);
-    expect(() =>
-      svc.resolveAbsolutePath('c1', 'p1', '../escape.pdf'),
-    ).toThrow(UnprocessableEntityException);
+describe('ProjectDocumentContentService guards', () => {
+  it('rejette bucket/clé manquants', async () => {
+    const { ProjectDocumentContentService: Svc } = require('./project-document-content.service');
+    const storage = {
+      putObject: jest.fn(),
+      getObjectStream: jest.fn(),
+    };
+    const svc = new Svc(storage);
+    await expect(svc.openStariumReadStream(null, 'k')).rejects.toThrow(
+      UnprocessableEntityException,
+    );
+    await expect(svc.openStariumReadStream('local', '')).rejects.toThrow(
+      UnprocessableEntityException,
+    );
+    expect(storage.getObjectStream).not.toHaveBeenCalled();
   });
 });

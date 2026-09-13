@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import {
   BadRequestException,
@@ -197,14 +196,18 @@ export class ProjectDocumentsService {
       );
     }
     const ext = PROJECT_DOCUMENT_MIME_TO_EXT[mime] ?? '.bin';
-    const storageKey = `${randomUUID()}${ext}`;
     const originalFilename = (file.originalname ?? 'document').slice(0, 300);
     const name =
       fields.name?.trim() ||
       originalFilename.replace(/\.[^.]+$/, '') ||
       'Document';
 
-    this.content.writeStariumBuffer(clientId, projectId, storageKey, file.buffer);
+    const stored = await this.content.writeStariumObject({
+      clientId,
+      body: file.buffer,
+      contentType: mime,
+      extension: ext,
+    });
 
     const created = await this.prisma.projectDocument.create({
       data: {
@@ -218,7 +221,8 @@ export class ProjectDocumentsService {
         category: fields.category ?? 'GENERAL',
         status: 'ACTIVE',
         storageType: 'STARIUM',
-        storageKey,
+        storageBucket: stored.storageBucket,
+        storageKey: stored.storageKey,
         externalUrl: null,
         description: fields.description?.trim() ?? null,
         uploadedByUserId: context.actorUserId,
@@ -269,9 +273,8 @@ export class ProjectDocumentsService {
       );
     }
 
-    const stream = this.content.openStariumReadStream(
-      clientId,
-      projectId,
+    const { stream, contentType } = await this.content.openStariumReadStream(
+      doc.storageBucket,
       doc.storageKey,
     );
     const filename =
@@ -279,7 +282,7 @@ export class ProjectDocumentsService {
 
     return {
       stream,
-      contentType: doc.mimeType || 'application/octet-stream',
+      contentType: doc.mimeType || contentType || 'application/octet-stream',
       filename,
     };
   }

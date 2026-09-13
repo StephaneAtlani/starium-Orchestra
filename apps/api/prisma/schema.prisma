@@ -2457,8 +2457,10 @@ model ProjectDocument {
   status      ProjectDocumentStatus      @default(ACTIVE)
   storageType ProjectDocumentStorageType @default(STARIUM)
 
-  storageKey  String?
-  externalUrl String?
+  /// Bucket S3 client ou sentinel `local` (même modèle que pièces procurement/contrats).
+  storageBucket String?
+  storageKey    String?
+  externalUrl   String?
 
   description String?
   tags        Json?

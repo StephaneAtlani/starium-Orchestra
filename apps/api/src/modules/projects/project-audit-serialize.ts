@@ -272,6 +272,7 @@ export function projectDocumentEntityAuditSnapshot(
     category: d.category,
     status: d.status,
     storageType: d.storageType,
+    storageBucket: d.storageBucket ?? null,
     storageKey: d.storageKey ?? null,
     externalUrl: d.externalUrl ?? null,
     description: d.description ?? null,

@@ -1817,6 +1817,150 @@ table.starium-dt {
   background: var(--state-danger-bg);
   color: var(--state-danger);
 }
+
+/* Icônes type fichier (mock docs .doc-ico / .di-*) */
+.starium-doc-ico {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.starium-doc-ico--pdf {
+  background: var(--state-danger-bg);
+  color: var(--state-danger);
+}
+.starium-doc-ico--xls {
+  background: var(--state-success-bg);
+  color: var(--state-success);
+}
+.starium-doc-ico--doc {
+  background: var(--state-info-bg);
+  color: var(--state-info);
+}
+.starium-doc-ico--fig,
+.starium-doc-ico--link {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+.starium-doc-ico--img {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
+.starium-doc-ico--zip,
+.starium-doc-ico--file {
+  background: var(--neutral-100, var(--muted));
+  color: var(--ds-text-muted-color, var(--neutral-600, var(--muted-foreground)));
+}
+.starium-ds-badge--nodot::before {
+  display: none;
+}
+
+/* Rail activité documents (mock .activity-card / .act-*) */
+.starium-activity-card {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--neutral-200, var(--border));
+  border-radius: var(--radius-lg, 14px);
+  background: var(--neutral-0, var(--card));
+  box-shadow: var(--shadow-1);
+}
+.starium-act-timeline {
+  display: flex;
+  flex-direction: column;
+}
+.starium-act-item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+.starium-act-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 36px;
+  bottom: 0;
+  left: 16px;
+  width: 1.5px;
+  background: var(--neutral-200, var(--border));
+}
+.starium-act-ico {
+  z-index: 1;
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.starium-act-body {
+  min-width: 0;
+  flex: 1;
+  padding-top: 1px;
+}
+.starium-act-line1 {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--neutral-700, var(--foreground));
+}
+.starium-act-line1 b {
+  font-weight: 700;
+  color: var(--brand-ink, var(--foreground));
+}
+.starium-act-file {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neutral-600, var(--muted-foreground));
+}
+.starium-act-time {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--neutral-400, var(--muted-foreground));
+}
+.starium-act-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  margin-top: 13px;
+  border-radius: 999px;
+  background: var(--brand-gold);
+}
+.starium-act-dot--pdf {
+  background: var(--state-danger);
+}
+.starium-act-dot--xls {
+  background: var(--state-success);
+}
+.starium-act-dot--doc {
+  background: var(--state-info);
+}
+.starium-act-dot--fig,
+.starium-act-dot--link {
+  background: var(--purple);
+}
+.starium-act-dot--img {
+  background: var(--brand-gold);
+}
+
 .starium-dt-assignee {
   display: flex;
   align-items: center;

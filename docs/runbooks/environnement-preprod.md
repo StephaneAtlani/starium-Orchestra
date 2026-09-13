@@ -117,7 +117,7 @@ Dans l’UI Environment **préprod**, coller **exactement** les valeurs **prod**
 
 Puis **recreate** `api` + `api-worker` préprod après tout changement d’env.
 
-**Documents projet (STARIUM)** : définir `PROJECT_DOCUMENTS_STORAGE_ROOT` (chemin writable partagé api/worker). Sans cette variable, upload/download et sync Teams documents (INT-009) renvoient 422. Le volume doit survivre aux recreates conteneur.
+**Documents projet (STARIUM)** : même stockage documents client que contrats/commandes/factures (réglages plateforme LOCAL ou S3, domaine `Projets`). Pas de `PROJECT_DOCUMENTS_STORAGE_ROOT`. En LOCAL, le volume racine procurement/documents doit être partagé api/worker et survivre aux recreates.
 
 ### 3.2 Restore du volume Postgres (Dokploy)
 

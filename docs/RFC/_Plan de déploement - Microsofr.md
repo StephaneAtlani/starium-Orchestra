@@ -53,7 +53,7 @@ Cette UI est **indépendante de Microsoft**.
 | ----- | ---------------- | ---------------------- | ----------------------------------------- | ------ |
 | 10    | RFC-PROJ-INT-009 | Sync documents → Teams | Sync Graph + `ProjectDocumentMicrosoftSync` + `POST .../sync-documents` | Fait   |
 
-Lecture fichiers `STARIUM` : racine `PROJECT_DOCUMENTS_STORAGE_ROOT` (voir RFC-009).
+Lecture fichiers `STARIUM` : stockage documents client (`storageBucket`/`storageKey`, domaine `projets`) — voir RFC-009 / DOC-002.
 
 ---
 

@@ -1478,7 +1478,7 @@ export class ProjectMicrosoftLinksService {
         deletedAt: null,
         archivedAt: null,
       },
-      select: { id: true, storageType: true, storageKey: true },
+      select: { id: true, storageType: true, storageKey: true, storageBucket: true },
     });
 
     const documents = await this.prisma.projectDocument.findMany({
@@ -1490,7 +1490,8 @@ export class ProjectMicrosoftLinksService {
         archivedAt: null,
         storageType: ProjectDocumentStorageType.STARIUM,
         storageKey: { not: null },
-        NOT: { storageKey: '' },
+        storageBucket: { not: null },
+        AND: [{ NOT: { storageKey: '' } }, { NOT: { storageBucket: '' } }],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
@@ -1533,10 +1534,9 @@ export class ProjectMicrosoftLinksService {
 
       let buffer: Buffer;
       try {
-        buffer = this.projectDocumentContent.readStariumBuffer(
-          clientId,
-          projectId,
-          doc.storageKey!,
+        buffer = await this.projectDocumentContent.readStariumBuffer(
+          doc.storageBucket,
+          doc.storageKey,
         );
       } catch (e: unknown) {
         failed++;

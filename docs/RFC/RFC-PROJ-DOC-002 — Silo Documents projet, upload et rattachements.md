@@ -72,7 +72,7 @@ Onglet `data-pane="docs"` du mock portail :
 1. **H1 — Un document = un projet = un client.** Pas de partage inter-projets V1 (copier = nouvel enregistrement).
 2. **H2 — Soft delete** DOC-001 conserve : les attachments gardent `documentId` nullable (`onDelete: SetNull`) ; UI affiche « Document retiré du projet » via `displayLabel`, jamais l’ID.
 3. **H3 — Permissions** : `projects.read` lecture/liste/download ; `projects.update` upload / create link / archive / delete / rattacher. Pas de permission `documents.*` V1.
-4. **H4 — Stockage STARIUM** : même racine `PROJECT_DOCUMENTS_STORAGE_ROOT/{clientId}/{projectId}/{storageKey}` que INT-009 ; `storageKey` généré serveur (jamais chemin utilisateur).
+4. **H4 — Stockage STARIUM** : **stockage documents client** (LOCAL/S3 plateforme, même service que contrats/commandes/factures), domaine `projets` (`Projets/…`). Colonnes `storageBucket` + `storageKey` (objectKey) ; clés générées serveur via `putObject`.
 5. **H5 — Taille max V1** : 25 Mo / fichier (configurable env `PROJECT_DOCUMENTS_MAX_BYTES`) ; MIME allowlist (pdf, office, images, txt, csv, zip) — rejet 422 sinon.
 6. **H6 — « Joindre maintenant »** depuis un point / réunion = **crée** un `ProjectDocument` STARIUM **et** un attachment pointant dessus (transaction).
 7. **H7 — Activité** : dérivée des audit logs `project.document.*` (+ éventuellement `project.review.attachment.*`) ; pas de table dédiée V1.
@@ -90,7 +90,7 @@ Onglet `data-pane="docs"` du mock portail :
 | --- | --- |
 | `project-documents.controller.ts` | `POST …/upload` (multipart) ; `GET …/:id/download` ; query list `search`/`category`/`extension`/`sort` |
 | `project-documents.service.ts` | create-from-upload ; cohérence STARIUM ; soft-delete fichier optionnel différé |
-| `project-document-content.service.ts` | `writeStariumBuffer` + gardes path déjà présentes |
+| `project-document-content.service.ts` | `writeStariumObject` / lecture via `ProcurementObjectStorageService` (domaine `projets`) |
 | DTOs | `UploadProjectDocumentDto` (champs form) ; filtres list |
 | Audit | `project.document.uploaded` (ou réutiliser `created` avec payload `via: upload`) |
 | Tests | isolation client, path traversal, MIME/taille, download 404 cross-project |
@@ -367,7 +367,7 @@ Implémente RFC-PROJ-DOC-002 lots P0+P1.
 Contraintes :
 - Réutiliser ProjectDocument (DOC-001) ; enums Prisma inchangés
 - clientId depuis ActiveClient ; jamais du body
-- Upload multipart → write sous PROJECT_DOCUMENTS_STORAGE_ROOT/{clientId}/{projectId}/…
+- Upload multipart → `putObject` domaine `projets` (LOCAL/S3 client) ; persist `storageBucket` + `storageKey`
 - storageKey généré serveur ; réutiliser ProjectDocumentContentService (étendre write)
 - Download stream STARIUM ; EXTERNAL ouvert côté front
 - Onglet workspace Documents (mock Refonte Portail Client) via StariumModal + FilterBar + Table

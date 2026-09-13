@@ -68,7 +68,7 @@ export class ClientDocumentsStorageProvisionerService {
 
     const clientBucket = await this.ensureS3ClientDocumentsBucket(clientId);
     this.logger.log(
-      `[procurement] S3 → bucket client « ${clientBucket} » (marqueur « ${CLIENT_S3_ROOT_MARKER} » ; pièces sous Commandes|Factures|Contrats).`,
+      `[procurement] S3 → bucket client « ${clientBucket} » (marqueur « ${CLIENT_S3_ROOT_MARKER} » ; pièces sous Commandes|Factures|Contrats|Projets).`,
     );
   }
 
