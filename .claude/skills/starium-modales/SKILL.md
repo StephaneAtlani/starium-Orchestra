@@ -38,7 +38,9 @@ pied, mêmes champs.
 
 - **Voile** : `bg-black/40`, léger flou, clic = fermer.
 - **Panneau** : centré **tous viewports**, `bg-card`, `rounded-xl`, `max-h-[86vh]`, `p-0`,
-  **pas de glass/blur**. Scroll **uniquement** dans `DialogBody`.
+  **pas de glass/blur**. Scroll **uniquement** dans `DialogBody` via
+  **`StariumScrollArea` `reveal="hover"`** (rail custom, comme Préparer) — **jamais**
+  scrollbar native CSS.
 - **Icône** : 38×38, `rounded-[10px]`, fond `--brand-gold-050`, icône Lucide 18px.
 - **Croix** : **haut droite** du header, `aria-label="Fermer"`.
 
@@ -148,7 +150,9 @@ Cibles tactiles `min-h-11 sm:min-h-9`. Pas de pied si flux **autosave** seul (à
 | Croix en haut à gauche / absolue hors header | Croix dans le header, à droite |
 | Header legacy `-mx-4 -mt-4`, `pr-8` | Classes `.starium-modal__*` |
 | Inputs bruts hors `.starium-form-*` | Classes formulaire DS |
-| Scroll sur `DialogContent` | Scroll sur `DialogBody` uniquement |
+| Scroll sur `DialogContent` | Scroll sur `DialogBody` uniquement via **`StariumScrollArea` `reveal="hover"`** |
+| Scrollbar native CSS / `reveal="never"` sur le corps formulaire | Rail HTML socle — même pattern que Préparer |
+| `bodyClassName="overflow-y-auto"` « pour que ça marche » | Laisser le défaut ; `!overflow-hidden` seulement pour atelier imbriqué |
 | Bouton unique pleine largeur sans raison | Annuler `outline` + primaire à droite |
 | ID technique en UI | Libellé métier |
 

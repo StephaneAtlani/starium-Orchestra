@@ -105,7 +105,7 @@ describe('DialogContent', () => {
 });
 
 describe('DialogBody', () => {
-  it('layout starium — padding DS et scroll', () => {
+  it('layout starium — rail StariumScrollArea reveal=hover (norme macOS)', () => {
     render(
       <Dialog open>
         <DialogContent>
@@ -115,12 +115,28 @@ describe('DialogBody', () => {
     );
     const body = document.querySelector('[data-slot="dialog-body"]');
     expect(body?.className).toContain('starium-modal__body');
-    expect(body?.className).toContain('flex-auto');
-    expect(
-      body?.querySelector('[data-starium-scroll]')?.getAttribute(
-        'data-scroll-layout',
-      ),
-    ).toBe('flow');
+    expect(body?.className).toContain('starium-modal__body--rail');
+    expect(body?.className).toMatch(/overflow-hidden/);
+    const scroll = body?.querySelector('[data-starium-scroll]');
+    expect(scroll).toBeTruthy();
+    expect(scroll).toHaveAttribute('data-reveal', 'hover');
+    expect(body?.querySelector('[data-slot="starium-scroll-viewport"]')).toBeTruthy();
+  });
+
+  it('layout starium — overflow-hidden délègue le scroll aux enfants (pas de rail socle)', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogBody className="!overflow-hidden !p-0" data-testid="dialog-body">
+            Corps
+          </DialogBody>
+        </DialogContent>
+      </Dialog>,
+    );
+    const body = document.querySelector('[data-slot="dialog-body"]');
+    expect(body?.className).toMatch(/overflow-hidden/);
+    expect(body?.className).not.toContain('starium-modal__body--rail');
+    expect(body?.querySelector('[data-starium-scroll]')).toBeNull();
   });
 
   it('layout starium — accent data attribute', () => {

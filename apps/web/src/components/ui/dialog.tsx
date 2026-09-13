@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { useFullscreenPortalContainer } from "@/hooks/use-fullscreen-portal-container"
 import { XIcon } from "lucide-react"
 import type { StariumModalAccent } from "@/components/layout/starium-modal-accent"
-import { StariumScrollArea, STARIUM_SCROLL_EDGE_REVEAL_PX } from "@/components/layout/starium-scroll-area"
+import { StariumScrollArea } from "@/components/layout/starium-scroll-area"
 
 type DialogOnOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>
 
@@ -284,6 +284,11 @@ function dialogBodyViewportPaddingClass(className?: string): string {
   return "px-5 py-5"
 }
 
+/**
+ * Corps modale Starium — modèle unique (toutes les StariumModal) :
+ * - rail custom `StariumScrollArea` `reveal="hover"` (comme Préparer / Convocation) ;
+ * - `overflow-hidden` dans `className` : pas de rail socle, scroll délégué aux enfants.
+ */
 function DialogBody({
   className,
   children,
@@ -300,8 +305,8 @@ function DialogBody({
         data-slot="dialog-body"
         {...props}
         className={cn(
-          /* flex-auto (pas flex-1) : le corps contribue à la hauteur intrinsèque de la modale.
-           * flex-1 = basis 0% → collapse à ~0 avec StariumScrollArea absolute. */
+          /* flex-auto (pas flex-1) : hauteur intrinsèque ; shrink sous max-h du panneau.
+           * flex-1 basis 0% + StariumScrollArea absolute → collapse. */
           "starium-modal__body starium-modal__body--rail flex min-h-0 flex-auto flex-col !overflow-hidden !p-0",
           className,
         )}
@@ -313,7 +318,7 @@ function DialogBody({
             "starium-modal__body-viewport",
             dialogBodyViewportPaddingClass(className),
           )}
-          reveal="never"
+          reveal="hover"
         >
           {children}
         </StariumScrollArea>
@@ -421,8 +426,6 @@ function DialogContent({
   modalAccent = "gold",
   ref,
   onPointerDown,
-  onMouseEnter,
-  onMouseLeave,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
@@ -443,15 +446,6 @@ function DialogContent({
     (hasStariumHeader !== false && hasDialogHeaderChild(children))
   const normalizedChildren =
     panelLayout === "starium" ? normalizeStariumDialogChildren(children) : children
-  const [scrollHover, setScrollHover] = React.useState(false)
-
-  const updateScrollEdgeHover = React.useCallback(
-    (clientX: number, target: HTMLElement) => {
-      const rect = target.getBoundingClientRect()
-      setScrollHover(rect.right - clientX <= STARIUM_SCROLL_EDGE_REVEAL_PX)
-    },
-    [],
-  )
 
   const closeBtnClass =
     panelLayout === "chat"
@@ -503,21 +497,9 @@ function DialogContent({
           data-modal-accent={
             panelLayout === "starium" ? modalAccent : undefined
           }
-          data-scroll-hover={scrollHover ? true : undefined}
           className={cn(popupClassName, className)}
           {...props}
           onPointerDown={onPointerDown}
-          onMouseEnter={(e) => {
-            updateScrollEdgeHover(e.clientX, e.currentTarget)
-            onMouseEnter?.(e)
-          }}
-          onMouseMove={(e) => {
-            updateScrollEdgeHover(e.clientX, e.currentTarget)
-          }}
-          onMouseLeave={(e) => {
-            setScrollHover(false)
-            onMouseLeave?.(e)
-          }}
         >
           {normalizedChildren}
           {showCloseButton &&

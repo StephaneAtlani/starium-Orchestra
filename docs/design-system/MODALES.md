@@ -52,20 +52,21 @@ Voir aussi [FRONTEND_UI-UX.md §11.4](../FRONTEND_UI-UX.md#114-modales--voile-et
 | Titre | `.starium-modal__title` | Via `DialogTitle` |
 | Sous-titre | `.starium-modal__subtitle` | Via `DialogDescription` — **une phrase** |
 | Fermeture | `.starium-modal__close` | **Haut droite** du header (`margin-left: auto`) ; `aria-label="Fermer"` |
-| Corps | `.starium-modal__body` | Padding `20px` ; seule zone scrollable ; **scrollbar / rail masqués** (`reveal="never"`) ; ombres de débordement (sauf `p-0`) |
+| Corps | `.starium-modal__body` | Padding `20px` (viewport) ; scroll via **`StariumScrollArea` `reveal="hover"`** (rail custom) |
 | Pied | `.starium-modal__footer` | Bordure haute ; boutons alignés à droite, gap `10px` |
 
-## 2.1 Scroll du corps (souris / molette)
+## 2.1 Scroll du corps (modèle unique — socle)
 
-Le corps reste scrollable (molette / trackpad / clavier). **Aucun rail ni scrollbar native ne s’affiche** au survol dans les modales.
+**Une seule implémentation** : `DialogBody` enveloppe le contenu dans
+`StariumScrollArea` (`reveal="hover"`) — **même rail custom** que Préparer / Convocation /
+Équipes. Fiable sous macOS (scrollbar native overlay = invisible).
 
-| Mécanisme | Où |
-|-----------|-----|
-| Scroll masqué | `DialogBody` → `StariumScrollArea` **`reveal="never"`** (scrollbar native cachée, **pas de rail custom** au hover). Scroll molette / trackpad / focus clavier. |
-| Rail custom (`hover` / `edge` / `always`) | Réservé aux **panneaux page / atelier** denses — pas au corps des modales formulaire. |
-| Ombres de débordement haut/bas | Corps standard (sauf `p-0` / `!p-0`) ; sous-panneaux via `starium-scroll starium-scroll--edges` |
+| Cas | Comportement |
+|-----|----------------|
+| Formulaire standard | Rail HTML au survol dès qu’il y a overflow ; molette / trackpad toujours |
+| Atelier / mail | `bodyClassName` avec `!overflow-hidden` ; **pas** de rail socle ; enfants `StariumScrollArea` |
 
-Sous-panneaux scrollables (ex. liste + détail côte à côte) : ajouter `starium-scroll starium-scroll--edges` sur la zone `overflow-y-auto`, ou `StariumScrollArea` avec `reveal` adapté.
+**Interdit** : re-câbler une scrollbar native CSS sur le corps, ou `reveal="never"` sur le socle.
 
 ---
 
@@ -212,7 +213,9 @@ Référence champs partagés : `features/strategic-vision/components/strategic-v
 | Inputs bruts `border-input` hors `.starium-form-*` | Classes formulaire DS |
 | `Statement`, UUID, IDs en UI | Libellés métier français |
 | Scroll sur `DialogContent` | Scroll uniquement sur `DialogBody` |
-| Scrollbar / rail qui apparaît au survol dans une **modale** | Corps modale = `reveal="never"` ; rail `hover`/`edge` seulement hors modale (atelier / page) |
+| Scroll / overflow re-câblé dans chaque feature | Corriger le **socle** `DialogBody` — formulaire = `StariumModal` sans hack overflow |
+| Scrollbar absente au survol du corps | Socle = **`StariumScrollArea` `reveal="hover"`** (rail HTML) — jamais scrollbar native CSS |
+| `reveal="never"` / `reveal="edge"` sur le corps formulaire | **Interdit** sur le socle — réserve `edge` au workspace page |
 | Pied avec un seul bouton pleine largeur sans raison | `outline` Annuler + primaire à droite |
 
 ---

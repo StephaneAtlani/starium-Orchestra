@@ -23,11 +23,10 @@ type Props = {
   /** Classes sur le viewport scrollable (padding, etc.). */
   viewportClassName?: string;
   /**
-   * `hover` (défaut composant) : rail visible au survol de toute la zone.
+   * `hover` (défaut) : rail visible au survol — **norme modales Starium** (`DialogBody`).
    * `edge` : rail visible seulement près du bord droit (workspace page).
    * `always` : rail toujours visible dès qu’il y a overflow.
-   * `never` : **aucun rail** — scrollbar native déjà masquée ; scroll molette / trackpad
-   *           uniquement (norme modales Starium : pas d’apparition à la souris).
+   * `never` : aucun rail — scroll molette / trackpad uniquement (cas exceptionnels).
    */
   reveal?: 'hover' | 'edge' | 'always' | 'never';
   /**

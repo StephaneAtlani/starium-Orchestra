@@ -2539,6 +2539,169 @@ table.starium-dt {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+/* Corps formulaire : rail custom (StariumScrollArea) — pas de scrollbar native */
+[data-slot="dialog-content"][data-layout="starium"] > [data-slot="dialog-body"].starium-modal__body--rail,
+.starium-modal__body--rail {
+  overflow: hidden;
+  padding: 0;
+  scrollbar-gutter: auto;
+}
+.starium-modal__body:not(.starium-modal__body--rail),
+.starium-modal__scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-gutter: stable;
+}
+
+/**
+ * Scrollbar modales — souris fine :
+ * masquée au repos, visible dès que le curseur est sur la zone scrollable
+ * (`:hover` / `:focus-within` / `data-scroll-hover`).
+ */
+@media (hover: hover) and (pointer: fine) {
+  .starium-modal__body,
+  .starium-modal__scroll,
+  .starium-scroll,
+  [data-slot="dialog-content"] .overflow-y-auto,
+  [data-slot="dialog-content"] .overflow-y-scroll {
+    scrollbar-width: none;
+  }
+
+  .starium-modal__body:hover,
+  .starium-modal__body:focus-within,
+  .starium-modal__body[data-scroll-hover],
+  .starium-modal__scroll:hover,
+  .starium-modal__scroll:focus-within,
+  .starium-modal__scroll[data-scroll-hover],
+  .starium-scroll:hover,
+  .starium-scroll:focus-within,
+  .starium-scroll[data-scroll-hover],
+  [data-slot="dialog-content"] .overflow-y-auto:hover,
+  [data-slot="dialog-content"] .overflow-y-auto:focus-within,
+  [data-slot="dialog-content"] .overflow-y-auto[data-scroll-hover],
+  [data-slot="dialog-content"] .overflow-y-scroll:hover,
+  [data-slot="dialog-content"] .overflow-y-scroll:focus-within,
+  [data-slot="dialog-content"] .overflow-y-scroll[data-scroll-hover] {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
+      color-mix(in srgb, var(--muted) 80%, var(--card));
+  }
+
+  .starium-modal__body::-webkit-scrollbar,
+  .starium-modal__scroll::-webkit-scrollbar,
+  .starium-scroll::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-auto::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
+  .starium-modal__body:hover::-webkit-scrollbar,
+  .starium-modal__body:focus-within::-webkit-scrollbar,
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar,
+  .starium-modal__scroll:hover::-webkit-scrollbar,
+  .starium-modal__scroll:focus-within::-webkit-scrollbar,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar,
+  .starium-scroll:hover::-webkit-scrollbar,
+  .starium-scroll:focus-within::-webkit-scrollbar,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-auto:hover::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-auto:focus-within::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-auto[data-scroll-hover]::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-scroll:hover::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-scroll:focus-within::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-scroll[data-scroll-hover]::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  .starium-modal__body:hover::-webkit-scrollbar-track,
+  .starium-modal__body:focus-within::-webkit-scrollbar-track,
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-track,
+  .starium-modal__scroll:hover::-webkit-scrollbar-track,
+  .starium-modal__scroll:focus-within::-webkit-scrollbar-track,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-track,
+  .starium-scroll:hover::-webkit-scrollbar-track,
+  .starium-scroll:focus-within::-webkit-scrollbar-track,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-auto:hover::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-auto:focus-within::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-auto[data-scroll-hover]::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-scroll:hover::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-scroll:focus-within::-webkit-scrollbar-track,
+  [data-slot="dialog-content"] .overflow-y-scroll[data-scroll-hover]::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--muted) 85%, var(--card));
+    border-radius: var(--radius-pill);
+  }
+
+  .starium-modal__body:hover::-webkit-scrollbar-thumb,
+  .starium-modal__body:focus-within::-webkit-scrollbar-thumb,
+  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-thumb,
+  .starium-modal__scroll:hover::-webkit-scrollbar-thumb,
+  .starium-modal__scroll:focus-within::-webkit-scrollbar-thumb,
+  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-thumb,
+  .starium-scroll:hover::-webkit-scrollbar-thumb,
+  .starium-scroll:focus-within::-webkit-scrollbar-thumb,
+  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-auto:hover::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-auto:focus-within::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-auto[data-scroll-hover]::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-scroll:hover::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-scroll:focus-within::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-scroll[data-scroll-hover]::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
+    border-radius: var(--radius-pill);
+    border: 2px solid color-mix(in srgb, var(--muted) 85%, var(--card));
+    background-clip: padding-box;
+    min-height: 2.5rem;
+  }
+
+  .starium-modal__body:hover::-webkit-scrollbar-thumb:hover,
+  .starium-modal__scroll:hover::-webkit-scrollbar-thumb:hover,
+  .starium-scroll:hover::-webkit-scrollbar-thumb:hover,
+  [data-slot="dialog-content"] .overflow-y-auto:hover::-webkit-scrollbar-thumb:hover,
+  [data-slot="dialog-content"] .overflow-y-scroll:hover::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
+  }
+}
+
+/* Tactile / pas de hover : barre fine toujours là si overflow */
+@media (hover: none), (pointer: coarse) {
+  .starium-modal__body,
+  .starium-modal__scroll,
+  .starium-scroll,
+  [data-slot="dialog-content"] .overflow-y-auto,
+  [data-slot="dialog-content"] .overflow-y-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--foreground) 40%, var(--border))
+      color-mix(in srgb, var(--muted) 70%, var(--card));
+  }
+
+  .starium-modal__body::-webkit-scrollbar,
+  .starium-modal__scroll::-webkit-scrollbar,
+  .starium-scroll::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-auto::-webkit-scrollbar,
+  [data-slot="dialog-content"] .overflow-y-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .starium-modal__body::-webkit-scrollbar-thumb,
+  .starium-modal__scroll::-webkit-scrollbar-thumb,
+  .starium-scroll::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-auto::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .overflow-y-scroll::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
+    border-radius: var(--radius-pill);
+  }
 }
 .starium-modal__header {
   display: flex;
@@ -2680,135 +2843,50 @@ table.starium-dt {
   outline: none;
   box-shadow: var(--shadow-focus);
 }
-.starium-modal__body,
-.starium-modal__scroll {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-}
 
 /**
- * Scrollbar modales — souris fine :
- * masquée au repos, visible dès que le curseur est sur la zone scrollable.
- * (macOS overlay ignore souvent une barre « toujours on » ; le hover width 0→12 force la barre classique.)
- *
- * Cible **tous** les descendants du panneau (`*`) : overflow défini en CSS feature
- * (ex. `.convoc-mail__comp`) aussi bien que Tailwind `.overflow-y-auto`.
+ * Sous-panneaux scrollables dans une modale (atelier, etc.) —
+ * hors corps `.starium-modal__body` (déjà géré plus haut).
  */
-.starium-modal__body,
-.starium-modal__scroll,
 .starium-scroll,
-[data-slot="dialog-content"] .overflow-y-auto,
-[data-slot="dialog-content"] .overflow-y-scroll,
 [data-slot="dialog-content"] .prepare-workspace__col,
 [data-slot="dialog-content"] [data-starium-scroll] {
   --starium-modal-scroll-target: 1;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  [data-slot="dialog-content"],
-  [data-slot="dialog-content"] *,
-  .starium-modal__body,
-  .starium-modal__scroll,
-  .starium-scroll {
+  .starium-scroll,
+  [data-slot="dialog-content"] .prepare-workspace__col,
+  [data-slot="dialog-content"] [data-starium-scroll] {
     scrollbar-width: none;
   }
 
-  /* Proximité bord droit (`data-scroll-hover`) → barres natives sur zones overflow */
-  [data-slot="dialog-content"][data-scroll-hover],
-  [data-slot="dialog-content"][data-scroll-hover] *,
-  [data-slot="dialog-content"] [data-scroll-hover],
-  .starium-modal__body[data-scroll-hover],
-  .starium-modal__scroll[data-scroll-hover],
-  .starium-scroll[data-scroll-hover] {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
-      color-mix(in srgb, var(--muted) 80%, var(--card));
-  }
-
-  [data-slot="dialog-content"]::-webkit-scrollbar,
-  [data-slot="dialog-content"] *::-webkit-scrollbar,
-  .starium-modal__body::-webkit-scrollbar,
-  .starium-modal__scroll::-webkit-scrollbar,
-  .starium-scroll::-webkit-scrollbar {
+  .starium-scroll::-webkit-scrollbar,
+  [data-slot="dialog-content"] .prepare-workspace__col::-webkit-scrollbar,
+  [data-slot="dialog-content"] [data-starium-scroll]::-webkit-scrollbar {
     width: 0;
     height: 0;
     background: transparent;
   }
-
-  [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar,
-  [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar,
-  [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar,
-  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar,
-  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar,
-  .starium-scroll[data-scroll-hover]::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
-  }
-
-  [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-track,
-  [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-track,
-  [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-track,
-  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-track,
-  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-track,
-  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-track {
-    background: color-mix(in srgb, var(--muted) 85%, var(--card));
-    border-radius: var(--radius-pill);
-  }
-
-  [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-thumb,
-  [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-thumb,
-  [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-thumb,
-  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-thumb,
-  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-thumb,
-  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-thumb {
-    background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
-    border-radius: var(--radius-pill);
-    border: 2px solid color-mix(in srgb, var(--muted) 85%, var(--card));
-    background-clip: padding-box;
-    min-height: 2.5rem;
-  }
-
-  [data-slot="dialog-content"][data-scroll-hover]::-webkit-scrollbar-thumb:hover,
-  [data-slot="dialog-content"][data-scroll-hover] *::-webkit-scrollbar-thumb:hover,
-  [data-slot="dialog-content"] [data-scroll-hover]::-webkit-scrollbar-thumb:hover,
-  .starium-modal__body[data-scroll-hover]::-webkit-scrollbar-thumb:hover,
-  .starium-modal__scroll[data-scroll-hover]::-webkit-scrollbar-thumb:hover,
-  .starium-scroll[data-scroll-hover]::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
-  }
 }
 
-/* Tactile / pas de hover : barre fine toujours là si overflow */
+/* Tactile : barre fine sur sous-panneaux densés uniquement (pas le corps modale). */
 @media (hover: none), (pointer: coarse) {
-  [data-slot="dialog-content"],
-  [data-slot="dialog-content"] *,
-  .starium-modal__body,
-  .starium-modal__scroll,
-  .starium-scroll {
+  .starium-scroll,
+  [data-slot="dialog-content"] .prepare-workspace__col {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--foreground) 40%, var(--border))
       color-mix(in srgb, var(--muted) 70%, var(--card));
   }
 
-  [data-slot="dialog-content"]::-webkit-scrollbar,
-  [data-slot="dialog-content"] *::-webkit-scrollbar,
-  .starium-modal__body::-webkit-scrollbar,
-  .starium-modal__scroll::-webkit-scrollbar,
-  .starium-scroll::-webkit-scrollbar {
+  .starium-scroll::-webkit-scrollbar,
+  [data-slot="dialog-content"] .prepare-workspace__col::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
 
-  [data-slot="dialog-content"]::-webkit-scrollbar-thumb,
-  [data-slot="dialog-content"] *::-webkit-scrollbar-thumb,
-  .starium-modal__body::-webkit-scrollbar-thumb,
-  .starium-modal__scroll::-webkit-scrollbar-thumb,
-  .starium-scroll::-webkit-scrollbar-thumb {
+  .starium-scroll::-webkit-scrollbar-thumb,
+  [data-slot="dialog-content"] .prepare-workspace__col::-webkit-scrollbar-thumb {
     background-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
     border-radius: var(--radius-pill);
   }
@@ -2968,10 +3046,6 @@ table.starium-dt {
   font-size: 0.875rem;
   line-height: 1.5;
   background-color: var(--card);
-}
-.starium-modal__body.starium-modal__body--rail {
-  padding: 0;
-  overflow: hidden;
 }
 .starium-modal__body .starium-form {
   gap: 16px;
