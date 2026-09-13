@@ -6,7 +6,6 @@ import { AlertCircle, GitBranch } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LoadingState } from '@/components/feedback/loading-state';
 import { RegistryBadge } from '@/lib/ui/registry-badge';
-import { usePermissions } from '@/hooks/use-permissions';
 import { useActiveClient } from '@/hooks/use-active-client';
 import { useAuthenticatedFetch } from '@/hooks/use-authenticated-fetch';
 import { listProjectChildren } from '../api/projects.api';
@@ -28,7 +27,6 @@ export function ProjectChildrenSection({ project }: { project: ProjectDetail }) 
   const authFetch = useAuthenticatedFetch();
   const { activeClient } = useActiveClient();
   const clientId = activeClient?.id ?? '';
-  const { has } = usePermissions();
   const projectId = project.id;
   const childrenQuery = useQuery({
     queryKey: projectQueryKeys.projectChildren(clientId, projectId, { limit: 20 }),
@@ -43,7 +41,10 @@ export function ProjectChildrenSection({ project }: { project: ProjectDetail }) 
   });
 
   return (
-    <article aria-labelledby="project-hierarchy-heading" className="starium-ov-card">
+    <article
+      aria-labelledby="project-hierarchy-heading"
+      className="starium-ov-card starium-ov-card--split h-full"
+    >
       <div className="starium-ov-card__head">
         <h2 id="project-hierarchy-heading" className="starium-ov-card__title">
           Hiérarchie
