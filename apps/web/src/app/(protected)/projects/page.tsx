@@ -99,15 +99,14 @@ export default function ProjectsPortfolioPage() {
 
   const onViewportLimitChange = useCallback(
     (limit: number) => {
-      if (filters.limit === limit) return;
       setFilters({ limit, page: 1 });
     },
-    [filters.limit, setFilters],
+    [setFilters],
   );
   const tableAnchorRef = useProjectsViewportPageLimit(
     onViewportLimitChange,
     listEnabled && viewMode === 'table',
-    `${summaryLoading}:${viewMode}`,
+    `${summaryLoading}:${viewMode}:${isLoading}:${data?.items?.length ?? 0}`,
   );
 
   const apiErr = error ? (error as unknown as ApiFormError) : undefined;
