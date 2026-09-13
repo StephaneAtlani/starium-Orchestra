@@ -87,7 +87,17 @@ export function PrepareWorkspaceModelCard({
             className="min-h-11 w-full"
             aria-label="Modèle de préparation"
           >
-            <SelectValue placeholder="Modèle par défaut" />
+            <SelectValue placeholder="Modèle par défaut">
+              {(value) => {
+                if (!value || value === '__default__') {
+                  return `Modèle par défaut (${typeLabel})`;
+                }
+                const t = templates.find((row) => row.id === value);
+                return t
+                  ? displayLabel(t.name, 'Modèle sans nom')
+                  : 'Modèle';
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__default__">
