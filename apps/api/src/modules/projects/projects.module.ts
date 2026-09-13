@@ -59,6 +59,7 @@ import { OrganizationModule } from '../organization/organization.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EmailModule } from '../email/email.module';
 import { MicrosoftModule } from '../microsoft/microsoft.module';
+import { PlatformUploadModule } from '../platform-upload/platform-upload.module';
 import { ProjectReviewInvitationsService } from './project-reviews/project-review-invitations.service';
 import { ProjectReviewEmailInvitationsService } from './project-reviews/project-review-email-invitations.service';
 import { ProjectReviewEmailReportService } from './project-reviews/project-review-email-report.service';
@@ -79,6 +80,7 @@ import { ProjectReviewSeriesService } from './project-reviews/project-review-ser
     NotificationsModule,
     EmailModule,
     forwardRef(() => MicrosoftModule),
+    PlatformUploadModule,
   ],
   controllers: [
     /** Routes `action-plans/:id/tasks/...` avant `action-plans/:id`. */

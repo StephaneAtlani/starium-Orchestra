@@ -7,6 +7,7 @@ import {
   Banknote,
   CalendarRange,
   ClipboardList,
+  FileText,
   History,
   LayoutGrid,
   Layers3,
@@ -25,6 +26,7 @@ import { cn } from '@/lib/utils';
 import {
   projectBudget,
   projectDetail,
+  projectDocumentsTab,
   projectEquipesTab,
   projectHistory,
   projectPlanning,
@@ -43,6 +45,7 @@ export type WorkspaceTabId =
   | 'risks'
   | 'budget'
   | 'equipes'
+  | 'documents'
   | 'points'
   | 'scenarios'
   | 'history'
@@ -74,6 +77,7 @@ export type ProjectWorkspaceTabState = {
   isScenarios: boolean;
   isOptions: boolean;
   isEquipes: boolean;
+  isDocuments: boolean;
   isPoints: boolean;
   isSynth: boolean;
 };
@@ -91,6 +95,7 @@ export function deriveProjectWorkspaceTabState(
   const isScenarios = Boolean(pathname?.includes('/scenarios'));
   const isOptions = Boolean(pathname?.includes('/options'));
   const isEquipes = tab === 'equipes';
+  const isDocuments = tab === 'documents';
   const isPoints = tab === 'points';
   const isSynth =
     !isSheet &&
@@ -98,6 +103,7 @@ export function deriveProjectWorkspaceTabState(
     !isTasks &&
     !isRisks &&
     !isEquipes &&
+    !isDocuments &&
     !isPoints &&
     !isPlanning &&
     !isBudget &&
@@ -113,6 +119,7 @@ export function deriveProjectWorkspaceTabState(
     isScenarios,
     isOptions,
     isEquipes,
+    isDocuments,
     isPoints,
     isSynth,
   };
@@ -125,6 +132,7 @@ export function getActiveWorkspaceTabId(tabState: ProjectWorkspaceTabState): Wor
   if (tabState.isRisks) return 'risks';
   if (tabState.isBudget) return 'budget';
   if (tabState.isEquipes) return 'equipes';
+  if (tabState.isDocuments) return 'documents';
   if (tabState.isPoints) return 'points';
   if (tabState.isScenarios) return 'scenarios';
   if (tabState.isHistory) return 'history';
@@ -197,6 +205,13 @@ function buildWorkspaceTabs(
       href: projectEquipesTab(projectId),
       icon: Users,
       isActive: (s) => s.isEquipes,
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      href: projectDocumentsTab(projectId),
+      icon: FileText,
+      isActive: (s) => s.isDocuments,
     },
     {
       id: 'points',

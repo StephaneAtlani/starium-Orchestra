@@ -755,10 +755,145 @@ export async function listMilestones(
 export async function listProjectDocuments(
   authFetch: AuthFetch,
   projectId: string,
+  params?: {
+    search?: string;
+    category?: string;
+    status?: string;
+    storageType?: string;
+    extension?: string;
+    sort?: 'updatedAt:desc' | 'name:asc';
+  },
 ): Promise<ProjectDocumentApi[]> {
-  const res = await authFetch(`${BASE}/${projectId}/documents`);
+  const search = new URLSearchParams();
+  if (params?.search?.trim()) search.set('search', params.search.trim());
+  if (params?.category) search.set('category', params.category);
+  if (params?.status) search.set('status', params.status);
+  if (params?.storageType) search.set('storageType', params.storageType);
+  if (params?.extension) search.set('extension', params.extension);
+  if (params?.sort) search.set('sort', params.sort);
+  const q = search.toString();
+  const listPath = [BASE, projectId, 'documents'].join('/');
+  const res = await authFetch(q ? `${listPath}?${q}` : listPath);
   if (!res.ok) throw await parseApiFormError(res);
   return res.json() as Promise<ProjectDocumentApi[]>;
+}
+
+function filenameFromContentDisposition(cd: string | null): string | undefined {
+  if (!cd) return undefined;
+  const utf = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  if (utf?.[1]) {
+    try {
+      return decodeURIComponent(utf[1].trim());
+    } catch {
+      return utf[1].trim();
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(cd);
+  return plain?.[1]?.trim();
+}
+
+export type CreateProjectDocumentPayload = {
+  name: string;
+  storageType: 'EXTERNAL';
+  externalUrl: string;
+  category?: ProjectDocumentApi['category'];
+  description?: string;
+};
+
+export async function createProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  payload: CreateProjectDocumentPayload,
+): Promise<ProjectDocumentApi> {
+  const res = await authFetch(`${BASE}/${projectId}/documents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi>;
+}
+
+export async function uploadProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  file: File,
+  fields?: {
+    name?: string;
+    category?: ProjectDocumentApi['category'];
+    description?: string;
+  },
+): Promise<ProjectDocumentApi> {
+  const body = new FormData();
+  body.append('file', file);
+  if (fields?.name?.trim()) body.append('name', fields.name.trim());
+  if (fields?.category) body.append('category', fields.category);
+  if (fields?.description?.trim()) body.append('description', fields.description.trim());
+  const res = await authFetch(`${BASE}/${projectId}/documents/upload`, {
+    method: 'POST',
+    body,
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi>;
+}
+
+export async function downloadProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  documentId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await authFetch(
+    `${BASE}/${projectId}/documents/${documentId}/download`,
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  const blob = await res.blob();
+  const filename =
+    filenameFromContentDisposition(res.headers.get('Content-Disposition')) ??
+    'document';
+  return { blob, filename };
+}
+
+export async function updateProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  documentId: string,
+  payload: {
+    name?: string;
+    category?: ProjectDocumentApi['category'];
+    description?: string | null;
+  },
+): Promise<ProjectDocumentApi> {
+  const res = await authFetch(`${BASE}/${projectId}/documents/${documentId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi>;
+}
+
+export async function archiveProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  documentId: string,
+): Promise<ProjectDocumentApi> {
+  const res = await authFetch(
+    `${BASE}/${projectId}/documents/${documentId}/archive`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw await parseApiFormError(res);
+  return res.json() as Promise<ProjectDocumentApi>;
+}
+
+export async function deleteProjectDocument(
+  authFetch: AuthFetch,
+  projectId: string,
+  documentId: string,
+): Promise<void> {
+  const res = await authFetch(`${BASE}/${projectId}/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw await parseApiFormError(res);
 }
 
 export type CreateProjectMilestonePayload = {

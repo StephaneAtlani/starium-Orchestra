@@ -6,6 +6,7 @@ import { LoadingState } from '@/components/feedback/loading-state';
 import { useProjectDetailQuery } from '../hooks/use-project-detail-query';
 import { ProjectReviewsTab } from './project-reviews-tab';
 import { ProjectTeamsTab } from './project-teams/project-teams-tab';
+import { ProjectDocumentsTab } from './project-documents-tab';
 import { ProjectSynthesisOverviewCards } from './project-synthesis-overview-cards';
 import { ProjectWorkspaceShell } from './project-workspace-shell';
 
@@ -22,6 +23,14 @@ function ProjectDetailTabbedContent({ projectId }: { projectId: string }) {
     return (
       <Suspense fallback={<LoadingState rows={4} />}>
         <ProjectTeamsTab projectId={projectId} />
+      </Suspense>
+    );
+  }
+
+  if (tab === 'documents') {
+    return (
+      <Suspense fallback={<LoadingState rows={4} />}>
+        <ProjectDocumentsTab projectId={projectId} />
       </Suspense>
     );
   }

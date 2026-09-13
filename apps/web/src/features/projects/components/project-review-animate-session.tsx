@@ -28,6 +28,7 @@ import {
 } from '../constants/project-enum-labels';
 import { useProjectAssignableUsers } from '../hooks/use-project-assignable-users';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
+import { ProjectDocumentPicker } from './project-document-picker';
 import {
   canAdvanceAgendaPoint,
   findNextOpenAgendaItemId,
@@ -160,6 +161,7 @@ export function ProjectReviewAnimateSession({
     updateParticipant,
     updateAgendaItem,
     createAttachment,
+    deleteAttachment,
     startAgendaItem,
     completeAgendaItem,
     skipAgendaItem,
@@ -442,6 +444,24 @@ export function ProjectReviewAnimateSession({
       });
       setDocUrl('');
       toast.success('Document lié au point.');
+    } catch {
+      toast.error('Impossible de lier le document.');
+    }
+  };
+
+  const onLinkProjectDocument = async (documentId: string, titleHint?: string) => {
+    if (!selected || !canEdit) return;
+    try {
+      await createAttachment.mutateAsync({
+        reviewId: detail.id,
+        body: {
+          attachmentType: 'DOCUMENT_REFERENCE',
+          title: titleHint?.trim() || 'Document projet',
+          documentId,
+          agendaItemId: selected.id,
+        },
+      });
+      toast.success('Document du projet lié au point.');
     } catch {
       toast.error('Impossible de lier le document.');
     }
@@ -929,33 +949,59 @@ export function ProjectReviewAnimateSession({
                         Documents présentés
                       </h3>
                       {canEdit ? (
-                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-                          <div className="starium-form-field min-w-0 flex-1">
-                            <Label htmlFor="animate-doc-url">Lien du document</Label>
-                            <Input
-                              id="animate-doc-url"
-                              type="url"
-                              className="starium-form-input min-h-11"
-                              value={docUrl}
-                              placeholder="https://…"
-                              onChange={(e) => setDocUrl(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  void onLinkDocument();
-                                }
-                              }}
-                            />
+                        <div className="mt-3 space-y-3">
+                          <ProjectDocumentPicker
+                            projectId={projectId}
+                            id="animate-doc-picker"
+                            label="Lier un support du projet"
+                            enableUpload
+                            excludeIds={pointAttachments
+                              .map((a) => a.documentId)
+                              .filter((id): id is string => !!id)}
+                            onLinkDocument={(id) => void onLinkProjectDocument(id)}
+                            onLinkExternalUrl={(url, title) => {
+                              void createAttachment
+                                .mutateAsync({
+                                  reviewId: detail.id,
+                                  body: {
+                                    attachmentType: 'URL',
+                                    title,
+                                    url,
+                                    agendaItemId: selected!.id,
+                                  },
+                                })
+                                .then(() => toast.success('Lien lié au point.'))
+                                .catch(() => toast.error('Impossible de lier le lien.'));
+                            }}
+                          />
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="starium-form-field min-w-0 flex-1">
+                              <Label htmlFor="animate-doc-url">Lien rapide</Label>
+                              <Input
+                                id="animate-doc-url"
+                                type="url"
+                                className="starium-form-input min-h-11"
+                                value={docUrl}
+                                placeholder="https://…"
+                                onChange={(e) => setDocUrl(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void onLinkDocument();
+                                  }
+                                }}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="min-h-11"
+                              onClick={() => void onLinkDocument()}
+                              disabled={createAttachment.isPending}
+                            >
+                              Lier
+                            </Button>
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="min-h-11"
-                            onClick={() => void onLinkDocument()}
-                            disabled={createAttachment.isPending}
-                          >
-                            Lier
-                          </Button>
                         </div>
                       ) : null}
                       {pointAttachments.length === 0 ? (
@@ -969,7 +1015,12 @@ export function ProjectReviewAnimateSession({
                       ) : (
                         <ul className="mt-3 space-y-2" aria-live="polite">
                           {pointAttachments.map((att) => {
-                            const label = displayLabel(att.title, 'Document');
+                            const label = displayLabel(
+                              att.title,
+                              att.documentId
+                                ? 'Document retiré du projet'
+                                : 'Document',
+                            );
                             const href = att.url?.trim();
                             return (
                               <li
@@ -979,18 +1030,43 @@ export function ProjectReviewAnimateSession({
                                 <span className="truncate text-sm font-medium text-foreground">
                                   {label}
                                 </span>
-                                {href ? (
-                                  <a
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="starium-link inline-flex min-h-11 items-center gap-1 text-sm"
-                                  >
-                                    Ouvrir
-                                    <ExternalLink className="size-3.5" aria-hidden />
-                                    <span className="sr-only"> (nouvel onglet)</span>
-                                  </a>
-                                ) : null}
+                                <span className="flex shrink-0 items-center gap-1">
+                                  {href ? (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="starium-link inline-flex min-h-11 items-center gap-1 text-sm"
+                                    >
+                                      Ouvrir
+                                      <ExternalLink className="size-3.5" aria-hidden />
+                                      <span className="sr-only"> (nouvel onglet)</span>
+                                    </a>
+                                  ) : null}
+                                  {canEdit ? (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="min-h-11 min-w-11"
+                                      aria-label={`Retirer ${label}`}
+                                      disabled={deleteAttachment.isPending}
+                                      onClick={() => {
+                                        void deleteAttachment
+                                          .mutateAsync({
+                                            reviewId: detail.id,
+                                            attachmentId: att.id,
+                                          })
+                                          .then(() => toast.success('Document retiré.'))
+                                          .catch(() =>
+                                            toast.error('Impossible de retirer le document.'),
+                                          );
+                                      }}
+                                    >
+                                      <X className="size-4" aria-hidden />
+                                    </Button>
+                                  ) : null}
+                                </span>
                               </li>
                             );
                           })}

@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import {
   PROJECT_AUDIT_ACTION,
@@ -6,9 +10,10 @@ import {
 } from './project-audit.constants';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProjectDocumentsService } from './project-documents.service';
+import { ProjectDocumentContentService } from './project-document-content.service';
 import { ProjectsService } from './projects.service';
 
-describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
+describe('ProjectDocumentsService — RFC-PROJ-DOC-001 / DOC-002', () => {
   let service: ProjectDocumentsService;
   let prisma: {
     projectDocument: {
@@ -24,6 +29,11 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
     assertCanReadProject: jest.Mock;
     assertCanWriteProject: jest.Mock;
     assertCanAdminProject: jest.Mock;
+  };
+  let content: {
+    writeStariumBuffer: jest.Mock;
+    openStariumReadStream: jest.Mock;
+    readStariumBuffer: jest.Mock;
   };
 
   const clientId = 'c1';
@@ -74,10 +84,16 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
       assertCanWriteProject: jest.fn().mockResolvedValue(undefined),
       assertCanAdminProject: jest.fn().mockResolvedValue(undefined),
     };
+    content = {
+      writeStariumBuffer: jest.fn().mockReturnValue('/tmp/file'),
+      openStariumReadStream: jest.fn().mockReturnValue({ pipe: jest.fn() }),
+      readStariumBuffer: jest.fn(),
+    };
     service = new ProjectDocumentsService(
       prisma as unknown as PrismaService,
       auditLogs as unknown as AuditLogsService,
       projects as unknown as ProjectsService,
+      content as unknown as ProjectDocumentContentService,
     );
   });
 
@@ -91,6 +107,27 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
           projectId,
           status: { not: 'DELETED' },
         }),
+        take: 200,
+      }),
+    );
+  });
+
+  it('list applique search + sort name:asc', async () => {
+    prisma.projectDocument.findMany.mockResolvedValue([]);
+    await service.list(clientId, projectId, userId, {
+      search: 'cdc',
+      sort: 'name:asc',
+    });
+    expect(prisma.projectDocument.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              OR: expect.any(Array),
+            }),
+          ]),
+        }),
+        orderBy: [{ name: 'asc' }, { updatedAt: 'desc' }],
       }),
     );
   });
@@ -158,6 +195,76 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
     expect(auditLogs.create).not.toHaveBeenCalled();
   });
 
+  it('upload PDF ok écrit disque + crée STARIUM', async () => {
+    const created = baseDoc({
+      storageType: 'STARIUM',
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+    });
+    prisma.projectDocument.create.mockResolvedValue(created);
+
+    const file = {
+      buffer: Buffer.from('%PDF-1.4'),
+      mimetype: 'application/pdf',
+      originalname: 'cdc.pdf',
+      size: 8,
+    } as Express.Multer.File;
+
+    const res = await service.upload(clientId, projectId, file, {}, {
+      actorUserId: userId,
+      meta: {},
+    });
+
+    expect(content.writeStariumBuffer).toHaveBeenCalledWith(
+      clientId,
+      projectId,
+      expect.stringMatching(/\.pdf$/),
+      file.buffer,
+    );
+    expect(res).toEqual(created);
+    expect(projects.assertCanWriteProject).toHaveBeenCalled();
+    expect(auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: PROJECT_AUDIT_ACTION.PROJECT_DOCUMENT_CREATED,
+        newValue: expect.objectContaining({ via: 'upload' }),
+      }),
+    );
+  });
+
+  it('upload MIME invalide => 422', async () => {
+    const file = {
+      buffer: Buffer.from('x'),
+      mimetype: 'application/x-msdownload',
+      originalname: 'x.exe',
+      size: 1,
+    } as Express.Multer.File;
+
+    await expect(
+      service.upload(clientId, projectId, file, {}, {
+        actorUserId: userId,
+        meta: {},
+      }),
+    ).rejects.toThrow(UnprocessableEntityException);
+    expect(content.writeStariumBuffer).not.toHaveBeenCalled();
+    expect(prisma.projectDocument.create).not.toHaveBeenCalled();
+  });
+
+  it('download soft-deleted => 404', async () => {
+    prisma.projectDocument.findFirst.mockResolvedValue(null);
+    await expect(
+      service.getDownloadStream(clientId, projectId, documentId, userId),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('download EXTERNAL => 422', async () => {
+    prisma.projectDocument.findFirst.mockResolvedValue(
+      baseDoc({ storageType: 'EXTERNAL', storageKey: null, externalUrl: 'https://x' }),
+    );
+    await expect(
+      service.getDownloadStream(clientId, projectId, documentId, userId),
+    ).rejects.toThrow(UnprocessableEntityException);
+  });
+
   it('PATCH no-op ne met pas à jour et ne crée pas d’audit', async () => {
     const existing = baseDoc();
     prisma.projectDocument.findFirst.mockResolvedValue(existing);
@@ -170,6 +277,20 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
     expect(res).toEqual(existing);
     expect(prisma.projectDocument.update).not.toHaveBeenCalled();
     expect(auditLogs.create).not.toHaveBeenCalled();
+  });
+
+  it('archive utilise assertCanWriteProject', async () => {
+    const existing = baseDoc();
+    prisma.projectDocument.findFirst.mockResolvedValue(existing);
+    prisma.projectDocument.update.mockResolvedValue(
+      baseDoc({ status: 'ARCHIVED', archivedAt: new Date() }),
+    );
+    await service.archive(clientId, projectId, documentId, {
+      actorUserId: 'u1',
+      meta: {},
+    });
+    expect(projects.assertCanWriteProject).toHaveBeenCalled();
+    expect(projects.assertCanAdminProject).not.toHaveBeenCalled();
   });
 
   it('archive idempotent: déjà ARCHIVED => pas d’audit', async () => {
@@ -196,3 +317,15 @@ describe('ProjectDocumentsService — RFC-PROJ-DOC-001', () => {
   });
 });
 
+describe('ProjectDocumentContentService path guards', () => {
+  const { ConfigService } = require('@nestjs/config');
+  const { ProjectDocumentContentService: Svc } = require('./project-document-content.service');
+
+  it('rejette storageKey avec ..', () => {
+    const config = { get: () => '/tmp/starium-docs-test' };
+    const svc = new Svc(config as InstanceType<typeof ConfigService>);
+    expect(() =>
+      svc.resolveAbsolutePath('c1', 'p1', '../escape.pdf'),
+    ).toThrow(UnprocessableEntityException);
+  });
+});

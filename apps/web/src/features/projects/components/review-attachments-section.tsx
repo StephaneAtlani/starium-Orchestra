@@ -20,7 +20,9 @@ import type {
 } from '../types/project.types';
 import { isReviewAgendaEditable } from '../lib/project-review-status';
 import { ReviewEditorSection } from './review-editor-section';
+import { ProjectDocumentPicker } from './project-document-picker';
 import { Link2, Paperclip, Trash2 } from 'lucide-react';
+import { displayLabel } from '@/lib/display-label';
 
 const URL_TYPES: ProjectReviewAttachmentType[] = [
   'URL',
@@ -76,7 +78,7 @@ export function ReviewAttachmentsSection({
       return documentLabelById.get(a.documentId)!;
     }
     if (a.fileName?.trim()) return a.fileName.trim();
-    return 'Document projet';
+    return displayLabel(null, 'Document retiré du projet');
   };
 
   const onAdd = async () => {
@@ -232,23 +234,17 @@ export function ReviewAttachmentsSection({
             ) : null}
             {showDocumentField ? (
               <div className="starium-form-field starium-form-grid--span-2">
-                <Label htmlFor="pr-att-doc">Document projet</Label>
-                <select
+                <ProjectDocumentPicker
+                  projectId={projectId}
                   id="pr-att-doc"
-                  className="starium-form-select min-h-11"
-                  value={documentId}
-                  disabled={documentsQuery.isLoading}
-                  onChange={(e) => setDocumentId(e.target.value)}
-                >
-                  <option value="">— Choisir un document —</option>
-                  {(documentsQuery.data ?? [])
-                    .filter((d) => d.status === 'ACTIVE')
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                </select>
+                  label="Document projet"
+                  value={documentId || null}
+                  enableUpload
+                  onLinkDocument={(id) => {
+                    setDocumentId(id);
+                    setAttachmentType('DOCUMENT_REFERENCE');
+                  }}
+                />
               </div>
             ) : null}
             <div className="starium-form-field starium-form-grid--span-2">

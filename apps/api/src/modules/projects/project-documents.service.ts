@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import {
   BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -19,6 +22,14 @@ import {
 import { ProjectsService } from './projects.service';
 import { CreateProjectDocumentDto } from './dto/create-project-document.dto';
 import { UpdateProjectDocumentDto } from './dto/update-project-document.dto';
+import type { ListProjectDocumentsQueryDto } from './dto/list-project-documents-query.dto';
+import type { UploadProjectDocumentFieldsDto } from './dto/upload-project-document-fields.dto';
+import { ProjectDocumentContentService } from './project-document-content.service';
+import {
+  PROJECT_DOCUMENT_ALLOWED_MIME,
+  PROJECT_DOCUMENT_LIST_TAKE,
+  PROJECT_DOCUMENT_MIME_TO_EXT,
+} from './project-documents.constants';
 
 @Injectable()
 export class ProjectDocumentsService {
@@ -26,19 +37,71 @@ export class ProjectDocumentsService {
     private readonly prisma: PrismaService,
     private readonly auditLogs: AuditLogsService,
     private readonly projects: ProjectsService,
+    private readonly content: ProjectDocumentContentService,
   ) {}
 
-  async list(clientId: string, projectId: string, userId?: string) {
+  async list(
+    clientId: string,
+    projectId: string,
+    userId?: string,
+    query?: ListProjectDocumentsQueryDto,
+  ) {
     if (!userId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
     await this.projects.assertCanReadProject(clientId, userId, projectId);
+
+    const where: Prisma.ProjectDocumentWhereInput = {
+      clientId,
+      projectId,
+    };
+
+    if (query?.status) {
+      where.status = query.status;
+    } else {
+      where.status = { not: 'DELETED' };
+    }
+
+    if (query?.category) where.category = query.category;
+    if (query?.storageType) where.storageType = query.storageType;
+
+    const and: Prisma.ProjectDocumentWhereInput[] = [];
+
+    if (query?.extension?.trim()) {
+      const ext = query.extension.trim().replace(/^\./, '').toLowerCase();
+      and.push({
+        OR: [
+          { extension: { equals: ext, mode: 'insensitive' } },
+          { extension: { equals: `.${ext}`, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const search = query?.search?.trim();
+    if (search) {
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { originalFilename: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (and.length > 0) where.AND = and;
+
+    const orderBy: Prisma.ProjectDocumentOrderByWithRelationInput[] =
+      query?.sort === 'name:asc'
+        ? [{ name: 'asc' }, { updatedAt: 'desc' }]
+        : [{ updatedAt: 'desc' }, { createdAt: 'desc' }];
+
+    const take = Math.min(
+      query?.take ?? PROJECT_DOCUMENT_LIST_TAKE,
+      PROJECT_DOCUMENT_LIST_TAKE,
+    );
+
     return this.prisma.projectDocument.findMany({
-      where: {
-        clientId,
-        projectId,
-        status: { not: 'DELETED' },
-      },
-      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      where,
+      orderBy,
+      take,
     });
   }
 
@@ -113,6 +176,114 @@ export class ProjectDocumentsService {
     return created;
   }
 
+  async upload(
+    clientId: string,
+    projectId: string,
+    file: Express.Multer.File | undefined,
+    fields: UploadProjectDocumentFieldsDto,
+    context?: AuditContext,
+  ) {
+    if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier requis');
+    }
+    await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
+
+    const mime = (file.mimetype ?? '').toLowerCase();
+    if (!PROJECT_DOCUMENT_ALLOWED_MIME.has(mime)) {
+      throw new UnprocessableEntityException(
+        'Type de fichier non autorisé. Formats acceptés : PDF, Office, images, texte, CSV, ZIP.',
+      );
+    }
+    const ext = PROJECT_DOCUMENT_MIME_TO_EXT[mime] ?? '.bin';
+    const storageKey = `${randomUUID()}${ext}`;
+    const originalFilename = (file.originalname ?? 'document').slice(0, 300);
+    const name =
+      fields.name?.trim() ||
+      originalFilename.replace(/\.[^.]+$/, '') ||
+      'Document';
+
+    this.content.writeStariumBuffer(clientId, projectId, storageKey, file.buffer);
+
+    const created = await this.prisma.projectDocument.create({
+      data: {
+        clientId,
+        projectId,
+        name,
+        originalFilename,
+        mimeType: mime,
+        extension: ext.replace(/^\./, ''),
+        sizeBytes: file.size ?? file.buffer.length,
+        category: fields.category ?? 'GENERAL',
+        status: 'ACTIVE',
+        storageType: 'STARIUM',
+        storageKey,
+        externalUrl: null,
+        description: fields.description?.trim() ?? null,
+        uploadedByUserId: context.actorUserId,
+      },
+    });
+
+    await this.auditLogs.create({
+      clientId,
+      userId: context.actorUserId,
+      action: PROJECT_AUDIT_ACTION.PROJECT_DOCUMENT_CREATED,
+      resourceType: PROJECT_AUDIT_RESOURCE_TYPE.PROJECT_DOCUMENT,
+      resourceId: created.id,
+      newValue: {
+        ...projectDocumentEntityAuditSnapshot(created),
+        via: 'upload',
+      },
+      ipAddress: context?.meta?.ipAddress,
+      userAgent: context?.meta?.userAgent,
+      requestId: context?.meta?.requestId,
+    });
+
+    return created;
+  }
+
+  async getDownloadStream(
+    clientId: string,
+    projectId: string,
+    documentId: string,
+    userId?: string,
+  ): Promise<{ stream: Readable; contentType: string; filename: string }> {
+    if (!userId) throw new ForbiddenException('Contexte utilisateur manquant');
+    await this.projects.getProjectForScope(clientId, projectId);
+    await this.projects.assertCanReadProject(clientId, userId, projectId);
+
+    const doc = await this.prisma.projectDocument.findFirst({
+      where: {
+        id: documentId,
+        clientId,
+        projectId,
+        status: { not: 'DELETED' },
+      },
+    });
+    if (!doc) throw new NotFoundException('Project document not found');
+
+    if (doc.storageType !== 'STARIUM' || !doc.storageKey) {
+      throw new UnprocessableEntityException(
+        'Téléchargement disponible uniquement pour les fichiers stockés dans Starium. Ouvrez le lien externe depuis l’interface.',
+      );
+    }
+
+    const stream = this.content.openStariumReadStream(
+      clientId,
+      projectId,
+      doc.storageKey,
+    );
+    const filename =
+      (doc.originalFilename?.trim() || doc.name?.trim() || 'document').slice(0, 200);
+
+    return {
+      stream,
+      contentType: doc.mimeType || 'application/octet-stream',
+      filename,
+    };
+  }
+
   async update(
     clientId: string,
     projectId: string,
@@ -178,7 +349,7 @@ export class ProjectDocumentsService {
   ) {
     if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
-    await this.projects.assertCanAdminProject(clientId, context.actorUserId, projectId);
+    await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: { id: documentId, clientId, projectId, status: { not: 'DELETED' } },
     });
@@ -215,7 +386,7 @@ export class ProjectDocumentsService {
   ) {
     if (!context?.actorUserId) throw new ForbiddenException('Contexte utilisateur manquant');
     await this.projects.getProjectForScope(clientId, projectId);
-    await this.projects.assertCanAdminProject(clientId, context.actorUserId, projectId);
+    await this.projects.assertCanWriteProject(clientId, context.actorUserId, projectId);
     const existing = await this.prisma.projectDocument.findFirst({
       where: { id: documentId, clientId, projectId },
     });
@@ -242,4 +413,3 @@ export class ProjectDocumentsService {
     });
   }
 }
-

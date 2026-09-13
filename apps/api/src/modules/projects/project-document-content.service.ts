@@ -5,12 +5,14 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'node:fs';
+import { createReadStream } from 'node:fs';
+import type { ReadStream } from 'node:fs';
 import * as path from 'node:path';
 
 const ENV_PROJECT_DOCUMENTS_STORAGE_ROOT = 'PROJECT_DOCUMENTS_STORAGE_ROOT';
 
 /**
- * Lecture des binaires ProjectDocument STARIUM sur disque (RFC-PROJ-INT-009).
+ * Binaires ProjectDocument STARIUM sur disque (RFC-PROJ-INT-009 + DOC-002).
  * Racine + clientId + projectId + segments(storageKey), sans `..`.
  */
 @Injectable()
@@ -21,7 +23,7 @@ export class ProjectDocumentContentService {
     const root = this.config.get<string>(ENV_PROJECT_DOCUMENTS_STORAGE_ROOT);
     if (!root?.trim()) {
       throw new UnprocessableEntityException(
-        'PROJECT_DOCUMENTS_STORAGE_ROOT non configuré : impossible de lire les fichiers STARIUM',
+        'PROJECT_DOCUMENTS_STORAGE_ROOT non configuré : impossible d’accéder aux fichiers STARIUM',
       );
     }
     return path.resolve(root.trim());
@@ -74,5 +76,29 @@ export class ProjectDocumentContentService {
       throw new NotFoundException('Fichier document introuvable sur le stockage');
     }
     return fs.readFileSync(full);
+  }
+
+  writeStariumBuffer(
+    clientId: string,
+    projectId: string,
+    storageKey: string,
+    buffer: Buffer,
+  ): string {
+    const full = this.resolveAbsolutePath(clientId, projectId, storageKey);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, buffer);
+    return full;
+  }
+
+  openStariumReadStream(
+    clientId: string,
+    projectId: string,
+    storageKey: string,
+  ): ReadStream {
+    const full = this.resolveAbsolutePath(clientId, projectId, storageKey);
+    if (!fs.existsSync(full)) {
+      throw new NotFoundException('Fichier document introuvable sur le stockage');
+    }
+    return createReadStream(full);
   }
 }

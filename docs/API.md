@@ -3195,16 +3195,18 @@ Isolation **client actif** + `projectId` dans l’URL ; le seul `reviewId` ne su
 
 Audits : **`project.review.*`**, **`agenda_item.*`**, **`attachment.*`**, **`participant.*`**. **Ne jamais** logger `meetingUrl` / join URL / `url` attachment en clair.
 
-### Documents projet (RFC-PROJ-DOC-001) — `/api/projects/:projectId/documents`
+### Documents projet (RFC-PROJ-DOC-001 / **RFC-PROJ-DOC-002**) — `/api/projects/:projectId/documents`
 
-Registre métier **sans** upload ni téléchargement binaire côté API MVP. Isolation **client actif** + `projectId` dans l’URL ; lectures excluent les documents en statut `DELETED`.
+Registre métier + upload/download binaires **STARIUM** (DOC-002). Isolation **client actif** + `projectId` dans l’URL ; lectures excluent les documents en statut `DELETED` (sauf filtre `status` explicite). Réponse liste = **tableau JSON** `ProjectDocument[]` (pas de pagination wrapping). Cap soft `take` ≤ 200.
 
-- **GET** — Liste (`status != DELETED`, tri `updatedAt` desc puis `createdAt` desc). **`projects.read`**
+- **GET** — Liste. Query optionnelle : `search`, `category`, `status`, `storageType`, `extension`, `sort` (`updatedAt:desc` défaut \| `name:asc`), `take`. **`projects.read`**
 - **GET /api/projects/:projectId/documents/:documentId** — Détail. **`projects.read`**
-- **POST** — Création (`CreateProjectDocumentDto`) : MVP **`storageType`** `STARIUM` \| `EXTERNAL` uniquement (`STARIUM` ⇒ `storageKey` requis ; `EXTERNAL` ⇒ `externalUrl` URL valide). **`projects.update`**
+- **POST /api/projects/:projectId/documents/upload** — Multipart `file` (+ `name?`, `category?`, `description?`). `storageKey` généré serveur ; MIME allowlist projet (PDF, Office, images, txt/csv, zip). Taille max = réglage plateforme (`PlatformMaxFileInterceptor`). Audit **`project.document.created`** (`via: upload`). **`projects.update`**. Requiert env **`PROJECT_DOCUMENTS_STORAGE_ROOT`**.
+- **GET /api/projects/:projectId/documents/:documentId/download** — Stream fichier STARIUM uniquement (422 si EXTERNAL/MICROSOFT). **`projects.read`**
+- **POST** — Création métadonnées (`CreateProjectDocumentDto`) : `STARIUM` \| `EXTERNAL` (`STARIUM` ⇒ `storageKey` ; `EXTERNAL` ⇒ `externalUrl`). UI DOC-002 privilégie upload pour STARIUM et POST pour EXTERNAL. **`projects.update`**
 - **PATCH /api/projects/:projectId/documents/:documentId** — Métadonnées (`name`, `category`, `description`, `tags`) ; pas de `status` via PATCH. Audit **`project.document.updated`** si diff. **`projects.update`**
-- **POST /api/projects/:projectId/documents/:documentId/archive** — `ARCHIVED` + `archivedAt` (idempotent si déjà archivé). Audit **`project.document.archived`**. **`projects.update`**
-- **DELETE /api/projects/:projectId/documents/:documentId** — Suppression logique `DELETED` + `deletedAt` (idempotent si déjà supprimé). Audit **`project.document.deleted`**. **`projects.update`**
+- **POST /api/projects/:projectId/documents/:documentId/archive** — `ARCHIVED` + `archivedAt` (idempotent). Authz service = **write** projet (`assertCanWriteProject`). Audit **`project.document.archived`**. **`projects.update`**
+- **DELETE /api/projects/:projectId/documents/:documentId** — Soft delete `DELETED` + `deletedAt` (idempotent). Authz = **write** projet. Audit **`project.document.deleted`**. **`projects.update`**
 
 Audits : **`project.document.created`**, **`project.document.updated`**, **`project.document.archived`**, **`project.document.deleted`**.
 

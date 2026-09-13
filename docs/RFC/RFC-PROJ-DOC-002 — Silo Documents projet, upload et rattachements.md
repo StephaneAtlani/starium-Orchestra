@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| **Statut** | 📝 Draft |
+| **Statut** | ✅ Implémentée (P0–P2) |
 | **Date** | 2026-09-13 |
 | **Parents** | [RFC-PROJ-DOC-001](./RFC-PROJ-DOC-001%20—%20Modèle.md) (registre métier) ; [RFC-PROJ-INT-009](./RFC-PROJ-INT-009%20—%20Sync%20documents%20vers%20Teams.md) (lecture disque STARIUM + sync) |
 | **Supersède (UI)** | [RFC-PROJ-DOC-FE-001](./RFC-PROJ-DOC-FE-001%20—%20Frontend%20ProjectDocument%20UI.md) — enums / routes désalignés ; cette RFC est la spec produit + UX cible |

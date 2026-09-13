@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/lib/toast';
 import { PROJECT_REVIEW_ATTACHMENT_TYPE_LABEL } from '../constants/project-enum-labels';
-import { useProjectDocumentsQuery } from '../hooks/use-project-documents-query';
 import { useProjectReviewMutations } from '../hooks/use-project-review-mutations';
 import type {
   ProjectReviewAgendaItemApi,
   ProjectReviewAttachmentType,
 } from '../types/project.types';
 import { Link2 } from 'lucide-react';
+import { ProjectDocumentPicker } from './project-document-picker';
 
 const URL_ATTACHMENT_TYPES: ProjectReviewAttachmentType[] = [
   'URL',
@@ -78,7 +78,6 @@ export function ReviewAgendaAddAttachmentModal({
   agendaPoint: AgendaPointContext;
 }) {
   const { createAttachment } = useProjectReviewMutations(projectId);
-  const documentsQuery = useProjectDocumentsQuery(projectId);
   const [attachmentType, setAttachmentType] =
     useState<ProjectReviewAttachmentType>('URL');
   const [title, setTitle] = useState('');
@@ -191,23 +190,18 @@ export function ReviewAgendaAddAttachmentModal({
           </div>
         ) : null}
         {showDocumentField ? (
-          <div className="starium-form-field">
-            <Label htmlFor="agenda-att-modal-doc">Document projet</Label>
-            <select
-              id="agenda-att-modal-doc"
-              className="starium-form-select min-h-11 w-full"
-              value={documentId}
-              disabled={documentsQuery.isLoading}
-              onChange={(e) => setDocumentId(e.target.value)}
-            >
-              <option value="">— Choisir —</option>
-              {(documentsQuery.data ?? []).map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ProjectDocumentPicker
+            projectId={projectId}
+            id="agenda-att-modal-doc"
+            label="Document projet"
+            value={documentId || null}
+            enableUpload
+            onLinkDocument={(id) => {
+              setDocumentId(id);
+              setAttachmentType('DOCUMENT_REFERENCE');
+              if (!title.trim()) setTitle('Document projet');
+            }}
+          />
         ) : null}
         <div className="starium-form-field">
           <Label htmlFor="agenda-att-modal-desc">Description (optionnel)</Label>
