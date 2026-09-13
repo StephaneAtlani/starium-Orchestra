@@ -330,6 +330,14 @@
   color: var(--muted-foreground);
 }
 
+.convoc-mail__att.is-muted {
+  border-style: dashed;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--muted-foreground);
+  opacity: 0.85;
+}
+
 .convoc-mail__cta {
   display: flex;
   gap: 0.5rem;

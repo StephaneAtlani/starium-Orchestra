@@ -40,6 +40,12 @@ type QueueEmailInput = {
     filename: string;
     content: string;
   } | null;
+  /** Pièces jointes binaires / texte additionnelles (supports, etc.). */
+  fileAttachments?: Array<{
+    filename: string;
+    content: string;
+    contentType: string;
+  }> | null;
 };
 
 @Injectable()
@@ -190,6 +196,7 @@ export class EmailService {
     const deliveryOptions = {
       mimeHtml: rendered.html,
       calendarIcs: input.calendarIcs ?? null,
+      fileAttachments: input.fileAttachments ?? null,
     };
 
     if (this.shouldProcessEmailDeliveriesInline()) {
@@ -208,6 +215,7 @@ export class EmailService {
         emailDeliveryId: delivery.id,
         mimeHtml: rendered.html,
         calendarIcs: input.calendarIcs ?? null,
+        fileAttachments: input.fileAttachments ?? null,
       });
     } catch (error) {
       if ((process.env.NODE_ENV ?? 'development') === 'production') {
@@ -251,6 +259,11 @@ export class EmailService {
     options?: {
       mimeHtml?: string | null;
       calendarIcs?: { filename: string; content: string } | null;
+      fileAttachments?: Array<{
+        filename: string;
+        content: string;
+        contentType: string;
+      }> | null;
     },
   ): Promise<void> {
     const delivery = await this.prisma.emailDelivery.findUnique({
@@ -373,22 +386,63 @@ export class EmailService {
         const icsContent = calendarIcs?.content?.trim();
         const icsFilename =
           calendarIcs?.filename?.trim() || 'invitation.ics';
+        const extraFiles = options?.fileAttachments ?? [];
+        const attachments: Array<{
+          filename: string;
+          content: Buffer;
+          contentType: string;
+          contentDisposition: 'attachment';
+        }> = [];
+
+        // application/octet-stream : visible comme fichier (MailHog / clients).
+        // icalEvent : reconnaissance calendrier Outlook / Apple / Google.
+        if (icsContent) {
+          attachments.push({
+            filename: icsFilename,
+            content: Buffer.from(icsContent, 'utf8'),
+            contentType: 'application/octet-stream',
+            contentDisposition: 'attachment',
+          });
+        }
+        for (const file of extraFiles) {
+          const name = file.filename?.trim();
+          const body = file.content;
+          if (!name || !body) continue;
+          attachments.push({
+            filename: name,
+            content: Buffer.from(body, 'utf8'),
+            contentType:
+              file.contentType?.trim() || 'application/octet-stream',
+            contentDisposition: 'attachment',
+          });
+        }
+
         const sent = await transporter.sendMail({
           from: process.env.SMTP_FROM!,
           to: delivery.recipient,
           subject,
           text,
           html,
-          ...(icsContent
+          ...(attachments.length
             ? {
-                icalEvent: {
-                  filename: icsFilename,
-                  method: 'REQUEST',
-                  content: icsContent,
-                },
+                attachments,
+                ...(icsContent
+                  ? {
+                      icalEvent: {
+                        filename: icsFilename,
+                        method: 'REQUEST',
+                        content: icsContent,
+                      },
+                    }
+                  : {}),
               }
             : {}),
         });
+        if (attachments.length) {
+          this.logger.log(
+            `[EMAIL send] PJ emailDeliveryId=${delivery.id} count=${attachments.length} files=${attachments.map((a) => a.filename).join(',')}`,
+          );
+        }
         this.logger.log(
           formatSmtpSendResultLogLine(
             `emailDeliveryId=${delivery.id} to=${delivery.recipient}`,

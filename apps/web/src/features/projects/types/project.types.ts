@@ -1164,6 +1164,7 @@ export type InviteProjectReviewPayload = {
   /** Joint un fichier .ics au mail (pas de création calendrier Microsoft). */
   attachIcs?: boolean;
   includeAgenda?: boolean;
+  includeDocs?: boolean;
   includeRsvp?: boolean;
   emailSubject?: string;
   emailMessage?: string;

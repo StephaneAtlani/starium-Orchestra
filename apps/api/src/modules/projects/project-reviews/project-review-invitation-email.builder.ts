@@ -28,6 +28,7 @@ export type InvitationAgendaLine = {
 export type InvitationAttachmentLine = {
   filename: string;
   hint?: string | null;
+  url?: string | null;
 };
 
 export type BuildProjectReviewInvitationEmailInput = {
@@ -80,16 +81,20 @@ export function buildProjectReviewInvitationEmailHtml(
       ? `<div style="margin:20px 0 0;">
           <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${C.textMuted};margin:0 0 10px;">Pièces jointes (${input.attachments.length})</div>
           ${input.attachments
-            .map(
-              (a) =>
-                `<div style="padding:8px 12px;margin:0 0 6px;border:1px solid ${C.border};border-radius:10px;background:${C.surfaceMuted};font-size:13px;color:${C.text};">
-                  <strong>${escapeHtml(a.filename)}</strong>${
+            .map((a) => {
+              const label = escapeHtml(a.filename);
+              const linked =
+                a.url?.trim() && /^https?:\/\//i.test(a.url.trim())
+                  ? `<a href="${escapeAttr(a.url.trim())}" style="color:${C.gold600};font-weight:700;text-decoration:none;">${label}</a>`
+                  : `<strong>${label}</strong>`;
+              return `<div style="padding:8px 12px;margin:0 0 6px;border:1px solid ${C.border};border-radius:10px;background:${C.surfaceMuted};font-size:13px;color:${C.text};">
+                  ${linked}${
                     a.hint?.trim()
                       ? ` <span style="color:${C.textMuted};font-weight:400;">· ${escapeHtml(a.hint.trim())}</span>`
                       : ''
                   }
-                </div>`,
-            )
+                </div>`;
+            })
             .join('')}
         </div>`
       : '';

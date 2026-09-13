@@ -220,28 +220,65 @@ export function ProjectReviewConvocationDialog({
     return items;
   }, [detail.agendaItems]);
 
+  const supportAttachments = useMemo(() => {
+    return (detail.attachments ?? []).map((a) => ({
+      id: a.id,
+      name: firstDisplayLabel(
+        [a.title, a.documentName, a.fileName],
+        'Support de séance',
+      ),
+    }));
+  }, [detail.attachments]);
+
   const attachments = useMemo(() => {
-    const files: Array<{ name: string; hint: string }> = [];
+    const files: Array<{
+      key: string;
+      name: string;
+      hint: string;
+      kind: 'ics' | 'doc' | 'brief' | 'empty';
+    }> = [];
     if (opts.ics) {
       files.push({
+        key: 'ics',
         name: `invitation-${badge.toLowerCase().replace(/\s+/g, '-')}.ics`,
         hint: 'Invitation calendrier',
+        kind: 'ics',
       });
     }
     if (opts.docs) {
-      for (const a of detail.attachments ?? []) {
-        const name = displayLabel(a.fileName, 'Pièce jointe');
-        files.push({ name, hint: 'Support de séance' });
+      if (supportAttachments.length === 0) {
+        files.push({
+          key: 'docs-empty',
+          name: 'Aucun support joint à la préparation',
+          hint: 'Support manquant',
+          kind: 'empty',
+        });
+      } else {
+        for (const a of supportAttachments) {
+          files.push({
+            key: `doc-${a.id}`,
+            name: a.name,
+            hint: 'Support de séance',
+            kind: 'doc',
+          });
+        }
       }
     }
     if (opts.brief) {
       files.push({
+        key: 'brief',
         name: 'brief-preparation.pdf',
         hint: 'Brief de préparation',
+        kind: 'brief',
       });
     }
     return files;
-  }, [opts.ics, opts.docs, opts.brief, detail.attachments, badge]);
+  }, [opts.ics, opts.docs, opts.brief, supportAttachments, badge]);
+
+  const attachmentCountLabel = useMemo(() => {
+    const real = attachments.filter((a) => a.kind !== 'empty').length;
+    return real;
+  }, [attachments]);
 
   const canSend = selectedIds.length > 0 && !submitting && !testing;
   const canTest = Boolean(user?.email) && !submitting && !testing;
@@ -319,6 +356,7 @@ export function ProjectReviewConvocationDialog({
             createCalendarEvent: false,
             attachIcs: opts.ics,
             includeAgenda: opts.odj,
+            includeDocs: opts.docs,
             includeRsvp: opts.rsvp,
             emailSubject: subject.trim() || undefined,
             emailMessage: message.trim() || undefined,
@@ -353,6 +391,7 @@ export function ProjectReviewConvocationDialog({
           createCalendarEvent: false,
           attachIcs: opts.ics,
           includeAgenda: opts.odj,
+          includeDocs: opts.docs,
           includeRsvp: opts.rsvp,
           emailSubject: subject.trim() || undefined,
           emailMessage: message.trim() || undefined,
@@ -540,6 +579,12 @@ export function ProjectReviewConvocationDialog({
               <div className="convoc-mail__opts" role="group">
                 {OPT_DEFS.map((o) => {
                   const on = opts[o.id];
+                  const hint =
+                    o.id === 'docs'
+                      ? supportAttachments.length > 0
+                        ? `${supportAttachments.length} support${supportAttachments.length > 1 ? 's' : ''} de la préparation — joints au mail si coché.`
+                        : 'Aucun support sur cette préparation pour l’instant.'
+                      : o.hint;
                   return (
                     <button
                       key={o.id}
@@ -553,7 +598,7 @@ export function ProjectReviewConvocationDialog({
                       </span>
                       <span className="min-w-0 text-left">
                         <span className="convoc-mail__opt-t">{o.title}</span>
-                        <span className="convoc-mail__opt-m">{o.hint}</span>
+                        <span className="convoc-mail__opt-m">{hint}</span>
                       </span>
                     </button>
                   );
@@ -619,14 +664,21 @@ export function ProjectReviewConvocationDialog({
                 {attachments.length > 0 ? (
                   <div className="convoc-mail__sec">
                     <div className="convoc-mail__st">
-                      Pièces jointes ({attachments.length})
+                      Pièces jointes ({attachmentCountLabel})
                     </div>
                     {attachments.map((a) => (
-                      <div key={a.name + a.hint} className="convoc-mail__att">
-                        {a.hint.includes('calendrier') ? (
+                      <div
+                        key={a.key}
+                        className={`convoc-mail__att${a.kind === 'empty' ? ' is-muted' : ''}`}
+                      >
+                        {a.kind === 'ics' ? (
                           <Calendar className="size-3.5 shrink-0" aria-hidden />
-                        ) : a.hint.includes('Support') ||
-                          a.hint.includes('Brief') ? (
+                        ) : a.kind === 'empty' ? (
+                          <Paperclip
+                            className="size-3.5 shrink-0 opacity-50"
+                            aria-hidden
+                          />
+                        ) : a.kind === 'doc' || a.kind === 'brief' ? (
                           <Paperclip className="size-3.5 shrink-0" aria-hidden />
                         ) : (
                           <FileText className="size-3.5 shrink-0" aria-hidden />

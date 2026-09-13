@@ -41,6 +41,11 @@ export class InviteProjectReviewDto {
   @IsBoolean()
   includeAgenda?: boolean;
 
+  /** Joint / liste les supports de séance de la préparation. */
+  @IsOptional()
+  @IsBoolean()
+  includeDocs?: boolean;
+
   /** Affiche les boutons Je serai présent / Je décline dans le mail. */
   @IsOptional()
   @IsBoolean()

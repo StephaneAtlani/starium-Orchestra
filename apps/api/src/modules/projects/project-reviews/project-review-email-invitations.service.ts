@@ -108,6 +108,7 @@ export class ProjectReviewEmailInvitationsService {
     blockingOnFailure: boolean;
     attachIcs?: boolean;
     includeAgenda?: boolean;
+    includeDocs?: boolean;
     includeRsvp?: boolean;
     emailSubject?: string | null;
     emailMessage?: string | null;
@@ -202,9 +203,63 @@ export class ProjectReviewEmailInvitationsService {
     }
 
     const icsFilename = icsAttachmentFilename(meetingTitle);
-    const attachmentLines = input.attachIcs
-      ? [{ filename: icsFilename, hint: 'Invitation calendrier' }]
-      : [];
+    const attachmentLines: Array<{
+      filename: string;
+      hint?: string | null;
+      url?: string | null;
+    }> = [];
+    const fileAttachments: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }> = [];
+
+    if (input.attachIcs) {
+      attachmentLines.push({
+        filename: icsFilename,
+        hint: 'Invitation calendrier (fichier joint)',
+      });
+    }
+
+    if (input.includeDocs) {
+      const docs = await this.prisma.projectReviewAttachment.findMany({
+        where: {
+          clientId: input.clientId,
+          projectReviewId: input.reviewId,
+        },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          title: true,
+          url: true,
+          attachmentType: true,
+          document: { select: { name: true } },
+        },
+      });
+      const supportLines: string[] = [
+        `Supports de séance — ${meetingTitle} — ${input.projectName}`,
+        '',
+      ];
+      for (const doc of docs) {
+        const name =
+          doc.title?.trim() ||
+          doc.document?.name?.trim() ||
+          'Support de séance';
+        const url = doc.url?.trim() || null;
+        attachmentLines.push({
+          filename: name,
+          hint: url ? 'Lien support' : 'Support de séance',
+          url,
+        });
+        supportLines.push(url ? `- ${name}\n  ${url}` : `- ${name}`);
+      }
+      if (docs.length > 0) {
+        fileAttachments.push({
+          filename: 'supports-seance.txt',
+          content: `${supportLines.join('\n')}\n`,
+          contentType: 'text/plain; charset=UTF-8',
+        });
+      }
+    }
 
     const htmlBody = buildProjectReviewInvitationEmailHtml({
       kickLabel: buildProjectReviewInvitationKickLabel(input.review.reviewType),
@@ -216,9 +271,17 @@ export class ProjectReviewEmailInvitationsService {
       includeRsvp: input.includeRsvp === true,
       actionUrl,
       meetingJoinUrl,
-      footerNote: input.includeRsvp
-        ? 'Envoyé depuis Starium Orchestra. Les réponses sont enregistrées dans la préparation de la séance.'
-        : 'Envoyé depuis Starium Orchestra.',
+      footerNote: [
+        'Envoyé depuis Starium Orchestra.',
+        input.attachIcs
+          ? 'Une invitation calendrier (.ics) est jointe à ce message.'
+          : null,
+        input.includeRsvp
+          ? 'Les réponses sont enregistrées dans la préparation de la séance.'
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
     const textBody = buildProjectReviewInvitationEmailText({
       meetingTitle: `${meetingTitle} — ${input.projectName}`,
@@ -282,6 +345,8 @@ export class ProjectReviewEmailInvitationsService {
           meetingJoinUrl,
           htmlBody,
           calendarIcs,
+          fileAttachments:
+            fileAttachments.length > 0 ? fileAttachments : null,
         });
 
         await this.prisma.projectReviewParticipant.update({
@@ -316,6 +381,7 @@ export class ProjectReviewEmailInvitationsService {
           recipients: pseudonymizedRecipients,
           attachIcs: Boolean(input.attachIcs),
           includeAgenda: Boolean(input.includeAgenda),
+          includeDocs: Boolean(input.includeDocs),
           includeRsvp: Boolean(input.includeRsvp),
         },
         ...this.auditMeta(input.context),

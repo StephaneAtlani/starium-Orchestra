@@ -8,6 +8,7 @@ describe('ProjectReviewEmailInvitationsService', () => {
   let service: ProjectReviewEmailInvitationsService;
   let prisma: {
     projectReviewParticipant: { update: jest.Mock };
+    projectReviewAttachment: { findMany: jest.Mock };
     user: { findUnique: jest.Mock };
   };
   let emailService: { queueEmail: jest.Mock; isLogOnlyMode: jest.Mock };
@@ -16,6 +17,7 @@ describe('ProjectReviewEmailInvitationsService', () => {
   beforeEach(() => {
     prisma = {
       projectReviewParticipant: { update: jest.fn().mockResolvedValue({}) },
+      projectReviewAttachment: { findMany: jest.fn().mockResolvedValue([]) },
       user: { findUnique: jest.fn().mockResolvedValue(null) },
     };
     emailService = {

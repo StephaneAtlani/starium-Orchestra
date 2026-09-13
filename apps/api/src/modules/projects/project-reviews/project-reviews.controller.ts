@@ -287,6 +287,7 @@ export class ProjectReviewsController {
         },
         attachIcs: dto.attachIcs,
         includeAgenda: dto.includeAgenda,
+        includeDocs: dto.includeDocs,
         includeRsvp: dto.includeRsvp,
         emailSubject: dto.emailSubject,
         emailMessage: dto.emailMessage,

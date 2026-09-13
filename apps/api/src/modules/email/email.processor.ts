@@ -45,6 +45,7 @@ export class EmailProcessor implements OnModuleInit, OnModuleDestroy {
           await this.emailService.processEmailDelivery(id, {
             mimeHtml: job.data.mimeHtml,
             calendarIcs: job.data.calendarIcs,
+            fileAttachments: job.data.fileAttachments,
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e ?? '');

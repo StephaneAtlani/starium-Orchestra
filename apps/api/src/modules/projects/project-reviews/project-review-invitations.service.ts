@@ -44,6 +44,7 @@ export type ProjectReviewInviteOptions = {
   /** Joint un .ics au mail — indépendant de createCalendarEvent (Graph). */
   attachIcs?: boolean;
   includeAgenda?: boolean;
+  includeDocs?: boolean;
   includeRsvp?: boolean;
   emailSubject?: string | null;
   emailMessage?: string | null;
@@ -321,6 +322,7 @@ export class ProjectReviewInvitationsService {
           blockingOnFailure: emailOnly,
           attachIcs: options.attachIcs === true,
           includeAgenda: options.includeAgenda === true,
+          includeDocs: options.includeDocs === true,
           includeRsvp: options.includeRsvp === true,
           emailSubject: options.emailSubject,
           emailMessage: options.emailMessage,

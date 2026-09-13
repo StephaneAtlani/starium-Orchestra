@@ -23,6 +23,11 @@ export type SendEmailJobPayload = {
     filename: string;
     content: string;
   } | null;
+  fileAttachments?: Array<{
+    filename: string;
+    content: string;
+    contentType: string;
+  }> | null;
 };
 
 export type LicenseExpirationScanJobPayload = {
