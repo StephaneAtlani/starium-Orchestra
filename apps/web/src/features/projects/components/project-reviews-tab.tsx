@@ -37,7 +37,7 @@ import {
   type ProjectReviewsTabState,
   type ProjectReviewUiState,
 } from '../lib/project-review-ui-state';
-import { LayoutTemplate, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export function ProjectReviewsTab({
   projectId,
@@ -293,30 +293,19 @@ export function ProjectReviewsTab({
             active={activeTab}
             counts={tabCounts}
             onChange={(next) => setPointsState(next)}
+            modelsOpen={templatesOpen}
+            onOpenModels={() => setTemplatesOpen(true)}
           />
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          {canEdit && activeTab !== 'series' ? (
             <Button
               type="button"
-              variant="outline"
               className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
-              aria-haspopup="dialog"
-              aria-expanded={templatesOpen}
-              onClick={() => setTemplatesOpen(true)}
+              onClick={onPrimaryReviewAction}
             >
-              <LayoutTemplate className="size-3.5" aria-hidden />
-              Modèles
+              <Plus className="size-3.5" aria-hidden />
+              Créer un point
             </Button>
-            {canEdit && activeTab !== 'series' ? (
-              <Button
-                type="button"
-                className="min-h-11 w-full shrink-0 sm:min-h-9 sm:w-auto"
-                onClick={onPrimaryReviewAction}
-              >
-                <Plus className="size-3.5" aria-hidden />
-                Créer un point
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       ) : null}
 

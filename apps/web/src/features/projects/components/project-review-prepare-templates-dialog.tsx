@@ -73,7 +73,7 @@ function FilterCount({
       className={cn(
         'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
         active
-          ? 'bg-[color:var(--brand-gold)]/20 text-[color:var(--brand-gold-700)]'
+          ? 'bg-[color:var(--control-active-fg)]/20 text-[color:var(--control-active-fg)]'
           : 'bg-muted text-muted-foreground',
       )}
       aria-hidden
