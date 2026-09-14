@@ -25,7 +25,8 @@ export function useHorizontalScrollRail(scrollRef: RefObject<HTMLElement | null>
     if (!el) return;
     const { scrollLeft, scrollWidth, clientWidth } = el;
     const overflowPx = scrollWidth - clientWidth;
-    const hasOverflow = overflowPx > 8;
+    // Seuil : ignorer les 1–2 px de subpixel qui affichent un rail inutile.
+    const hasOverflow = overflowPx > 24;
     setOverflow(hasOverflow);
     if (!hasOverflow) return;
     const ratio = clientWidth / scrollWidth;

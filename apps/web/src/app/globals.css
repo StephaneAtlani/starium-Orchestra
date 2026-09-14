@@ -1782,7 +1782,8 @@ button.starium-risk-attention-title:focus-visible {
 }
 
 .starium-tablecard {
-  overflow: hidden;
+  /* visible : menus d’actions ligne (⋮) ne doivent pas être clipés */
+  overflow: visible;
   border: 1px solid var(--neutral-200, var(--border));
   border-radius: var(--radius-lg, 14px);
   background: var(--neutral-0, var(--card));
@@ -1792,6 +1793,23 @@ button.starium-risk-attention-title:focus-visible {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  /* Rail custom uniquement — évite la double barre (native + .starium-table-h-rail). */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.starium-table-wrap::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+[data-slot='table-container'] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+[data-slot='table-container']::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 table.starium-dt.starium-dt--wide {
   width: max(100%, 56rem);
@@ -1815,6 +1833,17 @@ table.starium-dt {
 }
 .starium-dt thead th.starium-dt__right {
   text-align: right;
+}
+.starium-dt th.starium-dt__sticky-actions,
+.starium-dt td.starium-dt__sticky-actions {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--neutral-0, var(--card));
+  box-shadow: -6px 0 10px -8px color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+.starium-dt thead th.starium-dt__sticky-actions {
+  z-index: 3;
 }
 .starium-dt tbody td {
   padding: 14px 16px;
@@ -2959,51 +2988,45 @@ table.starium-dt {
  * Vertical page : `main` révèle sa barre quand on survole un tableau.
  */
 @media (hover: hover) and (pointer: fine) {
-  [data-slot='table-container'],
-  [data-slot='starium-table-wrap'],
-  .starium-table-wrap,
-  .starium-scroll-hover {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ) {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
   }
 
-  [data-slot='table-container']:is(:hover, :focus-within),
-  [data-slot='starium-table-wrap']:is(:hover, :focus-within),
-  .starium-table-wrap:is(:hover, :focus-within),
-  .starium-scroll-hover:is(:hover, :focus-within) {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ):is(:hover, :focus-within) {
     scrollbar-color: color-mix(in srgb, var(--foreground) 55%, var(--border))
       color-mix(in srgb, var(--muted) 80%, var(--card));
   }
 
-  [data-slot='table-container']::-webkit-scrollbar,
-  [data-slot='starium-table-wrap']::-webkit-scrollbar,
-  .starium-table-wrap::-webkit-scrollbar,
-  .starium-scroll-hover::-webkit-scrollbar {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    )::-webkit-scrollbar {
     -webkit-appearance: none;
     width: 11px;
     height: 11px;
     background: transparent;
   }
 
-  [data-slot='table-container']::-webkit-scrollbar-track,
-  [data-slot='starium-table-wrap']::-webkit-scrollbar-track,
-  .starium-table-wrap::-webkit-scrollbar-track,
-  .starium-scroll-hover::-webkit-scrollbar-track {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    )::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-track,
-  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-track,
-  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-track,
-  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-track {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ):is(:hover, :focus-within)::-webkit-scrollbar-track {
     background: color-mix(in srgb, var(--muted) 85%, var(--card));
     border-radius: var(--radius-pill);
   }
 
-  [data-slot='table-container']::-webkit-scrollbar-thumb,
-  [data-slot='starium-table-wrap']::-webkit-scrollbar-thumb,
-  .starium-table-wrap::-webkit-scrollbar-thumb,
-  .starium-scroll-hover::-webkit-scrollbar-thumb {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    )::-webkit-scrollbar-thumb {
     background-color: transparent;
     border-radius: var(--radius-pill);
     border: 2px solid transparent;
@@ -3011,45 +3034,40 @@ table.starium-dt {
     min-height: 2.5rem;
   }
 
-  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
-  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
-  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-thumb,
-  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ):is(:hover, :focus-within)::-webkit-scrollbar-thumb {
     background-color: color-mix(in srgb, var(--foreground) 50%, var(--border));
     border-color: color-mix(in srgb, var(--muted) 85%, var(--card));
   }
 
-  [data-slot='table-container']:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
-  [data-slot='starium-table-wrap']:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
-  .starium-table-wrap:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover,
-  .starium-scroll-hover:is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ):is(:hover, :focus-within)::-webkit-scrollbar-thumb:hover {
     background-color: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
   }
 }
 
 @media (hover: none), (pointer: coarse) {
-  [data-slot='table-container'],
-  [data-slot='starium-table-wrap'],
-  .starium-table-wrap,
-  .starium-scroll-hover {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    ) {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--foreground) 40%, var(--border))
       color-mix(in srgb, var(--muted) 70%, var(--card));
   }
 
-  [data-slot='table-container']::-webkit-scrollbar,
-  [data-slot='starium-table-wrap']::-webkit-scrollbar,
-  .starium-table-wrap::-webkit-scrollbar,
-  .starium-scroll-hover::-webkit-scrollbar {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    )::-webkit-scrollbar {
     -webkit-appearance: none;
     width: 10px;
     height: 10px;
   }
 
-  [data-slot='table-container']::-webkit-scrollbar-thumb,
-  [data-slot='starium-table-wrap']::-webkit-scrollbar-thumb,
-  .starium-table-wrap::-webkit-scrollbar-thumb,
-  .starium-scroll-hover::-webkit-scrollbar-thumb {
+  .starium-scroll-hover:not([data-slot='starium-table-wrap']):not(.starium-table-wrap):not(
+      [data-slot='table-container']
+    )::-webkit-scrollbar-thumb {
     background-color: color-mix(in srgb, var(--foreground) 35%, var(--border));
     border-radius: var(--radius-pill);
   }
@@ -3162,14 +3180,6 @@ table.starium-dt {
 .starium-table-h-rail__thumb:hover,
 .starium-table-h-rail__thumb--active {
   background: color-mix(in srgb, var(--foreground) 70%, var(--brand-gold));
-}
-@media (hover: hover) and (pointer: fine) {
-  [data-slot='table-container']:hover > .starium-table-h-rail,
-  [data-slot='starium-table-wrap']:hover > .starium-table-h-rail,
-  .starium-scroll-hover:hover > .starium-table-h-rail {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
 }
 /**
  * Affichage rail :
@@ -3454,7 +3464,7 @@ table.starium-dt {
   border: none;
   border-radius: 7px;
   background: none;
-  color: var(--neutral-400, var(--muted-foreground));
+  color: var(--neutral-900, var(--muted-foreground));
   cursor: pointer;
   list-style: none;
 }

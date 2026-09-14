@@ -61,13 +61,14 @@ Lecture fichiers `STARIUM` : stockage documents client (`storageBucket`/`storage
 
 | Ordre | RFC                 | Nom               | Description                | État    |
 | ----- | ------------------- | ----------------- | -------------------------- | ------- |
-| 11    | RFC-PROJ-INT-FE-009 | UI Sync Documents | Bouton + statuts + erreurs | À faire |
+| 11    | RFC-PROJ-INT-FE-009 | UI Sync Documents | Cible SharePoint/OneDrive (carte Documents) + bouton sync + statuts silo | 📝 Draft — [RFC](./RFC-PROJ-INT-FE-009%20—%20UI%20cible%20documents%20Teams%20(SharePoint%20OneDrive)%20et%20sync.md) |
 
-### Scope frontend sync (MVP)
+### Scope frontend sync (MVP) — voir RFC-PROJ-INT-FE-009
 
-* Bouton : **« Synchroniser vers Teams »**
-* Statut par document : non synchronisé / synchronisé / erreur ; `lastSyncAt` ; message d’erreur simple.
-* Règles MVP inchangées : pas d’upload, pas de retry manuel.
+* Carte **Documents (SharePoint / OneDrive)** : configurer / dissocier la cible (résolution `filesFolder` du canal, **libellés métier**, plus d’IDs Graph en UI).
+* Bouton : **« Synchroniser les documents »** (Options → Synchronisation) dès cible + `syncDocumentsEnabled`.
+* Statut par document dans le silo DOC-002 : non synchronisé / synchronisé / erreur ; `lastPushedAt` ; message d’erreur simple.
+* Règles MVP inchangées : pas d’upload direct Microsoft, pas de retry unitaire, Starium = SoT.
 
 ---
 

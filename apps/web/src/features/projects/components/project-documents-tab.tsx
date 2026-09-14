@@ -93,87 +93,99 @@ function DocumentRowActions({
   };
 
   return (
-    <details ref={menuRef} className="group/details relative inline-flex shrink-0">
-      <summary
-        className="starium-dt-dots-btn min-h-11 min-w-11 [&::-webkit-details-marker]:hidden sm:min-h-[30px] sm:min-w-[30px]"
-        aria-label={`Actions pour ${name}`}
-      >
-        <MoreVertical className="size-4" aria-hidden />
-      </summary>
-      <div
-        className={cn(
-          'starium-dropdown-panel starium-dropdown-panel--floating absolute right-0 z-[120] mt-1 min-w-[12rem] rounded-xl py-1.5 shadow-lg',
-          'pointer-events-none translate-y-1 opacity-0 transition-all',
-          'group-open/details:pointer-events-auto group-open/details:translate-y-0 group-open/details:opacity-100',
-        )}
-      >
-        {doc.storageType === 'STARIUM' ? (
-          <button
-            type="button"
-            className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
-            onClick={() => {
-              onDownload();
-              close();
-            }}
-          >
-            <Download className="size-4" aria-hidden />
-            Télécharger
-          </button>
-        ) : null}
-        {doc.externalUrl ? (
-          <button
-            type="button"
-            className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
-            onClick={() => {
-              window.open(doc.externalUrl!, '_blank', 'noopener,noreferrer');
-              close();
-            }}
-          >
-            <ExternalLink className="size-4" aria-hidden />
-            Ouvrir le lien
-          </button>
-        ) : null}
-        {canEdit ? (
-          <>
+    <div className="inline-flex items-center justify-end gap-1">
+      {canEdit ? (
+        <button
+          type="button"
+          className="starium-dt-dots-btn min-h-11 min-w-11 sm:min-h-[30px] sm:min-w-[30px]"
+          aria-label={`Modifier ${name}`}
+          onClick={onEdit}
+        >
+          <Pencil className="size-4" aria-hidden />
+        </button>
+      ) : null}
+      <details ref={menuRef} className="group/details relative inline-flex shrink-0">
+        <summary
+          className="starium-dt-dots-btn min-h-11 min-w-11 [&::-webkit-details-marker]:hidden sm:min-h-[30px] sm:min-w-[30px]"
+          aria-label={`Actions pour ${name}`}
+        >
+          <MoreVertical className="size-4" aria-hidden />
+        </summary>
+        <div
+          className={cn(
+            'starium-dropdown-panel starium-dropdown-panel--floating absolute right-0 z-[120] mt-1 min-w-[12rem] rounded-xl py-1.5 shadow-lg',
+            'pointer-events-none translate-y-1 opacity-0 transition-all',
+            'group-open/details:pointer-events-auto group-open/details:translate-y-0 group-open/details:opacity-100',
+          )}
+        >
+          {doc.storageType === 'STARIUM' ? (
             <button
               type="button"
               className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
               onClick={() => {
-                onEdit();
+                onDownload();
                 close();
               }}
             >
-              <Pencil className="size-4" aria-hidden />
-              Modifier
+              <Download className="size-4" aria-hidden />
+              Télécharger
             </button>
+          ) : null}
+          {doc.externalUrl ? (
             <button
               type="button"
               className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
               onClick={() => {
-                onArchive();
+                window.open(doc.externalUrl!, '_blank', 'noopener,noreferrer');
                 close();
               }}
             >
-              <Archive className="size-4" aria-hidden />
-              Archiver
+              <ExternalLink className="size-4" aria-hidden />
+              Ouvrir le lien
             </button>
-            <button
-              type="button"
-              className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-destructive hover:bg-accent"
-              onClick={() => {
-                if (window.confirm(`Supprimer « ${name} » du registre projet ?`)) {
-                  onDelete();
-                }
-                close();
-              }}
-            >
-              <Trash2 className="size-4" aria-hidden />
-              Supprimer
-            </button>
-          </>
-        ) : null}
-      </div>
-    </details>
+          ) : null}
+          {canEdit ? (
+            <>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
+                onClick={() => {
+                  onEdit();
+                  close();
+                }}
+              >
+                <Pencil className="size-4" aria-hidden />
+                Modifier
+              </button>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm hover:bg-accent"
+                onClick={() => {
+                  onArchive();
+                  close();
+                }}
+              >
+                <Archive className="size-4" aria-hidden />
+                Archiver
+              </button>
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm text-destructive hover:bg-accent"
+                onClick={() => {
+                  if (window.confirm(`Supprimer « ${name} » du registre projet ?`)) {
+                    onDelete();
+                  }
+                  close();
+                }}
+              >
+                <Trash2 className="size-4" aria-hidden />
+                Supprimer
+              </button>
+            </>
+          ) : null}
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -390,7 +402,7 @@ export function ProjectDocumentsTab({ projectId }: { projectId: string }) {
           ) : (
             <div className="starium-tablecard">
               <StariumTableWrap scrollLabel="Documents projet — glisser pour faire défiler">
-                <table className="starium-dt starium-dt--wide">
+                <table className="starium-dt w-full">
                   <caption className="sr-only">Documents du projet</caption>
                   <thead>
                     <tr>
@@ -399,7 +411,10 @@ export function ProjectDocumentsTab({ projectId }: { projectId: string }) {
                       <th scope="col">Modifié le</th>
                       <th scope="col">Auteur</th>
                       <th scope="col">Taille</th>
-                      <th scope="col" className="starium-dt__right">
+                      <th
+                        scope="col"
+                        className="starium-dt__right starium-dt__sticky-actions"
+                      >
                         Actions
                       </th>
                     </tr>
@@ -445,7 +460,7 @@ export function ProjectDocumentsTab({ projectId }: { projectId: string }) {
                           <td className="tabular-nums">
                             {formatProjectDocumentBytes(doc.sizeBytes)}
                           </td>
-                          <td className="starium-dt__right text-right">
+                          <td className="starium-dt__right starium-dt__sticky-actions text-right">
                             <DocumentRowActions
                               doc={doc}
                               canEdit={canEdit}

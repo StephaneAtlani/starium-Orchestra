@@ -16,7 +16,7 @@ export function useHasHorizontalOverflow(
     if (!el) return;
 
     const check = () => {
-      setHasOverflow(el.scrollWidth > el.clientWidth);
+      setHasOverflow(el.scrollWidth - el.clientWidth > 24);
     };
 
     check();
@@ -27,6 +27,7 @@ export function useHasHorizontalOverflow(
 
     const observer = new ResizeObserver(check);
     observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
 
     return () => observer.disconnect();
   }, [ref]);

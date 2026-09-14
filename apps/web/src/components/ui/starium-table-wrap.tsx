@@ -34,13 +34,13 @@ export type StariumTableWrapProps = React.ComponentProps<'div'> & {
 
 /**
  * Conteneur scroll horizontal pour tableaux `starium-dt` — grab/pan souris et doigt.
- * @see useTablePan, TableContainer (shadcn)
+ * Rail custom uniquement si overflow réel (> 24px) ; pas de `title` natif (tooltip intrusif).
  */
 export function StariumTableWrap({
   className,
   children,
   scrollLabel,
-  title,
+  title: _title,
   ...props
 }: StariumTableWrapProps) {
   const pan = useTablePan();
@@ -51,21 +51,24 @@ export function StariumTableWrap({
     <StariumTablePanContext.Provider value={pan}>
       <div
         ref={pan.scrollRef}
-        onPointerDown={pan.onPointerDown}
+        onPointerDown={hasOverflow ? pan.onPointerDown : undefined}
         data-slot="starium-table-wrap"
+        data-table-overflow={hasOverflow ? 'true' : 'false'}
         className={cn(
-          'starium-table-wrap starium-scroll-hover relative',
-          pan.isPanning ? 'cursor-grabbing select-none touch-none' : 'cursor-grab',
+          'starium-table-wrap relative',
+          hasOverflow && 'starium-scroll-hover',
+          hasOverflow
+            ? pan.isPanning
+              ? 'cursor-grabbing select-none touch-none'
+              : 'cursor-grab'
+            : 'cursor-default',
           hasOverflow &&
             'after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden',
           className,
         )}
-        title={
-          title ??
-          (scrollLabel ? 'Clic maintenu et glisser pour parcourir le tableau' : undefined)
-        }
-        aria-label={scrollLabel}
+        aria-label={hasOverflow ? scrollLabel : undefined}
         onMouseEnter={() => {
+          if (!hasOverflow && !rail.overflow) return;
           rail.setHover(true);
           rail.sync();
         }}

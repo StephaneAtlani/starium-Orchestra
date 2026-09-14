@@ -115,7 +115,7 @@ Liste **uniquement** du travail restant (pas de historique « fait »). Trajecto
 | V11.11 | Steward ownership hors Projet | ORG-004 |
 | V11.12 | ACL OWN/SCOPE enforcement complet | ACL-015/024 |
 | V11.13 | INT-010 queue / stale | INT-010 |
-| V11.14 | INT-009 UI sync documents | INT-FE-009 |
+| V11.14 | INT-009 UI sync documents (cible Drive + statuts silo) | [RFC-PROJ-INT-FE-009](./RFC/RFC-PROJ-INT-FE-009%20—%20UI%20cible%20documents%20Teams%20(SharePoint%20OneDrive)%20et%20sync.md) |
 | V11.15 | BUD-043 L4 / BUD-044 | budget |
 | V11.16 | Vue multi-client DSI fractional | plan Budget |
 | V11.17 | RFC-039 recherche transversale | RFC-039 |

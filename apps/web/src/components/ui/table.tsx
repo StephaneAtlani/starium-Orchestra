@@ -33,15 +33,22 @@ function TableContainer({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={pan.scrollRef}
-      onPointerDown={pan.onPointerDown}
+      onPointerDown={hasOverflow ? pan.onPointerDown : undefined}
       data-slot="table-container"
+      data-table-overflow={hasOverflow ? 'true' : 'false'}
       className={cn(
-        "starium-scroll-hover relative w-full overflow-x-auto",
-        pan.isPanning ? "cursor-grabbing select-none touch-none" : "cursor-grab",
+        "relative w-full overflow-x-auto",
+        hasOverflow && "starium-scroll-hover",
+        hasOverflow
+          ? pan.isPanning
+            ? "cursor-grabbing select-none touch-none"
+            : "cursor-grab"
+          : "cursor-default",
         hasOverflow &&
           "after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-6 after:bg-gradient-to-l after:from-background after:to-transparent md:after:hidden",
       )}
       onMouseEnter={() => {
+        if (!hasOverflow && !rail.overflow) return;
         rail.setHover(true);
         rail.sync();
       }}
