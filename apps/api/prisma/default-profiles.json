@@ -93,6 +93,8 @@
       "project_requests.create",
       "project_requests.update",
       "project_requests.validate",
+      "project_requests.instruct",
+      "project_requests.settings.manage",
       "meetings.read",
       "meetings.create",
       "meetings.update",

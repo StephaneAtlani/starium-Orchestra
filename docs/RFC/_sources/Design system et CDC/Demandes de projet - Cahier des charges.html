@@ -1,0 +1,624 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Demandes de projet — Cahier des charges des écrans</title>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#14100C"/><rect x="26" y="18" width="48" height="64" rx="4" fill="#fff" opacity=".9"/><rect x="34" y="28" width="32" height="5" rx="2" fill="#F5A623"/><rect x="34" y="40" width="32" height="4" rx="2" fill="#14100C" opacity=".25"/><rect x="34" y="49" width="24" height="4" rx="2" fill="#14100C" opacity=".25"/><circle cx="50" cy="67" r="8" fill="#F5A623"/><path d="M46 67l3 3 5-6" stroke="#14100C" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></template>
+<style>
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-SemiBold.ttf') format('truetype');font-weight:600}
+@font-face{font-family:'Outfit';src:url('fonts/Outfit-Bold.ttf') format('truetype');font-weight:700}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-VariableFont_wght.ttf') format('truetype');font-weight:100 900}
+doc-page:not(:defined){visibility:hidden}
+.page{font-family:'Manrope',system-ui,sans-serif;color:#14100C;background:#fff;box-sizing:border-box}
+.page *{box-sizing:border-box}
+h1,h2,h3,h4{font-family:'Outfit',system-ui,sans-serif;margin:0;letter-spacing:-.02em}
+a{color:#C77A00}a:hover{color:#8A5400}
+.cover{padding:16mm 18mm;display:flex;flex-direction:column}
+.cv-top{display:flex;align-items:center;gap:10mm}
+.cv-mark{font-family:'Outfit';font-weight:700;font-size:11pt;letter-spacing:.34em}
+.cv-rule{flex:1;height:2px;background:#F5A623}
+.cv-kicker{font-size:8.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8C8579}
+.cover h1{font-size:50pt;font-weight:700;line-height:.98;margin-top:20mm}
+.cv-lede{font-size:12pt;line-height:1.5;color:#5F5A52;max-width:170mm;margin:7mm 0 0;font-weight:500;text-wrap:pretty}
+.cv-grid{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7mm;border-top:1px solid #E9E6E0;padding-top:7mm}
+.cv-num{font-family:'Outfit';font-weight:700;font-size:24pt;color:#C77A00;line-height:1}
+.cv-lbl{font-size:8.5pt;line-height:1.4;color:#5F5A52;font-weight:600;margin-top:2mm}
+.cv-foot{display:flex;justify-content:space-between;font-size:8.5pt;color:#8C8579;font-weight:600;margin-top:6mm}
+.std{padding:13mm 15mm;display:flex;flex-direction:column}
+.std-h{border-bottom:1px solid #E9E6E0;padding-bottom:5mm;margin-bottom:6mm}
+.std-k{font-size:8pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.std h2{font-size:23pt;font-weight:700;line-height:1.08}
+.std-h p{font-size:10pt;line-height:1.5;color:#5F5A52;font-weight:500;margin:4mm 0 0;max-width:205mm;text-wrap:pretty}
+.std-note{margin-top:auto;font-size:8.5pt;line-height:1.5;color:#5F5A52;font-weight:600;border-top:1px solid #E9E6E0;padding-top:4mm;text-wrap:pretty}
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm}
+.tri-h{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;margin-bottom:3mm}
+.tri ul,.lst{margin:0;padding-left:4.2mm;list-style:none}
+.tri li,.lst li{font-size:8.6pt;line-height:1.45;color:#5F5A52;font-weight:500;margin-bottom:2.2mm;position:relative;text-wrap:pretty}
+.tri li::before,.lst li::before{content:'';position:absolute;left:-4.2mm;top:1.6mm;width:1.4mm;height:1.4mm;border-radius:99px;background:#F5A623}
+.tri li b,.lst li b{color:#14100C;font-weight:700}
+.tb{width:100%;border-collapse:collapse;font-size:8.4pt}
+.tb th{text-align:left;font-size:7.5pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579;padding:0 3mm 2.5mm 0;border-bottom:1px solid #E9E6E0}
+.tb td{padding:2.8mm 3mm 2.8mm 0;border-bottom:1px solid #E9E6E0;color:#5F5A52;font-weight:500;line-height:1.4;vertical-align:top;text-wrap:pretty}
+.tb .s{font-weight:700;color:#14100C}
+.tb code,code{font-family:ui-monospace,Menlo,monospace;font-size:7.8pt;background:#F4F2EE;padding:.5mm 1.4mm;border-radius:1mm;color:#403D38}
+.pill{display:inline-block;color:#fff;font-weight:800;font-size:7.2pt;padding:1.1mm 2.4mm;border-radius:1.4mm;white-space:nowrap}
+.divider{padding:18mm;display:flex;align-items:center;background:#14100C;color:#fff}
+.dv-in{max-width:200mm}
+.dv-kick{font-size:9pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#F5A623;margin-bottom:6mm}
+.divider h2{font-size:32pt;font-weight:700;line-height:1.02}
+.divider p{font-size:11pt;line-height:1.55;color:rgba(255,255,255,.74);margin:6mm 0 0;font-weight:500;max-width:175mm;text-wrap:pretty}
+.dv-steps{display:flex;flex-wrap:wrap;gap:3mm;margin-top:9mm}
+.dv-steps span{font-size:8.5pt;font-weight:700;padding:2mm 4.5mm;border:1px solid rgba(255,255,255,.28);border-radius:99px}
+.scr{padding:10mm 12mm;display:flex;flex-direction:column;overflow:hidden}
+.sh{display:flex;align-items:flex-start;gap:5mm;border-bottom:1px solid #E9E6E0;padding-bottom:3.5mm;flex-shrink:0}
+.sh-n{font-family:'Outfit';font-weight:700;font-size:19pt;color:#C77A00;line-height:.9;min-width:15mm}
+.sh-t{flex:1}
+.scr h3{font-size:16.5pt;font-weight:700;line-height:1.1}
+.sh-p{font-size:7.8pt;font-weight:600;color:#8C8579;margin-top:1.6mm;font-family:ui-monospace,Menlo,monospace}
+.sh-k{font-size:7.2pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:#14100C;padding:1.5mm 3.2mm;border-radius:1.4mm;white-space:nowrap}
+.bp{display:grid;grid-template-columns:1.42fr 1fr;gap:7mm;margin-top:4.5mm;min-height:0;flex:1}
+.bp.tall{grid-template-columns:1fr 1.5fr}
+.blk{margin-bottom:4mm}
+.blk:last-child{margin-bottom:0}
+.blk-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2.4mm}
+.role{font-size:9pt;line-height:1.45;margin:0;font-weight:600;color:#14100C;text-wrap:pretty}
+.zon ol{margin:0;padding-left:6mm;counter-reset:z;list-style:none}
+.zon li{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin-bottom:2mm;position:relative;counter-increment:z;text-wrap:pretty}
+.zon li::before{content:counter(z);position:absolute;left:-6mm;top:.2mm;width:3.7mm;height:3.7mm;border-radius:99px;background:#14100C;color:#fff;font-size:6.2pt;font-weight:800;display:flex;align-items:center;justify-content:center}
+.zon li b{color:#14100C;font-weight:700}
+.shot{position:relative;border:1px solid #D6D2CA;border-radius:2mm;overflow:hidden;background:#FAF9F7;margin:0}
+.shot img{display:block;width:100%;height:auto}
+.shot.crop{max-height:118mm}
+.shot.crop img{object-fit:cover;object-position:top}
+.pin{position:absolute;width:4.4mm;height:4.4mm;border-radius:99px;background:#C77A00;color:#fff;font-family:'Outfit';font-weight:700;font-size:6.6pt;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 0 0 1mm rgba(255,255,255,.94),0 .5mm 1.4mm rgba(0,0,0,.35)}
+.shot-cap{font-size:6.8pt;font-weight:700;color:#8C8579;margin-top:1.8mm;letter-spacing:.04em}
+.sf{margin-top:3.5mm;display:grid;grid-template-columns:1.55fr 1fr 1fr;gap:6mm;border-top:1px solid #E9E6E0;padding-top:3.5mm;flex-shrink:0}
+.sf-h{font-size:7.3pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C77A00;margin-bottom:2mm}
+.sf-h.mt{margin-top:3.2mm}
+.sf p{font-size:8.4pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.sf ul{margin:0;padding-left:4mm;list-style:none}
+.sf li{font-size:8.3pt;line-height:1.4;color:#5F5A52;font-weight:500;margin-bottom:1.7mm;position:relative;text-wrap:pretty}
+.sf li::before{content:'';position:absolute;left:-4mm;top:1.5mm;width:1.3mm;height:1.3mm;border-radius:99px;background:#F5A623}
+.sf li b{color:#14100C;font-weight:700}
+.bhv{padding:11mm 13mm;display:flex;flex-direction:column;overflow:hidden}
+.bhv-h{display:flex;align-items:baseline;gap:4mm;border-bottom:1px solid #E9E6E0;padding-bottom:4mm;margin-bottom:5mm;flex-shrink:0}
+.bhv-h .n{font-family:'Outfit';font-weight:700;font-size:12pt;color:#C77A00}
+.bhv-h h4{font-size:14pt;font-weight:700;flex:1}
+.bhv-h .tag{font-size:7pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8C8579}
+.bhv-cols{display:grid;grid-template-columns:1fr 1fr;gap:8mm;min-height:0;flex:1}
+.ac{border:1px solid #E9E6E0;border-radius:2mm;padding:3.4mm 4mm;background:#FAF9F7;margin-bottom:2.6mm}
+.ac-t{font-size:8pt;font-weight:800;color:#14100C;margin-bottom:1.6mm}
+.ac-l{font-size:8pt;line-height:1.42;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+.ac-l em{font-style:normal;font-weight:800;color:#C77A00;letter-spacing:.04em;text-transform:uppercase;font-size:6.8pt;margin-right:1.2mm}
+.msg{font-size:8pt;line-height:1.4;color:#5F5A52;font-weight:500;padding-left:4.6mm;position:relative;margin-bottom:2mm;text-wrap:pretty}
+.msg::before{content:'';position:absolute;left:0;top:1.3mm;width:2.6mm;height:2.6mm;border-radius:.6mm;background:#B42318}
+.msg.warn::before{background:#C77A00}
+.msg.ok::before{background:#1F8A5B}
+.msg q{font-weight:700;color:#14100C;quotes:'« ' ' »'}
+.rc{display:grid;grid-template-columns:repeat(2,1fr);gap:9mm;align-items:start}
+.rc-t{font-size:8pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#C77A00;padding-bottom:2mm;border-bottom:1px solid #E9E6E0;margin-bottom:3mm}
+.rc .ac{background:#fff;border-color:#E9E6E0}
+/* schéma de circuit */
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:3mm;margin:2mm 0 6mm}
+.fnode{border:1px solid #E9E6E0;border-radius:2mm;padding:3.4mm 3.8mm;background:#FAF9F7;position:relative}
+.fnode.gold{background:#FCEDC4;border-color:#F8D999}
+.fnode.ink{background:#14100C;border-color:#14100C}
+.fnode .n{font-family:'Outfit';font-weight:700;font-size:9pt;color:#C77A00;line-height:1}
+.fnode.ink .n{color:#F5A623}
+.fnode .t{font-size:8.6pt;font-weight:700;color:#14100C;margin-top:1.8mm;line-height:1.25}
+.fnode.ink .t{color:#fff}
+.fnode .m{font-size:7.2pt;font-weight:600;color:#8C8579;margin-top:1.2mm;line-height:1.35}
+.fnode.ink .m{color:rgba(255,255,255,.6)}
+.branch{display:grid;grid-template-columns:1fr 1fr;gap:6mm;margin-bottom:5mm}
+.brc{border:1px solid #E9E6E0;border-radius:2mm;padding:4mm 4.5mm}
+.brc.on{border-color:#F8D999;background:#FFFBF1}
+.brc-t{font-size:9pt;font-weight:800;color:#14100C;margin-bottom:1.6mm}
+.brc-c{font-size:7.4pt;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#C77A00;margin-bottom:2.4mm}
+.brc p{font-size:8.3pt;line-height:1.45;color:#5F5A52;font-weight:500;margin:0;text-wrap:pretty}
+/* liaisons inter-modules */
+.lk{display:grid;grid-template-columns:1fr 1.25fr;gap:9mm;flex:1;min-height:0}
+.lkmap{display:flex;flex-direction:column;gap:2.6mm}
+.lkbox{border:1px solid #E9E6E0;border-radius:2mm;padding:3.2mm 3.8mm;background:#FAF9F7}
+.lkbox.ink{background:#14100C;border-color:#14100C}
+.lkbox .h{font-size:8.4pt;font-weight:800;color:#14100C}
+.lkbox.ink .h{color:#fff}
+.lkbox .d{font-size:7.4pt;font-weight:600;color:#8C8579;line-height:1.4;margin-top:1.2mm}
+.lkbox.ink .d{color:rgba(255,255,255,.62)}
+.lkarrow{font-size:7.2pt;font-weight:800;color:#C77A00;text-align:center;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<doc-page size="a4" orientation="landscape">
+
+<!-- ══════════ COUVERTURE ══════════ -->
+<section class="page cover" data-screen-label="Couverture">
+<div class="cv-top"><div class="cv-mark">STARIUM</div><div class="cv-rule"></div><div class="cv-kicker">Cahier des charges · écrans</div></div>
+<h1>Demandes de projet</h1>
+<p class="cv-lede">Spécification du module amont du portefeuille : la saisie d'un besoin métier, son circuit de validation configurable, son passage — ou non — en cycle de pilotage, et sa transformation en projet. Pour chaque écran : la capture réelle de l'application annotée zone par zone, les règles de routage, les interactions, les messages et les critères de recette.</p>
+<div class="cv-grid">
+<div><div class="cv-num">07</div><div class="cv-lbl">écrans spécifiés<br>3 vues, 4 modales</div></div>
+<div><div class="cv-num">08</div><div class="cv-lbl">statuts de demande<br>brouillon → projet créé</div></div>
+<div><div class="cv-num">05</div><div class="cv-lbl">étapes de circuit<br>dont 3 activables</div></div>
+<div><div class="cv-num">32</div><div class="cv-lbl">critères de recette<br>vérifiables un par un</div></div>
+</div>
+<div class="cv-foot"><span>Refonte Portail Client · module Demandes de projet</span><span>Septembre 2026</span></div>
+</section>
+
+<!-- ══════════ CADRE ══════════ -->
+<section class="page std" data-screen-label="Cadre du module">
+<div class="std-h"><div class="std-k">Intention</div><h2>Un point d'entrée unique, une décision traçable</h2>
+<p>Aujourd'hui les besoins arrivent par e-mail, en réunion ou par le couloir : le PMO ne dispose d'aucune liste exhaustive, les directions ne savent pas où en est leur demande, et les comités découvrent les sujets en séance. Le module donne un formulaire unique, un circuit dont les règles sont écrites une fois pour toutes, et un journal qui restitue qui a décidé quoi et quand. Une demande validée n'est pas recopiée : elle devient le projet, avec son cadrage, son budget et son sponsor.</p></div>
+<div class="tri">
+<div><div class="tri-h">Dans le périmètre</div><ul>
+<li><b>Saisie et brouillon</b> — un demandeur métier décrit son besoin sans connaître le vocabulaire projet.</li>
+<li><b>Routage automatique</b> — le circuit est déduit du type et du budget estimé, jamais choisi à la main.</li>
+<li><b>Validation hiérarchique</b> et <b>instruction PMO</b>, chacune activable ou non.</li>
+<li><b>Passage en cycle de pilotage</b> : inscription à l'ordre du jour d'une séance existante, puis décision.</li>
+<li><b>Création du projet</b> et report du cadrage dans le portefeuille.</li>
+</ul></div>
+<div><div class="tri-h">Hors périmètre</div><ul>
+<li><b>Chiffrage détaillé</b> — l'estimation reste macroscopique ; le budget fin est construit dans le module Budget après création du projet.</li>
+<li><b>Planning</b> — aucune tâche ni jalon n'est saisi au stade de la demande.</li>
+<li><b>Scoring multicritère</b> de priorisation : la priorité demandée est déclarative, l'arbitrage reste humain.</li>
+<li><b>Portail fournisseur / externe</b> : la demande est interne, authentifiée.</li>
+</ul></div>
+<div><div class="tri-h">Rôles</div><ul>
+<li><b>Demandeur</b> — crée, complète, soumet ; consultation seule ensuite.</li>
+<li><b>Responsable de direction (N+1)</b> — valide ou refuse l'opportunité avant instruction.</li>
+<li><b>PMO</b> — instruit, retient un budget, inscrit à l'ordre du jour, enregistre la décision, crée le projet, configure le circuit.</li>
+<li><b>Comité (COPIL / CODIR)</b> — arbitre : validée, ajournée, refusée.</li>
+</ul></div>
+</div>
+<p class="std-note">Principe directeur : <b>aucune demande ne disparaît</b>. Un refus, un ajournement ou une réouverture restent visibles dans la liste et dans le journal — c'est ce qui permet de répondre, six mois plus tard, à « qu'est devenue ma demande ? ».</p>
+</section>
+
+<!-- ══════════ DIVIDER 1 ══════════ -->
+<section class="page divider" data-screen-label="Divider — Circuit">
+<div class="dv-in"><div class="dv-kick">Partie 1</div><h2>Le circuit, écrit une fois,<br>appliqué à chaque demande</h2>
+<p>Le PMO configure les étapes et les seuils. Chaque demande calcule son propre chemin : le demandeur voit ce chemin avant de soumettre, le comité ne reçoit que ce qui le concerne.</p>
+<div class="dv-steps"><span>Soumission</span><span>Validation N+1</span><span>Instruction PMO</span><span>Arbitrage COPIL / CODIR</span><span>Création du projet</span></div></div>
+</section>
+
+<!-- ══════════ CIRCUIT & STATUTS ══════════ -->
+<section class="page std" data-screen-label="Circuit et statuts">
+<div class="std-h"><div class="std-k">Règles de routage</div><h2>Cinq étapes, deux branches, huit statuts</h2></div>
+<div class="flow">
+<div class="fnode"><div class="n">01</div><div class="t">Soumission</div><div class="m">Demandeur · toujours active</div></div>
+<div class="fnode"><div class="n">02</div><div class="t">Validation N+1</div><div class="m">Responsable de direction · activable</div></div>
+<div class="fnode"><div class="n">03</div><div class="t">Instruction</div><div class="m">PMO · délai cible configurable</div></div>
+<div class="fnode gold"><div class="n">04</div><div class="t">Arbitrage COPIL / CODIR<br>ou validation PMO</div><div class="m">Branche déterminée par le seuil</div></div>
+<div class="fnode ink"><div class="n">05</div><div class="t">Création du projet</div><div class="m">Manuelle ou automatique</div></div>
+</div>
+<div class="branch">
+<div class="brc on"><div class="brc-c">Branche A · avec cycle de pilotage</div><div class="brc-t">Budget estimé ≥ seuil COPIL et type non exempté</div><p>La demande doit être inscrite à l'ordre du jour d'une séance existante (le module Cycles de pilotage et le module Réunions fournissent la liste). La décision du comité — validée, ajournée, refusée — clôt l'étape 4. Au-delà du seuil CODIR, l'arbitrage remonte au CODIR sans intervention du PMO.</p></div>
+<div class="brc"><div class="brc-c">Branche B · hors cycle</div><div class="brc-t">Budget sous le seuil, ou type exempté</div><p>Le PMO conclut l'instruction par un avis ; un avis favorable vaut validation. Aucun point n'est créé en comité. Les types exemptés — par défaut « Réglementaire » — suivent cette branche quel que soit leur montant, pour ne pas retarder une obligation à échéance contrainte.</p></div>
+</div>
+<table class="tb">
+<thead><tr><th style="width:34mm">Statut</th><th style="width:44mm">Qui agit</th><th>Ce qui est possible</th><th style="width:48mm">Transition suivante</th></tr></thead>
+<tbody>
+<tr><td class="s"><span class="pill" style="background:#8C8579">Brouillon</span></td><td>Demandeur</td><td>Compléter, modifier, supprimer — invisible des comités</td><td>Soumettre → Soumise ou Instruction</td></tr>
+<tr><td class="s"><span class="pill" style="background:#2A6FD6">Soumise</span></td><td>Responsable de direction</td><td>Valider, refuser ; le demandeur n'édite plus</td><td>Valider → Instruction ou Cycle</td></tr>
+<tr><td class="s"><span class="pill" style="background:#C77A00">En instruction</span></td><td>PMO</td><td>Retenir un budget et une charge, émettre un avis</td><td>Avis → Cycle, Validée ou Refusée</td></tr>
+<tr><td class="s"><span class="pill" style="background:#C77A00">En cycle de pilotage</span></td><td>PMO puis comité</td><td>Inscrire à une séance, puis enregistrer la décision</td><td>Décision → Validée, Ajournée, Refusée</td></tr>
+<tr><td class="s"><span class="pill" style="background:#1F8A5B">Validée</span></td><td>PMO</td><td>Créer le projet (ou création automatique si configurée)</td><td>Créer → Projet créé</td></tr>
+<tr><td class="s"><span class="pill" style="background:#1F8A5B">Projet créé</span></td><td>—</td><td>Lecture seule ; renvoie vers la fiche projet</td><td>État terminal</td></tr>
+<tr><td class="s"><span class="pill" style="background:#C77A00">Ajournée</span></td><td>PMO</td><td>Rouvrir pour compléter le dossier</td><td>Rouvrir → Brouillon</td></tr>
+<tr><td class="s"><span class="pill" style="background:#B42318">Refusée</span></td><td>PMO</td><td>Rouvrir (exceptionnel, motivé au journal)</td><td>Rouvrir → Brouillon</td></tr>
+</tbody>
+</table>
+<p class="std-note">Le circuit est <b>recalculé à chaque modification</b> du type ou du budget, y compris pendant l'instruction : si le PMO retient 260 k€ là où le demandeur estimait 40 k€, la demande bascule d'elle-même en arbitrage CODIR. Les étapes déjà franchies restent au journal, jamais réécrites.</p>
+</section>
+
+<!-- ══════════ A1 · LISTE ══════════ -->
+<section class="page scr" data-screen-label="A1 — Liste des demandes">
+<div class="sh"><div class="sh-n">A1</div><div class="sh-t"><h3>Liste des demandes de projet</h3><div class="sh-p">Pilotage › Demandes de projet · view-demandes</div></div><div class="sh-k">Existant</div></div>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/dp/list.png" alt="Liste des demandes de projet">
+<span class="pin" style="left:72%;top:1.6%">1</span>
+<span class="pin" style="left:12%;top:8.4%">2</span>
+<span class="pin" style="left:14%;top:13.8%">3</span>
+<span class="pin" style="left:88%;top:13.8%">4</span>
+<span class="pin" style="left:6%;top:20.5%">5</span>
+<span class="pin" style="left:72%;top:20.5%">6</span>
+<span class="pin" style="left:87%;top:20.5%">7</span>
+<span class="pin" style="left:14%;top:96.5%">8</span>
+</figure><div class="shot-cap">Capture de l'application · 8 demandes de démonstration, filtre « Toutes »</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Répondre en un regard à trois questions du PMO : qu'est-ce qui attend une action de ma part, qu'est-ce qui part en comité, et combien d'argent est engagé dans l'entonnoir.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>Actions d'en-tête</b> — « Configuration du circuit » (PMO uniquement) et « Nouvelle demande », action primaire.</li>
+<li><b>Quatre indicateurs</b> — à instruire, en cycle, validées à convertir, enveloppe en circuit. Chacun est une charge de travail, pas une statistique décorative.</li>
+<li><b>Recherche</b> sur intitulé, direction, demandeur et référence.</li>
+<li><b>Rappel du seuil</b> de passage en cycle, pour expliquer la colonne Circuit sans ouvrir la configuration.</li>
+<li><b>Segments</b> Toutes / En circuit / Terminées — « Terminées » regroupe projet créé, refusée, ajournée.</li>
+<li><b>Colonne Circuit</b> — pastille COPIL, CODIR ou « Hors cycle », et la séance quand elle est fixée.</li>
+<li><b>Colonne Statut</b> — badge de statut ; sous-ligne avec le nom du projet lorsqu'il a été créé.</li>
+<li><b>Encarts de règles</b> — seuils, étapes actives, exemptions : la configuration lisible sans y entrer.</li>
+</ol></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Interactions</div><ul>
+<li>Clic sur une ligne → fiche de la demande (A3).</li>
+<li>Recherche : filtrage immédiat, sans validation.</li>
+<li>Segments et recherche se combinent ; l'état vide affiche « Aucune demande ne correspond à ce filtre. »</li>
+</ul></div>
+<div><div class="sf-h">Règles d'affichage</div><ul>
+<li>Tri par défaut : dépôt le plus récent en premier.</li>
+<li>Enveloppe en circuit = somme des demandes soumises, en instruction, en cycle et validées.</li>
+<li>Les badges reprennent la palette de statut du design system, sans couleur ad hoc.</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Modifier un seuil met à jour la colonne Circuit et les encarts sans rechargement.</li>
+<li>Une demande réglementaire de 400 k€ reste « Hors cycle ».</li>
+<li>Chaque collaborateur apparaît avec son badge rond (photo si connue, initiales sinon).</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ A2 · FORMULAIRE ══════════ -->
+<section class="page scr" data-screen-label="A2 — Nouvelle demande">
+<div class="sh"><div class="sh-n">A2</div><div class="sh-t"><h3>Nouvelle demande · formulaire</h3><div class="sh-p">Demandes de projet › Nouvelle demande · demNew()</div></div><div class="sh-k">Existant</div></div>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/dp/form.png" alt="Formulaire de demande de projet">
+<span class="pin" style="left:18%;top:9%">1</span>
+<span class="pin" style="left:34%;top:31%">2</span>
+<span class="pin" style="left:34%;top:52%">3</span>
+<span class="pin" style="left:20%;top:84%">4</span>
+<span class="pin" style="left:34%;top:92%">5</span>
+<span class="pin" style="left:85%;top:16%">6</span>
+<span class="pin" style="left:85%;top:32%">7</span>
+<span class="pin" style="left:57%;top:98%">8</span>
+</figure><div class="shot-cap">Capture de l'application · formulaire vierge, type « Transformation » présélectionné</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Faire décrire un besoin en langage métier — pas un projet. Le formulaire ne demande jamais au demandeur de choisir son circuit : il le lui montre.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>Nature de la demande</b> — cinq types en cartes, un seul sélectionnable ; le type détermine l'exemption éventuelle.</li>
+<li><b>Identification</b> — intitulé, direction demandeuse, demandeur, sponsor pressenti.</li>
+<li><b>Besoin &amp; objectifs</b> — situation actuelle, objectifs (un par ligne), bénéfices attendus.</li>
+<li><b>Cadrage estimatif</b> — budget, charge interne, échéance souhaitée.</li>
+<li><b>Priorité demandée</b> — déclarative, trois niveaux.</li>
+<li><b>Aperçu du circuit</b> — les étapes qui s'appliqueront, recalculées à chaque frappe.</li>
+<li><b>Synthèse</b> — type, budget, « Cycle de pilotage : requis / non requis » avec la phrase d'explication.</li>
+<li><b>Sortie</b> — enregistrer en brouillon, ou soumettre.</li>
+</ol></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Champs obligatoires</div><ul>
+<li>Intitulé, direction demandeuse, situation actuelle, budget estimé.</li>
+<li>Objectifs : une ligne = un objectif, lignes vides ignorées.</li>
+<li>Initiales du demandeur déduites du nom saisi.</li>
+</ul></div>
+<div><div class="sf-h">Comportement</div><ul>
+<li>Le panneau de droite réagit au <b>type</b> et au <b>budget</b> : franchir le seuil ajoute l'étape d'arbitrage sous les yeux du demandeur.</li>
+<li>« Enregistrer en brouillon » n'impose aucune validation au-delà des deux champs d'identification.</li>
+<li>« Soumettre » enchaîne directement sur la transition de soumission.</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Saisir 49 000 € puis 51 000 € fait apparaître l'étape « Arbitrage COPIL ».</li>
+<li>Type « Réglementaire » à 400 k€ : aperçu « Cycle de pilotage : non requis ».</li>
+<li>Soumettre sans intitulé affiche une alerte et ne crée rien.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ A3 · FICHE ══════════ -->
+<section class="page scr" data-screen-label="A3 — Fiche demande">
+<div class="sh"><div class="sh-n">A3</div><div class="sh-t"><h3>Fiche d'une demande</h3><div class="sh-p">Demandes de projet › DP-2026-018 · demOpen(id)</div></div><div class="sh-k">Existant</div></div>
+<div class="bp">
+<div>
+<figure class="shot"><img src="screenshots/dp/fiche.png" alt="Fiche d'une demande de projet">
+<span class="pin" style="left:9%;top:1.7%">1</span>
+<span class="pin" style="left:23%;top:8%">2</span>
+<span class="pin" style="left:88%;top:8.5%">3</span>
+<span class="pin" style="left:50%;top:23%">4</span>
+<span class="pin" style="left:28%;top:34%">5</span>
+<span class="pin" style="left:20%;top:69%">6</span>
+<span class="pin" style="left:80%;top:40%">7</span>
+<span class="pin" style="left:80%;top:68%">8</span>
+</figure><div class="shot-cap">Capture de l'application · demande en cycle de pilotage, inscrite au COPIL du 24 sept.</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Le dossier d'arbitrage : ce que le comité lit, et l'unique endroit d'où l'on fait avancer la demande. L'action disponible dépend du statut — jamais plus de deux boutons.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>Retour</b> à la liste, référence et date de dépôt.</li>
+<li><b>En-tête</b> — icône du type, intitulé, statut, direction, demandeur et sponsor en badges ronds.</li>
+<li><b>Actions contextuelles</b> — voir le cycle, enregistrer la décision, créer le projet… selon le statut.</li>
+<li><b>Stepper du circuit</b> — étapes franchies (vert), étape courante (encadrée or), étapes restantes, étape en échec (rouge).</li>
+<li><b>Dossier</b> — besoin exprimé, objectifs, bénéfices attendus.</li>
+<li><b>Cadrage estimatif</b> — budget, charge, échéance, priorité.</li>
+<li><b>Panneau de décision</b> — où l'on en est, circuit appliqué, étapes requises, séance d'arbitrage, lien vers la configuration.</li>
+<li><b>Journal</b> — chaque étape horodatée avec son auteur ; les comités n'ont pas de badge, les personnes oui.</li>
+</ol></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Actions par statut</div><ul>
+<li><b>Brouillon</b> : modifier · soumettre. <b>Soumise</b> : refuser · valider (N+1).</li>
+<li><b>En instruction</b> : conclure l'instruction (A5).</li>
+<li><b>En cycle</b> : inscrire à l'ordre du jour (A6) puis enregistrer la décision (A7).</li>
+<li><b>Validée</b> : créer le projet. <b>Refusée / ajournée</b> : rouvrir.</li>
+</ul></div>
+<div><div class="sf-h">Règles</div><ul>
+<li>Le stepper est calculé, jamais stocké : désactiver l'instruction retire l'étape des demandes non encore instruites.</li>
+<li>Le journal est en append seul, du plus récent au plus ancien.</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Une demande refusée montre l'étape d'échec en rouge et le motif au journal.</li>
+<li>« Voir le cycle » ouvre le module Cycles de pilotage.</li>
+<li>Aucun bouton d'avancement n'apparaît sur un statut terminal.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ A4 · CONFIGURATION ══════════ -->
+<section class="page scr" data-screen-label="A4 — Configuration du circuit">
+<div class="sh"><div class="sh-n">A4</div><div class="sh-t"><h3>Configuration du circuit</h3><div class="sh-p">Modale · demOpenConfig() · profil PMO</div></div><div class="sh-k">Existant</div></div>
+<div class="bp tall">
+<div>
+<figure class="shot"><img src="screenshots/dp/config.png" alt="Modale de configuration du circuit">
+<span class="pin" style="left:22%;top:16%">1</span>
+<span class="pin" style="left:78%;top:16%">2</span>
+<span class="pin" style="left:50%;top:38%">3</span>
+<span class="pin" style="left:50%;top:56%">4</span>
+<span class="pin" style="left:30%;top:78%">5</span>
+</figure><div class="shot-cap">Capture de l'application · valeurs par défaut</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">Le seul endroit où l'on décide de la gouvernance amont. Six réglages, aucune notion technique : ce que le PMO change ici se lit immédiatement dans la liste et dans les fiches.</p></div>
+<div class="blk zon"><div class="blk-h">Réglages</div><ol>
+<li><b>Seuil COPIL</b> — montant à partir duquel un arbitrage en comité est requis (défaut 50 000 €).</li>
+<li><b>Seuil CODIR</b> — montant à partir duquel l'arbitrage remonte au CODIR (défaut 250 000 €). Doit rester supérieur au seuil COPIL.</li>
+<li><b>Délai d'instruction</b> — jours ouvrés affichés comme engagement du PMO (défaut 10).</li>
+<li><b>Étapes activables</b> — validation N+1, instruction PMO, création automatique du projet.</li>
+<li><b>Types exemptés</b> — validés hors cycle quel que soit le montant (défaut : Réglementaire).</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Effet sur l'existant</div><p class="role" style="font-weight:500;color:#5F5A52;font-size:8.5pt">Les demandes déjà engagées conservent leur journal ; seul le <b>circuit restant</b> est recalculé. Une demande dont l'arbitrage est déjà rendu n'est jamais renvoyée en comité.</p></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Interactions</div><ul>
+<li>Interrupteurs et pastilles d'exemption sont des états locaux : rien n'est appliqué avant « Enregistrer la configuration ».</li>
+<li>Fermeture par la croix, « Annuler » ou clic sur le fond : aucune modification conservée.</li>
+</ul></div>
+<div><div class="sf-h">Messages</div><ul>
+<li class="s">Confirmation : « Configuration enregistrée · passage en cycle à partir de 50 k€ ».</li>
+<li>Désactiver l'instruction alors que des demandes y sont : elles passent à l'étape suivante au prochain avancement.</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Désactiver la validation N+1 retire l'étape du stepper et de l'aperçu du formulaire.</li>
+<li>Activer la création automatique : un arbitrage favorable crée le projet sans action manuelle.</li>
+<li>Exempter « Infrastructure » repasse les demandes infra non arbitrées en branche hors cycle.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ A5 · INSTRUCTION ══════════ -->
+<section class="page scr" data-screen-label="A5 — Instruction PMO">
+<div class="sh"><div class="sh-n">A5</div><div class="sh-t"><h3>Conclusion de l'instruction</h3><div class="sh-p">Modale · demOpenInstr() · profil PMO</div></div><div class="sh-k">Existant</div></div>
+<div class="bp tall">
+<div>
+<figure class="shot"><img src="screenshots/dp/instruction.png" alt="Modale de conclusion d'instruction">
+<span class="pin" style="left:25%;top:24%">1</span>
+<span class="pin" style="left:25%;top:46%">2</span>
+<span class="pin" style="left:70%;top:46%">3</span>
+<span class="pin" style="left:50%;top:66%">4</span>
+<span class="pin" style="left:50%;top:85%">5</span>
+</figure><div class="shot-cap">Capture de l'application · demande DP-2026-016, 260 k€</div>
+</div>
+<div>
+<div class="blk"><div class="blk-h">Rôle de l'écran</div><p class="role">L'instruction est le moment où le chiffrage du demandeur devient un chiffrage tenable — et donc où le circuit aval peut changer. L'écran le dit avant de valider.</p></div>
+<div class="blk zon"><div class="blk-h">Zones</div><ol>
+<li><b>Avis du PMO</b> — favorable, réservé, défavorable.</li>
+<li><b>Budget retenu</b> — préchargé avec l'estimation du demandeur, modifiable.</li>
+<li><b>Charge retenue</b> en jours·homme.</li>
+<li><b>Synthèse d'instruction</b> — faisabilité, dépendances, alignement au schéma directeur ; reprise au journal.</li>
+<li><b>Bandeau de routage</b> — recalculé à chaque frappe sur le budget : « Avec 260 k€, la demande passera en arbitrage CODIR ».</li>
+</ol></div>
+<div class="blk"><div class="blk-h">Enchaînements</div><p class="role" style="font-weight:500;color:#5F5A52;font-size:8.5pt">Avis <b>favorable ou réservé</b> → arbitrage requis (statut En cycle) ou validation directe (statut Validée) selon le seuil. Avis <b>défavorable</b> → statut Refusée, l'étape d'instruction est marquée en échec dans le stepper.</p></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Règles</div><ul>
+<li>Le budget retenu remplace l'estimation dans la fiche et dans l'enveloppe en circuit.</li>
+<li>Un avis réservé n'empêche pas le passage en comité : il est transmis tel quel au dossier.</li>
+</ul></div>
+<div><div class="sf-h">Messages</div><ul>
+<li class="s">« Instruction conclue · arbitrage en CODIR requis »</li>
+<li class="s">« Instruction conclue · demande validée hors cycle »</li>
+<li class="s">« Instruction conclue · demande refusée »</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Porter le budget de 40 k€ à 300 k€ change le bandeau et l'instance d'arbitrage.</li>
+<li>Avec la création automatique activée et un budget sous le seuil, le projet est créé à la conclusion.</li>
+<li>La synthèse saisie apparaît intégralement au journal.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ A6 + A7 ══════════ -->
+<section class="page scr" data-screen-label="A6/A7 — Ordre du jour et décision">
+<div class="sh"><div class="sh-n">A6<br>A7</div><div class="sh-t"><h3>Inscription à l'ordre du jour, puis décision du comité</h3><div class="sh-p">Modales · demOpenOdj() / demOpenDec()</div></div><div class="sh-k">Existant</div></div>
+<div class="bp" style="grid-template-columns:1fr 1fr">
+<div>
+<figure class="shot"><img src="screenshots/dp/odj.png" alt="Modale d'inscription à l'ordre du jour">
+<span class="pin" style="left:50%;top:33%">1</span>
+<span class="pin" style="left:50%;top:55%">2</span>
+<span class="pin" style="left:50%;top:74%">3</span>
+</figure><div class="shot-cap">A6 · Inscrire la demande à un cycle de pilotage</div>
+<div class="blk zon" style="margin-top:3.5mm"><ol>
+<li><b>Séance</b> — liste alimentée par les instances du module Cycles de pilotage et les réunions planifiées ; les séances de l'instance requise sont proposées en premier.</li>
+<li><b>Type de point</b> — décision Go / No Go, arbitrage budgétaire, information.</li>
+<li><b>Temps demandé</b> — 10 à 30 minutes, repris dans le minutage de l'ordre du jour.</li>
+</ol></div>
+</div>
+<div>
+<figure class="shot"><img src="screenshots/dp/decision.png" alt="Modale de décision du comité">
+<span class="pin" style="left:24%;top:37%">4</span>
+<span class="pin" style="left:50%;top:70%">5</span>
+</figure><div class="shot-cap">A7 · Enregistrer la décision rendue en séance</div>
+<div class="blk zon" style="margin-top:3.5mm"><ol start="4"><li value="4"><b>Issue de l'arbitrage</b> — validée, ajournée, refusée ; la séance concernée est rappelée en sous-titre.</li>
+<li value="5"><b>Motivation / conditions</b> — texte libre, obligatoire en pratique pour un ajournement ou un refus ; repris au journal et dans le registre de décisions de la séance.</li>
+</ol></div>
+</div>
+</div>
+<div class="sf">
+<div><div class="sf-h">Écriture dans les autres modules</div><ul>
+<li>L'inscription <b>crée réellement le point</b> dans l'ordre du jour de la séance choisie, intitulé « Demande DP-…  — intitulé ».</li>
+<li>La décision alimente le registre de décisions de la réunion, rattachée au point correspondant.</li>
+</ul></div>
+<div><div class="sf-h">Règles</div><ul>
+<li>Sans séance planifiée : la liste affiche « Aucune séance planifiée » et l'inscription est impossible.</li>
+<li>Une décision favorable avec création automatique enchaîne sur la création du projet.</li>
+</ul></div>
+<div><div class="sf-h">Recette</div><ul>
+<li>Après inscription, la colonne Circuit de la liste affiche la date de séance.</li>
+<li>Ajourner puis rouvrir remet la demande en brouillon en conservant tout le journal.</li>
+<li>La décision est visible dans le module Réunions sans ressaisie.</li>
+</ul></div>
+</div>
+</section>
+
+<!-- ══════════ DIVIDER 2 ══════════ -->
+<section class="page divider" data-screen-label="Divider — Liaisons">
+<div class="dv-in"><div class="dv-kick">Partie 2</div><h2>Ce que la demande déclenche<br>dans le reste du portail</h2>
+<p>Une demande validée n'est pas un document classé : elle écrit dans le portefeuille, dans les plans d'action et dans le budget. Sans double saisie, et en gardant la trace de son origine.</p>
+<div class="dv-steps"><span>Portefeuille projets</span><span>Cycles de pilotage</span><span>Réunions</span><span>Plans d'action</span><span>Budget</span></div></div>
+</section>
+
+<!-- ══════════ LIAISONS ══════════ -->
+<section class="page scr" data-screen-label="Liaisons inter-modules">
+<div class="sh"><div class="sh-n">B1</div><div class="sh-t"><h3>Liaisons inter-modules</h3><div class="sh-p">Règles d'écriture et de lecture</div></div><div class="sh-k">Spécification</div></div>
+<div class="lk">
+<div class="lkmap">
+<div class="lkbox ink"><div class="h">Demandes de projet</div><div class="d">Référentiel de l'entonnoir amont · source de vérité jusqu'à la création du projet</div></div>
+<div class="lkarrow">↓ lit les séances</div>
+<div class="lkbox"><div class="h">Cycles de pilotage · Réunions</div><div class="d">Fournissent les séances éligibles ; reçoivent le point d'ordre du jour et la décision rendue</div></div>
+<div class="lkarrow">↓ à la validation</div>
+<div class="lkbox"><div class="h">Portefeuille projets</div><div class="d">Reçoit le projet créé : intitulé, type, budget, échéance, sponsor, référence de la demande</div></div>
+<div class="lkarrow">↓ à la création du projet</div>
+<div class="lkbox"><div class="h">Plans d'action · Budget</div><div class="d">Plan d'action initialisé avec l'action de cadrage ; enveloppe reprise comme budget à engager</div></div>
+</div>
+<div>
+<table class="tb">
+<thead><tr><th style="width:38mm">Module</th><th style="width:20mm">Sens</th><th>Contenu de l'échange</th></tr></thead>
+<tbody>
+<tr><td class="s">Cycles de pilotage</td><td>Lecture</td><td>Instances et séances à venir, avec leur type (COPIL, CODIR, COPROJ) pour ne proposer que les séances compétentes.</td></tr>
+<tr><td class="s">Cycles de pilotage</td><td>Écriture</td><td>Point ajouté à l'ordre du jour de la séance, avec type de point et temps demandé ; arbitrage rendu ajouté au relevé de la séance.</td></tr>
+<tr><td class="s">Réunions</td><td>Écriture</td><td>Point d'ordre du jour et décision associée, rattachés à la réunion planifiée choisie.</td></tr>
+<tr><td class="s">Portefeuille projets</td><td>Écriture</td><td>Création d'une ligne projet à l'état « Cadrage », progression 0 %, avec sous-ligne « Issu de la demande DP-… » et badge de référence.</td></tr>
+<tr><td class="s">Plans d'action</td><td>Écriture</td><td>Création du plan du projet et d'une première action : « Cadrer le projet et désigner le chef de projet ».</td></tr>
+<tr><td class="s">Budget</td><td>Écriture</td><td>Budget retenu à l'instruction transmis comme enveloppe à engager ; aucune ligne de dépense n'est créée.</td></tr>
+<tr><td class="s">Ressources</td><td>Lecture</td><td>Annuaire des collaborateurs : nom, direction, photo pour les badges ronds.</td></tr>
+</tbody>
+</table>
+<div class="blk" style="margin-top:5mm"><div class="blk-h">Traçabilité</div><p class="role" style="font-weight:500;color:#5F5A52;font-size:8.5pt">Le projet créé conserve la référence de sa demande, et la demande conserve le lien vers son projet. Depuis la fiche projet, on doit pouvoir revenir au besoin initial et à la décision qui l'a autorisé — c'est ce chaînage qui rend l'audit possible.</p></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ DONNÉES ══════════ -->
+<section class="page std" data-screen-label="Modèle de données">
+<div class="std-h"><div class="std-k">Modèle</div><h2>Données d'une demande</h2>
+<p>Une demande est un objet plat, augmenté d'un journal en append seul. Le circuit n'est pas stocké : il est calculé à partir du type, du budget et de la configuration en vigueur — ce qui garantit qu'un changement de règle n'invente pas d'historique.</p></div>
+<table class="tb">
+<thead><tr><th style="width:38mm">Champ</th><th style="width:26mm">Type</th><th>Description et contraintes</th></tr></thead>
+<tbody>
+<tr><td class="s"><code>id</code></td><td>Référence</td><td>Format <code>DP-AAAA-NNN</code>, attribué à la création, jamais réutilisé.</td></tr>
+<tr><td class="s"><code>t</code></td><td>Texte</td><td>Intitulé de la demande. Obligatoire, une ligne.</td></tr>
+<tr><td class="s"><code>type</code></td><td>Énuméré</td><td>transformation · infra · reglementaire · produit · evolution. Détermine l'exemption éventuelle.</td></tr>
+<tr><td class="s"><code>dir</code> · <code>who</code> · <code>sponsor</code></td><td>Texte</td><td>Direction demandeuse (obligatoire), demandeur, sponsor pressenti. Résolus contre l'annuaire pour l'affichage des badges.</td></tr>
+<tr><td class="s"><code>need</code> · <code>obj[]</code> · <code>benef</code></td><td>Texte / liste</td><td>Besoin, objectifs visés, bénéfices attendus. Constituent le dossier lu en comité.</td></tr>
+<tr><td class="s"><code>budget</code> · <code>charge</code></td><td>Nombre</td><td>Euros et jours·homme. Le budget est la variable de routage ; il est remplacé par le budget retenu à l'instruction.</td></tr>
+<tr><td class="s"><code>deadline</code> · <code>prio</code></td><td>Date · énuméré</td><td>Échéance souhaitée, priorité déclarative (haute, moyenne, basse).</td></tr>
+<tr><td class="s"><code>st</code></td><td>Énuméré</td><td>brouillon · soumise · instruction · cycle · validee · projet · ajournee · refusee.</td></tr>
+<tr><td class="s"><code>koAt</code></td><td>Énuméré</td><td>Étape à laquelle la demande a été refusée ou ajournée — sert à marquer l'échec dans le stepper.</td></tr>
+<tr><td class="s"><code>instance</code> · <code>seance</code> · <code>seanceRef</code></td><td>Texte</td><td>Instance d'arbitrage calculée, libellé de la séance et identifiant du point créé dans le module cible.</td></tr>
+<tr><td class="s"><code>proj</code></td><td>Référence</td><td>Projet créé depuis la demande. Renseigné uniquement au statut « Projet créé ».</td></tr>
+<tr><td class="s"><code>jrn[]</code></td><td>Journal</td><td>Triplets (libellé, auteur, date). Append seul : aucune entrée n'est modifiée ni supprimée, y compris après réouverture.</td></tr>
+</tbody>
+</table>
+<p class="std-note">Configuration du circuit (objet unique, portée organisation) : <b>seuilCopil</b>, <b>seuilCodir</b>, <b>delai</b>, <b>n1</b>, <b>instr</b>, <b>autoProj</b>, <b>exempt[]</b>. Toute modification est datée et attribuée, pour expliquer un routage passé.</p>
+</section>
+
+<!-- ══════════ COMPORTEMENTS ══════════ -->
+<section class="page bhv" data-screen-label="Comportements et messages">
+<div class="bhv-h"><div class="n">C1</div><h4>Comportements, états limites et messages</h4><div class="tag">Transverse</div></div>
+<div class="bhv-cols">
+<div>
+<div class="rc-t">Cas particuliers</div>
+<div class="ac"><div class="ac-t">Le budget change après la validation N+1</div><p class="ac-l"><em>Règle</em> Le circuit aval est recalculé, l'amont est figé. Une demande validée par le N+1 à 40 k€ puis instruite à 300 k€ part en CODIR sans repasser par la direction.</p></div>
+<div class="ac"><div class="ac-t">Aucune séance planifiée</div><p class="ac-l"><em>Règle</em> La demande reste au statut « En cycle de pilotage », sans séance. La liste affiche « À inscrire · COPIL » ; l'inscription est rouverte dès qu'une séance existe.</p></div>
+<div class="ac"><div class="ac-t">Étapes toutes désactivées</div><p class="ac-l"><em>Règle</em> Soumission et création du projet ne sont jamais désactivables : le circuit minimal est soumission → validation PMO → création.</p></div>
+<div class="ac"><div class="ac-t">Réouverture d'une demande refusée</div><p class="ac-l"><em>Règle</em> Retour au statut brouillon, séance détachée, journal conservé et complété par « Demande rouverte pour complément de dossier ».</p></div>
+<div class="ac"><div class="ac-t">Doublon de besoin</div><p class="ac-l"><em>À développer</em> Signalement non bloquant à la soumission lorsqu'une demande active de la même direction porte un intitulé proche.</p></div>
+</div>
+<div>
+<div class="rc-t">Messages affichés</div>
+<div class="msg ok"><q>Demande « Portail fournisseurs self-care » soumise · validation N+1 attendue</q> — après soumission.</div>
+<div class="msg ok"><q>Validation N+1 enregistrée · instruction affectée au PMO</q></div>
+<div class="msg warn"><q>Instruction conclue · arbitrage en CODIR requis</q></div>
+<div class="msg ok"><q>Point inscrit à l'ordre du jour · COPIL Transformation — 24 sept. 2026</q></div>
+<div class="msg ok"><q>Arbitrage favorable enregistré · demande prête à devenir un projet</q></div>
+<div class="msg warn"><q>Demande ajournée · dossier à compléter</q></div>
+<div class="msg"><q>Demande refusée en comité</q></div>
+<div class="msg ok"><q>Projet « Portail fournisseurs self-care » créé · fiche projet initialisée</q></div>
+<div class="msg"><q>Donnez un intitulé à la demande</q> — blocage à la soumission.</div>
+<div class="msg"><q>Indiquez la direction demandeuse</q> — blocage à la soumission.</div>
+<div class="rc-t" style="margin-top:5mm">Droits</div>
+<div class="ac"><p class="ac-l"><em>Lecture</em> Toute demande est visible de sa direction et du PMO ; les comités voient les demandes inscrites à leur ordre du jour.</p></div>
+<div class="ac"><p class="ac-l"><em>Écriture</em> Configuration, instruction, inscription, décision et création du projet : PMO uniquement. Validation N+1 : responsable de la direction demandeuse.</p></div>
+</div>
+</div>
+</section>
+
+<!-- ══════════ RECETTE ══════════ -->
+<section class="page std" data-screen-label="Recette">
+<div class="std-h"><div class="std-k">Annexe</div><h2>Critères de recette</h2>
+<p>À vérifier un par un, dans l'ordre, sur un jeu de démonstration comportant au moins une demande par statut.</p></div>
+<div class="tri">
+<div><div class="tri-h">Circuit &amp; configuration</div><ul>
+<li>Une demande de 49 k€ affiche « Hors cycle » ; à 51 k€ elle affiche « COPIL ».</li>
+<li>À 251 k€ l'instance devient « CODIR ».</li>
+<li>Un type exempté reste hors cycle à 400 k€.</li>
+<li>Désactiver la validation N+1 retire l'étape du stepper et de l'aperçu.</li>
+<li>Désactiver l'instruction envoie la demande directement à l'arbitrage.</li>
+<li>Activer la création automatique crée le projet dès l'arbitrage favorable.</li>
+<li>Modifier un seuil met à jour liste, encarts et fiches sans rechargement.</li>
+<li>Les encarts de règles reflètent exactement la configuration enregistrée.</li>
+</ul></div>
+<div><div class="tri-h">Parcours</div><ul>
+<li>Brouillon : la demande n'apparaît pas dans le filtre « Terminées ».</li>
+<li>Soumettre sans intitulé ni direction est bloqué et explicite.</li>
+<li>Chaque transition ajoute une entrée datée et attribuée au journal.</li>
+<li>Un avis défavorable refuse la demande et marque l'instruction en échec.</li>
+<li>Le budget retenu à l'instruction remplace l'estimation partout.</li>
+<li>L'inscription crée le point dans la séance choisie, avec son minutage.</li>
+<li>La décision apparaît dans le registre de la réunion sans ressaisie.</li>
+<li>Rouvrir une demande refusée conserve l'intégralité du journal.</li>
+</ul></div>
+<div><div class="tri-h">Création du projet &amp; affichage</div><ul>
+<li>« Créer le projet » n'est proposé qu'au statut Validée.</li>
+<li>La ligne créée dans le portefeuille porte « Issu de la demande DP-… ».</li>
+<li>Le projet reprend intitulé, type, budget, échéance et sponsor.</li>
+<li>Un plan d'action est initialisé avec l'action de cadrage.</li>
+<li>La demande passe en lecture seule et renvoie vers la fiche projet.</li>
+<li>Les badges collaborateurs sont ronds, initiales par défaut, photo si connue.</li>
+<li>Un auteur « comité » n'affiche pas de badge personne.</li>
+<li>L'enveloppe en circuit exclut les demandes terminées.</li>
+</ul></div>
+</div>
+<p class="std-note">Jeu de démonstration de référence : 8 demandes couvrant les huit statuts, dont une réglementaire exemptée à 40 k€, une transformation à 180 k€ inscrite au COPIL, une produit à 260 k€ en instruction (bascule CODIR) et une infrastructure à 310 k€ déjà convertie en projet.</p>
+</section>
+
+</doc-page>
+<script src="doc-page.js"></script>
+</body>
+</html>
+

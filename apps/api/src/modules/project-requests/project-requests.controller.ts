@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ProjectRequestType } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveClientGuard } from '../../common/guards/active-client.guard';
 import { ModuleAccessGuard } from '../../common/guards/module-access.guard';
@@ -28,7 +29,16 @@ import { ListProjectRequestsQueryDto } from './dto/list-project-requests-query.d
 import { ProjectRequestDecisionDto } from './dto/project-request-decision.dto';
 import { ProjectRequestRouteDto } from './dto/project-request-route.dto';
 import { ProjectRequestCancelDto } from './dto/project-request-cancel.dto';
+import {
+  PreviewCircuitQueryDto,
+  ProjectRequestAgendaDto,
+  ProjectRequestCommitteeDecideDto,
+  ProjectRequestInstructDto,
+  ProjectRequestN1DecideDto,
+} from './dto/project-request-circuit-actions.dto';
 import { ProjectRequestsService } from './project-requests.service';
+import { ProjectRequestCdcWorkflowService } from './project-request-cdc-workflow.service';
+import { ClientProjectRequestWorkflowSettingsService } from '../clients/client-project-request-workflow-settings.service';
 
 @Controller('project-requests')
 @UseGuards(
@@ -39,7 +49,11 @@ import { ProjectRequestsService } from './project-requests.service';
   PermissionsGuard,
 )
 export class ProjectRequestsController {
-  constructor(private readonly service: ProjectRequestsService) {}
+  constructor(
+    private readonly service: ProjectRequestsService,
+    private readonly cdc: ProjectRequestCdcWorkflowService,
+    private readonly workflowSettings: ClientProjectRequestWorkflowSettingsService,
+  ) {}
 
   @Get()
   @RequirePermissions('project_requests.read')
@@ -49,6 +63,27 @@ export class ProjectRequestsController {
     @Query() query: ListProjectRequestsQueryDto,
   ) {
     return this.service.list(clientId!, actorUserId!, query);
+  }
+
+  @Get('summary')
+  @RequirePermissions('project_requests.read')
+  summary(@ActiveClientId() clientId: string | undefined) {
+    return this.cdc.summary(clientId!);
+  }
+
+  @Get('preview-circuit')
+  @RequirePermissions('project_requests.read')
+  async previewCircuit(
+    @ActiveClientId() clientId: string | undefined,
+    @Query() query: PreviewCircuitQueryDto,
+  ) {
+    const settings = await this.workflowSettings.ensureRow(clientId!);
+    const type =
+      query.type &&
+      Object.values(ProjectRequestType).includes(query.type as ProjectRequestType)
+        ? (query.type as ProjectRequestType)
+        : null;
+    return this.cdc.previewCircuit(settings, type, query.budget ?? null);
   }
 
   @Get('validator-options')
@@ -114,6 +149,100 @@ export class ProjectRequestsController {
       actorUserId,
       meta,
     });
+  }
+
+  @Post(':id/n1-decide')
+  @RequirePermissions('project_requests.validate')
+  @RequireWriteLicense()
+  async n1Decide(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ProjectRequestN1DecideDto,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.n1Decide(clientId!, actorUserId!, id, dto, {
+      actorUserId,
+      meta,
+    });
+    return this.service.getById(clientId!, actorUserId!, id);
+  }
+
+  @Post(':id/instruct')
+  @RequireAnyPermissions('project_requests.instruct', 'project_requests.route')
+  @RequireWriteLicense()
+  async instruct(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ProjectRequestInstructDto,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.instruct(clientId!, actorUserId!, id, dto, {
+      actorUserId,
+      meta,
+    });
+    return this.service.getById(clientId!, actorUserId!, id);
+  }
+
+  @Post(':id/agenda')
+  @RequireAnyPermissions('project_requests.instruct', 'project_requests.route')
+  @RequireWriteLicense()
+  async agenda(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ProjectRequestAgendaDto,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.agenda(clientId!, actorUserId!, id, dto, {
+      actorUserId,
+      meta,
+    });
+    return this.service.getById(clientId!, actorUserId!, id);
+  }
+
+  @Post(':id/committee-decide')
+  @RequireAnyPermissions('project_requests.instruct', 'project_requests.route')
+  @RequireWriteLicense()
+  async committeeDecide(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: ProjectRequestCommitteeDecideDto,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.committeeDecide(clientId!, actorUserId!, id, dto, {
+      actorUserId,
+      meta,
+    });
+    return this.service.getById(clientId!, actorUserId!, id);
+  }
+
+  @Post(':id/convert')
+  @RequireAnyPermissions('project_requests.instruct', 'project_requests.route')
+  @RequireWriteLicense()
+  async convert(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.convert(clientId!, actorUserId!, id, { actorUserId, meta });
+    return this.service.getById(clientId!, actorUserId!, id);
+  }
+
+  @Post(':id/reopen')
+  @RequireAnyPermissions('project_requests.instruct', 'project_requests.route')
+  @RequireWriteLicense()
+  async reopen(
+    @ActiveClientId() clientId: string | undefined,
+    @RequestUserId() actorUserId: string | undefined,
+    @Param('id') id: string,
+    @RequestMetaDecorator() meta: RequestMeta,
+  ) {
+    await this.cdc.reopen(clientId!, actorUserId!, id, { actorUserId, meta });
+    return this.service.getById(clientId!, actorUserId!, id);
   }
 
   @Post(':id/decision')

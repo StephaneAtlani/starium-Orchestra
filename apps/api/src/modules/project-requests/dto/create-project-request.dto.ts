@@ -1,5 +1,14 @@
-import { ProjectRequestUrgency } from '@prisma/client';
 import {
+  ProjectRequestInstructionOpinion,
+  ProjectRequestPriorityRequested,
+  ProjectRequestType,
+  ProjectRequestUrgency,
+} from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -7,7 +16,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class CreateProjectRequestDto {
   @IsString()
@@ -21,6 +29,24 @@ export class CreateProjectRequestDto {
   description?: string;
 
   @IsOptional()
+  @IsEnum(ProjectRequestType)
+  type?: ProjectRequestType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  requestingDirection?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  sponsorLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  sponsorUserId?: string;
+
+  @IsOptional()
   @IsString()
   validatorUserId?: string;
 
@@ -29,9 +55,28 @@ export class CreateProjectRequestDto {
   urgency?: ProjectRequestUrgency;
 
   @IsOptional()
+  @IsEnum(ProjectRequestPriorityRequested)
+  priorityRequested?: ProjectRequestPriorityRequested;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   estimatedBudget?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  estimatedEffortDays?: number;
+
+  @IsOptional()
+  @IsDateString()
+  desiredDeadline?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  objectives?: string[];
 
   @IsOptional()
   @IsString()

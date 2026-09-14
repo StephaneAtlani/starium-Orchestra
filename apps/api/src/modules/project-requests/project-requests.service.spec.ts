@@ -162,6 +162,10 @@ describe('ProjectRequestsService', () => {
       {} as ProjectRequestToProjectConverter,
       emailService as unknown as EmailService,
       pilotingCycleRouting as unknown as ProjectRequestPilotingCycleRoutingService,
+      {
+        nextReferenceCode: jest.fn().mockResolvedValue('DP-2026-001'),
+        submitCdc: jest.fn(),
+      } as never,
     );
   });
 

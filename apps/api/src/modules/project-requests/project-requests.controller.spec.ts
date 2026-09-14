@@ -16,13 +16,20 @@ function getHandlerMetadata(
 }
 
 describe('ProjectRequestsController — routes', () => {
-  const controller = new ProjectRequestsController({} as never);
+  const controller = new ProjectRequestsController(
+    {} as never,
+    {} as never,
+    {} as never,
+  );
 
-  it('expose submit, decision, route, cancel', () => {
+  it('expose submit, decision, route, cancel et endpoints CDC', () => {
     expect(getHandlerMetadata(controller, 'submit').path).toBe(':id/submit');
     expect(getHandlerMetadata(controller, 'decision').path).toBe(':id/decision');
     expect(getHandlerMetadata(controller, 'route').path).toBe(':id/route');
     expect(getHandlerMetadata(controller, 'cancel').path).toBe(':id/cancel');
+    expect(getHandlerMetadata(controller, 'n1Decide').path).toBe(':id/n1-decide');
+    expect(getHandlerMetadata(controller, 'instruct').path).toBe(':id/instruct');
+    expect(getHandlerMetadata(controller, 'summary').path).toBe('summary');
   });
 
   it('validator-options avant :id', () => {

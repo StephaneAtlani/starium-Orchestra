@@ -147,10 +147,16 @@ export class ProjectRequestToProjectConverter {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const ref = request.referenceCode?.trim();
+      const baseDesc = request.description?.trim() ?? '';
+      const issuedLine = ref ? `Issu de la demande ${ref}` : null;
+      const description = [baseDesc, issuedLine].filter(Boolean).join('\n\n') || undefined;
+      const budget = request.retainedBudget ?? request.estimatedBudget;
+
       const dto: CreateProjectDto = {
         name: request.title.trim(),
         code: await this.resolveUniqueCode(tx, clientId, request.id),
-        description: request.description ?? undefined,
+        description,
         kind: 'PROJECT',
         type: ProjectType.APPLICATION,
         status: ProjectStatus.DRAFT,
@@ -163,10 +169,10 @@ export class ProjectRequestToProjectConverter {
         meta: context?.meta,
       });
 
-      if (request.estimatedBudget != null) {
+      if (budget != null) {
         await tx.project.update({
           where: { id: project.id },
-          data: { estimatedCost: request.estimatedBudget },
+          data: { estimatedCost: budget },
         });
       }
 

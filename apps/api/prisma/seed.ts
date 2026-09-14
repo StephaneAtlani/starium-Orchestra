@@ -47,6 +47,7 @@ import { ensureDemoProjectActivities } from "./seed-project-demo-activities";
 import { ensureDemoProjectTasks } from "./seed-project-demo-tasks";
 import { ensureDemoProjectTagsAndLabels } from "./seed-project-demo-tags";
 import { ensureDemoGovernanceCycles } from "./seed-governance-cycles-demo";
+import { ensureDemoProjectRequests } from "./seed-project-requests-demo";
 import { ensureLatestModulesDemoForAllClients } from "./seed-latest-modules-demo";
 import { ensureRiskTaxonomyForClient } from "../src/modules/risk-taxonomy/risk-taxonomy-defaults";
 import { ensureDefaultActivityTypes } from "../src/modules/activity-types/activity-types-defaults";
@@ -1560,11 +1561,15 @@ async function ensureProjectRequestsModuleAndPermissions(): Promise<void> {
     { code: "project_requests.read", label: "Demandes projet — lecture" },
     { code: "project_requests.create", label: "Demandes projet — création" },
     { code: "project_requests.update", label: "Demandes projet — mise à jour" },
-    { code: "project_requests.validate", label: "Demandes projet — validation" },
-    { code: "project_requests.route", label: "Demandes projet — routage" },
+    { code: "project_requests.validate", label: "Demandes projet — validation N+1" },
+    { code: "project_requests.route", label: "Demandes projet — routage (legacy)" },
+    {
+      code: "project_requests.instruct",
+      label: "Demandes projet — instruction / ODJ / décision / conversion",
+    },
     {
       code: "project_requests.settings.manage",
-      label: "Demandes projet — paramètres workflow",
+      label: "Demandes projet — configuration du circuit",
     },
   ];
   for (const p of defs) {
@@ -4054,6 +4059,9 @@ async function ensureDemoProjectsForAllClients(): Promise<void> {
 
     const actorUserId = userMap.values().next().value ?? null;
     await ensureDemoGovernanceCycles(prisma, c.slug, c.id, actorUserId);
+    if (actorUserId) {
+      await ensureDemoProjectRequests(prisma, c.slug, c.id, actorUserId);
+    }
   }
 }
 

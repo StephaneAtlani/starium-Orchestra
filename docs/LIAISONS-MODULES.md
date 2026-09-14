@@ -134,7 +134,7 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 
 | Id | De | Vers | Pont | Table / contrat | RFC |
 | --- | --- | --- | --- | --- | --- |
-| `intake-project` | Demandes | Projets | FK | `ProjectRequest.convertedProjectId` | RFC-PROJ-INTAKE-001 |
+| `intake-project` | Demandes | Projets | FK | `ProjectRequest.convertedProjectId` | RFC-PROJ-INTAKE-001 · [INTAKE-002](./RFC/RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md) |
 | `vision-project` | Vision | Projets | Poly | `StrategicLink (PROJECT)` — write V1 + UI panneau/Aligner ([RFC-STRAT-010](./RFC/RFC-STRAT-010%20—%20Vision%20stratégique%20V1%20—%20Plan%20de%20tests%20et%20trajectoire%20de%20delivery.md)) ; KPI/alertes comptent uniquement `PROJECT` | RFC-STRAT-001 / 010 |
 | `vision-budget` | Vision | Budgets | Poly | `StrategicLink (BUDGET \| BUDGET_LINE)` — **lecture / schéma** ; write rejeté en V1 | RFC-STRAT-001 |
 | `vision-cycle` | Vision | Cycles | Poly | `StrategicLink (GOVERNANCE_CYCLE)` — **lecture / schéma** ; write rejeté en V1 | RFC-STRAT-001 |
@@ -202,6 +202,11 @@ Statuts : **live** = code + usage ; **partial** = FK/socle sans tout le parcours
 
 | Id | De | Vers | Statut | Pont | RFC |
 | --- | --- | --- | --- | --- | --- |
+| `fut-intake-budget` | Demandes | Budgets | future | Enveloppe à la conversion (`retainedBudget`) sans lignes ; ventilation CAPEX/OPEX optionnelle | [RFC-PROJ-INTAKE-003](./RFC/RFC-PROJ-INTAKE-003%20—%20Chiffrage%20détaillé%20depuis%20demande.md) |
+| `fut-intake-plan` | Demandes | Plans d'action / Projets | future | Plan cadrage + skeleton phase/jalon à la conversion (`seedPlanningSkeleton`) | [RFC-PROJ-INTAKE-004](./RFC/RFC-PROJ-INTAKE-004%20—%20Planning%20skeleton%20depuis%20demande.md) |
+| `fut-intake-agenda` | Demandes | Cycles / Réunions | partiel | A6/A7 live : `meetingLabel` / décision comité API ; select séances Cycles/Réunions = à brancher | [RFC-PROJ-INTAKE-002](./RFC/RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md) |
+| `fut-intake-score-cycle` | Demandes | Cycles | future | Export optionnel scores multicritères → `GovernanceCycleItem` à l’ODJ | [RFC-PROJ-INTAKE-005](./RFC/RFC-PROJ-INTAKE-005%20—%20Scoring%20multicritère%20demandes.md) |
+| `fut-intake-external` | Portail externe | Demandes | future | `source=EXTERNAL` · invité / magic-link scopé client (pas d’anonyme) | [RFC-PROJ-INTAKE-006](./RFC/RFC-PROJ-INTAKE-006%20—%20Portail%20externe%20demandes.md) |
 | `task-line` | Projets | Budgets | partial | `ProjectTask.budgetLineId` · `ProjectActivity.budgetLineId` — pas d’event auto | RFC-PROJ-011 |
 | `docs-project` | Projets | GED | live | `ProjectDocument` (silo) + attachments Points | [RFC-PROJ-DOC-001](../RFC/RFC-PROJ-DOC-001%20—%20Modèle.md) · [RFC-PROJ-DOC-002](../RFC/RFC-PROJ-DOC-002%20—%20Silo%20Documents%20projet,%20upload%20et%20rattachements.md) |
 | `fut-license-resource` | Licences SI | RH | partial | `ResourceType.LICENSE` ≠ module RFC-037 | RFC-RES-001 vs RFC-037 |

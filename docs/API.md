@@ -626,36 +626,42 @@ Propriétés inconnues dans le body → **400** (`forbidNonWhitelisted`).
 
 `GET …/by-project/:projectId` inclut désormais `lastInstanceId`, `lastInstancePeriodLabel`, `lastInstanceScheduledDecisionAt` (dernière instance `CLOSED`).
 
-### Demandes projet — `/api/project-requests` (RFC-PROJ-INTAKE-001)
+### Demandes projet — `/api/project-requests` (RFC-PROJ-INTAKE-001 + **INTAKE-002**)
 
-Module catalogue **`project_requests`** (distinct de `projects`). ACL ressource **`PROJECT_REQUEST`** via `AccessControlService` (pas AccessDecision V2 dans ce lot).
+Module catalogue **`project_requests`** (distinct de `projects`). ACL ressource **`PROJECT_REQUEST`** via `AccessControlService`. Isolation : `clientId` depuis scope actif (`X-Client-Id`).
 
 | Route | Guards / permissions |
 |-------|----------------------|
-| `GET /api/project-requests` | `project_requests.read` + licence lecture |
-| `POST /api/project-requests` | `project_requests.create` + `@RequireWriteLicense()` — transaction : demande + policy `DEFAULT` + ACL auto demandeur/validateur |
+| `GET /api/project-requests` | `project_requests.read` + licence lecture — items enrichis `computedCircuit` |
+| `GET /api/project-requests/summary` | `project_requests.read` — KPI A1 (à instruire / en cycle / à convertir / enveloppe) |
+| `GET /api/project-requests/preview-circuit` | query `type` + `budget` — aperçu circuit live (A2) |
+| `POST /api/project-requests` | `project_requests.create` + write licence — génère `referenceCode` `DP-AAAA-NNN` |
 | `GET /api/project-requests/validator-options` | `project_requests.create` |
-| `GET /api/project-requests/:id` | `project_requests.read` + ACL lecture (sinon **404**) |
-| `PATCH /api/project-requests/:id` | `@RequireAnyPermissions('project_requests.create', 'project_requests.update')` + write licence |
-| `POST /api/project-requests/:id/submit` | `create` **ou** `update` + write licence |
-| `POST /api/project-requests/:id/decision` | `project_requests.validate` + write licence — **validateur désigné uniquement** (`validatorUserId === userId`) — body `{ outcome: APPROVED \| REJECTED \| NEEDS_MORE_INFO, comment? }` |
-| `POST /api/project-requests/:id/route` | `project_requests.route` + write licence — body `{ target: PILOTING_CYCLE \| DRAFT_PROJECT \| PROJECT_BACKLOG }` |
-| `POST /api/project-requests/:id/cancel` | `create` **ou** `update` + write licence |
+| `GET /api/project-requests/:id` | `project_requests.read` + ACL — dossier + `computedCircuit` + `journal` |
+| `PATCH /api/project-requests/:id` | `create` **ou** `update` + write licence (brouillon / complément) |
+| `POST /api/project-requests/:id/submit` | `create` **ou** `update` — → `SUBMITTED` / `IN_REVIEW` / `IN_CYCLE` selon toggles |
+| `POST /api/project-requests/:id/n1-decide` | `project_requests.validate` — `{ outcome: APPROVE \| REJECT, comment? }` |
+| `POST /api/project-requests/:id/instruct` | `instruct` **ou** `route` — A5 avis PMO + budget retenu |
+| `POST /api/project-requests/:id/agenda` | `instruct` **ou** `route` — A6 `{ meetingLabel, agendaItemId? }` |
+| `POST /api/project-requests/:id/committee-decide` | `instruct` **ou** `route` — A7 `{ outcome: APPROVE \| POSTPONE \| REJECT, motivation? }` |
+| `POST /api/project-requests/:id/convert` | `instruct` **ou** `route` — `APPROVED` → projet (`CONVERTED_TO_PROJECT`) |
+| `POST /api/project-requests/:id/reopen` | `instruct` **ou** `route` — `POSTPONED` / `REJECTED` → `DRAFT` |
+| `POST /api/project-requests/:id/decision` | `validate` — **legacy MVP** (déprécié ; préférer `n1-decide`) |
+| `POST /api/project-requests/:id/route` | `route` — **legacy MVP** routage cible fixe |
+| `POST /api/project-requests/:id/cancel` | `create` **ou** `update` |
 
-Réponses list/detail : `requesterSummary`, `validatorSummary`, `decidedBySummary`, `convertedProjectSummary` (libellés métier, pas d’ID seul en UI). Liste : query `page` + `limit` (pas `offset`) ; filtrage ACL puis pagination en mémoire (MVP).
+Réponses list/detail : `referenceCode`, `requesterSummary`, `convertedProjectSummary`, `computedCircuit`, `journal` (libellés métier). Circuit **jamais stocké** — recalcul serveur.
 
-Audit : `project_request.created|updated|submitted|decision|cancelled|routed|routed_to_piloting_cycle|converted_to_project` ; settings : `project_request.workflow_settings.updated`.
+Audit (sensible) : transitions CDC (`submit`, `n1`, `instruct`, `agenda`, `committee`, `convert`, `reopen`) + legacy ; settings : `project_request.workflow_settings.updated`.
 
-**Notifications (RFC-038, 2026-06-09)** : à la soumission → validateur (cloche + e-mail `generic_notification`) ; à la décision → demandeur. Best-effort, n’annule pas la transition.
+**Notifications (RFC-038)** : soumission → validateur ; décision → demandeur (best-effort).
 
-**Routage `PILOTING_CYCLE`** : si module `governance_cycles` actif et `defaultGovernanceCycleId` pointe vers un cycle ouvert → projet brouillon lié + `GovernanceCycleItem` `CANDIDATE` ; sinon demande `APPROVED` / `NOT_ROUTED`.
-
-### Paramètres workflow demandes — client actif
+### Paramètres workflow demandes — client actif (INTAKE-002 A4)
 
 | Route | Permissions |
 |-------|-------------|
-| `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved, options }` (`options.governanceCycles`, `pilotingCycleTargetAvailable`) |
-| `PATCH /api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** ou **PLATFORM_ADMIN** (`ClientAdminOrPlatformAdminGuard`) — body inclut `defaultApprovedTarget`, `defaultGovernanceCycleId`, listes validateurs/routeurs |
+| `GET /api/clients/active/project-request-workflow-settings` | `project_requests.settings.manage` **ou** `project_requests.read` — `{ stored, resolved, options }` |
+| `PATCH /api/clients/active/project-request-workflow-settings` | **CLIENT_ADMIN** / **PLATFORM_ADMIN** **ou** profil avec `settings.manage` — body CDC : `copilThresholdAmount`, `codirThresholdAmount` (doit être `>` copil), `instructionSlaBusinessDays`, `requireN1Validation`, `requirePmoInstruction`, `autoCreateProjectOnApproval`, `exemptRequestTypes` (+ champs MVP legacy) |
 
 ---
 

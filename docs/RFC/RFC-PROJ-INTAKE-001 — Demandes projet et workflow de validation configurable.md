@@ -35,6 +35,8 @@ Le projet est créé uniquement si la demande est validée selon le workflow cho
 
 **Hors scope immédiat (RFCs futures)** : lien instance cycle ↔ demande (ODJ séance), validation multi-niveaux, règles budgétaires automatiques, notifications avancées (règles configurables admin) au-delà du socle RFC-038.
 
+> **Source UX active (sept. 2026)** : le cahier des charges écrans (circuit N+1 → instruction → COPIL/CODIR, seuils, 7 écrans A1–A7) est cadré dans **[RFC-PROJ-INTAKE-002](./RFC-PROJ-INTAKE-002%20—%20CDC%20Demandes%20de%20projet%20(circuit%20configurable%20et%20fidélité%20visuelle).md)**. INTAKE-001 reste le socle MVP livré ; INTAKE-002 porte l’alignement produit / fidélité visuelle.
+
 ---
 
 # Partie I — Cadrage technique (méthode RFC)

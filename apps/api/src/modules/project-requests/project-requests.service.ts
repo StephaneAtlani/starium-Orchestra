@@ -49,6 +49,8 @@ import { toUserSummary } from './project-request-user.util';
 import { ProjectRequestWorkflowService } from './project-request-workflow.service';
 import { ProjectRequestToProjectConverter } from './project-request-to-project.converter';
 import { ProjectRequestPilotingCycleRoutingService } from './project-request-piloting-cycle-routing.service';
+import { ProjectRequestCdcWorkflowService } from './project-request-cdc-workflow.service';
+import { computeCircuit } from './project-request-circuit';
 
 const userSelect = {
   select: { id: true, email: true, firstName: true, lastName: true },
@@ -59,6 +61,13 @@ const includeDetail = {
   validator: userSelect,
   decidedBy: userSelect,
   convertedProject: { select: { id: true, name: true, code: true } },
+  journalEntries: {
+    orderBy: { at: 'desc' as const },
+    take: 100,
+    include: {
+      author: userSelect,
+    },
+  },
 } as const;
 
 type AuditContext = { actorUserId?: string; meta?: RequestMeta };
@@ -75,6 +84,7 @@ export class ProjectRequestsService {
     private readonly converter: ProjectRequestToProjectConverter,
     private readonly emailService: EmailService,
     private readonly pilotingCycleRouting: ProjectRequestPilotingCycleRoutingService,
+    private readonly cdc: ProjectRequestCdcWorkflowService,
   ) {}
 
   private async loadMembership(
@@ -117,10 +127,26 @@ export class ProjectRequestsService {
   private toResponse(row: Prisma.ProjectRequestGetPayload<{
     include: typeof includeDetail;
   }>) {
+    const circuitSettings = {
+      copilThresholdAmount: new Prisma.Decimal(50000),
+      codirThresholdAmount: new Prisma.Decimal(250000),
+      instructionSlaBusinessDays: 10,
+      requireN1Validation: true,
+      requirePmoInstruction: true,
+      autoCreateProjectOnApproval: false,
+      exemptRequestTypes: [] as import('@prisma/client').ProjectRequestType[],
+    };
+    // computedCircuit is enriched in getById/list via settings — fallback empty steps if absent
     return {
       ...row,
       estimatedBudget:
         row.estimatedBudget != null ? Number(row.estimatedBudget) : null,
+      retainedBudget:
+        row.retainedBudget != null ? Number(row.retainedBudget) : null,
+      estimatedEffortDays:
+        row.estimatedEffortDays != null ? Number(row.estimatedEffortDays) : null,
+      retainedEffortDays:
+        row.retainedEffortDays != null ? Number(row.retainedEffortDays) : null,
       requesterSummary: toUserSummary(row.requester),
       validatorSummary: row.validator ? toUserSummary(row.validator) : null,
       decidedBySummary: row.decidedBy ? toUserSummary(row.decidedBy) : null,
@@ -131,6 +157,27 @@ export class ProjectRequestsService {
             code: row.convertedProject.code,
           }
         : null,
+      journal: (row.journalEntries ?? []).map((j) => ({
+        id: j.id,
+        label: j.label,
+        authorLabel: j.authorLabel,
+        authorUserId: j.authorUserId,
+        at: j.at,
+        authorSummary: j.author ? toUserSummary(j.author) : null,
+      })),
+      computedCircuit: computeCircuit(row, circuitSettings),
+    };
+  }
+
+  private async toResponseWithSettings(
+    row: Prisma.ProjectRequestGetPayload<{ include: typeof includeDetail }>,
+    clientId: string,
+  ) {
+    const { stored } = await this.workflowSettings.getActive(clientId);
+    const base = this.toResponse(row);
+    return {
+      ...base,
+      computedCircuit: computeCircuit(row, stored),
     };
   }
 
@@ -262,11 +309,15 @@ export class ProjectRequestsService {
             include: includeDetail,
           });
 
+    const { stored: listSettings } = await this.workflowSettings.getActive(clientId);
     const byId = new Map(items.map((i) => [i.id, i]));
     const ordered = pagedIds
       .map((id) => byId.get(id))
       .filter((x): x is NonNullable<typeof x> => Boolean(x))
-      .map((row) => this.toResponse(row));
+      .map((row) => {
+        const base = this.toResponse(row);
+        return { ...base, computedCircuit: computeCircuit(row, listSettings) };
+      });
 
     return { items: ordered, total, page, limit };
   }
@@ -283,7 +334,7 @@ export class ProjectRequestsService {
     if (!row) {
       throw new NotFoundException('Demande projet introuvable');
     }
-    return this.toResponse(row);
+    return this.toResponseWithSettings(row, clientId);
   }
 
   private async assertActiveClientUser(
@@ -456,18 +507,35 @@ export class ProjectRequestsService {
     }
 
     const created = await this.prisma.$transaction(async (tx) => {
+      const referenceCode = await this.cdc.nextReferenceCode(clientId);
       const request = await tx.projectRequest.create({
         data: {
           clientId,
+          referenceCode,
           title: dto.title.trim(),
           description: dto.description?.trim() ?? null,
+          type: dto.type ?? null,
+          requestingDirection: dto.requestingDirection?.trim() ?? null,
+          sponsorLabel: dto.sponsorLabel?.trim() ?? null,
+          sponsorUserId: dto.sponsorUserId ?? null,
           requesterUserId: actorUserId,
           validatorUserId: dto.validatorUserId ?? null,
           urgency: dto.urgency ?? null,
+          priorityRequested: dto.priorityRequested ?? null,
           estimatedBudget:
             dto.estimatedBudget != null
               ? new Prisma.Decimal(dto.estimatedBudget)
               : null,
+          estimatedEffortDays:
+            dto.estimatedEffortDays != null
+              ? new Prisma.Decimal(dto.estimatedEffortDays)
+              : null,
+          desiredDeadline: dto.desiredDeadline
+            ? new Date(dto.desiredDeadline)
+            : null,
+          objectives: (dto.objectives ?? [])
+            .map((o) => o.trim())
+            .filter(Boolean),
           expectedBenefits: dto.expectedBenefits?.trim() ?? null,
           businessContext: dto.businessContext?.trim() ?? null,
           riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
@@ -479,6 +547,16 @@ export class ProjectRequestsService {
         projectRequestId: request.id,
         requesterUserId: actorUserId,
         validatorUserId: dto.validatorUserId ?? null,
+      });
+
+      await tx.projectRequestJournalEntry.create({
+        data: {
+          clientId,
+          projectRequestId: request.id,
+          label: 'Demande créée',
+          authorUserId: actorUserId,
+          authorLabel: 'Demandeur',
+        },
       });
 
       return request;
@@ -497,6 +575,58 @@ export class ProjectRequestsService {
     });
 
     return this.getById(clientId, actorUserId, created.id);
+  }
+
+  private cdcUpdateData(dto: UpdateProjectRequestDto): Prisma.ProjectRequestUncheckedUpdateInput {
+    return {
+      ...(dto.title !== undefined && { title: dto.title.trim() }),
+      ...(dto.description !== undefined && {
+        description: dto.description?.trim() ?? null,
+      }),
+      ...(dto.type !== undefined && { type: dto.type }),
+      ...(dto.requestingDirection !== undefined && {
+        requestingDirection: dto.requestingDirection?.trim() ?? null,
+      }),
+      ...(dto.sponsorLabel !== undefined && {
+        sponsorLabel: dto.sponsorLabel?.trim() ?? null,
+      }),
+      ...(dto.sponsorUserId !== undefined && {
+        sponsorUserId: dto.sponsorUserId,
+      }),
+      ...(dto.urgency !== undefined && { urgency: dto.urgency }),
+      ...(dto.priorityRequested !== undefined && {
+        priorityRequested: dto.priorityRequested,
+      }),
+      ...(dto.estimatedBudget !== undefined && {
+        estimatedBudget:
+          dto.estimatedBudget != null
+            ? new Prisma.Decimal(dto.estimatedBudget)
+            : null,
+      }),
+      ...(dto.estimatedEffortDays !== undefined && {
+        estimatedEffortDays:
+          dto.estimatedEffortDays != null
+            ? new Prisma.Decimal(dto.estimatedEffortDays)
+            : null,
+      }),
+      ...(dto.desiredDeadline !== undefined && {
+        desiredDeadline: dto.desiredDeadline
+          ? new Date(dto.desiredDeadline)
+          : null,
+      }),
+      ...(dto.objectives !== undefined && {
+        objectives: dto.objectives.map((o) => o.trim()).filter(Boolean),
+      }),
+      ...(dto.expectedBenefits !== undefined && {
+        expectedBenefits: dto.expectedBenefits?.trim() ?? null,
+      }),
+      ...(dto.businessContext !== undefined && {
+        businessContext: dto.businessContext?.trim() ?? null,
+      }),
+      ...(dto.riskIfNotDone !== undefined && {
+        riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
+      }),
+    };
   }
 
   private assertEditableByRequester(
@@ -575,27 +705,8 @@ export class ProjectRequestsService {
         await tx.projectRequest.update({
           where: { id },
           data: {
-            ...(dto.title !== undefined && { title: dto.title.trim() }),
-            ...(dto.description !== undefined && {
-              description: dto.description?.trim() ?? null,
-            }),
+            ...this.cdcUpdateData(dto),
             validatorUserId: dto.validatorUserId ?? null,
-            ...(dto.urgency !== undefined && { urgency: dto.urgency }),
-            ...(dto.estimatedBudget !== undefined && {
-              estimatedBudget:
-                dto.estimatedBudget != null
-                  ? new Prisma.Decimal(dto.estimatedBudget)
-                  : null,
-            }),
-            ...(dto.expectedBenefits !== undefined && {
-              expectedBenefits: dto.expectedBenefits?.trim() ?? null,
-            }),
-            ...(dto.businessContext !== undefined && {
-              businessContext: dto.businessContext?.trim() ?? null,
-            }),
-            ...(dto.riskIfNotDone !== undefined && {
-              riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
-            }),
           },
         });
         await syncValidatorAutoAcl(tx, {
@@ -609,25 +720,9 @@ export class ProjectRequestsService {
       await this.prisma.projectRequest.update({
         where: { id },
         data: {
-          ...(dto.title !== undefined && { title: dto.title.trim() }),
-          ...(dto.description !== undefined && {
-            description: dto.description?.trim() ?? null,
-          }),
-          ...(dto.urgency !== undefined && { urgency: dto.urgency }),
-          ...(dto.estimatedBudget !== undefined && {
-            estimatedBudget:
-              dto.estimatedBudget != null
-                ? new Prisma.Decimal(dto.estimatedBudget)
-                : null,
-          }),
-          ...(dto.expectedBenefits !== undefined && {
-            expectedBenefits: dto.expectedBenefits?.trim() ?? null,
-          }),
-          ...(dto.businessContext !== undefined && {
-            businessContext: dto.businessContext?.trim() ?? null,
-          }),
-          ...(dto.riskIfNotDone !== undefined && {
-            riskIfNotDone: dto.riskIfNotDone?.trim() ?? null,
+          ...this.cdcUpdateData(dto),
+          ...(dto.validatorUserId !== undefined && {
+            validatorUserId: dto.validatorUserId,
           }),
         },
       });
@@ -657,6 +752,12 @@ export class ProjectRequestsService {
     await this.assertWriteLicense(clientId, actorUserId);
     const existing = await this.findInClientOrThrow(clientId, id);
     await this.assertCanWrite(clientId, actorUserId, id);
+
+    // CDC path when direction is set (INTAKE-002 form)
+    if (existing.requestingDirection?.trim() || existing.type) {
+      await this.cdc.submitCdc(clientId, actorUserId, id, context);
+      return this.getById(clientId, actorUserId, id);
+    }
 
     if (
       existing.status !== ProjectRequestStatus.DRAFT &&

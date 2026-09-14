@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import {
   GovernanceCycleStatus,
+  Prisma,
   ProjectRequestRoutingTarget,
+  ProjectRequestType,
   ProjectRequestValidatorSelectionMode,
   ProjectRequestWorkflowSettings,
   RoleScope,
@@ -41,6 +43,13 @@ export type ProjectRequestWorkflowSettingsResolved = {
   authorizedRoutingRoleIds: string[];
   allowRequesterToSelectValidator: boolean;
   allowValidatorToChooseRoutingTarget: boolean;
+  copilThresholdAmount: number;
+  codirThresholdAmount: number;
+  instructionSlaBusinessDays: number;
+  requireN1Validation: boolean;
+  requirePmoInstruction: boolean;
+  autoCreateProjectOnApproval: boolean;
+  exemptRequestTypes: ProjectRequestType[];
 };
 
 export type ProjectRequestWorkflowSettingsOptions = {
@@ -56,6 +65,12 @@ export type ClientProjectRequestWorkflowSettingsResponse = {
   options: ProjectRequestWorkflowSettingsOptions;
 };
 
+function decimalToNumber(v: Prisma.Decimal | number | null | undefined): number {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  return Number(v);
+}
+
 function toResolved(
   row: ProjectRequestWorkflowSettings,
 ): ProjectRequestWorkflowSettingsResolved {
@@ -69,6 +84,13 @@ function toResolved(
     authorizedRoutingRoleIds: row.authorizedRoutingRoleIds ?? [],
     allowRequesterToSelectValidator: row.allowRequesterToSelectValidator,
     allowValidatorToChooseRoutingTarget: row.allowValidatorToChooseRoutingTarget,
+    copilThresholdAmount: decimalToNumber(row.copilThresholdAmount),
+    codirThresholdAmount: decimalToNumber(row.codirThresholdAmount),
+    instructionSlaBusinessDays: row.instructionSlaBusinessDays,
+    requireN1Validation: row.requireN1Validation,
+    requirePmoInstruction: row.requirePmoInstruction,
+    autoCreateProjectOnApproval: row.autoCreateProjectOnApproval,
+    exemptRequestTypes: row.exemptRequestTypes ?? [ProjectRequestType.REGULATORY],
   };
 }
 
@@ -270,9 +292,32 @@ export class ClientProjectRequestWorkflowSettingsService {
       await this.assertPilotingCycleConfiguration(clientId, nextCycleId);
     }
 
+    const nextCopil =
+      dto.copilThresholdAmount !== undefined
+        ? dto.copilThresholdAmount
+        : decimalToNumber(before.copilThresholdAmount);
+    const nextCodir =
+      dto.codirThresholdAmount !== undefined
+        ? dto.codirThresholdAmount
+        : decimalToNumber(before.codirThresholdAmount);
+    if (nextCodir <= nextCopil) {
+      throw new BadRequestException(
+        'Le seuil CODIR doit être strictement supérieur au seuil COPIL',
+      );
+    }
+
     const clearCycleId =
       dto.defaultApprovedTarget !== undefined &&
       dto.defaultApprovedTarget !== ProjectRequestRoutingTarget.PILOTING_CYCLE;
+
+    const circuitTouched =
+      dto.copilThresholdAmount !== undefined ||
+      dto.codirThresholdAmount !== undefined ||
+      dto.instructionSlaBusinessDays !== undefined ||
+      dto.requireN1Validation !== undefined ||
+      dto.requirePmoInstruction !== undefined ||
+      dto.autoCreateProjectOnApproval !== undefined ||
+      dto.exemptRequestTypes !== undefined;
 
     const updated = await this.prisma.projectRequestWorkflowSettings.update({
       where: { clientId },
@@ -306,6 +351,31 @@ export class ClientProjectRequestWorkflowSettingsService {
           defaultGovernanceCycleId: dto.defaultGovernanceCycleId,
         }),
         ...(clearCycleId && { defaultGovernanceCycleId: null }),
+        ...(dto.copilThresholdAmount !== undefined && {
+          copilThresholdAmount: new Prisma.Decimal(dto.copilThresholdAmount),
+        }),
+        ...(dto.codirThresholdAmount !== undefined && {
+          codirThresholdAmount: new Prisma.Decimal(dto.codirThresholdAmount),
+        }),
+        ...(dto.instructionSlaBusinessDays !== undefined && {
+          instructionSlaBusinessDays: dto.instructionSlaBusinessDays,
+        }),
+        ...(dto.requireN1Validation !== undefined && {
+          requireN1Validation: dto.requireN1Validation,
+        }),
+        ...(dto.requirePmoInstruction !== undefined && {
+          requirePmoInstruction: dto.requirePmoInstruction,
+        }),
+        ...(dto.autoCreateProjectOnApproval !== undefined && {
+          autoCreateProjectOnApproval: dto.autoCreateProjectOnApproval,
+        }),
+        ...(dto.exemptRequestTypes !== undefined && {
+          exemptRequestTypes: dto.exemptRequestTypes,
+        }),
+        ...(circuitTouched && {
+          configUpdatedAt: new Date(),
+          configUpdatedByUserId: context?.actorUserId ?? null,
+        }),
       },
     });
 

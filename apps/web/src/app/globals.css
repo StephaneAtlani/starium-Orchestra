@@ -2145,6 +2145,10 @@ table.starium-dt {
   background: var(--purple-bg);
   color: var(--purple);
 }
+.starium-ds-badge--gold {
+  background: var(--brand-gold-050);
+  color: var(--brand-gold-700);
+}
 .starium-ds-badge--nodot::before {
   display: none;
 }
